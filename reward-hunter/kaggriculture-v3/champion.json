@@ -1,0 +1,570 @@
+{
+  "evidence": {
+    "baseline_final": {
+      "catastrophic_rate": 0.0,
+      "games": 64,
+      "mean_margin": 10227.6875,
+      "mean_money": 27867.703125,
+      "median_margin": 8996.5,
+      "movement_idle_rate": 0.4410408988507946,
+      "noop_rate": 0.3784868422391495,
+      "objective": 568.6461090732159,
+      "p20_margin": 0.0,
+      "ties": 12,
+      "valid_games": 64,
+      "win_rate": 0.78125,
+      "wins": 50,
+      "worst_margin": -860.0
+    },
+    "baseline_holdout": {
+      "catastrophic_rate": 0.0,
+      "games": 64,
+      "mean_margin": 10175.25,
+      "mean_money": 27657.296875,
+      "median_margin": 9212.0,
+      "movement_idle_rate": 0.44129884299404804,
+      "noop_rate": 0.3776655511859107,
+      "objective": 563.8104023496293,
+      "p20_margin": 0.0,
+      "ties": 16,
+      "valid_games": 64,
+      "win_rate": 0.734375,
+      "wins": 47,
+      "worst_margin": -289.0
+    },
+    "best_params": {
+      "crop_mode": "balanced",
+      "distance_cost": 9.0,
+      "endgame": true,
+      "harvest_wait": false,
+      "market": true,
+      "route": true,
+      "target_hands": 11
+    },
+    "duel": {
+      "catastrophic_rate": 0.0,
+      "games": 8,
+      "mean_margin": 6721.625,
+      "mean_money": 34095.0,
+      "median_margin": 6735.0,
+      "movement_idle_rate": 0.7911582612122904,
+      "noop_rate": 0.0,
+      "objective": 797.743523690976,
+      "p20_margin": 6265.0,
+      "ties": 0,
+      "valid_games": 8,
+      "win_rate": 1.0,
+      "wins": 8,
+      "worst_margin": 3452.0
+    },
+    "final": {
+      "catastrophic_rate": 0.0,
+      "games": 64,
+      "mean_margin": 16368.8125,
+      "mean_money": 33844.09375,
+      "median_margin": 14471.5,
+      "movement_idle_rate": 0.7911256481916586,
+      "noop_rate": 0.0,
+      "objective": 823.9509015897652,
+      "p20_margin": 7495.0,
+      "ties": 0,
+      "valid_games": 64,
+      "win_rate": 1.0,
+      "wins": 64,
+      "worst_margin": 4758.0
+    },
+    "holdout": {
+      "catastrophic_rate": 0.0,
+      "games": 64,
+      "mean_margin": 16360.296875,
+      "mean_money": 34610.734375,
+      "median_margin": 13043.0,
+      "movement_idle_rate": 0.7913981331294299,
+      "noop_rate": 0.0,
+      "objective": 827.0096231055627,
+      "p20_margin": 7202.0,
+      "ties": 0,
+      "valid_games": 64,
+      "win_rate": 1.0,
+      "wins": 64,
+      "worst_margin": 6194.0
+    },
+    "package": {
+      "params": {
+        "crop_mode": "balanced",
+        "distance_cost": 9.0,
+        "endgame": true,
+        "harvest_wait": false,
+        "market": true,
+        "route": true,
+        "target_hands": 11
+      },
+      "path": "/tmp/v3-study/candidate-main.py",
+      "promotion_status": "NOT_AUTHORIZED_BY_PACKAGING",
+      "sha256": "b29eef96dd3b088b427210ab7385455f246a0c64a0dde70e4a2e1020eb46e78c",
+      "submission_performed": false
+    },
+    "promotion": {
+      "pass_gate": true,
+      "reasons": [],
+      "submission_performed": false,
+      "threshold_revision": "v3-fixed-1"
+    },
+    "provenance": {
+      "code_hash": "df4035656b01b41d9a8c8752dafc70bb94e8fa9b4eb1d5dc35a470bcc4f3e86e",
+      "parameter_hash": "e00af0a2ed7ed3bd59ca2389a9b2b5aef2d0c3fe40be18790ef34d14fcf746b9",
+      "simulator_hash": "9741c0470a8db98a70644491d5121ae6295413343d1a08ef9fcee35e0b76f2c5",
+      "simulator_version": "1.32.4",
+      "source_commit": "347cb1f2f1b22b5136d10dc9d6abfc62387e7fb5",
+      "source_files": {
+        "benchmark.py": "01a3b6992d001b2fa8f437b63c8ed2035c676e99fbd35bf2b404aa8c8be42ea8",
+        "features.py": "deb1da6b15f53a3f5a56ee32fb8f58804d978644296b172f1d65d90ed3494ccf",
+        "incumbent.py": "4c66093cd1f655ca766e73d46a965c43899856b3126b5d1b934aac501d94e547",
+        "main.py": "b29eef96dd3b088b427210ab7385455f246a0c64a0dde70e4a2e1020eb46e78c",
+        "opponents.py": "c4b49f1e4d1fbd3bbcb276ef5a3829745a09c7548aadbf2029efbc3c8891bbcf",
+        "package_submission.py": "32c26ac2df6288d2e50b088d234e561bb6d2f5c1b99263dcdac14440dac72da9",
+        "policy.py": "4988619a401036144b362663bf2879fef25c18edd9f7c5281a59823c273e9009",
+        "promotion.py": "bff99c7179ebbcbfba83bc293b4820fa8d0a1e0bb312a2983dd63a3629d155d5",
+        "raw_exec_test.py": "170feea0cee77a90c40e1f0b9f7550df124a6c675850ea53cc3179a2ca149f79",
+        "search.py": "7f4e0156ebb8b53f46d227a14526f3475546d0eb13eb7fe799a9c7dc9a815941"
+      },
+      "source_worktree_dirty": false
+    },
+    "runtime": {
+      "episode_equivalence": "PASS",
+      "official_loader": "PASS",
+      "raw_exec": "PASS",
+      "sha256": "b29eef96dd3b088b427210ab7385455f246a0c64a0dde70e4a2e1020eb46e78c"
+    },
+    "stages": [
+      {
+        "ranking": [
+          {
+            "metrics": {
+              "catastrophic_rate": 0.0,
+              "games": 4,
+              "mean_margin": 20596.75,
+              "mean_money": 35541.25,
+              "median_margin": 20506.5,
+              "movement_idle_rate": 0.7930534502076056,
+              "noop_rate": 0.0,
+              "objective": 828.9546960425911,
+              "p20_margin": 7158.0,
+              "ties": 0,
+              "valid_games": 4,
+              "win_rate": 1.0,
+              "wins": 4,
+              "worst_margin": 7158.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": false,
+              "market": true,
+              "route": true,
+              "target_hands": 11
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.0,
+              "games": 4,
+              "mean_margin": 12460.0,
+              "mean_money": 27615.0,
+              "median_margin": 12460.0,
+              "movement_idle_rate": 0.8420813106796117,
+              "noop_rate": 0.0,
+              "objective": 377.54512723879833,
+              "p20_margin": -865.0,
+              "ties": 0,
+              "valid_games": 4,
+              "win_rate": 0.5,
+              "wins": 2,
+              "worst_margin": -865.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": true,
+              "route": true,
+              "target_hands": 9
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.0,
+              "games": 4,
+              "mean_margin": 9672.5,
+              "mean_money": 24844.5,
+              "median_margin": 9672.5,
+              "movement_idle_rate": 0.8678915701623859,
+              "noop_rate": 0.0,
+              "objective": 312.6438514936157,
+              "p20_margin": -3527.0,
+              "ties": 0,
+              "valid_games": 4,
+              "win_rate": 0.5,
+              "wins": 2,
+              "worst_margin": -3527.0
+            },
+            "params": {
+              "crop_mode": "demand",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": true,
+              "route": true,
+              "target_hands": 11
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.5,
+              "games": 4,
+              "mean_margin": 7641.5,
+              "mean_money": 22455.0,
+              "median_margin": 7641.5,
+              "movement_idle_rate": 0.8667052841603913,
+              "noop_rate": 0.0,
+              "objective": 203.57973175572982,
+              "p20_margin": -5625.0,
+              "ties": 0,
+              "valid_games": 4,
+              "win_rate": 0.5,
+              "wins": 2,
+              "worst_margin": -5625.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 18.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": true,
+              "route": true,
+              "target_hands": 11
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.5,
+              "games": 4,
+              "mean_margin": 7122.25,
+              "mean_money": 22167.25,
+              "median_margin": 7239.0,
+              "movement_idle_rate": 0.866980614779215,
+              "noop_rate": 0.0,
+              "objective": 199.37760850136868,
+              "p20_margin": -5822.0,
+              "ties": 0,
+              "valid_games": 4,
+              "win_rate": 0.5,
+              "wins": 2,
+              "worst_margin": -5822.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": false,
+              "route": true,
+              "target_hands": 11
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.5,
+              "games": 4,
+              "mean_margin": 7122.25,
+              "mean_money": 22167.25,
+              "median_margin": 7239.0,
+              "movement_idle_rate": 0.866980614779215,
+              "noop_rate": 0.0,
+              "objective": 199.37760850136868,
+              "p20_margin": -5822.0,
+              "ties": 0,
+              "valid_games": 4,
+              "win_rate": 0.5,
+              "wins": 2,
+              "worst_margin": -5822.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": true,
+              "route": true,
+              "target_hands": 11
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.5,
+              "games": 4,
+              "mean_margin": -1038.5,
+              "mean_money": 14840.0,
+              "median_margin": -1038.5,
+              "movement_idle_rate": 0.8781535817322448,
+              "noop_rate": 0.0,
+              "objective": 44.40569853017226,
+              "p20_margin": -12993.0,
+              "ties": 0,
+              "valid_games": 4,
+              "win_rate": 0.5,
+              "wins": 2,
+              "worst_margin": -12993.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": true,
+              "route": true,
+              "target_hands": 13
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.5,
+              "games": 4,
+              "mean_margin": -5919.0,
+              "mean_money": 9249.5,
+              "median_margin": -5919.0,
+              "movement_idle_rate": 0.8542094455852156,
+              "noop_rate": 0.0,
+              "objective": -31.409623768919445,
+              "p20_margin": -19557.0,
+              "ties": 0,
+              "valid_games": 4,
+              "win_rate": 0.5,
+              "wins": 2,
+              "worst_margin": -19557.0
+            },
+            "params": {
+              "crop_mode": "grains",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": true,
+              "route": true,
+              "target_hands": 11
+            }
+          }
+        ],
+        "stage": "A"
+      },
+      {
+        "ranking": [
+          {
+            "metrics": {
+              "catastrophic_rate": 0.0,
+              "games": 12,
+              "mean_margin": 14531.083333333334,
+              "mean_money": 34756.333333333336,
+              "median_margin": 7158.0,
+              "movement_idle_rate": 0.791253142781527,
+              "noop_rate": 0.0,
+              "objective": 826.8051546343255,
+              "p20_margin": 6902.0,
+              "ties": 0,
+              "valid_games": 12,
+              "win_rate": 1.0,
+              "wins": 12,
+              "worst_margin": 6902.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": false,
+              "market": true,
+              "route": true,
+              "target_hands": 11
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.0,
+              "games": 12,
+              "mean_margin": 6554.666666666667,
+              "mean_money": 26856.5,
+              "median_margin": -865.0,
+              "movement_idle_rate": 0.8420813106796117,
+              "noop_rate": 0.0,
+              "objective": 256.5605248043053,
+              "p20_margin": -1101.0,
+              "ties": 0,
+              "valid_games": 12,
+              "win_rate": 0.3333333333333333,
+              "wins": 4,
+              "worst_margin": -1101.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": true,
+              "route": true,
+              "target_hands": 9
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.0,
+              "games": 12,
+              "mean_margin": 3558.3333333333335,
+              "mean_money": 23801.916666666668,
+              "median_margin": -3527.0,
+              "movement_idle_rate": 0.8669463980955072,
+              "noop_rate": 0.0,
+              "objective": 157.22501479942673,
+              "p20_margin": -4396.0,
+              "ties": 0,
+              "valid_games": 12,
+              "win_rate": 0.3333333333333333,
+              "wins": 4,
+              "worst_margin": -4396.0
+            },
+            "params": {
+              "crop_mode": "demand",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": true,
+              "route": true,
+              "target_hands": 11
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.6666666666666666,
+              "games": 12,
+              "mean_margin": 1525.9166666666667,
+              "mean_money": 21472.583333333332,
+              "median_margin": -5625.0,
+              "movement_idle_rate": 0.8663202645252717,
+              "noop_rate": 0.0,
+              "objective": -1.8126198830841105,
+              "p20_margin": -6414.0,
+              "ties": 0,
+              "valid_games": 12,
+              "win_rate": 0.3333333333333333,
+              "wins": 4,
+              "worst_margin": -6414.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 18.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": true,
+              "route": true,
+              "target_hands": 11
+            }
+          }
+        ],
+        "stage": "B"
+      },
+      {
+        "ranking": [
+          {
+            "metrics": {
+              "catastrophic_rate": 0.0,
+              "games": 32,
+              "mean_margin": 17325.40625,
+              "mean_money": 35182.125,
+              "median_margin": 15734.0,
+              "movement_idle_rate": 0.7916570467363699,
+              "noop_rate": 0.0,
+              "objective": 828.3734405828698,
+              "p20_margin": 7158.0,
+              "ties": 0,
+              "valid_games": 32,
+              "win_rate": 1.0,
+              "wins": 32,
+              "worst_margin": 6902.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": false,
+              "market": true,
+              "route": true,
+              "target_hands": 11
+            }
+          },
+          {
+            "metrics": {
+              "catastrophic_rate": 0.0,
+              "games": 32,
+              "mean_margin": 8640.5,
+              "mean_money": 27214.6875,
+              "median_margin": 7143.5,
+              "movement_idle_rate": 0.8420813106796117,
+              "noop_rate": 0.0,
+              "objective": 520.0202960376329,
+              "p20_margin": -865.0,
+              "ties": 0,
+              "valid_games": 32,
+              "win_rate": 0.75,
+              "wins": 24,
+              "worst_margin": -1101.0
+            },
+            "params": {
+              "crop_mode": "balanced",
+              "distance_cost": 9.0,
+              "endgame": true,
+              "harvest_wait": true,
+              "market": true,
+              "route": true,
+              "target_hands": 9
+            }
+          }
+        ],
+        "stage": "C"
+      }
+    ],
+    "study_seed": 34453319508,
+    "study_seed_sets": {
+      "duel": [
+        168920694,
+        1440861817,
+        1956719903,
+        926336583
+      ],
+      "final": [
+        119268696,
+        1581188624,
+        327005063,
+        1495879304
+      ],
+      "holdout": [
+        688023993,
+        891297279,
+        902646756,
+        263191066
+      ],
+      "train": [
+        1538289477,
+        540928492
+      ]
+    },
+    "submission_performed": false
+  },
+  "params": {
+    "crop_mode": "balanced",
+    "distance_cost": 9.0,
+    "endgame": true,
+    "harvest_wait": false,
+    "market": true,
+    "route": true,
+    "target_hands": 11
+  }
+}
