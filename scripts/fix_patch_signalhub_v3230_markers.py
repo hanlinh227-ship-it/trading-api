@@ -3,6 +3,7 @@ p=Path('scripts/patch_signalhub_v3230_resilient_ledger_clean.py')
 s=p.read_text()
 repls={
 "w=block(w,'async function writeV31Signal(env,s){','async function trackV31Signals',history_block+'async function trackV31Signals','writeV31Signal/permanent history')":"w=block(w,'async function writeV31Signal(env,s){','async function trackV31Signals',history_block,'writeV31Signal/permanent history')",
+"w=block(w,'async function getV31HistorySignals(env,market,style,maxKeys=5000){','async function unifiedSignals',history_reader+'async function unifiedSignals','getV31HistorySignals')":"w=block(w,'async function getV31HistorySignals(env,market,style,maxKeys=5000){','async function unifiedSignals',history_reader,'getV31HistorySignals')",
 "w=block(w,'function marketOnlySevenCandidate(raw){','function setupPriority(s){',market_converter+'function setupPriority(s){','marketOnlySevenCandidate')":"w=block(w,'function marketOnlySevenCandidate(raw){','function setupPriority(s){',market_converter,'marketOnlySevenCandidate')",
 "w=block(w,'async function maybeCreateV31(env,market,style,setups){','async function setCryptoStandbys',maybe+'async function setCryptoStandbys','maybeCreateV31')":"w=block(w,'async function maybeCreateV31(env,market,style,setups){','async function analyzeCryptoBatch',maybe,'maybeCreateV31')",
 "w=block(w,'  async cryptoMonitorCycle(){','  async alarm(){',cycle+'  async alarm(){','cryptoMonitorCycle')":"w=block(w,'  async cryptoMonitorCycle(){','  async alarm(){',cycle,'cryptoMonitorCycle')",
@@ -14,4 +15,4 @@ for old,new in repls.items():
     assert old in s, 'missing patch-source marker: '+old[:100]
     s=s.replace(old,new,1)
 p.write_text(s)
-print('V3.23.0 patch source markers fixed')
+print('V3.23.0 patch source markers fixed, including history reader boundary')
