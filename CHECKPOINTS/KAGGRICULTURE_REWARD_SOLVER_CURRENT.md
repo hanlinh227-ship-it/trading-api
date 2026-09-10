@@ -13,16 +13,12 @@ Updated: 2026-09-10
 ## Lane V1 — deep/stable solver
 - Branch: reward-solver-kaggriculture-v1
 - Solver path: reward-hunter/kaggriculture/
-- Workflow: Reward Solver - Kaggriculture
-- workflow_dispatch run: 34446634238
-- User selected iterations=40 and submit=true.
+- Workflow run: 34446634238
 - validate: SUCCESS
 - optimize: SUCCESS
-- Baseline/Search-Holdout/Final-Holdout/Package/Artifact: all SUCCESS
-- Current V1 champion validation: holdout win_rate=1.0, mean_margin=18429; duel vs previous incumbent 6/6 wins.
-- Current V1 champion params include target_hands=11 and sell_floor_ratio=0.75991; these match the self-contained V1 currently accepted by Kaggle.
-- submit job also ran and Kaggle accepted another submission command at 2026-09-10T07:26:33Z.
-- That old V1 submit path packaged `submission.tar.gz` and the branch main.py still contains the known `Path(__file__)` loader, so this extra submission is not considered the canonical baseline until Kaggle validates it.
+- submit command: SUCCESS, but that tar-based submission later failed Kaggle validation.
+- V1 local validation: holdout win_rate=1.0, mean_margin=18429; duel vs previous incumbent 6/6 wins.
+- Accepted self-contained V1 remains the live incumbent, but live Kaggle performance has degraded from its initial 600 validation baseline.
 
 ## Lane V2 FAST
 - Branch: reward-solver-kaggriculture-v2-fast
@@ -31,7 +27,6 @@ Updated: 2026-09-10
 - V2 final holdout vs starter: 8/8 wins, mean_margin=12271.75, worst_margin=7676.
 - Direct duel vs V1: win_rate=0.25, mean_margin=-728.5.
 - improved_vs_v1=false; no V2 champion promotion.
-- V1 remains incumbent.
 
 ## Kaggle submissions
 ### 56139515
@@ -39,42 +34,72 @@ Updated: 2026-09-10
 - Final status: ERROR
 - Root cause: `NameError: name '__file__' is not defined` during Kaggle raw execution.
 
-### 56139689 — canonical live baseline
+### 56139689 — canonical live incumbent
 - File: main.py
 - Description: Reward Solver V1 raw-exec fix
 - Status: COMPLETE
-- publicScore: 600.0
-- privateScore: blank at last check
 - Validation episode: 107394181, COMPLETED
-- This is the first confirmed working Kaggle submission and is the canonical live baseline.
+- Fresh check run 34453161833 at 2026-09-10T08:04 UTC shows publicScore: 337.0.
+- It has completed at least 9 public episodes after validation.
+- Earlier 600.0 was only the initial live baseline immediately after validation; current confirmed live score is 337.0.
 
-### 56139862 — extra V1 deep submit
+### 56139862 — extra V1 deep tar submit
 - File: submission.tar.gz
 - Description: Reward Solver validated champion
-- Submitted by V1 deep workflow after optimize completed.
-- Latest confirmed status at 2026-09-10T07:27:13Z: PENDING.
-- Kaggle CLI reported 3 submissions remaining today after this submit.
-- Because this path still uses the old tar package/runtime loader, do not treat it as valid until Kaggle confirms COMPLETE.
+- Fresh check run 34453161833 shows final status: ERROR.
+- Do not use it as baseline and do not repeat the old tar/runtime path.
 
 ## Status checker
+- Branch: reward-solver-kaggriculture-quick-submit
 - Workflow: `.github/workflows/reward-kaggriculture-status-check.yml`
-- It targets canonical submission 56139689.
-- Run 34449786623 confirmed 56139689 COMPLETE with publicScore 600.0.
-- Run 34450005641 additionally observed 56139862 PENDING.
+- Latest run: 34453161833 — SUCCESS
+- Current confirmed live state: 56139689 COMPLETE / publicScore 337.0; 56139862 ERROR.
 
-## Architecture rule going forward
-1. Keep 56139689 as the canonical live baseline.
-2. Do not spend another Kaggle submission slot on V1/V2 unless a candidate is materially different and clears raw-exec + holdout + direct-duel gates.
-3. V2 FAST failed direct V1 duel, so do not submit it.
-4. Start the next isolated upgrade lane focused on opponent-aware/meta play and larger structural improvements rather than more tiny parameter tuning.
-5. Every future Kaggle candidate must be self-contained and pass a raw-exec compatibility gate before submission.
+## V3 Codex meta-orchestrator
+- PR: #216
+- URL: https://github.com/hanlinh227-ship-it/trading-api/pull/216
+- Title: [KAGGLE-V3] Meta Orchestrator and Robust Search System
+- Branch: codex/kaggriculture-v3-meta-orchestrator
+- PR remains OPEN, DRAFT, mergeable.
+- Original implementation commit: b60a93d00765757880d8d928afdb2978374e6ea3
+- Canonical-source hardening commit: bf04be16e17605d2158e5079cb64396767785ad8
+- V3 final PR validation run 34452492123: SUCCESS.
+  - compile/tests: PASS (13 tests)
+  - raw exec: PASS
+  - official loader: PASS
+  - both-seat/multi-seed smoke: PASS as a contract test
+  - full-horizon incumbent check: 2/2 wins, mean margin +7899
+- Historical study-001 reported D direct V1 duel 8/8 wins, mean +5299.25; E 64/64; F 64/64, but this evidence is NOT sufficient for submission because audit found study-001 used a different simulator source under the same 1.32.4 version label.
+- benchmark.py now enforces pinned Kaggle simulator source hash `9741c0470a8db98a70644491d5121ae6295413343d1a08ef9fcee35e0b76f2c5`.
+- Committed V3 main.py is self-contained and embeds `harvest_wait=False`; raw-exec passes.
+- `package_submission.py` with no `--params` generates the default `harvest_wait=True`, so future submission must use the validated self-contained `main.py` or explicitly pass the validated champion params. Do not submit the default package by mistake.
+- V3 has NOT been submitted to Kaggle.
+
+## Canonical V3 revalidation launched
+- To avoid manual workflow dispatch, V3 workflow was extended with an isolated push trigger file. No Kaggle submission job was added.
+- Workflow modification commit: 112a288bf4160cce3228ba18f3cd6958fdd38d59
+- Research trigger commit: 347cb1f2f1b22b5136d10dc9d6abfc62387e7fb5
+- Canonical full-search workflow run: 34453319508
+- Event: push on codex/kaggriculture-v3-meta-orchestrator
+- Latest checked state: validate IN PROGRESS, installing pinned official simulator; research will run after validate.
+- Research uses fresh deterministic study seed = GitHub run ID and search budget 8, both seats, meta opponent suite, unseen holdout/final blocks, raw-exec/package checks and fail-closed promotion.
+- If promotion passes, workflow may commit only V3 `champion.json` and generated `main.py`; it never submits to Kaggle.
+
+## Current architecture rule
+1. Live incumbent is 56139689 / current confirmed publicScore 337.0.
+2. Old tar submissions are invalid and must not be reused.
+3. V2 failed the V1 direct-duel promotion gate.
+4. V3 is the strongest architectural candidate, but DO NOT submit yet because canonical full-search revalidation run 34453319508 is still running.
+5. Submit V3 only if canonical run clears promotion, candidate raw-exec remains PASS, generated candidate hash is identified, and no packaging mismatch remains.
+6. Keep PR #216 open until canonical evidence is captured and reviewed.
 
 ## What the next chat should do first
-1. Check whether 56139862 becomes COMPLETE or ERROR; do not rely on it meanwhile.
-2. Track the live rating/episodes of canonical submission 56139689.
-3. Build the next isolated opponent-aware/meta upgrade lane and benchmark it against V1 on both seats with unseen seeds.
-4. Submit only if it robustly beats V1 and passes raw-exec validation.
-5. Keep updating this checkpoint after material changes.
+1. Fetch jobs for V3 run 34453319508.
+2. When research completes, inspect its logs and artifact `kaggriculture-v3-search-34453319508`.
+3. If promotion PASS, fetch updated PR #216 head/champion/main and verify the exact candidate hash and raw-exec evidence.
+4. If promotion FAIL, keep V1 live and improve V3; do not submit merely on historical study-001 numbers.
+5. Recheck Kaggle live score before consuming another submission slot.
+6. Never expose KAGGLE_API_TOKEN.
 
 ## Safety/handling
 - Never expose KAGGLE_API_TOKEN or private credentials.
