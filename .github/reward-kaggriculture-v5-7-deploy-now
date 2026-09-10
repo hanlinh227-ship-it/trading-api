@@ -1,0 +1,3 @@
+deploy=v5.7-agro-economic-immediate-001
+source=merged-pr-219
+reason=user-approved-immediate-kaggle-deploy-after-current-engine-validation
