@@ -15,6 +15,7 @@ jobs:
     env:
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
       SUBMISSION_ID: '56139515'
+      EPISODE_ID: '107391264'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,7 +23,7 @@ jobs:
           python-version: '3.12'
       - name: Install Kaggle CLI
         run: python -m pip install -U kaggle
-      - name: Check Kaggriculture submission and diagnostics
+      - name: Check status and download validation logs
         shell: bash
         run: |
           set -u
@@ -31,5 +32,12 @@ jobs:
           kaggle competitions submissions -c kaggriculture | head -n 20 || true
           echo '=== EPISODES ==='
           kaggle competitions episodes "$SUBMISSION_ID" || true
-          echo '=== CLI HELP: LOGS ==='
-          kaggle competitions logs --help || true
+          rm -rf /tmp/kag-logs && mkdir -p /tmp/kag-logs/agent0 /tmp/kag-logs/agent1
+          echo '=== AGENT 0 LOG DOWNLOAD ==='
+          kaggle competitions logs "$EPISODE_ID" 0 -p /tmp/kag-logs/agent0 || true
+          echo '=== AGENT 0 FILES ==='
+          find /tmp/kag-logs/agent0 -maxdepth 2 -type f -print -exec sh -c 'echo --- $1; sed -n "1,220p" "$1"' sh {} \; || true
+          echo '=== AGENT 1 LOG DOWNLOAD ==='
+          kaggle competitions logs "$EPISODE_ID" 1 -p /tmp/kag-logs/agent1 || true
+          echo '=== AGENT 1 FILES ==='
+          find /tmp/kag-logs/agent1 -maxdepth 2 -type f -print -exec sh -c 'echo --- $1; sed -n "1,220p" "$1"' sh {} \; || true
