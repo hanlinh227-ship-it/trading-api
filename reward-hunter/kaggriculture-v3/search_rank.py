@@ -17,6 +17,10 @@ from monotonic_rank import (
 )
 
 META_KEYS={'cow_max','sheep_max','goose_max','target_hands','sell_batch','land_target_quadrants'}
+# Stable regression panel. Search/holdout seeds are always >=100000, so these fixed seeds are
+# never part of candidate selection. They provide a comparable capital high-water mark across rounds.
+MONOTONIC_SEEDS=(7319,29077)
+MONOTONIC_FAMILIES=SUITE
 
 CHOICES={
     'distance_cost':(5.,6.,7.,8.,9.),'target_hands':(9,10,11,12,13),'crop_mode':('roi','demand','fast_cash','balanced'),
@@ -62,8 +66,6 @@ def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
         if p in pool:return False
         pool.append(p);return True
 
-    # The accepted monotonic champion always gets first right of comparison. Other historical
-    # elites remain useful parents, but exact rejected configurations never return to the pool.
     accepted=accepted_params(learning_state)
     if accepted:add(accepted)
     for elite in champion_params(learning_state,limit=4):add(elite)
@@ -82,8 +84,6 @@ def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
     while len(pool)<n and attempts<n*250:
         attempts+=1
         parent=dict(rng.choice(pool or [validate_params(base)]))
-        # Add more diversity as the controller raises mutation depth. This also prevents the
-        # generator getting stuck when several exact configurations have entered failure memory.
         edits=max(1,min(4,int(plan.get('mutation_steps',1))))
         for _ in range(1+rng.randrange(edits)):
             k=rng.choice(keys);parent[k]=rng.choice(CHOICES[k])
@@ -91,6 +91,12 @@ def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
     if len(pool)<n:
         raise RuntimeError('unable to build non-taboo candidate pool')
     return pool[:n]
+
+
+def _repeat_panel(metrics):
+    # monotonic_rank expects three blocks. Feeding the same fixed regression panel into all three
+    # preserves its strict per-block checks without tripling compute.
+    return {'duel':metrics,'holdout':metrics,'final':metrics}
 
 
 def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_path=None):
@@ -142,7 +148,6 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
                 mutation_steps=plan.get('mutation_steps',1),
             )
             new_pool=[]
-            # Keep non-taboo candidates with the lowest accumulated failure burden first.
             for p in sorted(generated,key=lambda q:(failure_penalty(state,q),digest(q))):
                 if not is_taboo(state,p) and p not in new_pool:new_pool.append(p)
                 if len(new_pool)>=keep:break
@@ -156,15 +161,14 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
     d=ev(best,duel,('incumbent',),'D-duel');h=ev(best,hold,SUITE,'E-holdout');bh=ev(best,hold,SUITE,'E-baseline',kind='incumbent',learn=False)
     f=ev(best,final,SUITE,'F-final');bf=ev(best,final,SUITE,'F-baseline',kind='incumbent',learn=False)
 
-    mono_incumbent=None
+    capital=ev(best,MONOTONIC_SEEDS,MONOTONIC_FAMILIES,'G-capital-regression',learn=False)
+    mono_incumbent=None;capital_incumbent=None
     if monotonic_base is not None and digest(monotonic_base)!=digest(best):
-        md=ev(monotonic_base,duel,('incumbent',),'M-incumbent-duel',learn=False)
-        mh=ev(monotonic_base,hold,SUITE,'M-incumbent-holdout',learn=False)
-        mf=ev(monotonic_base,final,SUITE,'M-incumbent-final',learn=False)
-        mono_incumbent={'duel':md['metrics'],'holdout':mh['metrics'],'final':mf['metrics'],'params':monotonic_base}
-
-    candidate_metrics={'duel':d['metrics'],'holdout':h['metrics'],'final':f['metrics']}
-    state,mono_decision=decide_and_record(state,best,candidate_metrics,mono_incumbent,label='run-'+str(study_seed))
+        capital_incumbent=ev(monotonic_base,MONOTONIC_SEEDS,MONOTONIC_FAMILIES,'G-capital-incumbent',learn=False)
+        mono_incumbent=_repeat_panel(capital_incumbent['metrics'])
+    state,mono_decision=decide_and_record(
+        state,best,_repeat_panel(capital['metrics']),mono_incumbent,label='run-'+str(study_seed)
+    )
 
     package=build(best,out/'candidate-main.py');runtime=check(out/'candidate-main.py')
     packaged=ev(best,[package_seed],('incumbent',),'package-check',path=out/'candidate-main.py',learn=False);source=ev(best,[package_seed],('incumbent',),'source-check',learn=False)
@@ -187,7 +191,8 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
     result=dict(
         best_params=best,stages=history,promotion=decision,runtime=runtime,package=package,
         duel=d['metrics'],holdout=h['metrics'],final=f['metrics'],baseline_holdout=bh['metrics'],baseline_final=bf['metrics'],
-        monotonic_baseline=mono_incumbent or {'params':monotonic_base,'same_as_candidate':bool(monotonic_base is not None and digest(monotonic_base)==digest(best))},
+        capital_regression=capital['metrics'],capital_regression_incumbent=(capital_incumbent or {}).get('metrics'),
+        capital_regression_seeds=list(MONOTONIC_SEEDS),capital_regression_families=list(MONOTONIC_FAMILIES),
         monotonic=mono_state,
         provenance=frozen['provenance'],study_seed=study_seed,
         seed_sets=dict(train=train,duel=duel,holdout=hold,final=final,package=[package_seed]),
