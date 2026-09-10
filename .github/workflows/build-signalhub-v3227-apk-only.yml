@@ -1,0 +1,75 @@
+name: Build SignalHub V3.22.7 APK Only
+
+on:
+  push:
+    branches:
+      - signalhub-v3227-market-only-health-seven
+    paths:
+      - '.github/workflows/build-signalhub-v3227-apk-only.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Apply V3.22.7 patch chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/patch_signalhub_v3227_market_only_health_seven.py')
+          s=p.read_text()
+          old="a=block(a,'    private void renderSignals(boolean animate){','    private String performanceSummary(){',render,'renderSignals')"
+          new="a=block(a,'    private void renderSignals(boolean animate){','    private void addCryptoSignalGroup(',render,'renderSignals')"
+          if old in s:
+              p.write_text(s.replace(old,new,1))
+          PY
+          python3 scripts/patch_signalhub_v3225_realtime_unique_book.py
+          python3 scripts/patch_signalhub_v3225_build_compat.py
+          python3 scripts/patch_signalhub_v3226_balanced_realtime_book.py
+          python3 scripts/patch_signalhub_v3227_market_only_health_seven.py
+          python3 scripts/patch_signalhub_v3227_runtime_fix.py
+
+      - name: Verify APK source version
+        run: |
+          set -euo pipefail
+          grep -q 'APP_VERSION="3.22.7"' signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q "versionName '3.22.7'" signalhub-android/app/build.gradle
+          grep -q 'versionCode 36' signalhub-android/app/build.gradle
+          grep -q 'MARKET ONLY' signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+
+      - name: Build APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Stage APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.22.7-Market-Only-Health-Seven.apk
+          unzip -t dist/SignalHub-v3.22.7-Market-Only-Health-Seven.apk
+          sha256sum dist/SignalHub-v3.22.7-Market-Only-Health-Seven.apk > dist/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-v3.22.7-Market-Only-Health-Seven-APK
+          path: dist/*
+          retention-days: 30
