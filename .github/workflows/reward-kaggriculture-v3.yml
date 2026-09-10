@@ -4,6 +4,11 @@ on:
     paths:
       - 'reward-hunter/kaggriculture-v3/**'
       - '.github/workflows/reward-kaggriculture-v3.yml'
+  push:
+    branches:
+      - codex/kaggriculture-v3-meta-orchestrator
+    paths:
+      - '.github/reward-kaggriculture-v3-research-trigger'
   workflow_dispatch:
     inputs:
       full_search:
@@ -58,7 +63,7 @@ jobs:
           path: /tmp/v3-ci/*.json
           retention-days: 30
   research:
-    if: github.event_name == 'workflow_dispatch' && inputs.full_search == true
+    if: (github.event_name == 'workflow_dispatch' && inputs.full_search == true) || github.event_name == 'push'
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -69,7 +74,7 @@ jobs:
       OPENBLAS_NUM_THREADS: '1'
       MKL_NUM_THREADS: '1'
       STUDY_SEED: ${{ github.run_id }}
-      SEARCH_BUDGET: ${{ inputs.candidates }}
+      SEARCH_BUDGET: ${{ inputs.candidates || '8' }}
     steps:
       - uses: actions/checkout@v4
         with:
