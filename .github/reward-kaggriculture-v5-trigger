@@ -1,2 +1,2 @@
-run=v5.2-seat-safe-parquet-cyclic
-reason=rerun-canonical-after-seat-clock-replay-parser-and-cycle-hardening
+run=v5.3-baseline-arity-fixed
+reason=rerun-canonical-after-incumbent-adapter-regression-and-shared-ci-hardening
