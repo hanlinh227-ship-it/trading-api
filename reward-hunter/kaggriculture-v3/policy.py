@@ -2,7 +2,7 @@
 
 Keeps the V5 working-capital discipline, but adds three missing pieces observed in
 current public high-Elo play: fertilizer monetization, ROI-gated livestock, and an
-explicit 3-vs-4 quadrant choice.  The full-farm campaign can still set a four-quadrant
+explicit 3-vs-4 quadrant choice. The full-farm campaign can still set a four-quadrant
 target; the ladder lane is allowed to test three quadrants instead of assuming that
 buying the final $4k field is always profitable.
 """
@@ -82,36 +82,25 @@ def _target_land_reached(f, p):
 
 
 def _animal_roi(animal, f, p):
-    """Approximate remaining-season ROI including feed, care burden and fertilizer credit.
-
-    It intentionally stays conservative: this is a gate for herd size, not a price
-    predictor.  Real promotion is still decided by full simulator episodes.
-    """
+    """Approximate remaining-season ROI including feed, care burden and fertilizer credit."""
     spec = ANIMAL[animal]
     remain_days = max(0.0, f['remaining_turns'] / 24.0)
     if remain_days <= spec['first'] + .5:
         return -10.0
     production_window = remain_days - spec['first']
     cycles = max(1, 1 + int(production_window // spec['interval']))
-    # Daily CARE can bank bonuses until the next production event. Harvesting regularly
-    # prevents the max-held cap from wasting that care bonus.
     units_per_cycle = 1 + min(spec['interval'], 3)
     product_price = float(f['prices'].get(spec['product'], MARKET_BASE[spec['product']]))
     wheat_price = float(f['prices'].get('WHEAT', MARKET_BASE['WHEAT']))
     fertilizer_price = float(f['prices'].get('FERTILIZER', 100))
     gross = cycles * units_per_cycle * product_price
     feed = remain_days * wheat_price
-    # Two daily husbandry actions plus periodic harvest. A small dollar proxy prevents
-    # the formula from buying animals solely because nominal product prices are high.
     action_cost = remain_days * 2 * 5 + cycles * 4
-    # Every surviving animal creates fertilizer daily. Only credit part of it because
-    # collecting/routing also consumes actions and some fertilizer is better used on crop.
     fertilizer_credit = max(0.0, remain_days - 1) * fertilizer_price * .35
     net = gross + fertilizer_credit - spec['cost'] - feed - action_cost
     roi = net / max(1.0, spec['cost'])
     product = spec['product']
     roi += .08 * min(4, f['demand'].get(product, 0))
-    # Avoid joining an already crowded animal product unless its live price still pays.
     opp_same = f.get('opponent_animal_counts', {}).get(animal, 0)
     ratio = f['price_ratios'].get(product, 1.0)
     if opp_same >= 6 and ratio < 1.0:
@@ -140,7 +129,6 @@ def _animal_targets(f, p):
             targets[animal] = min(targets[animal], 2)
         elif roi < floor + .35 and targets[animal] > 4:
             targets[animal] = max(3, targets[animal] // 2)
-    # Eggs are particularly easy to glut; require a public signal before goose scaling.
     if f['demand'].get('EGG', 0) == 0 and f['price_ratios'].get('EGG', 1) < 1.20:
         targets['GOOSE'] = 0
     return targets
@@ -155,44 +143,34 @@ def _crop_score(crop, f, p):
     score = (price * CROP_UNITS[crop] - SEED_COST[crop]) / max(1, CROP_DAYS[crop])
     score *= .85 + .12 * f['demand'].get(crop, 0)
     score *= max(.45, min(2.2, ratio))
-
     if not _target_land_reached(f, p) and f['money'] < f['next_land_cost'] + p['land_buffer']:
         score *= 2.2 if crop in ('WHEAT', 'CARROT') else .50
-
     wheat_target = max(5, int(math.ceil(max(0, f['animals']) * .65)))
     if crop == 'WHEAT' and f['crop_counts'].get('WHEAT', 0) < wheat_target:
         score *= 2.4
-
     if crop == 'MELON' and f['demand'].get('MELON', 0) == 0:
-        if ratio < 1.15:
-            score *= .10
-        if f['crop_counts'].get('MELON', 0) >= 4:
-            score *= .08
+        if ratio < 1.15: score *= .10
+        if f['crop_counts'].get('MELON', 0) >= 4: score *= .08
     if crop in ('CARROT', 'TOMATO') and (ratio > 1.25 or f['demand'].get(crop, 0) >= 2):
         score *= 1.45
     if crop == 'STRAWBERRY' and f['fertilizer_ready'] + f['shed_fertilizer'] > 0:
         score *= 1.35
-
     total = max(1, f['plants'])
     desired = {'WHEAT': .42, 'CARROT': .25, 'TOMATO': .13, 'STRAWBERRY': .16, 'MELON': .04}
     if f['animals'] >= 4:
         desired['WHEAT'] = .50; desired['STRAWBERRY'] = .13; desired['MELON'] = .02
     target_count = max(1.0, desired[crop] * max(10, total + 8))
     saturation = (f['crop_counts'].get(crop, 0) + 1) / target_count
-    if saturation > 1:
-        score /= saturation ** .8
+    if saturation > 1: score /= saturation ** .8
     opp_same = f.get('opponent_crop_counts', {}).get(crop, 0)
-    if opp_same >= 8 and ratio < .9:
-        score *= .75
+    if opp_same >= 8 and ratio < .9: score *= .75
     return score
 
 
 def _choose_crop(f, seeds, p):
     available = [c for c in SEED_COST if int(seeds.get(c, 0) or 0) > 0]
-    if p['crop_mode'] == 'grains':
-        available = [c for c in ('WHEAT', 'CARROT') if c in available]
-    if not available:
-        return None
+    if p['crop_mode'] == 'grains': available = [c for c in ('WHEAT', 'CARROT') if c in available]
+    if not available: return None
     scores = [(_crop_score(c, f, p), -SEED_COST[c], c) for c in available]
     scores.sort(reverse=True)
     return scores[0][2] if scores and scores[0][0] > -1e8 else None
@@ -216,12 +194,9 @@ def _structure_need(f, p):
 
 
 def _fertilize_is_worth_it(crop, f):
-    if crop not in ('STRAWBERRY', 'TOMATO'):
-        return False
+    if crop not in ('STRAWBERRY', 'TOMATO'): return False
     fert_price = float(f['prices'].get('FERTILIZER', 100))
     crop_price = float(f['prices'].get(crop, BASE_PRICE[crop]))
-    # Three-day fertilizer window: tomato can gain roughly three extra units,
-    # strawberry roughly two. Require a margin over simply selling fertilizer.
     extra_units = 3 if crop == 'TOMATO' else 2
     return extra_units * crop_price >= 1.15 * fert_price
 
@@ -229,15 +204,12 @@ def _fertilize_is_worth_it(crop, f):
 def _base_tile_task(tile, f, p, can_plant, fill_boost, inv):
     if tile is None:
         return (p['fill_priority'] if fill_boost and can_plant else 28., 'PLANT') if can_plant else None
-    if not isinstance(tile, dict):
-        return None
+    if not isinstance(tile, dict): return None
     kind = tile.get('kind')
-    if kind == 'WEED':
-        return (105. if fill_boost else 45., 'DIG')
+    if kind == 'WEED': return (105. if fill_boost else 45., 'DIG')
     if kind == 'PLANT':
         crop = tile['crop']; age = f['day'] - int(tile['planted_day']); y = int(tile.get('yield_units', 0) or 0)
-        if f['regime'] == 'endgame':
-            return (210. + y, 'HARVEST') if y > 0 and age >= FIRST[crop] else None
+        if f['regime'] == 'endgame': return (210. + y, 'HARVEST') if y > 0 and age >= FIRST[crop] else None
         if not tile.get('watered_today', False):
             return (180. if int(tile.get('consecutive_unwatered', 0) or 0) >= 1 else 112., 'WATER')
         if (p['fertilizer_mode'] != 'off' and int(inv.get('FERTILIZER', 0) or 0) > 0
@@ -245,8 +217,7 @@ def _base_tile_task(tile, f, p, can_plant, fill_boost, inv):
                 and int(tile.get('fertilized_until_day', -1) or -1) < f['day'] + 1):
             return (98. + 12 * f['price_ratios'].get(crop, 1), 'FERTILIZE')
         if y > 0 and age >= FIRST[crop]:
-            if crop in MAX_AGE and p['harvest_wait'] and age < MAX_AGE[crop]:
-                return None
+            if crop in MAX_AGE and p['harvest_wait'] and age < MAX_AGE[crop]: return None
             return (142. + min(y, 8), 'HARVEST')
         return None
     if 'animal' in tile:
@@ -254,10 +225,8 @@ def _base_tile_task(tile, f, p, can_plant, fill_boost, inv):
             if int(inv.get('WHEAT', 0) or 0) > 0:
                 return (235. if int(tile.get('consecutive_unfed', 0) or 0) >= 1 else 190., 'FEED')
             return None
-        if not tile.get('cared_today', False):
-            return (165., 'CARE')
-        if int(tile.get('yield_units', 0) or 0) > 0:
-            return (158., 'HARVEST')
+        if not tile.get('cared_today', False): return (165., 'CARE')
+        if int(tile.get('yield_units', 0) or 0) > 0: return (158., 'HARVEST')
         if p['fertilizer_mode'] != 'off' and tile.get('fertilizer_available', False):
             fert_ratio = f['price_ratios'].get('FERTILIZER', 1.0)
             urgency = 118. if (not _target_land_reached(f, p) or f['regime'] in ('endgame','market_liquidation')) else 82.
@@ -271,7 +240,12 @@ def plan(obs, f, p, game):
     seeds = dict(obs['private'].get('seeds', {})); shed_budget = dict(obs['private'].get('shed', {}))
     reserved, actions = set(), []
     fill_boost = f['productive_utilization'] < p['fill_target']
-    n = size // 2; shed_spots = [(n-1,n-1),(n,n-1),(n-1,n),(n,n)]
+    n = size // 2
+    all_shed_spots = [(n-1,n-1),(n,n-1),(n-1,n),(n,n)]
+    # A central tile in a locked quadrant is NOT valid shed access. Treating it as one
+    # caused DROP/PICKUP no-ops and wasted endgame inventory movement.
+    shed_spots = [q for q in all_shed_spots if tiles[q[1]][q[0]] != 'LOCKED']
+    if not shed_spots: shed_spots = [(n-1,n-1)]
     pasture_need, coop_need = _structure_need(f, p); targets = _animal_targets(f, p)
     pasture_pickup_slots = max(0, f['empty_pastures']); coop_pickup_slots = max(0, f['empty_coops'])
 
@@ -281,17 +255,12 @@ def plan(obs, f, p, game):
     for idx, pos in enumerate(units):
         x, y = pos; inv = inventories[idx] if idx < len(inventories) else {}; at_shed = tuple(pos) in shed_spots
         inv_total = sum(int(v or 0) for v in inv.values())
-
         if f['regime'] == 'endgame' and inv_total > 0:
-            if at_shed:
-                actions.append(['DROP']); continue
+            if at_shed: actions.append(['DROP']); continue
             actions.append(_move_toward(pos, nearest_shed(pos), idx + obs['step'])); continue
         if inv_total >= p['drop_at'] and any(k not in ('WHEAT','FERTILIZER','COW','SHEEP','GOOSE') for k in inv):
-            if at_shed:
-                actions.append(['DROP']); continue
-            if f['hour'] >= 17:
-                actions.append(_move_toward(pos, nearest_shed(pos), idx + obs['step'])); continue
-
+            if at_shed: actions.append(['DROP']); continue
+            if f['hour'] >= 17: actions.append(_move_toward(pos, nearest_shed(pos), idx + obs['step'])); continue
         carrying_animal = next((a for a in ('COW','SHEEP','GOOSE') if int(inv.get(a,0) or 0) > 0), None)
         if carrying_animal:
             want = ANIMAL[carrying_animal]['structure']; candidates=[]
@@ -303,12 +272,10 @@ def plan(obs, f, p, game):
             if candidates:
                 _,ty,tx=min(candidates); reserved.add((tx,ty))
                 actions.append(['PLACE',carrying_animal] if (tx,ty)==(x,y) else _move_toward(pos,(tx,ty),idx+obs['step'])); continue
-
         if at_shed:
             picked=False
             for a in ('COW','SHEEP','GOOSE'):
-                have=f['animal_counts'].get(a,0)
-                slots=coop_pickup_slots if a=='GOOSE' else pasture_pickup_slots
+                have=f['animal_counts'].get(a,0); slots=coop_pickup_slots if a=='GOOSE' else pasture_pickup_slots
                 if int(shed_budget.get(a,0) or 0)>0 and have<targets[a] and slots>0:
                     actions.append(['PICKUP',a,1]);shed_budget[a]-=1;picked=True
                     if a=='GOOSE': coop_pickup_slots-=1
@@ -321,14 +288,10 @@ def plan(obs, f, p, game):
                     and int(shed_budget.get('FERTILIZER',0) or 0)>0
                     and f['crop_counts'].get('STRAWBERRY',0)+f['crop_counts'].get('TOMATO',0)>0):
                 q=min(int(p['fertilizer_reserve']),3,int(shed_budget.get('FERTILIZER',0) or 0))
-                if q>0:
-                    actions.append(['PICKUP','FERTILIZER',q]);shed_budget['FERTILIZER']-=q;continue
-
+                if q>0: actions.append(['PICKUP','FERTILIZER',q]);shed_budget['FERTILIZER']-=q;continue
         if f['feed_due']>0 and int(inv.get('WHEAT',0) or 0)==0 and not at_shed and f['hour']<17 and int(shed_budget.get('WHEAT',0) or 0)>0:
             dest=nearest_shed(pos);d=abs(x-dest[0])+abs(y-dest[1])
-            if d<=3:
-                actions.append(_move_toward(pos,dest,idx+obs['step']));continue
-
+            if d<=3: actions.append(_move_toward(pos,dest,idx+obs['step']));continue
         can_plant = _choose_crop(f, seeds, p) is not None
         best=None
         for ty,row in enumerate(tiles):
@@ -345,19 +308,16 @@ def plan(obs, f, p, game):
                 if op=='PLANT' and fill_boost: score+=8
                 key=(score,-dist,-ty,-tx)
                 if best is None or key>best[0]: best=(key,(tx,ty),op)
-        if best is None:
-            actions.append(['PASS']);continue
+        if best is None: actions.append(['PASS']);continue
         _,dest,op=best;reserved.add(dest)
         if op=='BUILD_PASTURE': pasture_need=max(0,pasture_need-1)
         elif op=='BUILD_COOP': coop_need=max(0,coop_need-1)
-        if dest!=(x,y):
-            actions.append(_move_toward(pos,dest,idx+obs['step']));continue
+        if dest!=(x,y): actions.append(_move_toward(pos,dest,idx+obs['step']));continue
         if op=='PLANT':
             crop=_choose_crop(f,seeds,p)
             if crop is None: actions.append(['PASS']);continue
             seeds[crop]=int(seeds.get(crop,0) or 0)-1;actions.append(['PLANT',crop])
-        else:
-            actions.append([op])
+        else: actions.append([op])
     return actions[0],actions[1:]
 
 
@@ -371,13 +331,10 @@ def _sell_orders(obs,f,p,projected_drop=None):
         if item=='WHEAT':n=max(0,n-reserve_wheat)
         if item=='FERTILIZER':
             reserve = 0 if f['regime'] in ('endgame','market_liquidation') else int(p['fertilizer_reserve'])
-            # If crop fertilization is not economically attractive, fertilizer is cash.
-            if not any(_fertilize_is_worth_it(c,f) for c in ('TOMATO','STRAWBERRY')):
-                reserve=0
+            if not any(_fertilize_is_worth_it(c,f) for c in ('TOMATO','STRAWBERRY')): reserve=0
             n=max(0,n-reserve)
         if n<=0:continue
-        ratio=f['price_ratios'].get(item,1);floor=.72
-        if item=='FERTILIZER': floor=.62
+        ratio=f['price_ratios'].get(item,1);floor=.62 if item=='FERTILIZER' else .72
         if f['regime'] in ('endgame','market_liquidation'):floor=.03
         elif not _target_land_reached(f,p) and f['money']<f['next_land_cost']+p['land_buffer']:floor=.30
         elif f['gap']<-2500:floor=.55
@@ -423,65 +380,44 @@ def market_actions(obs,f,p,unit_actions):
         if a==['DROP'] and i<len(inventories):
             for k,v in inventories[i].items():projected_drop[k]=projected_drop.get(k,0)+int(v or 0)
     orders=_sell_orders(obs,f,p,projected_drop);projected=float(f['money'])
-    for o in orders:
-        projected+=.65*float(obs['market']['prices'].get(o[1],MARKET_BASE.get(o[1],1)))*int(o[2])
-
-    unlocked=f['unlocked_quadrants'];mode=EXPANSION[p['expansion_mode']];working=_working_floor(f,p)
-    land_target=int(p['land_target_quadrants'])
+    for o in orders: projected+=.65*float(obs['market']['prices'].get(o[1],MARKET_BASE.get(o[1],1)))*int(o[2])
+    unlocked=f['unlocked_quadrants'];mode=EXPANSION[p['expansion_mode']];working=_working_floor(f,p);land_target=int(p['land_target_quadrants'])
     while unlocked<land_target and len(orders)<10:
         stage=unlocked-1;cost=LAND_COSTS[stage];deadline=mode['deadlines'][stage]
         buffer=max(working,mode['buffers'][stage]+p['land_buffer'])
         pressure=f['day']>=deadline or f['day']>=max(0,deadline-2) or f['productive_utilization']>=.45
-        if projected>=cost+buffer and pressure:
-            orders.append(['BUY_LAND']);projected-=cost;unlocked+=1
+        if projected>=cost+buffer and pressure: orders.append(['BUY_LAND']);projected-=cost;unlocked+=1
         else:break
-
     seed_orders=_desired_seed_buys(f,p,seeds,3)
     for order in seed_orders:
         if len(orders)>=10:break
-        cost=SEED_COST[order[1]]*int(order[2])
-        escrow=min(600.0,LAND_COSTS[unlocked-1]*.20) if unlocked<land_target else 250.0
-        if projected-cost>=escrow:
-            orders.append(order);projected-=cost
-
-    feed_need=max(0,int(math.ceil(f['animals']*2.2))-f['shed_wheat']-f['carried_wheat'])
-    wheat_price=float(obs['market']['prices'].get('WHEAT',25))
+        cost=SEED_COST[order[1]]*int(order[2]);escrow=min(600.0,LAND_COSTS[unlocked-1]*.20) if unlocked<land_target else 250.0
+        if projected-cost>=escrow: orders.append(order);projected-=cost
+    feed_need=max(0,int(math.ceil(f['animals']*2.2))-f['shed_wheat']-f['carried_wheat']);wheat_price=float(obs['market']['prices'].get('WHEAT',25))
     if feed_need>0 and f['animals']>0 and len(orders)<10:
         q=min(feed_need,12);cost=wheat_price*q
-        if projected>=cost+250:
-            orders.append(['BUY_PRODUCT','WHEAT',q]);projected-=cost
-
-    targets=_animal_targets(f,p);cutoffs={'COW':19,'SHEEP':21,'GOOSE':23}
-    visible={a:f['animal_counts'][a]+int(shed.get(a,0) or 0) for a in ANIMAL}
-    new_animals=0
+        if projected>=cost+250: orders.append(['BUY_PRODUCT','WHEAT',q]);projected-=cost
+    targets=_animal_targets(f,p);cutoffs={'COW':19,'SHEEP':21,'GOOSE':23};visible={a:f['animal_counts'][a]+int(shed.get(a,0) or 0) for a in ANIMAL};new_animals=0
     ranked_animals=sorted(ANIMAL, key=lambda a: (_animal_roi(a,f,p), ANIMAL[a]['product']), reverse=True)
     for a in ranked_animals:
         if f['day']>cutoffs[a] or len(orders)>=10:continue
         need=max(0,targets[a]-visible[a])
         if a in ('COW','SHEEP'):
-            capacity=f['empty_pastures']+2;queued=f['shed_cows']+f['shed_sheep']
-            need=min(need,max(0,capacity-queued))
-        else:
-            need=min(need,max(0,f['empty_coops']+1-f['shed_geese']))
+            capacity=f['empty_pastures']+2;queued=f['shed_cows']+f['shed_sheep'];need=min(need,max(0,capacity-queued))
+        else: need=min(need,max(0,f['empty_coops']+1-f['shed_geese']))
         while need>0 and new_animals<2 and len(orders)<10 and projected>=ANIMAL[a]['cost']+working:
             orders.append(['BUY_ANIMAL',a,1]);projected-=ANIMAL[a]['cost'];need-=1;new_animals+=1
-
     if p['fertilizer_mode']=='adaptive' and len(orders)<10 and f['plants']>=10 and f['hands']>=8:
         fert_price=float(obs['market']['prices'].get('FERTILIZER',100));fert_have=f['shed_fertilizer']+f['carried_fertilizer']+f['fertilizer_ready']
-        valuable=sum(f['crop_counts'].get(c,0) for c in ('STRAWBERRY','TOMATO') if _fertilize_is_worth_it(c,f))
-        fert_need=max(0,min(int(p['fertilizer_reserve']),valuable)-fert_have)
-        if fert_need>0 and fert_price<=45 and projected>=fert_price*fert_need+working:
-            orders.append(['BUY_PRODUCT','FERTILIZER',fert_need]);projected-=fert_price*fert_need
-
-    workload=f['water_due']+2*f['feed_due']+f['care_due']+f['ripe']+f['animal_ripe']+max(0,10-f['plants'])
-    acreage={1:5,2:7,3:9,4:11}[min(4,max(1,unlocked))]
+        valuable=sum(f['crop_counts'].get(c,0) for c in ('STRAWBERRY','TOMATO') if _fertilize_is_worth_it(c,f));fert_need=max(0,min(int(p['fertilizer_reserve']),valuable)-fert_have)
+        if fert_need>0 and fert_price<=45 and projected>=fert_price*fert_need+working: orders.append(['BUY_PRODUCT','FERTILIZER',fert_need]);projected-=fert_price*fert_need
+    workload=f['water_due']+2*f['feed_due']+f['care_due']+f['ripe']+f['animal_ripe']+max(0,10-f['plants']);acreage={1:5,2:7,3:9,4:11}[min(4,max(1,unlocked))]
     target=min(14,max(5,min(p['target_hands'],acreage+2),5+int(math.ceil(workload/10.0)))) if p['dynamic_labor'] else p['target_hands']
     hire_idx=int(me.get('hires_today',0) or 0);to_hire=min(3,max(0,target-f['hands']))
     for _ in range(to_hire):
         if len(orders)>=10:break
         cost=_fib(hire_idx);hire_idx+=1
-        if projected>=cost+250:
-            orders.append(['HIRE']);projected-=cost
+        if projected>=cost+250: orders.append(['HIRE']);projected-=cost
         else:break
     return orders[:10]
 
@@ -495,6 +431,5 @@ def decide(obs,game,p):
 
 def make_v3(params=None):
     p=validate_params(params)
-    def agent(obs,configuration=None):
-        return decide(obs,configuration or {},p)
+    def agent(obs,configuration=None): return decide(obs,configuration or {},p)
     return agent
