@@ -1,0 +1,20 @@
+# Never allow wallet secrets or local recovery material into Git
+*.dat
+*.wallet
+*.ldb
+*.sqlite
+*.sqlite3
+*.key
+*.pem
+*.seed
+*.mnemonic
+*.xprv
+*.wif
+*.secret
+*.bak
+*.backup
+recovery-input/
+recovery-output/
+local-state/
+.env
+.env.*
