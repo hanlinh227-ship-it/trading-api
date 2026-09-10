@@ -33,18 +33,28 @@ jobs:
         run: |
           set -euo pipefail
           test -n "${KAGGLE_API_TOKEN:-}" || { echo 'KAGGLE_API_TOKEN is not configured'; exit 20; }
+      - name: Kaggle raw-exec compatibility gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          p='reward-hunter/kaggriculture/main.py'
+          code=open(p, encoding='utf-8').read()
+          env={}
+          exec(compile(code, 'main.py', 'exec'), env)
+          assert callable(env.get('agent')), 'agent callable missing'
+          print('RAW_EXEC_GATE_OK')
+          PY
       - name: Install Kaggle CLI
         run: python -m pip install -U pip kaggle
-      - name: Package already-validated V1 champion
-        run: python reward-hunter/kaggriculture/package_submission.py
-      - name: Submit immediately to Kaggle
+      - name: Submit self-contained main.py
         shell: bash
         run: |
           set -euo pipefail
           kaggle competitions submit \
             -c kaggriculture \
-            -f reward-hunter/kaggriculture/dist/submission.tar.gz \
-            -m 'Reward Solver V1 validated quick submit'
+            -f reward-hunter/kaggriculture/main.py \
+            -m 'Reward Solver V1 raw-exec fix'
       - name: Confirm submission appears
         shell: bash
         run: |
