@@ -1,0 +1,63 @@
+{
+  "generated_for": "2026-09-10",
+  "selection_policy": {
+    "objective": "maximize realistic prize opportunity with minimal access barriers",
+    "hard_filters": [
+      "competition_is_open",
+      "cash_prize_is_confirmed",
+      "public_rules_and_reproducible_evaluation",
+      "no_invitation_or_professional_license_required",
+      "automation_allowed_within_competition_rules"
+    ]
+  },
+  "challenges": [
+    {
+      "id": "kaggriculture-2026",
+      "platform": "Kaggle",
+      "prize_usd": 50000,
+      "entry_deadline": "2026-09-23T23:59:00Z",
+      "final_deadline": "2026-09-30T23:59:00Z",
+      "compute_profile": "CPU-friendly simulation",
+      "access_barrier": "LOW",
+      "solver_fit": 9.4,
+      "status": "PRIMARY",
+      "notes": "Official open-source local simulator; autonomous agent submission; optimize by self-play, seeded tournaments and replay analysis. Kaggle account and rules acceptance are still mandatory for prize eligibility."
+    },
+    {
+      "id": "arc-agi-2-2026",
+      "platform": "Kaggle",
+      "prize_usd": 700000,
+      "entry_deadline": "2026-10-26T23:59:00Z",
+      "final_deadline": "2026-11-02T23:59:00Z",
+      "compute_profile": "reasoning/code competition",
+      "access_barrier": "LOW-MEDIUM",
+      "solver_fit": 7.2,
+      "status": "SECONDARY",
+      "notes": "Large prize and worldwide eligibility, but substantially harder; winning solutions must satisfy open-source obligations."
+    },
+    {
+      "id": "biohub-cell-tracking-2026",
+      "platform": "Kaggle",
+      "prize_usd": 60000,
+      "entry_deadline": "2026-09-22T23:59:00Z",
+      "final_deadline": "2026-09-29T23:59:00Z",
+      "compute_profile": "3D+time vision; GPU recommended",
+      "access_barrier": "MEDIUM",
+      "solver_fit": 5.8,
+      "status": "WATCH",
+      "notes": "Open competition but larger data and specialized tracking pipeline increase time/compute barrier."
+    },
+    {
+      "id": "rsna-knee-2026",
+      "platform": "Kaggle",
+      "prize_usd": 77000,
+      "entry_deadline": "2026-10-15T23:59:00Z",
+      "final_deadline": "2026-10-22T23:59:00Z",
+      "compute_profile": "multimodal medical imaging; GPU recommended",
+      "access_barrier": "MEDIUM",
+      "solver_fit": 5.1,
+      "status": "WATCH",
+      "notes": "Worldwide Kaggle competition, but medical imaging data/license and GPU workload make it less frictionless than Kaggriculture."
+    }
+  ]
+}
