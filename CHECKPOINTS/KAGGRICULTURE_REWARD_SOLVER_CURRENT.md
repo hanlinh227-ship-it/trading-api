@@ -33,55 +33,61 @@ Updated: 2026-09-10
 - Trigger file: .github/reward-kaggriculture-v2-fast-trigger
 - Trigger commit/head: 0a9fa0e0eec29d9ccc6b1b6fbb452e92bf7baae8
 - Workflow run: 34447831809
-- Latest checked state: validate IN PROGRESS; official simulator installation running.
 - V2 runs on GitHub-hosted ubuntu-latest, not on `trading-vps`, so it can execute while V1 uses the VPS.
-- V2 does NOT auto-submit to Kaggle. It only searches, validates, packages and promotes a local V2 champion when it clears the V1 comparison gate. This avoids competing submissions/slots while V1 submit run is active.
+- V2 does NOT auto-submit to Kaggle. It searches, validates, packages and promotes a local V2 champion only when it clears the V1 comparison gate.
 
-## Why V2 was added
-Public environment mechanics and current public competition research show that the earlier V1 search space is too narrow if the objective is to catch the leaders quickly. V2 therefore explores structural, easy-to-complete variables before committing to slower RL work.
+## Quick-submit acceleration lane — start leaderboard campaign immediately
+- Branch: reward-solver-kaggriculture-quick-submit
+- Created from the already validated V1 branch so it does not wait for the current 40-iteration optimization run.
+- Workflow: .github/workflows/reward-kaggriculture-quick-submit.yml
+- Trigger: .github/reward-kaggriculture-quick-submit-trigger
+- Trigger commit: fb4834fe99be0e1600948f3a98d9327a7250c5c1
+- Workflow run: 34448297489
+- Runner: GitHub-hosted ubuntu-latest, so it does not consume the trading VPS.
+- Latest checked state:
+  - checkout/setup: SUCCESS
+  - KAGGLE_API_TOKEN guard: SUCCESS (secret exists; value is never printed)
+  - Install Kaggle CLI: IN PROGRESS
+  - package / submit / confirm: pending
+- Purpose: submit the previous already-validated V1 champion immediately to obtain real Kaggle leaderboard feedback while V1 deep optimization and V2 fast search continue in parallel.
+- The quick-submit workflow uses standard Kaggle CLI syntax: `kaggle competitions submit -c kaggriculture ...`.
 
-V2 FAST changes:
-- Density control: tunable max_quadrants=1..3 instead of assuming all land should be bought.
-- Market pacing: tunable sell_batch_limit so premium goods are metered instead of dumped.
+## V2 FAST changes
+- Density control: tunable max_quadrants=1..3.
+- Market pacing: tunable sell_batch_limit.
 - Opponent-aware selling: separate ahead / neutral / behind sell floors and cash-gap trigger.
 - Action efficiency: tunable movement-distance penalty.
-- Phase timing: tunable early/mid/late crop phase boundaries.
-- Crop composition mutation: search can mutate nested crop weights, not just scalar thresholds.
+- Phase timing: tunable early/mid/late crop boundaries.
+- Crop composition mutation: nested crop weights are mutable.
 - Strategic seed biases toward wheat + strawberry and away from melon-heavy play.
 - Robust objective includes win rate, mean margin, p20 margin, worst margin and final money.
-- Honest gate: V2 candidate is tested against the original V1 agent as an actual opponent on both seats.
+- Honest gate: V2 candidate duels the original V1 agent on both seats.
 - Promotion requires holdout robustness and non-negative duel margin vs V1.
 
 ## V2 search acceleration
 - Default pool: 64 candidates.
 - Fast screen: one full 720-turn seed, both seats.
-- Successive halving: top 10 candidates advance to full multi-seed evaluation.
-- ProcessPoolExecutor uses available CPU cores (auto, capped at 8 workers).
+- Successive halving: top 10 advance to full multi-seed evaluation.
+- ProcessPoolExecutor uses available CPU cores, auto capped at 8 workers.
 - Separate holdout seeds are used after training seeds.
-- This is intended to explore more strategy variants in less wall-clock time than the sequential V1 tuner.
-
-## V2 files/commits created
-- f4f1113bd8ca6b60b34651ac648d15c7d950f768 — isolated V2 agent
-- 9344e8e55e2d5c55c1832a8c7a63416d276279c3 — robust benchmark/duel scoring
-- 42957dcf335a4cfb5e5d79c57b1039a2a069097c — parallel successive-halving tuner
-- 73d06c0246a683013fdb032a63f49e6daebf3aec — V2 strategic seed champion
-- 68d38bd42017d30b33c285d08df65efae2eb0420 — isolated submission packager
-- de7d202306d1b688f2e353eb7b9797308279d8b7 — V2 fast workflow
-- 0a9fa0e0eec29d9ccc6b1b6fbb452e92bf7baae8 — trigger V2 fast run
 
 ## Architecture rule going forward
-Keep V1 and V2 separate until real evidence says V2 is stronger. Do not edit V1 files while its submit workflow is running. V1 is the stable/deep lane; V2 FAST is the rapid structural-search lane. After both finish, compare holdout + duel + actual Kaggle leaderboard behavior. Only then promote/merge the better ideas.
+Three lanes are intentionally isolated and may run simultaneously:
+1. QUICK SUBMIT = get a real leaderboard baseline as fast as possible.
+2. V1 DEEP = stable 40-iteration optimization on the VPS.
+3. V2 FAST = broad structural search on GitHub-hosted compute.
+Do not edit the running V1 lane mid-run. Compare actual leaderboard feedback plus holdout/duel evidence before replacing a champion.
 
 ## Next strategic lane after V2 FAST
-The next high-value architecture upgrade is livestock/fertilizer/carry logistics (cows/sheep, CARE, FEED, fertilizer use, shed pickup/drop and action-density routing). Do not bolt this into V1 mid-run. Implement it as another isolated experimental lane after V2 FAST establishes the new search harness, or in parallel on a separate branch if compute allows.
+Livestock/fertilizer/carry logistics (cows/sheep, CARE, FEED, fertilizer use, shed pickup/drop and action-density routing) is the next high-value architecture upgrade. Keep it isolated from V1 while the current run is active.
 
 ## What the next chat should do first
-1. Fetch jobs for V1 run 34446634238 and V2 run 34447831809.
-2. If V2 validate/search failed, fetch the failed job logs and repair only the V2 branch/workflow.
-3. If V1 reaches submit, inspect submit status/logs; do not claim Kaggle submission success without confirmation.
-4. If V2 finishes, read `reward-hunter/kaggriculture-v2-fast/artifacts/tuning-report.json` from the workflow artifact or committed state and compare V2 holdout/duel against V1.
-5. If V2 clears its gate, keep it as a candidate but wait for real Kaggle evidence before replacing V1.
-6. Continue checkpoint updates after every material branch/run/promotion change.
+1. Fetch run 34448297489 first. If quick submit completed, inspect its job/logs and confirm whether Kaggle accepted the submission.
+2. If quick submit failed, repair the exact auth/packaging/CLI error without exposing secrets and retrigger only the quick-submit lane.
+3. Fetch V1 run 34446634238 and V2 run 34447831809.
+4. If V1 finishes optimize, inspect its submit job.
+5. If V2 finishes, compare V2 holdout/duel vs V1 before promotion.
+6. Keep updating this checkpoint after material changes.
 
 ## Safety/handling
 - Never expose KAGGLE_API_TOKEN or private credentials.
