@@ -1,2 +1,2 @@
-run=v5-mixed-farm-canonical-1.32.7
-reason=validate-profit-crops-livestock-expansion
+run=v5.1-working-capital-recovery
+reason=replace-deadlocked-v5.0-smoke-and-rerun-canonical-1.32.7
