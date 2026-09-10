@@ -1,0 +1,3 @@
+# SignalHub V3.22.5 — Realtime Unique Book
+
+Planned from verified V3.22.4. Goals: provider-pinned crypto WebSocket quote stream to Android, REST live-active fallback, pooled OkHttp connections, non-destructive last-good price cache, exact SCALP target 10 and SWING target 5 across MARKET/LIMIT/STOP, and atomic no-duplicate symbol contract across styles. Final APK must not publish unless production proves 15 active unique symbols (10+5), stream/live-active freshness, app-facing rows, integrity, and Android build/package checks.
