@@ -1,2 +1,2 @@
-run=v5.6-monotonic-capital-001
-reason=validated-non-regression-failure-memory-taboo-and-adaptive-recovery
+run=v5.6-monotonic-capital-002
+reason=investment-pattern-taboo-after-repeated-failure-with-capital-high-water-non-regression
