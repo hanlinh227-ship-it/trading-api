@@ -1,0 +1,265 @@
+name: Build Deploy SignalHub V3.22.9 Per Coin Live Guard R3
+
+on:
+  push:
+    branches: [signalhub-v3229-per-coin-live-guard]
+    paths:
+      - 'scripts/patch_signalhub_v3229_compile_fix.py'
+      - '.github/workflows/build-deploy-signalhub-v3229-per-coin-live-guard-r3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+      WS: wss://signalhub-forex.hanlinh227.workers.dev/v3/crypto/stream
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Apply complete V3.22.9 R3 chain
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/patch_signalhub_v3227_market_only_health_seven.py');s=p.read_text()
+          old="a=block(a,'    private void renderSignals(boolean animate){','    private String performanceSummary(){',render,'renderSignals')"
+          new="a=block(a,'    private void renderSignals(boolean animate){','    private void addCryptoSignalGroup(',render,'renderSignals')"
+          if old in s:p.write_text(s.replace(old,new,1))
+          PY
+          python3 scripts/patch_signalhub_v3225_realtime_unique_book.py
+          python3 scripts/patch_signalhub_v3225_build_compat.py
+          python3 scripts/patch_signalhub_v3226_balanced_realtime_book.py
+          python3 scripts/patch_signalhub_v3227_market_only_health_seven.py
+          python3 scripts/patch_signalhub_v3227_runtime_fix.py
+          python3 scripts/patch_signalhub_v3228_safety_first_market_gate.py
+          python3 scripts/patch_signalhub_v3229_per_coin_live_guard_r2.py
+          python3 scripts/patch_signalhub_v3229_compile_fix.py
+          node --check signalhub-worker/gateway-v3.js
+
+      - name: Verify V3.22.9 source contracts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text();a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text();c=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java').read_text();g=Path('signalhub-android/app/build.gradle').read_text()
+          assert 'SIGNALHUB-V3-GATEWAY-3.22.9' in w
+          assert w.count('const PORTFOLIO_POLICY=Object.freeze(')==1
+          assert 'maxActiveTotal:7' in w and 'targetActiveByStyle:{SCALP:5,SWING:2}' in w
+          assert 'minActivePerMarket:0' in w and 'minActivePerStyle:0' in w
+          assert 'publicationGateV3228' in w and 'NO_QUALIFIED_MARKET_SIGNAL_DO_NOT_FORCE_ENTRY' in w
+          assert 'CRYPTO_QUOTE_LIVE_MS = 5000' in w and 'CRYPTO_QUOTE_STALE_MS = 15000' in w
+          assert 'allActiveFresh' in w and 'missingFreshQuotes' in w and 'quoteReceivedAt' in w and 'quoteState' in w
+          assert "marketReadVersion:'V3229_SAFETY_FIRST_PER_COIN_LIVE_GUARD'" in w
+          assert 'APP_VERSION="3.22.9"' in a and 'private void applyRealtimeSignal(JSONObject sig)' in a
+          assert 'coinLiveState' in a and 'cryptoSymbolPriceAt' in a and 'GIÁ CUỐI, KHÔNG COI LÀ LIVE' in a
+          assert 'SignalHub-Android/3.22.9' in c
+          assert 'versionCode 38' in g and "versionName '3.22.9'" in g
+          print('SOURCE CONTRACTS PASS')
+          PY
+
+      - name: Worker dry-run and Android APK build
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v3229-worker
+          cd signalhub-android
+          gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Deploy V3.22.9 production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Production policy and identity audit
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 45); do
+            curl -fsS --max-time 15 "$BASE/v3/status?v3229r3=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert s.get('ok') is True and s.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.9',s
+          for p in [((s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}),((s.get('portfolio') or {}).get('policy') or {})]:
+              assert p.get('maxActiveTotal')==7,p
+              assert (p.get('targetActiveByStyle') or {})=={'SCALP':5,'SWING':2},p
+              assert p.get('minActivePerMarket')==0 and p.get('minActivePerStyle')==0,p
+              assert p.get('standbyPerStyle')==0 and p.get('oneActivePerSymbolAcrossStyles') is True,p
+          assert s.get('forcedFill') is False and s.get('forexDisabled') is True,s
+          assert ((s.get('crypto') or {}).get('marketReadVersion'))=='V3229_SAFETY_FIRST_PER_COIN_LIVE_GUARD',s
+          PY
+            then ready=1;break;fi
+            sleep 2
+          done
+          test "$ready" = 1
+
+      - name: Watchlist 100 coin per-symbol live audit
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,subprocess,os,time
+          base=os.environ['BASE'];ats=[]
+          for i in range(5):
+              u=json.loads(subprocess.check_output(['curl','-fsS','--max-time','120',f'{base}/v3/crypto/stable100?u={i}-{time.time_ns()}'],text=True));stable=u.get('rows') or []
+              assert u.get('ok') is True and len(stable)==100 and len({r.get('symbol') for r in stable})==100,u
+              x=json.loads(subprocess.check_output(['curl','-fsS','--max-time','20',f'{base}/v3/crypto/tickers?limit=1000&t={i}-{time.time_ns()}'],text=True));rows=x.get('tickers') or []
+              assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.9',x
+              assert x.get('live') is True and int(x.get('ageMs') or 999999)<=5000,x
+              by={r.get('symbol'):r for r in rows};missing=[r.get('symbol') for r in stable if r.get('symbol') not in by];assert not missing,missing[:20]
+              for s in stable:
+                  q=by[s['symbol']];assert q.get('quoteState')=='LIVE' and q.get('live') is True,q
+                  assert int(q.get('quoteAgeMs') or 0)<=5000 and float(q.get('lastPrice') or 0)>0 and q.get('quoteReceivedAt'),q
+              ats.append(x.get('receivedAt'));print('WATCHLIST LIVE',i,'100/100',x.get('receivedAt'))
+              time.sleep(2)
+          assert len(set(ats))>=4,ats
+          print('WATCHLIST NO-FREEZE PASS')
+          PY
+
+      - name: Scan both styles and verify publication gate
+        run: |
+          set -euo pipefail
+          for style in SWING SCALP; do
+            ok=0
+            for retry in 1 2 3; do
+              code=$(curl -sS --max-time 260 -o "/tmp/scan-$style.json" -w '%{http_code}' "$BASE/v3/scan?market=CRYPTO&style=$style&scan=$RANDOM-$retry" || true)
+              if [ "$code" = 200 ] && python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1];x=json.load(open('/tmp/scan-'+st+'.json'))
+          assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.9',x
+          assert x.get('live') is True and int(x.get('stable100Count') or 0)==100 and int(x.get('deepAnalyzed') or 0)>0,x
+          for s in x.get('newSignals') or []:
+              assert str(s.get('orderType','')).upper()=='MARKET' and str(s.get('status','')).upper()=='OPEN',s
+              assert (s.get('entryAssessment') or {}).get('verdict')=='PASS',s
+          print('SCAN PASS',st,x.get('created'),x.get('actionable'))
+          PY
+              then ok=1;break;fi
+              sleep 3
+            done
+            test "$ok" = 1
+          done
+          python3 - <<'PY'
+          import json,subprocess,os,time
+          base=os.environ['BASE'];allrows=[]
+          for st,target in [('SCALP',5),('SWING',2)]:
+              x=json.loads(subprocess.check_output(['curl','-fsS','--max-time','15',f'{base}/v3/signals?market=CRYPTO&style={st}&status=active&limit=100&x={time.time_ns()}'],text=True));rows=x.get('signals') or []
+              assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.9',x
+              assert len(rows)<=target and x.get('forcedFill') is False,x
+              if len(rows)<target:assert x.get('underfillReason')=='NO_QUALIFIED_MARKET_SIGNAL_DO_NOT_FORCE_ENTRY',x
+              for r in rows:
+                  assert r.get('engineVersion')=='SIGNALHUB-V3-GATEWAY-3.22.9',r
+                  assert r.get('orderType')=='MARKET' and r.get('status')=='OPEN',r
+                  assert (r.get('entryAssessment') or {}).get('verdict')=='PASS',r
+                  assert str(r.get('healthState','HEALTHY')).upper()!='CUT',r
+              allrows+=rows
+          syms=[r.get('symbol') for r in allrows];ids=[r.get('signalId') or r.get('id') for r in allrows]
+          assert len(allrows)<=7 and len(syms)==len(set(syms)) and len(ids)==len(set(ids)),(syms,ids)
+          print('UNIQUE MARKET BOOK PASS',len(allrows))
+          PY
+
+      - name: Active SCALP SWING per-coin live continuity audit
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,subprocess,os,time
+          base=os.environ['BASE'];frames=[]
+          for i in range(6):
+              subprocess.run(['curl','-fsS','--max-time','20',f'{base}/v3/crypto/monitor?kick=1&k={i}-{time.time_ns()}'],stdout=subprocess.DEVNULL,check=True)
+              time.sleep(1)
+              p=json.loads(subprocess.check_output(['curl','-fsS','--max-time','15',f'{base}/v3/portfolio?p={i}-{time.time_ns()}'],text=True)).get('portfolio') or {};active=int(p.get('activeTotal') or 0)
+              x=json.loads(subprocess.check_output(['curl','-fsS','--max-time','12',f'{base}/v3/crypto/live-active?q={i}-{time.time_ns()}'],text=True));q=x.get('quotes') or []
+              assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.9',x
+              assert len(q)==active,(active,len(q),x)
+              assert int(x.get('freshQuoteCount') or 0)==active and int(x.get('missingFreshQuotes') or 0)==0 and x.get('allActiveFresh') is True,x
+              for z in q:
+                  assert z.get('quoteState')=='LIVE' and z.get('live') is True,z
+                  assert int(z.get('quoteAgeMs') or 0)<=5000 and float(z.get('lastPrice') or 0)>0,z
+                  assert z.get('quoteReceivedAt') and str(z.get('provider','')).upper() in ('BYBIT','OKX','BINANCE'),z
+              if q:frames.append(tuple((z.get('signalId'),z.get('quoteReceivedAt')) for z in q))
+              print('ACTIVE LIVE',i,active,'/',active)
+              time.sleep(1)
+          if frames and frames[0]:assert len(set(tuple(t for _,t in f) for f in frames))>=3,frames
+          print('ACTIVE PER-COIN NO-FREEZE PASS')
+          PY
+
+      - name: Watch detail freshness audit
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,subprocess,os,time
+          base=os.environ['BASE'];ats=[]
+          for i in range(4):
+              x=json.loads(subprocess.check_output(['curl','-fsS','--max-time','180',f'{base}/v3/watch/analyze?symbol=BTCUSDT&w={i}-{time.time_ns()}'],text=True));d=x.get('dataHealth') or {};t=x.get('ticker') or {}
+              assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.9',x
+              assert d.get('state')=='LIVE' and d.get('live') is True and int(d.get('quoteAgeMs') or 0)<=5000,d
+              assert t.get('quoteState')=='LIVE' and t.get('live') is True and int(t.get('quoteAgeMs') or 0)<=5000,t
+              assert float(t.get('lastPrice') or 0)>0 and t.get('quoteReceivedAt'),t
+              ats.append(t.get('quoteReceivedAt'));print('WATCH BTC LIVE',i,t.get('quoteReceivedAt'))
+              time.sleep(2)
+          assert len(set(ats))>=3,ats
+          PY
+
+      - name: WebSocket per-coin freshness audit
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 20 "$BASE/v3/crypto/monitor?kick=1&ws=$RANDOM" >/dev/null
+          node - <<'JS'
+          const frames=[];const timer=setTimeout(()=>{console.error('WS_TIMEOUT',frames);process.exit(1)},25000);const ws=new WebSocket(process.env.WS);
+          ws.onmessage=(ev)=>{try{const x=JSON.parse(String(ev.data));if(x.type!=='crypto_quotes')return;const q=Array.isArray(x.quotes)?x.quotes:[];for(const z of q){if(z.quoteState!=='LIVE'||z.live!==true||!(Number(z.lastPrice)>0)||Number(z.quoteAgeMs)>5000||!z.quoteReceivedAt)throw new Error('STALE_PER_COIN');}frames.push(x.receivedAt||Date.now());console.log('WS FRAME',frames.length,q.length);if(frames.length>=4){clearTimeout(timer);ws.close();console.log('WS FRESHNESS PASS');setTimeout(()=>process.exit(0),100);}}catch(e){console.error(e);clearTimeout(timer);process.exit(1)}};ws.onerror=()=>{};
+          JS
+
+      - name: Performance and final integrity audit
+        run: |
+          set -euo pipefail
+          for style in SCALP SWING; do
+            curl -fsS --max-time 30 "$BASE/v3/performance?market=CRYPTO&style=$style&perf=$RANDOM" >"/tmp/perf-$style.json"
+            python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1];x=json.load(open('/tmp/perf-'+st+'.json'));p=x.get('performance') or {}
+          assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.9',x
+          assert p.get('retentionDays')==365,p
+          assert p.get('resolved')==int(p.get('tp') or 0)+int(p.get('sl') or 0),p
+          assert 'TP_SL_WR_STRICT' in str(p.get('policy') or ''),p
+          print('PERF PASS',st,p.get('winRateLabel'))
+          PY
+          done
+          curl -fsS --max-time 30 "$BASE/v3/data-integrity?final=$RANDOM" >/tmp/integrity.json
+          curl -fsS --max-time 20 "$BASE/v3/portfolio?final=$RANDOM" >/tmp/portfolio.json
+          python3 - <<'PY'
+          import json
+          i=json.load(open('/tmp/integrity.json'));assert i.get('ok') is True and not (i.get('problems') or []),i
+          p=(json.load(open('/tmp/portfolio.json')).get('portfolio') or {});st=p.get('styles') or {};ot=p.get('orderTypes') or {}
+          assert int(p.get('activeTotal') or 0)<=7,p
+          assert int(st.get('SCALP') or 0)<=5 and int(st.get('SWING') or 0)<=2,p
+          assert not (p.get('duplicateSymbols') or []),p
+          assert all(int((ot.get(s) or {}).get(k) or 0)==0 for s in ('SCALP','SWING') for k in ('LIMIT','STOP')),ot
+          assert ((p.get('policy') or {}).get('maxActiveTotal'))==7,p
+          print('FINAL INTEGRITY PASS')
+          PY
+
+      - name: Stage audited APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.22.9-Per-Coin-Live-Guard.apk
+          sha256sum dist/SignalHub-v3.22.9-Per-Coin-Live-Guard.apk | tee dist/SignalHub-v3.22.9-Per-Coin-Live-Guard-SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-v3.22.9-Per-Coin-Live-Guard
+          path: dist/*
+          retention-days: 30
