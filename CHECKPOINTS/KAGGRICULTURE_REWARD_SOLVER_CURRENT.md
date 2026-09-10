@@ -86,3 +86,10 @@ Updated: 2026-09-10
 Branch: `codex/kaggriculture-v3-meta-orchestrator`.
 Read `CHECKPOINTS/KAGGRICULTURE_V3_CODEX_HANDOFF.md` on this branch for current evidence.
 V1 remains the live incumbent; no Kaggle submission is authorized or performed by this task.
+
+V3 PR #216: https://github.com/hanlinh227-ship-it/trading-api/pull/216
+Local promotion PASS: V1 duel 8/8, mean +5299.25; E/F each 64/64 wins.
+Self-contained raw-exec and packaged/source parity PASS. Kaggle submission: NO.
+First V3 CI 34451717476 PASS; final revision CI pending.
+
+Audit correction: study-001 simulator source differed from clean pinned wheel despite matching version label. Canonical revalidation is running; prior V3 promotion remains research-only until it passes. See handoff.

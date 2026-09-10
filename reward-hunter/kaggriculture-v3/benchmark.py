@@ -16,6 +16,7 @@ from policy import make_v3, validate_params
 from opponents import opponent, SUITE
 
 HERE=Path(__file__).resolve().parent
+PINNED_SIMULATOR_HASH='9741c0470a8db98a70644491d5121ae6295413343d1a08ef9fcee35e0b76f2c5'
 
 def digest(data):return hashlib.sha256(json.dumps(data,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
@@ -26,6 +27,7 @@ def provenance(params):
     files={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(HERE.glob('*.py'))}
     return dict(source_commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=HERE,text=True).strip(),
                 code_hash=digest(files),source_files=files,parameter_hash=digest(params),
+                source_worktree_dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=HERE,text=True).strip()),
                 simulator_version=kaggle_environments.__version__,
                 simulator_hash=hashlib.sha256(Path(engine.__file__).read_bytes()).hexdigest())
 
@@ -106,6 +108,8 @@ def summary(rows):
 
 def evaluate(params=None,seeds=(101,),families=SUITE,steps=720,workers=0,kind='v3',agent_path=None):
     params=validate_params(params)
+    actual=provenance(params)['simulator_hash']
+    if actual!=PINNED_SIMULATOR_HASH:raise ValueError('Simulator source mismatch: install pinned official wheel in a clean venv')
     seeds=tuple(seeds);families=tuple(families)
     if not seeds or len(set(seeds))!=len(seeds) or not families or len(set(families))!=len(families):raise ValueError('empty/duplicate evaluation axes')
     jobs=[(params,f,s,seat,steps,kind,str(agent_path) if agent_path else None) for f in families for s in seeds for seat in (0,1)]

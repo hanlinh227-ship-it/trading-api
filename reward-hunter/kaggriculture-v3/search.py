@@ -26,13 +26,16 @@ def candidates(n,seed):
     return pool
 
 
-def run(out,n=8,workers=0,smoke=False):
+def run(out,n=8,workers=0,smoke=False,study_seed=1919):
     out=Path(out);out.mkdir(parents=True,exist_ok=True)
     # Reruns in same output directory require explicit new study: never reuse final holdout.
     if (out/'search.json').exists():raise ValueError('Use a new output directory/study; final holdout already consumed')
     seeds=[101,103];hold=[7001,7003,7007,7013];final=[9001,9007,9011,9013];duelseeds=[211,223,227,229]
+    if study_seed != 1919:
+        blocks=random.Random(study_seed).sample(range(100000,2000000000),14)
+        seeds,duelseeds,hold,final=blocks[:2],blocks[2:6],blocks[6:10],blocks[10:14]
     steps=120 if smoke else 720
-    pool=candidates(n,1919);history=[]
+    pool=candidates(n,study_seed);history=[]
     def ev(p,ss,fs,label,kind='v3',path=None):
         r=evaluate(p,ss,fs,steps,workers,kind,path);save(out/(label+'.json'),r)
         print(label,json.dumps(r['metrics']),flush=True);return r
@@ -55,13 +58,13 @@ def run(out,n=8,workers=0,smoke=False):
     decision=gate(train,duel,h,f,bh,bf,runtime)
     result=dict(best_params=best,stages=history,promotion=decision,runtime=runtime,package=package,
                 duel=duel['metrics'],holdout=h['metrics'],final=f['metrics'],baseline_holdout=bh['metrics'],baseline_final=bf['metrics'],provenance=train['provenance'],
-                study_seed_sets=dict(train=seeds,duel=duelseeds,holdout=hold,final=final),submission_performed=False)
+                study_seed=study_seed,study_seed_sets=dict(train=seeds,duel=duelseeds,holdout=hold,final=final),submission_performed=False)
     save(out/'search.json',result)
     if decision['pass_gate']:save(out/'champion.json',dict(params=best,evidence=result))
     print(json.dumps(result,indent=2))
     return result
 
 if __name__=='__main__':
-    ap=argparse.ArgumentParser();ap.add_argument('--output',required=True);ap.add_argument('--candidates',type=int,default=8);ap.add_argument('--workers',type=int,default=0);ap.add_argument('--smoke',action='store_true');a=ap.parse_args()
+    ap=argparse.ArgumentParser();ap.add_argument('--output',required=True);ap.add_argument('--candidates',type=int,default=8);ap.add_argument('--workers',type=int,default=0);ap.add_argument('--smoke',action='store_true');ap.add_argument('--study-seed',type=int,default=1919);a=ap.parse_args()
     if not 2<=a.candidates<=64:ap.error('candidates must be 2..64')
-    run(a.output,a.candidates,a.workers,a.smoke)
+    run(a.output,a.candidates,a.workers,a.smoke,a.study_seed)

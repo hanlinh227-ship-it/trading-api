@@ -371,6 +371,7 @@ def plan(obs, f, p, cfg, game):
     final = p['endgame'] and f['regime'] == 'endgame'
     n = size // 2
     shed_spots = [(n - 1, n - 1), (n, n - 1), (n - 1, n), (n, n)]
+    shed_spots = [q for q in shed_spots if tiles[q[1]][q[0]] != 'LOCKED']
     worktiles = copy.deepcopy(tiles)
     for idx, pos in enumerate(units):
         x, y = pos
@@ -443,7 +444,7 @@ def make_v3(params=None):
         return decide(obs, configuration or {}, p)
     return agent
 
-EMBEDDED_PARAMS = {'route': True, 'market': True, 'endgame': True, 'distance_cost': 9.0, 'target_hands': 11, 'crop_mode': 'balanced', 'harvest_wait': True}
+EMBEDDED_PARAMS = {'route': True, 'market': True, 'endgame': True, 'distance_cost': 9.0, 'target_hands': 11, 'crop_mode': 'balanced', 'harvest_wait': False}
 
 def agent(observation, configuration=None):
     return decide(observation, configuration or {}, EMBEDDED_PARAMS)

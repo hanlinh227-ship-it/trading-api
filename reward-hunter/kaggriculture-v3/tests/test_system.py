@@ -34,6 +34,11 @@ class PolicyTests(unittest.TestCase):
         a=make_v3()(o,c)
         self.assertEqual(a['farmer'],['DROP']);self.assertIn(['SELL','WHEAT',7],a['market'])
 
+    def test_locked_shed_access_routes_to_owned_tile(self):
+        o,c=self.observation();o.step=715;o.day=29;o.hour=19
+        o.farms[0]['farmer']=[5,4];o.private['inventories']=[{'WHEAT':7}]
+        self.assertEqual(make_v3()(o,c)['farmer'],['WEST'])
+
     def test_no_mutation_or_state_leakage(self):
         o,c=self.observation();before=copy.deepcopy(o);a=make_v3()
         first=a(o,c);other=copy.deepcopy(o);other.player=1;a(other,c)

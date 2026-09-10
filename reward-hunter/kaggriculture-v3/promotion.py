@@ -17,6 +17,7 @@ def gate(train,duel,holdout,final,baseline_holdout,baseline_final,runtime):
             if i<4 and (r['params']!=train['params'] or r['provenance']['code_hash']!=train['provenance']['code_hash']):reasons.append(f'candidate_identity_{i}')
             if r['provenance']['simulator_hash']!=train['provenance']['simulator_hash']:reasons.append(f'simulator_{i}')
             if i in (2,3,4,5) and set(r['families'])!=set(SUITE):reasons.append(f'meta_coverage_{i}')
+            if r['kind'] != ('incumbent' if i >= 4 else 'v3'):reasons.append(f'policy_kind_{i}')
         except (KeyError,TypeError,ValueError):reasons.append(f'malformed_{i}')
     if reasons:return dict(pass_gate=False,reasons=reasons)
     if set(train['seeds']) & (set(holdout['seeds'])|set(final['seeds'])) or set(holdout['seeds']) & set(final['seeds']):reasons.append('seed_leakage')

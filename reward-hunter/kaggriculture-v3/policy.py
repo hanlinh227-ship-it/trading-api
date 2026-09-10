@@ -73,6 +73,7 @@ def plan(obs, f, p, cfg, game):
     reserved=set();actions=[]
     final=p['endgame'] and f['regime']=='endgame'
     n=size//2;shed_spots=[(n-1,n-1),(n,n-1),(n-1,n),(n,n)]
+    shed_spots=[q for q in shed_spots if tiles[q[1]][q[0]]!='LOCKED']
     worktiles=copy.deepcopy(tiles)  # sequential reservations also update crop-mix counts
     for idx,pos in enumerate(units):
         x,y=pos; inv=inventories[idx] if idx<len(inventories) else {}

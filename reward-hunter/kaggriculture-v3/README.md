@@ -32,8 +32,12 @@ workflows and champions are untouched. Local promotion is not leaderboard eviden
 
 ## Simulator economics verified
 
-Official `kaggle-environments==1.32.4` source was inspected; it matched upstream source
-retrieved in this session byte-for-byte. Sources:
+Simulator source was inspected. Audit found the initial local install reported 1.32.4
+but its environment matched newer upstream source (hash bc8a5487...), while a clean
+1.32.4 wheel has hash 9741c047.... Study-001 is retained as noncanonical research.
+The runner now FAILS CLOSED unless the environment SHA256 is
+`9741c0470a8db98a70644491d5121ae6295413343d1a08ef9fcee35e0b76f2c5`.
+Fresh canonical validation freezes the selected parameters and uses new seed blocks. Sources:
 https://github.com/Kaggle/kaggle-environments/tree/master/kaggle_environments/envs/kaggriculture
 
 - Workers expire and reset nightly. Daily hire prices grow with Fibonacci sequence.
@@ -42,7 +46,8 @@ https://github.com/Kaggle/kaggle-environments/tree/master/kaggle_environments/en
 - Grain yield may be positive before legal harvest age. V1 can repeatedly request an
   immature harvest; V3 checks first-yield age first.
 - Products accumulate in worker inventories; nightly DROP has a 100-unit shed cap,
-  and overflow is discarded. DROP near one of four center tiles works before market.
+  and overflow is discarded. DROP near an OWNED center tile works before market in the pinned wheel; newer
+  upstream accepts locked shed-access tiles too. V3 uses the stricter legal intersection.
 - The 720-step episode ends before the following overnight drop. Terminal cash is
   the reward; carried/shed products have no salvage value. V3 routes terminal loads
   home and sells in the same turn as DROP when possible.
@@ -80,7 +85,10 @@ share one seed; count independent seeds when estimating uncertainty.
 
 ## Reproduce
 
-Python 3.12; install `kaggle-environments==1.32.4`.
+Python 3.12. CI installs the unmodified official `kaggle-environments==1.32.4` wheel
+with `--no-deps`, plus `jsonschema==4.25.1` and `requests==2.32.5`, the dependencies
+used by the core interpreter and this environment. Optional unrelated game backends
+may log missing dependencies; the actual Kaggriculture make/run gates must pass.
 
 ```bash
 python -m compileall -q reward-hunter/kaggriculture-v3
@@ -96,10 +104,11 @@ No nested process pools. Output rows are deterministic order regardless of sched
 Reports include timing/provenance separately from deterministic game results.
 
 A finished output directory cannot be reused. Committed seeds are now observed: rerunning
-study-001 is a reproduction, NOT new unseen evidence. Before a different candidate's
-promotion, prospectively register new disjoint E/F seed blocks in `search.py`; do not
-optimize/retry against the committed final set. Deeper dispatch runs use the same
-published seeds until that change, so they are reproduction/research only.
+study-001 is a reproduction, NOT new unseen evidence. For a different candidate's
+promotion, use a prospectively chosen `--study-seed` other than 1919. This deterministically
+generates new disjoint train/duel/holdout/final blocks. Dispatch uses its unique GitHub
+run ID as study seed. Never choose a study seed after looking at its outcomes or tune
+on prior final sets; 1919 is reserved for reproducing the original published blocks.
 
 ## CI and limits
 
