@@ -1,0 +1,237 @@
+name: Build Deploy SignalHub V3.22.8 Hardened Market Seven
+
+on:
+  push:
+    branches: [signalhub-v3228-hardened-market-seven]
+    paths:
+      - '.github/workflows/build-deploy-signalhub-v3228-hardened-market-seven.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+      WS: wss://signalhub-forex.hanlinh227.workers.dev/v3/crypto/stream
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Apply complete V3.22.8 repair chain
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/patch_signalhub_v3227_market_only_health_seven.py')
+          s=p.read_text()
+          old="a=block(a,'    private void renderSignals(boolean animate){','    private String performanceSummary(){',render,'renderSignals')"
+          new="a=block(a,'    private void renderSignals(boolean animate){','    private void addCryptoSignalGroup(',render,'renderSignals')"
+          if old in s:p.write_text(s.replace(old,new,1))
+          PY
+          python3 scripts/patch_signalhub_v3225_realtime_unique_book.py
+          python3 scripts/patch_signalhub_v3225_build_compat.py
+          python3 scripts/patch_signalhub_v3226_balanced_realtime_book.py
+          python3 scripts/patch_signalhub_v3227_market_only_health_seven.py
+          python3 scripts/patch_signalhub_v3227_runtime_fix.py
+          python3 scripts/patch_signalhub_v3228_hardened_market_seven.py
+          python3 scripts/patch_signalhub_v3228_postfix.py
+          node --check signalhub-worker/gateway-v3.js
+
+      - name: Verify V3.22.8 source contracts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text();a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text();c=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java').read_text();g=Path('signalhub-android/app/build.gradle').read_text()
+          assert 'SIGNALHUB-V3-GATEWAY-3.22.8' in w
+          assert 'SIGNALHUB_V3_CHECKPOINT_21' in w
+          assert 'CRYPTO_TARGET_5_SCALP_2_SWING_MARKET_ONLY_NEVER_FORCE_WEAK' in w
+          assert 'targetActiveByStyle:{SCALP:5,SWING:2}' in w
+          assert 'V3228_TRUE_MARKET_ENTRY_HARD_SAFETY_RANKING' in w
+          assert 'QUALITY_FIRST_RESCAN_NO_WEAK_QUOTA_FILL' in w
+          assert 'PERSISTENT_DETERIORATION_ONLY_NEVER_SINGLE_TICK_CUT' in w
+          assert "function styleTarget(style){return String(style||'').toUpperCase()==='SWING'?2:5;}" in w
+          assert 'APP_VERSION="3.22.8"' in a
+          assert 'SignalHub-Android/3.22.8' in c
+          assert 'versionCode 37' in g and "versionName '3.22.8'" in g
+          print('SOURCE CONTRACTS PASS')
+          PY
+
+      - name: Worker dry-run and Android build
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v3228-worker
+          cd signalhub-android
+          gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Deploy V3.22.8 production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Production identity and canonical policy audit
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 40); do
+            curl -fsS --max-time 15 "$BASE/v3/status?v3228=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert s.get('ok') is True,s
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.8',s
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert p.get('maxActiveTotal')==7,p
+          assert (p.get('targetActiveByStyle') or {})=={'SCALP':5,'SWING':2},p
+          assert p.get('oneActivePerSymbolAcrossStyles') is True,p
+          assert p.get('standbyPerStyle')==0,p
+          assert p.get('continuousRefill')=='TARGET_5_SCALP_2_SWING_ONLY_IF_QUALIFIED',p
+          hp=s.get('healthPolicy') or {}
+          assert hp.get('principle')=='PERSISTENT_DETERIORATION_ONLY_NEVER_SINGLE_TICK_CUT',hp
+          assert s.get('forexDisabled') is True,s
+          PY
+            then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1
+
+      - name: Stable100 live universe audit
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 120 "$BASE/v3/crypto/stable100?v3228=$RANDOM" >/tmp/u.json
+          python3 - <<'PY'
+          import json
+          u=json.load(open('/tmp/u.json'));rows=u.get('rows') or []
+          assert u.get('ok') is True,u
+          assert len(rows)==100 and len({r.get('symbol') for r in rows})==100,u
+          assert all(r.get('assetClass')=='CRYPTO' for r in rows),rows[:3]
+          print('STABLE100 PASS')
+          PY
+
+      - name: Hardened MARKET scan and active-book safety audit
+        run: |
+          set -euo pipefail
+          for round in $(seq 1 5); do
+            for style in SWING SCALP; do
+              curl -fsS --max-time 280 "$BASE/v3/scan?market=CRYPTO&style=$style&v3228=$RANDOM-$round" >"/tmp/scan-$style.json"
+              python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1];x=json.load(open('/tmp/scan-'+st+'.json'))
+          assert x.get('ok') is True,x
+          assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.8',x
+          assert x.get('marketOnly') is True,x
+          assert int(x.get('stable100Count') or 0)==100,x
+          assert int(x.get('deepAnalyzed') or 0)>0,x
+          assert 'qualityShortage' in x,x
+          print('SCAN',st,'actionable',x.get('actionable'),'strict',x.get('strictConfirmed'),'strong',x.get('strong'),'qualified',x.get('qualified'),'activeAfter',x.get('activeAfter'),'shortage',x.get('qualityShortage'))
+          PY
+            done
+            sleep 2
+          done
+          curl -fsS --max-time 15 "$BASE/v3/portfolio?v3228=$RANDOM" >/tmp/p.json
+          python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {});st=p.get('styles') or {};ot=p.get('orderTypes') or {}
+          assert int(p.get('activeTotal') or 0)<=7,p
+          assert int(st.get('SCALP') or 0)<=5 and int(st.get('SWING') or 0)<=2,p
+          assert int(p.get('uniqueSymbols') or 0)==int(p.get('activeTotal') or 0),p
+          assert not (p.get('duplicateSymbols') or []),p
+          assert all((ot.get(s) or {}).get(k,0)==0 for s in ('SCALP','SWING') for k in ('LIMIT','STOP')),ot
+          print('PORTFOLIO SAFETY PASS',json.dumps(p,ensure_ascii=False))
+          PY
+
+      - name: App-facing signal hard-safety audit
+        run: |
+          set -euo pipefail
+          for style in SCALP SWING; do
+            curl -fsS --max-time 12 "$BASE/v3/signals?market=CRYPTO&style=$style&status=active&limit=20&v3228=$RANDOM" >"/tmp/$style.json"
+            python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1];x=json.load(open('/tmp/'+st+'.json'));rows=x.get('signals') or [];cap=5 if st=='SCALP' else 2
+          assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.8',x
+          assert len(rows)<=cap,(st,len(rows),x)
+          syms=[]
+          for r in rows:
+              assert r.get('status')=='OPEN',r
+              assert str(r.get('orderType','')).upper()=='MARKET',r
+              assert r.get('entryAssessment',{}).get('verdict')=='PASS',r
+              assert r.get('marketOnlyQuality') in ('A_STRICT','B_STRONG','C_QUALIFIED'),r
+              assert float(r.get('entry') or 0)>0 and float(r.get('sl') or 0)>0 and float(r.get('tp3') or r.get('tp') or 0)>0,r
+              f=r.get('marketOnlyFacts') or {};assert f.get('contextAligned') is True and f.get('executionMomentum') is True,f
+              assert str(f.get('crossProvider','')).upper()!='OPPOSED',f
+              syms.append(r.get('symbol'))
+          assert len(syms)==len(set(syms)),syms
+          print('APP SAFETY PASS',st,len(rows),'/',cap)
+          PY
+          done
+          python3 - <<'PY'
+          import json
+          a=json.load(open('/tmp/SCALP.json')).get('signals') or [];b=json.load(open('/tmp/SWING.json')).get('signals') or [];syms=[x.get('symbol') for x in a+b]
+          assert len(syms)==len(set(syms)),syms
+          print('GLOBAL CROSS-STYLE UNIQUE PASS',len(syms))
+          PY
+
+      - name: Live price freshness audit
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 15 "$BASE/v3/crypto/monitor?kick=1&v3228=$RANDOM" >/dev/null || true
+          python3 - <<'PY'
+          import json,subprocess,time,datetime,os
+          base=os.environ['BASE'];seen=[]
+          for i in range(6):
+              raw=subprocess.check_output(['curl','-fsS','--max-time','8',f'{base}/v3/crypto/live-active?v3228={i}-{time.time_ns()}'],text=True);x=json.loads(raw);q=x.get('quotes') or []
+              assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.8',x
+              ids=[z.get('signalId') for z in q];assert len(ids)==len(set(ids)),ids
+              for z in q: assert float(z.get('lastPrice') or 0)>0,z
+              at=x.get('receivedAt');
+              if at:
+                  age=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(at.replace('Z','+00:00'))).total_seconds();assert age<6,(age,at)
+                  seen.append(at)
+              time.sleep(1)
+          if seen: assert len(set(seen))>=2,seen
+          print('LIVE PRICE AUDIT PASS frames',len(seen))
+          PY
+
+      - name: Performance accounting audit
+        run: |
+          set -euo pipefail
+          for style in SCALP SWING; do
+            curl -fsS --max-time 40 "$BASE/v3/performance?market=CRYPTO&style=$style&v3228=$RANDOM" >"/tmp/perf-$style.json"
+            python3 - "$style" <<'PY'
+          import json,sys
+          x=json.load(open('/tmp/perf-'+sys.argv[1]+'.json'));p=x.get('performance') or {}
+          assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.8',x
+          assert p.get('retentionDays')==365,p
+          assert 'winRateResolved' in p and 'autoCut' in p and 'winRateAllResolved' in p,p
+          assert 'TP_SL_WR_STRICT' in str(p.get('policy','')),p
+          print('PERFORMANCE PASS',sys.argv[1],p.get('winRateLabel'),'autoCut',p.get('autoCut'))
+          PY
+          done
+
+      - name: Stage verified APK
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk out/SignalHub-v3.22.8-Hardened-Market-Seven.apk
+          unzip -t out/SignalHub-v3.22.8-Hardened-Market-Seven.apk
+          sha256sum out/SignalHub-v3.22.8-Hardened-Market-Seven.apk | tee out/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-v3.22.8-Hardened-Market-Seven
+          path: out/*
+          retention-days: 30
