@@ -1,13 +1,14 @@
-"""Pure public-observation features for the V5 mixed-farm economy lane.
+"""Pure public-observation features for the Kaggriculture mixed-farm lanes.
 
-Important: Kaggriculture 1.32.7 can omit ``obs['step']`` for seat 1. Never use that
-field as the authoritative clock. ``day * turnsPerDay + hour`` is available to both
-seats and is therefore the canonical turn index used by V5.
+Kaggriculture 1.32.7 can omit ``obs['step']`` for seat 1. Never use that field as
+the authoritative clock. ``day * turnsPerDay + hour`` is available to both seats and
+is therefore the canonical turn index.
 """
 from incumbent import BASE_PRICE
 
 FIRST = {'WHEAT': 2, 'CARROT': 2, 'TOMATO': 8, 'STRAWBERRY': 10, 'MELON': 10}
 LAND_COSTS = (1000, 2000, 4000)
+MARKET_BASE_PRICE = dict(BASE_PRICE, FERTILIZER=100)
 SHOP_PRODUCTS = {
     'BAKERY': ('EGG', 'WHEAT'),
     'PIZZA_SHOP': ('MILK', 'TOMATO', 'WHEAT'),
@@ -29,12 +30,29 @@ def canonical_step(obs, cfg):
     return int(obs.get('day', 0) or 0) * turns + int(obs.get('hour', 0) or 0)
 
 
+def _composition(tiles):
+    crops = {c: 0 for c in FIRST}
+    animals = {'GOOSE': 0, 'COW': 0, 'SHEEP': 0}
+    for row in tiles:
+        for t in row:
+            if not isinstance(t, dict):
+                continue
+            if t.get('kind') == 'PLANT':
+                crop = t.get('crop')
+                if crop in crops:
+                    crops[crop] += 1
+            if 'animal' in t:
+                animal = t.get('animal')
+                if animal in animals:
+                    animals[animal] += 1
+    return crops, animals
+
+
 def features(obs, cfg):
     me, opp = obs['farms'][obs['player']], obs['farms'][1 - obs['player']]
     day, hour = int(obs['day']), int(obs['hour'])
     step = canonical_step(obs, cfg)
-    # Compatibility shim for downstream V3/V4 routing helpers that still read obs['step'].
-    # This fixes the seat-1 omission without making the policy depend on the buggy field.
+    # Compatibility shim for downstream legacy routing helpers that still read obs['step'].
     if obs.get('step') is None:
         obs['step'] = step
     tiles = me['tiles']
@@ -49,12 +67,8 @@ def features(obs, cfg):
     prices = obs['market']['prices']
     market_inventory = obs.get('market', {}).get('inventory', {})
 
-    crop_counts = {c: 0 for c in FIRST}
-    for t in plants:
-        crop_counts[t['crop']] = crop_counts.get(t['crop'], 0) + 1
-    animal_counts = {'GOOSE': 0, 'COW': 0, 'SHEEP': 0}
-    for t in animals:
-        animal_counts[t['animal']] = animal_counts.get(t['animal'], 0) + 1
+    crop_counts, animal_counts = _composition(tiles)
+    opponent_crop_counts, opponent_animal_counts = _composition(opp['tiles'])
 
     free = _count_kind(tiles, lambda t: t is None)
     locked = _count_kind(tiles, lambda t: t == 'LOCKED')
@@ -78,13 +92,16 @@ def features(obs, cfg):
     productive_tiles = len(plants) + len(structures)
     productive_utilization = productive_tiles / max(1, unlocked_tiles)
 
-    demand = {k: 0 for k in BASE_PRICE}
+    demand = {k: 0 for k in MARKET_BASE_PRICE}
     for shop in obs.get('town', {}).get('unlocked_shops', []):
         products = SHOP_PRODUCTS.get(shop, ())
         mult = 2 if len(products) == 1 else 1
         for item in products:
             demand[item] = demand.get(item, 0) + mult
-    price_ratios = {k: float(v) / BASE_PRICE.get(k, max(1.0, float(v))) for k, v in prices.items()}
+    price_ratios = {
+        k: float(v) / MARKET_BASE_PRICE.get(k, max(1.0, float(v)))
+        for k, v in prices.items()
+    }
     scarcity = {k: max(0.0, 10000.0 - float(market_inventory.get(k, 10000))) for k in prices}
 
     if remain <= cfg.get('turnsPerDay', 24):
@@ -107,12 +124,11 @@ def features(obs, cfg):
         regime = 'production'
 
     op_tiles = opp['tiles']
-    op_objects = [t for row in op_tiles for t in row if isinstance(t, dict)]
     if len(opp.get('unlocked_quadrants', [])) > unlocked_quadrants:
         behavior = 'expansion'
     elif len(opp.get('hands', [])) >= 13:
         behavior = 'high_labor'
-    elif any('animal' in t for t in op_objects):
+    elif sum(opponent_animal_counts.values()) >= 6:
         behavior = 'livestock'
     elif len(opp.get('hands', [])) < 3:
         behavior = 'low_labor'
@@ -127,6 +143,8 @@ def features(obs, cfg):
         step=step, day=day, hour=hour, remaining_turns=remain, money=float(me['money']), gap=gap,
         hands=len(me.get('hands', [])), plants=len(plants), weeds=len(weeds), animals=len(animals),
         structures=len(structures), crop_counts=crop_counts, animal_counts=animal_counts,
+        opponent_crop_counts=opponent_crop_counts, opponent_animal_counts=opponent_animal_counts,
+        opponent_hands=len(opp.get('hands', [])), opponent_unlocked_quadrants=len(opp.get('unlocked_quadrants', ['NW'])),
         ripe=ripe, animal_ripe=animal_ripe, feed_due=feed_due, feed_urgent=feed_urgent,
         care_due=care_due, fertilizer_ready=fertilizer_ready, empty_pastures=empty_pastures,
         empty_coops=empty_coops, free=free, locked=locked, unlocked_tiles=unlocked_tiles,
@@ -138,7 +156,7 @@ def features(obs, cfg):
         shed_cows=int(shed.get('COW', 0) or 0), shed_sheep=int(shed.get('SHEEP', 0) or 0),
         shed_geese=int(shed.get('GOOSE', 0) or 0),
         inventory_value=sum(prices.get(k, 0) * v for k, v in shed.items() if k in prices),
-        price_ratios=price_ratios, scarcity=scarcity, demand=demand,
+        prices={k: float(v) for k, v in prices.items()}, price_ratios=price_ratios, scarcity=scarcity, demand=demand,
         water_due=sum(not t.get('watered_today', False) for t in plants),
         regime=regime, opponent_behavior=behavior,
     )

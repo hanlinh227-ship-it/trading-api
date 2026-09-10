@@ -10,8 +10,8 @@ HERE=Path(__file__).resolve().parent
 
 def build(params=None,path=None):
     params=validate_params(params)
-    pieces=['# Generated V3 research candidate. NOT SUBMITTED.\n']
-    for name in ('incumbent.py','features.py','policy.py'):
+    pieces=['# Generated V5.7 agro-economic research candidate. NOT SUBMITTED.\n']
+    for name in ('incumbent.py','features.py','policy.py','value_overlay.py'):
         tree=ast.parse((HERE/name).read_text())
         body=[]
         for node in tree.body:
@@ -19,7 +19,7 @@ def build(params=None,path=None):
             if name=='incumbent.py' and isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in ('agent','SUBMISSION_PARAMS') for t in node.targets):continue
             body.append(node)
         tree.body=body;pieces.append(ast.unparse(tree))
-    pieces.append('EMBEDDED_PARAMS = '+repr(params)+'\n\ndef agent(observation, configuration=None):\n    return decide(observation, configuration or {}, EMBEDDED_PARAMS)\n')
+    pieces.append('EMBEDDED_PARAMS = '+repr(params)+'\n\ndef agent(observation, configuration=None):\n    cfg = configuration or {}\n    base_action = decide(observation, cfg, EMBEDDED_PARAMS)\n    return coordinate_action(observation, cfg, base_action, EMBEDDED_PARAMS)\n')
     code='\n\n'.join(pieces)+'\n'
     compile(code,'main.py','exec')
     target=Path(path or HERE/'main.py');target.parent.mkdir(parents=True,exist_ok=True);target.write_text(code)

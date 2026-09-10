@@ -4,12 +4,31 @@ import tempfile
 import unittest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from policy import make_v3, task, V3_DEFAULT, validate_params
+from policy import make_v3, _base_tile_task, V3_DEFAULT, validate_params
 from package_submission import build
 from raw_exec_test import check
 from promotion import gate
 from opponents import SUITE
 from benchmark import summary
+
+
+def task(tile, day, step, can_plant, params, endgame=False, fill_boost=False):
+    """Compatibility adapter for legacy task-level contract tests.
+
+    V5.4 routes tile decisions through the richer public-feature state rather than the
+    old standalone ``task`` API. Keep the semantic tests without forcing a dead runtime
+    interface back into the submitted agent.
+    """
+    p = validate_params(params)
+    f = {
+        'day': day,
+        'step': step,
+        'regime': 'endgame' if endgame else 'production',
+        'price_ratios': {k: 1.0 for k in ('WHEAT','CARROT','TOMATO','STRAWBERRY','MELON','EGG','MILK','WOOL','FERTILIZER')},
+        'prices': {'WHEAT':25,'CARROT':35,'TOMATO':60,'STRAWBERRY':120,'MELON':250,'EGG':50,'MILK':160,'WOOL':200,'FERTILIZER':100},
+        'unlocked_quadrants': 4,
+    }
+    return _base_tile_task(tile, f, p, can_plant, fill_boost, {})
 
 
 class PolicyTests(unittest.TestCase):

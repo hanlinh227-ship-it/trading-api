@@ -1,0 +1,265 @@
+name: Kaggriculture V5.7 - Adaptive Agro-Economic Challenger
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidates:
+        description: Base challenger count; failure controller may adapt within 8-64
+        required: true
+        default: '24'
+  push:
+    branches:
+      - research/kaggriculture-v5-4-rank-livestock
+    paths:
+      - .github/reward-kaggriculture-v5-4-rank-trigger
+  pull_request:
+    paths:
+      - 'reward-hunter/kaggriculture-v3/**'
+      - '.github/workflows/kaggriculture-v5-4-rank-livestock.yml'
+
+permissions:
+  contents: read
+
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install current official simulator
+        run: |
+          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          python -m pip install --no-deps 'kaggle-environments==1.32.7'
+      - name: Compile, regression, monotonic and agro-economic contracts
+        run: |
+          python -m compileall -q reward-hunter/kaggriculture-v3
+          python -m unittest discover -s reward-hunter/kaggriculture-v3/tests -v
+      - name: V5.7 self-contained package gate
+        run: |
+          mkdir -p /tmp/v57
+          python reward-hunter/kaggriculture-v3/package_submission_v57.py --output /tmp/v57/main.py | tee /tmp/v57/package.json
+          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v57/main.py | tee /tmp/v57/raw.json
+      - name: V5.7 economy smoke both seats
+        run: |
+          python - <<'PY'
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,'reward-hunter/kaggriculture-v3')
+          from benchmark_v57 import evaluate,save
+          r=evaluate(None,seeds=(917,929),families=('starter','incumbent','early_sell','expansion'),steps=360,workers=4)
+          save('/tmp/v57/smoke.json',r)
+          m=r['metrics']
+          assert m['valid_games']==m['games'],m
+          assert m['noop_rate']==0,m
+          assert 'mean_planned_sell_capture_ratio' in m,m
+          assert 'mean_money_checkpoints' in m,m
+          print('V5.7_SMOKE_PASS',json.dumps(m,sort_keys=True))
+          PY
+      - name: V5.7 source-package episode equivalence
+        run: |
+          python - <<'PY'
+          import json,sys
+          sys.path.insert(0,'reward-hunter/kaggriculture-v3')
+          from benchmark_v57 import evaluate,save
+          seed=(15485863,)
+          src=evaluate(None,seeds=seed,families=('incumbent',),steps=120,workers=1)
+          pkg=evaluate(None,seeds=seed,families=('incumbent',),steps=120,workers=1,agent_path='/tmp/v57/main.py')
+          save('/tmp/v57/source-equivalence.json',src)
+          save('/tmp/v57/package-equivalence.json',pkg)
+          keys=('margin','valid','statuses','terminal_unsold_units','final_unlocked_quadrants','final_animals')
+          assert len(src['rows'])==len(pkg['rows'])
+          assert all(all(a.get(k)==b.get(k) for k in keys) for a,b in zip(src['rows'],pkg['rows'])),(src['rows'],pkg['rows'])
+          assert all(r.get('valid') for r in pkg['rows']),pkg['rows']
+          print('V5.7_EPISODE_EQUIVALENCE_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaggriculture-v5-7-validation-${{ github.run_id }}
+          path: /tmp/v57/
+          retention-days: 30
+
+  research:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: read
+      actions: write
+    concurrency:
+      group: kaggriculture-v54-learning-single-writer
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install current official simulator
+        run: |
+          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          python -m pip install --no-deps 'kaggle-environments==1.32.7'
+      - name: Restore adaptive match memory and live ledger
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            /tmp/kaggriculture-v54-learning/learning_state.json
+            /tmp/kaggriculture-v54-learning/kaggle_live.json
+          key: kaggriculture-v54-learning-${{ github.run_id }}
+          restore-keys: |
+            kaggriculture-v54-learning-
+      - name: Initialize conflict-free agro-economic memory if needed
+        run: |
+          mkdir -p /tmp/kaggriculture-v54-learning
+          python - <<'PY'
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,'reward-hunter/kaggriculture-v3')
+          from learning_rank import blank_state,save_state,load_state,adaptive_plan
+          from monotonic_rank import summary as monotonic_summary
+          from agro_reasoning import summary as agro_summary
+          p=Path('/tmp/kaggriculture-v54-learning/learning_state.json')
+          if not p.exists(): save_state(p,blank_state())
+          s=load_state(p)
+          print('LEARNING_MEMORY',json.dumps({
+              'matches':s['matches'],'wins':s['wins'],'losses':s['losses'],'invalid':s['invalid'],
+              'champions':len(s.get('champions',[])),'control':s.get('control',{}),
+              'monotonic':monotonic_summary(s),'agro':agro_summary(s),'plan':adaptive_plan(s,24),
+          },sort_keys=True))
+          PY
+      - name: Adaptive agro-economic challenger league
+        env:
+          CANDIDATES: ${{ github.event.inputs.candidates || '24' }}
+        run: |
+          OUT=/tmp/kaggriculture-v54-${{ github.run_id }}
+          STATE=/tmp/kaggriculture-v54-learning/learning_state.json
+          python reward-hunter/kaggriculture-v3/search_rank.py \
+            --output "$OUT" --candidates "$CANDIDATES" --workers 0 --study-seed ${{ github.run_id }} \
+            --learning-state "$STATE"
+          cp "$STATE" "$OUT/learning_state_after.json"
+          python - <<'PY'
+          import json,pathlib
+          root=pathlib.Path('/tmp/kaggriculture-v54-${{ github.run_id }}')
+          r=json.loads((root/'search.json').read_text())
+          if r['promotion']['pass_gate'] and not r['promotion'].get('monotonic',{}).get('pass'):
+              raise SystemExit('fail-closed: promotion cannot bypass monotonic capital gate')
+          print('PROMOTION',r['promotion']['pass_gate'])
+          print('REASONS',json.dumps(r['promotion']['reasons'],sort_keys=True))
+          print('BEST',json.dumps(r['best_params'],sort_keys=True))
+          print('ROUND_PLAN',json.dumps(r['round_plan'],sort_keys=True))
+          print('NEXT_ROUND',json.dumps(r['next_round'],sort_keys=True))
+          print('LEARNING',json.dumps(r['learning'],sort_keys=True))
+          print('AGRO_REASONING',json.dumps(r['agro_reasoning'],sort_keys=True))
+          print('MONOTONIC',json.dumps(r['monotonic'],sort_keys=True))
+          print('CAPITAL_REGRESSION',json.dumps(r['capital_regression'],sort_keys=True))
+          print('CAPITAL_INCUMBENT',json.dumps(r.get('capital_regression_incumbent'),sort_keys=True))
+          print('DUEL',json.dumps(r['duel'],sort_keys=True))
+          print('HOLDOUT',json.dumps(r['holdout'],sort_keys=True))
+          print('FINAL',json.dumps(r['final'],sort_keys=True))
+          PY
+      - name: Guarded Kaggle live promotion
+        if: success()
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -eo pipefail
+          OUT="/tmp/kaggriculture-v54-${GITHUB_RUN_ID}"
+          LEDGER=/tmp/kaggriculture-v54-learning/kaggle_live.json
+          DECISION=/tmp/v57-live-decision.json
+          export OUT LEDGER DECISION
+          python - <<'PY'
+          import datetime,hashlib,json,os,pathlib
+          root=pathlib.Path(os.environ['OUT']); ledger=pathlib.Path(os.environ['LEDGER'])
+          r=json.loads((root/'search.json').read_text())
+          code=root/'candidate-main.py'; sha=hashlib.sha256(code.read_bytes()).hexdigest()
+          mono=bool(r.get('promotion',{}).get('monotonic',{}).get('pass'))
+          strict=bool(r.get('promotion',{}).get('strict_pass_gate'))
+          if r.get('promotion',{}).get('pass_gate') and not (mono and strict):
+              raise SystemExit('fail-closed: composite promotion gate is inconsistent')
+          live={}
+          if ledger.exists():
+              try: live=json.loads(ledger.read_text())
+              except Exception: live={}
+          last_at=live.get('submitted_at','2026-09-10T16:19:13Z')
+          last_sha=live.get('sha256','b113a5da49a597baaacae7de76041b9702f99881d1e35db02beda4408192996f')
+          try:
+              then=datetime.datetime.fromisoformat(last_at.replace('Z','+00:00'))
+              age=(datetime.datetime.now(datetime.timezone.utc)-then).total_seconds()
+          except Exception:
+              age=0
+          eligible=bool(r['promotion']['pass_gate']) and sha!=last_sha and age>=21600
+          reason='eligible' if eligible else ('promotion_gate' if not r['promotion']['pass_gate'] else ('duplicate' if sha==last_sha else 'six_hour_cooldown'))
+          decision={'eligible':eligible,'sha256':sha,'description':'V5.7 promoted '+sha[:12]+' adaptive agro economy','reason':reason}
+          pathlib.Path(os.environ['DECISION']).write_text(json.dumps(decision,sort_keys=True)+'\n')
+          print('KAGGLE_LIVE_DECISION',decision)
+          PY
+          ELIGIBLE="$(python -c 'import json,os; print("1" if json.load(open(os.environ["DECISION"]))["eligible"] else "0")')"
+          SHA256="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["sha256"])')"
+          DESC="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["description"])')"
+          REASON="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["reason"])')"
+          export ELIGIBLE SHA256 DESC REASON
+          if [ "$ELIGIBLE" != '1' ]; then echo "KAGGLE_LIVE_PROMOTION_SKIPPED reason=$REASON"; exit 0; fi
+          if [ -z "${KAGGLE_API_TOKEN:-}" ]; then echo 'KAGGLE_LIVE_PROMOTION_DEFERRED missing credential'; exit 0; fi
+          python -m pip install -q -U kaggle
+          kaggle competitions submissions -c kaggriculture | tee /tmp/v57-kaggle-before.txt
+          if grep -Fq "$DESC" /tmp/v57-kaggle-before.txt; then echo 'KAGGLE_LIVE_PROMOTION_DUPLICATE_SKIP'; exit 0; fi
+          if kaggle competitions submit -c kaggriculture -f "$OUT/candidate-main.py" -m "$DESC"; then
+            sleep 10
+            kaggle competitions submissions -c kaggriculture | tee /tmp/v57-kaggle-after.txt
+            if grep -Fq "$DESC" /tmp/v57-kaggle-after.txt; then
+              python - <<'PY'
+              import datetime,json,os,pathlib
+              p=pathlib.Path(os.environ['LEDGER'])
+              p.write_text(json.dumps({'sha256':os.environ['SHA256'],'submitted_at':datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),'description':os.environ['DESC'],'source_run':os.environ.get('GITHUB_RUN_ID')},indent=2,sort_keys=True)+'\n')
+              PY
+              echo 'KAGGLE_LIVE_PROMOTION_VISIBLE'
+            else
+              echo 'KAGGLE_LIVE_PROMOTION_SENT_NOT_VISIBLE_YET'
+            fi
+          else
+            echo 'KAGGLE_LIVE_PROMOTION_DEFERRED submission command failed; keeping current live agents'
+          fi
+      - name: Save adaptive match memory and live ledger
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            /tmp/kaggriculture-v54-learning/learning_state.json
+            /tmp/kaggriculture-v54-learning/kaggle_live.json
+          key: kaggriculture-v54-learning-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaggriculture-v5-7-rank-research-${{ github.run_id }}
+          path: /tmp/kaggriculture-v54-${{ github.run_id }}/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Queue next agro-economic potential round
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NEXT_CANDIDATES="$(python - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path('/tmp/kaggriculture-v54-'+os.environ['GITHUB_RUN_ID'])/'search.json'
+          r=json.loads(p.read_text())
+          n=int(r.get('next_round',{}).get('candidate_count',24))
+          print(max(8,min(64,n)))
+          PY
+          )"
+          echo "Current V5.7 round completed; next candidate budget=$NEXT_CANDIDATES"
+          sleep 30
+          gh workflow run kaggriculture-v5-4-rank-livestock.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref research/kaggriculture-v5-4-rank-livestock \
+            -f candidates="$NEXT_CANDIDATES"
+          echo "NEXT_V57_AGRO_ECONOMIC_ROUND_QUEUED"
