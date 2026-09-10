@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import copy
-import json
-from pathlib import Path
 
 DEFAULT_PARAMS = {
-    "target_hands": 12,
+    "target_hands": 11,
     "late_hands": 5,
     "late_hire_stop_day": 27,
     "first_land_threshold": 4200,
@@ -14,7 +12,7 @@ DEFAULT_PARAMS = {
     "first_land_deadline": 12,
     "second_land_deadline": 17,
     "third_land_deadline": 19,
-    "sell_floor_ratio": 0.72,
+    "sell_floor_ratio": 0.75991,
     "behind_sell_floor_ratio": 0.62,
     "late_liquidation_day": 27,
     "seed_budget_ratio": 0.34,
@@ -31,23 +29,6 @@ BASE_PRICE = {"WHEAT": 25, "CARROT": 35, "TOMATO": 60, "STRAWBERRY": 120, "MELON
 FIRST_YIELD = {"WHEAT": 2, "CARROT": 2, "TOMATO": 8, "STRAWBERRY": 10, "MELON": 10}
 MAX_YIELD_DAY = {"WHEAT": 4, "CARROT": 3, "MELON": 12}
 ONGOING = {"TOMATO", "STRAWBERRY"}
-
-
-def _load_submission_params():
-    p = Path(__file__).with_name("champion.json")
-    if not p.exists():
-        return copy.deepcopy(DEFAULT_PARAMS)
-    try:
-        data = json.loads(p.read_text())
-        if isinstance(data, dict) and isinstance(data.get("params"), dict):
-            data = data["params"]
-        out = copy.deepcopy(DEFAULT_PARAMS)
-        for k, v in data.items():
-            if k in out:
-                out[k] = v
-        return out
-    except Exception:
-        return copy.deepcopy(DEFAULT_PARAMS)
 
 
 def _weights(day, params):
@@ -301,5 +282,5 @@ def make_agent(params=None):
     return _agent
 
 
-SUBMISSION_PARAMS = _load_submission_params()
+SUBMISSION_PARAMS = copy.deepcopy(DEFAULT_PARAMS)
 agent = make_agent(SUBMISSION_PARAMS)
