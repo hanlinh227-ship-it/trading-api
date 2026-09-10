@@ -1,0 +1,113 @@
+name: Kaggriculture V5 - Mixed Farm Economy
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidates:
+        description: Search candidates
+        required: true
+        default: '20'
+      workers:
+        description: Worker processes (0 = auto)
+        required: true
+        default: '0'
+  push:
+    branches:
+      - codex/kaggriculture-v5-mixed-farm-economy
+    paths:
+      - .github/reward-kaggriculture-v5-trigger
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reward-kaggriculture-v5-mixed-farm
+  cancel-in-progress: false
+
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install current official simulator
+        run: |
+          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          python -m pip install --no-deps 'kaggle-environments==1.32.7'
+          python - <<'PY'
+          import kaggle_environments, hashlib, importlib
+          from pathlib import Path
+          engine=importlib.import_module('kaggle_environments.envs.kaggriculture.kaggriculture')
+          assert kaggle_environments.__version__ == '1.32.7', kaggle_environments.__version__
+          print('engine_version', kaggle_environments.__version__)
+          print('engine_sha256', hashlib.sha256(Path(engine.__file__).read_bytes()).hexdigest())
+          PY
+      - name: Compile and V5 economy contracts
+        run: |
+          python -m compileall -q reward-hunter/kaggriculture-v3
+          python -m unittest reward-hunter/kaggriculture-v3/tests/test_v5.py -v
+      - name: Generated submission raw-exec gate
+        run: |
+          mkdir -p /tmp/v5-validate
+          python reward-hunter/kaggriculture-v3/package_submission.py --output /tmp/v5-validate/main.py | tee /tmp/v5-validate/package.json
+          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v5-validate/main.py | tee /tmp/v5-validate/raw-exec.json
+      - name: Mixed-farm smoke against distinct families
+        run: |
+          python reward-hunter/kaggriculture-v3/run_v5_eval.py \
+            --seeds 551,557 \
+            --families starter,incumbent,expansion,early_sell \
+            --steps 360 \
+            --workers 4 \
+            --output /tmp/v5-validate/smoke.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaggriculture-v5-validation-${{ github.run_id }}
+          path: /tmp/v5-validate/
+          retention-days: 30
+
+  research:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install current official simulator
+        run: |
+          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          python -m pip install --no-deps 'kaggle-environments==1.32.7'
+      - name: Crop-herd-expansion search and unseen gates
+        env:
+          V5_CANDIDATES: ${{ github.event.inputs.candidates || '20' }}
+          V5_WORKERS: ${{ github.event.inputs.workers || '0' }}
+        run: |
+          OUT=/tmp/kaggriculture-v5-${{ github.run_id }}
+          python reward-hunter/kaggriculture-v3/search_v5.py \
+            --output "$OUT" \
+            --candidates "$V5_CANDIDATES" \
+            --workers "$V5_WORKERS" \
+            --study-seed ${{ github.run_id }}
+          python - <<'PY'
+          import json, pathlib, os
+          p=pathlib.Path('/tmp/kaggriculture-v5-${{ github.run_id }}/search.json')
+          r=json.loads(p.read_text())
+          print('PROMOTION', r['promotion']['pass_gate'])
+          print('REASONS', r['promotion']['reasons'])
+          print('DUEL', json.dumps(r['duel'], sort_keys=True))
+          print('HOLDOUT', json.dumps(r['holdout'], sort_keys=True))
+          print('FINAL', json.dumps(r['final'], sort_keys=True))
+          print('BEST', json.dumps(r['best_params'], sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaggriculture-v5-research-${{ github.run_id }}
+          path: /tmp/kaggriculture-v5-${{ github.run_id }}/
+          retention-days: 30
