@@ -1,0 +1,3 @@
+run=v5-public-meta-intel
+source=public-kaggle-top-replay-archive
+mode=analyze-only
