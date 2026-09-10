@@ -1,4 +1,4 @@
-"""V5.4 profit-first ladder search with persistent win/loss learning."""
+"""V5.5 profit-first ladder search with continuous potential adaptation."""
 import argparse,json,random
 from pathlib import Path
 from benchmark_v5 import evaluate,save,digest
@@ -7,7 +7,10 @@ from opponents import SUITE
 from package_submission import build
 from raw_exec_test import check
 from promotion_rank import gate
-from learning_rank import load_state,save_state,observe_evaluation,best_learned_patch,learned_variants
+from learning_rank import (
+    load_state,save_state,observe_evaluation,best_learned_patch,learned_variants,
+    adaptive_plan,champion_params,record_round,weak_families,
+)
 
 META_KEYS={'cow_max','sheep_max','goose_max','target_hands','sell_batch','land_target_quadrants'}
 
@@ -32,8 +35,8 @@ def load_meta_prior(path):
     p=dict(V3_DEFAULT);p.update(patch);return validate_params(p)
 
 
-def candidates(n,seed,meta_prior=None,learning_state=None):
-    rng=random.Random(seed);base=dict(V3_DEFAULT);pool=[]
+def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
+    rng=random.Random(seed);base=dict(V3_DEFAULT);pool=[];plan=plan or {}
     presets=[
         {'land_target_quadrants':4,'herd_mode':'cow_sheep','cow_max':6,'sheep_max':4,'target_hands':11,'sell_batch':5,'livestock_start_day':2},
         {'land_target_quadrants':3,'herd_mode':'cow_sheep','cow_max':9,'sheep_max':4,'goose_max':0,'target_hands':10,'livestock_start_day':0,'sell_batch':5,'fertilizer_reserve':1,'animal_roi_floor':.10},
@@ -48,10 +51,14 @@ def candidates(n,seed,meta_prior=None,learning_state=None):
         {'land_target_quadrants':3,'herd_mode':'cow_sheep','cow_max':10,'sheep_max':3,'target_hands':10,'livestock_start_day':0,'animal_roi_floor':0.0,'fertilizer_reserve':0},
         {'land_target_quadrants':3,'herd_mode':'cow_sheep','cow_max':6,'sheep_max':6,'target_hands':10,'livestock_start_day':0,'animal_roi_floor':.15,'fertilizer_reserve':2},
     ]
+    # Long-lived elites are evaluated first so a good lineage cannot disappear because of one noisy round.
+    if learning_state:
+        for elite in reversed(champion_params(learning_state,limit=4)):
+            presets.insert(0,elite)
     if meta_prior:
         patch={k:v for k,v in meta_prior.items() if k in base};patch.setdefault('land_target_quadrants',3);presets.insert(1,patch)
     if learning_state and int(learning_state.get('matches',0) or 0)>=8:
-        patch=best_learned_patch(learning_state,CHOICES,min_samples=4)
+        patch=best_learned_patch(learning_state,CHOICES,min_samples=4,focus_families=plan.get('focus_families'))
         if patch:
             learned=dict(base);learned.update(patch);presets.insert(1,learned)
     for patch in presets:
@@ -71,17 +78,22 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
     blocks=random.Random(study_seed).sample(range(100000,2000000000),18)
     train=blocks[:3];duel=blocks[3:7];hold=blocks[7:11];final=blocks[11:15];package_seed=blocks[15]
     state=load_state(learning_state_path)
-    meta_prior=load_meta_prior(meta_prior_path);pool=candidates(n,study_seed,meta_prior,state);history=[];rng=random.Random(study_seed ^ 0x54A7)
+    plan=adaptive_plan(state,n);effective_n=plan['candidate_count']
+    meta_prior=load_meta_prior(meta_prior_path);pool=candidates(effective_n,study_seed,meta_prior,state,plan);history=[];rng=random.Random(study_seed ^ 0x54A7)
+    print('POTENTIAL_PLAN',json.dumps(plan,sort_keys=True),flush=True)
+
     def ev(p,seeds,fams,label,steps=720,kind='v3',path=None,learn=True):
+        nonlocal state
         r=evaluate(p,seeds,fams,steps,workers,kind,path);save(out/(label+'.json'),r);print(label,json.dumps(r['metrics']),flush=True)
         if learn and kind=='v3' and path is None:
-            observe_evaluation(state,p,r,label);save_state(learning_state_path,state)
-            print('LEARNING',json.dumps({'matches':state['matches'],'wins':state['wins'],'losses':state['losses'],'ties':state['ties'],'invalid':state['invalid'],'last_label':label},sort_keys=True),flush=True)
+            state=observe_evaluation(state,p,r,label);save_state(learning_state_path,state)
+            print('LEARNING',json.dumps({'matches':state['matches'],'wins':state['wins'],'losses':state['losses'],'ties':state['ties'],'invalid':state['invalid'],'weak_families':weak_families(state),'last_label':label},sort_keys=True),flush=True)
         return r
+
     stages=[
-        ('A',train[:1],('starter','incumbent'),240,max(8,n//3)),
-        ('B',train[:2],('starter','incumbent','early_sell','expansion','grains'),480,max(4,n//6)),
-        ('C',train,SUITE,720,max(2,min(4,n//8))),
+        ('A',train[:1],('starter','incumbent'),240,max(8,effective_n//3)),
+        ('B',train[:2],('starter','incumbent','early_sell','expansion','grains'),480,max(4,effective_n//6)),
+        ('C',train,SUITE,720,max(2,min(6,effective_n//8))),
     ]
     frozen=None
     for stage,seeds,fams,steps,keep in stages:
@@ -94,7 +106,12 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
             pool=[p for _,p,_ in ranked[:keep]];frozen=ranked[0][2]
         else:
             elite_count=max(2,min(keep,(keep+1)//2));elites=[p for _,p,_ in ranked[:elite_count]]
-            pool=learned_variants(elites,state,CHOICES,validate_params,rng,keep)
+            pool=learned_variants(
+                elites,state,CHOICES,validate_params,rng,keep,
+                focus_families=plan.get('focus_families'),
+                exploration=plan.get('exploration',.18),
+                mutation_steps=plan.get('mutation_steps',1),
+            )
             for _,p,_ in ranked:
                 if len(pool)>=keep:break
                 if p not in pool:pool.append(p)
@@ -106,10 +123,21 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
     keys=('margin','valid','statuses','terminal_unsold_units','final_unlocked_quadrants','final_animals')
     runtime['episode_equivalence']='PASS' if all(all(a.get(k)==b.get(k) for k in keys) for a,b in zip(packaged['rows'],source['rows'])) and all(r['valid'] for r in packaged['rows']) else 'FAIL'
     decision=gate(frozen,d,h,f,bh,bf,runtime)
-    learned_patch=best_learned_patch(state,CHOICES,min_samples=4)
-    result=dict(best_params=best,stages=history,promotion=decision,runtime=runtime,package=package,duel=d['metrics'],holdout=h['metrics'],final=f['metrics'],baseline_holdout=bh['metrics'],baseline_final=bf['metrics'],provenance=frozen['provenance'],study_seed=study_seed,seed_sets=dict(train=train,duel=duel,holdout=hold,final=final,package=[package_seed]),submission_performed=False,public_meta_prior=meta_prior or 'built-in public high-Elo livestock priors',lane='profit-first-rank-climb',learning=dict(matches=state['matches'],wins=state['wins'],losses=state['losses'],ties=state['ties'],invalid=state['invalid'],best_learned_patch=learned_patch,state_path=str(learning_state_path or 'ephemeral')))
+    state=record_round(state,best,d['metrics'],h['metrics'],f['metrics'],decision,label='run-'+str(study_seed))
+    next_plan=adaptive_plan(state,n)
+    learned_patch=best_learned_patch(state,CHOICES,min_samples=4,focus_families=next_plan.get('focus_families'))
+    result=dict(
+        best_params=best,stages=history,promotion=decision,runtime=runtime,package=package,
+        duel=d['metrics'],holdout=h['metrics'],final=f['metrics'],baseline_holdout=bh['metrics'],baseline_final=bf['metrics'],
+        provenance=frozen['provenance'],study_seed=study_seed,
+        seed_sets=dict(train=train,duel=duel,holdout=hold,final=final,package=[package_seed]),
+        submission_performed=False,public_meta_prior=meta_prior or 'built-in public high-Elo livestock priors',
+        lane='continuous-potential-rank-climb',round_plan=plan,next_round=next_plan,
+        learning=dict(matches=state['matches'],wins=state['wins'],losses=state['losses'],ties=state['ties'],invalid=state['invalid'],weak_families=weak_families(state),best_learned_patch=learned_patch,champion_count=len(state.get('champions',[])),control=state.get('control',{}),state_path=str(learning_state_path or 'ephemeral')),
+    )
     save(out/'search.json',result);save_state(learning_state_path,state)
     if decision['pass_gate']:save(out/'PROMOTION_READY_rank.json',dict(params=best,evidence=result))
+    print('NEXT_POTENTIAL_PLAN',json.dumps(next_plan,sort_keys=True),flush=True)
     print(json.dumps(result,indent=2));return result
 
 
