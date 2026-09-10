@@ -1,0 +1,2 @@
+run=v5.3-baseline-arity-fixed
+reason=rerun-canonical-after-incumbent-adapter-regression-and-shared-ci-hardening

@@ -1,0 +1,128 @@
+name: Kaggriculture V3/V5 - validation and research
+on:
+  pull_request:
+    paths:
+      - 'reward-hunter/kaggriculture-v3/**'
+      - '.github/workflows/reward-kaggriculture-v3.yml'
+  push:
+    branches:
+      - codex/kaggriculture-v3-meta-orchestrator
+    paths:
+      - '.github/reward-kaggriculture-v3-research-trigger'
+  workflow_dispatch:
+    inputs:
+      full_search:
+        description: 'Run frozen-seed search and promotion checks (never submits)'
+        type: boolean
+        default: false
+      candidates:
+        description: 'Structured search budget: 2 to 64'
+        default: '8'
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: kaggriculture-v3-${{ github.head_ref || github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install matching official simulator
+        run: |
+          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          if grep -q 'V5.1 mixed-farm controller' reward-hunter/kaggriculture-v3/policy.py; then
+            python -m pip install --no-deps 'kaggle-environments==1.32.7'
+          else
+            python -m pip install --no-deps 'kaggle-environments==1.32.4'
+          fi
+      - name: Compilation and contract tests
+        run: |
+          python -m compileall -q reward-hunter/kaggriculture-v3
+          if grep -q 'V5.1 mixed-farm controller' reward-hunter/kaggriculture-v3/policy.py; then
+            python -m unittest reward-hunter/kaggriculture-v3/tests/test_v5.py -v
+          else
+            python -m unittest discover -s reward-hunter/kaggriculture-v3/tests -v
+          fi
+      - name: Raw exec and deterministic packaging
+        run: |
+          python reward-hunter/kaggriculture-v3/package_submission.py --output /tmp/v3-default.py
+          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v3-default.py
+          if [ -f reward-hunter/kaggriculture-v3/main.py ]; then
+            python reward-hunter/kaggriculture-v3/raw_exec_test.py reward-hunter/kaggriculture-v3/main.py
+          fi
+      - name: Official episodes - both seats
+        run: |
+          mkdir -p /tmp/v3-ci
+          if grep -q 'V5.1 mixed-farm controller' reward-hunter/kaggriculture-v3/policy.py; then
+            python reward-hunter/kaggriculture-v3/run_v5_eval.py --seeds 811,821 --families starter,incumbent,early_sell,expansion --steps 120 --workers 2 --output /tmp/v3-ci/smoke.json
+          else
+            python reward-hunter/kaggriculture-v3/benchmark.py --agent-path reward-hunter/kaggriculture-v3/main.py --seeds 811,821 --families starter,incumbent,early_sell,grains --steps 120 --workers 2 --output /tmp/v3-ci/smoke.json
+          fi
+      - name: Full-horizon endgame contract
+        run: |
+          if grep -q 'V5.1 mixed-farm controller' reward-hunter/kaggriculture-v3/policy.py; then
+            python reward-hunter/kaggriculture-v3/run_v5_eval.py --seeds 823 --families incumbent --steps 720 --workers 2 --output /tmp/v3-ci/full.json
+          else
+            python reward-hunter/kaggriculture-v3/benchmark.py --agent-path reward-hunter/kaggriculture-v3/main.py --seeds 823 --families incumbent --workers 2 --output /tmp/v3-ci/full.json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaggriculture-v3-ci-${{ github.run_id }}
+          path: /tmp/v3-ci/*.json
+          retention-days: 30
+  research:
+    if: (github.event_name == 'workflow_dispatch' && inputs.full_search == true) || github.event_name == 'push'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      STUDY_SEED: ${{ github.run_id }}
+      SEARCH_BUDGET: ${{ inputs.candidates || '8' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          python -m pip install --no-deps 'kaggle-environments==1.32.4'
+      - name: Search and unseen validation
+        run: python reward-hunter/kaggriculture-v3/search.py --candidates "$SEARCH_BUDGET" --study-seed "$STUDY_SEED" --workers 2 --output /tmp/v3-study
+      - name: Commit champion only on promotion
+        if: github.ref == 'refs/heads/codex/kaggriculture-v3-meta-orchestrator'
+        run: |
+          if [ -f /tmp/v3-study/champion.json ]; then
+            cp /tmp/v3-study/champion.json reward-hunter/kaggriculture-v3/champion.json
+            cp /tmp/v3-study/candidate-main.py reward-hunter/kaggriculture-v3/main.py
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add reward-hunter/kaggriculture-v3/champion.json reward-hunter/kaggriculture-v3/main.py
+            if ! git diff --cached --quiet; then
+              git commit -m 'Promote gate-validated V3 research champion'
+              git push origin HEAD:refs/heads/codex/kaggriculture-v3-meta-orchestrator
+            fi
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaggriculture-v3-search-${{ github.run_id }}
+          path: /tmp/v3-study/
+          retention-days: 30
