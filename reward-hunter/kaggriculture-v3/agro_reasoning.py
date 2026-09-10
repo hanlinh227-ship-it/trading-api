@@ -1,19 +1,19 @@
 """Domain reasoning for crop/livestock failures and recovery.
 
-This module turns local episode mistakes into farming hypotheses instead of treating every
-loss as an opaque scalar.  It only consumes our own current-engine evaluation telemetry and
-publicly documented game mechanics / public meta priors.  It never reads hidden Kaggle state.
+Every local episode becomes agronomic/economic evidence instead of a binary win/loss.  The
+learner decomposes capital failures into land, labor, crop mix, herd/feed, utilization, sale
+price capture and inventory causes, then converts repeated causes into new hypotheses.
 
-The goal is not to copy one historical top trajectory.  Public top patterns are used as priors,
-then personalized by our own win/loss memory and monotonic capital gate.
+Only our own current-engine telemetry and public game mechanics/meta priors are consumed.  No
+hidden Kaggle state or copied opponent action tape is used.  Public top patterns are priors;
+our personal success/failure memory and monotonic capital gate always have priority.
 """
 from __future__ import annotations
 
 import json
-import math
 
-# Public meta priors observed in high-Elo public replays/discussions.  These are deliberately
-# parameter-level priors, not copied action tapes.  The search is free to reject all of them.
+# Public high-Elo priors observed in replay/meta discussion.  They are broad structural priors,
+# not exact 720-turn scripts.  Search can and should reject them when our own evidence is better.
 PUBLIC_META_PRIORS = (
     {
         'land_target_quadrants': 3, 'herd_mode': 'cow_sheep', 'cow_max': 9,
@@ -36,7 +36,6 @@ PUBLIC_META_PRIORS = (
 )
 
 MAX_AGRO_EVENTS = 192
-MAX_REASON_VALUES = 64
 
 
 def _bucket(value):
@@ -79,6 +78,10 @@ def strategy_family(params):
     return '|'.join((land, production, labor, market, str(params.get('crop_mode', 'roi'))))
 
 
+def _sum_map(d):
+    return sum(float(v or 0) for v in (d or {}).values())
+
+
 def _diagnose_row(row, params):
     reasons = []
     valid = bool(row.get('valid'))
@@ -94,6 +97,7 @@ def _diagnose_row(row, params):
     animals = int(row.get('final_animals', 0) or 0)
     structures = int(row.get('final_structures', 0) or 0)
     peak_productive = float(row.get('peak_productive_utilization', 0.0) or 0.0)
+    eco = row.get('economy') or {}
 
     target_herd = int(params.get('cow_max', 0) or 0) + int(params.get('sheep_max', 0) or 0) + int(params.get('goose_max', 0) or 0)
     high_premium_herd = int(params.get('cow_max', 0) or 0) + int(params.get('sheep_max', 0) or 0)
@@ -126,9 +130,44 @@ def _diagnose_row(row, params):
         reasons.append('livestock_without_crop_support')
     if structures > animals + 3 and margin < 0:
         reasons.append('idle_structure_capital')
+
+    # Rich V5.7 economy telemetry: diagnose *why* nominally productive farms still lose money.
+    if eco:
+        min_money = eco.get('min_money')
+        if min_money is not None and float(min_money) < 250 and margin < 0:
+            reasons.append('capital_starvation')
+        land_buys = float(eco.get('planned_buy_land', 0) or 0)
+        hires = float(eco.get('planned_hires', 0) or 0)
+        if land_buys >= 3 and margin < 0 and (min_money is None or float(min_money) < 700):
+            reasons.append('expansion_cash_drag')
+        if hires >= 12 and margin < 0:
+            reasons.append('hiring_cash_drag')
+
+        sold_units = _sum_map(eco.get('planned_sell_units'))
+        capture = float(eco.get('planned_sell_capture_ratio', 0.0) or 0.0)
+        if sold_units >= 12 and capture > 0 and capture < .74 and margin < 0:
+            reasons.append('poor_price_capture')
+
+        buy_wheat = float(eco.get('planned_buy_wheat', 0) or 0)
+        animal_exposure = _sum_map(eco.get('animal_exposure'))
+        if buy_wheat >= 8 and animal_exposure >= 4 and margin < 0:
+            reasons.append('feed_market_dependency')
+
+        crop_exp = eco.get('crop_exposure') or {}
+        animal_exp = eco.get('animal_exposure') or {}
+        premium_exposure = float(crop_exp.get('STRAWBERRY', 0) or 0) + float(crop_exp.get('MELON', 0) or 0) + float(animal_exp.get('COW', 0) or 0) + float(animal_exp.get('SHEEP', 0) or 0)
+        if premium_exposure >= 7 and sold_units >= 12 and capture > 0 and capture < .82 and margin < 0:
+            reasons.append('premium_supply_price_mismatch')
+
+        checkpoints = eco.get('money_checkpoints') or {}
+        early = [float(checkpoints.get(str(d), 0) or 0) for d in (5, 10, 15) if checkpoints.get(str(d)) is not None]
+        late = [float(checkpoints.get(str(d), 0) or 0) for d in (20, 25, 29) if checkpoints.get(str(d)) is not None]
+        if early and late and max(early) > 0 and max(late) <= max(early) * 1.10 and margin < 0:
+            reasons.append('capital_not_compounding')
+
     if margin < -5000:
         reasons.append('catastrophic_economics')
-    return reasons
+    return list(dict.fromkeys(reasons))
 
 
 def _update_value(table, key, value, amount=1):
@@ -177,20 +216,18 @@ def dominant_failures(state, limit=6):
 
 
 def agro_penalty(state, params):
-    """Softly avoid repeatedly failed farming ideas without forbidding novel combinations."""
+    """Softly avoid repeatedly failed farming ideas without globally banning exploration."""
     state = _ensure(state)
     agro = state['agro_reasoning']
     family = agro['families'].get(strategy_family(params), {})
     fail = int(family.get('fail', 0) or 0)
     win = int(family.get('win', 0) or 0)
     penalty = max(0.0, (fail - win) / max(2.0, fail + win))
-
     for reason, count in dominant_failures(state, 8):
         if int(count) < 2:
             continue
         values = agro['reason_values'].get(reason, {})
-        matched = 0
-        considered = 0
+        matched = 0; considered = 0
         for key, value in params.items():
             if isinstance(value, dict) or key not in values:
                 continue
@@ -203,20 +240,23 @@ def agro_penalty(state, params):
 
 
 def agro_quality_score(evaluation, params):
-    """Small domain prior: productive capital + price discipline, never a substitute for money."""
+    """Reward productive output *and* strong price realization; money gate remains authoritative."""
     m = evaluation.get('metrics', {})
-    util = float(m.get('mean_full_farm_peak_productive_utilization', 0.0) or 0.0)
+    util = float(m.get('mean_peak_productive_utilization', m.get('mean_full_farm_peak_productive_utilization', 0.0)) or 0.0)
     animals = float(m.get('mean_peak_animals', 0.0) or 0.0)
     waste = float(m.get('mean_terminal_unsold_units', 0.0) or 0.0)
-    score = 18.0 * min(1.0, max(0.0, util)) + 2.0 * min(10.0, animals) - 1.2 * waste
+    capture = float(m.get('mean_planned_sell_capture_ratio', 1.0) or 1.0)
+    scarcity = float(m.get('mean_planned_sell_scarcity', 0.0) or 0.0)
+    score = 24.0 * min(1.0, max(0.0, util)) + 1.5 * min(12.0, animals) - 1.2 * waste
+    # Price and production are joint objectives: high output sold at poor quotes is not progress.
+    score += 18.0 * max(-.5, min(.6, capture - .75))
+    score += min(8.0, max(0.0, scarcity) / 80.0)
 
-    # Dynamic market lesson: premium gluts are expensive; smaller batches and demand/ROI modes
-    # make production and price realization cooperate instead of maximizing volume blindly.
     batch = int(params.get('sell_batch', 6) or 6)
     premium_herd = int(params.get('cow_max', 0) or 0) + int(params.get('sheep_max', 0) or 0)
     if premium_herd >= 8:
         score += 7.0 if batch <= 5 else (-8.0 if batch >= 8 else 0.0)
-    if params.get('crop_mode') in ('roi', 'demand'):
+    if params.get('crop_mode') in ('roi', 'demand', 'grains'):
         score += 5.0
     if premium_herd >= 8 and int(params.get('feed_carry', 0) or 0) >= 6:
         score += 5.0
@@ -225,29 +265,28 @@ def agro_quality_score(evaluation, params):
     return score
 
 
-def recovery_patches(state, accepted=None, limit=8):
-    """Translate repeated failures into concrete new farming hypotheses for the next pool."""
+def recovery_patches(state, accepted=None, limit=10):
+    """Translate repeated mistakes into materially different crop/livestock hypotheses."""
     state = _ensure(state)
     accepted = dict(accepted or {})
-    reasons = {name for name, count in dominant_failures(state, 10) if int(count) >= 2}
+    reasons = {name for name, count in dominant_failures(state, 16) if int(count) >= 2}
     patches = []
 
     def add(patch):
-        q = dict(accepted)
-        q.update(patch)
+        q = dict(accepted); q.update(patch)
         if q not in patches:
             patches.append(q)
 
-    if 'fourth_quadrant_overreach' in reasons:
-        add({'land_target_quadrants': 3, 'target_hands': min(10, int(accepted.get('target_hands', 10) or 10)), 'land_buffer': max(120, int(accepted.get('land_buffer', 120) or 120))})
-    if 'labor_overhead' in reasons or 'routing_overhead' in reasons:
+    if 'fourth_quadrant_overreach' in reasons or 'expansion_cash_drag' in reasons:
+        add({'land_target_quadrants': 3, 'target_hands': min(10, int(accepted.get('target_hands', 10) or 10)), 'land_buffer': 260, 'livestock_cash_buffer': max(650, int(accepted.get('livestock_cash_buffer', 650) or 650))})
+    if 'labor_overhead' in reasons or 'routing_overhead' in reasons or 'hiring_cash_drag' in reasons:
         add({'target_hands': 9, 'distance_cost': max(7.0, float(accepted.get('distance_cost', 7.0) or 7.0)), 'land_target_quadrants': 3})
-    if 'herd_feed_pressure' in reasons or 'livestock_without_crop_support' in reasons:
+    if 'herd_feed_pressure' in reasons or 'livestock_without_crop_support' in reasons or 'feed_market_dependency' in reasons:
         add({'crop_mode': 'grains', 'feed_carry': 8, 'seed_scale': 1.7, 'sell_batch': 5, 'fertilizer_mode': 'adaptive'})
-        add({'crop_mode': 'roi', 'feed_carry': 8, 'seed_scale': 1.45, 'animal_roi_floor': max(.10, float(accepted.get('animal_roi_floor', .10) or .10))})
-    if 'premium_glut_dumping' in reasons or 'volume_over_value' in reasons:
-        add({'crop_mode': 'demand', 'sell_batch': 4, 'animal_roi_floor': max(.20, float(accepted.get('animal_roi_floor', .20) or .20)), 'fertilizer_reserve': 1})
-        add({'crop_mode': 'roi', 'sell_batch': 5, 'goose_max': 0, 'feed_carry': 8})
+        add({'crop_mode': 'roi', 'feed_carry': 8, 'seed_scale': 1.45, 'cow_max': min(9, int(accepted.get('cow_max', 9) or 9)), 'sheep_max': min(4, int(accepted.get('sheep_max', 4) or 4)), 'animal_roi_floor': max(.10, float(accepted.get('animal_roi_floor', .10) or .10))})
+    if 'premium_glut_dumping' in reasons or 'volume_over_value' in reasons or 'poor_price_capture' in reasons or 'premium_supply_price_mismatch' in reasons:
+        add({'crop_mode': 'demand', 'sell_batch': 4, 'animal_roi_floor': max(.20, float(accepted.get('animal_roi_floor', .20) or .20)), 'fertilizer_reserve': 1, 'goose_max': 0})
+        add({'crop_mode': 'roi', 'sell_batch': 5, 'goose_max': 0, 'feed_carry': 8, 'sheep_max': min(4, int(accepted.get('sheep_max', 4) or 4))})
     if 'underutilized_land' in reasons:
         add({'fill_target': .88, 'fill_priority': 105.0, 'distance_cost': 6.0, 'target_hands': max(10, min(11, int(accepted.get('target_hands', 10) or 10)))})
     if 'terminal_inventory' in reasons:
@@ -256,7 +295,9 @@ def recovery_patches(state, accepted=None, limit=8):
         add({'herd_mode': 'cow_sheep', 'cow_max': 9, 'sheep_max': 4, 'goose_max': 0, 'feed_carry': 8, 'sell_batch': 4, 'land_target_quadrants': 3})
     if 'herd_capital_not_converted' in reasons or 'idle_structure_capital' in reasons:
         add({'livestock_start_day': 0, 'livestock_cash_buffer': 500, 'animal_roi_floor': .10, 'target_hands': 10, 'land_target_quadrants': 3})
-
+    if 'capital_starvation' in reasons or 'capital_not_compounding' in reasons:
+        add({'land_target_quadrants': 3, 'land_buffer': 260, 'livestock_cash_buffer': 650, 'crop_mode': 'roi', 'sell_batch': 4, 'target_hands': 10})
+        add({'land_target_quadrants': 3, 'crop_mode': 'demand', 'cow_max': 9, 'sheep_max': 4, 'feed_carry': 8, 'sell_batch': 4, 'target_hands': 9})
     return patches[:max(0, int(limit))]
 
 
@@ -267,6 +308,6 @@ def summary(state):
         'events': int(agro.get('events', 0) or 0),
         'loss_events': int(agro.get('loss_events', 0) or 0),
         'win_events': int(agro.get('win_events', 0) or 0),
-        'dominant_failures': dominant_failures(state, 8),
+        'dominant_failures': dominant_failures(state, 10),
         'strategy_families': dict(agro.get('families', {})),
     }
