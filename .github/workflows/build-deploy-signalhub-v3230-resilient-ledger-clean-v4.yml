@@ -1,0 +1,238 @@
+name: Build Deploy SignalHub V3.23.0 Resilient Ledger Clean V4
+
+on:
+  push:
+    branches: [signalhub-v3230-resilient-ledger-clean]
+    paths:
+      - '.github/workflows/build-deploy-signalhub-v3230-resilient-ledger-clean-v4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+      WS: wss://signalhub-forex.hanlinh227.workers.dev/v3/crypto/stream
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Materialize clean V3.23.0 with provider continuity failover
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/patch_signalhub_v3227_market_only_health_seven.py');s=p.read_text()
+          old="a=block(a,'    private void renderSignals(boolean animate){','    private String performanceSummary(){',render,'renderSignals')"
+          new="a=block(a,'    private void renderSignals(boolean animate){','    private void addCryptoSignalGroup(',render,'renderSignals')"
+          if old in s:s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          python3 scripts/fix_patch_signalhub_v3230_markers.py
+          python3 -m py_compile scripts/patch_signalhub_v3230_resilient_ledger_clean.py scripts/patch_signalhub_v3230_postfix.py scripts/patch_signalhub_v3230_provider_failover.py
+          python3 scripts/patch_signalhub_v3225_realtime_unique_book.py
+          python3 scripts/patch_signalhub_v3225_build_compat.py
+          python3 scripts/patch_signalhub_v3226_balanced_realtime_book.py
+          python3 scripts/patch_signalhub_v3227_market_only_health_seven.py
+          python3 scripts/patch_signalhub_v3227_runtime_fix.py
+          python3 scripts/patch_signalhub_v3230_resilient_ledger_clean.py
+          python3 scripts/patch_signalhub_v3230_postfix.py
+          python3 scripts/patch_signalhub_v3230_provider_failover.py
+          node --check signalhub-worker/gateway-v3.js
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text();a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text();c=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java').read_text();m=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java').read_text();g=Path('signalhub-android/app/build.gradle').read_text()
+          assert 'SIGNALHUB-V3-GATEWAY-3.23.0' in w and 'SIGNALHUB_V3_CHECKPOINT_30_RESILIENT_LEDGER' in w
+          assert w.count('const PORTFOLIO_POLICY=Object.freeze(')==1
+          assert "targetActiveByStyle:{SCALP:5,SWING:2}" in w and "standbyPerStyle:0" in w
+          assert "coverageMode:'CRYPTO_EXACT_10_SCALP_5_SWING_STABLE_LIQUID_UNIVERSE'" not in w
+          assert 'unifiedSignalsasync function' not in w and 'trackV31Signalsasync function' not in w
+          assert 'primary-v3230-resilient-ledger-clean' in w and 'PERMANENT_NO_TTL' in w and 'v323:history:' in w
+          assert 'FRESH_FAILOVER_DISPLAY_ONLY' in w and 'terminalLifecycleAuthority' in w
+          assert "for(const provider of ['BYBIT','OKX','BINANCE'])" in w
+          assert 'APP_VERSION="3.23.0"' in a and 'cryptoStreamSeq' in a and 'crypto_quotes_v323' in a and 'reconcileCryptoLiveNow' in a
+          assert 'SignalHub-Android/3.23.0' in c and 'attempts=4' in c and 'pingInterval(5' in c
+          assert 'SignalHub V3.23.0' in m and 'alert_history_v3230' in m
+          assert 'versionCode 38' in g and "versionName '3.23.0'" in g
+          print('SOURCE CONFLICT + CONTINUITY AUDIT PASS')
+          PY
+
+      - name: Dry run build APK and deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v3230-worker
+          cd signalhub-android
+          gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Verify production identity migrate history Stable100 and exact book
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 45);do
+            curl -fsS --max-time 20 "$BASE/v3/status?v4=$RANDOM-$n" >/tmp/s.json || true
+            curl -fsS --max-time 20 "$BASE/v3/portfolio?v4=$RANDOM-$n" >/tmp/p.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/s.json'));p=(json.load(open('/tmp/p.json')).get('portfolio') or {})
+          except:raise SystemExit(1)
+          assert s.get('ok') is True and s.get('version')=='SIGNALHUB-V3-GATEWAY-3.23.0',s
+          for pol in (((s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}),(p.get('policy') or {})):
+              assert pol.get('maxActiveTotal')==7 and (pol.get('targetActiveByStyle') or {})=={'SCALP':5,'SWING':2},pol
+              assert pol.get('standbyPerStyle')==0 and pol.get('oneActivePerSymbolAcrossStyles') is True,pol
+          PY
+            then ready=1;break;fi
+            sleep 2
+          done
+          test "$ready" = 1
+          curl -fsS --max-time 300 -X POST "$BASE/v3/history/migrate?v4=$RANDOM" >/tmp/m.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/m.json'));assert x.get('ok') is True and x.get('schema')=='V323_RESILIENT_LEDGER_1',x
+          print('PERMANENT HISTORY MIGRATED',x.get('migrated'),x.get('styles'))
+          PY
+          stable=0
+          for n in $(seq 1 6);do
+            curl -fsS --max-time 180 "$BASE/v3/crypto/stable100?v4=$RANDOM-$n" >/tmp/u.json || true
+            if python3 - <<'PY'
+          import json
+          try:x=json.load(open('/tmp/u.json'))
+          except:raise SystemExit(1)
+          r=x.get('rows') or [];assert x.get('ok') is True and len(r)==100 and len({z.get('symbol') for z in r})==100,x
+          PY
+            then stable=1;break;fi
+            sleep 2
+          done
+          test "$stable" = 1
+          exact=0
+          for round in $(seq 1 20);do
+            for style in SWING SCALP;do
+              code=$(curl -sS --max-time 320 -o "/tmp/scan-$style.json" -w '%{http_code}' "$BASE/v3/scan?market=CRYPTO&style=$style&v4=$round-$RANDOM" || true)
+              echo "$style HTTP=$code"
+              if [ "$code" = 200 ];then python3 - "$style" <<'PY'
+          import json,sys
+          x=json.load(open('/tmp/scan-'+sys.argv[1]+'.json'));assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.23.0',x
+          if x.get('status')!='NO_FRESH_CRYPTO_SNAPSHOT':print(sys.argv[1],'evaluated',x.get('evaluated'),'actionable',x.get('actionable'),'created',x.get('created'),'activeAfter',x.get('activeAfter'))
+          PY
+              fi
+            done
+            curl -fsS --max-time 20 "$BASE/v3/portfolio?v4book=$round-$RANDOM" >/tmp/book.json || true
+            if python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/book.json')).get('portfolio') or {});st=p.get('styles') or {};ot=p.get('orderTypes') or {};pol=p.get('policy') or {}
+          assert st.get('SCALP')==5 and st.get('SWING')==2 and p.get('activeTotal')==7 and p.get('uniqueSymbols')==7 and not (p.get('duplicateSymbols') or []),p
+          assert p.get('marketOnly') is True and p.get('exactTarget') is True,p
+          assert pol.get('maxActiveTotal')==7 and (pol.get('targetActiveByStyle') or {})=={'SCALP':5,'SWING':2} and pol.get('standbyPerStyle')==0,pol
+          assert (ot.get('SCALP') or {}).get('MARKET')==5 and (ot.get('SWING') or {}).get('MARKET')==2,ot
+          assert all((ot.get(s) or {}).get(k,0)==0 for s in ('SCALP','SWING') for k in ('LIMIT','STOP')),ot
+          PY
+            then exact=1;break;fi
+            curl -fsS --max-time 20 "$BASE/v3/status?refill=$round-$RANDOM" >/dev/null || true
+            sleep 2
+          done
+          test "$exact" = 1
+
+      - name: Prove seven-signal REST continuity with primary-provider failover
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 30 "$BASE/v3/crypto/monitor?kick=1&v4=$RANDOM" >/dev/null
+          python3 - <<'PY'
+          import json,subprocess,time,datetime,os
+          base=os.environ['BASE'];seq=[];complete=0;fresh7=0
+          for i in range(12):
+              x=json.loads(subprocess.check_output(['curl','-fsS','--max-time','15',f'{base}/v3/crypto/live-active?v4={i}-{time.time_ns()}'],text=True));q=x.get('quotes') or []
+              assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.23.0',x
+              s=int(x.get('seq') or 0);assert s>0,x;seq.append(s)
+              if len(q)==7 and len({z.get('signalId') for z in q})==7 and len({z.get('symbol') for z in q})==7:complete+=1
+              else:print('INCOMPLETE',i,len(q),x.get('errors'))
+              f=0
+              for z in q:
+                  assert float(z.get('lastPrice') or 0)>0 and float(z.get('bid') or 0)>0 and float(z.get('ask') or 0)>0,z
+                  assert z.get('executionPriceAuthority') in ('BYBIT','OKX','BINANCE'),z
+                  assert z.get('provider') in ('BYBIT','OKX','BINANCE'),z
+                  at=z.get('receivedAt');assert at,z;age=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(at.replace('Z','+00:00'))).total_seconds()
+                  if z.get('stale') is True:assert age<31,(age,z)
+                  else:assert -1<=age<8,(age,z);f+=1
+              if len(q)==7 and f==7:fresh7+=1
+              print('REST',i,'seq',s,'count',len(q),'fresh',f,'failover',x.get('failoverCount'),'state',x.get('transportState'));time.sleep(1)
+          assert all(b>=a for a,b in zip(seq,seq[1:])) and len(set(seq))>=4,seq
+          assert complete>=10,complete
+          assert fresh7>=6,fresh7
+          print('SEVEN-SIGNAL REST CONTINUITY PASS')
+          PY
+
+      - name: Prove WebSocket sequence and reconnect continuity
+        run: |
+          set -euo pipefail
+          node - <<'JS'
+          const url=process.env.WS;
+          function collect(n,timeout=25000){return new Promise((resolve,reject)=>{let a=[];const ws=new WebSocket(url),t=setTimeout(()=>{try{ws.close()}catch{};reject(Error('timeout '+JSON.stringify(a)))},timeout);ws.onmessage=e=>{try{const x=JSON.parse(String(e.data));if(x.type!=='crypto_quotes'||!Array.isArray(x.quotes)||x.quotes.length!==7)return;const s=Number(x.seq||0);if(!(s>0)||new Set(x.quotes.map(z=>z.signalId)).size!==7)return;a.push(s);console.log('WS',s,x.transportState,x.failoverCount);if(a.length>=n){clearTimeout(t);ws.close();resolve(a)}}catch{}};ws.onerror=()=>{}})}
+          (async()=>{const a=await collect(4);if(!a.every((x,i)=>i===0||x>a[i-1]))throw Error('first sequence '+a);await new Promise(r=>setTimeout(r,1300));const b=await collect(3);if(b[0]<a.at(-1)||!b.every((x,i)=>i===0||x>b[i-1]))throw Error('reconnect sequence '+a+' => '+b);console.log('WEBSOCKET RECONNECT PASS',a,b)})().catch(e=>{console.error(e);process.exit(1)})
+          JS
+
+      - name: Prove permanent history no shrink Watch integrity and final book
+        run: |
+          set -euo pipefail
+          for st in SCALP SWING;do curl -fsS --max-time 90 "$BASE/v3/performance?market=CRYPTO&style=$st&before=$RANDOM" >"/tmp/b-$st.json";done
+          curl -fsS --max-time 300 -X POST "$BASE/v3/history/migrate?again=$RANDOM" >/tmp/m2.json
+          for st in SCALP SWING;do curl -fsS --max-time 90 "$BASE/v3/performance?market=CRYPTO&style=$st&after=$RANDOM" >"/tmp/a-$st.json";done
+          curl -fsS --max-time 90 "$BASE/v3/stability?v4=$RANDOM" >/tmp/stability.json
+          curl -fsS --max-time 90 "$BASE/v3/data-integrity?v4=$RANDOM" >/tmp/integrity.json
+          curl -fsS --max-time 300 "$BASE/v3/watch/analyze?symbol=BTCUSDT&v4=$RANDOM" >/tmp/watch.json
+          curl -fsS --max-time 30 "$BASE/v3/portfolio?v4final=$RANDOM" >/tmp/final.json
+          python3 - <<'PY'
+          import json
+          h=json.load(open('/tmp/m2.json'));assert h.get('ok') is True and h.get('schema')=='V323_RESILIENT_LEDGER_1',h
+          for st in ('SCALP','SWING'):
+              b=(json.load(open('/tmp/b-'+st+'.json')).get('performance') or {});a=(json.load(open('/tmp/a-'+st+'.json')).get('performance') or {})
+              assert a.get('retentionDays') is None,a
+              for k in ('resolved','tp','sl','winRateResolved','winRateLabel','autoCut','autoCutProfit','autoCutLoss','allResolved','winRateAllResolved','winRateAllLabel','netRResolved','policy'):assert k in a,(st,k,a)
+              assert 'HISTORY_PERMANENT_NO_TTL' in str(a.get('policy')),a
+              assert int(a.get('total') or 0)>=int(b.get('total') or 0) and int(a.get('resolved') or 0)>=int(b.get('resolved') or 0),(st,b,a)
+          s=json.load(open('/tmp/stability.json'));assert s.get('ok') is True,s;t=s.get('tradingEvidence') or {};assert t.get('retentionDays') is None and 'strictWinRateResolved' in t and 'autoCut' in t and 'allExitWinRate' in t,t
+          i=json.load(open('/tmp/integrity.json'));assert i.get('ok') is True and not i.get('problems'),i
+          w=json.load(open('/tmp/watch.json'));assert w.get('ok') is True,w;ab=w.get('activeBook') or {};assert ab.get('targetScalp')==5 and ab.get('targetSwing')==2,ab
+          p=(json.load(open('/tmp/final.json')).get('portfolio') or {});st=p.get('styles') or {};ot=p.get('orderTypes') or {};pol=p.get('policy') or {}
+          assert st.get('SCALP')==5 and st.get('SWING')==2 and p.get('activeTotal')==7 and p.get('uniqueSymbols')==7 and not (p.get('duplicateSymbols') or []),p
+          assert p.get('exactTarget') is True and p.get('marketOnly') is True,p
+          assert pol.get('maxActiveTotal')==7 and (pol.get('targetActiveByStyle') or {})=={'SCALP':5,'SWING':2} and pol.get('standbyPerStyle')==0,pol
+          assert (ot.get('SCALP') or {}).get('MARKET')==5 and (ot.get('SWING') or {}).get('MARKET')==2,ot
+          assert all((ot.get(x) or {}).get(k,0)==0 for x in ('SCALP','SWING') for k in ('LIMIT','STOP')),ot
+          print('HISTORY + WATCH + FINAL BOOK PASS')
+          PY
+
+      - name: Stage verified APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.23.0-Resilient-Ledger-Clean.apk
+          sha256sum dist/SignalHub-v3.23.0-Resilient-Ledger-Clean.apk | tee dist/SignalHub-v3.23.0-Resilient-Ledger-Clean-SHA256SUMS.txt
+          printf '%s\n' '# SignalHub V3.23.0 Resilient Ledger Clean' 'Verified production contract: 5 SCALP + 2 SWING MARKET-only; seven unique symbols; no active LIMIT/STOP; provider-pinned terminal lifecycle plus display continuity failover; WebSocket sequence/reconnect and REST reconciliation; permanent no-TTL history; strict TP/SL WR separate from AUTO_CUT.' > dist/SIGNALHUB_V3_CHECKPOINT_30_V3230_RESILIENT_LEDGER_CLEAN.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.23.0-Resilient-Ledger-Clean
+          path: dist/
+          retention-days: 30
+
+      - name: Publish verified prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=signalhub-v3.23.0-resilient-ledger-clean
+          gh release view "$TAG" >/dev/null 2>&1 && gh release upload "$TAG" dist/* --clobber || gh release create "$TAG" dist/* --target signalhub-v3230-resilient-ledger-clean --prerelease --title 'SignalHub v3.23.0 — Resilient Ledger Clean' --notes 'Production-audited: exact 5 SCALP + 2 SWING MARKET reference signals, no inherited 10/5 runtime conflict, provider continuity failover for display while terminal lifecycle remains provider-pinned, reconnecting WS + REST reconciliation, permanent history. AUTO_CUT retires the SignalHub signal only.'
