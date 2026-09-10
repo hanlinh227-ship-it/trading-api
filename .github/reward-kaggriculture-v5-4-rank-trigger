@@ -1,2 +1,2 @@
-run=v5.4-rank-livestock-001
-reason=compare-3q-vs-4q-fertilizer-cashflow-and-roi-herd
+run=v5.4-rank-livestock-002
+reason=adaptive-win-loss-learning-single-writer-conflict-safe
