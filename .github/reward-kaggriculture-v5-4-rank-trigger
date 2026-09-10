@@ -1,2 +1,2 @@
-run=v5.4-rank-livestock-002
-reason=adaptive-win-loss-learning-single-writer-conflict-safe
+run=v5.4-rank-livestock-003
+reason=continuous-self-play-chain-enabled-after-current-round
