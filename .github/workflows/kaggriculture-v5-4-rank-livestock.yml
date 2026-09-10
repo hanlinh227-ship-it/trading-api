@@ -1,0 +1,111 @@
+name: Kaggriculture V5.4 - Rank Livestock Challenger
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidates:
+        description: Profit-first challenger count (8-64)
+        required: true
+        default: '24'
+  push:
+    branches:
+      - research/kaggriculture-v5-4-rank-livestock
+    paths:
+      - .github/reward-kaggriculture-v5-4-rank-trigger
+  pull_request:
+    paths:
+      - 'reward-hunter/kaggriculture-v3/**'
+      - '.github/workflows/kaggriculture-v5-4-rank-livestock.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kaggriculture-v5-4-rank-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install current official simulator
+        run: |
+          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          python -m pip install --no-deps 'kaggle-environments==1.32.7'
+      - name: Compile and rank-livestock contracts
+        run: |
+          python -m compileall -q reward-hunter/kaggriculture-v3
+          python -m unittest discover -s reward-hunter/kaggriculture-v3/tests -v
+      - name: Self-contained package gate
+        run: |
+          mkdir -p /tmp/v54
+          python reward-hunter/kaggriculture-v3/package_submission.py --output /tmp/v54/main.py | tee /tmp/v54/package.json
+          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v54/main.py | tee /tmp/v54/raw.json
+      - name: Rank-livestock smoke both seats
+        run: |
+          python reward-hunter/kaggriculture-v3/run_v5_eval.py \
+            --seeds 917,929 --families starter,incumbent,early_sell,expansion \
+            --steps 360 --workers 4 --output /tmp/v54/smoke.json
+          python - <<'PY'
+          import json
+          m=json.load(open('/tmp/v54/smoke.json'))['metrics']
+          assert m['valid_games']==m['games'],m
+          assert m['noop_rate']==0,m
+          print('V5.4_SMOKE_PASS',json.dumps(m,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaggriculture-v5-4-validation-${{ github.run_id }}
+          path: /tmp/v54/
+          retention-days: 30
+
+  research:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install current official simulator
+        run: |
+          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          python -m pip install --no-deps 'kaggle-environments==1.32.7'
+      - name: Profit-first livestock challenger league
+        env:
+          CANDIDATES: ${{ github.event.inputs.candidates || '24' }}
+        run: |
+          OUT=/tmp/kaggriculture-v54-${{ github.run_id }}
+          python reward-hunter/kaggriculture-v3/search_rank.py \
+            --output "$OUT" --candidates "$CANDIDATES" --workers 0 --study-seed ${{ github.run_id }}
+          python - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('/tmp/kaggriculture-v54-${{ github.run_id }}/search.json')
+          r=json.loads(p.read_text())
+          print('PROMOTION',r['promotion']['pass_gate'])
+          print('REASONS',json.dumps(r['promotion']['reasons'],sort_keys=True))
+          print('BEST',json.dumps(r['best_params'],sort_keys=True))
+          print('DUEL',json.dumps(r['duel'],sort_keys=True))
+          print('HOLDOUT',json.dumps(r['holdout'],sort_keys=True))
+          print('FINAL',json.dumps(r['final'],sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaggriculture-v5-4-rank-research-${{ github.run_id }}
+          path: /tmp/kaggriculture-v54-${{ github.run_id }}/
+          if-no-files-found: warn
+          retention-days: 30
