@@ -1,0 +1,106 @@
+name: Kaggriculture V5 - Public Meta Intelligence
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_adaptive_search:
+        description: Run a full local V5 search after replay analysis
+        required: true
+        type: boolean
+        default: false
+  schedule:
+    - cron: '17 */6 * * *'
+    - cron: '43 2 * * *'
+  push:
+    branches:
+      - codex/kaggriculture-v5-mixed-farm-economy
+    paths:
+      - .github/reward-kaggriculture-v5-meta-trigger
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reward-kaggriculture-v5-public-meta
+  cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  analyze-public-meta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Kaggle CLI
+        run: python -m pip install 'kaggle>=1.7,<2'
+      - name: Download public scheduled top-replay archive
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          mkdir -p /tmp/v5-public-replays /tmp/v5-meta
+          kaggle kernels output ashok205/top10-replay-dataset-archive -p /tmp/v5-public-replays
+          find /tmp/v5-public-replays -type f -maxdepth 3 -printf '%P\n' | sort | head -200
+      - name: Analyze public episodes offline
+        run: |
+          python reward-hunter/kaggriculture-v3/meta/replay_intelligence.py \
+            --input /tmp/v5-public-replays \
+            --output /tmp/v5-meta/meta-report.json
+          python - <<'PY'
+          import json
+          r=json.load(open('/tmp/v5-meta/meta-report.json'))
+          print(json.dumps(r['summary'],indent=2,sort_keys=True))
+          if r['summary']['records'] == 0:
+              raise SystemExit('No public replay records parsed; fail instead of learning from empty input')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaggriculture-v5-public-meta-${{ github.run_id }}
+          path: /tmp/v5-meta/meta-report.json
+          retention-days: 30
+
+  adaptive-local-search:
+    needs: analyze-public-meta
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_adaptive_search) || github.event.schedule == '43 2 * * *' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: kaggriculture-v5-public-meta-${{ github.run_id }}
+          path: /tmp/v5-meta
+      - name: Install current official simulator
+        run: |
+          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          python -m pip install --no-deps 'kaggle-environments==1.32.7'
+      - name: Fresh-meta adaptive local research
+        run: |
+          OUT=/tmp/kaggriculture-v5-adaptive-${{ github.run_id }}
+          python reward-hunter/kaggriculture-v3/search_v5.py \
+            --output "$OUT" \
+            --candidates 20 \
+            --workers 0 \
+            --study-seed ${{ github.run_id }} \
+            --meta-prior /tmp/v5-meta/meta-report.json
+          python - <<'PY'
+          import json
+          r=json.load(open('/tmp/kaggriculture-v5-adaptive-${{ github.run_id }}/search.json'))
+          print('PROMOTION',r['promotion']['pass_gate'])
+          print('REASONS',r['promotion']['reasons'])
+          print('META_PRIOR',json.dumps(r['public_meta_prior'],sort_keys=True))
+          print('BEST',json.dumps(r['best_params'],sort_keys=True))
+          print('FINAL',json.dumps(r['final'],sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaggriculture-v5-adaptive-research-${{ github.run_id }}
+          path: /tmp/kaggriculture-v5-adaptive-${{ github.run_id }}/
+          retention-days: 30
