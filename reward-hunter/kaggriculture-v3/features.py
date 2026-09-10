@@ -26,7 +26,6 @@ def _count_kind(tiles, predicate):
 
 def canonical_step(obs, cfg):
     turns = int(cfg.get('turnsPerDay', 24) or 24)
-    # day/hour are synchronized to both players by the environment interpreter.
     return int(obs.get('day', 0) or 0) * turns + int(obs.get('hour', 0) or 0)
 
 
@@ -34,6 +33,10 @@ def features(obs, cfg):
     me, opp = obs['farms'][obs['player']], obs['farms'][1 - obs['player']]
     day, hour = int(obs['day']), int(obs['hour'])
     step = canonical_step(obs, cfg)
+    # Compatibility shim for downstream V3/V4 routing helpers that still read obs['step'].
+    # This fixes the seat-1 omission without making the policy depend on the buggy field.
+    if obs.get('step') is None:
+        obs['step'] = step
     tiles = me['tiles']
     plants = [t for row in tiles for t in row if isinstance(t, dict) and t.get('kind') == 'PLANT']
     weeds = [t for row in tiles for t in row if isinstance(t, dict) and t.get('kind') == 'WEED']
