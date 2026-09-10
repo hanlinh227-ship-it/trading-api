@@ -6,6 +6,10 @@ promotion. Exact rejected strategies are remembered and are not generated again.
 bad parameter values receive an increasing search penalty while still allowing new combinations
 to be explored when the evidence is not yet conclusive.
 
+V5.6 also remembers the *investment pattern* behind a failure. Two independently rejected
+configurations with the same capital-allocation pattern make that pattern taboo, so the search
+cannot keep replaying the same losing farm plan with only cosmetic routing changes.
+
 All evidence comes from our own local current-engine evaluations. No hidden Kaggle state is
 read or inferred here.
 """
@@ -18,8 +22,32 @@ import math
 from learning_rank import round_score
 
 MAX_FAILURES = 192
+MAX_FAILURE_PATTERNS = 96
 MAX_FAILURE_REASONS = 48
 MAX_CHAMPIONS = 8
+PATTERN_TABOO_AFTER = 2
+
+# These fields describe the economic/investment thesis rather than incidental pathing details.
+# If the same thesis loses independently twice, later candidates must change at least one of
+# these dimensions instead of merely changing distance/priority micro-parameters.
+INVESTMENT_PATTERN_KEYS = (
+    "crop_mode",
+    "expansion_mode",
+    "land_target_quadrants",
+    "land_buffer",
+    "target_hands",
+    "herd_mode",
+    "cow_max",
+    "sheep_max",
+    "goose_max",
+    "livestock_start_day",
+    "livestock_cash_buffer",
+    "animal_roi_floor",
+    "fertilizer_mode",
+    "fertilizer_reserve",
+    "sell_batch",
+    "seed_scale",
+)
 
 
 def _bucket(value):
@@ -29,6 +57,15 @@ def _bucket(value):
 def signature(params):
     payload = json.dumps(params, sort_keys=True, separators=(",", ":"), allow_nan=False)
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def investment_pattern(params):
+    """Return a stable economic fingerprint that ignores cosmetic execution parameters."""
+    return {key: params.get(key) for key in INVESTMENT_PATTERN_KEYS if key in params}
+
+
+def investment_pattern_signature(params):
+    return signature(investment_pattern(params))
 
 
 def _metric(metrics, key, default=0.0):
@@ -56,10 +93,13 @@ def _ensure(state):
     failures = state.setdefault("failure_memory", {})
     failures.setdefault("total", 0)
     failures.setdefault("exact", {})
+    failures.setdefault("patterns", {})
     failures.setdefault("values", {})
     failures.setdefault("reasons", {})
     if not isinstance(failures.get("exact"), dict):
         failures["exact"] = {}
+    if not isinstance(failures.get("patterns"), dict):
+        failures["patterns"] = {}
     if not isinstance(failures.get("values"), dict):
         failures["values"] = {}
     if not isinstance(failures.get("reasons"), dict):
@@ -76,22 +116,30 @@ def accepted_params(state):
 
 def is_taboo(state, params):
     state = _ensure(state)
-    item = state["failure_memory"]["exact"].get(signature(params))
-    return bool(isinstance(item, dict) and int(item.get("count", 0) or 0) > 0)
+    sig = signature(params)
+    accepted = state["monotonic"].get("accepted")
+    # The current champion is always legal to retain as the fallback high-water mark.
+    if isinstance(accepted, dict) and accepted.get("signature") == sig:
+        return False
+    exact = state["failure_memory"]["exact"].get(sig)
+    if isinstance(exact, dict) and int(exact.get("count", 0) or 0) > 0:
+        return True
+    pattern = state["failure_memory"]["patterns"].get(investment_pattern_signature(params))
+    return bool(isinstance(pattern, dict) and int(pattern.get("count", 0) or 0) >= PATTERN_TABOO_AFTER)
 
 
 def failure_penalty(state, params):
-    """Return a bounded penalty from repeated losing value patterns.
-
-    One failed configuration is enough to block that exact configuration, but a single failure
-    does not poison each individual parameter value. Value penalties begin after two independent
-    failed configurations contain the same value.
-    """
+    """Return a bounded penalty from repeatedly losing values and investment patterns."""
     state = _ensure(state)
     if is_taboo(state, params):
         return 999.0
-    values = state["failure_memory"].get("values", {})
     active = []
+    pattern = state["failure_memory"].get("patterns", {}).get(investment_pattern_signature(params), {})
+    pcount = int((pattern or {}).get("count", 0) or 0)
+    if pcount:
+        # First failure is a warning; the second makes the whole thesis taboo via is_taboo().
+        active.append(min(3.5, 1.5 * pcount))
+    values = state["failure_memory"].get("values", {})
     for key, value in params.items():
         if isinstance(value, dict):
             continue
@@ -191,6 +239,24 @@ def _remember_failure(state, params, decision, label):
     merged = list(item.get("reasons", [])) + list(decision.get("reasons", []))
     item["reasons"] = list(dict.fromkeys(map(str, merged)))[-MAX_FAILURE_REASONS:]
 
+    psig = investment_pattern_signature(params)
+    pattern = failures["patterns"].setdefault(psig, {
+        "count": 0,
+        "pattern": investment_pattern(params),
+        "first_label": str(label),
+        "last_label": str(label),
+        "examples": [],
+        "reasons": [],
+    })
+    pattern["count"] = int(pattern.get("count", 0) or 0) + 1
+    pattern["last_label"] = str(label)
+    pattern["last_money"] = item["last_money"]
+    pattern["worst_money_gap"] = min(float(pattern.get("worst_money_gap", 0.0) or 0.0), item["money_gap"])
+    examples = list(pattern.get("examples", [])) + [sig]
+    pattern["examples"] = list(dict.fromkeys(examples))[-6:]
+    pattern_reasons = list(pattern.get("reasons", [])) + list(decision.get("reasons", []))
+    pattern["reasons"] = list(dict.fromkeys(map(str, pattern_reasons)))[-MAX_FAILURE_REASONS:]
+
     failures["total"] = int(failures.get("total", 0) or 0) + 1
     for reason in decision.get("reasons", []):
         failures["reasons"][str(reason)] = int(failures["reasons"].get(str(reason), 0) or 0) + 1
@@ -201,7 +267,7 @@ def _remember_failure(state, params, decision, label):
         stat = table.setdefault(_bucket(value), {"count": 0})
         stat["count"] = int(stat.get("count", 0) or 0) + 1
 
-    # Keep bounded history while preserving the most frequently/recently failed exact strategies.
+    # Keep bounded history while preserving the most frequently/recently failed strategies.
     if len(failures["exact"]) > MAX_FAILURES:
         ordered = sorted(
             failures["exact"].items(),
@@ -209,6 +275,13 @@ def _remember_failure(state, params, decision, label):
             reverse=True,
         )
         failures["exact"] = dict(ordered[:MAX_FAILURES])
+    if len(failures["patterns"]) > MAX_FAILURE_PATTERNS:
+        ordered = sorted(
+            failures["patterns"].items(),
+            key=lambda kv: (int((kv[1] or {}).get("count", 0) or 0), str((kv[1] or {}).get("last_label", ""))),
+            reverse=True,
+        )
+        failures["patterns"] = dict(ordered[:MAX_FAILURE_PATTERNS])
     return state
 
 
@@ -336,6 +409,7 @@ def record_monotonic_round(state, params, duel, holdout, final, promotion, decis
 def summary(state):
     state = _ensure(state)
     accepted = state["monotonic"].get("accepted")
+    patterns = state["failure_memory"].get("patterns", {})
     return {
         "accepted_signature": accepted.get("signature") if isinstance(accepted, dict) else None,
         "accepted_count": int(state["monotonic"].get("accepted_count", 0) or 0),
@@ -344,6 +418,7 @@ def summary(state):
         "money_high_water": state["monotonic"].get("money_high_water"),
         "failure_total": int(state["failure_memory"].get("total", 0) or 0),
         "taboo_exact_count": len(state["failure_memory"].get("exact", {})),
+        "taboo_pattern_count": sum(1 for x in patterns.values() if int((x or {}).get("count", 0) or 0) >= PATTERN_TABOO_AFTER),
         "top_failure_reasons": sorted(
             state["failure_memory"].get("reasons", {}).items(),
             key=lambda kv: (int(kv[1]), kv[0]), reverse=True,
