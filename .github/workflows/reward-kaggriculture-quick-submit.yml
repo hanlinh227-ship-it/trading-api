@@ -1,0 +1,53 @@
+name: Reward Solver - Kaggriculture Quick Submit
+
+on:
+  push:
+    branches:
+      - reward-solver-kaggriculture-quick-submit
+    paths:
+      - '.github/reward-kaggriculture-quick-submit-trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reward-kaggriculture-quick-submit
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reward-solver-kaggriculture-quick-submit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Guard secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${KAGGLE_API_TOKEN:-}" || { echo 'KAGGLE_API_TOKEN is not configured'; exit 20; }
+      - name: Install Kaggle CLI
+        run: python -m pip install -U pip kaggle
+      - name: Package already-validated V1 champion
+        run: python reward-hunter/kaggriculture/package_submission.py
+      - name: Submit immediately to Kaggle
+        shell: bash
+        run: |
+          set -euo pipefail
+          kaggle competitions submit \
+            -c kaggriculture \
+            -f reward-hunter/kaggriculture/dist/submission.tar.gz \
+            -m 'Reward Solver V1 validated quick submit'
+      - name: Confirm submission appears
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 5
+          kaggle competitions submissions -c kaggriculture | head -n 12
