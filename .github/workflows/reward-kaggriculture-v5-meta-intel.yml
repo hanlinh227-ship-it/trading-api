@@ -11,11 +11,11 @@ on:
       candidates:
         description: Manual challenger count (4-64)
         required: true
-        default: '20'
+        default: '12'
   schedule:
-    # Fast public-meta scan + challenger league every 6 hours.
+    # Fast public-meta refresh every 6 hours; avoids overlapping hour-long full leagues.
     - cron: '17 */6 * * *'
-    # One deeper daily league; GitHub schedules execute only from the default branch.
+    # One deeper daily league; schedules execute from the default branch only.
     - cron: '43 2 * * *'
   push:
     branches:
@@ -28,7 +28,7 @@ permissions:
 
 concurrency:
   group: reward-kaggriculture-v5-public-meta
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   OMP_NUM_THREADS: '1'
@@ -38,7 +38,7 @@ env:
 jobs:
   analyze-public-meta:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -52,7 +52,7 @@ jobs:
           KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/v5-public-replays /tmp/v5-meta
+          mkdir -p /tmp/v5-public-replays /tmp/v5-meta /tmp/v5-replay-sample
           for attempt in 1 2 3; do
             if kaggle kernels output ashok205/top10-replay-dataset-archive -p /tmp/v5-public-replays; then
               break
@@ -63,16 +63,31 @@ jobs:
             fi
             sleep $((attempt * 20))
           done
-          find /tmp/v5-public-replays -type f -maxdepth 4 -printf '%P\n' | sort | head -250
-      - name: Analyze JSON and Parquet public episodes offline
+          mapfile -t RECENT < <(find /tmp/v5-public-replays -type f -name 'replays_*.parquet' | sort -r | head -2)
+          if [ "${#RECENT[@]}" -eq 0 ]; then
+            echo 'No dated public replay parquet files found' >&2
+            exit 1
+          fi
+          for f in "${RECENT[@]}"; do cp "$f" /tmp/v5-replay-sample/; done
+          printf 'Selected recent replay files:\n'
+          find /tmp/v5-replay-sample -type f -printf '%f\n' | sort -r
+          printf '{"selected_files":[' > /tmp/v5-meta/preflight.json
+          first=1
+          for f in /tmp/v5-replay-sample/*.parquet; do
+            [ $first -eq 1 ] || printf ',' >> /tmp/v5-meta/preflight.json
+            printf '"%s"' "$(basename "$f")" >> /tmp/v5-meta/preflight.json
+            first=0
+          done
+          printf ']}\n' >> /tmp/v5-meta/preflight.json
+      - name: Analyze bounded recent Parquet episodes offline
         run: |
           set -euo pipefail
-          python reward-hunter/kaggriculture-v3/meta/replay_intelligence.py \
-            --input /tmp/v5-public-replays \
+          timeout 10m python reward-hunter/kaggriculture-v3/meta/replay_intelligence.py \
+            --input /tmp/v5-replay-sample \
             --output /tmp/v5-meta/meta-report.json \
-            --max-parquet-files 12 \
-            --max-rows-per-file 2500 \
-            --max-records 5000
+            --max-parquet-files 2 \
+            --max-rows-per-file 80 \
+            --max-records 160
           python - <<'PY'
           import json
           r=json.load(open('/tmp/v5-meta/meta-report.json'))
@@ -98,7 +113,7 @@ jobs:
     needs: analyze-public-meta
     if: ${{ success() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_adaptive_search) || github.event_name == 'push') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 110
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -115,14 +130,14 @@ jobs:
       - name: Fresh-meta cyclic challenger league
         env:
           SCHEDULE_KIND: ${{ github.event.schedule }}
-          MANUAL_CANDIDATES: ${{ github.event.inputs.candidates || '20' }}
+          MANUAL_CANDIDATES: ${{ github.event.inputs.candidates || '12' }}
         run: |
           set -euo pipefail
           if [ "$SCHEDULE_KIND" = '43 2 * * *' ]; then
-            CANDIDATES=24
+            CANDIDATES=20
             MODE=daily-deep
           elif [ "$SCHEDULE_KIND" = '17 */6 * * *' ]; then
-            CANDIDATES=12
+            CANDIDATES=8
             MODE=six-hour-fast
           else
             CANDIDATES="$MANUAL_CANDIDATES"
