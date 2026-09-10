@@ -1,0 +1,91 @@
+name: Deploy and Control Bitcoin Puzzle 71 Solver
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - bitcoin-puzzle71/control.txt
+      - bitcoin-puzzle71/install_and_start.sh
+      - bitcoin-puzzle71/status.sh
+      - .github/workflows/deploy-bitcoin-puzzle71.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bitcoin-puzzle71-vps
+  cancel-in-progress: false
+
+jobs:
+  control:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply command on bounded public puzzle solver
+        shell: bash
+        run: |
+          set -euo pipefail
+          CMD="$(tr -d '[:space:]' < bitcoin-puzzle71/control.txt | tr '[:upper:]' '[:lower:]')"
+          rootrun() {
+            if [[ "$(id -u)" -eq 0 ]]; then
+              "$@"
+            else
+              sudo -n "$@"
+            fi
+          }
+
+          case "$CMD" in
+            start)
+              rootrun bash bitcoin-puzzle71/install_and_start.sh
+              ;;
+            restart)
+              if rootrun systemctl cat bitcoin-puzzle71.service >/dev/null 2>&1; then
+                rootrun systemctl restart bitcoin-puzzle71.service
+              else
+                rootrun bash bitcoin-puzzle71/install_and_start.sh
+              fi
+              ;;
+            stop)
+              rootrun systemctl stop bitcoin-puzzle71.service || true
+              ;;
+            status)
+              true
+              ;;
+            *)
+              echo "Unsupported control command: $CMD" >&2
+              exit 2
+              ;;
+          esac
+
+      - name: Collect sanitized runtime status
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$(id -u)" -eq 0 ]]; then
+            bash bitcoin-puzzle71/status.sh > /tmp/puzzle71-runtime-status.txt
+          else
+            sudo -n bash bitcoin-puzzle71/status.sh > /tmp/puzzle71-runtime-status.txt
+          fi
+          cat /tmp/puzzle71-runtime-status.txt
+          cp /tmp/puzzle71-runtime-status.txt bitcoin-puzzle71/runtime-status.txt
+
+      - name: Publish sanitized status only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add bitcoin-puzzle71/runtime-status.txt
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Update Puzzle 71 sanitized runtime status"
+          git pull --rebase origin main
+          git push origin HEAD:main
