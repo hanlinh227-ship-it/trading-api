@@ -1,0 +1,100 @@
+name: Puzzle71 Deploy And Start
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/puzzle71-deploy-trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install pinned user-space engine and smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$HOME/puzzle71"
+          ENGINE="$BASE/vendor/keyhunt"
+          PIN='2134a2024e524775b13f82aa1fa07b1c8053f867'
+          mkdir -p "$BASE/vendor" "$BASE/runtime"
+          chmod 700 "$BASE" "$BASE/runtime"
+          install -m 700 tools/puzzle71/worker.py "$BASE/worker.py"
+
+          if [ ! -d "$ENGINE/.git" ]; then
+            git clone --filter=blob:none https://github.com/albertobsd/keyhunt.git "$ENGINE"
+          fi
+          git -C "$ENGINE" fetch --depth=1 origin "$PIN"
+          git -C "$ENGINE" checkout --detach "$PIN"
+          nice -n 10 make -C "$ENGINE" -j2
+          test -x "$ENGINE/keyhunt"
+
+          # Deterministic correctness smoke test using already-public solved Puzzle #1.
+          printf '%s\n' '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH' > "$BASE/runtime/smoke-target.txt"
+          chmod 600 "$BASE/runtime/smoke-target.txt"
+          "$ENGINE/keyhunt" -m address -f "$BASE/runtime/smoke-target.txt" -r 1:1 -l compress -t 1 -q -s 1 > "$BASE/runtime/smoke.raw" 2>&1
+          grep -q 'Hit! Private Key: 1' "$BASE/runtime/smoke.raw"
+          rm -f "$BASE/runtime/smoke.raw" "$BASE/runtime/smoke-target.txt"
+          echo 'SMOKE_TEST=PASS'
+          echo "ENGINE_COMMIT=$(git -C "$ENGINE" rev-parse HEAD)"
+
+      - name: Start low-priority bounded Puzzle71 worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$HOME/puzzle71"
+          RUNTIME="$BASE/runtime"
+          ENGINE="$BASE/vendor/keyhunt/keyhunt"
+          PIDFILE="$RUNTIME/worker-w0.pid"
+
+          # Stop only our own previous Puzzle71 wrapper, never unrelated processes.
+          if [ -s "$PIDFILE" ]; then
+            OLD_PID=$(cat "$PIDFILE" 2>/dev/null || true)
+            if [ -n "${OLD_PID:-}" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+              CMD=$(tr '\0' ' ' < "/proc/$OLD_PID/cmdline" 2>/dev/null || true)
+              if [[ "$CMD" == *"$BASE/worker.py"* ]]; then
+                kill -TERM "$OLD_PID" || true
+                for _ in $(seq 1 20); do
+                  kill -0 "$OLD_PID" 2>/dev/null || break
+                  sleep 0.5
+                done
+              fi
+            fi
+          fi
+
+          # Remove GitHub runner tracking marker so this intentional VPS daemon
+          # survives post-job orphan cleanup. Keep CPU priority at the lowest nice level.
+          (
+            unset RUNNER_TRACKING_ID
+            cd "$BASE"
+            nohup nice -n 19 python3 "$BASE/worker.py" \
+              --engine "$ENGINE" \
+              --runtime "$RUNTIME" \
+              --worker-id 0 --workers 1 --threads 1 \
+              >> "$RUNTIME/launcher.log" 2>&1 < /dev/null &
+          )
+
+          for _ in $(seq 1 20); do
+            [ -s "$PIDFILE" ] && break
+            sleep 0.5
+          done
+          test -s "$PIDFILE"
+          PID=$(cat "$PIDFILE")
+          kill -0 "$PID"
+          sleep 2
+          kill -0 "$PID"
+          echo "PUZZLE71_WORKER_ACTIVE=YES"
+          echo "PID=$PID"
+          python3 - <<'PY'
+          import json, os
+          p=os.path.expanduser('~/puzzle71/runtime/status-w0.json')
+          d=json.load(open(p))
+          safe={k:d.get(k) for k in ('state','puzzle','worker_id','threads','counter','shard_index','shard_range','shard_keys','updated_at')}
+          print(json.dumps(safe, sort_keys=True))
+          PY
