@@ -1,6 +1,6 @@
 # KAGGRICULTURE REWARD SOLVER CHECKPOINT
 
-Updated: 2026-09-10 23:50 +07
+Updated: 2026-09-11 00:03 +07
 
 ## Project
 - Repository: `hanlinh227-ship-it/trading-api`
@@ -31,69 +31,105 @@ Updated: 2026-09-10 23:50 +07
 - Main V5.3 workflow itself does **not** auto-submit to Kaggle.
 - It remains useful as a broad meta-intelligence lane while the profit-first rank lane evolves independently.
 
-## ACTIVE RANK LANE — PR #219 / V5.5 CONTINUOUS POTENTIAL
-- PR #219: `[KAGGLE-V5.5] Continuous Potential Rank Engine`.
+## ACTIVE RANK LANE — PR #219 / V5.6 MONOTONIC CAPITAL LEARNING
+- PR #219 title: `[KAGGLE-V5.6] Monotonic Capital Learning Rank Engine`.
 - Head branch: `research/kaggriculture-v5-4-rank-livestock`.
-- PR is **open + draft + mergeable**. Do not merge until a full current-engine research round is reviewed.
-- Latest feature trigger commit: `473c546ab52d296962b0dd6e42377f3c25a3314e`.
-- Validation run `34503967537`: SUCCESS. Compile/regression continuous-potential contracts, self-contained package gate and both-seat rank-livestock smoke all passed.
-- Push research run `34503963040`: validation SUCCESS; research job `102961627629` was **PENDING** at last check because the non-cancelling single-writer research queue serializes learning. Pending here is intentional and is not a merge conflict.
+- PR is **open + draft + mergeable**. Keep draft until at least one full V5.6 current-engine research round is reviewed.
+- Dedicated checkpoint on branch: `CHECKPOINTS/KAGGRICULTURE_V5_6_MONOTONIC_CAPITAL.md`.
+- Latest V5.6 research trigger commit: `1e743d4095c59087f063ffba18cb32c5329b6295`.
 
-### V5.5 continuous-potential architecture
-The loop is now:
-`match telemetry -> win/loss/tie/invalid learning -> opponent-family weakness model -> persistent elite archive -> stagnation/regression detector -> adaptive search budget -> challenger league -> duel/holdout/final -> strict promotion -> next adaptive round`.
+### V5.6 objective
+The new requirement is not merely to run forever. Failed investment configurations must produce permanent learning, the accepted strategy must not move backward, and the next search must use the failure to look elsewhere.
 
-Learning state remains outside the Git worktree, cached between rounds and atomically replaced. One concurrency group, `kaggriculture-v54-learning-single-writer`, is the only learning-state writer at a time with `cancel-in-progress:false`.
+Important interpretation: stochastic exploratory matches can still score lower. It is impossible to guarantee every random match earns more. The enforceable guarantee is at the **accepted research champion / promotion level**: a worse challenger cannot replace the accepted champion and cannot reach Kaggle live promotion.
 
-New V5.5 learning features:
-- global and opponent-family-conditioned parameter evidence;
-- `weak_families()` identifies the currently weakest opponent families and focuses part of candidate selection on them;
-- persistent champion archive keeps up to 8 strong parameter lineages so one noisy round cannot erase a useful strategy;
-- bounded round history tracks progress, regression and stagnation;
-- adaptive search controller changes candidate count, exploration and mutation depth instead of staying fixed forever;
-- normal exploitation uses the base budget; regression recovery raises breadth; stagnation >=2 expands to >=40 candidates and deeper mutation; stagnation >=4 expands to >=56; every fifth round forces a periodic deep search of >=48 candidates;
-- all candidate budgets remain hard-bounded to 8..64;
-- round potential score guides exploration only and **never replaces strict promotion gates**.
+### V5.6 monotonic loop
+`explore -> evaluate -> learn every win/loss -> fixed capital regression panel -> compare with accepted champion -> accept only non-regressing capital improvement -> remember rejected strategy -> penalize repeated losing values -> widen/deepen recovery search -> strict promotion -> next round`.
 
-Key implementation commits:
-- `ea85581abd8dfb6453eb419fd5c343d51fe38ee8` — family-conditioned learning, champion archive, stagnation/regression controller.
-- `d413cb2db24bb64d373546ddad39c900196ce6cc` — challenger search driven by adaptive potential state.
-- `3c345e82f4eecc838d7fc84a7f18afaa47c63fef` — migration/family/stagnation/deep-round regression contracts.
-- `63f653774a36313c9fdf80303d659c1d57b9dd2f` — workflow uses adaptive next-round budget and allows deeper rounds up to 300 minutes.
-- `473c546ab52d296962b0dd6e42377f3c25a3314e` — starts first V5.5 continuous-potential research cycle.
+### Stable capital regression panel
+- fixed seeds: `7319`, `29077`;
+- all local opponent families in `SUITE`;
+- both seats;
+- full 720-step horizon;
+- candidate train/duel/holdout/final seeds are sampled from `>=100000`, so the fixed panel is separate from candidate selection.
 
-### Strict live-promotion guard
-The rank workflow may submit a **new** candidate to Kaggle only when all of these are true:
-1. strict `promotion.pass_gate` is true;
-2. exact candidate sha differs from the last live candidate;
-3. at least 6 hours have elapsed since the previous guarded live submission;
-4. the candidate description/hash is not already present in Kaggle submissions;
-5. Kaggle credential exists only through the Actions secret.
+A different challenger can replace the accepted research champion only if it increases paired money by at least `max(1 simulator money unit, 0.1%)` and does not regress paired money, mean margin, win rate, worst-margin tail, catastrophic rate, terminal unsold inventory or no-op rate.
 
-If any condition fails, submission is skipped/deferred and the current live agents remain unchanged. This is controlled promotion, not submission spam or rating rerolling.
+The fixed panel is a regression/high-water check, not the sole promotion evidence. Unseen holdout/final and the existing strict rank gate remain mandatory to reduce fixed-panel overfitting.
 
-## V5.4 source fixes retained in V5.5
+### Persistent failure memory
+New module: `reward-hunter/kaggriculture-v3/monotonic_rank.py`.
+
+Persistent learning state now keeps:
+- accepted research champion + signature;
+- money high-water;
+- accepted/rejected/kept counters;
+- exact rejected strategy signatures;
+- failure reasons;
+- repeated losing parameter-value counts.
+
+Rules:
+- exact rejected configurations become taboo and are not generated again;
+- one failure does not poison every component value;
+- repeated parameter values across independently rejected configurations accumulate bounded search penalties;
+- rejected candidates are not put into the champion archive;
+- accepted champion remains the first parent in later searches;
+- failed configurations still contribute negative telemetry to family-conditioned learning.
+
+### Adaptive recovery remains active
+The V5.5 continuous-potential controller is retained and now reacts to monotonic failure:
+- ordinary exploit: requested base budget;
+- regression recovery: at least 32 candidates, higher exploration, deeper mutation;
+- stagnation >=2: at least 40 candidates, mutation depth >=3;
+- stagnation >=4: at least 56 candidates, mutation depth 4;
+- every fifth round: periodic deep search at least 48 candidates;
+- hard candidate bound remains 8..64.
+
+Thus a failed round is not repeated unchanged: it adds negative memory and increases the effort to find a different, stronger replacement.
+
+### V5.6 implementation commits
+- `c89bfb839c371e05e0b689db4edd4890f08d4fa6` — monotonic capital/failure-memory module.
+- `a9f6cd22aab7b981097479a500a27ecd17885c29` — search integration, taboo filtering and failure penalties.
+- `67b1e21402930a6094591eed0972f4149dd6baac` — monotonic regression tests.
+- `14ab8defb536ab557b1ec5fab4c8ed7e00b428d5` — fixed stable capital regression panel.
+- `29cc966931347eabb32a44ab952aa4885a813046` — V5.6 workflow + fail-closed promotion consistency assertions.
+- `1e743d4095c59087f063ffba18cb32c5329b6295` — starts first V5.6 push research cycle.
+
+### Validation / live research queue
+- V5.6 PR validation run `34505564513`: **SUCCESS**. Compile/regression/monotonic-capital tests PASS, self-contained package PASS, both-seat smoke PASS.
+- V5.6 push run `34505728525`: validation **SUCCESS**; research job `102967528116` was **PENDING** at last check because the non-cancelling single-writer queue is still occupied by the earlier V5.5 research run.
+- Earlier V5.5 push research run `34503963040`: research job `102961627629` was still **IN PROGRESS** at last check. Its learning output is useful and the V5.6 run will start after the single-writer slot is released.
+- Do not call V5.6 locally superior until `MONOTONIC`, `CAPITAL_REGRESSION`, duel/holdout/final and promotion outputs from a completed V5.6 research run are inspected.
+
+### Fail-closed live promotion
+A V5.6 candidate may reach guarded Kaggle submission only when BOTH are true:
+1. existing strict current-engine rank promotion gate passes;
+2. monotonic capital gate passes.
+
+The workflow independently asserts the composite relationship before the live-promotion step. Existing new-hash, duplicate and >=6h cooldown checks remain. If any condition fails, current live agents remain unchanged.
+
+## V5.4/V5.5 source fixes retained
 - real fertilizer base price 100 and real fertilizer market ratio;
 - opponent crop/animal counts and livestock classification;
-- 3Q/4Q land target is performance-driven rather than always forcing the fourth quadrant;
-- horizon-aware animal ROI, wheat/feed cost, action cost, fertilizer credit and opponent saturation;
+- 3Q/4Q land target performance-driven rather than blindly forcing the fourth quadrant;
+- horizon-aware animal ROI including wheat/feed, action cost, fertilizer credit and opponent saturation;
 - working-capital-aware livestock/crop/fertilizer choices;
 - locked central shed tiles cannot be used for DROP/PICKUP;
-- endgame planting is forbidden;
-- both-seat smoke, invalid/no-op and terminal inventory checks remain active.
-
-## Local promotion gate remains strict
-The profit-first rank gate still requires current engine 1.32.7, both seats, exact coverage/identity, unseen seeds, valid incumbent baselines, strong money/margin edge, tail protection, catastrophic-rate cap, zero unit no-ops, movement-efficiency cap, terminal-inventory cap, broad opponent-family coverage, direct incumbent performance and runtime/package equivalence.
+- endgame planting forbidden;
+- both-seat smoke, invalid/no-op and terminal inventory checks active;
+- global + family-conditioned win/loss learning, elite archive and stagnation controller retained.
 
 ## Claude V6
 Claude previously reported a local `claude/kaggriculture-v6-adaptive-continuous` branch, but no V6 branch/PR or bundle is available in GitHub/this conversation. It is not integrated. If a V6 bundle appears later, inspect it independently before importing anything.
 
 ## NEXT CHAT COMMAND
-If user says `check`, `xong chưa`, `tối ưu tiếp`, `leo rank`, or asks about continuous potential:
+If user says `check`, `xong chưa`, `tối ưu tiếp`, `leo rank`, `học từ thất bại`, or asks about continuous potential:
 1. inspect PR #219 latest head;
-2. inspect push run `34503963040` and any newer `Kaggriculture V5.5 - Continuous Potential Challenger` runs;
-3. if research completed, inspect `ROUND_PLAN`, `NEXT_ROUND`, `learning.control`, weak families, champion archive count, duel, holdout, final, promotion reasons and runtime/package gates;
-4. verify that the next round was actually queued with the controller-selected candidate budget;
-5. recheck Kaggle submissions `56139689` and `56148022` before stating live status/rank;
-6. update this checkpoint after any material result;
-7. never expose `KAGGLE_API_TOKEN`.
+2. inspect old run `34503963040` and V5.6 push run `34505728525`, then any newer `Kaggriculture V5.6 - Monotonic Capital Challenger` runs;
+3. when V5.6 research completes, inspect `MONOTONIC`, `CAPITAL_REGRESSION`, `CAPITAL_INCUMBENT`, `ROUND_PLAN`, `NEXT_ROUND`, failure reasons/taboo count, learning control, duel, holdout, final and strict promotion reasons;
+4. verify rejected candidate did not replace/archive the accepted champion;
+5. verify accepted candidate raised the stable-panel money high-water and did not regress risk/waste metrics;
+6. verify next round is queued with adaptive candidate count after failure/stagnation;
+7. recheck Kaggle submissions `56139689`, `56148022` and any later guarded promotion before stating live score/rank;
+8. update this checkpoint after any material result;
+9. never expose `KAGGLE_API_TOKEN`.
