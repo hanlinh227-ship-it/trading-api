@@ -83,8 +83,9 @@ def verify_release(root: Path, version: str) -> tuple[list[str], list[str]]:
         if not isinstance(expected, str) or len(expected) != 64:
             errors.append(f"invalid sha256 for {rel}")
             continue
-        if sha256_file(path) != expected:
-            errors.append(f"sha256 mismatch for {rel}")
+        actual = sha256_file(path)
+        if actual != expected:
+            errors.append(f"sha256 mismatch for {rel}: expected={expected} actual={actual}")
     return errors, warnings
 
 
@@ -92,11 +93,7 @@ def set_release_pointer(root: Path, version: str, manifest_sha256: str) -> None:
     manifest_path = f"AI_SKILL_LIBRARY/v4/releases/{version}/manifest.yaml"
     path = inside(root, "AI_SKILL_LIBRARY/v4/releases/current.json")
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "version": version,
-        "manifest_path": manifest_path,
-        "manifest_sha256": manifest_sha256,
-    }
+    payload = {"version": version, "manifest_path": manifest_path, "manifest_sha256": manifest_sha256}
     temp = path.with_suffix(".json.tmp")
     temp.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     temp.replace(path)
@@ -121,8 +118,7 @@ def verify_active_pointer(root: Path) -> tuple[list[str], list[str]]:
         elif sha256_file(manifest_path) != manifest_hash:
             errors.append("release pointer manifest hash mismatch")
         release_errors, release_warnings = verify_release(root, version)
-        errors.extend(release_errors)
-        warnings.extend(release_warnings)
+        errors.extend(release_errors); warnings.extend(release_warnings)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         errors.append(str(exc))
     return errors, warnings
