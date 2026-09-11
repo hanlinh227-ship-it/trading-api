@@ -1,0 +1,8 @@
+id: business
+version: 4.0.0
+sources: []
+tools: [product_design]
+evals: [decision_quality, assumptions, measurable_next_steps]
+authority_required: false
+memory_namespace: business
+bridge_policy: explicit_only
