@@ -8,10 +8,12 @@ from stackhub.worker_state import WorkerState, assert_transition
 
 def test_worker_state_allows_forward_transitions():
     assert_transition(WorkerState.DISCOVERED, WorkerState.ELIGIBLE)
-    assert_transition(WorkerState.ELIGIBLE, WorkerState.ACCESSED)
-    assert_transition(WorkerState.ACCESSED, WorkerState.SOLVING)
+    assert_transition(WorkerState.ELIGIBLE, WorkerState.RESERVED)
+    assert_transition(WorkerState.RESERVED, WorkerState.CLAIMED)
+    assert_transition(WorkerState.CLAIMED, WorkerState.SOLVING)
     assert_transition(WorkerState.SOLVING, WorkerState.VERIFIED)
     assert_transition(WorkerState.VERIFIED, WorkerState.SUBMITTED)
+    assert_transition(WorkerState.SUBMITTED, WorkerState.PAID)
 
 
 def test_worker_state_rejects_backward_transition():
