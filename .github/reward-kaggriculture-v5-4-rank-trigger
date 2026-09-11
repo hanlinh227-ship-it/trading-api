@@ -1,2 +1,2 @@
-run=v6.3-main-single-live-production-recovery-001
-reason=restore-v57-production-engine-and-delay-cash-defense-until-material-deficit
+run=v6.4-main-single-live-proven-v57-baseline-001
+reason=rollback-regressed-runtime-to-proven-v57-production-engine-while-preserving-single-writer-ledger-and-dedupe
