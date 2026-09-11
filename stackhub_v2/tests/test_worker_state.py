@@ -16,6 +16,14 @@ def test_worker_state_allows_forward_transitions():
     assert_transition(WorkerState.SUBMITTED, WorkerState.PAID)
 
 
+def test_worker_state_supports_pending_award_for_bid_and_application_markets():
+    assert_transition(WorkerState.RESERVED, WorkerState.PENDING_AWARD)
+    assert_transition(WorkerState.PENDING_AWARD, WorkerState.CLAIMED)
+    assert_transition(WorkerState.PENDING_AWARD, WorkerState.REJECTED)
+    with pytest.raises(ValueError):
+        assert_transition(WorkerState.PENDING_AWARD, WorkerState.SOLVING)
+
+
 def test_worker_state_rejects_backward_transition():
     with pytest.raises(ValueError):
         assert_transition(WorkerState.SUBMITTED, WorkerState.SOLVING)
