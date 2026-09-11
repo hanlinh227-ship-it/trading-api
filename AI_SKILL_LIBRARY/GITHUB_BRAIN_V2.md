@@ -1,69 +1,80 @@
-# GITHUB_BRAIN_V2 — Routed GitHub-First Brain
+# GITHUB_BRAIN_V2 — Adaptive GitHub-First Brain
 
-This is the canonical **GitHub-first** bootstrap and routed skill layer.
+This is the canonical GitHub-first bootstrap and routed skill layer. Version-specific discovery starts from `AI_SKILL_LIBRARY/checkpoint.json`; do not hard-code future V2.x/V3 internals in external instructions.
 
-## Mandatory behavior
+## Fast startup
+When GitHub access is available at a new chat or substantive work cycle:
+1. Read `AI_SKILL_LIBRARY/checkpoint.json`.
+2. Follow `bootstrap_path` to `AI_SKILL_LIBRARY/bootstrap.yaml`.
+3. Route every request through `task_router`.
+4. Select exactly one runtime profile from `AI_SKILL_LIBRARY/runtime.yaml` before loading project/domain state.
 
-When GitHub access is available, a new chat/substantive work cycle first refreshes this V2 bootstrap. After bootstrap, **every user request passes through `task_router`**, including ordinary questions. A trivial/general question may stop after `task_router`; routing does not justify loading unrelated specialist context.
+The compact bootstrap is the default startup surface. Detailed protocol/router/catalog registries are lazy-loaded only when the selected task/profile requires them.
 
-## Mandatory flow
+## Runtime profiles
 
-`request -> task_router -> project authority -> primary skill -> max 2 supporting skills -> relevant sources -> relevant plugins/tools -> critical review -> execute -> verify -> answer`
+### FAST
+Single-intent, low-risk, non-mutating, non-live work.
 
-1. Read `AI_SKILL_LIBRARY/checkpoint.json` and verify `checkpoint_id=GITHUB_BRAIN_V2`.
-2. Read this file and `AI_SKILL_LIBRARY/CORE_PROTOCOL.md`.
-3. Read `AI_SKILL_LIBRARY/router.yaml` and classify the request before loading domain state.
-4. Resolve `AI_SKILL_LIBRARY/projects.yaml` only when the routed domain maps to a project authority.
-5. Select one primary skill and at most two supporting skills from `AI_SKILL_LIBRARY/skills/catalog.yaml` by default.
-6. Load only selected workflow/skill context; never preload the full catalog into task context.
-7. Consult `AI_SKILL_LIBRARY/sources.yaml` only for relevant source categories.
-8. Use optional capabilities from `AI_SKILL_LIBRARY/plugins.yaml` only when they materially improve evidence or execution. Plugins are tools, never reasoning authority.
-9. Apply critical review before consequential conclusions and fresh verification before completion claims.
-10. Use current runtime/source state and current project authority above historical snapshots or external examples.
+`request -> task_router -> minimal core -> answer`
 
-## Compatibility
+FAST does not preload project authority, durable memory, sources, plugins, Trading state, planner, critic, eval, or persistent trace.
 
-`GITHUB_BRAIN_V1` is a compatibility activation alias. `AI_SKILL_LIBRARY/GITHUB_BRAIN_V1.md` redirects older chats to V2; it is not an independent authority.
+### STANDARD
+Domain/project work, ordinary research, artifact creation, or normal tool use.
 
-## Routing constraints
+`request -> task_router -> runtime_profile -> project authority if relevant -> primary skill -> max 2 supporting skills -> bounded memory -> relevant sources/tools -> execute -> verify -> answer`
 
-- `route_every_request=true` and `mandatory_skill=task_router` are mandatory.
+### DEEP
+Architecture, brain/protocol modification, deployment/runtime claims, live/trading, destructive/financial/credential-sensitive actions, complex research, or multi-step execution.
+
+`request -> task_router -> runtime_profile -> authority -> scoped memory -> planner -> skills -> sources/tools -> security gate -> execute -> critic -> verify -> eval/trace -> bounded replan if needed -> answer`
+
+Planner, critic, eval, trace, and security are control-plane layers, not domain skills; they do not consume the supporting-skill budget.
+
+## Mandatory routing constraints
+- `route_every_request=true` and `mandatory_skill=task_router` remain mandatory.
 - Default domain budget is one primary plus maximum two supporting skills.
-- Cross-cutting critical review/verification does not justify loading unrelated domains.
-- Never load Trading state for unrelated game, design, Blender, Adobe, prompt, script, academic, document, business, or generic software tasks.
-- Never load all project states or all skills "to be safe"; excessive context is a routing failure.
-- A selected skill may reference only registered plugin capabilities and source categories.
+- Exactly one runtime profile is selected per request.
+- FAST is the default and must remain genuinely lightweight.
+- Never preload the full skill catalog, all project states, all memory, or all tools "to be safe".
+- Never load Trading state for unrelated tasks.
+- Freshness, project mutation, or high-impact side effects may escalate the runtime profile.
+
+## Memory
+`memory.yaml` defines working, episodic, semantic, and procedural layers. Retrieval is bounded by runtime profile. Durable memory requires scope, provenance, confidence/freshness metadata, and verification. Current project authority and verified current source state outrank memory. Secrets, credentials, private keys, account data, sensitive personal data, raw private chat, authentication tokens, and unreviewed runtime state are excluded from durable memory.
+
+## Learning and evals
+`evals.yaml` turns verified failures and material user corrections into candidate regression evals. The loop is:
+
+`verified failure/correction -> classify root cause -> candidate eval -> reproduce -> propose patch -> tests/evals -> baseline comparison -> PR -> promote only after required gates`
+
+No self-improvement proposal can auto-merge merely because an agent scores it as better. Tests, eval baseline, security, authority, and CI are required gates.
+
+## Observability
+`observability.yaml` records only bounded diagnostic summaries such as route/profile choice, evidence references, tool outcome summaries, verification status, failures, and replans. Hidden chain-of-thought is never persisted. FAST has no persistent trace by default.
+
+## Security and permissions
+`security.yaml` classifies actions as read-only, reversible-write, destructive, financial, or credential-sensitive. Least privilege applies. Destructive/financial/credential-sensitive actions are not silently allowed. Secret exfiltration, private-key disclosure, credential logging, fabricated authorization, and bypass of hard risk controls are blocked.
 
 ## Project authority
+`AI_SKILL_LIBRARY/projects.yaml` remains the canonical project-authority registry. One project scope may have only one CURRENT/ACTIVE authority. Historical snapshots remain evidence only and cannot self-promote.
 
-`AI_SKILL_LIBRARY/projects.yaml` is the canonical project-authority registry. One project scope may have only one CURRENT/ACTIVE authority. Historical snapshots remain evidence only and cannot self-promote.
-
-For Trading, the current authority is `docs/checkpoints/CURRENT_HANDOFF.md`, following `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md`. Legacy multi-coin Bybit, Forex, Meme, Signal V10/V11 and AI-council execution state retired by that handoff cannot outrank it. Preserved live infrastructure remains operational dependency and must not be deleted without migration.
+For Trading, current authority remains `docs/checkpoints/CURRENT_HANDOFF.md`, following `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md`. Legacy execution families retired by that handoff cannot outrank it. Preserved live infrastructure remains operational dependency and must not be deleted without migration.
 
 Never call source code or a commit LIVE. A LIVE claim requires project-specific runtime/deployment verification.
 
-## Source policy
+## Sources and tools
+`sources.yaml` is a knowledge-source registry only. Default training is false. Plugins/tools improve evidence or execution; they never define reasoning authority. Load only the source categories and tool capabilities selected by the current route/profile.
 
-`sources.yaml` is a knowledge-source registry only. Allowed usage tiers are `TRAINING_OK`, `RAG_ONLY`, `REFERENCE_ONLY`, and `MANUAL_REVIEW`. Default training is false. No registry entry is permission to ingest private chat, secrets, credentials, personal/account data, model weights, fonts, icons, screenshots, media, or separately licensed datasets.
+## Compatibility
+`GITHUB_BRAIN_V1` remains a compatibility activation alias. `AI_SKILL_LIBRARY/GITHUB_BRAIN_V1.md` redirects older chats to the current V2 checkpoint; it is not an independent authority.
 
 ## Freshness and fallback
-
-For changing information, use fresh authoritative data when available. If GitHub cannot be refreshed, disclose `fresh_git_context=false` and continue from last-known context rather than pretending a fresh read occurred.
+Refresh GitHub when a new work cycle begins, when the user asks to read/refresh checkpoint, when continuing a mutable project, before code/config modification or merge/deploy, and before ACTIVE/LIVE/current-state claims. If GitHub cannot be refreshed, disclose `fresh_git_context=false` and continue from last-known context only when appropriate.
 
 ## Extension rule
+Add future capability through focused metadata, routes, policies, tests, and validators. Do not redesign the bootstrap merely to add a domain. Keep startup compact and push detailed context behind lazy-loading boundaries.
 
-Add a future capability by adding focused skill metadata, optional routing triggers, optional source/tool mappings, and tests. Do not redesign the bootstrap merely to add a domain.
-
-## Canonical files
-
-- Checkpoint: `AI_SKILL_LIBRARY/checkpoint.json`
-- Core protocol: `AI_SKILL_LIBRARY/CORE_PROTOCOL.md`
-- Router: `AI_SKILL_LIBRARY/router.yaml`
-- Skill catalog: `AI_SKILL_LIBRARY/skills/catalog.yaml`
-- Projects/authority: `AI_SKILL_LIBRARY/projects.yaml`
-- Plugins: `AI_SKILL_LIBRARY/plugins.yaml`
-- Sources: `AI_SKILL_LIBRARY/sources.yaml`
-- Schemas: `AI_SKILL_LIBRARY/schemas/`
-- Compatibility validator: `AI_SKILL_LIBRARY/validate_brain.py`
-- Router validator: `AI_SKILL_LIBRARY/validate_router.py`
-- Authority validator: `AI_SKILL_LIBRARY/validate_authority.py`
+## Canonical discovery
+Use `checkpoint.json` and `bootstrap.yaml` rather than copying a static file list into external prompts. Current canonical files include the router, runtime, projects, skill catalog, memory, evals, observability, security, plugins, sources, schemas, and validators named by the checkpoint.
