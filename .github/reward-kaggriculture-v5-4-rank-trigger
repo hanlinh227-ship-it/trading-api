@@ -1,2 +1,2 @@
-run=v5.7-main-canonical-live-only-004
-reason=retire-pre-live-runs-and-enter-kaggle-live-only-single-writer
+run=v5.7-main-canonical-live-only-005
+reason=cancel-older-canonical-runs-then-start-live-only-kaggle-lane
