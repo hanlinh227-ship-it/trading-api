@@ -1,0 +1,102 @@
+name: STACKHUB V2 TaskForce Canary
+
+on:
+  push:
+    branches: ['stackhub-v2-autonomous-bounty']
+    paths:
+      - '.github/workflows/stackhub-v2-taskforce-canary.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEPLOY_ENABLED: ${{ secrets.STACKHUB_DEPLOY_ENABLED }}
+      VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
+      VPS_USER: ${{ secrets.STACKHUB_VPS_USER }}
+      VPS_PORT: ${{ secrets.STACKHUB_VPS_PORT }}
+      VPS_SSH_KEY: ${{ secrets.STACKHUB_VPS_SSH_KEY }}
+      VPS_SSH_KEY_B64: ${{ secrets.STACKHUB_VPS_SSH_KEY_B64 }}
+    steps:
+      - name: Prepare SSH
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh; chmod 700 ~/.ssh
+          if [ -n "${VPS_SSH_KEY_B64:-}" ]; then
+            printf '%s' "$VPS_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_stackhub
+          else
+            python - <<'PY'
+          import os
+          from pathlib import Path
+          key=os.environ['VPS_SSH_KEY'].replace('\r','').strip()
+          if '\\n' in key and '\n' not in key: key=key.replace('\\n','\n')
+          Path.home().joinpath('.ssh/id_stackhub').write_text(key+'\n',encoding='utf-8')
+          PY
+          fi
+          chmod 600 ~/.ssh/id_stackhub
+          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Retry one legacy generic TaskForce 400 and capture exact result
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          trap 'sudo systemctl start stackhub-v2.service >/dev/null 2>&1 || true' EXIT
+          sudo systemctl stop stackhub-v2.service
+          set -a; . /etc/stackhub/stackhub.env; set +a
+          TARGET=$(/opt/stackhub/.venv/bin/python - <<'PY'
+          import sqlite3
+          db=sqlite3.connect('/var/lib/stackhub/stackhub-v2.db')
+          db.row_factory=sqlite3.Row
+          row=db.execute('''
+            SELECT c.opportunity_id
+            FROM claims c
+            JOIN opportunities o ON o.source=c.source AND o.id=c.opportunity_id
+            WHERE c.source='taskforce'
+              AND c.state='FAILED_PERMANENT'
+              AND c.last_error_code='http_400:http_400'
+              AND o.policy_allowed=1
+            ORDER BY CAST(o.reward_amount AS REAL) DESC, o.id
+            LIMIT 1
+          ''').fetchone()
+          if row is None:
+              print('')
+          else:
+              oid=row['opportunity_id']
+              db.execute("UPDATE claims SET state='FAILED_RETRYABLE', last_error_code='legacy_generic_400_canary' WHERE source='taskforce' AND opportunity_id=?",(oid,))
+              db.commit()
+              print(oid)
+          db.close()
+          PY
+          )
+          if [ -z "$TARGET" ]; then
+            echo 'no_legacy_generic_400_candidate'
+            exit 0
+          fi
+          echo "canary_target=$TARGET"
+          echo '=== ORCHESTRATE CANARY ==='
+          /opt/stackhub/.venv/bin/stackhub orchestrate-once --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db || true
+          echo '=== CANARY RESULT ==='
+          TARGET="$TARGET" /opt/stackhub/.venv/bin/python - <<'PY'
+          import json, os, sqlite3
+          db=sqlite3.connect('/var/lib/stackhub/stackhub-v2.db'); db.row_factory=sqlite3.Row
+          row=db.execute("SELECT source,opportunity_id,state,last_error_code,clone_url,updated_at FROM claims WHERE source='taskforce' AND opportunity_id=?",(os.environ['TARGET'],)).fetchone()
+          print(json.dumps(dict(row),sort_keys=True))
+          db.close()
+          PY
+          REMOTE
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_stackhub
