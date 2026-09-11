@@ -40,6 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           gh run list \
+            --repo "$GITHUB_REPOSITORY" \
             --workflow kaggriculture-v5-4-rank-livestock.yml \
             --branch main --limit 50 \
             --json databaseId,status | \
@@ -307,6 +308,7 @@ jobs:
         run: |
           set -euo pipefail
           OTHER="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
             --workflow kaggriculture-v5-4-rank-livestock.yml \
             --branch main --limit 30 \
             --json databaseId,status | python -c 'import json,os,sys; cur=int(os.environ["GITHUB_RUN_ID"]); print(sum(1 for r in json.load(sys.stdin) if r.get("status") in ("queued","in_progress","pending") and int(r.get("databaseId",0)) != cur))')"
