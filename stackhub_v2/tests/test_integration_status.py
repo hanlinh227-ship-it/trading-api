@@ -113,3 +113,15 @@ def test_status_is_truthful_and_does_not_invent_revenue():
     assert status.opportunities == 1
     assert status.payout_pending == 1
     assert status.paid_today_usd == 0
+
+
+def test_failed_retryable_claim_is_not_reported_as_active():
+    repo = Repo()
+    repo.conn.execute("DELETE FROM claims")
+    repo.conn.execute("INSERT INTO claims VALUES('FAILED_RETRYABLE')")
+    repo.conn.commit()
+
+    status = build_status(repo)
+
+    assert status.active_claims == 0
+    assert status.payout_pending == 0
