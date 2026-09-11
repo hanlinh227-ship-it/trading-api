@@ -36,6 +36,22 @@ def _tuple_text(value: object) -> tuple[str, ...]:
     return (str(value),)
 
 
+def _safe_error_details(response: httpx.Response) -> tuple[str | None, str | None]:
+    try:
+        payload = response.json()
+    except Exception:
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+    code = str(payload.get("code") or "").strip() or None
+    message = str(payload.get("error") or payload.get("message") or "").strip() or None
+    if message:
+        message = message[:300]
+    if code:
+        code = code[:100]
+    return code, message
+
+
 class TaskForceAdapter:
     source_name = "taskforce"
 
@@ -57,11 +73,18 @@ class TaskForceAdapter:
             response.raise_for_status()
             return response.json(), response
         except httpx.HTTPStatusError as exc:
-            code = exc.response.status_code
+            status = exc.response.status_code
+            platform_code, platform_message = _safe_error_details(exc.response)
+            fallback_code = "rate_limited" if status == 429 else ("auth_invalid" if status in (401, 403) else f"http_{status}")
+            error_code = platform_code or fallback_code
+            message = f"TaskForce request failed with HTTP {status}"
+            if platform_message:
+                message += f": {platform_message}"
             raise TaskForceProtocolError(
-                f"TaskForce request failed with HTTP {code}", status_code=code,
-                error_code="rate_limited" if code == 429 else ("auth_invalid" if code in (401, 403) else f"http_{code}"),
-                retry_after_seconds=_retry_after_seconds(exc.response) if code == 429 else None,
+                message,
+                status_code=status,
+                error_code=error_code,
+                retry_after_seconds=_retry_after_seconds(exc.response) if status == 429 else None,
             ) from exc
         except (httpx.HTTPError, ValueError) as exc:
             raise TaskForceProtocolError("TaskForce protocol error", error_code="protocol_error") from exc
