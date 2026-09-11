@@ -1,0 +1,8 @@
+id: prompt_media
+version: 4.0.0
+domain: prompt_media
+source: legacy_catalog_adapter
+skills: [prompt_engineering, image_prompt, video_prompt, negative_constraints, prompt_debugging, character_consistency, scene_continuity, camera_direction, storyboard, image_video_generation, generative_media]
+permissions: [read_only]
+risk_ceiling: read_only
+evals: [constraint_preservation, character_consistency, scene_continuity, camera_direction]
