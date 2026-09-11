@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 import yaml
+from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[2]
 LIB = ROOT / "AI_SKILL_LIBRARY"
@@ -76,6 +77,17 @@ class AgentRuntimeContractTests(unittest.TestCase):
                 self.assertLess(row[field], 100000, (name, field))
         self.assertLessEqual(profiles["FAST"]["context_tokens"], profiles["STANDARD"]["context_tokens"])
         self.assertLessEqual(profiles["STANDARD"]["context_tokens"], profiles["DEEP"]["context_tokens"])
+
+    def test_runtime_schema_accepts_bounded_v22_v24_profile_fields(self):
+        runtime = yaml.safe_load((LIB / "runtime.yaml").read_text(encoding="utf-8"))
+        schema = json.loads((LIB / "schemas/runtime.schema.json").read_text(encoding="utf-8"))
+        errors = list(Draft202012Validator(schema).iter_errors(runtime))
+        self.assertEqual(errors, [], [err.message for err in errors])
+        profile_schema = schema["$defs"]["profile"]["properties"]
+        self.assertEqual(profile_schema["context_registry_reads"]["maximum"], 10)
+        self.assertEqual(profile_schema["max_parallel_tasks"]["maximum"], 4)
+        self.assertIn("serial", profile_schema["orchestration"]["enum"])
+        self.assertIn("dependency_graph", profile_schema["orchestration"]["enum"])
 
     def test_memory_policy_is_layered_bounded_and_private_by_default(self):
         memory = yaml.safe_load((LIB / "memory.yaml").read_text(encoding="utf-8"))
