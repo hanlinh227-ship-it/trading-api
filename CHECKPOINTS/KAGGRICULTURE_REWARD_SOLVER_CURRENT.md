@@ -1,71 +1,71 @@
 # KAGGRICULTURE REWARD SOLVER — CURRENT CHECKPOINT
 
-Updated: 2026-09-11 00:29 +07
+Updated: 2026-09-11 +07
 
 ## Project / integrity
 - Repository: `hanlinh227-ship-it/trading-api`.
 - Competition: Kaggle Kaggriculture.
-- Promotion/runtime evidence uses `kaggle-environments==1.32.7`.
+- Canonical simulator: `kaggle-environments==1.32.7`.
 - `KAGGLE_API_TOKEN` remains only in GitHub Actions secrets; never request, print or commit it.
-- No hidden Kaggle state, forced matchmaking, quota bypass, multi-accounting, duplicate/re-roll spam or copied private opponent action tapes.
+- No forced matchmaking, quota bypass, multi-accounting, duplicate/re-roll spam, hidden-state exploitation or copied private opponent traces.
 
 ## Live Kaggle
-- Accepted V1 submission: `56139689`, COMPLETE at last confirmed check.
-- V5.4 live-shadow submission: `56148022`, last confirmed PENDING; recheck before making a current score/rank claim.
-- Old tar submissions `56139515` and `56139862` are ERROR paths and must not be reused.
-- Kaggle matchmaking frequency is controlled by Kaggle; local challenger loops cannot force live episodes.
+- V1 submission `56139689`: last confirmed COMPLETE; recheck before quoting a current score/rank.
+- V5.4 live-shadow `56148022`: last confirmed PENDING; recheck before a current status claim.
+- Kaggle controls live matchmaking frequency. Local/self-play workflows cannot force individual Kaggle episodes.
+- Guarded promotion on main requires composite strict + monotonic promotion evidence, a new candidate hash, and a six-hour cooldown; duplicate descriptions/hashes are skipped.
 
 ## Historical anchors
 - V1 PR #215 merged at `0624e73c079b3097b1b97f69279ea625bd77ec53`.
-- V2 Fast lost direct V1 promotion.
-- V3 PR #216 and V4 PR #217 remain historical research lanes.
 - V5 PR #218 merged at `6435be98d2196f3765f0a07ac6f797d0eec02560`.
-- Strong V5.2 current-engine run `34459804967`: Stage C 48/48 wins; direct V1 8/8; holdout 63/64 wins; final 64/64 wins; raw-exec/official-loader/package equivalence PASS. Its promotion was blocked by a legacy baseline benchmark bug plus deliberately strict campaign utilization/inventory gates, not by candidate runtime invalidity.
-- V5.3 fixed legacy baseline adaptation, current-engine workflow provenance and continuous public-meta research on main.
+- PR #219 `[KAGGLE-V5.7] Adaptive Agro-Economic Learning Rank Engine` is MERGED into `main`; merge commit `219a10c9c9c6c5d932e79e57f9aa6bc6da9be85d`.
+- Latest verified V5.7 old-lineage research artifact before the conflict-free cutover: run `34543115864`, artifact `10180135630`. Its learning snapshot is the bootstrap source for the canonical main lineage.
 
-## ACTIVE CHALLENGER — V5.7 Adaptive Agro-Economic Learning
-- Branch: `research/kaggriculture-v5-4-rank-livestock`.
-- PR #219: `[KAGGLE-V5.7] Adaptive Agro-Economic Learning Rank Engine`.
-- PR remains OPEN + DRAFT; do not merge until a full canonical V5.7 research cycle is reviewed.
-- Dedicated checkpoint: `CHECKPOINTS/KAGGRICULTURE_V5_7_AGRO_ECONOMIC.md`.
+## ACTIVE CANONICAL CHAIN — V5.7 Conflict-Free Continuous Learning
+The only authoritative writer is now `main`.
 
-### Canonical V5.7 path
-- `economic_reasoning.py`: dynamic market/town/scarcity economic model.
-- `policy_v57.py`: runtime crop/animal/sale coordinator layered over proven base policy.
-- `benchmark_v57.py`: canonical current-engine evaluator with economic telemetry.
-- `package_submission_v57.py`: canonical self-contained V5.7 packaging.
-- `agro_reasoning.py`: failure-cause attribution + farming recovery hypotheses.
-- `search_rank.py`: canonical adaptive research search, now importing V5.7 evaluator/packager.
-- `monotonic_rank.py`: accepted-capital high-water guard + taboo/repeated-failure memory.
+### Conflict elimination / state ownership
+- Main workflow commit: `8c2c78712aac506bd79725e4614b7bddcb3b3c00` (`Make main the single conflict-free Kaggriculture learning writer`).
+- Main trigger commit: `357013356973daa40eded640526f6548c69f3f9a` (`Start canonical conflict-free Kaggriculture learning chain on main`).
+- Research is permitted only when `github.ref == refs/heads/main`.
+- Concurrency group: `kaggriculture-v57-main-canonical-single-writer`, `cancel-in-progress: false`.
+- Canonical state paths are isolated under `/tmp/kaggriculture-v57-main-learning/`.
+- Canonical cache namespace is `kaggriculture-v57-main-learning-*`; legacy branch caches cannot interleave with main.
+- First canonical run imports the last verified learning snapshot from artifact `10180135630` atomically. If the snapshot cannot be validated, the workflow fails safe to a clean state rather than accepting partial/corrupt memory.
+- Kaggle live ledger is updated atomically only after a submitted candidate becomes visible.
+- Queue-next logic allows exactly one successor: if another canonical main run is already queued/in-progress/pending, the current run emits `NEXT_ROUND_DEDUPED` instead of creating fan-out.
 
-Temporary `value_overlay.py` / `agent_factory.py` files are transitional and are NOT the canonical V5.7 research path.
+### Legacy branch retirement
+- Former writer branch `research/kaggriculture-v5-4-rank-livestock` is archived at commit `b55a73c59a43e3ef187eace3463727023b0851a6`.
+- Its workflow is read-only/no-op: no research, no cache/state writes, no Kaggle submission, no recursive next-round dispatch.
+- An already-started legacy run may finish using its historical workflow snapshot, but it cannot share the new main cache namespace; any successor created from the archived branch is no-op. This extinguishes the old lineage without corrupting canonical state.
 
-### V5.7 learning doctrine
-Every local result is converted into both statistical evidence and domain reasoning. Failure labels include execution/no-op/waste, routing, under-utilization, fourth-quadrant overreach, labor/hiring cost, herd/feed stress, herd capital not converted, crop-only income ceiling, idle structures, terminal inventory, capital starvation, expansion cash drag, feed-market dependency, poor price capture, premium supply/price mismatch, failure to compound and catastrophic economics.
+## Learning / promotion doctrine
+- Every local win/loss/tie/invalid result updates adaptive evidence; losing candidates are learned from but cannot replace the accepted champion.
+- `monotonic_rank.py` maintains accepted-capital high water and rejected/taboo strategy evidence.
+- `agro_reasoning.py` attributes failures such as fourth-quadrant overreach, poor land utilization, excessive movement, labor drag, feed stress, herd capital not converted, weak price capture, terminal inventory and failure to compound.
+- Candidate selection combines accepted champion, archived personal champions, learned patches, failure-derived recovery hypotheses, public-top priors and exploratory mutations.
+- Public high-Elo structures such as 3Q / COW+SHEEP are priors only; personal benchmark evidence decides acceptance.
+- Candidate promotion is fail-closed: strict gate and monotonic capital gate must both pass; a lower-money or tail-regressing candidate never replaces the incumbent.
 
-Repeated causes produce materially different recovery hypotheses rather than replaying the same losing investment pattern. Candidate ordering is:
-`accepted champion -> archived personal champions -> current meta prior -> learned personal patch -> failure-derived recovery hypotheses -> public-top structural priors -> exploratory mutations`.
+## Current performance problem to solve
+- Continuous games are not the bottleneck: the previous learning history already contained roughly 14.7k matches.
+- Latest analyzed V5.7 challenger was stuck in a local optimum: roughly 56–58k money versus the stronger incumbent around 74.5k.
+- The weak challenger leaned toward 4Q + cow-only, while the stronger incumbent used 3Q + COW/SHEEP; movement idle was about 65% and productive utilization only about 46–48%.
+- Next algorithmic objective is a breakthrough search around structurally different farm families, not merely more repetitions of the same configuration. Do not lower gates to manufacture progress.
 
-### Production and price must improve together
-The official market is endogenous: selling adds shared inventory and can lower price; town demand / supported market buys remove inventory and can create scarcity. V5.7 therefore models projected town drain and resource-specific glut sensitivity, chooses marginal crop/animal capital by expected realizable value, preserves WHEAT as the herd feed backbone, clips/holds premium sales when dumping would destroy price, sells when scarcity/cash/capacity/endgame conditions justify it, and avoids unjustified late expansion.
-
-### Public top lessons are priors, not imitation
-Public high-Elo evidence has repeatedly shown 3-quadrant livestock-heavy structures around 9 cows, 4-5 sheep and roughly 9-10 hands. Public discussions also report strong heuristic/fixed-policy lineages and indicate the fourth quadrant is often an ROI trade-off rather than mandatory. V5.7 includes these only as starting structural hypotheses; our personal failure/success memory is evaluated first and any public prior can be rejected by local evidence.
-
-### Monotonic accepted-capital rule
-Exploratory games may lose so the search can learn. A losing challenger can never replace the accepted champion or reach live promotion. Fixed regression seeds `7319,29077`, all local opponent families and both seats compare candidate vs accepted champion. Replacement requires a real positive money gain and no paired regression in money, margin, win rate, worst tail, catastrophic rate, terminal inventory or no-op.
-
-Exact rejected configurations and repeated failed investment patterns are remembered. Regression/stagnation automatically widens/deepens future search up to the existing 8..64 candidate envelope.
-
-## Latest validation / active run
-- Canonical V5.7 validation run `34508086126`: SUCCESS.
-- Passed compile + all tests, self-contained package + raw-exec, V5.7 economy smoke both seats, and source/package episode equivalence.
-- Research in that run was skipped because it was a PR event, as intended.
-- First canonical V5.7 push research run: `34508180760`, triggered by commit `46265eea01e691645bc72a2ccf43423c95e2a910`; queued/starting under the non-cancelling single-writer learning group.
+## Latest canonical run
+- Canonical main run: `34549835117`.
+- `validate`: SUCCESS.
+- `Canonical lineage guard`: SUCCESS.
+- `Restore canonical adaptive memory and live ledger`: SUCCESS.
+- `Bootstrap or validate conflict-free memory`: SUCCESS.
+- `Adaptive agro-economic challenger league`: IN PROGRESS at last check.
+- Promotion, state save and exactly-one next-round queue occur only after the challenger league completes successfully.
 
 ## Next action
-1. Let only one V5.7 research writer run; do not create redundant full runs.
-2. When `34508180760` completes, inspect `AGRO_REASONING`, economy telemetry, direct V1 duel, unseen holdout/final, capital-regression candidate vs accepted champion, promotion reasons and `NEXT_ROUND`.
-3. If rejected, keep champion and use the recorded failure causes to generate a materially different next hypothesis; do not lower gates to manufacture progress.
-4. If strict + monotonic gates both pass, verify exact candidate hash/package and live Kaggle state before guarded promotion.
-5. Keep PR draft until full V5.7 evidence is reviewed.
+1. Let run `34549835117` finish; do not manually create redundant canonical research runs.
+2. Inspect its `PROMOTION`, `MONOTONIC`, `CAPITAL_REGRESSION`, `DUEL`, `HOLDOUT`, `FINAL`, `AGRO_REASONING`, `ROUND_PLAN`, `NEXT_ROUND`, and queue-dedup result.
+3. Confirm exactly one successor on `main`; legacy branch must remain no-op.
+4. If candidate regresses, keep incumbent and use failure evidence to expand a materially different 3Q/COW+SHEEP-centered breakthrough family rather than replaying the losing 4Q/cow-only pattern.
+5. Never weaken strict/monotonic gates merely to create a promotion.
