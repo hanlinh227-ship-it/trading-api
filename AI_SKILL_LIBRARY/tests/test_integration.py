@@ -44,6 +44,11 @@ class IntegrationContractTests(unittest.TestCase):
         self.assertIn('--dry-run', workflow)
         self.assertIn('py_compile', workflow)
 
+    def test_registry_validator_accepts_current_v3_checkpoint(self):
+        validator = load_validator()
+        errors, warnings = validator.validate_checkpoint()
+        self.assertEqual(errors, [], (errors, warnings))
+
     def test_validator_rejects_duplicate_active_repo(self):
         validator = load_validator()
         data = {'version': 1, 'sources': [
