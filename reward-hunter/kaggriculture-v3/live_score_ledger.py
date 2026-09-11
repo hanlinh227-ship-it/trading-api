@@ -127,10 +127,18 @@ def update_ledger(ledger: dict, rows: list[dict], current_description: str, curr
             else:
                 result = "regression"
         else:
+            # A pending/new live candidate has no score yet. Never make it inherit the previous
+            # candidate's score, which visually looked like Kaggle had reset or reassigned points.
+            ledger["latest_public_score"] = current["public_score"]
             result = "pending"
     else:
+        # The source candidate exists but Kaggle has not exposed a row yet. Clear only LATEST
+        # display fields; CURRENT_BEST/BEST_EVER remain durable and must never be reset by this.
         ledger["latest_sha256"] = current_sha
         ledger["latest_description"] = current_description
+        ledger["latest_submission_ref"] = ""
+        ledger["latest_status"] = "NOT_VISIBLE"
+        ledger["latest_public_score"] = None
 
     ledger["candidate_result"] = result
     ledger["latest_vs_current_best_delta"] = latest_delta_current_best
