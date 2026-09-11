@@ -93,6 +93,28 @@ def test_terminal_claim_stops_counting_as_active(tmp_path):
     assert repo.reserve_next_opportunity(None, 1, now) is not None
 
 
+def test_failed_retryable_does_not_consume_capacity_and_can_be_reserved_again(tmp_path):
+    repo = StackHubRepository(tmp_path / "reservations.db")
+    repo.initialize()
+    _seed(repo, "source-a", "a-1", 10)
+    _seed(repo, "source-b", "b-1", 1)
+    now = datetime.now(timezone.utc)
+
+    first = repo.reserve_next_opportunity(None, 1, now)
+    assert first is not None
+    assert first["opportunity_id"] == "a-1"
+    repo.transition_claim("source-a", "a-1", WorkerState.FAILED_RETRYABLE, now, "temporary")
+
+    retry = repo.reserve_next_opportunity(None, 1, now)
+    assert retry is not None
+    assert retry["source"] == "source-a"
+    assert retry["opportunity_id"] == "a-1"
+    claim = repo.get_claim("source-a", "a-1")
+    assert claim is not None
+    assert claim["state"] == WorkerState.RESERVED.value
+    assert claim["last_error_code"] is None
+
+
 def test_illegal_backward_and_terminal_resurrection_fail(tmp_path):
     repo = StackHubRepository(tmp_path / "reservations.db")
     repo.initialize()
