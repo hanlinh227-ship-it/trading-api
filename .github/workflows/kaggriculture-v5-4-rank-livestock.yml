@@ -1,4 +1,4 @@
-name: Kaggriculture V6.1 - Canonical Live Champion
+name: Kaggriculture V6.2 - Canonical Live Champion
 
 on:
   workflow_dispatch:
@@ -56,30 +56,38 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Static source and live-ledger contract compile
+      - name: Static live-only contracts
         run: |
           set -euo pipefail
           python -m compileall -q reward-hunter/kaggriculture-v3
           python reward-hunter/kaggriculture-v3/live_score_ledger.py --help >/dev/null
+          python reward-hunter/kaggriculture-v3/live_kaggle_guard.py --help >/dev/null
+          python - <<'PY'
+          import sys
+          sys.path.insert(0,'reward-hunter/kaggriculture-v3')
+          import policy_v57
+          policy_v57.validate_live_runtime_contracts()
+          print('V62_PRODUCTION_FIRST_RUNTIME_CONTRACT_PASS')
+          PY
           echo 'LIVE_ONLY_SOURCE_STATIC_PASS'
           echo 'NO_KAGGLE_ENVIRONMENTS NO_LOCAL_MATCH NO_SIMULATOR_EXECUTION'
 
       - name: Package bot - static validation only
         run: |
           set -euo pipefail
-          mkdir -p /tmp/v61-live
+          mkdir -p /tmp/v62-live
           python reward-hunter/kaggriculture-v3/package_submission_v57.py \
-            --output /tmp/v61-live/main.py | tee /tmp/v61-live/package.json
-          test -s /tmp/v61-live/main.py
-          python -m py_compile /tmp/v61-live/main.py
-          sha256sum /tmp/v61-live/main.py | tee /tmp/v61-live/sha256.txt
+            --output /tmp/v62-live/main.py | tee /tmp/v62-live/package.json
+          test -s /tmp/v62-live/main.py
+          python -m py_compile /tmp/v62-live/main.py
+          sha256sum /tmp/v62-live/main.py | tee /tmp/v62-live/sha256.txt
           echo 'LIVE_ONLY_PACKAGE_STATIC_PASS'
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: kaggriculture-v6-1-live-validation-${{ github.run_id }}
-          path: /tmp/v61-live/
+          name: kaggriculture-v6-2-live-validation-${{ github.run_id }}
+          path: /tmp/v62-live/
           if-no-files-found: warn
           retention-days: 30
 
@@ -142,19 +150,20 @@ jobs:
                   raise SystemExit('LIVE_LEDGER_CORRUPT missing '+key)
           if data.get('best_ever_public_score') is None and data.get('high_water_public_score') is not None:
               data['best_ever_public_score']=data.get('high_water_public_score')
-          data.setdefault('ledger_schema',2)
+          data['ledger_schema']=3
           tmp=p.with_suffix('.tmp'); tmp.write_text(json.dumps(data,indent=2,sort_keys=True)+'\n'); tmp.replace(p)
           print('LIVE_LEDGER_VALID',json.dumps({
               'latest_sha':str(data.get('latest_sha256') or data.get('sha256',''))[:12],
-              'latest_score':data.get('latest_public_score',data.get('last_public_score')),
+              'latest_score':data.get('latest_public_score'),
               'current_best_score':data.get('current_best_public_score'),
               'best_ever_score':data.get('best_ever_public_score'),
               'candidate_result':data.get('candidate_result'),
-              'pending_submit_sha':str(data.get('pending_submit_sha',''))[:12]
+              'pending_submit_sha':str(data.get('pending_submit_sha',''))[:12],
+              'submit_failure_sha':str(data.get('last_submit_failure_sha',''))[:12]
           },sort_keys=True))
           PY
 
-      - name: Package canonical bot for Kaggle live
+      - name: Package canonical V6.2 bot for Kaggle live
         run: |
           set -euo pipefail
           OUT="/tmp/kaggriculture-v57-main-${GITHUB_RUN_ID}"
@@ -164,141 +173,23 @@ jobs:
           test -s "$OUT/main.py"
           python -m py_compile "$OUT/main.py"
           sha256sum "$OUT/main.py" | tee "$OUT/sha256.txt"
-          echo 'CANONICAL_LIVE_PACKAGE_READY'
+          echo 'CANONICAL_V62_LIVE_PACKAGE_READY'
           echo 'NO_SIMULATOR_EXECUTION'
 
-      - name: Kaggle live-only submission, champion and score status
+      - name: Kaggle guarded live submission and champion status
         env:
           KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
-        shell: bash
         run: |
           set -euo pipefail
           OUT="/tmp/kaggriculture-v57-main-${GITHUB_RUN_ID}"
-          LEDGER=/tmp/kaggriculture-v57-main-learning/kaggle_live.json
-          DECISION="$OUT/live-decision.json"
-          SCOREBOARD="$OUT/live-scoreboard.json"
-          export OUT LEDGER DECISION SCOREBOARD
-
-          python - <<'PY'
-          import hashlib,json,os,pathlib
-          root=pathlib.Path(os.environ['OUT'])
-          ledger=pathlib.Path(os.environ['LEDGER'])
-          sha=hashlib.sha256((root/'main.py').read_bytes()).hexdigest()
-          live=json.loads(ledger.read_text()) if ledger.exists() else {}
-          if live.get('sha256') == sha and live.get('description'):
-              desc=live['description']
-          elif live.get('pending_submit_sha') == sha and live.get('pending_description'):
-              desc=live['pending_description']
-          else:
-              desc='V6.1 live-anti-snowball '+sha[:12]
-          decision={
-              'sha256':sha,
-              'description':desc,
-              'confirmed_sha256':live.get('sha256',''),
-              'confirmed_description':live.get('description',''),
-              'pending_submit_sha':live.get('pending_submit_sha','')
-          }
-          pathlib.Path(os.environ['DECISION']).write_text(json.dumps(decision,indent=2,sort_keys=True)+'\n')
-          print('LIVE_ONLY_DECISION',json.dumps(decision,sort_keys=True))
-          PY
-
-          if [ -z "${KAGGLE_API_TOKEN:-}" ]; then
-            echo 'KAGGLE_LIVE_DEFERRED missing credential; no simulator fallback'
-            exit 0
-          fi
-
           python -m pip install -q -U kaggle
-          kaggle competitions submissions -c kaggriculture | tee "$OUT/kaggle-before.txt"
-
-          SHA256="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["sha256"])')"
-          DESC="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["description"])')"
-          CONFIRMED_SHA="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["confirmed_sha256"])')"
-          PENDING_SHA="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["pending_submit_sha"])')"
-          export SHA256 DESC CONFIRMED_SHA PENDING_SHA
-
-          python reward-hunter/kaggriculture-v3/live_score_ledger.py \
-            --ledger "$LEDGER" \
-            --submissions "$OUT/kaggle-before.txt" \
-            --current-description "$DESC" \
-            --current-sha "$SHA256" \
-            --summary "$SCOREBOARD"
-
-          CURRENT_STATUS="$(python -c 'import json,os; print(json.load(open(os.environ["SCOREBOARD"]))["latest"].get("status",""))')"
-          CURRENT_REF="$(python -c 'import json,os; print(json.load(open(os.environ["SCOREBOARD"]))["latest"].get("submission_ref",""))')"
-
-          if [ -n "$CURRENT_REF" ]; then
-            export CURRENT_STATUS CURRENT_REF
-            python - <<'PY'
-          import json,os,pathlib
-          p=pathlib.Path(os.environ['LEDGER']); d=json.loads(p.read_text())
-          status=os.environ.get('CURRENT_STATUS','')
-          d['sha256']=os.environ['SHA256']
-          d['description']=os.environ['DESC']
-          d['source_run']=os.environ.get('GITHUB_RUN_ID')
-          d['submission_ref']=os.environ.get('CURRENT_REF','')
-          if 'COMPLETE' in status:
-              d['status']='complete'
-              if d.get('pending_submit_at'): d['submitted_at']=d['pending_submit_at']
-              d.pop('pending_submit_sha',None); d.pop('pending_submit_at',None); d.pop('pending_description',None)
-          else:
-              d['status']='pending_visible'
-              d.setdefault('pending_submit_sha',os.environ['SHA256'])
-              d.setdefault('pending_description',os.environ['DESC'])
-          tmp=p.with_suffix('.tmp'); tmp.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n'); tmp.replace(p)
-          PY
-            if [[ "$CURRENT_STATUS" == *COMPLETE* ]]; then
-              echo "KAGGLE_LIVE_COMPLETE ref=$CURRENT_REF no duplicate submission"
-            else
-              echo "KAGGLE_LIVE_PENDING_VISIBLE ref=$CURRENT_REF no duplicate submission"
-            fi
-            exit 0
-          fi
-
-          if [ -n "$PENDING_SHA" ] && [ "$PENDING_SHA" = "$SHA256" ]; then
-            echo 'KAGGLE_LIVE_PENDING_SHA_WAIT no duplicate submission'
-            exit 0
-          fi
-
-          if [ "$CONFIRMED_SHA" = "$SHA256" ]; then
-            echo 'KAGGLE_LIVE_CURRENT_SHA_CONFIRMED no duplicate submission'
-            exit 0
-          fi
-
-          if grep -Eq 'SubmissionStatus\.(PENDING|RUNNING|QUEUED)' "$OUT/kaggle-before.txt"; then
-            echo 'KAGGLE_LIVE_ACTIVE_SUBMISSION_WAIT no overlapping submission; no simulator fallback'
-            exit 0
-          fi
-
-          echo 'KAGGLE_LIVE_PREDECESSOR_COMPLETE new SHA eligible for immediate live submission'
-          echo 'KAGGLE_LIVE_SUBMISSION_READY'
-          if kaggle competitions submit -c kaggriculture -f "$OUT/main.py" -m "$DESC"; then
-            python - <<'PY'
-          import datetime,json,os,pathlib
-          p=pathlib.Path(os.environ['LEDGER']); d=json.loads(p.read_text())
-          d['pending_submit_sha']=os.environ['SHA256']
-          d['pending_submit_at']=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-          d['pending_description']=os.environ['DESC']
-          d['status']='submitted_pending_visibility'
-          d['latest_sha256']=os.environ['SHA256']
-          d['latest_description']=os.environ['DESC']
-          tmp=p.with_suffix('.tmp'); tmp.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n'); tmp.replace(p)
-          PY
-            sleep 10
-            kaggle competitions submissions -c kaggriculture | tee "$OUT/kaggle-after.txt"
-            python reward-hunter/kaggriculture-v3/live_score_ledger.py \
-              --ledger "$LEDGER" \
-              --submissions "$OUT/kaggle-after.txt" \
-              --current-description "$DESC" \
-              --current-sha "$SHA256" \
-              --summary "$SCOREBOARD"
-            if grep -Fq "$DESC" "$OUT/kaggle-after.txt"; then
-              echo 'KAGGLE_LIVE_SUBMISSION_VISIBLE'
-            else
-              echo 'KAGGLE_LIVE_SUBMISSION_SENT_NOT_VISIBLE_YET pending only'
-            fi
-          else
-            echo 'KAGGLE_LIVE_SUBMISSION_COMMAND_FAILED; platform quota/validation respected; no simulator fallback'
-          fi
+          python reward-hunter/kaggriculture-v3/live_kaggle_guard.py \
+            --ledger /tmp/kaggriculture-v57-main-learning/kaggle_live.json \
+            --main "$OUT/main.py" \
+            --output-dir "$OUT" \
+            --label-prefix 'V6.2 live-production-first' \
+            --failure-backoff-seconds 3600 \
+            --visibility-wait-seconds 10
 
       - name: Print canonical live scoreboard
         if: always()
@@ -308,18 +199,21 @@ jobs:
           if [ -s "$LEDGER" ]; then
             python - <<'PY'
           import json
-          p='/tmp/kaggriculture-v57-main-learning/kaggle_live.json'
-          d=json.load(open(p))
+          d=json.load(open('/tmp/kaggriculture-v57-main-learning/kaggle_live.json'))
           print('CANONICAL_LIVE_SCOREBOARD',json.dumps({
               'latest_score':d.get('latest_public_score'),
               'latest_ref':d.get('latest_submission_ref'),
+              'latest_status':d.get('latest_status'),
               'current_best_score':d.get('current_best_public_score'),
               'current_best_ref':d.get('current_best_submission_ref'),
               'best_ever_score':d.get('best_ever_public_score'),
               'best_ever_ref':d.get('best_ever_submission_ref'),
               'candidate_result':d.get('candidate_result'),
               'latest_vs_current_best_delta':d.get('latest_vs_current_best_delta'),
-              'latest_vs_best_ever_delta':d.get('latest_vs_best_ever_delta')
+              'latest_vs_best_ever_delta':d.get('latest_vs_best_ever_delta'),
+              'submit_failure_sha':str(d.get('last_submit_failure_sha',''))[:12],
+              'submit_failure_at':d.get('last_submit_failure_at'),
+              'submit_failure_count':d.get('last_submit_failure_count')
           },sort_keys=True))
           PY
           fi
@@ -336,7 +230,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: kaggriculture-v6-1-main-live-${{ github.run_id }}
+          name: kaggriculture-v6-2-main-live-${{ github.run_id }}
           path: /tmp/kaggriculture-v57-main-${{ github.run_id }}/
           if-no-files-found: warn
           retention-days: 30
@@ -362,4 +256,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --ref main \
             -f candidates=24
-          echo 'NEXT_V61_CANONICAL_MAIN_LIVE_ROUND_QUEUED'
+          echo 'NEXT_V62_CANONICAL_MAIN_LIVE_ROUND_QUEUED'
