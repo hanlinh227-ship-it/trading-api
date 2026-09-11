@@ -1,0 +1,84 @@
+name: AI Brain V4 Candidate Release
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'AI_SKILL_LIBRARY/v4/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  validate-and-promote:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (startsWith(github.event.pull_request.head.ref, 'evergreen/candidate/') && github.event.pull_request.user.login == 'github-actions[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install validator dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+      - name: Re-audit promoted skills from the actual candidate release
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          from AI_SKILL_LIBRARY.v4.tools.admission import admit_skill
+          from AI_SKILL_LIBRARY.v4.tools.release import load_release_manifest, load_release_pointer
+          root = Path('.').resolve()
+          pointer = load_release_pointer(root)
+          manifest = load_release_manifest(root, pointer['version'])
+          checked = 0
+          for row in manifest.get('files', []):
+              role = str(row.get('role', ''))
+              if not role.startswith('skill:'):
+                  continue
+              skill = yaml.safe_load((root / row['path']).read_text(encoding='utf-8'))
+              result = admit_skill(skill, existing_skills=[])
+              if not result['admitted'] or result['promotion_class'] != 'A':
+                  raise SystemExit(f"release-side admission blocked {row['path']}: {result}")
+              checked += 1
+          print(f"release-side Class A audit passed for {checked} skill(s). Class D automatic promotion is forbidden.")
+          PY
+      - name: Run complete V4 candidate tests and validators
+        run: |
+          python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
+          python AI_SKILL_LIBRARY/validate_v4.py
+      - name: Mark candidate release known-good only after green canary
+        if: github.event_name == 'pull_request'
+        run: python AI_SKILL_LIBRARY/v4/tools/evergreen.py mark-known-good --root .
+      - name: Revalidate exact release after known-good mutation
+        if: github.event_name == 'pull_request'
+        run: |
+          python AI_SKILL_LIBRARY/validate_v4.py
+          python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
+      - name: Persist validated release metadata to candidate branch
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if git diff --quiet; then
+            echo "No release metadata mutation required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add AI_SKILL_LIBRARY/v4/releases
+          git commit -m "evergreen: validate V4 release canary"
+          git push origin "HEAD:${HEAD_REF}"
+      - name: Merge verified automated capability PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --squash --delete-branch
