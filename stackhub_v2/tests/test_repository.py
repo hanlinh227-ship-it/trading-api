@@ -47,3 +47,28 @@ def test_source_health_keeps_history_and_latest(tmp_path):
     latest = repo.get_source_health("taskbounty")
     assert latest["ok"] is True
     assert repo.count_source_health("taskbounty") == 2
+
+
+def test_initialize_rearms_old_dynamic_taskforce_availability_failure(tmp_path):
+    path = tmp_path / "stackhub.db"
+    repo = StackHubRepository(path)
+    repo.initialize()
+    repo.conn.execute(
+        "INSERT INTO claims(source,opportunity_id,state,updated_at,last_error_code) VALUES(?,?,?,?,?)",
+        (
+            "taskforce",
+            "tf-reopen",
+            "FAILED_PERMANENT",
+            "2026-09-11T20:00:00+00:00",
+            "task_not_accepting_applications:http_400",
+        ),
+    )
+    repo.conn.commit()
+    repo.close()
+
+    reopened = StackHubRepository(path)
+    reopened.initialize()
+    claim = reopened.get_claim("taskforce", "tf-reopen")
+
+    assert claim["state"] == "FAILED_RETRYABLE"
+    assert claim["last_error_code"] == "task_not_accepting_applications:http_400"
