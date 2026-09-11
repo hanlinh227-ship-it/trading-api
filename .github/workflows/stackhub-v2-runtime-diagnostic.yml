@@ -1,0 +1,95 @@
+name: STACKHUB V2 Runtime Diagnostic
+
+on:
+  push:
+    branches: ['stackhub-v2-autonomous-bounty']
+    paths:
+      - '.github/workflows/stackhub-v2-runtime-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_ENABLED: ${{ secrets.STACKHUB_DEPLOY_ENABLED }}
+      VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
+      VPS_USER: ${{ secrets.STACKHUB_VPS_USER }}
+      VPS_PORT: ${{ secrets.STACKHUB_VPS_PORT }}
+      VPS_SSH_KEY: ${{ secrets.STACKHUB_VPS_SSH_KEY }}
+      VPS_SSH_KEY_B64: ${{ secrets.STACKHUB_VPS_SSH_KEY_B64 }}
+    steps:
+      - name: Validate diagnostic inputs
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${VPS_HOST:-}"
+          test -n "${VPS_USER:-}"
+          if [ -z "${VPS_SSH_KEY_B64:-}" ] && [ -z "${VPS_SSH_KEY:-}" ]; then exit 1; fi
+
+      - name: Prepare SSH
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh; chmod 700 ~/.ssh
+          if [ -n "${VPS_SSH_KEY_B64:-}" ]; then
+            printf '%s' "$VPS_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_stackhub
+          else
+            python - <<'PY'
+          import os
+          from pathlib import Path
+          key=os.environ['VPS_SSH_KEY'].replace('\r','').strip()
+          if '\\n' in key and '\n' not in key: key=key.replace('\\n','\n')
+          Path.home().joinpath('.ssh/id_stackhub').write_text(key+'\n',encoding='utf-8')
+          PY
+          fi
+          chmod 600 ~/.ssh/id_stackhub
+          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Read runtime state
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          echo '=== SERVICE ==='
+          systemctl is-active stackhub-v2.service || true
+          systemctl is-enabled stackhub-v2.service || true
+          echo '=== DATABASE STATE ==='
+          /opt/stackhub/.venv/bin/python - <<'PY'
+          import json, sqlite3
+          db=sqlite3.connect('/var/lib/stackhub/stackhub-v2.db')
+          db.row_factory=sqlite3.Row
+          summary=db.execute("SELECT state,COUNT(*) AS count FROM claims GROUP BY state ORDER BY state").fetchall()
+          print('claim_summary='+json.dumps([dict(r) for r in summary],sort_keys=True))
+          rows=db.execute('''
+            SELECT o.source,o.id,o.category,o.reward_amount,o.reward_asset,
+                   o.policy_allowed,o.policy_reasons_json,o.score_usd_per_minute,
+                   c.state AS claim_state,c.last_error_code,c.updated_at
+            FROM opportunities o
+            LEFT JOIN claims c ON c.source=o.source AND c.opportunity_id=o.id
+            ORDER BY CAST(o.reward_amount AS REAL) DESC,
+                     CAST(COALESCE(o.score_usd_per_minute,'-999999') AS REAL) DESC,
+                     o.source,o.id
+            LIMIT 100
+          ''').fetchall()
+          for r in rows:
+              print('opportunity='+json.dumps(dict(r),sort_keys=True))
+          db.close()
+          PY
+          echo '=== RECENT SERVICE LOG ==='
+          journalctl -u stackhub-v2.service -n 120 --no-pager || true
+          REMOTE
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_stackhub
