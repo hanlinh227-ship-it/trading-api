@@ -1,0 +1,8 @@
+id: engineering
+version: 4.0.0
+sources: [code, software]
+tools: [software_development_workflow]
+evals: [engineering_correctness, engineering_tdd, engineering_security]
+authority_required: false
+memory_namespace: engineering
+bridge_policy: explicit_only
