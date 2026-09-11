@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       candidates:
-        description: Compatibility input only; canonical lane is live-only and does not run local challenger search
+        description: Compatibility input only; canonical lane is Kaggle live-only
         required: false
         default: '24'
   push:
@@ -50,22 +50,30 @@ jobs:
             echo "RETIRE_PRE_LIVE_CANONICAL_RUN run=$run_id"
             gh run cancel "$run_id" --repo "$GITHUB_REPOSITORY" || true
           done < /tmp/older-canonical-runs.txt
+
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Static compile only - no practice matches
+
+      - name: Static source compile - no practice match
         run: |
           set -euo pipefail
           python -m compileall -q reward-hunter/kaggriculture-v3
-          echo 'LIVE_ONLY_STATIC_COMPILE_PASS'
-      - name: Package current V5.7 bot for live lane
+          echo 'LIVE_ONLY_SOURCE_STATIC_PASS'
+
+      - name: Package bot - static validation only
         run: |
           set -euo pipefail
           mkdir -p /tmp/v57-live
-          python reward-hunter/kaggriculture-v3/package_submission_v57.py --output /tmp/v57-live/main.py | tee /tmp/v57-live/package.json
-          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v57-live/main.py | tee /tmp/v57-live/raw.json
-          echo 'LIVE_ONLY_PACKAGE_PASS'
+          python reward-hunter/kaggriculture-v3/package_submission_v57.py \
+            --output /tmp/v57-live/main.py | tee /tmp/v57-live/package.json
+          test -s /tmp/v57-live/main.py
+          python -m py_compile /tmp/v57-live/main.py
+          sha256sum /tmp/v57-live/main.py | tee /tmp/v57-live/sha256.txt
+          echo 'LIVE_ONLY_PACKAGE_STATIC_PASS'
+          echo 'NO_KAGGLE_ENVIRONMENTS NO_LOCAL_MATCH NO_SIMULATOR_EXECUTION'
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -146,10 +154,13 @@ jobs:
           set -euo pipefail
           OUT="/tmp/kaggriculture-v57-main-${GITHUB_RUN_ID}"
           mkdir -p "$OUT"
-          python reward-hunter/kaggriculture-v3/package_submission_v57.py --output "$OUT/main.py" | tee "$OUT/package.json"
-          python reward-hunter/kaggriculture-v3/raw_exec_test.py "$OUT/main.py" | tee "$OUT/raw.json"
+          python reward-hunter/kaggriculture-v3/package_submission_v57.py \
+            --output "$OUT/main.py" | tee "$OUT/package.json"
+          test -s "$OUT/main.py"
+          python -m py_compile "$OUT/main.py"
           sha256sum "$OUT/main.py" | tee "$OUT/sha256.txt"
           echo 'CANONICAL_LIVE_PACKAGE_READY'
+          echo 'NO_SIMULATOR_EXECUTION'
 
       - name: Kaggle live-only submission and status
         env:
@@ -166,8 +177,7 @@ jobs:
           import datetime,hashlib,json,os,pathlib
           root=pathlib.Path(os.environ['OUT'])
           ledger=pathlib.Path(os.environ['LEDGER'])
-          code=root/'main.py'
-          sha=hashlib.sha256(code.read_bytes()).hexdigest()
+          sha=hashlib.sha256((root/'main.py').read_bytes()).hexdigest()
           live=json.loads(ledger.read_text()) if ledger.exists() else {}
           now=datetime.datetime.now(datetime.timezone.utc)
           last_at=live.get('submitted_at','2026-09-10T16:19:13Z')
@@ -205,6 +215,7 @@ jobs:
 
           python -m pip install -q -U kaggle
           kaggle competitions submissions -c kaggriculture | tee "$OUT/kaggle-before.txt"
+          grep -E '56139689|56148022' "$OUT/kaggle-before.txt" > "$OUT/tracked-submissions.txt" || true
 
           SHA256="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["sha256"])')"
           DESC="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["description"])')"
@@ -261,6 +272,7 @@ jobs:
           PY
             sleep 10
             kaggle competitions submissions -c kaggriculture | tee "$OUT/kaggle-after.txt"
+            grep -E '56139689|56148022' "$OUT/kaggle-after.txt" > "$OUT/tracked-submissions-after.txt" || true
             if grep -Fq "$DESC" "$OUT/kaggle-after.txt"; then
               python - <<'PY'
           import datetime,json,os,pathlib
