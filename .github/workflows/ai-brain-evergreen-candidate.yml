@@ -1,0 +1,60 @@
+name: AI Brain V4 Evergreen Candidate
+
+on:
+  schedule:
+    - cron: '41 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install validator dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+      - name: Scan for machine-readable candidate skills
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python AI_SKILL_LIBRARY/v4/tools/evergreen.py scan --root . --output /tmp/v4-candidate-scan.json
+      - name: Materialize candidates into quarantine
+        run: python AI_SKILL_LIBRARY/v4/tools/evergreen.py materialize --root . --scan /tmp/v4-candidate-scan.json
+      - name: Build declarative Class A capability release candidate
+        id: promote
+        run: |
+          version=$(python AI_SKILL_LIBRARY/v4/tools/evergreen.py promote-class-a --root .)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "candidate release: $version"
+      - name: Validate candidate before any branch publication
+        if: steps.promote.outputs.version != 'NO_PROMOTABLE_CLASS_A'
+        run: |
+          python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
+          python AI_SKILL_LIBRARY/validate_v4.py
+      - name: Create isolated candidate branch and pull request
+        if: steps.promote.outputs.version != 'NO_PROMOTABLE_CLASS_A'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_VERSION: ${{ steps.promote.outputs.version }}
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No candidate diff"
+            exit 0
+          fi
+          branch="evergreen/candidate/${GITHUB_RUN_ID}-${CANDIDATE_VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add AI_SKILL_LIBRARY/v4
+          git commit -m "evergreen: candidate ${CANDIDATE_VERSION}"
+          git push --set-upstream origin "$branch"
+          gh pr create --base main --head "$branch" --title "evergreen: promote V4 capability ${CANDIDATE_VERSION}" --body "Automated V4 candidate from quarantined machine-readable Class A skills. No external candidate code was executed. Release workflow must revalidate promotion gates before merge."
