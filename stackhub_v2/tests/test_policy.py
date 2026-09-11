@@ -51,6 +51,19 @@ def test_public_forum_proof_task_is_denied(runtime_config, allowed_opportunity):
     assert "prohibited_external_account_action" in decision.reasons
 
 
+def test_runtime_opportunity_allowlist_denies_everything_else(runtime_config, allowed_opportunity):
+    cfg = runtime_config.model_copy(update={"opportunity_allowlist": ("canary-only",)})
+    decision = evaluate_opportunity(allowed_opportunity, cfg)
+    assert decision.allowed is False
+    assert "not_in_runtime_opportunity_allowlist" in decision.reasons
+
+
+def test_runtime_opportunity_allowlist_allows_exact_canary(runtime_config, allowed_opportunity):
+    cfg = runtime_config.model_copy(update={"opportunity_allowlist": (allowed_opportunity.id,)})
+    decision = evaluate_opportunity(allowed_opportunity, cfg)
+    assert decision.allowed is True
+
+
 def test_clean_agent_native_task_is_allowed(runtime_config, allowed_opportunity):
     decision = evaluate_opportunity(allowed_opportunity, runtime_config)
     assert decision.allowed is True
