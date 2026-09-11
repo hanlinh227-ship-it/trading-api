@@ -1,3 +1,4 @@
+# manual trigger after VPS secrets configured
 name: Deploy STACKHUB V2 to VPS
 
 on:
