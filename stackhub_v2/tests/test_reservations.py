@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -93,7 +93,7 @@ def test_terminal_claim_stops_counting_as_active(tmp_path):
     assert repo.reserve_next_opportunity(None, 1, now) is not None
 
 
-def test_failed_retryable_does_not_consume_capacity_and_can_be_reserved_again(tmp_path):
+def test_failed_retryable_frees_capacity_then_retries_after_cooldown(tmp_path):
     repo = StackHubRepository(tmp_path / "reservations.db")
     repo.initialize()
     _seed(repo, "source-a", "a-1", 10)
@@ -105,7 +105,15 @@ def test_failed_retryable_does_not_consume_capacity_and_can_be_reserved_again(tm
     assert first["opportunity_id"] == "a-1"
     repo.transition_claim("source-a", "a-1", WorkerState.FAILED_RETRYABLE, now, "temporary")
 
-    retry = repo.reserve_next_opportunity(None, 1, now)
+    replacement = repo.reserve_next_opportunity(None, 1, now)
+    assert replacement is not None
+    assert replacement["source"] == "source-b"
+    assert replacement["opportunity_id"] == "b-1"
+    failed_claim = repo.get_claim("source-a", "a-1")
+    assert failed_claim is not None
+    assert failed_claim["state"] == WorkerState.FAILED_RETRYABLE.value
+
+    retry = repo.reserve_next_opportunity(None, 2, now + timedelta(minutes=6))
     assert retry is not None
     assert retry["source"] == "source-a"
     assert retry["opportunity_id"] == "a-1"
