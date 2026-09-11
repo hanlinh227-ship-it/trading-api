@@ -31,25 +31,37 @@ class RuntimeConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     dry_run: bool = True
+    worker_enabled: bool = False
     external_spend_limit_usd: Decimal = Decimal("0")
     scan_interval_seconds: int = Field(ge=60)
     max_concurrent_tasks: int = Field(ge=1)
+    max_active_claims: int = Field(default=1, ge=1, le=1)
     sources: dict[str, SourceConfig]
 
     @model_validator(mode="after")
-    def enforce_read_only_guardrails(self) -> "RuntimeConfig":
-        if self.dry_run is not True:
-            raise ValueError("STACKHUB V2 Plan 1 requires dry_run=true")
+    def enforce_guardrails(self) -> "RuntimeConfig":
         if self.external_spend_limit_usd != Decimal("0"):
-            raise ValueError("STACKHUB V2 Plan 1 requires zero external spend")
+            raise ValueError("STACKHUB V2 requires zero external spend")
 
         taskbounty = self.sources.get("taskbounty")
         if taskbounty is not None:
             parsed = urlparse(taskbounty.base_url)
             if parsed.hostname != "www.task-bounty.com":
                 raise ValueError("TaskBounty hostname must be exactly www.task-bounty.com")
-            if taskbounty.read_only is not True:
-                raise ValueError("TaskBounty must remain read-only in Plan 1")
+
+        if self.worker_enabled:
+            if self.dry_run:
+                raise ValueError("worker_enabled=true requires dry_run=false")
+            if taskbounty is None or not taskbounty.enabled:
+                raise ValueError("TaskBounty must be enabled when worker is enabled")
+            if taskbounty.read_only:
+                raise ValueError("worker_enabled=true requires TaskBounty read_only=false")
+        else:
+            if self.dry_run is not True:
+                raise ValueError("dry_run=false requires worker_enabled=true")
+            if taskbounty is not None and taskbounty.read_only is not True:
+                raise ValueError("TaskBounty must remain read-only when worker is disabled")
+
         return self
 
 
