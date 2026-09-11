@@ -1,0 +1,137 @@
+version: 2
+policy:
+  lazy_load: true
+  mandatory_skill: task_router
+  default_primary_count: 1
+  default_max_supporting: 2
+_templates:
+  core: &core {domain: core, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [], sources: [], output_contract: "Return a scoped, evidence-aware result and state material uncertainty."}
+  engineering: &engineering {domain: engineering, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [software_development_workflow], sources: [code, software], output_contract: "Return an implementation or technical answer with tests/verification appropriate to the change."}
+  trading: &trading {domain: trading, triggers: [], excludes: [game economy, fictional trading], requires: [task_router], conflicts_with: [], priority: 80, tools: [multi_asset_market_data], sources: [trading], output_contract: "Return analysis with source freshness, current project authority, risk context, and no fabricated live state."}
+  game: &game {domain: game, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [software_development_workflow], sources: [game, code], output_contract: "Return game-specific design/implementation guidance with engine constraints and verification where applicable."}
+  design: &design {domain: design, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [ux_ui_design], sources: [ux_ui], output_contract: "Return design decisions tied to goals, constraints, consistency, accessibility, and deliverable format."}
+  adobe: &adobe {domain: adobe, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [video_generation], sources: [], output_contract: "Return an application-specific non-destructive workflow and export/verification checks."}
+  prompt: &prompt {domain: prompt, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [video_generation], sources: [prompt], output_contract: "Return a render-ready prompt/workflow preserving explicit constraints and negative constraints where useful."}
+  writing: &writing {domain: writing, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [], sources: [script], output_contract: "Return task-appropriate writing while preserving audience, tone, continuity, and factual boundaries."}
+  academic: &academic {domain: academic, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [scientific_evidence], sources: [], output_contract: "Return evidence-grounded academic work with methodology, citation, and uncertainty checks."}
+  data_docs: &data_docs {domain: data_docs, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [], sources: [], output_contract: "Return a correct data/document artifact or workflow with format-specific validation."}
+  business: &business {domain: business, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [product_design], sources: [], output_contract: "Return a decision-oriented business/marketing result with assumptions, trade-offs, and measurable next steps."}
+skills:
+  - {<<: *core, id: task_router, triggers: [route task, new chat, classify intent], requires: [], priority: 100}
+  - {<<: *core, id: core_reasoning, triggers: [reason, explain, solve]}
+  - {<<: *core, id: critical_thinking, triggers: [critique, phản biện, challenge assumption], priority: 95}
+  - {<<: *core, id: fact_checking, triggers: [fact check, verify claim], tools: [scientific_evidence]}
+  - {<<: *core, id: research, triggers: [research, sources, evidence], tools: [scientific_evidence]}
+  - {<<: *core, id: planning, triggers: [plan, roadmap, implementation plan]}
+  - {<<: *core, id: verification, triggers: [verify, validate, final check], priority: 95}
+  - {<<: *core, id: troubleshooting, triggers: [troubleshoot, error, broken]}
+  - {<<: *core, id: comparison, triggers: [compare, versus]}
+  - {<<: *core, id: recommendation, triggers: [recommend, choose]}
+  - {<<: *core, id: learning, triggers: [learn, teach, explain]}
+  - {<<: *core, id: summarization, triggers: [summarize, summary]}
+  - {<<: *core, id: translation, triggers: [translate, translation]}
+  - {<<: *core, id: general_problem_solving, triggers: [general question, how to]}
+  - {<<: *core, id: error_recovery, triggers: [recover, rollback, conflict]}
+  - {<<: *engineering, id: coding, triggers: [code, implement]}
+  - {<<: *engineering, id: debugging, triggers: [bug, debug, unexpected behavior]}
+  - {<<: *engineering, id: tdd, triggers: [tdd, test driven]}
+  - {<<: *engineering, id: software_architecture, triggers: [architecture, system design]}
+  - {<<: *engineering, id: github, triggers: [github, repository, pull request]}
+  - {<<: *engineering, id: api, triggers: [api, endpoint, contract]}
+  - {<<: *engineering, id: database, triggers: [database, sql, schema]}
+  - {<<: *engineering, id: security, triggers: [security, threat model], excludes: [unauthorized exploitation]}
+  - {<<: *engineering, id: android, triggers: [android, apk, widget]}
+  - {<<: *engineering, id: web_app, triggers: [web app, frontend, backend]}
+  - {<<: *engineering, id: deployment, triggers: [deploy, production, ci cd]}
+  - {<<: *engineering, id: automation, triggers: [automation, workflow]}
+  - {<<: *engineering, id: software_engineering, triggers: [software engineering, coding]}
+  - {<<: *engineering, id: debugging_tdd, triggers: [bugfix, regression test]}
+  - {<<: *engineering, id: platform_engineering, triggers: [platform, cloudflare, deployment]}
+  - {<<: *trading, id: trading, triggers: [trade, trading, market]}
+  - {<<: *trading, id: crypto, triggers: [crypto, bitcoin, altcoin], tools: [multi_asset_market_data, crypto_market_data]}
+  - {<<: *trading, id: forex, triggers: [forex, fx]}
+  - {<<: *trading, id: futures, triggers: [futures, perpetual]}
+  - {<<: *trading, id: indices, triggers: [index, indices, nq, es]}
+  - {<<: *trading, id: market_microstructure, triggers: [orderbook, order flow, microstructure]}
+  - {<<: *trading, id: technical_analysis, triggers: [technical analysis, chart, structure]}
+  - {<<: *trading, id: risk_management, triggers: [risk, stop loss, position sizing]}
+  - {<<: *trading, id: backtesting, triggers: [backtest, monte carlo], tools: [software_development_workflow]}
+  - {<<: *trading, id: mt5_mql5, triggers: [mt5, mql5, expert advisor], tools: [software_development_workflow]}
+  - {<<: *trading, id: trading_bot, triggers: [trading bot, auto trade], tools: [multi_asset_market_data, crypto_market_data, software_development_workflow]}
+  - {<<: *trading, id: live_data_validation, triggers: [live price, freshness, quote age], tools: [multi_asset_market_data, crypto_market_data], priority: 95}
+  - {<<: *trading, id: trading_router, triggers: [trading route, trade request], tools: [multi_asset_market_data, crypto_market_data]}
+  - {<<: *trading, id: market_analysis, triggers: [market analysis, entry analysis], tools: [multi_asset_market_data, crypto_market_data]}
+  - {<<: *trading, id: risk_execution, triggers: [execution, leverage, sl tp], tools: [multi_asset_market_data, crypto_market_data]}
+  - {<<: *trading, id: quant_backtesting, triggers: [quant, strategy validation], tools: [software_development_workflow]}
+  - {<<: *game, id: game_development, triggers: [game development, build game]}
+  - {<<: *game, id: game_design, triggers: [game design, mechanics]}
+  - {<<: *game, id: godot, triggers: [godot]}
+  - {<<: *game, id: unity, triggers: [unity]}
+  - {<<: *game, id: game_ai, triggers: [game ai, npc ai]}
+  - {<<: *game, id: game_2d, triggers: [2d game]}
+  - {<<: *game, id: game_3d, triggers: [3d game]}
+  - {<<: *game, id: game_dev, triggers: [game, gameplay, level]}
+  - {<<: *design, id: ux_ui, triggers: [ux, ui, interface], tools: [ux_ui_design, product_design]}
+  - {<<: *design, id: product_design, triggers: [product design, user flow], tools: [ux_ui_design, product_design]}
+  - {<<: *design, id: graphic_design, triggers: [graphic design]}
+  - {<<: *design, id: branding, triggers: [branding, identity]}
+  - {<<: *design, id: typography, triggers: [typography, font hierarchy]}
+  - {<<: *design, id: layout, triggers: [layout, composition]}
+  - {<<: *design, id: design_2d, triggers: [2d design]}
+  - {<<: *design, id: design_3d, triggers: [3d design], tools: [two_d_to_three_d], sources: []}
+  - {<<: *design, id: modeling, triggers: [3d modeling], tools: [two_d_to_three_d], sources: []}
+  - {<<: *design, id: topology, triggers: [topology], tools: [], sources: []}
+  - {<<: *design, id: uv, triggers: [uv unwrap], tools: [], sources: []}
+  - {<<: *design, id: materials, triggers: [materials, shader], tools: [], sources: []}
+  - {<<: *design, id: lighting, triggers: [lighting], tools: [], sources: []}
+  - {<<: *design, id: rigging, triggers: [rigging], tools: [], sources: []}
+  - {<<: *design, id: animation, triggers: [animation], tools: [], sources: []}
+  - {<<: *design, id: rendering, triggers: [rendering], tools: [], sources: []}
+  - {<<: *design, id: blender, triggers: [blender], tools: [two_d_to_three_d], sources: []}
+  - {<<: *design, id: design_2d_ux, triggers: [ux ui, graphic design]}
+  - {<<: *design, id: design_3d_blender, triggers: [blender, 3d asset], tools: [two_d_to_three_d], sources: []}
+  - {<<: *adobe, id: photoshop, triggers: [photoshop, photo edit]}
+  - {<<: *adobe, id: illustrator, triggers: [illustrator, vector]}
+  - {<<: *adobe, id: premiere_pro, triggers: [premiere pro, video edit]}
+  - {<<: *adobe, id: after_effects, triggers: [after effects, motion graphics]}
+  - {<<: *adobe, id: lightroom, triggers: [lightroom, color grade]}
+  - {<<: *adobe, id: audition, triggers: [audition, audio edit]}
+  - {<<: *adobe, id: indesign, triggers: [indesign, publication]}
+  - {<<: *adobe, id: acrobat, triggers: [acrobat, pdf edit]}
+  - {<<: *adobe, id: adobe_media, triggers: [adobe workflow]}
+  - {<<: *prompt, id: prompt_engineering, triggers: [prompt engineering, prompt]}
+  - {<<: *prompt, id: image_prompt, triggers: [image prompt, image generation]}
+  - {<<: *prompt, id: video_prompt, triggers: [video prompt, video generation]}
+  - {<<: *prompt, id: negative_constraints, triggers: [negative prompt, constraints]}
+  - {<<: *prompt, id: prompt_debugging, triggers: [prompt error, render error]}
+  - {<<: *prompt, id: character_consistency, triggers: [character consistency, identity preservation]}
+  - {<<: *prompt, id: scene_continuity, triggers: [scene continuity, continuity]}
+  - {<<: *prompt, id: camera_direction, triggers: [camera direction, camera move]}
+  - {<<: *prompt, id: storyboard, triggers: [storyboard, shot list]}
+  - {<<: *prompt, id: image_video_generation, triggers: [generate image, generate video], tools: [video_generation, two_d_to_three_d]}
+  - {<<: *prompt, id: generative_media, triggers: [generative media, image edit, video edit], tools: [video_generation, two_d_to_three_d]}
+  - {<<: *writing, id: scriptwriting, triggers: [script, scriptwriting]}
+  - {<<: *writing, id: screenwriting, triggers: [screenplay, screenwriting]}
+  - {<<: *writing, id: voice_over, triggers: [voice over, narration]}
+  - {<<: *writing, id: advertising_copy, triggers: [ad copy, advertising copy]}
+  - {<<: *writing, id: hook_retention, triggers: [hook, retention]}
+  - {<<: *writing, id: storytelling, triggers: [storytelling, story structure]}
+  - {<<: *academic, id: academic_research, triggers: [academic research, paper, thesis]}
+  - {<<: *academic, id: literature_review, triggers: [literature review]}
+  - {<<: *academic, id: methodology, triggers: [methodology, research design]}
+  - {<<: *academic, id: qualitative_research, triggers: [qualitative research]}
+  - {<<: *academic, id: quantitative_analysis, triggers: [quantitative analysis, statistics]}
+  - {<<: *academic, id: interdisciplinary_research, triggers: [interdisciplinary research]}
+  - {<<: *academic, id: citation_review, triggers: [citation review, evidence check]}
+  - {<<: *data_docs, id: data_analysis, triggers: [data analysis]}
+  - {<<: *data_docs, id: spreadsheet, triggers: [spreadsheet, excel, sheets]}
+  - {<<: *data_docs, id: chart, triggers: [chart, graph]}
+  - {<<: *data_docs, id: report, triggers: [report]}
+  - {<<: *data_docs, id: docx, triggers: [docx, word]}
+  - {<<: *data_docs, id: pdf, triggers: [pdf]}
+  - {<<: *data_docs, id: slides, triggers: [slides, pptx]}
+  - {<<: *data_docs, id: presentation, triggers: [presentation, pitch deck]}
+  - {<<: *data_docs, id: data_documents, triggers: [document, data artifact]}
+  - {<<: *business, id: business, triggers: [business, strategy]}
+  - {<<: *business, id: marketing, triggers: [marketing, campaign]}
+  - {<<: *business, id: marketing_business, triggers: [marketing, business analysis]}
