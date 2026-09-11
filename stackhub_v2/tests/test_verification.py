@@ -63,7 +63,8 @@ def test_verify_workspace_rejects_secret_like_diff(tmp_path: Path):
     work = root / "task"
     work.mkdir(parents=True)
     patch = work / "fix.patch"
-    patch.write_text("+TASKBOUNTY_API_KEY=tb_live_REALLOOKINGTOKEN123\n", encoding="utf-8")
+    fake_token = "tb_live_" + "REALLOOKINGTOKEN123"
+    patch.write_text(f"+TASKBOUNTY_API_KEY={fake_token}\n", encoding="utf-8")
 
     evidence = verify_workspace(
         work,
