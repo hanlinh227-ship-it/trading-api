@@ -45,9 +45,10 @@ def evaluate_opportunity(opportunity: Opportunity, runtime: RuntimeConfig) -> Po
     if opportunity.agent_allowed is not True:
         reasons.append("agent_permission_unknown" if opportunity.agent_allowed is None else "agent_permission_forbidden")
     source = runtime.sources.get(opportunity.source)
+    worker_enabled = bool(getattr(runtime, "worker_enabled", False))
     if source is None or not source.enabled or not source.agent_native:
         reasons.append("source_not_enabled_for_agents")
-    elif runtime.worker_enabled and (source.read_only or not source.capabilities.auto_claim):
+    elif worker_enabled and (source.read_only or not source.capabilities.auto_claim):
         # Keep discovery-only sources visible in scans/status, but never reserve them for a live worker.
         reasons.append("source_not_mutation_ready")
 
