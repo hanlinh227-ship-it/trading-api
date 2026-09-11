@@ -27,6 +27,17 @@ class SourceConfig(BaseModel):
         return value.rstrip("/")
 
 
+class WorkerPoolConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    scouts: int = Field(default=3, ge=1, le=3)
+    code_fix: int = Field(default=2, ge=1, le=2)
+    research_data: int = Field(default=2, ge=0, le=2)
+    service: int = Field(default=2, ge=0, le=2)
+    verification: int = Field(default=2, ge=1, le=2)
+    submission: int = Field(default=1, ge=1, le=1)
+
+
 class RuntimeConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -35,7 +46,8 @@ class RuntimeConfig(BaseModel):
     external_spend_limit_usd: Decimal = Decimal("0")
     scan_interval_seconds: int = Field(ge=60)
     max_concurrent_tasks: int = Field(ge=1)
-    max_active_claims: int = Field(default=1, ge=1, le=1)
+    max_active_claims: int = Field(default=1, ge=1, le=4)
+    worker_pools: WorkerPoolConfig = Field(default_factory=WorkerPoolConfig)
     sources: dict[str, SourceConfig]
 
     @model_validator(mode="after")

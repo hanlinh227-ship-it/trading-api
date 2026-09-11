@@ -5,6 +5,13 @@ runtime:
   scan_interval_seconds: 300
   max_concurrent_tasks: 1
   max_active_claims: 1
+  worker_pools:
+    scouts: 3
+    code_fix: 2
+    research_data: 2
+    service: 2
+    verification: 2
+    submission: 1
 
 sources:
   taskbounty:
