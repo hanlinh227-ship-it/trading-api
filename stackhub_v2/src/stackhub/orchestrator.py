@@ -15,6 +15,13 @@ from .work_queue import FallbackWorkQueue
 
 
 _ASYNC_COMPETITION = {"application", "bid"}
+_RECOVERABLE_ACTIVE_STATES = {
+    WorkerState.RESERVED.value,
+    WorkerState.PENDING_AWARD.value,
+    WorkerState.CLAIMED.value,
+    WorkerState.SOLVING.value,
+    WorkerState.VERIFIED.value,
+}
 
 
 class RevenueOrchestrator:
@@ -35,6 +42,16 @@ class RevenueOrchestrator:
             competition_model=str(row.get("competition_model") or "unknown"), agent_allowed=bool(row.get("agent_allowed")),
             estimated_effort_minutes=int(row.get("estimated_effort_minutes") or 60),
         )
+
+    def _recover_failure(self, source: str, opportunity_id: str, now: datetime, exc: Exception) -> dict[str, object]:
+        row_state=self.repo.conn.execute("SELECT state FROM claims WHERE source=? AND opportunity_id=?",(source,opportunity_id)).fetchone()
+        current=None if row_state is None else str(row_state["state"])
+        if current in _RECOVERABLE_ACTIVE_STATES:
+            try:
+                self.repo.transition_claim(source, opportunity_id, WorkerState.FAILED_RETRYABLE, now, type(exc).__name__)
+            except Exception:
+                pass
+        return {"state":"FAILED_RETRYABLE","source":source,"opportunity_id":opportunity_id,"reason":type(exc).__name__}
 
     async def _solve_claimed(self, row: dict[str, object], workspace_reference: str, now: datetime) -> dict[str, object]:
         source=str(row["source"]); opportunity_id=str(row["id"])
@@ -69,12 +86,7 @@ class RevenueOrchestrator:
             self.repo.record_claim(source, opportunity_id, receipt.workspace_reference, now)
             return await self._solve_claimed(row, receipt.workspace_reference, now)
         except Exception as exc:
-            row_state=self.repo.conn.execute("SELECT state FROM claims WHERE source=? AND opportunity_id=?",(source,opportunity_id)).fetchone()
-            current=None if row_state is None else str(row_state["state"])
-            if current in {WorkerState.RESERVED.value,WorkerState.CLAIMED.value,WorkerState.SOLVING.value,WorkerState.VERIFIED.value}:
-                try: self.repo.transition_claim(source, opportunity_id, WorkerState.FAILED_RETRYABLE, now, type(exc).__name__)
-                except Exception: pass
-            return {"state":"FAILED_RETRYABLE","source":source,"opportunity_id":opportunity_id,"reason":type(exc).__name__}
+            return self._recover_failure(source, opportunity_id, now, exc)
 
     async def _reconcile_pending(self, now: datetime) -> list[dict[str, object]]:
         output=[]
@@ -102,7 +114,7 @@ class RevenueOrchestrator:
                 else:
                     output.append({"state":"PENDING_AWARD","source":source,"opportunity_id":opportunity_id})
             except Exception as exc:
-                output.append({"state":"PENDING_AWARD","source":source,"opportunity_id":opportunity_id,"reason":type(exc).__name__})
+                output.append(self._recover_failure(source, opportunity_id, now, exc))
         return output
 
     async def run_batch(self, *, now: datetime | None = None) -> list[dict[str, object]]:
