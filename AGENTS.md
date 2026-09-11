@@ -1,40 +1,39 @@
-# AGENTS.md — GITHUB_BRAIN_V3 Entrypoint
+# AGENTS.md — GITHUB_BRAIN_V4 LTS Entrypoint
 
-This repository uses one GitHub-first unified kernel. Keep this file small; detailed behavior belongs in checkpoint/bootstrap/kernel registries.
+This repository uses one GitHub-first V4 LTS dual-plane brain. Keep this file compact; detailed behavior lives in the active immutable capability release.
 
 ## Bootstrap
-When GitHub access is available at a new chat or substantive work cycle:
+At a new substantive work cycle when GitHub is available:
 1. Read `AI_SKILL_LIBRARY/checkpoint.json`.
-2. Follow `bootstrap_path` to `AI_SKILL_LIBRARY/bootstrap.yaml`.
-3. Follow `kernel_path` to `AI_SKILL_LIBRARY/kernel.yaml`.
-4. Route every request through `task_router` and select exactly one profile: `FAST`, `STANDARD`, or `DEEP`.
+2. Resolve `release_pointer_path` to `AI_SKILL_LIBRARY/v4/releases/current.json`.
+3. Verify the selected release manifest before treating it as Stable authority.
+4. Route every request through V4 Stable `task_router` and exactly one `FAST`, `STANDARD`, or `DEEP` profile.
+5. Load one primary Knowledge Mesh domain and only explicitly allowed bridges.
 
-Do not preload the full brain, skill catalog, project states, memory, sources, plugins, or Trading state for simple work.
+Do not preload the full legacy catalog, unrelated domains, project states, durable memory, tools, Evergreen, or Trading state for simple work.
+
+## Two planes
+- **Stable Runtime Plane** answers normal requests immediately from the last known-good validated release. It must work even when Evergreen is offline.
+- **Evergreen Update Plane** discovers skills/knowledge/upstream changes, quarantines candidates, checks provenance/license/conflicts/security/evals, canaries them, and promotes only immutable release bundles. It never mutates an in-flight Stable request or widens permissions.
 
 ## Profiles
-- `FAST`: serial, low-risk, non-mutating, no live/current-data requirement, no durable memory/tool preload.
-- `STANDARD`: bounded project/domain context, memory, tools, verification; safe independent reads may run in parallel.
-- `DEEP`: architecture/protocol, live/trading, deployment/runtime claims, complex multi-step or high-impact work; adds planner, dependency graph, security gate, critic, evidence ledger, eval/trace and bounded replanning.
-
-## V3 control plane
-- Context/cache: `AI_SKILL_LIBRARY/context.yaml`
-- Reliability: `AI_SKILL_LIBRARY/reliability.yaml`
-- Evidence/provenance: `AI_SKILL_LIBRARY/evidence.yaml`
-- Orchestration: `AI_SKILL_LIBRARY/orchestration.yaml`
-- Runtime: `AI_SKILL_LIBRARY/runtime.yaml`
-- Project authority: `AI_SKILL_LIBRARY/projects.yaml`
-- Skills: `AI_SKILL_LIBRARY/skills/catalog.yaml`
-- Security/memory/evals/observability/plugins/sources remain lazy and scoped.
-
-`GITHUB_BRAIN_V2` and `GITHUB_BRAIN_V1` are compatibility aliases only and redirect to V3.
+- `FAST`: one primary domain, serial, no durable memory/tool preload, no bridge nodes, no Trading preload, no Evergreen sync.
+- `STANDARD`: bounded project/domain context, memory, tools and at most one bridge node.
+- `DEEP`: architecture/protocol/live/trading/high-impact or complex multi-step work; bounded planner/task graph/critic/eval and at most two bridge nodes.
 
 ## Authority
-Current project/runtime state outranks memory and external examples. One current authority per project. Historical snapshots cannot self-promote.
+Current project/runtime authority outranks Stable memory, cached context, learned patterns and external examples. Historical state cannot self-promote.
 
-For Trading, only after routing to Trading: load `docs/checkpoints/CURRENT_HANDOFF.md` and `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md`. Never fabricate market/account/runtime data or call code/commit LIVE without runtime verification.
+For Trading, only after routing to Trading load `docs/checkpoints/CURRENT_HANDOFF.md` and `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md`. Brain upgrades never silently replace Trading execution authority. Never fabricate market/account/runtime state or call source code/commit LIVE without runtime verification.
+
+## Learning
+New skills start in V4 Evergreen quarantine with zero routing authority. Class A/B/C promotion follows V4 gates; Class D financial/credential/destructive permission expansion never auto-promotes. Skill/tool reputation may influence ranking only among equally authorized capabilities and never overrides security or authority.
+
+## Compatibility
+`GITHUB_BRAIN_V3`, `GITHUB_BRAIN_V2`, and `GITHUB_BRAIN_V1` are compatibility aliases only and resolve to V4 through `checkpoint.json`.
 
 ## Engineering
-Behavior changes use test-first discipline where applicable: RED -> minimum GREEN -> validators/tests -> diff/CI -> merge -> post-merge verification.
+Behavior changes use test-first discipline: RED -> minimum GREEN -> regression suite -> validators -> CI -> merge -> post-merge verification.
 
 ## Fallback
-If GitHub cannot be refreshed, disclose `fresh_git_context=false` and use last-known context only when appropriate. Never pretend a fresh read occurred.
+If GitHub refresh fails, disclose `fresh_git_context=false` and continue only from the last verified Stable release when suitable. Never pretend a fresh read occurred.
