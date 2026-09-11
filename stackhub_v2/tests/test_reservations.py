@@ -123,6 +123,30 @@ def test_failed_retryable_frees_capacity_then_retries_after_cooldown(tmp_path):
     assert claim["last_error_code"] is None
 
 
+def test_reservation_ignores_opportunity_not_seen_in_latest_successful_source_scan(tmp_path):
+    repo = StackHubRepository(tmp_path / "reservations.db")
+    repo.initialize()
+    _seed(repo, "taskforce", "stale-high-score", 100)
+    _seed(repo, "taskforce", "fresh-low-score", 1)
+
+    scan_time = datetime(2026, 9, 12, 0, 0, tzinfo=timezone.utc)
+    repo.conn.execute(
+        "UPDATE opportunities SET updated_at=? WHERE source=? AND id=?",
+        ("2026-09-11 23:59:00", "taskforce", "stale-high-score"),
+    )
+    repo.conn.execute(
+        "UPDATE opportunities SET updated_at=? WHERE source=? AND id=?",
+        ("2026-09-12 00:00:01", "taskforce", "fresh-low-score"),
+    )
+    repo.conn.commit()
+    repo.record_source_health("taskforce", True, 200, None, scan_time)
+
+    selected = repo.reserve_next_opportunity(None, 1, scan_time + timedelta(minutes=1))
+
+    assert selected is not None
+    assert selected["id"] == "fresh-low-score"
+
+
 def test_illegal_backward_and_terminal_resurrection_fail(tmp_path):
     repo = StackHubRepository(tmp_path / "reservations.db")
     repo.initialize()
