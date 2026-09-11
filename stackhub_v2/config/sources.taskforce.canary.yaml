@@ -1,3 +1,4 @@
+# Canary rerun after atomic FAILED_RETRYABLE requeue fix.
 runtime:
   dry_run: false
   worker_enabled: true
