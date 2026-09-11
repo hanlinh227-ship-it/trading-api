@@ -1,4 +1,5 @@
 from decimal import Decimal
+import asyncio
 import pytest
 
 from stackhub.config import RuntimeConfig, SourceConfig
@@ -34,6 +35,18 @@ class FailingAdapter:
         raise TaskBountyProtocolError("rate limited", status_code=429, error_code="rate_limited")
 
 
+class RateLimitedAdapter:
+    async def fetch_open(self, limit=50):
+        raise TaskBountyProtocolError(
+            "rate limited", status_code=429, error_code="rate_limited", retry_after_seconds=600
+        )
+
+
+class OutageAdapter:
+    async def fetch_open(self, limit=50):
+        raise TaskBountyProtocolError("unavailable", status_code=503, error_code="http_503")
+
+
 @pytest.mark.asyncio
 async def test_run_once_persists_ranked_read_only_opportunity(tmp_path):
     repo = StackHubRepository(tmp_path / "db.sqlite"); repo.initialize()
@@ -56,3 +69,34 @@ async def test_rate_limit_records_source_health_without_raising(tmp_path):
     assert health["ok"] is False
     assert health["status_code"] == 429
     assert health["error_code"] == "rate_limited"
+
+
+@pytest.mark.asyncio
+async def test_run_forever_honors_retry_after(tmp_path):
+    repo = StackHubRepository(tmp_path / "db.sqlite"); repo.initialize()
+    stop = asyncio.Event()
+    sleeps = []
+
+    async def sleeper(seconds):
+        sleeps.append(seconds)
+        stop.set()
+
+    scanner = Scanner(config(), repo, {"taskbounty": RateLimitedAdapter()}, sleeper=sleeper)
+    await scanner.run_forever(stop)
+    assert sleeps == [600]
+
+
+@pytest.mark.asyncio
+async def test_run_forever_uses_capped_exponential_outage_backoff(tmp_path):
+    repo = StackHubRepository(tmp_path / "db.sqlite"); repo.initialize()
+    stop = asyncio.Event()
+    sleeps = []
+
+    async def sleeper(seconds):
+        sleeps.append(seconds)
+        if len(sleeps) == 5:
+            stop.set()
+
+    scanner = Scanner(config(), repo, {"taskbounty": OutageAdapter()}, sleeper=sleeper)
+    await scanner.run_forever(stop)
+    assert sleeps == [60, 120, 240, 480, 900]
