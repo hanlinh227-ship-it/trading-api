@@ -1,3 +1,4 @@
+import copy
 import importlib.util
 import json
 import unittest
@@ -24,6 +25,7 @@ class BrainV2ContractTests(unittest.TestCase):
         router = yaml.safe_load((LIB / 'router.yaml').read_text(encoding='utf-8'))
         self.assertEqual(router['version'], 2)
         self.assertEqual(router['defaults']['max_domain_skills'], 3)
+        self.assertIs(router['defaults']['route_every_request'], True)
         ids = [skill['id'] for skill in router['skills']]
         self.assertEqual(len(ids), len(set(ids)))
         for skill in router['skills']:
@@ -70,7 +72,12 @@ class BrainV2ContractTests(unittest.TestCase):
         }
         router = {
             'version': 2,
-            'defaults': {'max_domain_skills': 3},
+            'defaults': {
+                'max_domain_skills': 3,
+                'route_every_request': True,
+                'preload_all_skills': False,
+                'preload_trading_state': False,
+            },
             'skills': [],
             'routes': [],
             'authorities': [
@@ -81,6 +88,19 @@ class BrainV2ContractTests(unittest.TestCase):
         plugins = {'version': 1, 'plugins': []}
         errors, warnings = validator.validate_brain_data(manifest, router, plugins, root=ROOT)
         self.assertTrue(any('multiple current authorities' in e.lower() for e in errors), (errors, warnings))
+
+    def test_validator_rejects_route_missing_required_skill(self):
+        validator = load_brain_validator()
+        manifest = json.loads((LIB / 'checkpoint.json').read_text(encoding='utf-8'))
+        router = yaml.safe_load((LIB / 'router.yaml').read_text(encoding='utf-8'))
+        plugins = yaml.safe_load((LIB / 'plugins.yaml').read_text(encoding='utf-8'))
+        broken = copy.deepcopy(router)
+        for route in broken['routes']:
+            if route['id'] == 'mt5_bot':
+                route['supporting'] = [sid for sid in route.get('supporting', []) if sid != 'trading_router']
+                break
+        errors, warnings = validator.validate_brain_data(manifest, broken, plugins, root=ROOT)
+        self.assertTrue(any('missing required skill' in e.lower() for e in errors), (errors, warnings))
 
     def test_v1_activation_alias_is_kept(self):
         manifest = json.loads((LIB / 'checkpoint.json').read_text(encoding='utf-8'))
