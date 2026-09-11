@@ -4,13 +4,13 @@ from stackhub.accounts import account_status
 def test_account_status_never_returns_secret_values():
     rows = account_status(
         {
-            "TASKBOUNTY_API_KEY": "tb_live_supersecret",
-            "GUMROAD_ACCESS_TOKEN": "gum_secret",
+            "TASKBOUNTY_API_KEY": "fake_taskbounty_value",
+            "GUMROAD_ACCESS_TOKEN": "fake_gumroad_value",
         }
     )
     text = repr(rows)
-    assert "tb_live_supersecret" not in text
-    assert "gum_secret" not in text
+    assert "fake_taskbounty_value" not in text
+    assert "fake_gumroad_value" not in text
     assert all(row["ready_for_mode"] for row in rows)
 
 
