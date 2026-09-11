@@ -29,7 +29,26 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: write
     steps:
+      - name: Live-only activation retires older canonical runs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run list \
+            --workflow kaggriculture-v5-4-rank-livestock.yml \
+            --branch main --limit 50 \
+            --json databaseId,status | \
+          python -c 'import json,os,sys; cur=int(os.environ["GITHUB_RUN_ID"]); [print(int(r.get("databaseId",0))) for r in json.load(sys.stdin) if r.get("status") in ("queued","in_progress","pending") and int(r.get("databaseId",0)) != cur]' > /tmp/older-canonical-runs.txt
+          while read -r run_id; do
+            [ -z "$run_id" ] && continue
+            echo "RETIRE_PRE_LIVE_CANONICAL_RUN run=$run_id"
+            gh run cancel "$run_id" --repo "$GITHUB_REPOSITORY" || true
+          done < /tmp/older-canonical-runs.txt
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -194,8 +213,6 @@ jobs:
           PENDING_AGE="$(python -c 'import json,os; v=json.load(open(os.environ["DECISION"]))["pending_age_seconds"]; print(-1 if v is None else v)')"
           export SHA256 DESC CONFIRMED_SHA AGE PENDING_SHA PENDING_AGE
 
-          # If Kaggle already exposes this exact live description, treat that as
-          # explicit visibility evidence and reconcile the canonical live ledger.
           if grep -Fq "$DESC" "$OUT/kaggle-before.txt"; then
             python - <<'PY'
           import datetime,json,os,pathlib
@@ -215,8 +232,6 @@ jobs:
             exit 0
           fi
 
-          # A successful CLI send that was not yet visible is recorded only as
-          # pending, never as a confirmed submission. This prevents duplicate rerolls.
           if [ "$PENDING_SHA" = "$SHA256" ] && [ "$PENDING_AGE" -ge 0 ] && [ "$PENDING_AGE" -lt 1800 ]; then
             echo 'KAGGLE_LIVE_PENDING_VISIBILITY_WAIT no duplicate submission'
             exit 0
@@ -234,8 +249,6 @@ jobs:
 
           echo 'KAGGLE_LIVE_SUBMISSION_READY'
           if kaggle competitions submit -c kaggriculture -f "$OUT/main.py" -m "$DESC"; then
-            # Record only an unconfirmed pending send first. Do not claim a live
-            # submission until the Kaggle submissions list provides evidence.
             python - <<'PY'
           import datetime,json,os,pathlib
           p=pathlib.Path(os.environ['LEDGER'])
