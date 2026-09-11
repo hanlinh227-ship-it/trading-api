@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/github-brain/runtime.schema.json",
+  "title": "GITHUB_BRAIN_V2 Adaptive Runtime",
+  "type": "object",
+  "required": ["version", "profile_order", "selection", "profiles", "controls"],
+  "properties": {
+    "version": {"type": "integer", "const": 1},
+    "profile_order": {
+      "type": "array",
+      "prefixItems": [
+        {"const": "FAST"},
+        {"const": "STANDARD"},
+        {"const": "DEEP"}
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "selection": {"type": "object"},
+    "profiles": {
+      "type": "object",
+      "required": ["FAST", "STANDARD", "DEEP"],
+      "properties": {
+        "FAST": {"$ref": "#/$defs/profile"},
+        "STANDARD": {"$ref": "#/$defs/profile"},
+        "DEEP": {"$ref": "#/$defs/profile"}
+      },
+      "additionalProperties": false
+    },
+    "controls": {"type": "object"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "required": [
+        "context_tokens",
+        "memory_items",
+        "tool_candidates",
+        "replan_budget",
+        "max_supporting_skills",
+        "persistent_trace",
+        "stages"
+      ],
+      "properties": {
+        "context_tokens": {"type": "integer", "minimum": 0, "maximum": 99999},
+        "memory_items": {"type": "integer", "minimum": 0, "maximum": 99},
+        "tool_candidates": {"type": "integer", "minimum": 0, "maximum": 99},
+        "replan_budget": {"type": "integer", "minimum": 0, "maximum": 99},
+        "max_supporting_skills": {"type": "integer", "minimum": 0, "maximum": 2},
+        "persistent_trace": {"type": ["boolean", "string"]},
+        "stages": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
