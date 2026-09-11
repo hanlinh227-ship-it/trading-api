@@ -1,0 +1,53 @@
+version: 1
+failure_taxonomy:
+  - user_correction
+  - wrong_route
+  - stale_context
+  - wrong_authority
+  - tool_selection_error
+  - source_quality_error
+  - verification_skipped
+  - runtime_claim_without_evidence
+  - constraint_violation
+  - implementation_regression
+  - latency_bloat
+
+learning_loop:
+  verified_failure_to_candidate_eval: true
+  user_correction_to_candidate_eval: true
+  require_reproduction_when_possible: true
+  require_root_cause_classification: true
+  candidate_eval_before_policy_patch: true
+  compare_against_baseline: true
+  preserve_failure_evidence: true
+
+scoring:
+  dimensions:
+    routing: 0.15
+    correctness: 0.25
+    evidence: 0.15
+    verification: 0.15
+    constraint_adherence: 0.10
+    latency_efficiency: 0.10
+    safety: 0.10
+  pass_score: 0.85
+  protected_dimensions: [correctness, verification, safety, authority]
+
+promotion:
+  required_gates: [tests, eval_baseline, security, authority, ci]
+  automatic_merge: false
+  require_no_material_regression: true
+  max_protected_regression: 0.0
+  max_unprotected_regression: 0.02
+  require_human_or_existing_repo_merge_policy: true
+
+profiles:
+  FAST:
+    generate_eval_on_success: false
+    generate_eval_on_failure: false
+  STANDARD:
+    generate_eval_on_success: false
+    generate_eval_on_failure: verified_or_user_corrected_only
+  DEEP:
+    generate_eval_on_success: benchmark_worthy_only
+    generate_eval_on_failure: verified_or_user_corrected_only
