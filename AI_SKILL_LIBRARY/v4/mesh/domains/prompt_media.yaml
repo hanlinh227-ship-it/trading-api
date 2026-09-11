@@ -1,0 +1,8 @@
+id: prompt_media
+version: 4.0.0
+sources: [prompt]
+tools: [video_generation, two_d_to_three_d]
+evals: [constraint_preservation, character_consistency, scene_continuity, camera_direction]
+authority_required: false
+memory_namespace: prompt_media
+bridge_policy: explicit_only
