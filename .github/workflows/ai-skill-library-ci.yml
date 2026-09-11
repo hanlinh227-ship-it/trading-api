@@ -2,7 +2,7 @@ name: AI Skill Library CI
 
 on:
   push:
-    branches: [main, github-brain-v2, 'github-brain-v2-*']
+    branches: [main, github-brain-v2, 'github-brain-v2-*', 'github-brain-v3-*']
     paths:
       - 'AI_SKILL_LIBRARY/**'
       - '.github/workflows/ai-skill-library-ci.yml'
@@ -43,6 +43,7 @@ jobs:
           AI_SKILL_LIBRARY/validate_router.py
           AI_SKILL_LIBRARY/validate_authority.py
           AI_SKILL_LIBRARY/validate_runtime.py
+          AI_SKILL_LIBRARY/validate_v3.py
       - name: Run integration tests
         run: python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
       - name: Validate source registry
@@ -55,6 +56,8 @@ jobs:
         run: python AI_SKILL_LIBRARY/validate_authority.py
       - name: Validate adaptive agent runtime
         run: python AI_SKILL_LIBRARY/validate_runtime.py
+      - name: Validate V3 unified kernel
+        run: python AI_SKILL_LIBRARY/validate_v3.py
       - name: Validate ingest selection without cloning
         run: python AI_SKILL_LIBRARY/ingest_sources.py --all --dry-run --output /tmp/ai-skill-library.jsonl
       - name: Audit upstream repositories

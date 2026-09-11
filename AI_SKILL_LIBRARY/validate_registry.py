@@ -84,7 +84,7 @@ def validate_registry_data(data: dict) -> tuple[list[str], list[str]]:
 
 
 def validate_checkpoint() -> tuple[list[str], list[str]]:
-    """Keep source-validator compatibility checks small; V2 structure is validated by validate_brain.py."""
+    """Keep registry compatibility checks small; brain structure is validated elsewhere."""
     errors: list[str] = []
     warnings: list[str] = []
     try:
@@ -94,8 +94,11 @@ def validate_checkpoint() -> tuple[list[str], list[str]]:
     except json.JSONDecodeError as exc:
         return [f'checkpoint.json invalid JSON: {exc}'], warnings
 
+    checkpoint_id = manifest.get('checkpoint_id')
+    if checkpoint_id not in {'GITHUB_BRAIN_V2', 'GITHUB_BRAIN_V3'}:
+        errors.append("checkpoint.checkpoint_id must be 'GITHUB_BRAIN_V2' or 'GITHUB_BRAIN_V3'")
+
     expected = {
-        'checkpoint_id': 'GITHUB_BRAIN_V2',
         'canonical_repo': 'hanlinh227-ship-it/trading-api',
         'canonical_branch': 'main',
         'registry_path': 'AI_SKILL_LIBRARY/sources.yaml',
@@ -103,7 +106,14 @@ def validate_checkpoint() -> tuple[list[str], list[str]]:
     for key, value in expected.items():
         if manifest.get(key) != value:
             errors.append(f'checkpoint.{key} must be {value!r}')
+
+    expected_checkpoint_path = {
+        'GITHUB_BRAIN_V2': 'AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md',
+        'GITHUB_BRAIN_V3': 'AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md',
+    }.get(checkpoint_id)
     cp_path = manifest.get('checkpoint_path')
+    if expected_checkpoint_path and cp_path != expected_checkpoint_path:
+        errors.append(f'checkpoint.checkpoint_path must be {expected_checkpoint_path!r}')
     if not isinstance(cp_path, str) or not cp_path:
         errors.append('checkpoint.checkpoint_path must be set')
     else:

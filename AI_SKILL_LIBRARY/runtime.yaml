@@ -26,6 +26,7 @@ selection:
       - financial_action
       - credential_sensitive_action
       - complex_research
+      - dependency_graph_required
 
 profiles:
   FAST:
@@ -35,6 +36,9 @@ profiles:
     replan_budget: 0
     max_supporting_skills: 0
     persistent_trace: false
+    context_registry_reads: 1
+    orchestration: serial
+    max_parallel_tasks: 1
     stages: [task_router, minimal_core, answer]
   STANDARD:
     context_tokens: 7000
@@ -43,9 +47,13 @@ profiles:
     replan_budget: 1
     max_supporting_skills: 2
     persistent_trace: conditional
+    context_registry_reads: 4
+    orchestration: bounded_parallel_when_beneficial
+    max_parallel_tasks: 2
     stages:
       - task_router
       - runtime_profile
+      - context_plan
       - project_authority
       - primary_skill
       - supporting_skills
@@ -62,18 +70,24 @@ profiles:
     replan_budget: 2
     max_supporting_skills: 2
     persistent_trace: bounded
+    context_registry_reads: 8
+    orchestration: dependency_graph
+    max_parallel_tasks: 4
     stages:
       - task_router
       - runtime_profile
+      - context_plan
       - project_authority
       - scoped_memory
       - planner
+      - task_graph
       - primary_skill
       - supporting_skills
       - relevant_sources
       - relevant_plugins
       - security_gate
       - execute
+      - dependency_join
       - critic
       - verification
       - eval
@@ -90,7 +104,15 @@ controls:
   planner_only_when_profile: DEEP
   critic_only_when_profile: DEEP
   eval_only_when_profile: DEEP
+  context_scheduler: true
+  context_cache_scope: work_cycle
+  orchestration_enabled: true
+  dependency_aware_parallelism: true
+  serial_fallback: true
+  parallel_high_impact_writes: false
   max_context_tokens: 20000
   max_memory_items: 12
   max_tool_candidates: 8
   max_replan_budget: 3
+  max_registry_reads: 10
+  max_parallel_tasks: 4

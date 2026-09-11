@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kernel.schema.json",
+  "type": "object",
+  "required": ["version", "authority", "default_profile", "control_plane", "profiles", "capability_negotiation", "context", "reliability", "evidence", "orchestration", "recovery_state_machine", "promotion", "invariants"],
+  "properties": {
+    "version": {"const": 3},
+    "authority": {"const": "GITHUB_BRAIN_V3"},
+    "default_profile": {"const": "FAST"},
+    "profiles": {
+      "type": "object",
+      "required": ["FAST", "STANDARD", "DEEP"],
+      "properties": {
+        "FAST": {"$ref": "#/$defs/profile"},
+        "STANDARD": {"$ref": "#/$defs/profile"},
+        "DEEP": {"$ref": "#/$defs/profile"}
+      },
+      "additionalProperties": false
+    },
+    "invariants": {
+      "type": "object",
+      "required": ["one_ai_brain_authority", "one_current_authority_per_project", "no_hidden_reasoning_persistence", "no_durable_secrets", "no_auto_merge_self_improvement", "no_trading_preload_for_non_trading", "source_code_is_not_live_proof", "verification_before_completion_claim", "high_impact_min_profile_deep"],
+      "additionalProperties": {"type": "boolean"}
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "required": ["orchestration", "context_sources", "durable_memory_items", "tool_candidates", "replans", "persistent_trace"],
+      "properties": {
+        "orchestration": {"type": "string"},
+        "context_sources": {"type": "integer", "minimum": 0, "maximum": 24},
+        "durable_memory_items": {"type": "integer", "minimum": 0, "maximum": 12},
+        "tool_candidates": {"type": "integer", "minimum": 0, "maximum": 8},
+        "replans": {"type": "integer", "minimum": 0, "maximum": 3},
+        "persistent_trace": {"type": ["boolean", "string"]}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

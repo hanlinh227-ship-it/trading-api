@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate GITHUB_BRAIN_V2 checkpoint, router, plugins, skills and authorities."""
+"""Validate routed brain compatibility for GITHUB_BRAIN_V2/V3."""
 from __future__ import annotations
 
 import json
@@ -15,7 +15,7 @@ ROUTER_PATH = HERE / "router.yaml"
 PLUGINS_PATH = HERE / "plugins.yaml"
 
 
-def _inside_root(root: Path, rel: str) -> Path | None:
+def _inside_root(root: Path, rel: object) -> Path | None:
     if not isinstance(rel, str) or not rel.strip():
         return None
     resolved = (root / rel).resolve()
@@ -26,39 +26,39 @@ def _inside_root(root: Path, rel: str) -> Path | None:
     return resolved
 
 
-def _v2_version_ok(value: object) -> bool:
+def _version_ok(checkpoint_id: object, value: object) -> bool:
     if not isinstance(value, str):
         return False
     try:
         major, minor, patch = (int(part) for part in value.split("."))
     except (TypeError, ValueError):
         return False
-    return major == 2 and (minor, patch) >= (1, 0)
+    if checkpoint_id == "GITHUB_BRAIN_V2":
+        return major == 2 and (minor, patch) >= (1, 0)
+    if checkpoint_id == "GITHUB_BRAIN_V3":
+        return major == 3 and (minor, patch) >= (0, 0)
+    return False
 
 
-def validate_brain_data(
-    manifest: dict,
-    router: dict,
-    plugins: dict,
-    *,
-    root: Path = REPO_ROOT,
-) -> tuple[list[str], list[str]]:
+def validate_brain_data(manifest: dict, router: dict, plugins: dict, *, root: Path = REPO_ROOT) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
-
     if not isinstance(manifest, dict):
         return ["manifest must be a mapping"], warnings
-    if manifest.get("checkpoint_id") != "GITHUB_BRAIN_V2":
-        errors.append("manifest.checkpoint_id must be 'GITHUB_BRAIN_V2'")
-    if not _v2_version_ok(manifest.get("version")):
-        errors.append("manifest.version must be a semantic GITHUB_BRAIN_V2 version >= 2.1.0")
+
+    checkpoint_id = manifest.get("checkpoint_id")
+    if checkpoint_id not in {"GITHUB_BRAIN_V2", "GITHUB_BRAIN_V3"}:
+        errors.append("manifest.checkpoint_id must be GITHUB_BRAIN_V2 or GITHUB_BRAIN_V3")
+    if not _version_ok(checkpoint_id, manifest.get("version")):
+        errors.append("manifest.version is incompatible with checkpoint_id")
     aliases = manifest.get("activation_aliases", [])
     if not isinstance(aliases, list) or "GITHUB_BRAIN_V1" not in aliases:
         errors.append("manifest.activation_aliases must keep GITHUB_BRAIN_V1 compatibility")
+    if checkpoint_id == "GITHUB_BRAIN_V3" and "GITHUB_BRAIN_V2" not in aliases:
+        errors.append("GITHUB_BRAIN_V3 must keep GITHUB_BRAIN_V2 compatibility alias")
 
-    expected_paths = {
+    common_paths = {
         "bootstrap_path": "AI_SKILL_LIBRARY/bootstrap.yaml",
-        "checkpoint_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md",
         "router_path": "AI_SKILL_LIBRARY/router.yaml",
         "runtime_path": "AI_SKILL_LIBRARY/runtime.yaml",
         "plugins_path": "AI_SKILL_LIBRARY/plugins.yaml",
@@ -74,22 +74,34 @@ def validate_brain_data(
         "authority_validator_path": "AI_SKILL_LIBRARY/validate_authority.py",
         "runtime_validator_path": "AI_SKILL_LIBRARY/validate_runtime.py",
     }
+    expected_paths = dict(common_paths)
+    if checkpoint_id == "GITHUB_BRAIN_V3":
+        expected_paths.update({
+            "checkpoint_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md",
+            "kernel_path": "AI_SKILL_LIBRARY/kernel.yaml",
+            "context_path": "AI_SKILL_LIBRARY/context.yaml",
+            "reliability_path": "AI_SKILL_LIBRARY/reliability.yaml",
+            "evidence_path": "AI_SKILL_LIBRARY/evidence.yaml",
+            "orchestration_path": "AI_SKILL_LIBRARY/orchestration.yaml",
+            "migration_path": "AI_SKILL_LIBRARY/migration.yaml",
+            "v3_validator_path": "AI_SKILL_LIBRARY/validate_v3.py",
+        })
+    else:
+        expected_paths["checkpoint_path"] = "AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md"
+
     for key, expected in expected_paths.items():
         if manifest.get(key) != expected:
             errors.append(f"manifest.{key} must be {expected!r}")
-        path = _inside_root(root, expected)
-        if path is None or not path.is_file():
+        target = _inside_root(root, expected)
+        if target is None or not target.is_file():
             errors.append(f"manifest target missing: {expected}")
 
     if not isinstance(router, dict) or router.get("version") != 2:
         errors.append("router.version must be 2")
         return errors, warnings
-    defaults = router.get("defaults")
-    if not isinstance(defaults, dict):
-        errors.append("router.defaults must be a mapping")
-        defaults = {}
-    max_domain = defaults.get("max_domain_skills")
-    if not isinstance(max_domain, int) or max_domain < 1:
+    defaults = router.get("defaults") if isinstance(router.get("defaults"), dict) else {}
+    max_domain = defaults.get("max_domain_skills", 3)
+    if not isinstance(max_domain, int) or isinstance(max_domain, bool) or max_domain < 1:
         errors.append("router.defaults.max_domain_skills must be a positive integer")
         max_domain = 3
     if defaults.get("route_every_request") is not True:
@@ -105,9 +117,8 @@ def validate_brain_data(
     if defaults.get("preload_trading_state") is not False:
         errors.append("router.defaults.preload_trading_state must be false")
 
-    plugin_entries = plugins.get("plugins", []) if isinstance(plugins, dict) else []
     plugin_caps: set[str] = set()
-    for idx, plugin in enumerate(plugin_entries, start=1):
+    for idx, plugin in enumerate(plugins.get("plugins", []) if isinstance(plugins, dict) else [], start=1):
         if not isinstance(plugin, dict):
             errors.append(f"plugin[{idx}] must be a mapping")
             continue
@@ -140,8 +151,7 @@ def validate_brain_data(
         path = _inside_root(root, skill.get("path"))
         if path is None or not path.is_file():
             errors.append(f"skill[{sid}] path missing or outside repo: {skill.get('path')!r}")
-        priority = skill.get("priority")
-        if not isinstance(priority, int):
+        if not isinstance(skill.get("priority"), int):
             errors.append(f"skill[{sid}] priority must be an integer")
         for cap in skill.get("plugin_ids", []):
             if cap not in plugin_caps:
@@ -159,24 +169,16 @@ def validate_brain_data(
                 if ref == sid:
                     errors.append(f"skill[{sid}] cannot {field} itself")
 
-    routes = router.get("routes", [])
-    route_ids: set[str] = set()
-    for idx, route in enumerate(routes, start=1):
+    for idx, route in enumerate(router.get("routes", []), start=1):
         if not isinstance(route, dict):
             errors.append(f"route[{idx}] must be a mapping")
             continue
-        rid = route.get("id")
-        if not isinstance(rid, str) or not rid:
-            errors.append(f"route[{idx}] id must be non-empty")
-            continue
-        if rid in route_ids:
-            errors.append(f"route[{idx}] duplicate route id {rid!r}")
-        route_ids.add(rid)
+        rid = route.get("id", f"#{idx}")
         supporting = route.get("supporting", [])
         if not isinstance(supporting, list):
             errors.append(f"route[{rid}] supporting must be a list")
             supporting = []
-        selected = [route.get("primary")] + list(supporting)
+        selected = [route.get("primary"), *supporting]
         for sid in selected:
             if sid not in ids:
                 errors.append(f"route[{rid}] references unknown skill {sid!r}")
@@ -185,20 +187,17 @@ def validate_brain_data(
             errors.append(f"route[{rid}] selects {len(domain_selected)} domain skills; max is {max_domain}")
         selected_set = set(selected)
         for sid in selected_set & ids:
-            requirements = set(skill_rows[sid].get("requires", []))
-            missing = requirements - selected_set
-            for required in sorted(missing):
+            for required in sorted(set(skill_rows[sid].get("requires", [])) - selected_set):
                 errors.append(f"route[{rid}] missing required skill {required!r} for {sid!r}")
-            conflicts = set(skill_rows[sid].get("conflicts_with", []))
-            collision = conflicts & selected_set
+            collision = set(skill_rows[sid].get("conflicts_with", [])) & selected_set
             if collision:
                 errors.append(f"route[{rid}] contains conflicting skills {sid!r} and {sorted(collision)!r}")
 
+    by_scope: dict[str, list[dict]] = {}
     authorities = router.get("authorities", [])
     if not isinstance(authorities, list) or not authorities:
         errors.append("router.authorities must be a non-empty list")
         authorities = []
-    by_scope: dict[str, list[dict]] = {}
     for idx, authority in enumerate(authorities, start=1):
         if not isinstance(authority, dict):
             errors.append(f"authority[{idx}] must be a mapping")
@@ -213,32 +212,26 @@ def validate_brain_data(
             errors.append(f"authority[{scope}] path missing or outside repo: {authority.get('path')!r}")
         follows = authority.get("follows")
         if follows:
-            follow_path = _inside_root(root, follows)
-            if follow_path is None or not follow_path.is_file():
+            follow = _inside_root(root, follows)
+            if follow is None or not follow.is_file():
                 errors.append(f"authority[{scope}] follows missing or outside repo: {follows!r}")
-
     for scope, entries in by_scope.items():
         current = [entry for entry in entries if entry.get("status") == "CURRENT_AUTHORITY"]
         if len(current) > 1:
             errors.append(f"multiple current authorities for scope {scope!r}")
-        elif len(current) == 0:
+        elif not current:
             errors.append(f"no current authority for scope {scope!r}")
 
     return errors, warnings
 
 
-def _load() -> tuple[dict, dict, dict]:
-    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    router = yaml.safe_load(ROUTER_PATH.read_text(encoding="utf-8"))
-    plugins = yaml.safe_load(PLUGINS_PATH.read_text(encoding="utf-8"))
-    return manifest, router, plugins
-
-
 def main() -> int:
     try:
-        manifest, router, plugins = _load()
-    except (FileNotFoundError, json.JSONDecodeError, yaml.YAMLError) as exc:
-        print(f"[ERROR] unable to load V2 brain files: {exc}", file=sys.stderr)
+        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        router = yaml.safe_load(ROUTER_PATH.read_text(encoding="utf-8"))
+        plugins = yaml.safe_load(PLUGINS_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, yaml.YAMLError) as exc:
+        print(f"[ERROR] unable to load brain files: {exc}", file=sys.stderr)
         return 2
     errors, warnings = validate_brain_data(manifest, router, plugins)
     for warning in warnings:

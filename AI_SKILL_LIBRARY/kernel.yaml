@@ -1,0 +1,101 @@
+version: 3
+authority: GITHUB_BRAIN_V3
+default_profile: FAST
+
+control_plane:
+  route_every_request: true
+  mandatory_router: task_router
+  one_profile_per_request: true
+  planner_profile: DEEP
+  critic_profile: DEEP
+  eval_profile: DEEP
+  security_gate_on_high_impact: true
+  evidence_ledger_on_material_claims: true
+  recovery_is_bounded: true
+
+profiles:
+  FAST:
+    orchestration: serial
+    context_sources: 1
+    durable_memory_items: 0
+    tool_candidates: 0
+    replans: 0
+    persistent_trace: false
+  STANDARD:
+    orchestration: bounded_parallel_when_beneficial
+    context_sources: 6
+    durable_memory_items: 4
+    tool_candidates: 3
+    replans: 1
+    persistent_trace: conditional
+  DEEP:
+    orchestration: dependency_graph
+    context_sources: 12
+    durable_memory_items: 8
+    tool_candidates: 5
+    replans: 2
+    persistent_trace: bounded
+
+capability_negotiation:
+  enabled: true
+  select_only_registered_skills: true
+  select_only_registered_tools: true
+  default_primary_skills: 1
+  max_supporting_skills: 2
+  prefer_existing_capability_over_new_dependency: true
+  optional_tool_failure_degrades_gracefully: true
+
+context:
+  config: AI_SKILL_LIBRARY/context.yaml
+  authority_first: true
+  freshness_aware: true
+  cache_scope: work_cycle
+  deduplicate: true
+
+reliability:
+  config: AI_SKILL_LIBRARY/reliability.yaml
+  bounded_retry: true
+  circuit_breaker: true
+  degraded_state_disclosure: true
+
+evidence:
+  config: AI_SKILL_LIBRARY/evidence.yaml
+  provenance_ledger: true
+  resolve_material_conflicts: true
+  disclose_unresolved_material_uncertainty: true
+
+orchestration:
+  config: AI_SKILL_LIBRARY/orchestration.yaml
+  dependency_aware: true
+  max_parallel_tasks: 4
+  serial_fallback: true
+  parallel_high_impact_writes: false
+
+recovery_state_machine:
+  states: [route, resolve_authority, context_plan, plan, execute, verify, recover, complete]
+  retry_from: [context_plan, plan, execute, verify]
+  max_recovery_loops: 2
+  never_skip_security_on_recovery: true
+  never_widen_permissions_on_recovery: true
+
+promotion:
+  self_improvement_requires:
+    - tests
+    - eval_baseline
+    - security
+    - authority
+    - ci
+  automatic_merge: false
+
+invariants:
+  one_ai_brain_authority: true
+  one_current_authority_per_project: true
+  current_authority_outranks_memory: true
+  current_runtime_outranks_cached_state: true
+  no_hidden_reasoning_persistence: true
+  no_durable_secrets: true
+  no_auto_merge_self_improvement: true
+  no_trading_preload_for_non_trading: true
+  source_code_is_not_live_proof: true
+  verification_before_completion_claim: true
+  high_impact_min_profile_deep: true

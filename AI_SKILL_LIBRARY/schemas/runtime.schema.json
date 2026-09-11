@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.local/github-brain/runtime.schema.json",
-  "title": "GITHUB_BRAIN_V2 Adaptive Runtime",
+  "title": "GITHUB_BRAIN Adaptive Runtime",
   "type": "object",
   "required": ["version", "profile_order", "selection", "profiles", "controls"],
   "properties": {
@@ -50,6 +50,12 @@
         "replan_budget": {"type": "integer", "minimum": 0, "maximum": 99},
         "max_supporting_skills": {"type": "integer", "minimum": 0, "maximum": 2},
         "persistent_trace": {"type": ["boolean", "string"]},
+        "context_registry_reads": {"type": "integer", "minimum": 0, "maximum": 10},
+        "orchestration": {
+          "type": "string",
+          "enum": ["serial", "bounded_parallel_when_beneficial", "dependency_graph"]
+        },
+        "max_parallel_tasks": {"type": "integer", "minimum": 1, "maximum": 4},
         "stages": {
           "type": "array",
           "items": {"type": "string", "minLength": 1},

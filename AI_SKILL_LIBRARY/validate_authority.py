@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate project authority uniqueness and checkpoint freshness for GITHUB_BRAIN_V2."""
+"""Validate project authority uniqueness and checkpoint freshness for GITHUB_BRAIN V2/V3."""
 from __future__ import annotations
 
 import json
@@ -65,18 +65,34 @@ def validate_authority_data(projects: dict, checkpoint: dict, *, root: Path = RO
         elif not current:
             errors.append(f"no current authority for project {pid!r}")
 
+    checkpoint_id = checkpoint.get("checkpoint_id")
+    if checkpoint_id not in {"GITHUB_BRAIN_V2", "GITHUB_BRAIN_V3"}:
+        errors.append("checkpoint_id must be GITHUB_BRAIN_V2 or GITHUB_BRAIN_V3")
+    aliases = set(checkpoint.get("activation_aliases", []))
+    if "GITHUB_BRAIN_V1" not in aliases:
+        errors.append("GITHUB_BRAIN_V1 compatibility alias is missing")
+    if checkpoint_id == "GITHUB_BRAIN_V3" and "GITHUB_BRAIN_V2" not in aliases:
+        errors.append("GITHUB_BRAIN_V2 compatibility alias is missing")
+
     required_checkpoint_paths = {
         "checkpoint_path", "router_path", "plugins_path", "registry_path", "projects_path",
         "skill_catalog_path", "router_validator_path", "authority_validator_path",
     }
+    if checkpoint_id == "GITHUB_BRAIN_V3":
+        required_checkpoint_paths |= {
+            "bootstrap_path", "kernel_path", "runtime_path", "context_path", "reliability_path",
+            "evidence_path", "orchestration_path", "migration_path", "v3_validator_path",
+        }
     for key in required_checkpoint_paths:
         target = _inside(root, checkpoint.get(key))
         if target is None or not target.is_file():
             errors.append(f"checkpoint reference missing for {key}: {checkpoint.get(key)!r}")
-    if checkpoint.get("checkpoint_id") != "GITHUB_BRAIN_V2":
-        errors.append("checkpoint_id must be GITHUB_BRAIN_V2")
-    if "GITHUB_BRAIN_V1" not in checkpoint.get("activation_aliases", []):
-        errors.append("GITHUB_BRAIN_V1 compatibility alias is missing")
+
+    ai_rows = [row for row in rows if row.get("id") == "ai_brain" and row.get("status") in CURRENT_STATUSES]
+    if len(ai_rows) == 1:
+        expected = "AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md" if checkpoint_id == "GITHUB_BRAIN_V3" else "AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md"
+        if ai_rows[0].get("authority") != expected:
+            errors.append(f"ai_brain authority must be {expected}")
 
     trading_rows = [row for row in rows if row.get("id") == "trading" and row.get("status") in CURRENT_STATUSES]
     if len(trading_rows) == 1:
