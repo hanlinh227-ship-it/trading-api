@@ -46,9 +46,25 @@ class StackHubRepository:
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(source, id)
             );
-            CREATE TABLE IF NOT EXISTS claims (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, opportunity_id TEXT);
+            CREATE TABLE IF NOT EXISTS claims (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source TEXT NOT NULL,
+                opportunity_id TEXT NOT NULL,
+                clone_url TEXT,
+                state TEXT NOT NULL DEFAULT 'ACCESSED',
+                claimed_at TEXT,
+                UNIQUE(source, opportunity_id)
+            );
             CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY AUTOINCREMENT, started_at TEXT, finished_at TEXT, status TEXT);
-            CREATE TABLE IF NOT EXISTS submissions (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, opportunity_id TEXT, reference TEXT);
+            CREATE TABLE IF NOT EXISTS submissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source TEXT NOT NULL,
+                opportunity_id TEXT NOT NULL,
+                reference TEXT NOT NULL,
+                submission_id TEXT,
+                submitted_at TEXT,
+                UNIQUE(source, opportunity_id, reference)
+            );
             CREATE TABLE IF NOT EXISTS verification_events (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, opportunity_id TEXT, event TEXT, observed_at TEXT);
             CREATE TABLE IF NOT EXISTS payouts (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, opportunity_id TEXT, asset TEXT, amount TEXT, txid TEXT);
             CREATE TABLE IF NOT EXISTS wallet_public_addresses (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, asset TEXT, network TEXT, address TEXT);
@@ -63,7 +79,17 @@ class StackHubRepository:
             );
             """
         )
+        self._ensure_column("claims", "clone_url", "TEXT")
+        self._ensure_column("claims", "state", "TEXT NOT NULL DEFAULT 'ACCESSED'")
+        self._ensure_column("claims", "claimed_at", "TEXT")
+        self._ensure_column("submissions", "submission_id", "TEXT")
+        self._ensure_column("submissions", "submitted_at", "TEXT")
         self.conn.commit()
+
+    def _ensure_column(self, table: str, column: str, ddl: str) -> None:
+        columns = {row[1] for row in self.conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if column not in columns:
+            self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
     def upsert_opportunity(self, opportunity: Opportunity, policy: PolicyDecision, score: ScoreResult | None) -> None:
         self.conn.execute(
@@ -116,6 +142,63 @@ class StackHubRepository:
             (limit,),
         ).fetchall()
         return [dict(row) for row in rows]
+
+    def record_claim(self, source: str, opportunity_id: str, clone_url: str, claimed_at: datetime) -> None:
+        existing = self.conn.execute(
+            "SELECT * FROM claims WHERE source=? AND opportunity_id=?",
+            (source, opportunity_id),
+        ).fetchone()
+        if existing is not None:
+            if existing["clone_url"] == clone_url:
+                return
+            raise RuntimeError("claim already exists with a different clone reference")
+
+        active = self.get_active_claims()
+        if active:
+            raise RuntimeError("maximum active claims reached")
+
+        self.conn.execute(
+            "INSERT INTO claims(source,opportunity_id,clone_url,state,claimed_at) VALUES(?,?,?,?,?)",
+            (source, opportunity_id, clone_url, "ACCESSED", claimed_at.isoformat()),
+        )
+        self.conn.commit()
+
+    def update_claim_state(self, source: str, opportunity_id: str, state: str) -> None:
+        self.conn.execute(
+            "UPDATE claims SET state=? WHERE source=? AND opportunity_id=?",
+            (state, source, opportunity_id),
+        )
+        self.conn.commit()
+
+    def get_active_claims(self) -> list[dict[str, object]]:
+        rows = self.conn.execute(
+            "SELECT * FROM claims WHERE state NOT IN ('WON','LOST','FAILED') ORDER BY id ASC"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def record_submission(
+        self,
+        source: str,
+        opportunity_id: str,
+        reference: str,
+        submission_id: str | None,
+        submitted_at: datetime,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT OR IGNORE INTO submissions(source,opportunity_id,reference,submission_id,submitted_at)
+            VALUES(?,?,?,?,?)
+            """,
+            (source, opportunity_id, reference, submission_id, submitted_at.isoformat()),
+        )
+        self.conn.commit()
+
+    def record_verification_event(self, source: str, opportunity_id: str, event: str, observed_at: datetime) -> None:
+        self.conn.execute(
+            "INSERT INTO verification_events(source,opportunity_id,event,observed_at) VALUES(?,?,?,?)",
+            (source, opportunity_id, event, observed_at.isoformat()),
+        )
+        self.conn.commit()
 
     def record_source_health(self, source: str, ok: bool, status_code: int | None, error_code: str | None, observed_at: datetime) -> None:
         self.conn.execute(
