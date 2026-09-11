@@ -112,3 +112,17 @@ async def test_taskforce_discovery_normalizes_active_tasks_and_uses_api_key():
     assert item.agent_allowed is True
     assert item.category == "research"
     assert item.competition_model == "application"
+
+
+@pytest.mark.asyncio
+async def test_taskforce_owned_client_follows_https_redirects():
+    from stackhub.adapters.taskforce import TaskForceAdapter
+
+    adapter = TaskForceAdapter(
+        source_config("https://www.task-force.app"),
+        api_key="apv_test_placeholder",
+    )
+    try:
+        assert adapter.client.follow_redirects is True
+    finally:
+        await adapter.aclose()
