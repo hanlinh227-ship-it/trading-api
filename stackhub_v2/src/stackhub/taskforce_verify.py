@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import sys
 from decimal import Decimal, InvalidOperation
 
 import httpx
@@ -13,6 +12,14 @@ BASE_URL = "https://www.task-force.app"
 
 def solve_challenge(prompt: str) -> str | None:
     text = prompt.strip()
+
+    word_count = re.search(
+        r"how\s+many\s+words.*?[\"']([^\"']+)[\"']",
+        text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if word_count:
+        return str(len(word_count.group(1).split()))
 
     quoted = re.search(r"(?:reverse|backwards?)\s+(?:the\s+)?(?:string\s+)?[\"']([^\"']+)[\"']", text, re.IGNORECASE)
     if quoted:
