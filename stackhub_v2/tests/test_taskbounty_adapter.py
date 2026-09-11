@@ -57,3 +57,17 @@ async def test_malformed_task_is_rejected_as_protocol_error():
     with pytest.raises(TaskBountyProtocolError):
         await adapter.fetch_open()
     await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_parses_retry_after_header():
+    async def handler(request: httpx.Request):
+        return httpx.Response(429, headers={"Retry-After": "600"}, json={"error": "rate_limited"})
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = TaskBountyAdapter(source_config(), client=client)
+    with pytest.raises(TaskBountyProtocolError) as caught:
+        await adapter.fetch_open()
+    await client.aclose()
+    assert caught.value.status_code == 429
+    assert caught.value.error_code == "rate_limited"
+    assert caught.value.retry_after_seconds == 600
