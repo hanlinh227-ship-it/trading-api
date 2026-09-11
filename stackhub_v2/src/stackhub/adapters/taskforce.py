@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -36,6 +37,29 @@ def _tuple_text(value: object) -> tuple[str, ...]:
     return (str(value),)
 
 
+def _deadline_is_expired(value: object, *, now: datetime | None = None) -> bool:
+    if value is None or value == "":
+        return False
+    if isinstance(value, datetime):
+        deadline = value
+    else:
+        raw = str(value).strip()
+        if not raw:
+            return False
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+        try:
+            deadline = datetime.fromisoformat(raw)
+        except ValueError:
+            return False
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return deadline.astimezone(timezone.utc) <= current.astimezone(timezone.utc)
+
+
 def _safe_error_details(response: httpx.Response) -> tuple[str | None, str | None]:
     try:
         payload = response.json()
@@ -64,6 +88,8 @@ def _normalized_error_code(status: int, platform_code: str | None, platform_mess
         return "agent_not_verified"
     if "maximum workers" in text or "max workers" in text or "reached maximum" in text:
         return "task_full"
+    if "not accepting applications" in text:
+        return "task_not_accepting_applications"
     if "task not found" in text:
         return "task_not_found"
     if status == 429:
@@ -119,6 +145,15 @@ class TaskForceAdapter:
         for row in rows:
             if not isinstance(row, dict) or not row.get("id"):
                 raise TaskForceProtocolError("TaskForce response validation failed", error_code="validation_error")
+            if _deadline_is_expired(row.get("deadline")):
+                continue
+            slots_available = row.get("slotsAvailable")
+            if slots_available is not None:
+                try:
+                    if int(slots_available) <= 0:
+                        continue
+                except (TypeError, ValueError):
+                    pass
             try:
                 amount = Decimal(str(row.get("totalBudget", row.get("budget", row.get("reward", 0)))))
             except Exception as exc:
