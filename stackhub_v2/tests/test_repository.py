@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from stackhub.models import Opportunity, Reward
 from stackhub.policy import PolicyDecision
@@ -72,3 +72,28 @@ def test_initialize_rearms_old_dynamic_taskforce_availability_failure(tmp_path):
 
     assert claim["state"] == "FAILED_RETRYABLE"
     assert claim["last_error_code"] == "task_not_accepting_applications:http_400"
+
+
+def test_failed_retryable_claim_waits_for_retry_cooldown(tmp_path):
+    repo = StackHubRepository(tmp_path / "stackhub.db")
+    repo.initialize()
+    p = PolicyDecision(True, ())
+    s = ScoreResult(expected_net_value_usd=Decimal("8.00"), score_usd_per_minute=Decimal("0.4000"))
+    repo.upsert_opportunity(opp(), p, s)
+    failed_at = datetime(2026, 9, 12, 0, 0, tzinfo=timezone.utc)
+    repo.conn.execute(
+        "INSERT INTO claims(source,opportunity_id,state,updated_at,last_error_code) VALUES(?,?,?,?,?)",
+        (
+            "taskbounty",
+            "tb-1",
+            "FAILED_RETRYABLE",
+            failed_at.isoformat(),
+            "protocol_error",
+        ),
+    )
+    repo.conn.commit()
+
+    assert repo.reserve_next_opportunity(None, 4, failed_at + timedelta(minutes=1)) is None
+    reserved = repo.reserve_next_opportunity(None, 4, failed_at + timedelta(minutes=6))
+    assert reserved is not None
+    assert reserved["id"] == "tb-1"
