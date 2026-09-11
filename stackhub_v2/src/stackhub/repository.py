@@ -104,28 +104,69 @@ class StackHubRepository:
     def reserve_next_opportunity(self, source: str | None, max_active_claims: int, reserved_at: datetime) -> dict[str, object] | None:
         if max_active_claims < 1:
             raise ValueError("max_active_claims must be >= 1")
-        terminal = tuple(state.value for state in TERMINAL_STATES); placeholders = ",".join("?" for _ in terminal)
+        terminal = tuple(state.value for state in TERMINAL_STATES)
+        inactive_for_capacity = (*terminal, WorkerState.FAILED_RETRYABLE.value)
+        placeholders = ",".join("?" for _ in inactive_for_capacity)
         try:
             self.conn.execute("BEGIN IMMEDIATE")
-            active = int(self.conn.execute(f"SELECT COUNT(*) FROM claims WHERE state NOT IN ({placeholders})",terminal).fetchone()[0])
+            active = int(
+                self.conn.execute(
+                    f"SELECT COUNT(*) FROM claims WHERE state NOT IN ({placeholders})",
+                    inactive_for_capacity,
+                ).fetchone()[0]
+            )
             if active >= max_active_claims:
-                self.conn.rollback(); return None
-            source_clause = ""; params: list[object] = []
+                self.conn.rollback()
+                return None
+
+            source_clause = ""
+            params: list[object] = []
             if source is not None:
-                source_clause = "AND o.source=?"; params.append(source)
-            row = self.conn.execute(f"""SELECT o.* FROM opportunities o LEFT JOIN claims c
-                ON c.source=o.source AND c.opportunity_id=o.id WHERE o.policy_allowed=1 {source_clause} AND c.id IS NULL
+                source_clause = "AND o.source=?"
+                params.append(source)
+            params.append(WorkerState.FAILED_RETRYABLE.value)
+            row = self.conn.execute(
+                f"""SELECT o.*, c.id AS claim_id, c.state AS claim_state
+                FROM opportunities o
+                LEFT JOIN claims c ON c.source=o.source AND c.opportunity_id=o.id
+                WHERE o.policy_allowed=1 {source_clause}
+                  AND (c.id IS NULL OR c.state=?)
                 ORDER BY CAST(COALESCE(o.score_usd_per_minute,'-999999') AS REAL) DESC,
-                CAST(COALESCE(o.expected_net_value_usd,'-999999') AS REAL) DESC,o.source ASC,o.id ASC LIMIT 1""",tuple(params)).fetchone()
+                         CAST(COALESCE(o.expected_net_value_usd,'-999999') AS REAL) DESC,
+                         o.source ASC,o.id ASC LIMIT 1""",
+                tuple(params),
+            ).fetchone()
             if row is None:
-                self.conn.rollback(); return None
-            observed=reserved_at.isoformat()
-            self.conn.execute("INSERT INTO claims(source,opportunity_id,state,reserved_at,updated_at) VALUES(?,?,?,?,?)",
-                              (row["source"],row["id"],WorkerState.RESERVED.value,observed,observed))
-            self.conn.commit(); result=dict(row); result["opportunity_id"]=result["id"]; result["state"]=WorkerState.RESERVED.value; result["reserved_at"]=observed
+                self.conn.rollback()
+                return None
+
+            observed = reserved_at.isoformat()
+            claim_state = row["claim_state"]
+            if claim_state == WorkerState.FAILED_RETRYABLE.value:
+                assert_transition(WorkerState.FAILED_RETRYABLE, WorkerState.ELIGIBLE)
+                assert_transition(WorkerState.ELIGIBLE, WorkerState.RESERVED)
+                self.conn.execute(
+                    """UPDATE claims
+                    SET state=?, clone_url=NULL, claimed_at=NULL, reserved_at=?, updated_at=?, last_error_code=NULL
+                    WHERE source=? AND opportunity_id=?""",
+                    (WorkerState.RESERVED.value, observed, observed, row["source"], row["id"]),
+                )
+            else:
+                self.conn.execute(
+                    "INSERT INTO claims(source,opportunity_id,state,reserved_at,updated_at) VALUES(?,?,?,?,?)",
+                    (row["source"], row["id"], WorkerState.RESERVED.value, observed, observed),
+                )
+            self.conn.commit()
+            result = dict(row)
+            result.pop("claim_id", None)
+            result.pop("claim_state", None)
+            result["opportunity_id"] = result["id"]
+            result["state"] = WorkerState.RESERVED.value
+            result["reserved_at"] = observed
             return result
         except Exception:
-            if self.conn.in_transaction: self.conn.rollback()
+            if self.conn.in_transaction:
+                self.conn.rollback()
             raise
 
     def record_pending_award(self, source: str, opportunity_id: str, external_reference: str, observed_at: datetime) -> None:
