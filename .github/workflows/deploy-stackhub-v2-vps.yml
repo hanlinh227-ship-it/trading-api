@@ -147,8 +147,6 @@ jobs:
           sudo install -m 0600 /tmp/stackhub.env /etc/stackhub/stackhub.env
           rm -f /tmp/stackhub.env
 
-          # Until LIVE mutation is explicitly verified, the persistent service always receives
-          # the checked-in dry-run/read-only multi-source configuration.
           sudo install -m 0644 /opt/stackhub/stackhub_v2/config/sources.yaml /etc/stackhub/sources.yaml
           sudo install -m 0644 /opt/stackhub/stackhub_v2/deploy/stackhub-v2.service.example /etc/systemd/system/stackhub-v2.service
           sudo systemctl daemon-reload
@@ -158,12 +156,14 @@ jobs:
           set +a
           cd /opt/stackhub/stackhub_v2
 
+          if [ -n "${TASKFORCE_API_KEY:-}" ]; then
+            /opt/stackhub/.venv/bin/python -m stackhub.taskforce_verify || true
+          fi
           /opt/stackhub/.venv/bin/python -m stackhub.account_doctor
           /opt/stackhub/.venv/bin/stackhub doctor --config /etc/stackhub/sources.yaml
           /opt/stackhub/.venv/bin/stackhub scan-once --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
           /opt/stackhub/.venv/bin/stackhub status --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
 
-          # Run discovery continuously even while mutation/solving remains disabled.
           sudo systemctl enable stackhub-v2.service
           sudo systemctl restart stackhub-v2.service
           sleep 3
