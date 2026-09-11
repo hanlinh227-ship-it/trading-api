@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from stackhub.adapters.base import ClaimReceipt, SubmissionReceipt
+from stackhub.adapters.base import ClaimReceipt, SubmissionReceipt, AwardStatus
 from stackhub.orchestrator import RevenueOrchestrator
 from stackhub.solvers.base import Artifact, SolverResult
 from stackhub.source_capabilities import SourceCapabilities
@@ -118,6 +118,11 @@ class Solver:
         )
 
 
+class FailingSolver:
+    async def solve(self, opportunity, workspace_reference):
+        raise RuntimeError("synthetic_solver_failure")
+
+
 def row(source, opportunity_id, score=1):
     return {
         "source": source,
@@ -179,3 +184,45 @@ async def test_orchestrator_uses_fallback_when_no_paid_work():
 
     assert output[0]["state"] == "FALLBACK_COMPLETED"
     assert called == [1]
+
+
+@pytest.mark.asyncio
+async def test_accepted_pending_award_solver_failure_becomes_retryable():
+    opportunity = row("taskforce", "canary")
+    repo = Repo([])
+    repo.rows_by_id = {("taskforce", "canary"): opportunity}
+    repo.claims[("taskforce", "canary")] = "PENDING_AWARD"
+    repo.conn.execute("INSERT INTO claims VALUES(?,?,?)", ("taskforce", "canary", "PENDING_AWARD"))
+    repo.conn.commit()
+
+    def get_active_claims():
+        return [{
+            "source": "taskforce",
+            "opportunity_id": "canary",
+            "state": repo.claims[("taskforce", "canary")],
+            "clone_url": "application:123",
+        }]
+
+    def activate_award(source, opportunity_id, workspace_reference, now):
+        repo._set(source, opportunity_id, "CLAIMED")
+
+    def get_opportunity(source, opportunity_id):
+        return repo.rows_by_id[(source, opportunity_id)]
+
+    repo.get_active_claims = get_active_claims
+    repo.activate_award = activate_award
+    repo.get_opportunity = get_opportunity
+
+    class PendingAdapter(Adapter):
+        async def poll_award(self, opportunity_id, external_reference):
+            return AwardStatus("taskforce", opportunity_id, "ACCEPTED", "task:canary")
+
+    output = await RevenueOrchestrator(
+        repo,
+        {"taskforce": PendingAdapter("taskforce")},
+        {"coding": FailingSolver()},
+        max_active_claims=1,
+    ).run_batch(now=NOW)
+
+    assert output[0]["state"] == "FAILED_RETRYABLE"
+    assert repo.claims[("taskforce", "canary")] == "FAILED_RETRYABLE"
