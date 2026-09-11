@@ -51,7 +51,7 @@ async def test_discovery_uses_current_tasks_endpoint_and_open_state():
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    adapter = TaskBountyAdapter(_config(), client=client, api_key="tb_live_placeholder")
+    adapter = TaskBountyAdapter(_config(), client=client, api_key="taskbounty-test-key")
     try:
         items = await adapter.discover(limit=25)
     finally:
