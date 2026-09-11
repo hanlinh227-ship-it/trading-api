@@ -2,7 +2,7 @@ name: AI Skill Library CI
 
 on:
   push:
-    branches: [main, github-brain-v2, 'github-brain-v2-*', 'github-brain-v3-*']
+    branches: [main, github-brain-v2, 'github-brain-v2-*', 'github-brain-v3-*', 'github-brain-v4-*']
     paths:
       - 'AI_SKILL_LIBRARY/**'
       - '.github/workflows/ai-skill-library-ci.yml'
