@@ -1,8 +1,39 @@
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
+import stackhub.verification as verification_module
 from stackhub.verification import verify_workspace
+
+
+def test_verify_workspace_resolves_python_to_current_interpreter(tmp_path: Path, monkeypatch):
+    root = tmp_path / "solver-root"
+    work = root / "task"
+    work.mkdir(parents=True)
+    patch = work / "fix.patch"
+    patch.write_text("diff --git a/a.py b/a.py\n+print('fixed')\n", encoding="utf-8")
+
+    real_run = subprocess.run
+    seen: list[str] = []
+
+    def capture_run(command, *args, **kwargs):
+        seen.append(str(command[0]))
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(verification_module.subprocess, "run", capture_run)
+    evidence = verify_workspace(
+        work,
+        ["python", "-c", "print('portable')"],
+        solver_root=root,
+        diff_path=patch,
+        timeout_seconds=10,
+    )
+
+    assert seen == [sys.executable]
+    assert evidence.test_command[0] == sys.executable
+    assert evidence.passed is True
 
 
 def test_verify_workspace_requires_nonempty_diff(tmp_path: Path):
