@@ -122,29 +122,25 @@ jobs:
           import httpx
 
           url = 'https://www.task-bounty.com/api/v1/bounties.json'
-          response = httpx.get(url, params={'limit': 3}, headers={'Accept': 'application/json'}, timeout=20)
+          response = httpx.get(
+              url,
+              params={'limit': 3},
+              headers={'Accept': 'application/feed+json, application/json'},
+              timeout=20,
+          )
           print({'status': response.status_code, 'content_type': response.headers.get('content-type')})
           response.raise_for_status()
           data = response.json()
-          if isinstance(data, dict):
-              print({'top_level_keys': sorted(data.keys())})
-              candidates = data.get('bounties') or data.get('tasks') or data.get('items') or []
-          elif isinstance(data, list):
-              print({'top_level_type': 'list'})
-              candidates = data
-          else:
-              raise AssertionError(f'unexpected discovery payload type: {type(data).__name__}')
-          assert isinstance(candidates, list), 'public discovery feed must expose a list'
-          print({'item_count': len(candidates)})
-          if candidates and isinstance(candidates[0], dict):
-              print({'first_item_keys': sorted(candidates[0].keys())})
+          assert isinstance(data, dict), f'unexpected discovery payload type: {type(data).__name__}'
+          assert isinstance(data.get('items'), list), 'public JSON Feed must expose items[]'
+          print({'top_level_keys': sorted(data.keys()), 'item_count': len(data['items'])})
+          if data['items'] and isinstance(data['items'][0], dict):
+              print({'first_item_keys': sorted(data['items'][0].keys())})
           PY
 
       - name: Live read-only TaskBounty smoke and idempotency
         working-directory: stackhub_v2
         shell: bash
-        env:
-          TASKBOUNTY_API_KEY: ${{ secrets.TASKBOUNTY_API_KEY }}
         run: |
           set -euo pipefail
           rm -rf runtime-data
@@ -153,7 +149,6 @@ jobs:
           stackhub scan-once --config config/sources.yaml --db runtime-data/stackhub-v2.db
           stackhub status --db runtime-data/stackhub-v2.db
           python - <<'PY'
-          import os
           import sqlite3
           from pathlib import Path
 
@@ -171,14 +166,10 @@ jobs:
               'SELECT source, ok, status_code, error_code FROM source_health ORDER BY rowid DESC LIMIT 1'
           ).fetchone()
           assert health is not None, 'live smoke produced no source-health evidence'
-
-          if os.getenv('TASKBOUNTY_API_KEY'):
-              assert health[1] == 1, f'authenticated TaskBounty discovery is unhealthy: {health}'
-              assert health[3] is None, health
-          else:
-              assert health[1] == 0, health
-              assert health[3] == 'auth_required', f'missing credential must be explicit, got: {health}'
-
+          assert health[0] == 'taskbounty', health
+          assert health[1] == 1, f'public TaskBounty discovery is unhealthy: {health}'
+          assert health[2] == 200, health
+          assert health[3] is None, health
           print({'duplicates': duplicates, 'claims_submissions_payouts': 0, 'latest_health': health})
           con.close()
           PY
