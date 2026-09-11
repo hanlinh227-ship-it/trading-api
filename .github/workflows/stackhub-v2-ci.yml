@@ -116,6 +116,31 @@ jobs:
           python AI_SKILL_LIBRARY/validate_authority.py
           python AI_SKILL_LIBRARY/validate_v4.py
 
+      - name: Probe current public TaskBounty discovery contract
+        run: |
+          python - <<'PY'
+          import json
+          import httpx
+
+          url = 'https://www.task-bounty.com/api/v1/bounties.json'
+          response = httpx.get(url, params={'limit': 3}, headers={'Accept': 'application/json'}, timeout=20)
+          print({'status': response.status_code, 'content_type': response.headers.get('content-type')})
+          response.raise_for_status()
+          data = response.json()
+          if isinstance(data, dict):
+              print({'top_level_keys': sorted(data.keys())})
+              candidates = data.get('bounties') or data.get('tasks') or data.get('items') or []
+          elif isinstance(data, list):
+              print({'top_level_type': 'list'})
+              candidates = data
+          else:
+              raise AssertionError(f'unexpected discovery payload type: {type(data).__name__}')
+          print({'item_count': len(candidates) if isinstance(candidates, list) else None})
+          if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict):
+              print({'first_item_keys': sorted(candidates[0].keys())})
+              print({'first_item': candidates[0]})
+          PY
+
       - name: Live read-only TaskBounty smoke and idempotency
         working-directory: stackhub_v2
         shell: bash
