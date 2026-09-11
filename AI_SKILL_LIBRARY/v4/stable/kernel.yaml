@@ -1,0 +1,54 @@
+version: 4
+architecture: GITHUB_BRAIN_V4
+lts: true
+default_profile: FAST
+release_pointer: AI_SKILL_LIBRARY/v4/releases/current.json
+
+planes:
+  stable:
+    canonical_request_plane: true
+    evergreen_required_for_requests: false
+    consumes_validated_release_only: true
+    immutable_during_request: true
+  evergreen:
+    canonical_request_plane: false
+    may_mutate_inflight_stable: false
+    candidate_only_until_promotion: true
+    quarantine_required: true
+
+profiles:
+  FAST: {orchestration: serial, context_sources: 1, durable_memory_items: 0, tool_candidates: 0, replans: 0, max_bridge_nodes: 0}
+  STANDARD: {orchestration: bounded_parallel_when_beneficial, context_sources: 6, durable_memory_items: 4, tool_candidates: 3, replans: 1, max_bridge_nodes: 1}
+  DEEP: {orchestration: dependency_graph, context_sources: 12, durable_memory_items: 8, tool_candidates: 5, replans: 2, max_bridge_nodes: 2}
+
+knowledge_mesh:
+  enabled: true
+  graph: AI_SKILL_LIBRARY/v4/mesh/graph.yaml
+  bridges: AI_SKILL_LIBRARY/v4/mesh/bridges.yaml
+  global_domain_preload: false
+  primary_domain_count: 1
+  cross_domain_requires_explicit_bridge: true
+
+self_improvement:
+  evergreen_only: true
+  direct_stable_mutation: false
+  candidate_quarantine: true
+  compare_against_active_release: true
+  protected_regression_tolerance: 0.0
+  release_pointer_swap_only_after_gates: true
+  automatic_rollback_on_protected_regression: true
+
+invariants:
+  one_stable_brain_authority: true
+  stable_survives_evergreen_failure: true
+  current_authority_outranks_memory: true
+  current_runtime_outranks_cached_state: true
+  no_hidden_reasoning_persistence: true
+  no_durable_secrets: true
+  new_skills_quarantine_before_routing: true
+  no_permission_expansion_by_learning: true
+  no_trading_preload_for_non_trading: true
+  source_code_is_not_live_proof: true
+  verification_before_completion_claim: true
+  protected_regression_blocks_promotion: true
+  release_rollback_target_required: true
