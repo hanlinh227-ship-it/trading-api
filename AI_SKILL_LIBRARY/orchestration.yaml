@@ -1,0 +1,58 @@
+version: 1
+milestone: 2.4.0
+purpose: dependency-aware task graph orchestration with bounded safe parallelism
+
+task_graph:
+  enabled: true
+  decompose_only_when_independent_or_dependency_clear: true
+  require_explicit_dependencies: true
+  join_requires_all_required_predecessors: true
+  cycle_detection: true
+  max_nodes: 12
+
+parallelism:
+  enabled: true
+  max_parallel_tasks: 4
+  dependency_aware: true
+  serial_fallback: true
+  parallelize:
+    - independent_reads
+    - independent_research_queries
+    - independent_validation_checks
+    - independent_artifact_subtasks
+  never_parallelize:
+    - conflicting_writes
+    - dependent_mutations
+    - credential_operations
+    - financial_execution
+
+budgets:
+  max_tool_calls_per_request: 16
+  max_parallel_tool_calls: 4
+  max_replans: 3
+  max_failed_branches_before_serial_fallback: 2
+  prefer_reuse_over_duplicate_calls: true
+
+safety:
+  parallel_high_impact_writes: false
+  security_gate_before_side_effects: true
+  authority_resolution_before_mutation: true
+  cancel_dependents_on_failed_required_predecessor: true
+  no_side_effect_retry_without_idempotency_or_confirmation: true
+
+join:
+  deduplicate_evidence: true
+  surface_conflicts: true
+  preserve_provenance: true
+  require_verification_after_merge: true
+
+profiles:
+  FAST:
+    orchestration: serial
+    max_parallel_tasks: 1
+  STANDARD:
+    orchestration: bounded_parallel_when_beneficial
+    max_parallel_tasks: 2
+  DEEP:
+    orchestration: dependency_graph
+    max_parallel_tasks: 4
