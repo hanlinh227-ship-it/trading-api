@@ -61,8 +61,8 @@ Cross-source global reservation, bounded concurrent execution, source switching,
 Commit: `4af0c38b8987753cdbbaf93a112b8a1b8731c6e7`.
 Only externally evidenced payout counts as realized revenue. Tracks paid today/7d/30d and source concentration. Focused evidence: `3 passed`.
 
-### 9. Account integration/runtime entrypoints — IMPLEMENTED
-Core commits: `499b146ac5b1f244b30a9aecca871dd8959f63a1`, `21c96000158522780ebb4a597a564fb9b73a6c3a`, fixes `7ef741c81e3901ea1831b5663c7a847ea2ca8de8`, `004ba0e95be84b17fac9d3529e62a90a1bc62b59`.
+### 9. Runtime/account integration entrypoints — IMPLEMENTED
+Core commits include `499b146ac5b1f244b30a9aecca871dd8959f63a1`, `21c96000158522780ebb4a597a564fb9b73a6c3a`, `004ba0e95be84b17fac9d3529e62a90a1bc62b59`, plus account-integration commits through `ad5f56b4e7994c3fbc528b6208ab642544f94f1a`.
 
 Implemented:
 - adapter registry;
@@ -71,51 +71,57 @@ Implemented:
 - truthful runtime status with `DRY-RUN` vs `LIVE-CANDIDATE` and mutation status;
 - source-agnostic CLI: `doctor`, `scan-once`, `opportunities`, `status`, `orchestrate-once`, `run`;
 - shared repository opportunity pool;
-- `INTEGRATION.env.example` and `INTEGRATION_GUIDE.md`;
-- safe read-only checked-in config remains unchanged;
-- separate `config/sources.live.example.yaml` begins with `max_active_claims: 1` and no credentials;
-- `deploy/stackhub-v2.service.example` for persistent 24/7 process management.
+- safe read-only checked-in config;
+- one-task live-config example with `max_active_claims: 1` and no credentials;
+- systemd 24/7 service example with persistent SQLite storage and external environment file;
+- unified `accounts.py` integration registry with modes `AUTO`, `OBSERVE`, `ASSISTED`, `PAYOUT_ONLY`;
+- `python -m stackhub.account_doctor` reports readiness and missing env variable NAMES without printing secret values;
+- deployment secret template `INTEGRATION.env.example`;
+- deployment-ready `INTEGRATION_GUIDE.md`.
 
-Combined focused scratch verification across Tasks 3-8 before final CI: `19 passed`.
+Current account modes:
+- TaskBounty: `AUTO` after authenticated live mutation gate; `TASKBOUNTY_API_KEY`.
+- Gumroad: `OBSERVE`; `GUMROAD_ACCESS_TOKEN`; current product creation/upload remains assisted because the official API does not support it.
+- RapidAPI: `ASSISTED` unless the account has an explicit supported Platform API contract/entitlement verified for the intended action.
+- Adobe Stock: `ASSISTED` for Contributor Portal upload/review; STACKHUB may prepare/validate assets and metadata but does not invent an upload API.
+- PayPal: `PAYOUT_ONLY`; STACKHUB never requests PayPal password/session credentials.
+- GitHub: authorized tooling/OAuth/App/CLI only; no account password or 2FA recovery secret stored by STACKHUB.
 
-## Fresh CI evidence on commit `004ba0e95be84b17fac9d3529e62a90a1bc62b59`
-`STACKHUB V2 CI` run `34615953296`: SUCCESS.
-- package install: success
-- compile: success
-- full STACKHUB V2 pytest suite: success
-- committed credential/wallet-secret rejection: success
-- checked-in default read-only proof: success
-- GitHub Brain V4 authority validation: success
-- current public TaskBounty discovery contract probe: success
-- live read-only TaskBounty smoke + idempotency: success
+## Fresh CI evidence on current integration head `ad5f56b4e7994c3fbc528b6208ab642544f94f1a`
+`STACKHUB V2 CI` PR run `34616855520`: SUCCESS.
+`STACKHUB V2 CI` push run `34616852221`: SUCCESS.
+`AI Skill Library CI` run `34616855458`: SUCCESS.
 
-`AI Skill Library CI` run `34615953318`: SUCCESS, including compile, integration tests, source/router/project authority/V3/V4 validators and upstream audit.
-
-Earlier CI failures were used as regression evidence: first exposed missing `DRY-RUN`; second exposed missing `claims/submissions disabled`; both were fixed with truthful config-derived runtime reporting before the green run above.
+The prior run on `ac8c9fbb64fe7e6721f5c447ff9c92dd380899f9` passed all pytest tests (`82 passed`) but intentionally failed the committed-secret detector because a test fixture resembled a real `tb_live_*` token. The fixture was changed to a non-credential-shaped fake value; the subsequent current-head runs above are green. This failure is retained as security regression evidence.
 
 ## Account state supplied by user
 - PayPal: available.
-- TaskBounty account: available.
-- TaskBounty API key: available but must remain in deployment/system secret storage; never commit or paste into chat.
-- User states remaining required accounts are already available.
+- TaskBounty account/API key: available.
+- User states all remaining account pieces are already available.
+- Real secret values must remain in deployment/system secret storage and must not be committed or pasted into chat.
 
-STACKHUB intentionally does not request PayPal passwords/session credentials. Configure platform payout inside the platform. Crypto payout, if used, is public receiving-address-only.
+## Integration procedure
+1. Create deployment environment file/secret store outside Git, e.g. `/etc/stackhub/stackhub.env`.
+2. Set only credentials actually required by enabled adapters, currently including `TASKBOUNTY_API_KEY`; add `GUMROAD_ACCESS_TOKEN` only for Gumroad observation/API operations.
+3. Configure `STACKHUB_SOLVER_COMMAND` to an authorized AI solver wrapper/CLI. Marketplace/account secrets are stripped from the solver subprocess environment.
+4. Run `python -m stackhub.account_doctor` and `stackhub doctor --config ...`.
+5. Run read-only `stackhub scan-once`; inspect `stackhub opportunities` and `stackhub status`.
+6. Copy `config/sources.live.example.yaml` to a deployment-only path and keep `max_active_claims: 1` for the first authenticated mutation.
+7. Run `stackhub orchestrate-once` and inspect one real claim/solve/verify/submit cycle end-to-end.
+8. Only after independent first-task verification, run `stackhub run` under the provided systemd service for continuous operation.
+9. Increase concurrency only after observed stability and payout/acceptance evidence.
 
-## Account integration procedure
-1. Put `TASKBOUNTY_API_KEY` in deployment/system secret storage.
-2. Configure `STACKHUB_SOLVER_COMMAND` to the authorized AI solver wrapper/CLI. Marketplace secrets are stripped from the solver subprocess environment.
-3. Run `stackhub doctor --config config/sources.yaml`.
-4. Run read-only `stackhub scan-once`; inspect `stackhub opportunities` and `stackhub status`.
-5. Copy `config/sources.live.example.yaml` to a deployment-only path and keep `max_active_claims: 1` for the first mutation.
-6. Run `stackhub orchestrate-once` and inspect the first real marketplace claim/submission end-to-end.
-7. After independent first-task verification, run `stackhub run` under systemd for continuous operation.
-8. Add other platforms with concrete source-specific adapters only after current API/terms/agent permission are verified. Human-only or unsupported platforms stay `ASSISTED`/`DISCOVERY_ONLY`.
+## Continuous job-source expansion
+TaskBounty remains one AUTO source, not the center. The highest-priority next AUTO-job candidate identified from current public documentation is MoltJobs because it exposes official agent-native REST/CLI/MCP workflows for discovery, bidding/start, submission and payout. It is NOT yet marked integrated because bid-pending/award lifecycle semantics must be represented explicitly rather than faked as a direct claim. Any paid bid-credit purchase remains prohibited by the zero-spend invariant.
 
-## Remaining release gates
-- Actual authenticated TaskBounty mutation using the user's private API key has NOT been run in this chat/tool environment because the secret is not exposed here.
-- Actual solver CLI/account bridge has NOT been connected in this environment.
-- 24/7 deployment heartbeat has NOT been independently observed.
-- Non-TaskBounty accounts require their concrete official adapter implementations. The core is adapter-ready; unofficial or prohibited automation must not be invented.
+Other candidate sources remain `DISCOVERY_ONLY`/`ASSISTED` until their current API, agent permission, claim/bid semantics, submission semantics and payout evidence are verified.
+
+## Remaining LIVE release gates
+- Actual authenticated mutation using the user's private marketplace credential has not been executed in this chat/tool environment because secret values are intentionally unavailable here.
+- The user's real solver CLI/account bridge has not been connected in this environment.
+- One real claim -> solve -> verify -> submit cycle must be observed successfully.
+- 24/7 deployment heartbeat/restart recovery must be independently observed.
+- Additional AUTO sources beyond TaskBounty require concrete official adapters and contract tests; unsupported/human-only actions remain assisted.
 
 ## Operational status
-STACKHUB V2 core/runtime is **integration-ready and CI-green**. It is **NOT yet verified LIVE 24/7 earning** until the user's secrets/solver are connected, one real mutation is verified, and the deployment heartbeat is observed.
+STACKHUB V2 core/runtime is **ACCOUNT-INTEGRATION-READY and CI-GREEN**. It is **NOT yet verified LIVE 24/7 earning** until deployment secrets/solver are connected, one real mutation is verified, and the persistent runtime heartbeat is observed.
