@@ -63,26 +63,34 @@ jobs:
           print('status='+str(r.status_code))
           print('content_type='+r.headers.get('content-type',''))
           try:
-              data=r.json()
+              payload=r.json()
           except Exception:
               print('non_json_body_prefix='+r.text[:300].replace('\n',' '))
               raise SystemExit(0)
-          if isinstance(data,dict):
-              print('top_level_keys='+json.dumps(sorted(data.keys())))
-              rows=data.get('tasks')
-          elif isinstance(data,list):
+          if isinstance(payload,dict):
+              print('top_level_keys='+json.dumps(sorted(payload.keys())))
+              data=payload.get('data')
+              print('data_type='+type(data).__name__)
+              if isinstance(data,dict):
+                  print('data_keys='+json.dumps(sorted(data.keys())))
+                  rows=data.get('tasks',data.get('items',data.get('results',data.get('bounties'))))
+                  meta={k:v for k,v in data.items() if k in {'count','total','limit','offset','next_cursor','nextCursor','has_more','hasMore'}}
+                  if meta: print('data_meta='+json.dumps(meta,sort_keys=True,default=str))
+              elif isinstance(data,list):
+                  rows=data
+              else:
+                  rows=payload.get('tasks')
+          elif isinstance(payload,list):
               print('top_level_type=list')
-              rows=data
+              rows=payload
           else:
-              print('top_level_type='+type(data).__name__)
+              print('top_level_type='+type(payload).__name__)
               raise SystemExit(0)
           if not isinstance(rows,list):
-              print('tasks_type='+type(rows).__name__)
-              safe={k:v for k,v in data.items() if k.lower() not in {'token','secret','api_key','apikey','private_key','privatekey'} and not isinstance(v,(dict,list))}
-              print('safe_scalars='+json.dumps(safe,sort_keys=True,default=str))
+              print('rows_type='+type(rows).__name__)
               raise SystemExit(0)
           print('task_count='+str(len(rows)))
-          allowed={'id','task_id','slug','title','bounty_cents','bounty_amount','github_repo_url','github_issue_url','created_at','complexity_tag','language','state','status','platform','category','deadline','submission_deadline'}
+          allowed={'id','task_id','slug','title','bounty_cents','bounty_amount','bountyAmount','reward','amount','github_repo_url','github_issue_url','repo_url','issue_url','created_at','complexity_tag','language','state','status','platform','category','deadline','submission_deadline','description','requirements'}
           for row in rows[:100]:
               if not isinstance(row,dict):
                   print('task_type='+type(row).__name__)
