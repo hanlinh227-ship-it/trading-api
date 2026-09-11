@@ -3,17 +3,23 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shlex
 from pathlib import Path
 
 import typer
 
-from .adapters.taskbounty import TaskBountyAdapter
+from .adapter_registry import build_adapters
 from .config import load_runtime_config
+from .integration import missing_secrets
+from .opportunity_pool import RepositoryOpportunityPool
+from .orchestrator import RevenueOrchestrator
 from .repository import StackHubRepository
-from .scanner import Scanner
+from .runtime_status import build_status, status_dict
+from .scout import Scout
+from .solvers.command import CommandSolver
 from .telemetry import redact
 
-app = typer.Typer(help="STACKHUB V2 read-only bounty scanner")
+app = typer.Typer(help="STACKHUB V2 continuous multi-source revenue runtime")
 
 
 def _repo(path: Path) -> StackHubRepository:
@@ -22,16 +28,64 @@ def _repo(path: Path) -> StackHubRepository:
     return repo
 
 
+async def _close_adapters(adapters: dict[str, object]) -> None:
+    for adapter in adapters.values():
+        closer = getattr(adapter, "aclose", None)
+        if closer is not None:
+            await closer()
+
+
+async def _scan_cycle(cfg, repo, adapters) -> list[dict[str, object]]:
+    pool = RepositoryOpportunityPool(cfg, repo)
+    scouts = [Scout(adapter, pool) for adapter in adapters.values()]
+    if not scouts:
+        return []
+    results = await asyncio.gather(*(scout.run_once() for scout in scouts))
+    return [result.__dict__ for result in results]
+
+
+def _solver_map_from_env() -> dict[str, object]:
+    raw = os.getenv("STACKHUB_SOLVER_COMMAND", "").strip()
+    if not raw:
+        return {}
+    command = shlex.split(raw)
+    solver = CommandSolver(command)
+    return {
+        "coding": solver,
+        "research": solver,
+        "data": solver,
+        "service": solver,
+        "content": solver,
+    }
+
+
+@app.command("doctor")
+def doctor(
+    config: Path = typer.Option(Path("config/sources.yaml"), "--config"),
+) -> None:
+    cfg = load_runtime_config(config)
+    adapters = build_adapters(cfg, os.environ)
+    enabled = sorted(name for name, item in cfg.sources.items() if item.enabled)
+    loaded = sorted(adapters)
+    report = {
+        "config_ok": True,
+        "dry_run": cfg.dry_run,
+        "worker_enabled": cfg.worker_enabled,
+        "zero_external_spend": str(cfg.external_spend_limit_usd) == "0",
+        "enabled_sources": enabled,
+        "loaded_adapters": loaded,
+        "unloaded_sources": sorted(set(enabled) - set(loaded)),
+        "missing_secrets": list(missing_secrets(cfg, os.environ)),
+        "solver_bridge_configured": bool(os.getenv("STACKHUB_SOLVER_COMMAND", "").strip()),
+    }
+    typer.echo(json.dumps(redact(report), sort_keys=True, default=str))
+
+
 @app.command("status")
 def status(db: Path = typer.Option(Path("runtime-data/stackhub-v2.db"), "--db")) -> None:
     repo = _repo(db)
     try:
-        health = repo.get_source_health("taskbounty")
-        count = len(repo.list_ranked_opportunities(limit=1000))
-        typer.echo("STACKHUB V2 — DRY-RUN")
-        typer.echo("claims/submissions disabled")
-        typer.echo(f"opportunities={count}")
-        typer.echo("taskbounty_health=" + json.dumps(redact(health or {"state": "unknown"}), default=str, sort_keys=True))
+        typer.echo(json.dumps(redact(status_dict(build_status(repo))), sort_keys=True, default=str))
     finally:
         repo.close()
 
@@ -45,7 +99,9 @@ def opportunities(
     try:
         for row in repo.list_ranked_opportunities(limit=limit):
             safe = {
-                "source": row["source"], "id": row["id"], "url": row["url"],
+                "source": row["source"],
+                "id": row["id"],
+                "url": row["url"],
                 "reward": f"{row['reward_amount']} {row['reward_asset']}",
                 "policy_allowed": bool(row["policy_allowed"]),
                 "score_usd_per_minute": row["score_usd_per_minute"],
@@ -61,16 +117,48 @@ def scan_once(
     db: Path = typer.Option(Path("runtime-data/stackhub-v2.db"), "--db"),
 ) -> None:
     cfg = load_runtime_config(config)
-    source = cfg.sources["taskbounty"]
     repo = _repo(db)
+    adapters = build_adapters(cfg, os.environ)
 
     async def _run() -> None:
-        adapter = TaskBountyAdapter(source, api_key=os.getenv("TASKBOUNTY_API_KEY"))
         try:
-            result = await Scanner(cfg, repo, {"taskbounty": adapter}).run_once()
-            typer.echo(json.dumps(redact(result.__dict__), sort_keys=True))
+            result = await _scan_cycle(cfg, repo, adapters)
+            typer.echo(json.dumps(redact(result), sort_keys=True, default=str))
         finally:
-            await adapter.aclose()
+            await _close_adapters(adapters)
+
+    try:
+        asyncio.run(_run())
+    finally:
+        repo.close()
+
+
+@app.command("orchestrate-once")
+def orchestrate_once(
+    config: Path = typer.Option(Path("config/sources.live.example.yaml"), "--config"),
+    db: Path = typer.Option(Path("runtime-data/stackhub-v2.db"), "--db"),
+) -> None:
+    cfg = load_runtime_config(config)
+    if not cfg.worker_enabled or cfg.dry_run:
+        raise typer.BadParameter("orchestrate-once requires worker_enabled=true and dry_run=false")
+    solvers = _solver_map_from_env()
+    if not solvers:
+        raise typer.BadParameter("STACKHUB_SOLVER_COMMAND is required for automatic solving")
+    repo = _repo(db)
+    adapters = build_adapters(cfg, os.environ)
+
+    async def _run() -> None:
+        try:
+            await _scan_cycle(cfg, repo, adapters)
+            result = await RevenueOrchestrator(
+                repo,
+                adapters,
+                solvers,
+                max_active_claims=cfg.max_active_claims,
+            ).run_batch()
+            typer.echo(json.dumps(redact(result), sort_keys=True, default=str))
+        finally:
+            await _close_adapters(adapters)
 
     try:
         asyncio.run(_run())
@@ -84,15 +172,26 @@ def run(
     db: Path = typer.Option(Path("runtime-data/stackhub-v2.db"), "--db"),
 ) -> None:
     cfg = load_runtime_config(config)
-    source = cfg.sources["taskbounty"]
     repo = _repo(db)
+    adapters = build_adapters(cfg, os.environ)
+    solvers = _solver_map_from_env()
 
     async def _run() -> None:
-        adapter = TaskBountyAdapter(source, api_key=os.getenv("TASKBOUNTY_API_KEY"))
         try:
-            await Scanner(cfg, repo, {"taskbounty": adapter}).run_forever()
+            while True:
+                await _scan_cycle(cfg, repo, adapters)
+                if cfg.worker_enabled:
+                    if not solvers:
+                        raise RuntimeError("STACKHUB_SOLVER_COMMAND is required when worker_enabled=true")
+                    await RevenueOrchestrator(
+                        repo,
+                        adapters,
+                        solvers,
+                        max_active_claims=cfg.max_active_claims,
+                    ).run_batch()
+                await asyncio.sleep(cfg.scan_interval_seconds)
         finally:
-            await adapter.aclose()
+            await _close_adapters(adapters)
 
     try:
         asyncio.run(_run())
