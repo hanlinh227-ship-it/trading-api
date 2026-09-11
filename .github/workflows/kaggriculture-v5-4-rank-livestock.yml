@@ -145,7 +145,10 @@ jobs:
               'description':data.get('description'),
               'status':data.get('status'),
               'pending_submit_sha':str(data.get('pending_submit_sha',''))[:12],
-              'pending_submit_at':data.get('pending_submit_at')
+              'pending_submit_at':data.get('pending_submit_at'),
+              'last_public_score':data.get('last_public_score'),
+              'high_water_public_score':data.get('high_water_public_score'),
+              'last_scored_ref':data.get('last_scored_ref')
           },sort_keys=True))
           PY
 
@@ -179,7 +182,12 @@ jobs:
           ledger=pathlib.Path(os.environ['LEDGER'])
           sha=hashlib.sha256((root/'main.py').read_bytes()).hexdigest()
           live=json.loads(ledger.read_text()) if ledger.exists() else {}
-          desc='V5.8 live-money-recovery '+sha[:12]
+          if live.get('sha256') == sha and live.get('description'):
+              desc=live['description']
+          elif live.get('pending_submit_sha') == sha and live.get('pending_description'):
+              desc=live['pending_description']
+          else:
+              desc='V5.9 live-cash-gap-defense '+sha[:12]
           decision={
               'sha256':sha,
               'description':desc,
@@ -198,30 +206,105 @@ jobs:
 
           python -m pip install -q -U kaggle
           kaggle competitions submissions -c kaggriculture | tee "$OUT/kaggle-before.txt"
-          grep -E '56139689|56148022|56157157' "$OUT/kaggle-before.txt" > "$OUT/tracked-submissions.txt" || true
+          grep -E '56139689|56148022|56157157|56157458|56157565' "$OUT/kaggle-before.txt" > "$OUT/tracked-submissions.txt" || true
 
           SHA256="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["sha256"])')"
           DESC="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["description"])')"
           CONFIRMED_SHA="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["confirmed_sha256"])')"
-          export SHA256 DESC CONFIRMED_SHA
+          PENDING_SHA="$(python -c 'import json,os; print(json.load(open(os.environ["DECISION"]))["pending_submit_sha"])')"
+          export SHA256 DESC CONFIRMED_SHA PENDING_SHA
 
-          # Exact SHA/description already exists: never duplicate it. Preserve the original
-          # submission timestamp instead of refreshing it on every visibility poll.
-          if grep -Fq "$DESC" "$OUT/kaggle-before.txt"; then
+          # Persist live score telemetry before any early-return dedupe branch.  This gives future
+          # rounds a durable high-water/regression signal without any local practice matches.
+          python - <<'PY'
+          import json,os,pathlib,re
+          ledger=pathlib.Path(os.environ['LEDGER'])
+          out=pathlib.Path(os.environ['OUT'])
+          desc=os.environ['DESC']
+          rows=[]
+          for raw in (out/'kaggle-before.txt').read_text(errors='replace').splitlines():
+              parts=re.split(r'\s{2,}',raw.strip())
+              if len(parts)<5 or not parts[0].isdigit():
+                  continue
+              score=None
+              if len(parts)>5 and parts[5]:
+                  try: score=float(parts[5])
+                  except ValueError: pass
+              rows.append({
+                  'ref':parts[0],
+                  'file':parts[1] if len(parts)>1 else '',
+                  'date':parts[2] if len(parts)>2 else '',
+                  'description':parts[3] if len(parts)>3 else '',
+                  'status':parts[4] if len(parts)>4 else '',
+                  'public_score':score,
+              })
+          current=next((r for r in rows if r['description']==desc),None)
+          (out/'current-submission.json').write_text(json.dumps(current or {},indent=2,sort_keys=True)+'\n')
+          d=json.loads(ledger.read_text())
+          old_high=d.get('high_water_public_score')
+          try: old_high=float(old_high) if old_high is not None else None
+          except (TypeError,ValueError): old_high=None
+          scored=[r for r in rows if r['public_score'] is not None and 'COMPLETE' in r['status']]
+          observed_high=max((r['public_score'] for r in scored),default=None)
+          if observed_high is not None:
+              if old_high is None or observed_high>old_high:
+                  best=next(r for r in scored if r['public_score']==observed_high)
+                  print(f"LIVE_SCORE_HIGH_WATER previous={old_high} new={observed_high} ref={best['ref']}")
+              d['high_water_public_score']=observed_high if old_high is None else max(old_high,observed_high)
+          if current:
+              d['last_observed_ref']=current['ref']
+              d['last_observed_status']=current['status']
+              if current['public_score'] is not None and 'COMPLETE' in current['status']:
+                  score=float(current['public_score'])
+                  d['last_public_score']=score
+                  d['last_scored_ref']=current['ref']
+                  d['last_scored_description']=current['description']
+                  high=float(d.get('high_water_public_score',score))
+                  if score+1e-9 < high:
+                      print(f"LIVE_SCORE_REGRESSION ref={current['ref']} score={score} high_water={high} delta={score-high}")
+                  elif abs(score-high)<=1e-9:
+                      print(f"LIVE_SCORE_AT_HIGH_WATER ref={current['ref']} score={score}")
+          tmp=ledger.with_suffix('.tmp'); tmp.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n'); tmp.replace(ledger)
+          PY
+
+          CURRENT_STATUS="$(python -c 'import json,os; print(json.load(open(os.path.join(os.environ["OUT"],"current-submission.json"))).get("status",""))')"
+          CURRENT_REF="$(python -c 'import json,os; print(json.load(open(os.path.join(os.environ["OUT"],"current-submission.json"))).get("ref",""))')"
+
+          # Exact description already exists.  Pending visibility is not completion: keep the pending
+          # marker until Kaggle actually reports COMPLETE, while still preventing any duplicate submit.
+          if [ -n "$CURRENT_REF" ]; then
+            export CURRENT_STATUS CURRENT_REF
             python - <<'PY'
           import json,os,pathlib
           p=pathlib.Path(os.environ['LEDGER'])
           d=json.loads(p.read_text())
+          status=os.environ.get('CURRENT_STATUS','')
           d['sha256']=os.environ['SHA256']
           d['description']=os.environ['DESC']
           d['source_run']=os.environ.get('GITHUB_RUN_ID')
-          d['status']='visible'
-          if d.get('pending_submit_at'):
-              d['submitted_at']=d['pending_submit_at']
-          d.pop('pending_submit_sha',None); d.pop('pending_submit_at',None); d.pop('pending_description',None)
+          d['submission_ref']=os.environ.get('CURRENT_REF','')
+          if 'COMPLETE' in status:
+              d['status']='complete'
+              if d.get('pending_submit_at'): d['submitted_at']=d['pending_submit_at']
+              d.pop('pending_submit_sha',None); d.pop('pending_submit_at',None); d.pop('pending_description',None)
+          else:
+              d['status']='pending_visible'
+              d.setdefault('pending_submit_sha',os.environ['SHA256'])
+              d.setdefault('pending_description',os.environ['DESC'])
           tmp=p.with_suffix('.tmp'); tmp.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n'); tmp.replace(p)
           PY
-            echo 'KAGGLE_LIVE_ALREADY_VISIBLE no duplicate submission'
+            if [[ "$CURRENT_STATUS" == *COMPLETE* ]]; then
+              echo "KAGGLE_LIVE_COMPLETE ref=$CURRENT_REF no duplicate submission"
+            else
+              echo "KAGGLE_LIVE_PENDING_VISIBLE ref=$CURRENT_REF no duplicate submission"
+            fi
+            exit 0
+          fi
+
+          # If this exact SHA was already submitted but has not propagated into the list yet, never
+          # re-submit it under a new label.
+          if [ -n "$PENDING_SHA" ] && [ "$PENDING_SHA" = "$SHA256" ]; then
+            echo 'KAGGLE_LIVE_PENDING_SHA_WAIT no duplicate submission'
             exit 0
           fi
 
@@ -230,9 +313,8 @@ jobs:
             exit 0
           fi
 
-          # A live submission is allowed to finish before another revision is sent. This replaces
-          # the old arbitrary six-hour cooldown: no local waiting once Kaggle has completed the
-          # previous live submission, but also no overlapping/reroll submissions.
+          # Never overlap Kaggle submissions.  There is no simulator fallback while the platform is
+          # still running the previous live submission.
           if grep -Eq 'SubmissionStatus\.(PENDING|RUNNING|QUEUED)' "$OUT/kaggle-before.txt"; then
             echo 'KAGGLE_LIVE_ACTIVE_SUBMISSION_WAIT no overlapping submission; no simulator fallback'
             exit 0
@@ -248,26 +330,13 @@ jobs:
           d['pending_submit_sha']=os.environ['SHA256']
           d['pending_submit_at']=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
           d['pending_description']=os.environ['DESC']
+          d['status']='submitted_pending_visibility'
           tmp=p.with_suffix('.tmp'); tmp.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n'); tmp.replace(p)
           PY
             sleep 10
             kaggle competitions submissions -c kaggriculture | tee "$OUT/kaggle-after.txt"
-            grep -E '56139689|56148022|56157157' "$OUT/kaggle-after.txt" > "$OUT/tracked-submissions-after.txt" || true
+            grep -E '56139689|56148022|56157157|56157458|56157565' "$OUT/kaggle-after.txt" > "$OUT/tracked-submissions-after.txt" || true
             if grep -Fq "$DESC" "$OUT/kaggle-after.txt"; then
-              python - <<'PY'
-          import json,os,pathlib
-          p=pathlib.Path(os.environ['LEDGER'])
-          d=json.loads(p.read_text())
-          d.update({
-              'sha256':os.environ['SHA256'],
-              'submitted_at':d.get('pending_submit_at',''),
-              'description':os.environ['DESC'],
-              'source_run':os.environ.get('GITHUB_RUN_ID'),
-              'status':'visible'
-          })
-          d.pop('pending_submit_sha',None); d.pop('pending_submit_at',None); d.pop('pending_description',None)
-          tmp=p.with_suffix('.tmp'); tmp.write_text(json.dumps(d,indent=2,sort_keys=True)+'\n'); tmp.replace(p)
-          PY
               echo 'KAGGLE_LIVE_SUBMISSION_VISIBLE'
             else
               echo 'KAGGLE_LIVE_SUBMISSION_SENT_NOT_VISIBLE_YET pending only'
