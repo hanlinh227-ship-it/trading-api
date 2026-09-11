@@ -1,4 +1,4 @@
-# manual trigger after solver/live secrets configured
+# manual trigger after B64 SSH secret configured
 name: Deploy STACKHUB V2 to VPS
 
 on:
