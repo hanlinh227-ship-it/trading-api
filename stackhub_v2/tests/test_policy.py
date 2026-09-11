@@ -64,6 +64,19 @@ def test_runtime_opportunity_allowlist_allows_exact_canary(runtime_config, allow
     assert decision.allowed is True
 
 
+def test_live_worker_does_not_reserve_discovery_only_source(runtime_config, allowed_opportunity):
+    source = runtime_config.sources[allowed_opportunity.source]
+    discovery_only = source.model_copy(update={"read_only": True})
+    cfg = runtime_config.model_copy(update={
+        "dry_run": False,
+        "worker_enabled": True,
+        "sources": {**runtime_config.sources, allowed_opportunity.source: discovery_only},
+    })
+    decision = evaluate_opportunity(allowed_opportunity, cfg)
+    assert decision.allowed is False
+    assert "source_not_mutation_ready" in decision.reasons
+
+
 def test_clean_agent_native_task_is_allowed(runtime_config, allowed_opportunity):
     decision = evaluate_opportunity(allowed_opportunity, runtime_config)
     assert decision.allowed is True
