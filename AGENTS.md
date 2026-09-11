@@ -1,40 +1,32 @@
-# AGENTS.md — Shared AI Entrypoint
+# AGENTS.md — GITHUB_BRAIN_V2 Entrypoint
 
-This repository is co-engineered by ChatGPT and Claude.ai through GitHub.
+This repository is co-engineered through GitHub and uses one routed global AI bootstrap.
 
-Before any engineering work, read in order:
-1. `CLAUDE.md`
-2. `docs/ai-coengineer/PROTOCOL.md`
-3. `docs/checkpoints/MASTER_TRADING_STATE.md`
-4. `docs/checkpoints/CURRENT_HANDOFF.md`
-5. `docs/ai-coengineer/SHARED_STATE.md`
-6. `docs/ai-coengineer/WRITE_LOCK.md`
-7. `docs/ai-coengineer/OPEN_ISSUES.md`
-8. `docs/ai-coengineer/DECISIONS.md`
-9. active redesign mandate/blueprint/backlog when redesign work is active
-10. your inbox file under `docs/ai-coengineer/`
+## Mandatory bootstrap
+For every substantive task, when GitHub access is available:
+1. Read `AI_SKILL_LIBRARY/checkpoint.json` first.
+2. Verify the current checkpoint is `GITHUB_BRAIN_V2` (legacy activation key `GITHUB_BRAIN_V1` is an alias to V2).
+3. Read the checkpoint, `AI_SKILL_LIBRARY/CORE_PROTOCOL.md`, and `AI_SKILL_LIBRARY/router.yaml`.
+4. Route the request before loading domain/project state.
+5. Load only the selected skill files, current authority, relevant sources, and useful plugins.
+6. Apply critical review when consequential and verification before claiming completion.
 
-ChatGPT inbox: `CLAUDE_TO_CHATGPT.md`
-Claude inbox: `CHATGPT_TO_CLAUDE.md`
+Do not preload every skill or every project checkpoint. In particular, **do not load Trading state for non-Trading tasks**.
 
-GitHub `main` source is authoritative when documentation lags.
+GitHub `main` source/runtime state is authoritative when documentation lags.
 
-Default roles:
-- ChatGPT: PRIMARY_ENGINEER / PRIMARY_INTEGRATOR / CO-ARCHITECT / IMPLEMENTER
-- Claude: CO-ARCHITECT / REVIEWER / SECOND_ENGINEER / IMPLEMENTER
+## Domain routing
+The router covers software/coding, debugging/TDD, platform/deployment, Trading, MT5/MQL5, game development, 2D/UX/product design, 3D/Blender, Adobe media workflows, prompt engineering, image/video generation, scriptwriting, academic research, data/documents, marketing/business, and general problem solving.
 
-Both AIs may redesign any subsystem and disagree with existing architecture when backed by source evidence. Both AIs are expected to work in **implementation-forward mode**: when an OPEN issue is already scoped as IMPLEMENTABLE / IMPLEMENT_NOW with exact objective, file/function scope and acceptance criteria, the acting AI should acquire the free `WRITE_LOCK`, implement the smallest justified patch, commit, release lock and hand the exact SHA to the other AI for review rather than stopping at discussion.
+The default budget is one primary domain skill plus at most two supporting domain skills. `critical_thinking` and `verification` are cross-cutting review layers.
 
-One writer at a time. A free lock is not permission to invent or expand scope. Never write outside the declared issue/lock, bypass a BLOCK, reset trading state, weaken hard risk or restore deprecated architecture.
+## Project authority
+Project-specific state is loaded only after routing. `AI_SKILL_LIBRARY/router.yaml` defines the one `CURRENT_AUTHORITY` per registered project scope. Historical snapshots do not override it.
 
-If Claude's GitHub connector returns 403, logical write authorization cannot override OAuth permissions; Claude must return the exact patch/change material and the single handoff prompt so ChatGPT can implement it immediately.
+For Trading work, read the routed Trading authority and its explicit canonical pointer before implementation or live-state reasoning. Preserve hard risk/protection invariants, never fabricate market/account data, never expose secrets, and never treat external research as live execution authority.
 
-## Mandatory reciprocal handoff
-After every substantive Trading work cycle, **both ChatGPT and Claude must leave exactly one ready-to-send prompt for the other AI**. The prompt must point to GitHub state/SHAs/docs, state the next role/action, and avoid requiring the user to re-summarize context. Follow `docs/ai-coengineer/PROTOCOL.md` for the full handoff contract.
+## Engineering workflow
+For implementation work, use an isolated branch, behavior-first tests for changes where applicable, root-cause debugging, and fresh verification before merge/completion. One writer at a time when shared project state can conflict.
 
-Do not reset trading state, restore deprecated architecture, weaken hard risk, fabricate financial data, or expose secrets.
-
-## Global GitHub-first knowledge bootstrap
-For every substantive task, when GitHub access is available, also read `AI_SKILL_LIBRARY/checkpoint.json` and the checkpoint it references. The current checkpoint ID is `GITHUB_BRAIN_V1`. For game, UX/UI, prompting, scripts/content, coding, trading research, or software-engineering work, select relevant approved sources from `AI_SKILL_LIBRARY/sources.yaml` before relying on generic background knowledge.
-
-This knowledge bootstrap is supplemental. For Trading work, the mandatory trading state/protocol files listed above remain primary and must be read first. Never execute third-party repository code merely to ingest knowledge; preserve provenance and license metadata.
+## Fallback
+If GitHub is unavailable, disclose that the checkpoint could not be freshly loaded and use last-known context. Never pretend a fresh GitHub read occurred.
