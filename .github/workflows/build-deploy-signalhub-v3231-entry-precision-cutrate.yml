@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/build-deploy-signalhub-v3231-entry-precision-cutrate.yml'
       - 'scripts/patch_signalhub_v3231_entry_precision_cutrate.py'
+      - 'scripts/patch_signalhub_v3231_admission_balance.py'
   workflow_dispatch:
 
 permissions:
@@ -28,7 +29,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: {gradle-version: '8.9'}
 
-      - name: Materialize V3.23.1 precision entry and cut-rate release
+      - name: Materialize V3.23.1 balanced precision and cut-rate release
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -40,7 +41,7 @@ jobs:
           p.write_text(s)
           PY
           python3 scripts/fix_patch_signalhub_v3230_markers.py
-          python3 -m py_compile scripts/patch_signalhub_v3230_resilient_ledger_clean.py scripts/patch_signalhub_v3230_postfix.py scripts/patch_signalhub_v3230_provider_failover.py scripts/patch_signalhub_v3230_integrity_refresh.py scripts/patch_signalhub_v3231_entry_precision_cutrate.py
+          python3 -m py_compile scripts/patch_signalhub_v3230_resilient_ledger_clean.py scripts/patch_signalhub_v3230_postfix.py scripts/patch_signalhub_v3230_provider_failover.py scripts/patch_signalhub_v3230_integrity_refresh.py scripts/patch_signalhub_v3231_entry_precision_cutrate.py scripts/patch_signalhub_v3231_admission_balance.py
           python3 scripts/patch_signalhub_v3225_realtime_unique_book.py
           python3 scripts/patch_signalhub_v3225_build_compat.py
           python3 scripts/patch_signalhub_v3226_balanced_realtime_book.py
@@ -51,6 +52,7 @@ jobs:
           python3 scripts/patch_signalhub_v3230_provider_failover.py
           python3 scripts/patch_signalhub_v3230_integrity_refresh.py
           python3 scripts/patch_signalhub_v3231_entry_precision_cutrate.py
+          python3 scripts/patch_signalhub_v3231_admission_balance.py
           node --check signalhub-worker/gateway-v3.js
           python3 - <<'PY'
           from pathlib import Path
@@ -58,14 +60,17 @@ jobs:
           assert 'SIGNALHUB-V3-GATEWAY-3.23.1' in w and 'SIGNALHUB_V3_CHECKPOINT_31_ENTRY_PRECISION_CUT_RATE' in w
           assert 'primary-v3231-entry-precision-cutrate' in w
           assert w.count('const PORTFOLIO_POLICY=Object.freeze(')==1 and "targetActiveByStyle:{SCALP:5,SWING:2}" in w
-          assert 'V3231_PRECISION_MULTI_CONFIRMATION_ANTI_CHASE_NO_WIN_PROBABILITY' in w
+          assert 'V3231_BALANCED_PRECISION_RANKED_HARD_FLOOR_NO_WIN_PROBABILITY' in w
+          assert "marketOnlyQuality:strict?'PRECISION_CONFIRMED':'PRECISION_RANKED_SAFE'" in w
+          assert "const maxExt=style==='SWING'?.30:.38" in w
+          assert "if(opposed>=2||(checked===1&&opposed===1))return null;" in w
           assert "watchR:-0.38" in w and "persistentCutR:-0.86" in w and "emergencyCutR:-0.96" in w
           assert 'autoCutRateDefinition' in w and 'currentVersionAutoCutRate' in w
           assert "selfHealing:'REFRESH_STALE_OR_MISSING_STABLE100_THEN_REAUDIT'" in w
           assert 'PERMANENT_NO_TTL' in w and 'FRESH_FAILOVER_DISPLAY_ONLY' in w
           assert 'APP_VERSION="3.23.1"' in a and 'TỈ LỆ CUT' in a
           assert 'SignalHub-Android/3.23.1' in c and 'versionCode 39' in g and "versionName '3.23.1'" in g
-          print('V3.23.1 SOURCE AUDIT PASS')
+          print('V3.23.1 BALANCED SOURCE AUDIT PASS')
           PY
 
       - name: Build APK and deploy production
@@ -81,24 +86,34 @@ jobs:
           unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
           npx --yes wrangler@latest deploy --config wrangler.jsonc
 
-      - name: Fill and verify exact precision MARKET book
+      - name: Wait for V3.23.1 propagation
         run: |
           set -euo pipefail
           ready=0
-          for n in $(seq 1 45);do
-            curl -fsS --max-time 20 "$BASE/v3/status?v3231=$RANDOM-$n" >/tmp/status.json || true
+          for n in $(seq 1 90);do
+            curl -fsS --max-time 20 "$BASE/v3/status?v3231ready=$RANDOM-$n" >/tmp/status.json || true
             if python3 - <<'PY'
           import json
           try:s=json.load(open('/tmp/status.json'))
           except:raise SystemExit(1)
-          assert s.get('ok') is True and s.get('version')=='SIGNALHUB-V3-GATEWAY-3.23.1',s
+          assert s.get('ok') is True and s.get('version')=='SIGNALHUB-V3-GATEWAY-3.23.1',s.get('version')
           hp=s.get('healthPolicy') or {};assert hp.get('persistentCutR')==-0.86 and hp.get('emergencyCutR')==-0.96,hp
           pol=((s.get('decisionPolicy') or {}).get('portfolioPolicy') or {});assert pol.get('maxActiveTotal')==7 and (pol.get('targetActiveByStyle') or {})=={'SCALP':5,'SWING':2},pol
           PY
-            then ready=1;break;fi
+            then echo "V3.23.1 propagated on attempt $n"; ready=1; break; fi
+            if [ $((n%10)) -eq 0 ]; then python3 - <<'PY'
+          import json
+          try:x=json.load(open('/tmp/status.json'));print('WAITING',x.get('version'),x.get('checkpoint'))
+          except:print('WAITING unreadable status')
+          PY
+            fi
             sleep 2
           done
           test "$ready" = 1
+
+      - name: Fill and verify exact precision MARKET book
+        run: |
+          set -euo pipefail
           curl -fsS --max-time 300 -X POST "$BASE/v3/history/migrate?v3231=$RANDOM" >/tmp/migrate.json
           python3 - <<'PY'
           import json
@@ -118,9 +133,15 @@ jobs:
           done
           test "$stable" = 1
           exact=0
-          for round in $(seq 1 32);do
+          for round in $(seq 1 40);do
             for style in SWING SCALP;do
               curl -sS --max-time 330 "$BASE/v3/scan?market=CRYPTO&style=$style&v3231=$round-$RANDOM" >"/tmp/scan-$style.json" || true
+              python3 - "$style" "$round" <<'PY'
+          import json,sys
+          try:x=json.load(open('/tmp/scan-'+sys.argv[1]+'.json'))
+          except Exception as e:print('SCAN',sys.argv[2],sys.argv[1],'unreadable',e);raise SystemExit(0)
+          print('SCAN',sys.argv[2],sys.argv[1],'status',x.get('status'),'evaluated',x.get('evaluated'),'actionable',x.get('actionable'),'strict',x.get('strictConfirmed'),'safe',x.get('safeFill'),'created',x.get('created'),'activeAfter',x.get('activeAfter'))
+          PY
             done
             curl -fsS --max-time 20 "$BASE/v3/portfolio?v3231book=$round-$RANDOM" >/tmp/book.json || true
             if python3 - <<'PY'
@@ -148,8 +169,8 @@ jobs:
               for s in r:
                   assert s.get('status')=='OPEN' and str(s.get('orderType','')).upper()=='MARKET',s
                   assert float(s.get('entry') or 0)>0 and float(s.get('sl') or 0)>0 and float(s.get('tp3') or 0)>0,s
-                  assert s.get('marketOnlyQuality') in ('PRECISION_CONFIRMED','PRECISION_ALIGNED'),s
-                  ea=s.get('entryAssessment') or {};assert ea.get('method')=='V3231_PRECISION_MULTI_CONFIRMATION_ANTI_CHASE_NO_WIN_PROBABILITY',ea
+                  assert s.get('marketOnlyQuality') in ('PRECISION_CONFIRMED','PRECISION_RANKED_SAFE'),s
+                  ea=s.get('entryAssessment') or {};assert ea.get('method')=='V3231_BALANCED_PRECISION_RANKED_HARD_FLOOR_NO_WIN_PROBABILITY',ea
               allrows+=r
           assert len({s.get('symbol') for s in allrows})==7,allrows
           print('PRECISION BOOK PASS')
@@ -161,20 +182,22 @@ jobs:
           curl -fsS --max-time 30 "$BASE/v3/crypto/monitor?kick=1&v3231=$RANDOM" >/dev/null
           python3 - <<'PY'
           import json,subprocess,time,datetime,os
-          base=os.environ['BASE'];seq=[];fresh=0
-          for i in range(10):
+          base=os.environ['BASE'];seq=[];fresh=0;complete=0
+          for i in range(12):
               x=json.loads(subprocess.check_output(['curl','-fsS','--max-time','15',f'{base}/v3/crypto/live-active?v3231={i}-{time.time_ns()}'],text=True));q=x.get('quotes') or []
-              assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.23.1' and len(q)==7,x
-              assert len({z.get('signalId') for z in q})==7 and len({z.get('symbol') for z in q})==7,q
-              s=int(x.get('seq') or 0);assert s>0;seq.append(s);f=0
+              assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.23.1',x
+              s=int(x.get('seq') or 0);assert s>0;seq.append(s)
+              if len(q)==7 and len({z.get('signalId') for z in q})==7 and len({z.get('symbol') for z in q})==7:complete+=1
+              f=0
               for z in q:
                   assert float(z.get('lastPrice') or 0)>0 and float(z.get('bid') or 0)>0 and float(z.get('ask') or 0)>0,z
                   assert z.get('provider') in ('BYBIT','OKX','BINANCE'),z
                   at=z.get('receivedAt');age=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(at.replace('Z','+00:00'))).total_seconds()
                   if z.get('stale') is not True and -1<=age<8:f+=1
-              if f==7:fresh+=1
+              if len(q)==7 and f==7:fresh+=1
+              print('REST',i,'seq',s,'count',len(q),'fresh',f,'state',x.get('transportState'),'failover',x.get('failoverCount'))
               time.sleep(1)
-          assert len(set(seq))>=3 and fresh>=5,(seq,fresh)
+          assert len(set(seq))>=3 and complete>=10 and fresh>=5,(seq,complete,fresh)
           PY
           node - <<'JS'
           const url=process.env.WS;
@@ -213,7 +236,7 @@ jobs:
           mkdir -p dist
           cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.23.1-Entry-Precision-Cut-Rate.apk
           sha256sum dist/SignalHub-v3.23.1-Entry-Precision-Cut-Rate.apk | tee dist/SignalHub-v3.23.1-Entry-Precision-Cut-Rate-SHA256SUMS.txt
-          printf '%s\n' '# SignalHub V3.23.1 Entry Precision + Cut Rate' 'Production gates: precision MARKET entry confirmation; less aggressive confirmed-deterioration AUTO_CUT; visible overall/current-version cut rate; exact 5 SCALP + 2 SWING; seven unique symbols; provider failover; WS/REST continuity; permanent history.' > dist/SIGNALHUB_V3_CHECKPOINT_31_ENTRY_PRECISION_CUT_RATE.md
+          printf '%s\n' '# SignalHub V3.23.1 Entry Precision + Cut Rate' 'Production gates: balanced precision MARKET admission with hard safety floor and ranking; confirmed-deterioration AUTO_CUT hysteresis; visible overall/current-version cut rate; exact 5 SCALP + 2 SWING; seven unique symbols; provider failover; WS/REST continuity; permanent history.' > dist/SIGNALHUB_V3_CHECKPOINT_31_ENTRY_PRECISION_CUT_RATE.md
 
       - uses: actions/upload-artifact@v4
         with:
@@ -226,4 +249,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG=signalhub-v3.23.1-entry-precision-cut-rate
-          gh release view "$TAG" >/dev/null 2>&1 && gh release upload "$TAG" dist/* --clobber || gh release create "$TAG" dist/* --target signalhub-v3231-entry-precision-cutrate --prerelease --title 'SignalHub v3.23.1 — Entry Precision + Cut Rate' --notes 'Production-audited: stricter multi-confirmation MARKET entries, wider health hysteresis and confirmed-deterioration cuts to reduce unnecessary AUTO_CUT churn, visible overall and current-version cut rates, exact 5 SCALP + 2 SWING MARKET book, live provider failover/reconnect and permanent history. No win rate is guaranteed.'
+          gh release view "$TAG" >/dev/null 2>&1 && gh release upload "$TAG" dist/* --clobber || gh release create "$TAG" dist/* --target signalhub-v3231-entry-precision-cutrate --prerelease --title 'SignalHub v3.23.1 — Entry Precision + Cut Rate' --notes 'Production-audited: balanced stricter multi-confirmation MARKET entries, confirmed-deterioration AUTO_CUT hysteresis to reduce unnecessary cut churn, visible overall/current-version cut rates, exact 5 SCALP + 2 SWING MARKET book, live provider failover/reconnect and permanent history. No win rate is guaranteed.'
