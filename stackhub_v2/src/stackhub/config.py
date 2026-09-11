@@ -50,8 +50,14 @@ class RuntimeConfig(BaseModel):
     scan_interval_seconds: int = Field(ge=60)
     max_concurrent_tasks: int = Field(ge=1)
     max_active_claims: int = Field(default=1, ge=1, le=4)
+    opportunity_allowlist: tuple[str, ...] = ()
     worker_pools: WorkerPoolConfig = Field(default_factory=WorkerPoolConfig)
     sources: dict[str, SourceConfig]
+
+    @field_validator("opportunity_allowlist")
+    @classmethod
+    def normalize_opportunity_allowlist(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(item.strip() for item in value if item.strip()))
 
     @model_validator(mode="after")
     def enforce_guardrails(self) -> "RuntimeConfig":
