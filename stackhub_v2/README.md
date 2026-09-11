@@ -7,7 +7,7 @@ Plan 1 implements a **strictly read-only, zero-spend** foundation for discoverin
 - `dry_run` must remain `true`.
 - `external_spend_limit_usd` must remain `0`.
 - TaskBounty source must remain `read_only: true`.
-- Only `GET /api/v1/tasks` is implemented.
+- Discovery uses only public `GET /api/v1/bounties.json`; when the feed contains an item, structured normalization may use read-only `GET /api/v1/tasks/{id}`.
 - CAPTCHA/human impersonation/fake engagement/location spoofing/wallet-secret tasks are denied.
 - Task descriptions are untrusted data and cannot alter runtime policy.
 - Wallet private keys, seed phrases, and mnemonics are never requested or stored.
@@ -15,12 +15,13 @@ Plan 1 implements a **strictly read-only, zero-spend** foundation for discoverin
 
 ## What it does
 
-1. Polls the documented TaskBounty open-task endpoint.
-2. Normalizes opportunities into typed models.
-3. Applies deny-by-default agent/compliance policy.
-4. Estimates expected net value and USD/minute score.
-5. Upserts opportunities idempotently into SQLite.
-6. Records source health and emits redacted status output.
+1. Polls TaskBounty's public JSON Feed for currently open bounties.
+2. Fetches read-only task detail for discovered feed items so reward and acceptance metadata can be normalized safely.
+3. Normalizes opportunities into typed models.
+4. Applies deny-by-default agent/compliance policy.
+5. Estimates expected net value and USD/minute score.
+6. Upserts opportunities idempotently into SQLite.
+7. Records source health and emits redacted status output.
 
 ## Install
 
@@ -46,11 +47,13 @@ stackhub opportunities --db runtime-data/stackhub-v2.db --limit 20
 stackhub run --config config/sources.yaml --db runtime-data/stackhub-v2.db
 ```
 
-`TASKBOUNTY_API_KEY` is optional for public discovery and, if present, is read from the process environment only. It is never written to SQLite or telemetry.
+`TASKBOUNTY_API_KEY` is optional. Public bounty discovery does not require it. If a key is supplied for a later read-only endpoint, it is read from the process environment only and is never written to SQLite or telemetry.
 
 ## Current TaskBounty economics
 
-The adapter normalizes `bounty_cents` to the documented solver share (80% of the funded bounty). This is an estimate for ranking, not a guaranteed payout. Competition and verification probabilities are deliberately conservative defaults in Plan 1 and can be calibrated from observed outcomes in a later plan.
+When a feed item is available and its detail exposes `bounty_cents`, the adapter normalizes that amount to the documented solver share used by the current model (80% of the funded bounty). This is an estimate for ranking, not a guaranteed payout. Competition and verification probabilities are deliberately conservative defaults in Plan 1 and can be calibrated from observed outcomes in a later plan.
+
+An empty public feed is a healthy state: the source remains `ok=true` with HTTP 200 and the scanner records zero opportunities until TaskBounty publishes a new bounty.
 
 ## Plan boundary
 
