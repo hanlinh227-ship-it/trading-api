@@ -1,9 +1,8 @@
-"""V6.2 production-first live cash-defense coordinator.
+"""V6.3 production-recovery live coordinator.
 
-The proven V5.7 production controller remains the operating base. V6.0 reacted too aggressively
-to small cash deficits and could starve the farm of productive capacity. This version keeps the
-strong production/price logic intact and adds only staged, evidence-based defense when a live money
-deficit is material. No simulator-only signal is required at runtime.
+This runtime restores the stronger V5.7 production engine as the default behaviour and keeps
+cash-defense only for genuinely material live deficits. Small or temporary negative cash gaps are
+allowed while productive capacity is still compounding. No simulator-only signal is required.
 """
 from __future__ import annotations
 
@@ -35,43 +34,39 @@ def _player_money(obs):
 
 
 def _cash_defense_tier(f):
-    """Escalate only after the live deficit is material; never punish normal early investment."""
+    """Defend late and deep; do not mistake normal investment for failure."""
     gap=float(f.get('gap',0) or 0)
     day=int(f.get('day',0) or 0)
     remaining=float(f.get('remaining_turns',9999) or 9999)
-    if gap<=-4500 or (gap<=-3200 and day>=8) or (gap<=-2600 and remaining<150):
+    if gap<=-6500 or (gap<=-5000 and day>=10) or (gap<=-4200 and remaining<120):
         return 3
-    if gap<=-2500 or (gap<=-1800 and day>=10) or (gap<=-1500 and remaining<240):
+    if gap<=-4000 or (gap<=-3000 and day>=10) or (gap<=-2500 and remaining<180):
         return 2
-    if gap<=-1200 or (gap<=-800 and remaining<180):
+    if gap<=-2200 or (gap<=-1500 and remaining<120):
         return 1
     return 0
 
 
 def _capital_floor(f,p):
-    """Preserve enough cash for production without freezing the farm's growth engine."""
+    """Keep the original productive reserve and raise it only for material deficits."""
     base=max(180.0,float(p.get('land_buffer',80) or 80)*1.25)
     livestock=float(p.get('livestock_cash_buffer',350) or 350)
     remaining=float(f.get('remaining_turns',9999) or 9999)
-    gap=float(f.get('gap',0) or 0)
     tier=_cash_defense_tier(f)
-
-    if gap<0:
-        base=max(base,350.0+min(650.0,abs(gap)*.12))
-    if tier>=1:base=max(base,700.0)
-    if tier>=2:base=max(base,1050.0)
-    if tier>=3:base=max(base,1550.0)
     if remaining<240:
-        base=max(base,min(max(livestock,550.0),1200.0))
+        base=max(base,livestock,500.0)
     elif remaining<420:
-        base=max(base,min(livestock,700.0))
+        base=max(base,min(livestock,650.0))
     if float(f.get('productive_utilization',0) or 0)<.42:
         base=max(base,450.0)
+    if tier>=1:base=max(base,650.0)
+    if tier>=2:base=max(base,950.0)
+    if tier>=3:base=max(base,1400.0)
     return base
 
 
 def _capital_guard(order,obs,f,p):
-    """Block speculative capex under a real deficit while keeping the production cycle funded."""
+    """Protect only against deep deficit snowball while preserving growth spending."""
     if not isinstance(order,list) or not order:
         return order
     op=order[0]
@@ -87,11 +82,8 @@ def _capital_guard(order,obs,f,p):
         if qty<=0 or unit<=0:return None
         affordable=max(0,int((money-reserve)//unit))
         qty=min(qty,affordable)
-        if tier==1 and crop in PREMIUM_CROPS:
-            qty=min(qty,3)
-        elif tier==2:
-            if crop in PREMIUM_CROPS:return None
-            qty=min(qty,8 if crop in FAST_CASH_CROPS else 4)
+        if tier==2 and crop in PREMIUM_CROPS:
+            qty=min(qty,4)
         elif tier>=3:
             if crop not in FAST_CASH_CROPS:return None
             qty=min(qty,6)
@@ -99,22 +91,24 @@ def _capital_guard(order,obs,f,p):
 
     if op=='BUY_ANIMAL' and len(order)>=3:
         animal=order[1];cost=float(ANIMAL_COST.get(animal,0) or 0)
-        if tier>=1:return None
-        if remaining<300 or money-cost<max(reserve,float(p.get('livestock_cash_buffer',350) or 350)):
-            return None
+        if tier>=2:return None
+        needed=max(reserve,float(p.get('livestock_cash_buffer',350) or 350))
+        if tier==1:needed=max(needed,850.0)
+        if remaining<300 or money-cost<needed:return None
         return [op,animal,1]
 
     if op=='BUY_LAND':
         unlocked=max(1,int(f.get('unlocked_quadrants',1) or 1))
         idx=min(len(LAND_COSTS)-1,max(0,unlocked-1));cost=float(LAND_COSTS[idx])
-        if tier>=1:return None
+        if tier>=2:return None
         if unlocked>=3 and util<.62:return None
-        if remaining<300 or money-cost<reserve:return None
+        needed=reserve*(1.15 if tier==1 else 1.0)
+        if remaining<300 or money-cost<needed:return None
         return order
 
     if op=='HIRE':
-        if tier>=3 and hands>=5:return None
-        if tier>=2 and hands>=7:return None
+        if tier>=3 and hands>=6:return None
+        if tier>=2 and hands>=8:return None
         if remaining<240 or money<reserve*1.35:return None
         return order
 
@@ -148,13 +142,13 @@ def _crop_score(crop,obs,f,game,p):
     score=crop_portfolio_score(crop,obs,f,game,p)
     tier=_cash_defense_tier(f)
     if tier>=2:
-        if crop=='WHEAT':score*=1.16
-        elif crop=='CARROT':score*=1.12
-        elif crop=='TOMATO':score*=1.05
-        elif crop in PREMIUM_CROPS:score*=.82
+        if crop=='WHEAT':score*=1.10
+        elif crop=='CARROT':score*=1.08
+        elif crop=='TOMATO':score*=1.04
+        elif crop in PREMIUM_CROPS:score*=.90
     if tier>=3:
-        if crop in FAST_CASH_CROPS:score*=1.12
-        elif crop in PREMIUM_CROPS:score*=.70
+        if crop in FAST_CASH_CROPS:score*=1.10
+        elif crop in PREMIUM_CROPS:score*=.78
     return score
 
 
@@ -180,21 +174,19 @@ def _market_priority(order,obs,f,game,p):
     if op=='SELL' and len(order)>=3:
         item=order[1];current=float(f.get('prices',{}).get(item,1) or 1)
         return 100000.+current
-    # Keep the production cycle funded before optional expansion.
-    if op=='BUY_SEED':return 85000.
-    if op=='HIRE':return 75000.
-    if op=='BUY_PRODUCT':return 65000.
-    if op=='BUY_ANIMAL' and len(order)>=2:return 55000.+1000.*animal_portfolio_score(order[1],obs,f,game,p)
-    if op=='BUY_LAND':return 45000.
+    # Restore the production-led order that performed materially better live.
+    if op=='HIRE':return 80000.
+    if op=='BUY_LAND':return 70000.
+    if op=='BUY_PRODUCT':return 60000.
+    if op=='BUY_ANIMAL' and len(order)>=2:return 50000.+1000.*animal_portfolio_score(order[1],obs,f,game,p)
+    if op=='BUY_SEED':return 40000.
     return 0.
 
 
 def _sell_view(f):
     out=dict(f)
-    if _cash_defense_tier(f)>0:
+    if _cash_defense_tier(f)>=2:
         out['regime']='comeback'
-    elif f.get('regime')=='expansion':
-        out['regime']='production'
     return out
 
 
@@ -204,15 +196,11 @@ def _recovery_sell_batch(item,units,batch,f):
     tier=_cash_defense_tier(f)
     remaining=float(f.get('remaining_turns',9999) or 9999)
     if remaining<=72:return units
-    if tier<=0:return min(units,batch)
-    if tier==1:
+    if tier<2:return min(units,batch)
+    if tier==2:
         target=max(batch,(units+2)//3)
-    elif tier==2:
-        target=max(batch,(units+1)//2)
     else:
-        target=units if item in FAST_CASH_PRODUCTS else max(batch,(2*units+2)//3)
-    if item in ('STRAWBERRY','MELON','MILK','WOOL') and tier<3 and remaining>144:
-        target=min(target,max(batch,(units+3)//4))
+        target=units if item in FAST_CASH_PRODUCTS else max(batch,(units+1)//2)
     return min(units,max(1,target))
 
 
@@ -256,10 +244,10 @@ def validate_live_runtime_contracts():
     """Pure threshold sanity checks; no simulator or local match is executed."""
     probes=(
         ({'gap':0,'day':1,'remaining_turns':720},0),
-        ({'gap':-900,'day':4,'remaining_turns':500},0),
-        ({'gap':-1300,'day':5,'remaining_turns':500},1),
-        ({'gap':-2600,'day':6,'remaining_turns':300},2),
-        ({'gap':-4700,'day':8,'remaining_turns':160},3),
+        ({'gap':-1400,'day':5,'remaining_turns':400},0),
+        ({'gap':-2300,'day':6,'remaining_turns':300},1),
+        ({'gap':-4100,'day':7,'remaining_turns':240},2),
+        ({'gap':-6600,'day':8,'remaining_turns':160},3),
     )
     for f,expected in probes:
         if _cash_defense_tier(f)!=expected:
@@ -269,7 +257,6 @@ def validate_live_runtime_contracts():
 
 def decide_v57(obs,game,p):
     p=validate_params(p)
-    # Preserve the proven production baseline. Defense is applied only to last-mile market choices.
     base=decide(obs,game,p)
     f=features(obs,game)
     farmer,hands=_rewrite_unit_actions(base,obs,f,game,p)
@@ -285,7 +272,6 @@ def make_v57(params=None):
 
 
 def inspect_economy(obs,configuration=None,params=None):
-    """Inspection helper; canonical live execution does not require a simulator."""
     game=configuration or {};p=validate_params(params);f=features(obs,game)
     snap=economic_snapshot(obs,f,game,p)
     snap['live_gap']=float(f.get('gap',0) or 0)
