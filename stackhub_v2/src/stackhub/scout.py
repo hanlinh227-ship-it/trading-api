@@ -38,7 +38,7 @@ class Scout:
         self.adapter = adapter
         self.pool = pool
 
-    async def run_once(self, limit: int = 50) -> ScoutResult:
+    async def run_once(self, limit: int = 100) -> ScoutResult:
         now = datetime.now(timezone.utc)
         try:
             items = await self.adapter.discover(limit=limit)
