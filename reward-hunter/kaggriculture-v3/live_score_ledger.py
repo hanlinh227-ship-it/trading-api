@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Maintain Kaggriculture live score/champion telemetry without local matches.
+"""Maintain monotonic Kaggriculture live score/champion telemetry without local matches.
 
 LATEST is the newest source candidate. CURRENT_BEST is the strongest score visible in Kaggle's
-current table. BEST_EVER is the historical high-water observed by the canonical live loop. These
-are intentionally separate so a new submission never looks like a leaderboard reset.
+current table. BEST_EVER is the historical high-water observed by the canonical live loop.
+DISPLAY/CHAMPION are monotonic and never move backwards merely because a new merge/submission is
+pending or scores below the historical champion. These are intentionally separate so a new
+submission never looks like a leaderboard reset.
 """
 from __future__ import annotations
 
@@ -91,6 +93,7 @@ def update_ledger(ledger: dict, rows: list[dict], current_description: str, curr
         best_ever = max(old_best_ever, observed_now)
     ledger["best_ever_public_score"] = best_ever
     ledger["high_water_public_score"] = best_ever
+
     should_attach_best_ref = (
         current_best is not None
         and best_ever is not None
@@ -103,6 +106,12 @@ def update_ledger(ledger: dict, rows: list[dict], current_description: str, curr
         ledger["best_ever_submission_ref"] = current_best["ref"]
         ledger["best_ever_description"] = current_best["description"]
         ledger["best_ever_observed_at"] = _now()
+
+    # User-facing score is monotonic: merges and weaker submissions never make the canonical score
+    # look as though it reset. Actual latest/current-table values remain available separately.
+    ledger["display_public_score"] = best_ever
+    ledger["display_submission_ref"] = ledger.get("best_ever_submission_ref", "")
+    ledger["display_description"] = ledger.get("best_ever_description", "")
 
     result = "not_visible"
     latest_delta_current_best = None
@@ -125,8 +134,11 @@ def update_ledger(ledger: dict, rows: list[dict], current_description: str, curr
                 latest_delta_current_best = score - observed_now
             if best_ever is not None:
                 latest_delta_best_ever = score - best_ever
-            if observed_now is None or score >= observed_now - 1e-9:
-                result = "current_best" if latest_delta_current_best == 0 else "promoted_current_best"
+
+            # Champion is historical-high-water gated, not merely current-table gated. A weaker
+            # merge/submission can be observed live but can never replace the canonical champion.
+            if best_ever is not None and score >= best_ever - 1e-9:
+                result = "champion" if abs(score - best_ever) <= 1e-9 else "promoted_champion"
                 ledger["champion_sha256"] = current_sha
                 ledger["champion_submission_ref"] = current["ref"]
                 ledger["champion_description"] = current_description
@@ -181,6 +193,11 @@ def update_ledger(ledger: dict, rows: list[dict], current_description: str, curr
             "public_score": ledger.get("best_ever_public_score"),
             "observed_at": ledger.get("best_ever_observed_at", ""),
         },
+        "display": {
+            "description": ledger.get("display_description", ""),
+            "submission_ref": ledger.get("display_submission_ref", ""),
+            "public_score": ledger.get("display_public_score"),
+        },
         "latest_vs_current_best_delta": latest_delta_current_best,
         "latest_vs_best_ever_delta": latest_delta_best_ever,
         "score_changes": score_changes,
@@ -216,17 +233,19 @@ def main():
         "current_best_ref": summary["current_best"].get("submission_ref"),
         "current_best_score": summary["current_best"].get("public_score"),
         "best_ever_score": summary["best_ever"].get("public_score"),
+        "display_score": summary["display"].get("public_score"),
+        "display_ref": summary["display"].get("submission_ref"),
         "delta_current_best": summary.get("latest_vs_current_best_delta"),
         "delta_best_ever": summary.get("latest_vs_best_ever_delta"),
     }, sort_keys=True))
     for change in summary["score_changes"]:
         print(f"LIVE_SUBMISSION_SCORE_CHANGE ref={change['ref']} previous={change['previous']} new={change['new']} delta={change['delta']}")
-    if summary["candidate_result"] in ("current_best", "promoted_current_best"):
+    if summary["candidate_result"] in ("champion", "promoted_champion"):
         latest = summary["latest"]
-        print(f"PROMOTION_READY LIVE_CURRENT_CHAMPION ref={latest.get('submission_ref')} score={latest.get('public_score')}")
+        print(f"PROMOTION_READY LIVE_HISTORICAL_CHAMPION ref={latest.get('submission_ref')} score={latest.get('public_score')}")
     elif summary["candidate_result"] == "regression":
         latest = summary["latest"]
-        print(f"LIVE_SCORE_REGRESSION ref={latest.get('submission_ref')} score={latest.get('public_score')} current_best={summary['current_best'].get('public_score')} delta={summary.get('latest_vs_current_best_delta')}")
+        print(f"LIVE_SCORE_REGRESSION ref={latest.get('submission_ref')} score={latest.get('public_score')} best_ever={summary['best_ever'].get('public_score')} delta={summary.get('latest_vs_best_ever_delta')}")
     elif summary["candidate_result"] == "pending":
         latest = summary["latest"]
         print(f"LIVE_SCORE_PENDING ref={latest.get('submission_ref')} status={latest.get('status')}")
