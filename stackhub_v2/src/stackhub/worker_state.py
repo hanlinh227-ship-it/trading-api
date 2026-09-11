@@ -6,26 +6,87 @@ from enum import StrEnum
 class WorkerState(StrEnum):
     DISCOVERED = "DISCOVERED"
     ELIGIBLE = "ELIGIBLE"
-    ACCESSED = "ACCESSED"
+    RESERVED = "RESERVED"
+    CLAIMED = "CLAIMED"
     SOLVING = "SOLVING"
     VERIFIED = "VERIFIED"
     SUBMITTED = "SUBMITTED"
-    WON = "WON"
-    LOST = "LOST"
-    FAILED = "FAILED"
+    PAID = "PAID"
+    FAILED_RETRYABLE = "FAILED_RETRYABLE"
+    FAILED_PERMANENT = "FAILED_PERMANENT"
+    EXPIRED = "EXPIRED"
+    REJECTED = "REJECTED"
+
+    # Compatibility aliases for pre-V2 callers. Persisted values are canonicalized.
+    ACCESSED = "CLAIMED"
+    WON = "PAID"
+    LOST = "REJECTED"
+    FAILED = "FAILED_PERMANENT"
 
 
 _ALLOWED: dict[WorkerState, set[WorkerState]] = {
-    WorkerState.DISCOVERED: {WorkerState.ELIGIBLE, WorkerState.FAILED},
-    WorkerState.ELIGIBLE: {WorkerState.ACCESSED, WorkerState.FAILED},
-    WorkerState.ACCESSED: {WorkerState.SOLVING, WorkerState.FAILED},
-    WorkerState.SOLVING: {WorkerState.VERIFIED, WorkerState.FAILED},
-    WorkerState.VERIFIED: {WorkerState.SUBMITTED, WorkerState.FAILED},
-    WorkerState.SUBMITTED: {WorkerState.WON, WorkerState.LOST, WorkerState.FAILED},
-    WorkerState.WON: set(),
-    WorkerState.LOST: set(),
-    WorkerState.FAILED: set(),
+    WorkerState.DISCOVERED: {
+        WorkerState.ELIGIBLE,
+        WorkerState.FAILED_RETRYABLE,
+        WorkerState.FAILED_PERMANENT,
+        WorkerState.EXPIRED,
+    },
+    WorkerState.ELIGIBLE: {
+        WorkerState.RESERVED,
+        WorkerState.FAILED_RETRYABLE,
+        WorkerState.FAILED_PERMANENT,
+        WorkerState.EXPIRED,
+    },
+    WorkerState.RESERVED: {
+        WorkerState.CLAIMED,
+        WorkerState.FAILED_RETRYABLE,
+        WorkerState.FAILED_PERMANENT,
+        WorkerState.EXPIRED,
+    },
+    WorkerState.CLAIMED: {
+        WorkerState.SOLVING,
+        WorkerState.FAILED_RETRYABLE,
+        WorkerState.FAILED_PERMANENT,
+        WorkerState.EXPIRED,
+    },
+    WorkerState.SOLVING: {
+        WorkerState.VERIFIED,
+        WorkerState.FAILED_RETRYABLE,
+        WorkerState.FAILED_PERMANENT,
+        WorkerState.EXPIRED,
+    },
+    WorkerState.VERIFIED: {
+        WorkerState.SUBMITTED,
+        WorkerState.FAILED_RETRYABLE,
+        WorkerState.FAILED_PERMANENT,
+        WorkerState.EXPIRED,
+    },
+    WorkerState.SUBMITTED: {
+        WorkerState.PAID,
+        WorkerState.REJECTED,
+        WorkerState.FAILED_RETRYABLE,
+        WorkerState.FAILED_PERMANENT,
+        WorkerState.EXPIRED,
+    },
+    WorkerState.PAID: set(),
+    WorkerState.FAILED_RETRYABLE: {
+        WorkerState.ELIGIBLE,
+        WorkerState.EXPIRED,
+        WorkerState.FAILED_PERMANENT,
+    },
+    WorkerState.FAILED_PERMANENT: set(),
+    WorkerState.EXPIRED: set(),
+    WorkerState.REJECTED: set(),
 }
+
+TERMINAL_STATES = frozenset(
+    {
+        WorkerState.PAID,
+        WorkerState.FAILED_PERMANENT,
+        WorkerState.EXPIRED,
+        WorkerState.REJECTED,
+    }
+)
 
 
 def assert_transition(current: WorkerState, target: WorkerState) -> None:
