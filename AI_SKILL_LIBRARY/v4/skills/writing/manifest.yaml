@@ -1,0 +1,8 @@
+id: writing
+version: 4.0.0
+domain: writing
+source: legacy_catalog_adapter
+skills: [scriptwriting, screenwriting, voice_over, advertising_copy, hook_retention, storytelling]
+permissions: [read_only]
+risk_ceiling: read_only
+evals: [continuity, audience_fit, factual_boundaries]
