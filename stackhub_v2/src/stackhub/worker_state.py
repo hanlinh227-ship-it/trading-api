@@ -7,6 +7,7 @@ class WorkerState(StrEnum):
     DISCOVERED = "DISCOVERED"
     ELIGIBLE = "ELIGIBLE"
     RESERVED = "RESERVED"
+    PENDING_AWARD = "PENDING_AWARD"
     CLAIMED = "CLAIMED"
     SOLVING = "SOLVING"
     VERIFIED = "VERIFIED"
@@ -38,7 +39,15 @@ _ALLOWED: dict[WorkerState, set[WorkerState]] = {
         WorkerState.EXPIRED,
     },
     WorkerState.RESERVED: {
+        WorkerState.PENDING_AWARD,
         WorkerState.CLAIMED,
+        WorkerState.FAILED_RETRYABLE,
+        WorkerState.FAILED_PERMANENT,
+        WorkerState.EXPIRED,
+    },
+    WorkerState.PENDING_AWARD: {
+        WorkerState.CLAIMED,
+        WorkerState.REJECTED,
         WorkerState.FAILED_RETRYABLE,
         WorkerState.FAILED_PERMANENT,
         WorkerState.EXPIRED,
