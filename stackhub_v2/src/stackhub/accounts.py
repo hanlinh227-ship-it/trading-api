@@ -22,6 +22,18 @@ class AccountSpec:
 
 ACCOUNT_SPECS: tuple[AccountSpec, ...] = (
     AccountSpec(
+        "moltjobs",
+        AccountMode.AUTO,
+        ("MOLTJOBS_API_KEY",),
+        "agent-native job discovery now; bidding/start/submission remain gated until mutation lifecycle verification",
+    ),
+    AccountSpec(
+        "taskforce",
+        AccountMode.AUTO,
+        ("TASKFORCE_API_KEY",),
+        "agent-native task discovery now; apply/accept/submit remain gated until application lifecycle verification",
+    ),
+    AccountSpec(
         "taskbounty",
         AccountMode.AUTO,
         ("TASKBOUNTY_API_KEY",),
