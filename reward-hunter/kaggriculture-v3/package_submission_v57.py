@@ -1,7 +1,8 @@
-"""Build the V5.7 runtime economy candidate as one stdlib-only Kaggle file.
+"""Build the canonical live Kaggriculture runtime as one stdlib-only Kaggle file.
 
-Packaging never authorizes submission.  The resulting file must still pass raw-exec, official
-loader, episode-equivalence and the composite promotion gates.
+Packaging never authorizes submission. The generated agent embeds the current policy_v57 runtime;
+submission, live-score tracking, and champion selection remain responsibilities of the canonical
+GitHub Actions live lane.
 """
 import argparse
 import ast
@@ -29,7 +30,7 @@ def _clean(name):
 
 def build(params=None,path=None):
     params=validate_params(params)
-    pieces=['# Generated V5.7 adaptive economy research candidate. NOT SUBMITTED.\n']
+    pieces=['# Generated canonical Kaggriculture live agent. Submission is handled by the guarded live lane.\n']
     for name in ('incumbent.py','features.py','policy.py','economic_reasoning.py','policy_v57.py'):
         pieces.append(_clean(name))
     pieces.append('EMBEDDED_PARAMS = '+repr(params)+'\n\ndef agent(observation, configuration=None):\n    return decide_v57(observation, configuration or {}, EMBEDDED_PARAMS)\n')
@@ -37,7 +38,8 @@ def build(params=None,path=None):
     compile(code,'main.py','exec')
     target=Path(path or HERE/'main-v57.py');target.parent.mkdir(parents=True,exist_ok=True);target.write_text(code)
     return dict(path=str(target),sha256=hashlib.sha256(code.encode()).hexdigest(),params=params,
-                submission_performed=False,promotion_status='NOT_AUTHORIZED_BY_PACKAGING',lane='v5.7-adaptive-economy')
+                submission_performed=False,promotion_status='NOT_AUTHORIZED_BY_PACKAGING',
+                lane='v6.1-live-anti-snowball',runtime_policy='V6.0 anti-snowball cash-gap defense')
 
 
 if __name__=='__main__':
