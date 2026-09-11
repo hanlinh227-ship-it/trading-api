@@ -47,6 +47,11 @@ class OutageAdapter:
         raise TaskBountyProtocolError("unavailable", status_code=503, error_code="http_503")
 
 
+class AuthRequiredAdapter:
+    async def fetch_open(self, limit=50):
+        raise TaskBountyProtocolError("missing API key", error_code="auth_required")
+
+
 @pytest.mark.asyncio
 async def test_run_once_persists_ranked_read_only_opportunity(tmp_path):
     repo = StackHubRepository(tmp_path / "db.sqlite"); repo.initialize()
@@ -69,6 +74,18 @@ async def test_rate_limit_records_source_health_without_raising(tmp_path):
     assert health["ok"] is False
     assert health["status_code"] == 429
     assert health["error_code"] == "rate_limited"
+
+
+@pytest.mark.asyncio
+async def test_auth_required_is_not_misclassified_as_source_outage(tmp_path):
+    repo = StackHubRepository(tmp_path / "db.sqlite"); repo.initialize()
+    result = await Scanner(config(), repo, {"taskbounty": AuthRequiredAdapter()}).run_once()
+    health = repo.get_source_health("taskbounty")
+    assert result.errors == 1
+    assert result.source_outage is False
+    assert health["ok"] is False
+    assert health["status_code"] is None
+    assert health["error_code"] == "auth_required"
 
 
 @pytest.mark.asyncio
