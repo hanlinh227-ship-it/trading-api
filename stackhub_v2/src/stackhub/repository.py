@@ -145,6 +145,17 @@ class StackHubRepository:
                 LEFT JOIN claims c ON c.source=o.source AND c.opportunity_id=o.id
                 WHERE o.policy_allowed=1 {source_clause}
                   AND (
+                      NOT EXISTS (
+                          SELECT 1 FROM source_health sh
+                          WHERE sh.source=o.source AND sh.ok=1
+                      )
+                      OR datetime(o.updated_at) >= (
+                          SELECT MAX(datetime(sh2.observed_at))
+                          FROM source_health sh2
+                          WHERE sh2.source=o.source AND sh2.ok=1
+                      )
+                  )
+                  AND (
                       c.id IS NULL
                       OR (
                           c.state=?
