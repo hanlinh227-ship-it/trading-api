@@ -31,6 +31,22 @@ class ClaimReceipt:
 
 
 @dataclass(frozen=True)
+class AwardRequestReceipt:
+    source: str
+    opportunity_id: str
+    external_reference: str
+    status: str = "PENDING"
+
+
+@dataclass(frozen=True)
+class AwardStatus:
+    source: str
+    opportunity_id: str
+    status: str
+    workspace_reference: str | None = None
+
+
+@dataclass(frozen=True)
 class SubmissionReceipt:
     source: str
     opportunity_id: str
@@ -54,6 +70,20 @@ class MutationSourceAdapter(SourceAdapter, Protocol):
         opportunity_id: str,
         artifact_reference: str,
     ) -> SubmissionReceipt: ...
+
+
+class AwardSourceAdapter(SourceAdapter, Protocol):
+    async def request_award(
+        self,
+        opportunity_id: str,
+        message: str,
+    ) -> AwardRequestReceipt: ...
+
+    async def poll_award(
+        self,
+        opportunity_id: str,
+        external_reference: str,
+    ) -> AwardStatus: ...
 
 
 # Compatibility alias for the original scanner interface.
