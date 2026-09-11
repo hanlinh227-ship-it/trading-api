@@ -1,0 +1,70 @@
+version: 1
+policy:
+  default_rag: true
+  default_training: true
+  require_license: true
+  preserve_provenance: true
+
+sources:
+  # GAME DEVELOPMENT
+  - {category: game, repo: godotengine/godot, license: MIT, rag: true, training: true, focus: "2D/3D engine architecture, editor, rendering, gameplay systems"}
+  - {category: game, repo: bevyengine/bevy, license: MIT OR Apache-2.0, rag: true, training: true, focus: "Rust ECS, engine architecture, rendering"}
+  - {category: game, repo: phaserjs/phaser, license: MIT, rag: true, training: true, focus: "HTML5/TypeScript/JavaScript 2D games"}
+  - {category: game, repo: cocos/cocos-engine, license: MIT, rag: true, training: true, focus: "C++/TypeScript cross-platform 2D/3D engine"}
+  - {category: game, repo: libgdx/libgdx, license: Apache-2.0, rag: true, training: true, focus: "Java cross-platform game framework"}
+  - {category: game, repo: Unity-Technologies/ml-agents, license: Apache-2.0, rag: true, training: true, focus: "reinforcement/imitation learning for games and simulations"}
+
+  # UX / UI / DESIGN SYSTEMS
+  - {category: ux_ui, repo: shadcn-ui/ui, license: MIT, rag: true, training: true, focus: "accessible component composition and modern app UI"}
+  - {category: ux_ui, repo: radix-ui/primitives, license: MIT, rag: true, training: true, focus: "accessible headless UI primitives"}
+  - {category: ux_ui, repo: mui/material-ui, license: MIT, rag: true, training: true, focus: "Material Design React components"}
+  - {category: ux_ui, repo: ant-design/ant-design, license: MIT, rag: true, training: true, focus: "enterprise UI patterns and components"}
+  - {category: ux_ui, repo: chakra-ui/chakra-ui, license: MIT, rag: true, training: true, focus: "accessible React design system"}
+  - {category: ux_ui, repo: mantinedev/mantine, license: MIT, rag: true, training: true, focus: "React components, hooks and UX patterns"}
+  - {category: ux_ui, repo: microsoft/fluentui, license: MIT, rag: true, training: true, focus: "Fluent design, accessibility and enterprise UI", exclude: "fonts/icons unless separately licensed"}
+  - {category: ux_ui, repo: carbon-design-system/carbon, license: Apache-2.0, rag: true, training: true, focus: "IBM Carbon design system and component architecture"}
+
+  # PROMPT ENGINEERING
+  - {category: prompt, repo: dair-ai/Prompt-Engineering-Guide, license: MIT, rag: true, training: true, focus: "prompt methods, examples and research-oriented guidance"}
+  - {category: prompt, repo: bigscience-workshop/promptsource, license: Apache-2.0, rag: true, training: true, focus: "structured prompt templates and prompt tooling", note: "linked datasets may have separate licenses"}
+  - {category: prompt, repo: microsoft/PromptWizard, license: MIT, rag: true, training: true, focus: "prompt optimization"}
+  - {category: prompt, repo: microsoft/generative-ai-for-beginners, license: MIT, rag: true, training: true, focus: "generative AI curriculum and prompt/app patterns"}
+  - {category: prompt, repo: openai/openai-cookbook, license: MIT, rag: true, training: true, focus: "AI application examples, evals, retrieval and prompting"}
+  - {category: prompt, repo: f/awesome-chatgpt-prompts, license: CC0-1.0, rag: true, training: true, focus: "community prompt patterns"}
+
+  # SCRIPT / SCREENWRITING / STORY STRUCTURE TOOLS
+  - {category: script, repo: nyousefi/Fountain, license: MIT, rag: true, training: true, focus: "screenplay structure and Fountain format"}
+  - {category: script, repo: wildwinter/screenplay-tools, license: MIT, rag: true, training: true, focus: "screenplay parsing/writing across Fountain and FDX"}
+  - {category: script, repo: vilcans/screenplain, license: MIT, rag: true, training: true, focus: "screenplay formatting and parsing"}
+  - {category: script, repo: mattdaly/Fountain.js, license: MIT, rag: true, training: true, focus: "screenplay tokenization and structure"}
+  - {category: script, repo: GITenberg, license: PER_ITEM, rag: false, training: false, manual_approval: true, focus: "public-domain literary corpus", note: "enable only individual works whose repository/license confirms usable rights in the relevant jurisdiction"}
+
+  # CODING / SOFTWARE AGENTS
+  - {category: code, repo: OpenHands/OpenHands, license: MIT, rag: true, training: true, focus: "agentic software development workflows"}
+  - {category: code, repo: OpenHands/software-agent-sdk, license: MIT, rag: true, training: true, focus: "SDK patterns for coding agents"}
+  - {category: code, repo: Aider-AI/aider, license: Apache-2.0, rag: true, training: true, focus: "Git-aware code editing and repo maps"}
+  - {category: code, repo: cline/cline, license: Apache-2.0, rag: true, training: true, focus: "autonomous IDE/CLI coding agent patterns"}
+  - {category: code, repo: continuedev/continue, license: Apache-2.0, rag: true, training: true, status: archived, focus: "coding agent/IDE architecture; historical reference"}
+
+  # TRADING: FOREX / CRYPTO / FUTURES / INDEX / QUANT
+  - {category: trading, repo: QuantConnect/Lean, license: Apache-2.0, rag: true, training: true, focus: "multi-asset event-driven engine: forex, futures, options, equities, crypto"}
+  - {category: trading, repo: ccxt/ccxt, license: MIT, rag: true, training: true, focus: "crypto exchange APIs, market data and execution abstractions"}
+  - {category: trading, repo: microsoft/qlib, license: MIT, rag: true, training: true, focus: "AI-oriented quantitative research platform"}
+  - {category: trading, repo: AI4Finance-Foundation/FinRL, license: MIT, rag: true, training: true, focus: "financial reinforcement learning"}
+  - {category: trading, repo: AI4Finance-Foundation/FinRL-Trading, license: Apache-2.0, rag: true, training: true, focus: "AI-native modular quantitative trading infrastructure"}
+  - {category: trading, repo: AI4Finance-Foundation/FinRL_Crypto, license: MIT, rag: true, training: true, focus: "crypto reinforcement-learning examples"}
+  - {category: trading, repo: AI4Finance-Foundation/FinGPT, license: MIT, rag: true, training: true, focus: "financial LLM code/research", note: "external datasets/checkpoints require separate license review"}
+  - {category: trading, repo: hummingbot/hummingbot, license: Apache-2.0, rag: true, training: true, focus: "crypto market making, connectors and bot architecture"}
+  - {category: trading, repo: vnpy/vnpy, license: MIT, rag: true, training: true, focus: "quant trading framework, gateways, futures/derivatives architecture"}
+
+  # SOFTWARE DESIGN / APPLICATION ENGINEERING
+  - {category: software, repo: donnemartin/system-design-primer, license: CC-BY-4.0, rag: true, training: true, attribution_required: true, focus: "system design, scalability and architecture"}
+  - {category: software, repo: fastapi/fastapi, license: MIT, rag: true, training: true, focus: "Python API architecture and production patterns"}
+  - {category: software, repo: tauri-apps/tauri, license: MIT OR Apache-2.0, rag: true, training: true, focus: "secure desktop/mobile app architecture with Rust + web frontend", exclude: "logo assets"}
+  - {category: software, repo: flutter/flutter, license: BSD-3-Clause, rag: true, training: true, focus: "cross-platform app framework and UI architecture", note: "third-party components/assets may have separate licenses"}
+  - {category: software, repo: supabase/supabase, license: Apache-2.0, rag: true, training: true, focus: "Postgres platform, auth, realtime, storage and backend architecture"}
+  - {category: software, repo: appwrite/appwrite, license: BSD-3-Clause, rag: true, training: true, focus: "backend platform architecture and APIs"}
+  - {category: software, repo: kubernetes/kubernetes, license: Apache-2.0, rag: true, training: true, focus: "distributed systems, orchestration and production engineering"}
+  - {category: software, repo: django/django, license: BSD-3-Clause, rag: true, training: true, focus: "mature web framework architecture and testing"}
+  - {category: software, repo: facebook/react, license: MIT, rag: true, training: true, focus: "frontend architecture, rendering and component systems"}
+  - {category: software, repo: nestjs/nest, license: MIT, rag: true, training: true, focus: "TypeScript backend architecture and dependency injection"}
