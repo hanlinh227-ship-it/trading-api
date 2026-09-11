@@ -1,0 +1,73 @@
+version: 1
+policy:
+  retrieve_before_write: true
+  prefer_verified_current_over_old: true
+  current_project_authority_precedes_memory: true
+  durable_write_requires: [reusable, verified, scoped, non_sensitive]
+  contradiction_requires_reverification: true
+  superseded_memory_is_not_authority: true
+
+required_metadata:
+  - source
+  - confidence
+  - created_at
+  - last_verified
+  - superseded_by
+  - scope
+
+layers:
+  working:
+    durable: false
+    max_items: 12
+    max_item_tokens: 600
+    purpose: current_task_state
+  episodic:
+    durable: true
+    max_items: 30
+    max_item_tokens: 400
+    purpose: prior_task_outcomes_and_verified_failures
+  semantic:
+    durable: true
+    max_items: 50
+    max_item_tokens: 500
+    purpose: stable_verified_facts_and_rules
+  procedural:
+    durable: true
+    max_items: 30
+    max_item_tokens: 600
+    purpose: reusable_verified_workflows
+
+retrieval:
+  FAST:
+    layers: []
+    max_items: 0
+    max_total_tokens: 0
+  STANDARD:
+    layers: [semantic, procedural, episodic]
+    max_items: 4
+    max_total_tokens: 1800
+  DEEP:
+    layers: [semantic, procedural, episodic]
+    max_items: 8
+    max_total_tokens: 4000
+  ranking: [project_scope, semantic_relevance, freshness, verification, confidence]
+
+write:
+  working: automatic_ephemeral
+  durable: candidate_then_verify
+  user_correction: candidate_episodic_and_eval
+  successful_reusable_workflow: candidate_procedural
+  stable_verified_fact: candidate_semantic
+  raw_chat_dump: forbidden
+
+privacy:
+  durable_exclusions:
+    - secrets
+    - credentials
+    - private_keys
+    - account_data
+    - sensitive_personal_data
+    - raw_private_chat
+    - authentication_tokens
+    - unreviewed_runtime_state
+  redact_before_trace_or_eval: true
