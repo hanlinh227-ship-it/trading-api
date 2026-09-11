@@ -79,15 +79,32 @@ jobs:
           PY
 
       - name: Prove Plan 1 has no marketplace mutation implementation
-        shell: bash
         run: |
-          set -euo pipefail
-          if grep -RInE --include='*.py' \
-            '(/access|/submissions|\.post\(|\.put\(|\.patch\(|\.delete\()' \
-            stackhub_v2/src/stackhub; then
-            echo 'Mutating marketplace implementation is forbidden in Plan 1.' >&2
-            exit 1
-          fi
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          import re
+
+          root = Path('stackhub_v2/src/stackhub')
+          forbidden_methods = {'post', 'put', 'patch', 'delete'}
+          forbidden_route = re.compile(r'/api/v1/(?:tasks/[^/]+/access|submissions(?:/|$)|payout(?:s)?(?:/|$))', re.I)
+          failures = []
+
+          for path in root.rglob('*.py'):
+              tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                      if node.func.attr.lower() in forbidden_methods:
+                          failures.append(f'{path}:{node.lineno}: HTTP-like mutating method .{node.func.attr}()')
+                  if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                      if forbidden_route.search(node.value):
+                          failures.append(f'{path}:{getattr(node, "lineno", 0)}: TaskBounty mutation route literal')
+
+          if failures:
+              print('\n'.join(failures))
+              raise SystemExit(1)
+          print('No marketplace mutation implementation found in Plan 1.')
+          PY
 
       - name: Validate GitHub Brain V4 authority
         run: |
