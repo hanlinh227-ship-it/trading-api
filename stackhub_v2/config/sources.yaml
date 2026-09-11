@@ -64,7 +64,7 @@ sources:
       rate_limit_policy: "120 req/min upstream; STACKHUB min poll 60s; never buy bid credits"
   taskforce:
     enabled: true
-    base_url: "https://task-force.app"
+    base_url: "https://www.task-force.app"
     agent_native: true
     read_only: true
     request_timeout_seconds: 20
