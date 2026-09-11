@@ -22,6 +22,29 @@ _RECOVERABLE_ACTIVE_STATES = {
     WorkerState.SOLVING.value,
     WorkerState.VERIFIED.value,
 }
+_TRANSIENT_HTTP_STATUSES = {408, 425, 429}
+_PERMANENT_ERROR_CODES = {
+    "agent_not_verified",
+    "auth_invalid",
+    "auth_required",
+    "cannot_apply_to_own_task",
+    "task_full",
+    "task_not_found",
+    "validation_error",
+}
+
+
+def _classify_failure_state(*, status_code: int | None, error_code: str | None) -> WorkerState:
+    """Classify marketplace failures so permanent rejections do not loop forever."""
+    if error_code in _PERMANENT_ERROR_CODES:
+        return WorkerState.FAILED_PERMANENT
+    if status_code is None:
+        return WorkerState.FAILED_RETRYABLE
+    if status_code in _TRANSIENT_HTTP_STATUSES or status_code >= 500:
+        return WorkerState.FAILED_RETRYABLE
+    if 400 <= status_code < 500:
+        return WorkerState.FAILED_PERMANENT
+    return WorkerState.FAILED_RETRYABLE
 
 
 class RevenueOrchestrator:
@@ -49,14 +72,15 @@ class RevenueOrchestrator:
         safe_reason = str(error_code or type(exc).__name__)
         if status_code is not None:
             safe_reason = f"{safe_reason}:http_{status_code}"
+        target = _classify_failure_state(status_code=status_code, error_code=error_code)
         row_state=self.repo.conn.execute("SELECT state FROM claims WHERE source=? AND opportunity_id=?",(source,opportunity_id)).fetchone()
         current=None if row_state is None else str(row_state["state"])
         if current in _RECOVERABLE_ACTIVE_STATES:
             try:
-                self.repo.transition_claim(source, opportunity_id, WorkerState.FAILED_RETRYABLE, now, safe_reason)
+                self.repo.transition_claim(source, opportunity_id, target, now, safe_reason)
             except Exception:
                 pass
-        return {"state":"FAILED_RETRYABLE","source":source,"opportunity_id":opportunity_id,"reason":safe_reason}
+        return {"state":target.value,"source":source,"opportunity_id":opportunity_id,"reason":safe_reason}
 
     async def _solve_claimed(self, row: dict[str, object], workspace_reference: str, now: datetime) -> dict[str, object]:
         source=str(row["source"]); opportunity_id=str(row["id"])
