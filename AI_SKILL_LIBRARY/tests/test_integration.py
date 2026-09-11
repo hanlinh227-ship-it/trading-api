@@ -20,19 +20,20 @@ def load_validator():
 class IntegrationContractTests(unittest.TestCase):
     def test_checkpoint_manifest_points_to_canonical_checkpoint(self):
         manifest = json.loads((LIB / 'checkpoint.json').read_text(encoding='utf-8'))
-        self.assertEqual(manifest['checkpoint_id'], 'GITHUB_BRAIN_V3')
+        self.assertEqual(manifest['checkpoint_id'], 'GITHUB_BRAIN_V4')
+        self.assertEqual(manifest['version'], '4.0.0')
         self.assertEqual(manifest['canonical_repo'], 'hanlinh227-ship-it/trading-api')
         self.assertEqual(manifest['canonical_branch'], 'main')
+        self.assertIn('GITHUB_BRAIN_V3', manifest['activation_aliases'])
         self.assertIn('GITHUB_BRAIN_V2', manifest['activation_aliases'])
         self.assertIn('GITHUB_BRAIN_V1', manifest['activation_aliases'])
-        self.assertEqual(manifest['router_path'], 'AI_SKILL_LIBRARY/router.yaml')
+        self.assertEqual(manifest['release_pointer_path'], 'AI_SKILL_LIBRARY/v4/releases/current.json')
         self.assertEqual(manifest['plugins_path'], 'AI_SKILL_LIBRARY/plugins.yaml')
-        self.assertEqual(manifest['kernel_path'], 'AI_SKILL_LIBRARY/kernel.yaml')
         checkpoint = ROOT / manifest['checkpoint_path']
         self.assertTrue(checkpoint.is_file())
         text = checkpoint.read_text(encoding='utf-8')
         self.assertIn('GitHub-first', text)
-        self.assertIn('router.yaml', text)
+        self.assertIn('release', text)
         self.assertIn('sources.yaml', text)
 
     def test_ci_workflow_checks_validator_tests_and_dry_run(self):
@@ -40,11 +41,12 @@ class IntegrationContractTests(unittest.TestCase):
         self.assertIn('validate_registry.py', workflow)
         self.assertIn('validate_brain.py', workflow)
         self.assertIn('validate_v3.py', workflow)
+        self.assertIn('validate_v4.py', workflow)
         self.assertIn('unittest', workflow)
         self.assertIn('--dry-run', workflow)
         self.assertIn('py_compile', workflow)
 
-    def test_registry_validator_accepts_current_v3_checkpoint(self):
+    def test_registry_validator_accepts_current_v4_checkpoint(self):
         validator = load_validator()
         errors, warnings = validator.validate_checkpoint()
         self.assertEqual(errors, [], (errors, warnings))
