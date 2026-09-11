@@ -1,0 +1,29 @@
+version: 4
+retry:
+  enabled: true
+  max_attempts: 3
+  adaptive_within_ceiling: true
+  retry_on: [transient_tool_error, timeout, rate_limit, temporary_network_failure]
+  never_retry_on: [permission_denied, invalid_credentials, destructive_side_effect_uncertainty, policy_block]
+  backoff: bounded_exponential
+circuit_breaker:
+  enabled: true
+  failure_threshold: 3
+  reset_scope: work_cycle
+  per_provider_reputation_signal: true
+fallback:
+  must_disclose_degraded_state: true
+  preserve_last_verified_context: true
+  never_fabricate_freshness: true
+  never_widen_permissions: true
+  serial_fallback_on_orchestration_failure: true
+recovery:
+  classify_before_retry: true
+  root_cause_before_patch: true
+  bounded_replan: true
+  max_recovery_loops: 2
+health:
+  require_success_for_active_claims: true
+  source_code_is_not_runtime_proof: true
+  failed_dependency_does_not_promote_cached_state: true
+  evergreen_failure_does_not_disable_stable: true

@@ -1,0 +1,8 @@
+id: data_docs
+version: 4.0.0
+sources: []
+tools: []
+evals: [artifact_validation, data_correctness]
+authority_required: false
+memory_namespace: data_docs
+bridge_policy: explicit_only

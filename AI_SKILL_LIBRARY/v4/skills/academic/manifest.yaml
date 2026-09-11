@@ -1,0 +1,8 @@
+id: academic
+version: 4.0.0
+domain: academic
+source: legacy_catalog_adapter
+skills: [academic_research, literature_review, methodology, qualitative_research, quantitative_analysis, interdisciplinary_research, citation_review]
+permissions: [read_only]
+risk_ceiling: read_only
+evals: [citation_quality, methodology, evidence_grounding]

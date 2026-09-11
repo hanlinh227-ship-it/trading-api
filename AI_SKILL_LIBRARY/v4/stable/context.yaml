@@ -1,0 +1,29 @@
+version: 4
+policy:
+  authority_first: true
+  task_relevance_first: true
+  freshness_aware: true
+  deduplicate: true
+  semantic_chunk_selection: true
+  minimize_context: true
+  cache_never_outranks_fresh_authority: true
+  unresolved_conflict_escalates_profile: true
+  domain_isolation: true
+profiles:
+  FAST: {max_context_sources: 1, max_bridge_nodes: 0, durable_memory_items: 0, allow_project_state: false}
+  STANDARD: {max_context_sources: 6, max_bridge_nodes: 1, durable_memory_items: 4, allow_project_state: true}
+  DEEP: {max_context_sources: 12, max_bridge_nodes: 2, durable_memory_items: 8, allow_project_state: true}
+bridge_budget:
+  max_context_tokens_per_bridge: 2500
+  total_bridge_tokens_standard: 2500
+  total_bridge_tokens_deep: 5000
+  trading_state_cross_domain: forbidden
+cache:
+  scope: work_cycle
+  cache_live_data: false
+  require_freshness_check_before_reuse: true
+  invalidate_on: [checkpoint_change, release_pointer_change, project_authority_change, source_revision_change, explicit_user_refresh, live_or_current_state_request, mutation_or_deploy]
+compression:
+  enabled: true
+  preserve: [user_constraints, current_authority, acceptance_criteria, unresolved_risks, evidence_references, domain_scope]
+  never_compress_into_fact: [assumption, inference, stale_runtime_state]

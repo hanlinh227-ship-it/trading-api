@@ -92,9 +92,10 @@ class BrainCompatibilityContractTests(unittest.TestCase):
         errors, warnings = validator.validate_brain_data(manifest, broken, plugins, root=ROOT)
         self.assertTrue(any('missing required skill' in e.lower() for e in errors), (errors, warnings))
 
-    def test_v1_v2_activation_aliases_are_kept_under_v3(self):
+    def test_v1_v2_v3_activation_aliases_are_kept_under_v4(self):
         manifest = json.loads((LIB / 'checkpoint.json').read_text(encoding='utf-8'))
-        self.assertEqual(manifest['activation_key'], 'GITHUB_BRAIN_V3')
+        self.assertEqual(manifest['activation_key'], 'GITHUB_BRAIN_V4')
+        self.assertIn('GITHUB_BRAIN_V3', manifest['activation_aliases'])
         self.assertIn('GITHUB_BRAIN_V2', manifest['activation_aliases'])
         self.assertIn('GITHUB_BRAIN_V1', manifest['activation_aliases'])
 

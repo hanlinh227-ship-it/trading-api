@@ -1,0 +1,8 @@
+id: academic
+version: 4.0.0
+sources: [scientific_primary]
+tools: [scientific_evidence]
+evals: [citation_quality, methodology, evidence_grounding]
+authority_required: false
+memory_namespace: academic
+bridge_policy: explicit_only

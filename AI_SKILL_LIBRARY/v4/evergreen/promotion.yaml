@@ -1,0 +1,32 @@
+version: 4
+required_gates: [provenance, license, schema, conflict, security, authority, domain_evals, global_regression, context_cost, canary]
+protected_dimensions: [correctness, authority, security, verification, project_isolation]
+protected_regression_tolerance: 0.0
+classes:
+  A:
+    description: declarative_low_risk
+    automatic_promotion: true
+    canaries_required: 1
+    sandbox_required: false
+  B:
+    description: tool_adapter_or_executable_helper
+    automatic_promotion: true
+    canaries_required: 1
+    sandbox_required: true
+  C:
+    description: kernel_router_security_authority
+    automatic_promotion: bounded
+    canaries_required: 2
+    sandbox_required: true
+    exact_compatibility_proof: true
+    rollback_snapshot_required: true
+  D:
+    description: financial_credential_destructive_permission_expansion
+    automatic_promotion: false
+    explicit_authorization_required: true
+promotion:
+  release_bundle_first: true
+  atomic_pointer_swap: true
+  observe_health_after_swap: true
+  rollback_on_protected_regression: true
+  rollback_does_not_require_root_cause: true

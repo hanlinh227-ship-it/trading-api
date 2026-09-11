@@ -1,0 +1,21 @@
+version: 4
+source_catalog: AI_SKILL_LIBRARY/skills/catalog.yaml
+mode: compatibility_adapter
+policy:
+  legacy_catalog_is_not_primary_router: true
+  preserve_ids: true
+  new_skills_must_use_v4_manifest: true
+  ambiguous_legacy_skill_requires_domain_resolution: true
+domain_packs:
+  core: AI_SKILL_LIBRARY/v4/skills/core/manifest.yaml
+  engineering: AI_SKILL_LIBRARY/v4/skills/engineering/manifest.yaml
+  trading: AI_SKILL_LIBRARY/v4/skills/trading/manifest.yaml
+  game: AI_SKILL_LIBRARY/v4/skills/game/manifest.yaml
+  design_2d: AI_SKILL_LIBRARY/v4/skills/design_2d/manifest.yaml
+  design_3d: AI_SKILL_LIBRARY/v4/skills/design_3d/manifest.yaml
+  adobe: AI_SKILL_LIBRARY/v4/skills/adobe/manifest.yaml
+  prompt_media: AI_SKILL_LIBRARY/v4/skills/prompt_media/manifest.yaml
+  writing: AI_SKILL_LIBRARY/v4/skills/writing/manifest.yaml
+  academic: AI_SKILL_LIBRARY/v4/skills/academic/manifest.yaml
+  data_docs: AI_SKILL_LIBRARY/v4/skills/data_docs/manifest.yaml
+  business: AI_SKILL_LIBRARY/v4/skills/business/manifest.yaml

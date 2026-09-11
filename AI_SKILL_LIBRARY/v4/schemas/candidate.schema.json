@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["candidate_id", "state", "promotion_class", "domain", "provenance", "gates"],
+  "properties": {
+    "candidate_id": {"type": "string", "minLength": 1},
+    "state": {"enum": ["quarantine", "admitted", "benchmark", "canary", "promoted", "rejected", "rolled_back"]},
+    "promotion_class": {"enum": ["A", "B", "C", "D"]},
+    "domain": {"type": "string"},
+    "provenance": {"type": "object"},
+    "gates": {"type": "object"}
+  },
+  "additionalProperties": true
+}

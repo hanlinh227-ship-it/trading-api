@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate routed brain compatibility for GITHUB_BRAIN_V2/V3."""
+"""Validate routed brain compatibility for GITHUB_BRAIN_V2/V3/V4."""
 from __future__ import annotations
 
 import json
@@ -37,6 +37,8 @@ def _version_ok(checkpoint_id: object, value: object) -> bool:
         return major == 2 and (minor, patch) >= (1, 0)
     if checkpoint_id == "GITHUB_BRAIN_V3":
         return major == 3 and (minor, patch) >= (0, 0)
+    if checkpoint_id == "GITHUB_BRAIN_V4":
+        return major == 4 and (minor, patch) >= (0, 0)
     return False
 
 
@@ -47,15 +49,17 @@ def validate_brain_data(manifest: dict, router: dict, plugins: dict, *, root: Pa
         return ["manifest must be a mapping"], warnings
 
     checkpoint_id = manifest.get("checkpoint_id")
-    if checkpoint_id not in {"GITHUB_BRAIN_V2", "GITHUB_BRAIN_V3"}:
-        errors.append("manifest.checkpoint_id must be GITHUB_BRAIN_V2 or GITHUB_BRAIN_V3")
+    if checkpoint_id not in {"GITHUB_BRAIN_V2", "GITHUB_BRAIN_V3", "GITHUB_BRAIN_V4"}:
+        errors.append("manifest.checkpoint_id must be GITHUB_BRAIN_V2, GITHUB_BRAIN_V3, or GITHUB_BRAIN_V4")
     if not _version_ok(checkpoint_id, manifest.get("version")):
         errors.append("manifest.version is incompatible with checkpoint_id")
     aliases = manifest.get("activation_aliases", [])
     if not isinstance(aliases, list) or "GITHUB_BRAIN_V1" not in aliases:
         errors.append("manifest.activation_aliases must keep GITHUB_BRAIN_V1 compatibility")
-    if checkpoint_id == "GITHUB_BRAIN_V3" and "GITHUB_BRAIN_V2" not in aliases:
-        errors.append("GITHUB_BRAIN_V3 must keep GITHUB_BRAIN_V2 compatibility alias")
+    if checkpoint_id in {"GITHUB_BRAIN_V3", "GITHUB_BRAIN_V4"} and "GITHUB_BRAIN_V2" not in aliases:
+        errors.append(f"{checkpoint_id} must keep GITHUB_BRAIN_V2 compatibility alias")
+    if checkpoint_id == "GITHUB_BRAIN_V4" and "GITHUB_BRAIN_V3" not in aliases:
+        errors.append("GITHUB_BRAIN_V4 must keep GITHUB_BRAIN_V3 compatibility alias")
 
     common_paths = {
         "bootstrap_path": "AI_SKILL_LIBRARY/bootstrap.yaml",
@@ -75,7 +79,19 @@ def validate_brain_data(manifest: dict, router: dict, plugins: dict, *, root: Pa
         "runtime_validator_path": "AI_SKILL_LIBRARY/validate_runtime.py",
     }
     expected_paths = dict(common_paths)
-    if checkpoint_id == "GITHUB_BRAIN_V3":
+    if checkpoint_id == "GITHUB_BRAIN_V4":
+        expected_paths.update({
+            "checkpoint_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md",
+            "release_pointer_path": "AI_SKILL_LIBRARY/v4/releases/current.json",
+            "stable_kernel_path": "AI_SKILL_LIBRARY/v4/stable/kernel.yaml",
+            "stable_router_path": "AI_SKILL_LIBRARY/v4/stable/router.yaml",
+            "stable_runtime_path": "AI_SKILL_LIBRARY/v4/stable/runtime.yaml",
+            "mesh_graph_path": "AI_SKILL_LIBRARY/v4/mesh/graph.yaml",
+            "mesh_bridges_path": "AI_SKILL_LIBRARY/v4/mesh/bridges.yaml",
+            "evergreen_policy_path": "AI_SKILL_LIBRARY/v4/evergreen/policy.yaml",
+            "v4_validator_path": "AI_SKILL_LIBRARY/validate_v4.py",
+        })
+    elif checkpoint_id == "GITHUB_BRAIN_V3":
         expected_paths.update({
             "checkpoint_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md",
             "kernel_path": "AI_SKILL_LIBRARY/kernel.yaml",
@@ -221,6 +237,11 @@ def validate_brain_data(manifest: dict, router: dict, plugins: dict, *, root: Pa
             errors.append(f"multiple current authorities for scope {scope!r}")
         elif not current:
             errors.append(f"no current authority for scope {scope!r}")
+
+    if checkpoint_id == "GITHUB_BRAIN_V4":
+        ai = [e for e in by_scope.get("ai_brain", []) if e.get("status") == "CURRENT_AUTHORITY"]
+        if len(ai) != 1 or ai[0].get("path") != "AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md":
+            errors.append("V4 ai_brain authority must point to GITHUB_BRAIN_V4.md")
 
     return errors, warnings
 

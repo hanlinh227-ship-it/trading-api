@@ -1,0 +1,8 @@
+id: adobe
+version: 4.0.0
+sources: []
+tools: [video_generation]
+evals: [non_destructive_workflow, export_validation]
+authority_required: false
+memory_namespace: adobe
+bridge_policy: explicit_only

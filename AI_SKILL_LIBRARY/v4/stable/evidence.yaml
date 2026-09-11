@@ -1,0 +1,26 @@
+version: 4
+ledger:
+  enabled: true
+  persist_hidden_reasoning: false
+  max_entries_per_request: 24
+  record: [claim_summary, evidence_reference, source_class, freshness, verification_status, conflict_status, domain]
+source_precedence: [current_runtime, current_project_authority, first_party_current, peer_reviewed_or_primary, approved_reference, scoped_verified_memory, model_background]
+conflicts:
+  prefer_current_authority: true
+  prefer_fresher_equal_authority: true
+  never_silently_average_conflicts: true
+  material_conflict_requires_resolution_or_disclosure: true
+  candidate_conflict_blocks_promotion: true
+uncertainty:
+  distinguish_fact_inference_assumption: true
+  require_verification_when_material_and_available: true
+  disclose_unresolved_material_uncertainty: true
+provenance:
+  preserve_source_identity: true
+  preserve_timestamp_when_material: true
+  preserve_project_scope: true
+  preserve_domain_scope: true
+claims:
+  live_requires_runtime_evidence: true
+  completion_requires_fresh_verification: true
+  confidence_language_is_not_evidence: true

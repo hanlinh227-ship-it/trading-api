@@ -1,0 +1,23 @@
+version: 4
+policy:
+  bounded_scores: true
+  minimum: 0.0
+  maximum: 1.0
+  equivalent_authority_only: true
+  never_override_security: true
+  never_override_project_authority: true
+  never_grant_permissions: true
+signals:
+  success_rate: 0.25
+  verification_pass_rate: 0.25
+  latency_efficiency: 0.10
+  freshness_reliability: 0.10
+  domain_fit: 0.10
+  user_correction_inverse: 0.10
+  protected_regression_inverse: 0.10
+cold_start:
+  score: 0.5
+  minimum_observations_for_preference: 5
+decay:
+  enabled: true
+  stale_observation_half_life_days: 90

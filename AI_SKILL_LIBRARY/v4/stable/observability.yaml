@@ -1,0 +1,24 @@
+version: 4
+policy:
+  persist_hidden_chain_of_thought: false
+  record_decision_summaries: true
+  record_evidence_references: true
+  record_tool_outcomes: true
+  record_verification_results: true
+  record_route_outcomes: true
+  record_context_cost: true
+  redact_sensitive_data: true
+  traces_are_diagnostic_not_authority: true
+telemetry:
+  sanitized_for_evergreen: true
+  fields: [route, profile, domain, skills, tools, latency_ms, context_tokens, retries, verification, correction, failure_category]
+  forbidden: [raw_private_chat, secrets, credentials, authentication_tokens, private_keys, account_data, hidden_chain_of_thought]
+profiles:
+  FAST: {persistence: none, sampling_rate: 0.0}
+  STANDARD: {persistence: on_error_or_correction, sampling_rate: 0.1}
+  DEEP: {persistence: bounded, sampling_rate: 1.0}
+limits:
+  max_events_per_trace: 80
+  max_event_chars: 1200
+  max_trace_chars: 20000
+  max_tool_payload_chars: 3000

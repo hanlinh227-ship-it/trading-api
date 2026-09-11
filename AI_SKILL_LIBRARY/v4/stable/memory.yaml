@@ -1,0 +1,32 @@
+version: 4
+policy:
+  retrieve_before_write: true
+  domain_scoped: true
+  bridge_scoped_retrieval: true
+  current_authority_precedes_memory: true
+  prefer_verified_current_over_old: true
+  contradiction_requires_reverification: true
+  superseded_memory_is_not_authority: true
+  durable_write_requires: [reusable, verified, scoped, non_sensitive]
+required_metadata: [source, confidence, created_at, last_verified, superseded_by, scope, domain]
+layers:
+  working: {durable: false, max_items: 12, max_item_tokens: 600}
+  episodic: {durable: true, max_items: 30, max_item_tokens: 400}
+  semantic: {durable: true, max_items: 50, max_item_tokens: 500}
+  procedural: {durable: true, max_items: 30, max_item_tokens: 600}
+retrieval:
+  FAST: {layers: [], max_items: 0, max_total_tokens: 0}
+  STANDARD: {layers: [semantic, procedural, episodic], max_items: 4, max_total_tokens: 1800}
+  DEEP: {layers: [semantic, procedural, episodic], max_items: 8, max_total_tokens: 4000}
+  ranking: [domain_scope, project_scope, semantic_relevance, freshness, verification, confidence]
+maintenance:
+  decay_enabled: true
+  decay_protected_for_current_authority: true
+  contradiction_graph: true
+  automatic_supersession: verified_newer_only
+  confidence_recalculation: verification_outcomes_only
+  garbage_collect_redundant: true
+  minimum_confidence_to_retrieve: 0.55
+privacy:
+  durable_exclusions: [secrets, credentials, private_keys, account_data, sensitive_personal_data, raw_private_chat, authentication_tokens, unreviewed_runtime_state]
+  redact_before_trace_eval_or_evergreen: true

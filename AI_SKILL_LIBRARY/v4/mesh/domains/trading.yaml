@@ -1,0 +1,10 @@
+id: trading
+version: 4.0.0
+sources: [trading]
+tools: [multi_asset_market_data, crypto_market_data]
+evals: [trading_authority, live_data_freshness, risk_controls]
+authority_required: true
+authority: docs/checkpoints/CURRENT_HANDOFF.md
+memory_namespace: trading
+bridge_policy: explicit_only
+cross_domain_runtime_state: forbidden

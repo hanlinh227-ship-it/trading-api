@@ -9,10 +9,11 @@ projects:
   - id: ai_brain
     status: CURRENT
     domains: [core, engineering, trading, game, design, prompt, writing, academic, data_docs, business]
-    authority: AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md
+    authority: AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md
     canonical_checkpoint: AI_SKILL_LIBRARY/checkpoint.json
+    release_pointer: AI_SKILL_LIBRARY/v4/releases/current.json
     routed_by: task_router
-    notes: Global V3 kernel/routing authority only; it does not replace project runtime state.
+    notes: Global V4 LTS Stable/Evergreen authority only; it does not replace project runtime state.
   - id: trading
     status: CURRENT
     domains: [trading]

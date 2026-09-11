@@ -1,0 +1,36 @@
+version: 4
+mode: autonomous_candidate_research
+quarantine_required: true
+stable_secret_access: false
+financial_execution: false
+destructive_production_action: false
+permission_expansion_by_learning: false
+default_promotion: deny
+stable_request_path_dependency: false
+inputs:
+  - verified_user_corrections
+  - sanitized_stable_telemetry
+  - approved_upstream_repositories
+  - official_documentation
+  - plugin_tool_metadata
+  - verified_failure_clusters
+autonomy:
+  discover: true
+  normalize: true
+  quarantine: true
+  classify: true
+  generate_candidate: true
+  generate_evals: true
+  benchmark: true
+  canary: true
+  promote_class_a: true
+  promote_class_b_after_sandbox: true
+  promote_class_c_only_with_strict_policy: true
+  promote_class_d: false
+safety:
+  fail_closed: true
+  missing_evidence_blocks: true
+  stale_authority_blocks: true
+  unresolved_conflict_blocks: true
+  ambiguous_permissions_block: true
+  external_code_untrusted_by_default: true

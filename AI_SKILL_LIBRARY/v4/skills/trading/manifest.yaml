@@ -1,0 +1,10 @@
+id: trading
+version: 4.0.0
+domain: trading
+source: legacy_catalog_adapter
+skills: [trading, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, backtesting, mt5_mql5, trading_bot, live_data_validation, trading_router, market_analysis, risk_execution, quant_backtesting]
+permissions: [read_only]
+project_authority_required: true
+execution_permissions_inherited_from_project_only: true
+risk_ceiling: project_policy
+evals: [trading_authority, live_data_freshness, risk_controls]
