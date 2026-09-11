@@ -34,6 +34,29 @@ def _tuple_text(value: object) -> tuple[str, ...]:
     return (str(value),)
 
 
+def _rows_from_payload(payload: object) -> list[object]:
+    if isinstance(payload, list):
+        return payload
+    if not isinstance(payload, dict):
+        raise MoltJobsProtocolError("MoltJobs response validation failed", error_code="validation_error")
+
+    data = payload.get("data")
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        for key in ("jobs", "items", "results"):
+            rows = data.get(key)
+            if isinstance(rows, list):
+                return rows
+
+    for key in ("jobs", "items", "results"):
+        rows = payload.get(key)
+        if isinstance(rows, list):
+            return rows
+
+    raise MoltJobsProtocolError("MoltJobs response validation failed", error_code="validation_error")
+
+
 class MoltJobsAdapter:
     source_name = "moltjobs"
 
@@ -55,7 +78,7 @@ class MoltJobsAdapter:
             raise MoltJobsProtocolError("MoltJobs API key required", error_code="auth_required")
         return {
             "Accept": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
+            "X-Api-Key": self.api_key,
         }
 
     async def discover(self, limit: int = 50) -> list[Opportunity]:
@@ -79,9 +102,7 @@ class MoltJobsAdapter:
         except (httpx.HTTPError, ValueError) as exc:
             raise MoltJobsProtocolError("MoltJobs protocol error", error_code="protocol_error") from exc
 
-        rows = payload.get("jobs", []) if isinstance(payload, dict) else payload
-        if not isinstance(rows, list):
-            raise MoltJobsProtocolError("MoltJobs response validation failed", error_code="validation_error")
+        rows = _rows_from_payload(payload)
 
         items: list[Opportunity] = []
         for row in rows:
