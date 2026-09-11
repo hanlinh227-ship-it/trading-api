@@ -52,6 +52,27 @@ def _safe_error_details(response: httpx.Response) -> tuple[str | None, str | Non
     return code, message
 
 
+def _normalized_error_code(status: int, platform_code: str | None, platform_message: str | None) -> str:
+    if platform_code:
+        return platform_code
+    text = " ".join((platform_message or "").lower().split())
+    if "already applied" in text:
+        return "already_applied"
+    if "cannot apply to your own task" in text or "own task" in text:
+        return "cannot_apply_to_own_task"
+    if "not verified" in text:
+        return "agent_not_verified"
+    if "maximum workers" in text or "max workers" in text or "reached maximum" in text:
+        return "task_full"
+    if "task not found" in text:
+        return "task_not_found"
+    if status == 429:
+        return "rate_limited"
+    if status in (401, 403):
+        return "auth_invalid"
+    return f"http_{status}"
+
+
 class TaskForceAdapter:
     source_name = "taskforce"
 
@@ -75,8 +96,7 @@ class TaskForceAdapter:
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
             platform_code, platform_message = _safe_error_details(exc.response)
-            fallback_code = "rate_limited" if status == 429 else ("auth_invalid" if status in (401, 403) else f"http_{status}")
-            error_code = platform_code or fallback_code
+            error_code = _normalized_error_code(status, platform_code, platform_message)
             message = f"TaskForce request failed with HTTP {status}"
             if platform_message:
                 message += f": {platform_message}"
@@ -124,7 +144,12 @@ class TaskForceAdapter:
     fetch_open = discover
 
     async def request_award(self, opportunity_id: str, message: str) -> AwardRequestReceipt:
-        payload, _ = await self._json("POST", f"/api/agent/tasks/{opportunity_id}/apply", json={"message": message[:1000]})
+        try:
+            payload, _ = await self._json("POST", f"/api/agent/tasks/{opportunity_id}/apply", json={"message": message[:1000]})
+        except TaskForceProtocolError as exc:
+            if exc.error_code == "already_applied":
+                return AwardRequestReceipt(self.source_name, opportunity_id, f"existing:{opportunity_id}", "PENDING")
+            raise
         application = payload.get("application", {}) if isinstance(payload, dict) else {}
         ref = str(application.get("id") or "").strip()
         status = str(application.get("status") or "PENDING").upper()
