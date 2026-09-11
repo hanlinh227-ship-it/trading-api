@@ -172,6 +172,31 @@ jobs:
           /opt/stackhub/.venv/bin/stackhub scan-once --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
           /opt/stackhub/.venv/bin/stackhub status --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
 
+          echo '=== STACKHUB CANDIDATE WORK ==='
+          /opt/stackhub/.venv/bin/python - <<'PY'
+          import json, sqlite3
+          db=sqlite3.connect('/var/lib/stackhub/stackhub-v2.db')
+          db.row_factory=sqlite3.Row
+          rows=db.execute("""SELECT source,id,url,category,reward_amount,reward_asset,competition_model,policy_allowed,
+                                   requirements_json,acceptance_criteria_json,score_usd_per_minute
+                            FROM opportunities
+                            WHERE policy_allowed=1
+                            ORDER BY CAST(COALESCE(score_usd_per_minute,'-999999') AS REAL) DESC,
+                                     CAST(reward_amount AS REAL) DESC
+                            LIMIT 25""").fetchall()
+          for row in rows:
+              item=dict(row)
+              for field in ('requirements_json','acceptance_criteria_json'):
+                  try:
+                      parsed=json.loads(item[field] or '[]')
+                  except Exception:
+                      parsed=[]
+                  item[field.replace('_json','')]=parsed
+                  del item[field]
+              print(json.dumps(item, ensure_ascii=True, sort_keys=True))
+          db.close()
+          PY
+
           sudo systemctl enable stackhub-v2.service
           sudo systemctl restart stackhub-v2.service
           sleep 3
