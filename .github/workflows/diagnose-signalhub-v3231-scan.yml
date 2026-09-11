@@ -1,0 +1,34 @@
+name: Diagnose SignalHub V3.23.1 Scan
+
+on:
+  push:
+    branches: [signalhub-v3231-entry-precision-cutrate]
+    paths: ['.github/workflows/diagnose-signalhub-v3231-scan.yml']
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - name: Probe V3.23.1 scan errors
+        run: |
+          set -euo pipefail
+          curl -sS --max-time 30 "$BASE/v3/status?diag=$RANDOM" | tee /tmp/status.json
+          for style in SWING SCALP; do
+            code=$(curl -sS --max-time 330 -o "/tmp/$style.json" -w '%{http_code}' "$BASE/v3/scan?market=CRYPTO&style=$style&diag=$RANDOM" || true)
+            echo "HTTP $style = $code"
+            python3 - "$style" <<'PY'
+          import json,sys
+          p='/tmp/'+sys.argv[1]+'.json'
+          try:x=json.load(open(p))
+          except Exception as e:
+              print('UNREADABLE',sys.argv[1],e);print(open(p).read()[:12000]);raise SystemExit(0)
+          print('STYLE',sys.argv[1])
+          print('KEYS',list(x.keys()))
+          print('OK',x.get('ok'),'ERROR',x.get('error'),'DETAIL',x.get('detail'),'STATUS',x.get('status'))
+          print(json.dumps(x,ensure_ascii=False,indent=2)[:12000])
+          PY
+          done
