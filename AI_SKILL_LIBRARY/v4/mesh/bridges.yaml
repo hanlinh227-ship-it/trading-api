@@ -1,0 +1,20 @@
+version: 4
+policy:
+  explicit_only: true
+  max_context_tokens_per_bridge: 2500
+  default_directional: true
+  unresolved_conflict_blocks_bridge: true
+bridges:
+  - {id: engineering_to_game, from: engineering, to: game, max_context_tokens: 1800, allow: [architecture, code, testing], authority_required: false}
+  - {id: game_to_engineering, from: game, to: engineering, max_context_tokens: 1800, allow: [engine_constraints, implementation], authority_required: false}
+  - {id: prompt_to_design3d, from: prompt_media, to: design_3d, max_context_tokens: 1500, allow: [scene_constraints, geometry_constraints], authority_required: false}
+  - {id: design3d_to_prompt, from: design_3d, to: prompt_media, max_context_tokens: 1500, allow: [camera, materials, geometry], authority_required: false}
+  - {id: design3d_to_adobe, from: design_3d, to: adobe, max_context_tokens: 1200, allow: [render_postprocess, export], authority_required: false}
+  - {id: design2d_to_business, from: design_2d, to: business, max_context_tokens: 1200, allow: [user_flow, positioning], authority_required: false}
+  - {id: business_to_design2d, from: business, to: design_2d, max_context_tokens: 1200, allow: [requirements, user_flow], authority_required: false}
+  - {id: academic_to_data, from: academic, to: data_docs, max_context_tokens: 2000, allow: [analysis, tables, charts], authority_required: false}
+  - {id: data_to_academic, from: data_docs, to: academic, max_context_tokens: 1800, allow: [methodology_context, evidence_format], authority_required: false}
+  - {id: writing_to_prompt, from: writing, to: prompt_media, max_context_tokens: 1600, allow: [script, scene_intent, narration], authority_required: false}
+  - {id: prompt_to_writing, from: prompt_media, to: writing, max_context_tokens: 1200, allow: [scene_constraints, continuity], authority_required: false}
+  - {id: trading_to_engineering, from: trading, to: engineering, max_context_tokens: 1800, allow: [backtesting, bot_implementation, data_validation], authority_required: true}
+  - {id: engineering_to_trading, from: engineering, to: trading, max_context_tokens: 1600, allow: [implementation_only, test_results], authority_required: true}
