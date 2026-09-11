@@ -53,14 +53,15 @@ class Scanner:
                 opportunities = await adapter.fetch_open(limit=50)
                 self.repository.record_source_health(source_name, True, 200, None, now)
             except TaskBountyProtocolError as exc:
-                self.repository.record_source_health(source_name, False, exc.status_code, exc.error_code or "protocol_error", now)
+                error_code = exc.error_code or "protocol_error"
+                self.repository.record_source_health(source_name, False, exc.status_code, error_code, now)
                 errors += 1
                 if exc.status_code == 429:
                     retry_after_seconds = max(
                         retry_after_seconds or 0,
                         exc.retry_after_seconds or source_cfg.min_poll_interval_seconds,
                     )
-                else:
+                elif error_code not in {"auth_required", "auth_invalid"}:
                     source_outage = True
                 continue
             except Exception:
