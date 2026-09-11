@@ -1,0 +1,49 @@
+version: 1
+policy:
+  persist_hidden_chain_of_thought: false
+  record_decision_summaries: true
+  record_evidence_references: true
+  record_tool_outcomes: true
+  record_verification_results: true
+  redact_sensitive_data: true
+  traces_are_diagnostic_not_authority: true
+
+allowed_events:
+  - route_selected
+  - profile_selected
+  - authority_loaded
+  - memory_retrieved
+  - tool_selected
+  - tool_result_summary
+  - decision_summary
+  - verification_result
+  - failure_category
+  - replan
+  - completion_status
+
+profiles:
+  FAST:
+    persistence: none
+    sampling_rate: 0.0
+  STANDARD:
+    persistence: on_error_or_correction
+    sampling_rate: 0.1
+  DEEP:
+    persistence: bounded
+    sampling_rate: 1.0
+
+limits:
+  max_events_per_trace: 80
+  max_event_chars: 1200
+  max_trace_chars: 20000
+  max_tool_payload_chars: 3000
+
+redaction:
+  categories:
+    - secrets
+    - credentials
+    - authentication_tokens
+    - private_keys
+    - account_data
+    - sensitive_personal_data
+  replace_with: '[REDACTED]'
