@@ -1,0 +1,26 @@
+version: 4
+policy:
+  provenance_required: true
+  license_required: true
+  popularity_is_not_trust: true
+  official_sources_preferred: true
+  repository_source_allowlist_required_for_code: true
+source_classes:
+  official_docs: {cadence: daily, executable: false}
+  approved_github: {cadence: daily, executable: possible}
+  plugin_metadata: {cadence: daily, executable: false}
+  scientific_primary: {cadence: weekly, executable: false}
+  user_failure_patterns: {cadence: event_driven, executable: false}
+  stable_telemetry: {cadence: event_driven, executable: false}
+scan_output:
+  destination: AI_SKILL_LIBRARY/v4/evergreen/quarantine
+  routing_authority: false
+  privileged_credentials: false
+normalization:
+  require_domain: true
+  require_unique_id: true
+  require_version: true
+  require_output_contract: true
+  require_permissions: true
+  require_evals: true
+  require_provenance: true
