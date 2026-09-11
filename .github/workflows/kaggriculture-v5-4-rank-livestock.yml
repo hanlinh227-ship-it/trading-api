@@ -296,13 +296,23 @@ jobs:
           print(max(8,min(64,n)))
           PY
           )"
-          OTHER="$(gh run list --workflow kaggriculture-v5-4-rank-livestock.yml --branch main --limit 30 --json databaseId,status --jq '.[] | select(.status=="queued" or .status=="in_progress" or .status=="pending") | .databaseId' | grep -vx "$GITHUB_RUN_ID" | wc -l | tr -d ' ')"
+
+          # Deduplicate before dispatch. `grep` may legitimately find no other run;
+          # do not let pipefail turn that normal case into a workflow failure.
+          OTHER="$(gh run list \
+            --workflow kaggriculture-v5-4-rank-livestock.yml \
+            --branch main --limit 30 \
+            --json databaseId,status \
+            --jq '[.[] | select((.status=="queued" or .status=="in_progress" or .status=="pending") and (.databaseId != '${GITHUB_RUN_ID}'))] | length')"
+          OTHER="${OTHER:-0}"
           echo "Canonical round completed; next candidate budget=$NEXT_CANDIDATES; other active canonical runs=$OTHER"
-          if [ "${OTHER:-0}" -gt 0 ]; then
+          if [ "$OTHER" -gt 0 ]; then
             echo 'NEXT_ROUND_DEDUPED existing canonical run already queued/in progress'
             exit 0
           fi
-          sleep 20
+
+          # Dispatch exactly one successor. This remains main-only and preserves
+          # the canonical single-writer concurrency group in the successor run.
           gh workflow run kaggriculture-v5-4-rank-livestock.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref main \
