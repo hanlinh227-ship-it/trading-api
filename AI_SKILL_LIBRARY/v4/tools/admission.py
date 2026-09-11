@@ -20,7 +20,7 @@ def _promotion_class(skill: dict) -> str:
     permissions = set(skill.get("permissions", []))
     if risk in {"financial", "credential_sensitive", "destructive"} or permissions & PRIVILEGED:
         return "D"
-    if skill.get("tools"):
+    if risk == "reversible_write" or "reversible_write" in permissions or skill.get("tools"):
         return "B"
     return "A"
 
@@ -42,7 +42,7 @@ def admit_skill(skill: dict, *, existing_skills: list[dict]) -> dict:
     permissions = set(candidate.get("permissions", [])) if isinstance(candidate.get("permissions"), list) else set()
     if permissions & PRIVILEGED or candidate.get("risk_class") in {"financial", "credential_sensitive", "destructive"}:
         reasons.append("privileged_permission")
-    text = " ".join(str(candidate.get(key, "")) for key in ("output_contract", "id")) .lower()
+    text = " ".join(str(candidate.get(key, "")) for key in ("output_contract", "id")).lower()
     if any(marker in text for marker in INJECTION_MARKERS):
         reasons.append("instruction_override")
     if candidate.get("id") in set(candidate.get("conflicts_with", [])):
