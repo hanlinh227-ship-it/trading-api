@@ -1,11 +1,8 @@
 # GITHUB_BRAIN_V2 — Compatibility Redirect
 
-`GITHUB_BRAIN_V2` is retained only as a **compatibility** alias for older chats/instructions.
+`GITHUB_BRAIN_V2` is retained only as a compatibility activation alias.
 
-The current brain authority is `GITHUB_BRAIN_V3`.
+The current canonical brain authority is `GITHUB_BRAIN_V4`.
+Read `AI_SKILL_LIBRARY/checkpoint.json`, follow `release_pointer_path`, and use `AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md`.
 
-1. Read `AI_SKILL_LIBRARY/checkpoint.json`.
-2. Follow its current `checkpoint_path`, `bootstrap_path`, and `kernel_path`.
-3. Use `AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md` as the canonical brain protocol.
-
-This file does not define an independent authority and must not be treated as current project state.
+This file is not an independent authority and cannot override V4 or project/runtime state.
