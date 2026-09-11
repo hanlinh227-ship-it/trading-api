@@ -36,6 +36,12 @@ def load_runtime_config(path: Path) -> RuntimeConfig:
     if cfg.external_spend_limit_usd != Decimal("0"):
         raise ValueError("STACKHUB V2 Plan 1 requires external spend limit 0")
 
+    for source_name, source_cfg in cfg.sources.items():
+        if source_cfg.enabled and cfg.scan_interval_seconds < source_cfg.min_poll_interval_seconds:
+            raise ValueError(
+                f"scan_interval_seconds must be >= {source_name}.min_poll_interval_seconds"
+            )
+
     taskbounty = cfg.sources.get("taskbounty")
     if taskbounty:
         if not taskbounty.read_only:
