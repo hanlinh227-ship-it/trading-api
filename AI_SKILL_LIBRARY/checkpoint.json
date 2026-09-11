@@ -1,0 +1,12 @@
+{
+  "checkpoint_id": "GITHUB_BRAIN_V1",
+  "version": "1.0.0",
+  "canonical_repo": "hanlinh227-ship-it/trading-api",
+  "canonical_branch": "main",
+  "checkpoint_path": "AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md",
+  "registry_path": "AI_SKILL_LIBRARY/sources.yaml",
+  "validator_path": "AI_SKILL_LIBRARY/validate_registry.py",
+  "activation_key": "GITHUB_BRAIN_V1",
+  "mode": "github-first",
+  "fallback": "continue_from_last_known_context_and_disclose_refresh_failure"
+}

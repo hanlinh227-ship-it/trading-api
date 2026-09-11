@@ -33,3 +33,8 @@ If Claude's GitHub connector returns 403, logical write authorization cannot ove
 After every substantive Trading work cycle, **both ChatGPT and Claude must leave exactly one ready-to-send prompt for the other AI**. The prompt must point to GitHub state/SHAs/docs, state the next role/action, and avoid requiring the user to re-summarize context. Follow `docs/ai-coengineer/PROTOCOL.md` for the full handoff contract.
 
 Do not reset trading state, restore deprecated architecture, weaken hard risk, fabricate financial data, or expose secrets.
+
+## Global GitHub-first knowledge bootstrap
+For every substantive task, when GitHub access is available, also read `AI_SKILL_LIBRARY/checkpoint.json` and the checkpoint it references. The current checkpoint ID is `GITHUB_BRAIN_V1`. For game, UX/UI, prompting, scripts/content, coding, trading research, or software-engineering work, select relevant approved sources from `AI_SKILL_LIBRARY/sources.yaml` before relying on generic background knowledge.
+
+This knowledge bootstrap is supplemental. For Trading work, the mandatory trading state/protocol files listed above remain primary and must be read first. Never execute third-party repository code merely to ingest knowledge; preserve provenance and license metadata.
