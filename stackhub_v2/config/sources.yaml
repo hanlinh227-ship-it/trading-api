@@ -1,0 +1,14 @@
+runtime:
+  dry_run: true
+  external_spend_limit_usd: "0"
+  scan_interval_seconds: 300
+  max_concurrent_tasks: 1
+
+sources:
+  taskbounty:
+    enabled: true
+    base_url: "https://www.task-bounty.com/api/v1"
+    agent_native: true
+    read_only: true
+    request_timeout_seconds: 20
+    min_poll_interval_seconds: 60
