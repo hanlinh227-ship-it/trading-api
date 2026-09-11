@@ -20,18 +20,82 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: stackhub_v2
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install
+
+      - name: Install STACKHUB V2
+        working-directory: stackhub_v2
         run: python -m pip install -e '.[test]'
-      - name: Compile
+
+      - name: Compile STACKHUB V2
+        working-directory: stackhub_v2
         run: python -m compileall -q src
-      - name: Tests
+
+      - name: Run STACKHUB V2 tests
+        working-directory: stackhub_v2
         run: python -m pytest -q
+
+      - name: Reject committed credentials and wallet secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --exclude-dir='__pycache__' --exclude='*.pyc' \
+            'tb_live_[A-Za-z0-9_-]{8,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|(^|[^A-Za-z])(seed|mnemonic)[[:space:]]*=[[:space:]]*["'"'][^"'"']+["'"']' \
+            stackhub_v2; then
+            echo 'Credential or wallet-secret pattern found in tracked STACKHUB V2 files.' >&2
+            exit 1
+          fi
+
+      - name: Prove Plan 1 has no marketplace mutation implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --include='*.py' \
+            '(/access|/submissions|\.post\(|\.put\(|\.patch\(|\.delete\()' \
+            stackhub_v2/src/stackhub; then
+            echo 'Mutating marketplace implementation is forbidden in Plan 1.' >&2
+            exit 1
+          fi
+
+      - name: Validate GitHub Brain V4 authority
+        run: |
+          python AI_SKILL_LIBRARY/validate_brain.py
+          python AI_SKILL_LIBRARY/validate_router.py
+          python AI_SKILL_LIBRARY/validate_authority.py
+          python AI_SKILL_LIBRARY/validate_v4.py
+
+      - name: Live read-only TaskBounty smoke and idempotency
+        working-directory: stackhub_v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf runtime-data
+          mkdir -p runtime-data
+          stackhub scan-once --config config/sources.yaml --db runtime-data/stackhub-v2.db
+          stackhub scan-once --config config/sources.yaml --db runtime-data/stackhub-v2.db
+          stackhub status --db runtime-data/stackhub-v2.db
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          db = Path('runtime-data/stackhub-v2.db')
+          assert db.exists(), 'runtime DB was not created'
+          con = sqlite3.connect(db)
+          duplicates = con.execute(
+              'SELECT source, id, COUNT(*) FROM opportunities GROUP BY source, id HAVING COUNT(*) > 1'
+          ).fetchall()
+          assert duplicates == [], duplicates
+          for table in ('claims', 'submissions', 'payouts'):
+              count = con.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
+              assert count == 0, (table, count)
+          health = con.execute(
+              'SELECT source, ok, status_code, error_code FROM source_health ORDER BY rowid DESC LIMIT 1'
+          ).fetchone()
+          assert health is not None, 'live smoke produced no source-health evidence'
+          print({'duplicates': duplicates, 'claims_submissions_payouts': 0, 'latest_health': health})
+          con.close()
+          PY
