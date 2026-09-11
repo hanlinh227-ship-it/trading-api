@@ -1,2 +1,2 @@
-run=v6.2-main-canonical-live-production-first-001
-reason=restore-strong-production-baseline-use-staged-defense-and-preserve-live-champion-ledger
+run=v6.2-main-canonical-live-production-first-002
+reason=activate-production-first-runtime-champion-ledger-and-per-sha-submit-failure-backoff
