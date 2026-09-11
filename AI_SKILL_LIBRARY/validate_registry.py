@@ -38,7 +38,6 @@ def validate_registry_data(data: dict) -> tuple[list[str], list[str]]:
     if not isinstance(sources, list) or not sources:
         errors.append('sources must be a non-empty list')
         return errors, warnings
-
     seen: dict[str, int] = {}
     for idx, source in enumerate(sources, start=1):
         prefix = f'source[{idx}]'
@@ -49,12 +48,8 @@ def validate_registry_data(data: dict) -> tuple[list[str], list[str]]:
         if missing:
             errors.append(f"{prefix}: missing fields: {', '.join(missing)}")
             continue
-
-        category = source.get('category')
-        repo = source.get('repo')
-        license_name = source.get('license')
+        category = source.get('category'); repo = source.get('repo'); license_name = source.get('license')
         manual = bool(source.get('manual_approval', False))
-
         if category not in ALLOWED_CATEGORIES:
             errors.append(f'{prefix}: unknown category {category!r}')
         if not isinstance(repo, str) or not repo.strip():
@@ -69,35 +64,29 @@ def validate_registry_data(data: dict) -> tuple[list[str], list[str]]:
             errors.append(f'{prefix}: rag and training must be booleans')
         if not isinstance(source.get('focus'), str) or not source.get('focus', '').strip():
             errors.append(f'{prefix}: focus must be non-empty text')
-
         if isinstance(repo, str):
             key = repo.lower()
             if key in seen:
                 errors.append(f'{prefix}: duplicate repo {repo!r}; first seen at source[{seen[key]}]')
             else:
                 seen[key] = idx
-
         if source.get('status') == 'archived':
             warnings.append(f'{prefix}: {repo} is intentionally marked archived')
-
     return errors, warnings
 
 
 def validate_checkpoint() -> tuple[list[str], list[str]]:
-    """Keep registry compatibility checks small; brain structure is validated elsewhere."""
-    errors: list[str] = []
-    warnings: list[str] = []
+    errors: list[str] = []; warnings: list[str] = []
     try:
         manifest = json.loads(CHECKPOINT_MANIFEST.read_text(encoding='utf-8'))
     except FileNotFoundError:
         return ['checkpoint.json is missing'], warnings
     except json.JSONDecodeError as exc:
         return [f'checkpoint.json invalid JSON: {exc}'], warnings
-
     checkpoint_id = manifest.get('checkpoint_id')
-    if checkpoint_id not in {'GITHUB_BRAIN_V2', 'GITHUB_BRAIN_V3'}:
-        errors.append("checkpoint.checkpoint_id must be 'GITHUB_BRAIN_V2' or 'GITHUB_BRAIN_V3'")
-
+    allowed = {'GITHUB_BRAIN_V2', 'GITHUB_BRAIN_V3', 'GITHUB_BRAIN_V4'}
+    if checkpoint_id not in allowed:
+        errors.append("checkpoint.checkpoint_id must be GITHUB_BRAIN_V2, GITHUB_BRAIN_V3, or GITHUB_BRAIN_V4")
     expected = {
         'canonical_repo': 'hanlinh227-ship-it/trading-api',
         'canonical_branch': 'main',
@@ -106,10 +95,10 @@ def validate_checkpoint() -> tuple[list[str], list[str]]:
     for key, value in expected.items():
         if manifest.get(key) != value:
             errors.append(f'checkpoint.{key} must be {value!r}')
-
     expected_checkpoint_path = {
         'GITHUB_BRAIN_V2': 'AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md',
         'GITHUB_BRAIN_V3': 'AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md',
+        'GITHUB_BRAIN_V4': 'AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md',
     }.get(checkpoint_id)
     cp_path = manifest.get('checkpoint_path')
     if expected_checkpoint_path and cp_path != expected_checkpoint_path:
@@ -127,8 +116,13 @@ def validate_checkpoint() -> tuple[list[str], list[str]]:
                 errors.append(f'checkpoint target is missing: {cp_path}')
             else:
                 text = resolved.read_text(encoding='utf-8')
-                if 'GitHub-first' not in text or 'router.yaml' not in text or 'sources.yaml' not in text:
-                    errors.append('checkpoint target must define GitHub-first routing, router.yaml and sources.yaml')
+                required_markers = ('GitHub-first', 'sources.yaml')
+                if checkpoint_id == 'GITHUB_BRAIN_V4':
+                    required_markers = ('GitHub-first', 'release', 'sources.yaml')
+                if any(marker not in text for marker in required_markers):
+                    errors.append('checkpoint target must define GitHub-first routing/release discovery and sources.yaml')
+    if checkpoint_id == 'GITHUB_BRAIN_V4' and manifest.get('release_pointer_path') != 'AI_SKILL_LIBRARY/v4/releases/current.json':
+        errors.append('V4 checkpoint must define the canonical release_pointer_path')
     return errors, warnings
 
 
@@ -142,8 +136,7 @@ def _github_json(url: str, token: str | None) -> dict:
 
 
 def check_remote_sources(data: dict, token: str | None = None) -> tuple[list[str], list[str]]:
-    errors: list[str] = []
-    warnings: list[str] = []
+    errors: list[str] = []; warnings: list[str] = []
     for idx, source in enumerate(data.get('sources', []), start=1):
         if source.get('manual_approval'):
             continue
@@ -154,40 +147,28 @@ def check_remote_sources(data: dict, token: str | None = None) -> tuple[list[str
         try:
             meta = _github_json(url, token)
         except urllib.error.HTTPError as exc:
-            if exc.code == 404:
-                errors.append(f'source[{idx}]: upstream repo not found: {repo}')
-            else:
-                warnings.append(f'source[{idx}]: GitHub HTTP {exc.code} checking {repo}')
+            if exc.code == 404: errors.append(f'source[{idx}]: upstream repo not found: {repo}')
+            else: warnings.append(f'source[{idx}]: GitHub HTTP {exc.code} checking {repo}')
             continue
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
             warnings.append(f'source[{idx}]: remote check unavailable for {repo}: {exc}')
             continue
-
         canonical = meta.get('full_name')
-        if canonical and canonical.lower() != repo.lower():
-            warnings.append(f'source[{idx}]: {repo} canonical name is now {canonical}')
-        if meta.get('archived') and source.get('status') != 'archived':
-            warnings.append(f'source[{idx}]: {repo} is archived upstream')
-        remote_license = (meta.get('license') or {}).get('spdx_id')
-        expected = source.get('license')
+        if canonical and canonical.lower() != repo.lower(): warnings.append(f'source[{idx}]: {repo} canonical name is now {canonical}')
+        if meta.get('archived') and source.get('status') != 'archived': warnings.append(f'source[{idx}]: {repo} is archived upstream')
+        remote_license = (meta.get('license') or {}).get('spdx_id'); expected = source.get('license')
         if remote_license and remote_license != 'NOASSERTION':
             accepted = {expected}
-            if expected == 'MIT OR Apache-2.0':
-                accepted |= {'MIT', 'Apache-2.0'}
+            if expected == 'MIT OR Apache-2.0': accepted |= {'MIT', 'Apache-2.0'}
             if remote_license not in accepted:
-                warnings.append(
-                    f'source[{idx}]: license metadata differs for {repo}: registry={expected}, github={remote_license}'
-                )
+                warnings.append(f'source[{idx}]: license metadata differs for {repo}: registry={expected}, github={remote_license}')
         elif not remote_license:
             warnings.append(f'source[{idx}]: GitHub exposes no SPDX license metadata for {repo}')
     return errors, warnings
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--check-remote', action='store_true')
-    parser.add_argument('--fail-on-warning', action='store_true')
-    return parser.parse_args()
+    parser = argparse.ArgumentParser(); parser.add_argument('--check-remote', action='store_true'); parser.add_argument('--fail-on-warning', action='store_true'); return parser.parse_args()
 
 
 def main() -> int:
@@ -195,29 +176,16 @@ def main() -> int:
     try:
         data = yaml.safe_load(REGISTRY.read_text(encoding='utf-8'))
     except FileNotFoundError:
-        print(f'[ERROR] missing registry: {REGISTRY}', file=sys.stderr)
-        return 2
+        print(f'[ERROR] missing registry: {REGISTRY}', file=sys.stderr); return 2
     except yaml.YAMLError as exc:
-        print(f'[ERROR] invalid YAML: {exc}', file=sys.stderr)
-        return 2
-
-    errors, warnings = validate_registry_data(data)
-    cp_errors, cp_warnings = validate_checkpoint()
-    errors.extend(cp_errors)
-    warnings.extend(cp_warnings)
+        print(f'[ERROR] invalid YAML: {exc}', file=sys.stderr); return 2
+    errors, warnings = validate_registry_data(data); cp_errors, cp_warnings = validate_checkpoint(); errors.extend(cp_errors); warnings.extend(cp_warnings)
     if args.check_remote:
-        remote_errors, remote_warnings = check_remote_sources(data, os.getenv('GITHUB_TOKEN'))
-        errors.extend(remote_errors)
-        warnings.extend(remote_warnings)
-
-    for warning in warnings:
-        print(f'[WARN ] {warning}')
-    for error in errors:
-        print(f'[ERROR] {error}', file=sys.stderr)
+        remote_errors, remote_warnings = check_remote_sources(data, os.getenv('GITHUB_TOKEN')); errors.extend(remote_errors); warnings.extend(remote_warnings)
+    for warning in warnings: print(f'[WARN ] {warning}')
+    for error in errors: print(f'[ERROR] {error}', file=sys.stderr)
     print(f'Validation summary: {len(errors)} error(s), {len(warnings)} warning(s)')
-    if errors or (args.fail_on_warning and warnings):
-        return 1
-    return 0
+    return 1 if errors or (args.fail_on_warning and warnings) else 0
 
 
 if __name__ == '__main__':
