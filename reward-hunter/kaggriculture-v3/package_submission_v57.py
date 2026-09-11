@@ -41,7 +41,7 @@ def build(params=None,path=None):
     target=Path(path or HERE/'main-v57.py');target.parent.mkdir(parents=True,exist_ok=True);target.write_text(code)
     return dict(path=str(target),sha256=hashlib.sha256(code.encode()).hexdigest(),params=params,
                 submission_performed=False,promotion_status='NOT_AUTHORIZED_BY_PACKAGING',
-                lane='v6.3-production-recovery',runtime_policy='V6.3 production recovery with deep-deficit cash defense')
+                lane='v6.4-proven-v57-baseline',runtime_policy='V6.4 proven V5.7 production baseline with canonical live guards')
 
 
 if __name__=='__main__':
