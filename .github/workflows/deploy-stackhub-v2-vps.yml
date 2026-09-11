@@ -52,8 +52,16 @@ jobs:
           set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_stackhub
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          key = os.environ['VPS_SSH_KEY'].replace('\r', '').strip()
+          if '\\n' in key and '\n' not in key:
+              key = key.replace('\\n', '\n')
+          Path.home().joinpath('.ssh/id_stackhub').write_text(key + '\n', encoding='utf-8')
+          PY
           chmod 600 ~/.ssh/id_stackhub
+          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null || { echo 'STACKHUB_VPS_SSH_KEY is not a valid OpenSSH private key'; exit 1; }
           PORT="${VPS_PORT:-22}"
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
