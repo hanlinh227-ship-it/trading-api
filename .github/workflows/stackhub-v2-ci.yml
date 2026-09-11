@@ -119,7 +119,6 @@ jobs:
       - name: Probe current public TaskBounty discovery contract
         run: |
           python - <<'PY'
-          import json
           import httpx
 
           url = 'https://www.task-bounty.com/api/v1/bounties.json'
@@ -135,15 +134,17 @@ jobs:
               candidates = data
           else:
               raise AssertionError(f'unexpected discovery payload type: {type(data).__name__}')
-          print({'item_count': len(candidates) if isinstance(candidates, list) else None})
-          if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict):
+          assert isinstance(candidates, list), 'public discovery feed must expose a list'
+          print({'item_count': len(candidates)})
+          if candidates and isinstance(candidates[0], dict):
               print({'first_item_keys': sorted(candidates[0].keys())})
-              print({'first_item': candidates[0]})
           PY
 
       - name: Live read-only TaskBounty smoke and idempotency
         working-directory: stackhub_v2
         shell: bash
+        env:
+          TASKBOUNTY_API_KEY: ${{ secrets.TASKBOUNTY_API_KEY }}
         run: |
           set -euo pipefail
           rm -rf runtime-data
@@ -152,6 +153,7 @@ jobs:
           stackhub scan-once --config config/sources.yaml --db runtime-data/stackhub-v2.db
           stackhub status --db runtime-data/stackhub-v2.db
           python - <<'PY'
+          import os
           import sqlite3
           from pathlib import Path
 
@@ -169,6 +171,14 @@ jobs:
               'SELECT source, ok, status_code, error_code FROM source_health ORDER BY rowid DESC LIMIT 1'
           ).fetchone()
           assert health is not None, 'live smoke produced no source-health evidence'
+
+          if os.getenv('TASKBOUNTY_API_KEY'):
+              assert health[1] == 1, f'authenticated TaskBounty discovery is unhealthy: {health}'
+              assert health[3] is None, health
+          else:
+              assert health[1] == 0, health
+              assert health[3] == 'auth_required', f'missing credential must be explicit, got: {health}'
+
           print({'duplicates': duplicates, 'claims_submissions_payouts': 0, 'latest_health': health})
           con.close()
           PY
