@@ -71,6 +71,8 @@ def validate_brain_data(
     if not isinstance(max_domain, int) or max_domain < 1:
         errors.append('router.defaults.max_domain_skills must be a positive integer')
         max_domain = 3
+    if defaults.get('route_every_request') is not True:
+        errors.append('router.defaults.route_every_request must be true')
     if defaults.get('preload_all_skills') is not False:
         errors.append('router.defaults.preload_all_skills must be false')
     if defaults.get('preload_trading_state') is not False:
@@ -143,17 +145,23 @@ def validate_brain_data(
         if rid in route_ids:
             errors.append(f'route[{idx}] duplicate route id {rid!r}')
         route_ids.add(rid)
-        selected = [route.get('primary')] + list(route.get('supporting', []))
+        supporting = route.get('supporting', [])
+        if not isinstance(supporting, list):
+            errors.append(f'route[{rid}] supporting must be a list')
+            supporting = []
+        selected = [route.get('primary')] + list(supporting)
         for sid in selected:
             if sid not in ids:
                 errors.append(f'route[{rid}] references unknown skill {sid!r}')
         domain_selected = [sid for sid in selected if sid not in {'critical_thinking', 'verification'}]
         if len(domain_selected) > max_domain:
-            errors.append(
-                f'route[{rid}] selects {len(domain_selected)} domain skills; max is {max_domain}'
-            )
+            errors.append(f'route[{rid}] selects {len(domain_selected)} domain skills; max is {max_domain}')
         selected_set = set(selected)
         for sid in selected_set & ids:
+            requirements = set(skill_rows[sid].get('requires', []))
+            missing = requirements - selected_set
+            for required in sorted(missing):
+                errors.append(f"route[{rid}] missing required skill {required!r} for {sid!r}")
             conflicts = set(skill_rows[sid].get('conflicts_with', []))
             collision = conflicts & selected_set
             if collision:
