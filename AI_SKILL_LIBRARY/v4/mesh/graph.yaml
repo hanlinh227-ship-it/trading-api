@@ -1,0 +1,19 @@
+version: 4
+policy:
+  one_primary_domain: true
+  global_preload: false
+  explicit_bridge_only: true
+  project_authority_precedes_mesh: true
+domains:
+  - {id: core, pack: AI_SKILL_LIBRARY/v4/skills/core/manifest.yaml}
+  - {id: engineering, pack: AI_SKILL_LIBRARY/v4/skills/engineering/manifest.yaml}
+  - {id: trading, pack: AI_SKILL_LIBRARY/v4/skills/trading/manifest.yaml, project_authority_required: true}
+  - {id: game, pack: AI_SKILL_LIBRARY/v4/skills/game/manifest.yaml}
+  - {id: design_2d, pack: AI_SKILL_LIBRARY/v4/skills/design_2d/manifest.yaml}
+  - {id: design_3d, pack: AI_SKILL_LIBRARY/v4/skills/design_3d/manifest.yaml}
+  - {id: adobe, pack: AI_SKILL_LIBRARY/v4/skills/adobe/manifest.yaml}
+  - {id: prompt_media, pack: AI_SKILL_LIBRARY/v4/skills/prompt_media/manifest.yaml}
+  - {id: writing, pack: AI_SKILL_LIBRARY/v4/skills/writing/manifest.yaml}
+  - {id: academic, pack: AI_SKILL_LIBRARY/v4/skills/academic/manifest.yaml}
+  - {id: data_docs, pack: AI_SKILL_LIBRARY/v4/skills/data_docs/manifest.yaml}
+  - {id: business, pack: AI_SKILL_LIBRARY/v4/skills/business/manifest.yaml}
