@@ -1,15 +1,15 @@
-name: Kaggriculture V5.7 - Adaptive Agro-Economic Challenger
+name: Kaggriculture V5.7 - Canonical Conflict-Free Challenger
 
 on:
   workflow_dispatch:
     inputs:
       candidates:
-        description: Base challenger count; failure controller may adapt within 8-64
+        description: Base challenger count; adaptive controller may change future rounds within 8-64
         required: true
         default: '24'
   push:
     branches:
-      - research/kaggriculture-v5-4-rank-livestock
+      - main
     paths:
       - .github/reward-kaggriculture-v5-4-rank-trigger
   pull_request:
@@ -51,7 +51,6 @@ jobs:
         run: |
           python - <<'PY'
           import json,sys
-          from pathlib import Path
           sys.path.insert(0,'reward-hunter/kaggriculture-v3')
           from benchmark_v57 import evaluate,save
           r=evaluate(None,seeds=(917,929),families=('starter','incumbent','early_sell','expansion'),steps=360,workers=4)
@@ -66,7 +65,7 @@ jobs:
       - name: V5.7 source-package episode equivalence
         run: |
           python - <<'PY'
-          import json,sys
+          import sys
           sys.path.insert(0,'reward-hunter/kaggriculture-v3')
           from benchmark_v57 import evaluate,save
           seed=(15485863,)
@@ -88,7 +87,7 @@ jobs:
           retention-days: 30
 
   research:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 300
@@ -96,41 +95,78 @@ jobs:
       contents: read
       actions: write
     concurrency:
-      group: kaggriculture-v54-learning-single-writer
+      group: kaggriculture-v57-main-canonical-single-writer
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Canonical lineage guard
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          echo "CANONICAL_MAIN_WRITER sha=$GITHUB_SHA run=$GITHUB_RUN_ID"
       - name: Install current official simulator
         run: |
           python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
           python -m pip install --no-deps 'kaggle-environments==1.32.7'
-      - name: Restore adaptive match memory and live ledger
+      - name: Restore canonical adaptive memory and live ledger
         uses: actions/cache/restore@v4
         with:
           path: |
-            /tmp/kaggriculture-v54-learning/learning_state.json
-            /tmp/kaggriculture-v54-learning/kaggle_live.json
-          key: kaggriculture-v54-learning-${{ github.run_id }}
+            /tmp/kaggriculture-v57-main-learning/learning_state.json
+            /tmp/kaggriculture-v57-main-learning/kaggle_live.json
+          key: kaggriculture-v57-main-learning-${{ github.run_id }}
           restore-keys: |
-            kaggriculture-v54-learning-
-      - name: Initialize conflict-free agro-economic memory if needed
+            kaggriculture-v57-main-learning-
+      - name: Bootstrap or validate conflict-free memory
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p /tmp/kaggriculture-v54-learning
+          set -euo pipefail
+          STATE_DIR=/tmp/kaggriculture-v57-main-learning
+          STATE="$STATE_DIR/learning_state.json"
+          LEDGER="$STATE_DIR/kaggle_live.json"
+          mkdir -p "$STATE_DIR"
+          if [ ! -s "$STATE" ]; then
+            echo 'No canonical main cache yet; importing last verified V5.7 learning snapshot.'
+            if gh api repos/$GITHUB_REPOSITORY/actions/artifacts/10180135630/zip > /tmp/v57-bootstrap.zip \
+              && unzip -p /tmp/v57-bootstrap.zip learning_state_after.json > "$STATE.tmp" \
+              && [ -s "$STATE.tmp" ]; then
+              mv "$STATE.tmp" "$STATE"
+              echo 'V57_LEARNING_HISTORY_IMPORTED artifact=10180135630'
+            else
+              rm -f "$STATE.tmp"
+              echo 'Verified artifact unavailable; creating a clean state instead of using corrupt or partial memory.'
+              python - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0,'reward-hunter/kaggriculture-v3')
+          from learning_rank import blank_state,save_state
+          save_state(Path('/tmp/kaggriculture-v57-main-learning/learning_state.json'),blank_state())
+          PY
+            fi
+          fi
+          if [ ! -s "$LEDGER" ]; then
+            cat > "$LEDGER.tmp" <<'JSON'
+          {"sha256":"b113a5da49a597baaacae7de76041b9702f99881d1e35db02beda4408192996f","submitted_at":"2026-09-10T16:19:13Z","description":"V5.4 live-shadow continuity seed"}
+          JSON
+            mv "$LEDGER.tmp" "$LEDGER"
+          fi
           python - <<'PY'
           import json,sys
           from pathlib import Path
           sys.path.insert(0,'reward-hunter/kaggriculture-v3')
-          from learning_rank import blank_state,save_state,load_state,adaptive_plan
+          from learning_rank import load_state,adaptive_plan
           from monotonic_rank import summary as monotonic_summary
           from agro_reasoning import summary as agro_summary
-          p=Path('/tmp/kaggriculture-v54-learning/learning_state.json')
-          if not p.exists(): save_state(p,blank_state())
+          p=Path('/tmp/kaggriculture-v57-main-learning/learning_state.json')
           s=load_state(p)
-          print('LEARNING_MEMORY',json.dumps({
-              'matches':s['matches'],'wins':s['wins'],'losses':s['losses'],'invalid':s['invalid'],
+          assert int(s.get('matches',0)) >= 0
+          assert int(s.get('wins',0))+int(s.get('losses',0))+int(s.get('ties',0)) <= int(s.get('matches',0))+int(s.get('invalid',0))
+          print('CANONICAL_LEARNING_MEMORY',json.dumps({
+              'matches':s.get('matches',0),'wins':s.get('wins',0),'losses':s.get('losses',0),'invalid':s.get('invalid',0),
               'champions':len(s.get('champions',[])),'control':s.get('control',{}),
               'monotonic':monotonic_summary(s),'agro':agro_summary(s),'plan':adaptive_plan(s,24),
           },sort_keys=True))
@@ -139,15 +175,16 @@ jobs:
         env:
           CANDIDATES: ${{ github.event.inputs.candidates || '24' }}
         run: |
-          OUT=/tmp/kaggriculture-v54-${{ github.run_id }}
-          STATE=/tmp/kaggriculture-v54-learning/learning_state.json
+          set -euo pipefail
+          OUT=/tmp/kaggriculture-v57-main-${{ github.run_id }}
+          STATE=/tmp/kaggriculture-v57-main-learning/learning_state.json
           python reward-hunter/kaggriculture-v3/search_rank.py \
             --output "$OUT" --candidates "$CANDIDATES" --workers 0 --study-seed ${{ github.run_id }} \
             --learning-state "$STATE"
           cp "$STATE" "$OUT/learning_state_after.json"
           python - <<'PY'
           import json,pathlib
-          root=pathlib.Path('/tmp/kaggriculture-v54-${{ github.run_id }}')
+          root=pathlib.Path('/tmp/kaggriculture-v57-main-${{ github.run_id }}')
           r=json.loads((root/'search.json').read_text())
           if r['promotion']['pass_gate'] and not r['promotion'].get('monotonic',{}).get('pass'):
               raise SystemExit('fail-closed: promotion cannot bypass monotonic capital gate')
@@ -171,9 +208,9 @@ jobs:
           KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
         shell: bash
         run: |
-          set -eo pipefail
-          OUT="/tmp/kaggriculture-v54-${GITHUB_RUN_ID}"
-          LEDGER=/tmp/kaggriculture-v54-learning/kaggle_live.json
+          set -euo pipefail
+          OUT="/tmp/kaggriculture-v57-main-${GITHUB_RUN_ID}"
+          LEDGER=/tmp/kaggriculture-v57-main-learning/kaggle_live.json
           DECISION=/tmp/v57-live-decision.json
           export OUT LEDGER DECISION
           python - <<'PY'
@@ -219,7 +256,9 @@ jobs:
               python - <<'PY'
               import datetime,json,os,pathlib
               p=pathlib.Path(os.environ['LEDGER'])
-              p.write_text(json.dumps({'sha256':os.environ['SHA256'],'submitted_at':datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),'description':os.environ['DESC'],'source_run':os.environ.get('GITHUB_RUN_ID')},indent=2,sort_keys=True)+'\n')
+              tmp=p.with_suffix('.tmp')
+              tmp.write_text(json.dumps({'sha256':os.environ['SHA256'],'submitted_at':datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),'description':os.environ['DESC'],'source_run':os.environ.get('GITHUB_RUN_ID')},indent=2,sort_keys=True)+'\n')
+              tmp.replace(p)
               PY
               echo 'KAGGLE_LIVE_PROMOTION_VISIBLE'
             else
@@ -228,38 +267,44 @@ jobs:
           else
             echo 'KAGGLE_LIVE_PROMOTION_DEFERRED submission command failed; keeping current live agents'
           fi
-      - name: Save adaptive match memory and live ledger
+      - name: Save canonical adaptive memory and live ledger
         if: always()
         uses: actions/cache/save@v4
         with:
           path: |
-            /tmp/kaggriculture-v54-learning/learning_state.json
-            /tmp/kaggriculture-v54-learning/kaggle_live.json
-          key: kaggriculture-v54-learning-${{ github.run_id }}
+            /tmp/kaggriculture-v57-main-learning/learning_state.json
+            /tmp/kaggriculture-v57-main-learning/kaggle_live.json
+          key: kaggriculture-v57-main-learning-${{ github.run_id }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: kaggriculture-v5-7-rank-research-${{ github.run_id }}
-          path: /tmp/kaggriculture-v54-${{ github.run_id }}/
+          name: kaggriculture-v5-7-main-research-${{ github.run_id }}
+          path: /tmp/kaggriculture-v57-main-${{ github.run_id }}/
           if-no-files-found: warn
           retention-days: 30
-      - name: Queue next agro-economic potential round
+      - name: Queue exactly one next canonical round
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           NEXT_CANDIDATES="$(python - <<'PY'
           import json,os,pathlib
-          p=pathlib.Path('/tmp/kaggriculture-v54-'+os.environ['GITHUB_RUN_ID'])/'search.json'
+          p=pathlib.Path('/tmp/kaggriculture-v57-main-'+os.environ['GITHUB_RUN_ID'])/'search.json'
           r=json.loads(p.read_text())
           n=int(r.get('next_round',{}).get('candidate_count',24))
           print(max(8,min(64,n)))
           PY
           )"
-          echo "Current V5.7 round completed; next candidate budget=$NEXT_CANDIDATES"
-          sleep 30
+          OTHER="$(gh run list --workflow kaggriculture-v5-4-rank-livestock.yml --branch main --limit 30 --json databaseId,status --jq '.[] | select(.status=="queued" or .status=="in_progress" or .status=="pending") | .databaseId' | grep -vx "$GITHUB_RUN_ID" | wc -l | tr -d ' ')"
+          echo "Canonical round completed; next candidate budget=$NEXT_CANDIDATES; other active canonical runs=$OTHER"
+          if [ "${OTHER:-0}" -gt 0 ]; then
+            echo 'NEXT_ROUND_DEDUPED existing canonical run already queued/in progress'
+            exit 0
+          fi
+          sleep 20
           gh workflow run kaggriculture-v5-4-rank-livestock.yml \
             --repo "$GITHUB_REPOSITORY" \
-            --ref research/kaggriculture-v5-4-rank-livestock \
+            --ref main \
             -f candidates="$NEXT_CANDIDATES"
-          echo "NEXT_V57_AGRO_ECONOMIC_ROUND_QUEUED"
+          echo 'NEXT_V57_CANONICAL_MAIN_ROUND_QUEUED'
