@@ -148,16 +148,16 @@ class RevenueOrchestrator:
 
     async def run_batch(self, *, now: datetime | None = None) -> list[dict[str, object]]:
         now=now or datetime.now(timezone.utc)
-        reconciled=await self._reconcile_pending(now)
-        if reconciled:
-            return reconciled
+        output=await self._reconcile_pending(now)
         reserved=[]
         for _ in range(self.max_active_claims):
             row=self.repo.reserve_next_opportunity(None,self.max_active_claims,now)
             if row is None: break
             reserved.append(row)
         if reserved:
-            return list(await asyncio.gather(*(self._process_reserved(row,now) for row in reserved)))
+            output.extend(await asyncio.gather(*(self._process_reserved(row,now) for row in reserved)))
+        if output:
+            return list(output)
         fallback=self.fallback_queue.pop()
         if fallback is None: return [{"state":"IDLE","reason":"no_paid_or_fallback_work"}]
         result=await fallback.handler()
