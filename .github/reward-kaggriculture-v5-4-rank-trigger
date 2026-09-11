@@ -1,2 +1,2 @@
-run=v5.7-main-canonical-conflict-free-001
-reason=single-main-writer-isolated-memory-deduped-next-round-preserve-learning-history
+run=v5.7-main-canonical-conflict-free-002
+reason=validate-capital-preserving-runtime-guard-and-continue-single-writer-learning
