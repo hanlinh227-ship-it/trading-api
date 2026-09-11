@@ -1,7 +1,10 @@
+import inspect
+from pathlib import Path
+
 import httpx
 import pytest
 
-from stackhub.config import SourceConfig
+from stackhub.config import SourceConfig, load_runtime_config
 from stackhub.worker_state import WorkerState
 
 
@@ -64,3 +67,16 @@ def test_transient_http_failures_remain_retryable():
     for status in (408, 425, 429, 500, 502, 503, 504):
         assert _classify_failure_state(status_code=status, error_code=f"http_{status}") == WorkerState.FAILED_RETRYABLE
     assert _classify_failure_state(status_code=None, error_code="protocol_error") == WorkerState.FAILED_RETRYABLE
+
+
+def test_scout_default_requests_max_supported_inventory():
+    from stackhub.scout import Scout
+
+    assert inspect.signature(Scout.run_once).parameters["limit"].default == 100
+
+
+def test_live_runtime_uses_bounded_global_concurrency_four():
+    config_path = Path(__file__).resolve().parents[1] / "config" / "sources.live.example.yaml"
+    cfg = load_runtime_config(config_path)
+    assert cfg.max_concurrent_tasks == 4
+    assert cfg.max_active_claims == 4
