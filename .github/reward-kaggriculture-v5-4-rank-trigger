@@ -1,2 +1,2 @@
-run=v5.7-main-canonical-live-only-005
-reason=cancel-older-canonical-runs-then-start-live-only-kaggle-lane
+run=v5.7-main-canonical-live-only-006
+reason=canonical-kaggle-live-only-no-simulator-execution
