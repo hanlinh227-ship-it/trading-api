@@ -77,4 +77,4 @@ Refresh GitHub when a new work cycle begins, when the user asks to read/refresh 
 Add future capability through focused metadata, routes, policies, tests, and validators. Do not redesign the bootstrap merely to add a domain. Keep startup compact and push detailed context behind lazy-loading boundaries.
 
 ## Canonical discovery
-Use `checkpoint.json` and `bootstrap.yaml` rather than copying a static file list into external prompts. Current canonical files include the router, runtime, projects, skill catalog, memory, evals, observability, security, plugins, sources, schemas, and validators named by the checkpoint.
+Use `checkpoint.json` and `bootstrap.yaml` rather than copying a static file list into external prompts. Current canonical files include `router.yaml`, `runtime.yaml`, `projects.yaml`, the skill catalog, `memory.yaml`, `evals.yaml`, `observability.yaml`, `security.yaml`, `plugins.yaml`, `sources.yaml`, schemas, and validators named by the checkpoint.
