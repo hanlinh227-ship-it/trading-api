@@ -5,8 +5,8 @@ runtime:
   worker_enabled: true
   external_spend_limit_usd: "0"
   scan_interval_seconds: 60
-  max_concurrent_tasks: 1
-  max_active_claims: 1
+  max_concurrent_tasks: 4
+  max_active_claims: 4
   worker_pools:
     scouts: 3
     code_fix: 2
