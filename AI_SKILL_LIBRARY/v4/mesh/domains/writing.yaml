@@ -1,0 +1,8 @@
+id: writing
+version: 4.0.0
+sources: [script]
+tools: []
+evals: [continuity, audience_fit, factual_boundaries]
+authority_required: false
+memory_namespace: writing
+bridge_policy: explicit_only
