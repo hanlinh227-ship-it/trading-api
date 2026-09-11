@@ -15,7 +15,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       DEPLOY_ENABLED: ${{ secrets.STACKHUB_DEPLOY_ENABLED }}
       VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
@@ -116,8 +116,12 @@ jobs:
           fi
           if [ ! -x /opt/stackhub/.venv/bin/python ]; then sudo python3 -m venv /opt/stackhub/.venv; fi
           sudo /opt/stackhub/.venv/bin/python -m pip install --upgrade pip
-          sudo /opt/stackhub/.venv/bin/python -m pip install -e /opt/stackhub/stackhub_v2
-          sudo install -d -m 0755 /etc/stackhub /var/lib/stackhub
+          sudo /opt/stackhub/.venv/bin/python -m pip install -e '/opt/stackhub/stackhub_v2[test]'
+          cd /opt/stackhub/stackhub_v2
+          echo '=== VPS REGRESSION TESTS ==='
+          /opt/stackhub/.venv/bin/python -m pytest -q
+
+          sudo install -d -m 0755 /etc/stackhub /var/lib/stackhub /var/lib/stackhub/artifacts
           sudo install -m 0600 /tmp/stackhub.env /etc/stackhub/stackhub.env; rm -f /tmp/stackhub.env
           if [ "${ACTIVATE_LIVE:-false}" = "true" ]; then
             sudo install -m 0644 /opt/stackhub/stackhub_v2/config/sources.live.example.yaml /etc/stackhub/sources.yaml
@@ -127,7 +131,40 @@ jobs:
           sudo install -m 0644 /opt/stackhub/stackhub_v2/deploy/stackhub-v2.service.example /etc/systemd/system/stackhub-v2.service
           sudo systemctl daemon-reload
           set -a; . /etc/stackhub/stackhub.env; set +a
-          cd /opt/stackhub/stackhub_v2
+
+          if [ "${ACTIVATE_LIVE:-false}" = "true" ] && printf '%s' "${STACKHUB_SOLVER_COMMAND:-}" | grep -q 'stackhub.local_solver'; then
+            echo '=== LOCAL SOLVER PREFLIGHT ==='
+            if ! command -v ollama >/dev/null 2>&1; then
+              command -v curl >/dev/null 2>&1 || { echo 'curl required to install Ollama'; exit 1; }
+              curl -fsSL https://ollama.com/install.sh | sudo sh
+            fi
+            if sudo systemctl list-unit-files ollama.service >/dev/null 2>&1; then
+              sudo systemctl enable --now ollama
+            else
+              pgrep -f 'ollama serve' >/dev/null 2>&1 || nohup ollama serve >/tmp/ollama.log 2>&1 &
+            fi
+            ready=false
+            for _ in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then ready=true; break; fi
+              sleep 2
+            done
+            [ "$ready" = true ] || { echo 'Ollama API failed to become ready'; exit 1; }
+            MODEL="${STACKHUB_LOCAL_MODEL:-qwen2.5-coder:1.5b-instruct}"
+            ollama pull "$MODEL"
+            rm -rf /tmp/stackhub-solver-smoke; mkdir -p /tmp/stackhub-solver-smoke
+            printf '%s' '{"opportunity":{"source":"preflight","id":"solver-smoke","category":"content","requirements":["Return exactly the word READY"],"acceptance_criteria":["Output must be READY"]}}' | env STACKHUB_LOCAL_MODEL="$MODEL" STACKHUB_ARTIFACT_ROOT=/tmp/stackhub-solver-smoke /opt/stackhub/.venv/bin/python -m stackhub.local_solver >/tmp/stackhub-solver-smoke.json
+            /opt/stackhub/.venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('/tmp/stackhub-solver-smoke.json').read_text())
+          artifact=Path(data['artifact_reference'])
+          assert artifact.is_file() and artifact.stat().st_size > 0
+          assert data.get('evidence',{}).get('artifact_written') is True
+          print({'solver_smoke':'ok','artifact_bytes':artifact.stat().st_size})
+          PY
+            rm -rf /tmp/stackhub-solver-smoke /tmp/stackhub-solver-smoke.json
+          fi
+
           if [ -n "${TASKFORCE_API_KEY:-}" ]; then
             if [ "${ACTIVATE_LIVE:-false}" = "true" ]; then /opt/stackhub/.venv/bin/python -m stackhub.taskforce_verify; else /opt/stackhub/.venv/bin/python -m stackhub.taskforce_verify || true; fi
           fi
@@ -144,7 +181,7 @@ jobs:
           db.close()
           PY
           if [ "${ACTIVATE_LIVE:-false}" = "true" ]; then
-            echo '=== ONE-TASK LIVE GATE ==='
+            echo '=== ONE-BATCH LIVE GATE ==='
             /opt/stackhub/.venv/bin/stackhub orchestrate-once --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
           fi
           sudo systemctl enable stackhub-v2.service
