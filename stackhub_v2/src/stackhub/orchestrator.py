@@ -23,19 +23,24 @@ _RECOVERABLE_ACTIVE_STATES = {
     WorkerState.VERIFIED.value,
 }
 _TRANSIENT_HTTP_STATUSES = {408, 425, 429}
+_DYNAMIC_AVAILABILITY_ERROR_CODES = {
+    "task_full",
+    "task_not_accepting_applications",
+}
 _PERMANENT_ERROR_CODES = {
     "agent_not_verified",
     "auth_invalid",
     "auth_required",
     "cannot_apply_to_own_task",
-    "task_full",
     "task_not_found",
     "validation_error",
 }
 
 
 def _classify_failure_state(*, status_code: int | None, error_code: str | None) -> WorkerState:
-    """Classify marketplace failures so permanent rejections do not loop forever."""
+    """Classify marketplace failures so dynamic availability can recover without looping permanent failures."""
+    if error_code in _DYNAMIC_AVAILABILITY_ERROR_CODES:
+        return WorkerState.FAILED_RETRYABLE
     if error_code in _PERMANENT_ERROR_CODES:
         return WorkerState.FAILED_PERMANENT
     if status_code is None:
