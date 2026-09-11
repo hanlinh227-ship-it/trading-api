@@ -21,3 +21,20 @@ sources:
     read_only: true
     request_timeout_seconds: 20
     min_poll_interval_seconds: 60
+    capabilities:
+      source_class: "job"
+      agent_allowed: true
+      auto_discovery: true
+      auto_claim: false
+      auto_execute: true
+      auto_submit: false
+      auto_publish: false
+      auto_payout_observation: false
+      requires_human_onboarding: true
+      requires_kyc: false
+      requires_tax_setup: false
+      requires_manual_review: false
+      external_spend_required: false
+      mutation_verified_at: null
+      terms_verified_at: "2026-09-11T00:00:00+07:00"
+      rate_limit_policy: "respect source-specific limits; min poll 60s"
