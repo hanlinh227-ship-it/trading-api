@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from .models import Opportunity
@@ -16,6 +16,7 @@ _LEGACY_STATE_MAP = {
     "LOST": WorkerState.REJECTED.value,
     "FAILED": WorkerState.FAILED_PERMANENT.value,
 }
+_RETRY_COOLDOWN = timedelta(minutes=5)
 
 
 class StackHubRepository:
@@ -135,13 +136,20 @@ class StackHubRepository:
             if source is not None:
                 source_clause = "AND o.source=?"
                 params.append(source)
-            params.append(WorkerState.FAILED_RETRYABLE.value)
+            retry_cutoff = (reserved_at - _RETRY_COOLDOWN).isoformat()
+            params.extend((WorkerState.FAILED_RETRYABLE.value, retry_cutoff))
             row = self.conn.execute(
                 f"""SELECT o.*, c.id AS claim_id, c.state AS claim_state
                 FROM opportunities o
                 LEFT JOIN claims c ON c.source=o.source AND c.opportunity_id=o.id
                 WHERE o.policy_allowed=1 {source_clause}
-                  AND (c.id IS NULL OR c.state=?)
+                  AND (
+                      c.id IS NULL
+                      OR (
+                          c.state=?
+                          AND (c.updated_at IS NULL OR datetime(c.updated_at) <= datetime(?))
+                      )
+                  )
                 ORDER BY CAST(COALESCE(o.score_usd_per_minute,'-999999') AS REAL) DESC,
                          CAST(COALESCE(o.expected_net_value_usd,'-999999') AS REAL) DESC,
                          o.source ASC,o.id ASC LIMIT 1""",
