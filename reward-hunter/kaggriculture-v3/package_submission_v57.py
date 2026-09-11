@@ -41,7 +41,7 @@ def build(params=None,path=None):
     target=Path(path or HERE/'main-v57.py');target.parent.mkdir(parents=True,exist_ok=True);target.write_text(code)
     return dict(path=str(target),sha256=hashlib.sha256(code.encode()).hexdigest(),params=params,
                 submission_performed=False,promotion_status='NOT_AUTHORIZED_BY_PACKAGING',
-                lane='v6.1-live-anti-snowball',runtime_policy='V6.0 anti-snowball cash-gap defense')
+                lane='v6.2-live-production-first',runtime_policy='V6.2 production-first staged cash defense')
 
 
 if __name__=='__main__':
