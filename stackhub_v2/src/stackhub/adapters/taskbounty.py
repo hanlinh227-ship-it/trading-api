@@ -54,27 +54,44 @@ def _retry_after_seconds(response: httpx.Response) -> int | None:
 
 
 class TaskBountyAdapter:
-    """Strictly read-only adapter for TaskBounty's public task listing endpoint."""
+    """Strictly read-only adapter for TaskBounty's authenticated task listing endpoint."""
 
     def __init__(self, config: SourceConfig, *, client: httpx.AsyncClient | None = None, api_key: str | None = None):
         if not config.read_only:
             raise ValueError("TaskBountyAdapter requires read_only source configuration")
         self.config = config
+        self.api_key = api_key.strip() if api_key else None
         self._owned_client = client is None
-        headers = {"Accept": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-        self.client = client or httpx.AsyncClient(timeout=config.request_timeout_seconds, headers=headers)
+        self.client = client or httpx.AsyncClient(timeout=config.request_timeout_seconds)
 
     async def fetch_open(self, limit: int = 50) -> list[Opportunity]:
+        if not self.api_key:
+            raise TaskBountyProtocolError(
+                "TASKBOUNTY_API_KEY is required for the /api/v1/tasks discovery endpoint",
+                error_code="auth_required",
+            )
+
         limit = max(1, min(int(limit), 100))
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
         try:
-            response = await self.client.get(f"{self.config.base_url.rstrip('/')}/tasks", params={"state": "open", "limit": limit})
+            response = await self.client.get(
+                f"{self.config.base_url.rstrip('/')}/tasks",
+                params={"state": "open", "limit": limit},
+                headers=headers,
+            )
             response.raise_for_status()
             envelope = _Envelope.model_validate(response.json())
         except httpx.HTTPStatusError as exc:
             code = exc.response.status_code
-            error = "rate_limited" if code == 429 else f"http_{code}"
+            if code in (401, 403):
+                error = "auth_invalid"
+            elif code == 429:
+                error = "rate_limited"
+            else:
+                error = f"http_{code}"
             raise TaskBountyProtocolError(
                 str(exc),
                 status_code=code,
@@ -86,7 +103,9 @@ class TaskBountyAdapter:
 
         items: list[Opportunity] = []
         for task in envelope.tasks:
-            solver_amount = (Decimal(task.bounty_cents) * Decimal("0.80") / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            solver_amount = (
+                Decimal(task.bounty_cents) * Decimal("0.80") / Decimal("100")
+            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             lang = task.language or "unspecified"
             repo = task.github_repo_url or "unspecified"
             items.append(
