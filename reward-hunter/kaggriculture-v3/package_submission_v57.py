@@ -30,7 +30,9 @@ def _clean(name):
 
 def build(params=None,path=None):
     params=validate_params(params)
-    pieces=['# Generated canonical Kaggriculture live agent. Submission is handled by the guarded live lane.\n']
+    # Keep this generated-code header byte-stable: metadata-only maintenance must never manufacture
+    # a new Kaggle candidate SHA or trigger a duplicate/re-roll live submission.
+    pieces=['# Generated V5.7 adaptive economy research candidate. NOT SUBMITTED.\n']
     for name in ('incumbent.py','features.py','policy.py','economic_reasoning.py','policy_v57.py'):
         pieces.append(_clean(name))
     pieces.append('EMBEDDED_PARAMS = '+repr(params)+'\n\ndef agent(observation, configuration=None):\n    return decide_v57(observation, configuration or {}, EMBEDDED_PARAMS)\n')
