@@ -71,6 +71,7 @@ class StackHubRepository:
               AND (
                   last_error_code LIKE 'task_not_accepting_applications%'
                   OR last_error_code LIKE 'task_full%'
+                  OR last_error_code = 'http_400:http_400'
               )""",
             (WorkerState.FAILED_RETRYABLE.value, WorkerState.FAILED_PERMANENT.value),
         )
