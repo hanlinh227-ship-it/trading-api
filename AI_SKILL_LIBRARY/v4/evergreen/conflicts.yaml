@@ -1,0 +1,27 @@
+version: 4
+categories:
+  - duplicate_capability
+  - contradictory_rule
+  - incompatible_output_contract
+  - incompatible_tool_dependency
+  - version_mismatch
+  - domain_leakage
+  - project_authority_collision
+  - source_precedence_conflict
+  - permission_expansion
+  - latency_context_bloat
+resolution_precedence:
+  - current_runtime_or_project_authority
+  - v4_security_invariants
+  - stable_release_contract
+  - domain_policy
+  - verified_current_evidence
+  - skill_pack_precedence
+  - durable_memory
+  - external_reference_knowledge
+policy:
+  material_unresolved_conflict_blocks_promotion: true
+  prefer_extend_or_supersede_over_duplicate: true
+  near_duplicate_compare: [triggers, tools, output_contract, sources, eval_behavior]
+  trading_authority_collision_always_blocks: true
+  permission_expansion_always_blocks_without_external_authorization: true
