@@ -8,6 +8,14 @@ from pathlib import Path
 from .models import Opportunity
 from .policy import PolicyDecision
 from .scoring import ScoreResult
+from .worker_state import TERMINAL_STATES, WorkerState, assert_transition
+
+_LEGACY_STATE_MAP = {
+    "ACCESSED": WorkerState.CLAIMED.value,
+    "WON": WorkerState.PAID.value,
+    "LOST": WorkerState.REJECTED.value,
+    "FAILED": WorkerState.FAILED_PERMANENT.value,
+}
 
 
 class StackHubRepository:
@@ -51,8 +59,11 @@ class StackHubRepository:
                 source TEXT NOT NULL,
                 opportunity_id TEXT NOT NULL,
                 clone_url TEXT,
-                state TEXT NOT NULL DEFAULT 'ACCESSED',
+                state TEXT NOT NULL DEFAULT 'RESERVED',
                 claimed_at TEXT,
+                reserved_at TEXT,
+                updated_at TEXT,
+                last_error_code TEXT,
                 UNIQUE(source, opportunity_id)
             );
             CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY AUTOINCREMENT, started_at TEXT, finished_at TEXT, status TEXT);
@@ -80,10 +91,15 @@ class StackHubRepository:
             """
         )
         self._ensure_column("claims", "clone_url", "TEXT")
-        self._ensure_column("claims", "state", "TEXT NOT NULL DEFAULT 'ACCESSED'")
+        self._ensure_column("claims", "state", "TEXT NOT NULL DEFAULT 'RESERVED'")
         self._ensure_column("claims", "claimed_at", "TEXT")
+        self._ensure_column("claims", "reserved_at", "TEXT")
+        self._ensure_column("claims", "updated_at", "TEXT")
+        self._ensure_column("claims", "last_error_code", "TEXT")
         self._ensure_column("submissions", "submission_id", "TEXT")
         self._ensure_column("submissions", "submitted_at", "TEXT")
+        for legacy_state, canonical_state in _LEGACY_STATE_MAP.items():
+            self.conn.execute("UPDATE claims SET state=? WHERE state=?", (canonical_state, legacy_state))
         self.conn.commit()
 
     def _ensure_column(self, table: str, column: str, ddl: str) -> None:
@@ -143,36 +159,149 @@ class StackHubRepository:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def reserve_next_opportunity(
+        self,
+        source: str | None,
+        max_active_claims: int,
+        reserved_at: datetime,
+    ) -> dict[str, object] | None:
+        if max_active_claims < 1:
+            raise ValueError("max_active_claims must be >= 1")
+        terminal = tuple(state.value for state in TERMINAL_STATES)
+        placeholders = ",".join("?" for _ in terminal)
+        try:
+            self.conn.execute("BEGIN IMMEDIATE")
+            active = int(
+                self.conn.execute(
+                    f"SELECT COUNT(*) FROM claims WHERE state NOT IN ({placeholders})",
+                    terminal,
+                ).fetchone()[0]
+            )
+            if active >= max_active_claims:
+                self.conn.rollback()
+                return None
+
+            source_clause = ""
+            params: list[object] = []
+            if source is not None:
+                source_clause = "AND o.source=?"
+                params.append(source)
+
+            row = self.conn.execute(
+                f"""
+                SELECT o.*
+                FROM opportunities o
+                LEFT JOIN claims c
+                  ON c.source=o.source AND c.opportunity_id=o.id
+                WHERE o.policy_allowed=1
+                  {source_clause}
+                  AND c.id IS NULL
+                ORDER BY CAST(COALESCE(o.score_usd_per_minute, '-999999') AS REAL) DESC,
+                         CAST(COALESCE(o.expected_net_value_usd, '-999999') AS REAL) DESC,
+                         o.source ASC, o.id ASC
+                LIMIT 1
+                """,
+                tuple(params),
+            ).fetchone()
+            if row is None:
+                self.conn.rollback()
+                return None
+
+            observed = reserved_at.isoformat()
+            self.conn.execute(
+                """
+                INSERT INTO claims(source,opportunity_id,state,reserved_at,updated_at)
+                VALUES(?,?,?,?,?)
+                """,
+                (row["source"], row["id"], WorkerState.RESERVED.value, observed, observed),
+            )
+            self.conn.commit()
+            result = dict(row)
+            result["opportunity_id"] = result["id"]
+            result["state"] = WorkerState.RESERVED.value
+            result["reserved_at"] = observed
+            return result
+        except Exception:
+            if self.conn.in_transaction:
+                self.conn.rollback()
+            raise
+
     def record_claim(self, source: str, opportunity_id: str, clone_url: str, claimed_at: datetime) -> None:
         existing = self.conn.execute(
             "SELECT * FROM claims WHERE source=? AND opportunity_id=?",
             (source, opportunity_id),
         ).fetchone()
+        observed = claimed_at.isoformat()
         if existing is not None:
-            if existing["clone_url"] == clone_url:
+            current = WorkerState(_LEGACY_STATE_MAP.get(existing["state"], existing["state"]))
+            if existing["clone_url"] not in (None, clone_url):
+                raise RuntimeError("claim already exists with a different clone reference")
+            if current == WorkerState.CLAIMED and existing["clone_url"] == clone_url:
                 return
-            raise RuntimeError("claim already exists with a different clone reference")
+            if current != WorkerState.RESERVED:
+                raise RuntimeError(f"claim cannot be recorded from state {current.value}")
+            assert_transition(current, WorkerState.CLAIMED)
+            self.conn.execute(
+                """
+                UPDATE claims
+                SET clone_url=?, state=?, claimed_at=?, updated_at=?
+                WHERE source=? AND opportunity_id=?
+                """,
+                (clone_url, WorkerState.CLAIMED.value, observed, observed, source, opportunity_id),
+            )
+            self.conn.commit()
+            return
 
         active = self.get_active_claims()
         if active:
             raise RuntimeError("maximum active claims reached")
 
         self.conn.execute(
-            "INSERT INTO claims(source,opportunity_id,clone_url,state,claimed_at) VALUES(?,?,?,?,?)",
-            (source, opportunity_id, clone_url, "ACCESSED", claimed_at.isoformat()),
+            """
+            INSERT INTO claims(source,opportunity_id,clone_url,state,claimed_at,reserved_at,updated_at)
+            VALUES(?,?,?,?,?,?,?)
+            """,
+            (source, opportunity_id, clone_url, WorkerState.CLAIMED.value, observed, observed, observed),
+        )
+        self.conn.commit()
+
+    def transition_claim(
+        self,
+        source: str,
+        opportunity_id: str,
+        target: WorkerState,
+        observed_at: datetime,
+        error_code: str | None = None,
+    ) -> None:
+        target = WorkerState(target)
+        row = self.conn.execute(
+            "SELECT state FROM claims WHERE source=? AND opportunity_id=?",
+            (source, opportunity_id),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"claim not found: {source}/{opportunity_id}")
+        current = WorkerState(_LEGACY_STATE_MAP.get(row["state"], row["state"]))
+        assert_transition(current, target)
+        self.conn.execute(
+            """
+            UPDATE claims
+            SET state=?, updated_at=?, last_error_code=?
+            WHERE source=? AND opportunity_id=?
+            """,
+            (target.value, observed_at.isoformat(), error_code, source, opportunity_id),
         )
         self.conn.commit()
 
     def update_claim_state(self, source: str, opportunity_id: str, state: str) -> None:
-        self.conn.execute(
-            "UPDATE claims SET state=? WHERE source=? AND opportunity_id=?",
-            (state, source, opportunity_id),
-        )
-        self.conn.commit()
+        canonical = _LEGACY_STATE_MAP.get(state, state)
+        self.transition_claim(source, opportunity_id, WorkerState(canonical), datetime.utcnow())
 
     def get_active_claims(self) -> list[dict[str, object]]:
+        terminal = tuple(state.value for state in TERMINAL_STATES)
+        placeholders = ",".join("?" for _ in terminal)
         rows = self.conn.execute(
-            "SELECT * FROM claims WHERE state NOT IN ('WON','LOST','FAILED') ORDER BY id ASC"
+            f"SELECT * FROM claims WHERE state NOT IN ({placeholders}) ORDER BY id ASC",
+            terminal,
         ).fetchall()
         return [dict(row) for row in rows]
 
