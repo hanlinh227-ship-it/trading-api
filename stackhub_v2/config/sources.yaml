@@ -1,8 +1,10 @@
 runtime:
   dry_run: true
+  worker_enabled: false
   external_spend_limit_usd: "0"
   scan_interval_seconds: 300
   max_concurrent_tasks: 1
+  max_active_claims: 1
 
 sources:
   taskbounty:
