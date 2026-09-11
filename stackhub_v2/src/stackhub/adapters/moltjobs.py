@@ -39,7 +39,6 @@ def _rows_from_payload(payload: object) -> list[object]:
         return payload
     if not isinstance(payload, dict):
         raise MoltJobsProtocolError("MoltJobs response validation failed", error_code="validation_error")
-
     data = payload.get("data")
     if isinstance(data, list):
         return data
@@ -48,38 +47,28 @@ def _rows_from_payload(payload: object) -> list[object]:
             rows = data.get(key)
             if isinstance(rows, list):
                 return rows
-
     for key in ("jobs", "items", "results"):
         rows = payload.get(key)
         if isinstance(rows, list):
             return rows
-
     raise MoltJobsProtocolError("MoltJobs response validation failed", error_code="validation_error")
 
 
 class MoltJobsAdapter:
     source_name = "moltjobs"
 
-    def __init__(
-        self,
-        config: SourceConfig,
-        *,
-        api_key: str | None,
-        client: httpx.AsyncClient | None = None,
-    ):
+    def __init__(self, config: SourceConfig, *, api_key: str | None, client: httpx.AsyncClient | None = None):
         self.config = config
         self.capabilities = config.capabilities
         self.api_key = api_key.strip() if api_key else None
         self._owned_client = client is None
-        self.client = client or httpx.AsyncClient(timeout=config.request_timeout_seconds)
+        self.client = client or httpx.AsyncClient(timeout=config.request_timeout_seconds, follow_redirects=True)
 
     def _headers(self) -> dict[str, str]:
         if not self.api_key:
             raise MoltJobsProtocolError("MoltJobs API key required", error_code="auth_required")
-        return {
-            "Accept": "application/json",
-            "X-Api-Key": self.api_key,
-        }
+        # Current MoltJobs public REST quickstart documents Authorization: Bearer.
+        return {"Accept": "application/json", "Authorization": f"Bearer {self.api_key}"}
 
     async def discover(self, limit: int = 50) -> list[Opportunity]:
         limit = max(1, min(int(limit), 100))
@@ -103,7 +92,6 @@ class MoltJobsAdapter:
             raise MoltJobsProtocolError("MoltJobs protocol error", error_code="protocol_error") from exc
 
         rows = _rows_from_payload(payload)
-
         items: list[Opportunity] = []
         for row in rows:
             if not isinstance(row, dict) or not row.get("id"):
@@ -115,21 +103,22 @@ class MoltJobsAdapter:
                 raise MoltJobsProtocolError("MoltJobs reward validation failed", error_code="validation_error") from exc
             category = str(row.get("vertical") or row.get("category") or "other").strip().lower()
             job_id = str(row["id"])
-            items.append(
-                Opportunity(
-                    id=job_id,
-                    source=self.source_name,
-                    url=str(row.get("url") or f"https://moltjobs.io/open-jobs/{job_id}"),
-                    category=category,
-                    reward=Reward(amount=amount, asset="USDC", network="Base"),
-                    deadline=row.get("deadline"),
-                    requirements=_tuple_text(row.get("requirements")),
-                    acceptance_criteria=_tuple_text(row.get("acceptanceCriteria")),
-                    competition_model="bid",
-                    agent_allowed=True,
-                    estimated_effort_minutes=row.get("estimatedEffortMinutes"),
-                )
-            )
+            requirements = list(_tuple_text(row.get("requirements")))
+            if row.get("description"):
+                requirements.append(str(row["description"]))
+            items.append(Opportunity(
+                id=job_id,
+                source=self.source_name,
+                url=str(row.get("url") or f"https://moltjobs.io/open-jobs/{job_id}"),
+                category=category,
+                reward=Reward(amount=amount, asset="USDC", network="Base"),
+                deadline=row.get("deadline"),
+                requirements=tuple(requirements),
+                acceptance_criteria=_tuple_text(row.get("acceptanceCriteria")),
+                competition_model="bid",
+                agent_allowed=True,
+                estimated_effort_minutes=row.get("estimatedEffortMinutes"),
+            ))
         return items
 
     fetch_open = discover
