@@ -19,27 +19,17 @@ class AgentRuntimeContractTests(unittest.TestCase):
         for rel in required:
             self.assertTrue((LIB / rel).is_file(), rel)
 
-    def test_checkpoint_points_to_runtime_control_plane(self):
+    def test_checkpoint_points_to_current_v4_control_plane_and_keeps_v3_compatibility(self):
         checkpoint = json.loads((LIB / "checkpoint.json").read_text(encoding="utf-8"))
-        self.assertEqual(checkpoint["checkpoint_id"], "GITHUB_BRAIN_V3")
-        self.assertEqual(checkpoint["version"], "3.0.0")
-        expected = {
-            "bootstrap_path": "AI_SKILL_LIBRARY/bootstrap.yaml",
-            "kernel_path": "AI_SKILL_LIBRARY/kernel.yaml",
-            "runtime_path": "AI_SKILL_LIBRARY/runtime.yaml",
-            "context_path": "AI_SKILL_LIBRARY/context.yaml",
-            "reliability_path": "AI_SKILL_LIBRARY/reliability.yaml",
-            "evidence_path": "AI_SKILL_LIBRARY/evidence.yaml",
-            "orchestration_path": "AI_SKILL_LIBRARY/orchestration.yaml",
-            "memory_path": "AI_SKILL_LIBRARY/memory.yaml",
-            "evals_path": "AI_SKILL_LIBRARY/evals.yaml",
-            "observability_path": "AI_SKILL_LIBRARY/observability.yaml",
-            "security_path": "AI_SKILL_LIBRARY/security.yaml",
-            "runtime_validator_path": "AI_SKILL_LIBRARY/validate_runtime.py",
-            "v3_validator_path": "AI_SKILL_LIBRARY/validate_v3.py",
-        }
-        for key, value in expected.items():
-            self.assertEqual(checkpoint[key], value)
+        self.assertEqual(checkpoint["checkpoint_id"], "GITHUB_BRAIN_V4")
+        self.assertEqual(checkpoint["version"], "4.0.0")
+        self.assertEqual(checkpoint["release_pointer_path"], "AI_SKILL_LIBRARY/v4/releases/current.json")
+        self.assertEqual(checkpoint["v4_validator_path"], "AI_SKILL_LIBRARY/validate_v4.py")
+        self.assertEqual(checkpoint["projects_path"], "AI_SKILL_LIBRARY/projects.yaml")
+        self.assertEqual(checkpoint["skill_catalog_path"], "AI_SKILL_LIBRARY/skills/catalog.yaml")
+        self.assertEqual(checkpoint["runtime_validator_path"], "AI_SKILL_LIBRARY/validate_runtime.py")
+        self.assertEqual(checkpoint["v3_validator_path"], "AI_SKILL_LIBRARY/validate_v3.py")
+        self.assertIn("GITHUB_BRAIN_V3", checkpoint["activation_aliases"])
         self.assertIn("GITHUB_BRAIN_V2", checkpoint["activation_aliases"])
         self.assertIn("GITHUB_BRAIN_V1", checkpoint["activation_aliases"])
 
