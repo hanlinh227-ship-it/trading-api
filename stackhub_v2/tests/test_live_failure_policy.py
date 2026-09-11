@@ -1,5 +1,6 @@
 import inspect
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -80,3 +81,35 @@ def test_live_runtime_uses_bounded_global_concurrency_four():
     cfg = load_runtime_config(config_path)
     assert cfg.max_concurrent_tasks == 4
     assert cfg.max_active_claims == 4
+
+
+@pytest.mark.asyncio
+async def test_pending_award_does_not_prevent_filling_other_worker_slots():
+    from stackhub.orchestrator import RevenueOrchestrator
+
+    class Repo:
+        def __init__(self):
+            self.reserve_calls = 0
+
+        def get_active_claims(self):
+            return [{
+                "state": WorkerState.PENDING_AWARD.value,
+                "source": "taskforce",
+                "opportunity_id": "pending-1",
+                "clone_url": "app-1",
+            }]
+
+        def reserve_next_opportunity(self, *_args):
+            self.reserve_calls += 1
+            return None
+
+    class Adapter:
+        async def poll_award(self, opportunity_id, external_reference):
+            return SimpleNamespace(status="PENDING", workspace_reference=external_reference)
+
+    repo = Repo()
+    orchestrator = RevenueOrchestrator(repo, {"taskforce": Adapter()}, {}, max_active_claims=4)
+    result = await orchestrator.run_batch()
+
+    assert result[0]["state"] == "PENDING_AWARD"
+    assert repo.reserve_calls > 0
