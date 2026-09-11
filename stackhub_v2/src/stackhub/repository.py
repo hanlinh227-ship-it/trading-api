@@ -62,6 +62,17 @@ class StackHubRepository:
         self._ensure_column("submissions", "submitted_at", "TEXT")
         for legacy_state, canonical_state in _LEGACY_STATE_MAP.items():
             self.conn.execute("UPDATE claims SET state=? WHERE state=?", (canonical_state, legacy_state))
+        self.conn.execute(
+            """UPDATE claims
+            SET state=?
+            WHERE state=?
+              AND source='taskforce'
+              AND (
+                  last_error_code LIKE 'task_not_accepting_applications%'
+                  OR last_error_code LIKE 'task_full%'
+              )""",
+            (WorkerState.FAILED_RETRYABLE.value, WorkerState.FAILED_PERMANENT.value),
+        )
         self.conn.commit()
 
     def _ensure_column(self, table: str, column: str, ddl: str) -> None:
