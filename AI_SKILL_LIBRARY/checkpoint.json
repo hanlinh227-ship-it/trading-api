@@ -1,12 +1,15 @@
 {
-  "checkpoint_id": "GITHUB_BRAIN_V1",
-  "version": "1.0.0",
+  "checkpoint_id": "GITHUB_BRAIN_V2",
+  "version": "2.0.0",
   "canonical_repo": "hanlinh227-ship-it/trading-api",
   "canonical_branch": "main",
-  "checkpoint_path": "AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md",
+  "checkpoint_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md",
+  "router_path": "AI_SKILL_LIBRARY/router.yaml",
+  "plugins_path": "AI_SKILL_LIBRARY/plugins.yaml",
   "registry_path": "AI_SKILL_LIBRARY/sources.yaml",
-  "validator_path": "AI_SKILL_LIBRARY/validate_registry.py",
-  "activation_key": "GITHUB_BRAIN_V1",
-  "mode": "github-first",
+  "validator_path": "AI_SKILL_LIBRARY/validate_brain.py",
+  "activation_key": "GITHUB_BRAIN_V2",
+  "activation_aliases": ["GITHUB_BRAIN_V1"],
+  "mode": "github-first-routed",
   "fallback": "continue_from_last_known_context_and_disclose_refresh_failure"
 }

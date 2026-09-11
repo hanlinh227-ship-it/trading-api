@@ -20,18 +20,23 @@ def load_validator():
 class IntegrationContractTests(unittest.TestCase):
     def test_checkpoint_manifest_points_to_canonical_checkpoint(self):
         manifest = json.loads((LIB / 'checkpoint.json').read_text(encoding='utf-8'))
-        self.assertEqual(manifest['checkpoint_id'], 'GITHUB_BRAIN_V1')
+        self.assertEqual(manifest['checkpoint_id'], 'GITHUB_BRAIN_V2')
         self.assertEqual(manifest['canonical_repo'], 'hanlinh227-ship-it/trading-api')
         self.assertEqual(manifest['canonical_branch'], 'main')
+        self.assertIn('GITHUB_BRAIN_V1', manifest['activation_aliases'])
+        self.assertEqual(manifest['router_path'], 'AI_SKILL_LIBRARY/router.yaml')
+        self.assertEqual(manifest['plugins_path'], 'AI_SKILL_LIBRARY/plugins.yaml')
         checkpoint = ROOT / manifest['checkpoint_path']
         self.assertTrue(checkpoint.is_file())
         text = checkpoint.read_text(encoding='utf-8')
         self.assertIn('GitHub-first', text)
+        self.assertIn('router.yaml', text)
         self.assertIn('sources.yaml', text)
 
     def test_ci_workflow_checks_validator_tests_and_dry_run(self):
         workflow = (ROOT / '.github/workflows/ai-skill-library-ci.yml').read_text(encoding='utf-8')
         self.assertIn('validate_registry.py', workflow)
+        self.assertIn('validate_brain.py', workflow)
         self.assertIn('unittest', workflow)
         self.assertIn('--dry-run', workflow)
         self.assertIn('py_compile', workflow)

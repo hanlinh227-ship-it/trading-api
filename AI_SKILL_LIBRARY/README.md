@@ -1,54 +1,105 @@
-# AI Skill Library
+# AI Skill Library — GITHUB_BRAIN_V2
 
-Kho nguồn mở dùng làm corpus cho AI cá nhân, tách biệt khỏi code production của `trading-api`.
+`GITHUB_BRAIN_V2` is the repository-level routed skill layer for ChatGPT, Claude, Codex, and other repo-aware agents.
 
-## Mục tiêu
+It does **not** fine-tune a model. It provides a deterministic bootstrap, skill router, project-authority registry, plugin capability map, and license-aware knowledge source registry.
 
-- Game development
-- UX/UI & design systems
-- Prompt engineering
-- Script/screenwriting/story structure
-- Coding & software agents
-- Trading: Forex, Crypto, Futures, Index/Equities
-- Software architecture & application development
+## Bootstrap
 
-## Cách tích hợp
+Canonical order:
 
-Không vendor/copy toàn bộ upstream vào GitHub này. `sources.yaml` là registry nguồn chuẩn; `ingest_sources.py` shallow-clone vào thư mục cache cục bộ rồi xuất corpus JSONL có metadata nguồn, commit và license.
+1. `AI_SKILL_LIBRARY/checkpoint.json`
+2. `AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md`
+3. `AI_SKILL_LIBRARY/CORE_PROTOCOL.md`
+4. `AI_SKILL_LIBRARY/router.yaml`
+5. selected skill files only
+6. current project authority only when the selected route requires it
+7. relevant `sources.yaml` categories and optional `plugins.yaml` capabilities
+8. critical review and verification
 
-Pipeline đề xuất:
+The stable activation key is `GITHUB_BRAIN_V2`. `GITHUB_BRAIN_V1` remains a compatibility alias and routes to V2.
 
-`GitHub sources -> license gate -> shallow clone -> file filter -> chunk -> JSONL -> RAG/vector DB hoặc fine-tune pipeline`
+## Why routing exists
 
-## Nguyên tắc license
+The repository contains unrelated domains and historical project material. Loading everything at once causes context contamination and competing instructions. V2 therefore routes first and loads the smallest relevant context.
 
-1. Chỉ auto-ingest các repo có license được whitelist trong `LICENSE_POLICY.md`.
-2. Không coi "public repo" là tự động được phép huấn luyện/redistribute.
-3. Repo có mixed assets, model weights, datasets hoặc third-party content chỉ ingest phần code/docs thuộc license đã xác minh.
-4. Nguồn public-domain theo từng tác phẩm (ví dụ GITenberg) cần kiểm tra từng item trước khi bật.
-5. Giữ metadata `source_url`, `commit`, `license`, `path` trong mọi chunk để truy vết/attribution.
+Default domain budget: **one primary skill + at most two supporting domain skills**. `critical_thinking` and `verification` are cross-cutting layers and do not count toward this budget.
 
-## Chạy
+Trading state is never a global preload.
+
+## Skill families
+
+V2 initially routes across:
+
+- core reasoning, research, critique, planning and verification;
+- coding, architecture, debugging/TDD, GitHub/API/database/security, deployment, Cloudflare, Android, web and automation;
+- crypto, forex, futures, indices, market microstructure, technical analysis, risk/execution, quant/backtesting and MT5/MQL5;
+- game design/development, Godot/Unity/web games, game AI, level design and optimization;
+- graphic design, UX/UI, product design, branding, typography, color/layout and product photography;
+- 3D modeling, topology, UV/texturing, materials, lighting, rigging/animation/rendering and Blender;
+- Photoshop, Illustrator, Premiere Pro, After Effects, Lightroom, Audition, InDesign and Acrobat workflows;
+- prompt engineering, image/video prompting, negative constraints, prompt debugging, continuity/camera/storyboard and generative-media workflows;
+- screenwriting, voice-over, advertising copy, hooks/retention, storytelling, children's content, YouTube/social scripts;
+- academic/literature/methodology/qualitative/quantitative/interdisciplinary/citation review;
+- spreadsheets, charts, reports, DOCX/PDF/slides/presentations;
+- marketing, content strategy, product marketing, campaigns, customer research, pitching, business analysis and remote-work evaluation.
+
+Closely related leaf capabilities are exposed as aliases under focused skill files to keep the library compact and avoid contradictory duplicate instructions.
+
+## Plugins are not skills
+
+`plugins.yaml` maps optional capabilities. Current mappings include Figma, Product Design, Runway, to3D, Scite, Massive, Binance and Superpowers.
+
+A missing optional plugin must not break the route. The agent should fall back to available tools/source reasoning and disclose material limitations.
+
+## Project authority
+
+`router.yaml` defines exactly one `CURRENT_AUTHORITY` for each registered project scope. Historical snapshots cannot override it.
+
+For Trading, authority is loaded only after a Trading route is selected. External repositories/plugins are references or data sources, never proof of profitability or execution authority.
+
+## Knowledge sources and licensing
+
+`sources.yaml` is knowledge-only. It is separate from behavioral skills.
+
+Policy for new sources:
+
+- default retrieval: enabled when license/provenance permit;
+- default training: **disabled**;
+- future training/fine-tune dataset use requires explicit approval;
+- manual/per-item/unclear rights remain disabled until reviewed;
+- provenance is preserved;
+- third-party repositories are never executed merely for ingestion.
+
+Existing V1 sources retain their explicit approved flags during migration.
+
+## Adding a new skill
+
+To extend V2 without redesigning the architecture:
+
+1. Add one focused Markdown skill file under `AI_SKILL_LIBRARY/skills/<family>/`.
+2. Register one unique skill ID in `router.yaml`.
+3. Add aliases/triggers/exclusions/requirements/conflicts/priority.
+4. Add optional plugin capabilities or source categories only if needed.
+5. Add or update tests.
+6. Run `validate_brain.py` and CI.
+
+Do not create another global checkpoint merely to add a domain.
+
+## Validation
 
 ```bash
-cd AI_SKILL_LIBRARY
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
-python ingest_sources.py --category trading --output ./corpus/trading.jsonl
-python ingest_sources.py --category ux_ui --output ./corpus/ux_ui.jsonl
-python ingest_sources.py --all --output ./corpus/all.jsonl
+python -m py_compile AI_SKILL_LIBRARY/ingest_sources.py AI_SKILL_LIBRARY/validate_registry.py AI_SKILL_LIBRARY/validate_brain.py
+python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
+python AI_SKILL_LIBRARY/validate_registry.py
+python AI_SKILL_LIBRARY/validate_brain.py
+python AI_SKILL_LIBRARY/ingest_sources.py --all --dry-run --output /tmp/ai-skill-library.jsonl
 ```
 
-Mặc định script chỉ tải source vào `.cache/repos/`, không cài dependency, không chạy build script và không execute code từ upstream.
+CI also performs a non-executing upstream repository audit.
 
-## Dùng cho AI
+## New chats
 
-- **RAG**: ưu tiên trước; ít rủi ro license hơn và cập nhật upstream dễ.
-- **Fine-tune/SFT**: chỉ dùng entries có `training: true`, giữ provenance và tuân thủ attribution/copyright tương ứng.
-- **Trading**: corpus là nguồn kỹ thuật/nghiên cứu, không phải tín hiệu giao dịch hay cam kết lợi nhuận.
+Persistent ChatGPT/project instructions can point to `GITHUB_BRAIN_V2`. In a repo-aware chat, the first substantive task should refresh the checkpoint and pass through the router.
 
-## Trạng thái
-
-Đây là whitelist v1 chất lượng cao, không phải tuyên bố bao phủ "toàn bộ GitHub". GitHub có hàng trăm triệu repo và license thay đổi; registry được thiết kế để mở rộng có kiểm soát thay vì ingest mù.
+GitHub cannot itself force a ChatGPT surface that does not expose GitHub access to perform a fresh repository read. In that case, the protocol requires explicit disclosure and fallback to last-known context rather than pretending a refresh occurred.

@@ -1,0 +1,38 @@
+version: 1
+policy:
+  optional_by_default: true
+  missing_plugin_behavior: degrade_gracefully
+  plugins_are_tools_not_skills: true
+plugins:
+  - capability: ux_ui_design
+    provider: Figma
+    optional: true
+    use_for: [ux_ui, design_system, prototype_review, design_to_code]
+  - capability: product_design
+    provider: Product Design
+    optional: true
+    use_for: [product_flow, prototype, user_journey, design_audit]
+  - capability: video_generation
+    provider: Runway
+    optional: true
+    use_for: [image_to_video, text_to_video, video_editing, multishot, upscale]
+  - capability: two_d_to_three_d
+    provider: to3D
+    optional: true
+    use_for: [image_to_gltf, asset_blockout, simple_3d_conversion]
+  - capability: scientific_evidence
+    provider: Scite
+    optional: true
+    use_for: [paper_search, citation_context, evidence_check, literature_review]
+  - capability: multi_asset_market_data
+    provider: Massive
+    optional: true
+    use_for: [stocks, forex, futures, indices, options, crypto, technical_indicators]
+  - capability: crypto_market_data
+    provider: Binance
+    optional: true
+    use_for: [crypto_spot, crypto_futures, orderbook, trades, klines]
+  - capability: software_development_workflow
+    provider: Superpowers
+    optional: true
+    use_for: [brainstorming, planning, tdd, debugging, review, verification]

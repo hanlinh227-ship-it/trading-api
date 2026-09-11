@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate AI Skill Library registry, checkpoint, and optional upstream state."""
+"""Validate AI Skill Library source registry and optional upstream state."""
 from __future__ import annotations
 
 import argparse
@@ -84,6 +84,7 @@ def validate_registry_data(data: dict) -> tuple[list[str], list[str]]:
 
 
 def validate_checkpoint() -> tuple[list[str], list[str]]:
+    """Keep source-validator compatibility checks small; V2 structure is validated by validate_brain.py."""
     errors: list[str] = []
     warnings: list[str] = []
     try:
@@ -94,7 +95,7 @@ def validate_checkpoint() -> tuple[list[str], list[str]]:
         return [f'checkpoint.json invalid JSON: {exc}'], warnings
 
     expected = {
-        'checkpoint_id': 'GITHUB_BRAIN_V1',
+        'checkpoint_id': 'GITHUB_BRAIN_V2',
         'canonical_repo': 'hanlinh227-ship-it/trading-api',
         'canonical_branch': 'main',
         'registry_path': 'AI_SKILL_LIBRARY/sources.yaml',
@@ -116,8 +117,8 @@ def validate_checkpoint() -> tuple[list[str], list[str]]:
                 errors.append(f'checkpoint target is missing: {cp_path}')
             else:
                 text = resolved.read_text(encoding='utf-8')
-                if 'GitHub-first' not in text or 'sources.yaml' not in text:
-                    errors.append('checkpoint target must define GitHub-first routing and sources.yaml')
+                if 'GitHub-first' not in text or 'router.yaml' not in text or 'sources.yaml' not in text:
+                    errors.append('checkpoint target must define GitHub-first routing, router.yaml and sources.yaml')
     return errors, warnings
 
 

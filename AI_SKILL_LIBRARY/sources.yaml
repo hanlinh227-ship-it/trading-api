@@ -1,9 +1,11 @@
 version: 1
 policy:
   default_rag: true
-  default_training: true
+  default_training: false
+  default_usage_tier: RAG_ONLY
   require_license: true
   preserve_provenance: true
+  new_sources_require_explicit_training_approval: true
 
 sources:
   # GAME DEVELOPMENT
