@@ -78,5 +78,5 @@ routes:
   - {id: business_marketing, intent: marketing, pitch, or business analysis, primary: marketing_business, supporting: [critical_thinking]}
 
 authorities:
-  - {scope: ai_brain, status: CURRENT_AUTHORITY, path: AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md}
+  - {scope: ai_brain, status: CURRENT_AUTHORITY, path: AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md}
   - {scope: trading, status: CURRENT_AUTHORITY, path: docs/checkpoints/CURRENT_HANDOFF.md, follows: docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md}
