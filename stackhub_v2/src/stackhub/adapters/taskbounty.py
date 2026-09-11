@@ -10,10 +10,18 @@ from stackhub.models import Opportunity, Reward
 
 
 class TaskBountyProtocolError(RuntimeError):
-    def __init__(self, message: str, *, status_code: int | None = None, error_code: str | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        error_code: str | None = None,
+        retry_after_seconds: int | None = None,
+    ):
         super().__init__(message)
         self.status_code = status_code
         self.error_code = error_code
+        self.retry_after_seconds = retry_after_seconds
 
 
 class _Task(BaseModel):
@@ -32,6 +40,17 @@ class _Envelope(BaseModel):
 
 
 _EFFORT = {"small": 30, "medium": 60, "large": 120}
+
+
+def _retry_after_seconds(response: httpx.Response) -> int | None:
+    raw = response.headers.get("Retry-After")
+    if raw is None:
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return max(value, 0)
 
 
 class TaskBountyAdapter:
@@ -56,7 +75,12 @@ class TaskBountyAdapter:
         except httpx.HTTPStatusError as exc:
             code = exc.response.status_code
             error = "rate_limited" if code == 429 else f"http_{code}"
-            raise TaskBountyProtocolError(str(exc), status_code=code, error_code=error) from exc
+            raise TaskBountyProtocolError(
+                str(exc),
+                status_code=code,
+                error_code=error,
+                retry_after_seconds=_retry_after_seconds(exc.response) if code == 429 else None,
+            ) from exc
         except (httpx.HTTPError, ValueError, ValidationError) as exc:
             raise TaskBountyProtocolError(str(exc), error_code="protocol_error") from exc
 
