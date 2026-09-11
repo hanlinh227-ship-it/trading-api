@@ -25,7 +25,7 @@ def build_status(repo) -> RuntimeStatus:
 
     opportunities = count("SELECT COUNT(*) FROM opportunities")
     active_claims = count(
-        "SELECT COUNT(*) FROM claims WHERE state NOT IN ('PAID','FAILED_PERMANENT','EXPIRED','REJECTED')"
+        "SELECT COUNT(*) FROM claims WHERE state NOT IN ('PAID','FAILED_PERMANENT','FAILED_RETRYABLE','EXPIRED','REJECTED')"
     )
     awaiting_submission = count(
         "SELECT COUNT(*) FROM claims WHERE state='VERIFIED'"
