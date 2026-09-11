@@ -52,7 +52,8 @@ def _matches_any(text: str, patterns: tuple[str, ...]) -> bool:
 
 def evaluate_opportunity(opportunity: Opportunity, runtime: RuntimeConfig) -> PolicyDecision:
     reasons: list[str] = []
-    if runtime.opportunity_allowlist and opportunity.id not in runtime.opportunity_allowlist:
+    opportunity_allowlist = tuple(getattr(runtime, "opportunity_allowlist", ()) or ())
+    if opportunity_allowlist and opportunity.id not in opportunity_allowlist:
         reasons.append("not_in_runtime_opportunity_allowlist")
     if opportunity.agent_allowed is not True:
         reasons.append("agent_permission_unknown" if opportunity.agent_allowed is None else "agent_permission_forbidden")
