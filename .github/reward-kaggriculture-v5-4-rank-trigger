@@ -1,2 +1,2 @@
-run=v5.8-main-canonical-live-money-recovery-002
-reason=submit-new-live-sha-after-predecessor-complete-no-time-cooldown
+run=v5.9-main-canonical-live-cash-gap-defense-001
+reason=fix-comeback-cash-pressure-and-escalating-live-deficit-defense
