@@ -1,0 +1,67 @@
+name: Bybit MultiCoin 5m Scalp RR V4
+
+on:
+  push:
+    paths:
+      - 'research/bybit_multicoin_scalp_rr_v4.py'
+      - 'research/bybit_multicoin_scalp_rr_v4_ci.py'
+      - '.github/workflows/bybit-multicoin-scalp-rr-v4.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: bybit-multicoin-scalp-rr-v4-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 18
+      matrix:
+        symbol:
+          - BTCUSDT
+          - ETHUSDT
+          - BNBUSDT
+          - XRPUSDT
+          - SOLUSDT
+          - TRXUSDT
+          - DOGEUSDT
+          - ADAUSDT
+          - LINKUSDT
+          - AVAXUSDT
+          - LTCUSDT
+          - BCHUSDT
+          - XLMUSDT
+          - DOTUSDT
+          - NEARUSDT
+          - UNIUSDT
+          - AAVEUSDT
+          - HBARUSDT
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run fixed-RR 5m scalp calibration
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          SYMBOL='${{ matrix.symbol }}'
+          python3 research/bybit_multicoin_scalp_rr_v4_ci.py \
+            --symbols "$SYMBOL" \
+            --out "research/results/${SYMBOL}-scalp-v4.json" \
+            2>&1 | tee "research/results/${SYMBOL}-scalp-v4.txt"
+      - name: Upload V4 symbol report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bybit-${{ matrix.symbol }}-scalp-rr-v4
+          path: |
+            research/results/${{ matrix.symbol }}-scalp-v4.json
+            research/results/${{ matrix.symbol }}-scalp-v4.txt
+          retention-days: 30
