@@ -20,7 +20,7 @@ def load_brain_validator():
     return module
 
 
-class BrainV2ContractTests(unittest.TestCase):
+class BrainCompatibilityContractTests(unittest.TestCase):
     def test_router_has_unique_skills_and_existing_paths(self):
         router = yaml.safe_load((LIB / 'router.yaml').read_text(encoding='utf-8'))
         self.assertEqual(router['version'], 2)
@@ -53,18 +53,14 @@ class BrainV2ContractTests(unittest.TestCase):
     def test_plugins_registry_contains_declared_capabilities(self):
         plugins = yaml.safe_load((LIB / 'plugins.yaml').read_text(encoding='utf-8'))
         capabilities = {p['capability'] for p in plugins['plugins']}
-        for capability in {
-            'ux_ui_design', 'product_design', 'video_generation', 'two_d_to_three_d',
-            'scientific_evidence', 'multi_asset_market_data', 'crypto_market_data',
-            'software_development_workflow',
-        }:
+        for capability in {'ux_ui_design', 'product_design', 'video_generation', 'two_d_to_three_d', 'scientific_evidence', 'multi_asset_market_data', 'crypto_market_data', 'software_development_workflow'}:
             self.assertIn(capability, capabilities)
 
-    def test_validator_rejects_multiple_current_authorities(self):
+    def test_validator_rejects_multiple_current_authorities_for_legacy_v2_input(self):
         validator = load_brain_validator()
         manifest = {
             'checkpoint_id': 'GITHUB_BRAIN_V2',
-            'version': '2.0.0',
+            'version': '2.4.0',
             'checkpoint_path': 'AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md',
             'router_path': 'AI_SKILL_LIBRARY/router.yaml',
             'plugins_path': 'AI_SKILL_LIBRARY/plugins.yaml',
@@ -72,14 +68,8 @@ class BrainV2ContractTests(unittest.TestCase):
         }
         router = {
             'version': 2,
-            'defaults': {
-                'max_domain_skills': 3,
-                'route_every_request': True,
-                'preload_all_skills': False,
-                'preload_trading_state': False,
-            },
-            'skills': [],
-            'routes': [],
+            'defaults': {'max_domain_skills': 3, 'route_every_request': True, 'mandatory_skill': 'task_router', 'adaptive_runtime': True, 'default_runtime_profile': 'FAST', 'preload_all_skills': False, 'preload_trading_state': False},
+            'skills': [], 'routes': [],
             'authorities': [
                 {'scope': 'trading', 'status': 'CURRENT_AUTHORITY', 'path': 'a.md'},
                 {'scope': 'trading', 'status': 'CURRENT_AUTHORITY', 'path': 'b.md'},
@@ -102,10 +92,11 @@ class BrainV2ContractTests(unittest.TestCase):
         errors, warnings = validator.validate_brain_data(manifest, broken, plugins, root=ROOT)
         self.assertTrue(any('missing required skill' in e.lower() for e in errors), (errors, warnings))
 
-    def test_v1_activation_alias_is_kept(self):
+    def test_v1_v2_activation_aliases_are_kept_under_v3(self):
         manifest = json.loads((LIB / 'checkpoint.json').read_text(encoding='utf-8'))
+        self.assertEqual(manifest['activation_key'], 'GITHUB_BRAIN_V3')
+        self.assertIn('GITHUB_BRAIN_V2', manifest['activation_aliases'])
         self.assertIn('GITHUB_BRAIN_V1', manifest['activation_aliases'])
-        self.assertEqual(manifest['activation_key'], 'GITHUB_BRAIN_V2')
 
 
 if __name__ == '__main__':

@@ -1,69 +1,60 @@
-# CORE_PROTOCOL — GITHUB_BRAIN_V2 Adaptive Runtime
+# CORE_PROTOCOL — GITHUB_BRAIN_V3
 
-## 1. Mandatory control flow
-Every request enters `task_router`, then selects one runtime profile before loading project/domain state.
+## 1. Mandatory execution model
+Every request enters `task_router`, selects exactly one runtime profile, and follows the smallest valid path.
 
-- FAST: `task_router -> minimal core -> answer`
-- STANDARD: `task_router -> runtime profile -> authority if relevant -> skills -> bounded memory -> sources/tools -> execute -> verify -> answer`
-- DEEP: `task_router -> runtime profile -> authority -> scoped memory -> planner -> skills -> sources/tools -> security -> execute -> critic -> verify -> eval/trace -> bounded replan -> answer`
+FAST: `request -> task_router -> minimal core -> answer`
 
-A control-plane stage is not a domain skill and does not consume the one-primary/two-supporting skill budget.
+STANDARD: `request -> task_router -> profile -> kernel context plan -> project authority if relevant -> primary skill -> max 2 supporting skills -> bounded memory/sources/tools -> execute -> verify -> answer`
 
-## 2. Route and profile before context
-Classify intent, consequence, freshness needs, mutation level, and tool needs before loading context. Use FAST for simple low-risk work. Escalate only when the task requires it. Never preload all skills, all memory, all project state, or all tools.
+DEEP: `request -> task_router -> profile -> kernel context plan -> authority -> scoped memory -> planner -> dependency graph -> skills -> sources/tools -> security gate -> execute -> dependency join -> critic -> verify -> eval/trace -> bounded replan if needed -> answer`
+
+Control-plane layers do not consume domain skill budget.
+
+## 2. Context discipline
+Use `context.yaml`. Rank current authority/runtime state, task relevance, freshness, evidence quality, then context cost. Deduplicate repeated reads. Cache only within a work cycle and invalidate on authority/checkpoint/source change, explicit refresh, live/current requests, mutation, or deploy. Cache never outranks fresher authority.
 
 ## 3. Evidence hierarchy
-Use this precedence unless a stricter project policy applies:
-1. Current verified runtime/source state.
-2. Current project authority/checkpoint from `projects.yaml`.
-3. Fresh first-party or authoritative external data/docs.
-4. Approved GitHub reference sources.
-5. Scoped verified memory.
-6. Model background knowledge.
+1. Current verified project/runtime state.
+2. Current project authority/checkpoint.
+3. Fresh first-party/primary evidence.
+4. Approved reference sources.
+5. Model background knowledge.
 
-Historical checkpoints and old memory never override current authority merely because their filename/version looks newer.
+Historical checkpoints never override current authority by filename/version alone.
 
-## 4. Memory discipline
-Retrieve before durable write. Use working memory for current task state; episodic for verified outcomes/failures; semantic for stable verified facts/rules; procedural for reusable verified workflows. Respect profile retrieval budgets. Durable memory must be scoped, sourced, confidence-tagged, timestamped, and supersedable. Never durably store excluded sensitive categories from `memory.yaml`.
+## 4. Evidence ledger
+Use `evidence.yaml` for material claims. Preserve provenance/freshness/verification status, distinguish fact/inference/assumption, surface conflicting evidence, and resolve or disclose material conflicts. Never persist hidden chain-of-thought.
 
-## 5. Fact, inference, assumption
-Keep observed facts, reasoned inferences, and assumptions distinct. Do not present inference as measured fact. Verify material uncertainty when verification is available.
+## 5. Reliability
+Use bounded retries only for transient failures; never retry permission/policy/high-impact uncertainty blindly. Circuit-break repeated failures. Degraded operation must be disclosed. Recovery cannot widen permissions or fabricate freshness.
 
-## 6. Freshness
-For changing information, prefer fresh data and record material staleness. Never fabricate live data, runtime state, account state, deployment state, or a fresh GitHub read. Freshness requirements may escalate STANDARD/DEEP.
+## 6. Orchestration
+Use dependency-aware task graphs only when subtasks are independent or dependencies are explicit. Parallelize independent reads/research/validation when useful. Do not parallelize conflicting/dependent/high-impact writes, credentials, or financial execution. Serial fallback is mandatory.
 
-## 7. Planning and critique
-Planner and critic are DEEP-only by default. Planner defines testable steps and acceptance criteria; executor carries them out; critic searches for contradictory evidence, hidden assumptions, missed constraints, and better alternatives; verifier decides completion from evidence. Replanning is capped by `runtime.yaml`.
+## 7. Project authority
+Exactly one current authority per project. Load project state only after routing. Current project/runtime state outranks memory and external examples.
 
-## 8. Learning and evals
-Verified failures and material user corrections may become candidate regression evals. Root-cause classification and reproduction come before policy/skill changes when possible. Compare proposed changes against baseline and protected dimensions. Never auto-merge a self-improvement patch without the gates in `evals.yaml`.
+## 8. Tools and capabilities
+Select only registered skills/tools. One primary plus max two supporting domain skills by default. Plugins/tools improve evidence/execution and are never reasoning authority. Optional tool failure degrades gracefully.
 
-## 9. Tool discipline
-Plugins/tools improve evidence or execution; they do not define reasoning authority. Discover only a bounded number of relevant tool candidates. Missing optional tools must degrade gracefully. Tool success does not itself authorize a side effect.
+## 9. Memory
+Working/episodic/semantic/procedural memory stays scoped and bounded. Durable memory excludes secrets, credentials, private keys, account data, sensitive personal data, raw private chat, authentication tokens, and unreviewed runtime state. Current verified authority outranks memory.
 
-## 10. Security discipline
-Classify side effects using `security.yaml` before consequential actions. Apply least privilege. Read-only is low risk; reversible writes require scope; destructive, financial, and credential-sensitive actions require the applicable explicit authorization/project gates. Never exfiltrate secrets, reveal private keys, log credentials, fabricate authorization, or bypass hard risk controls.
+## 10. Security
+Least privilege. Destructive/financial/credential-sensitive actions require DEEP and the configured permission/security gate. Hard blocks against secret exfiltration/private-key disclosure remain. Recovery never bypasses security or hard risk controls.
 
-## 11. Observability discipline
-Record bounded diagnostic summaries only when the selected profile/policy calls for them. Allowed trace content is route/profile selection, concise decision summaries, evidence references, tool outcomes, verification results, failure categories, and replans. Never persist hidden chain-of-thought. Redact sensitive material before trace/eval storage.
+## 11. Trading
+Trading authority remains `docs/checkpoints/CURRENT_HANDOFF.md` following `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md`. Do not weaken hard risk controls, fabricate prices/account state, or infer LIVE from source code. Live claims require runtime verification.
 
-## 12. Project-state discipline
-Exactly one CURRENT/ACTIVE authority per project scope. Load it only after routing/profile selection identifies that project. Historical state can support audits but cannot issue current operational instructions.
+## 12. Engineering
+Inspect current state; define acceptance criteria; use RED-GREEN behavior changes where applicable; run relevant tests/validators; inspect diff/CI; verify before merge/completion claims.
 
-## 13. Engineering discipline
-For implementation work: inspect current state, define acceptance criteria, use test-first behavior changes when applicable, confirm RED, implement minimum GREEN, run tests/validators, inspect diff/CI, and verify before merge/completion claims. Brain/protocol changes use DEEP profile.
+## 13. Learning/evals
+Verified failures/material corrections may create candidate regression evals. Self-improvement requires tests, baseline comparison, security, authority, and CI gates. Automatic self-improvement merge is forbidden.
 
-## 14. Trading discipline
-Trading authority is project-specific and requires DEEP profile for live/operational work. Do not weaken hard risk/protection gates, fabricate prices/account state, infer execution authority from external research, or call a commit LIVE. Live-data tasks require source/freshness validation; live deployment claims require runtime verification.
+## 14. Observability
+Persist bounded diagnostic summaries only: route/profile, evidence refs, tool outcomes, verification, failures/replans. FAST has no persistent trace by default. Hidden reasoning is never persisted.
 
-## 15. Creative/media discipline
-Preserve explicit constraints such as character/object count, identity consistency, camera direction, scene continuity, aspect ratio, product geometry, and no-unrequested-elements rules. Choose only the media/design context/tools relevant to the request.
-
-## 16. Research discipline
-Prefer primary/peer-reviewed sources for academic claims when available. Check whether evidence actually supports the claim. Evidence tools do not substitute for reasoning.
-
-## 17. Source/license discipline
-`sources.yaml` is a knowledge registry only. Default training is false. Respect usage tiers and provenance. Separately review datasets, weights, assets, fonts, screenshots, media, secrets, personal data, and account data.
-
-## 18. Completion standard
-A task is complete only when the requested artifact/action exists and fresh material verification passes. Report failed/skipped checks or unavailable integrations explicitly. Do not infer completion from a commit, trace, or agent self-report alone.
+## 15. Completion standard
+A task is complete only when the requested artifact/action exists and fresh material verification passes. Report failed/skipped gates explicitly. A commit alone is not proof of runtime success.

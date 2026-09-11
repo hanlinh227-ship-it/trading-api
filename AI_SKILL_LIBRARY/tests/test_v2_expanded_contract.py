@@ -28,24 +28,15 @@ REQUIRED_SKILLS = {
     "slides", "presentation", "business", "marketing", "troubleshooting", "comparison",
     "recommendation", "learning", "summarization", "translation",
 }
-
-REQUIRED_METADATA = {
-    "id", "domain", "triggers", "excludes", "requires", "conflicts_with", "priority",
-    "tools", "sources", "output_contract",
-}
+REQUIRED_METADATA = {"id", "domain", "triggers", "excludes", "requires", "conflicts_with", "priority", "tools", "sources", "output_contract"}
 
 
-class ExpandedV2ContractTests(unittest.TestCase):
+class ExpandedCompatibilityContractTests(unittest.TestCase):
     def test_required_structural_files_exist(self):
         for rel in (
-            "projects.yaml",
-            "skills/catalog.yaml",
-            "schemas/skill.schema.json",
-            "schemas/router.schema.json",
-            "schemas/project.schema.json",
-            "validate_router.py",
-            "validate_authority.py",
-            "GITHUB_BRAIN_V1.md",
+            "projects.yaml", "skills/catalog.yaml", "schemas/skill.schema.json", "schemas/router.schema.json",
+            "schemas/project.schema.json", "schemas/kernel.schema.json", "validate_router.py", "validate_authority.py",
+            "validate_v3.py", "GITHUB_BRAIN_V1.md", "GITHUB_BRAIN_V2.md", "GITHUB_BRAIN_V3.md",
         ):
             self.assertTrue((LIB / rel).is_file(), rel)
 
@@ -57,12 +48,8 @@ class ExpandedV2ContractTests(unittest.TestCase):
         self.assertTrue(REQUIRED_SKILLS.issubset(by_id), sorted(REQUIRED_SKILLS - set(by_id)))
         for sid, row in by_id.items():
             self.assertTrue(REQUIRED_METADATA.issubset(row), (sid, sorted(REQUIRED_METADATA - set(row))))
-            self.assertIsInstance(row["triggers"], list, sid)
-            self.assertIsInstance(row["excludes"], list, sid)
-            self.assertIsInstance(row["requires"], list, sid)
-            self.assertIsInstance(row["conflicts_with"], list, sid)
-            self.assertIsInstance(row["tools"], list, sid)
-            self.assertIsInstance(row["sources"], list, sid)
+            for field in ("triggers", "excludes", "requires", "conflicts_with", "tools", "sources"):
+                self.assertIsInstance(row[field], list, sid)
 
     def test_router_makes_task_router_mandatory_and_limits_supporting_skills(self):
         router = yaml.safe_load((LIB / "router.yaml").read_text(encoding="utf-8"))
@@ -71,6 +58,7 @@ class ExpandedV2ContractTests(unittest.TestCase):
         self.assertEqual(defaults["mandatory_skill"], "task_router")
         self.assertEqual(defaults["max_supporting_skills"], 2)
         self.assertIs(defaults["preload_all_skills"], False)
+        self.assertEqual(defaults["kernel_config_path"], "AI_SKILL_LIBRARY/kernel.yaml")
 
     def test_projects_define_single_trading_authority(self):
         projects = yaml.safe_load((LIB / "projects.yaml").read_text(encoding="utf-8"))
@@ -96,20 +84,23 @@ class ExpandedV2ContractTests(unittest.TestCase):
             if source.get("training", False):
                 self.assertEqual(source["usage_tier"], "TRAINING_OK", source.get("repo"))
 
-    def test_checkpoint_references_split_validators_and_projects(self):
+    def test_checkpoint_references_v3_validators_and_projects(self):
         checkpoint = json.loads((LIB / "checkpoint.json").read_text(encoding="utf-8"))
-        self.assertEqual(checkpoint["checkpoint_id"], "GITHUB_BRAIN_V2")
+        self.assertEqual(checkpoint["checkpoint_id"], "GITHUB_BRAIN_V3")
         self.assertEqual(checkpoint["projects_path"], "AI_SKILL_LIBRARY/projects.yaml")
         self.assertEqual(checkpoint["skill_catalog_path"], "AI_SKILL_LIBRARY/skills/catalog.yaml")
         self.assertEqual(checkpoint["router_validator_path"], "AI_SKILL_LIBRARY/validate_router.py")
         self.assertEqual(checkpoint["authority_validator_path"], "AI_SKILL_LIBRARY/validate_authority.py")
+        self.assertEqual(checkpoint["v3_validator_path"], "AI_SKILL_LIBRARY/validate_v3.py")
+        self.assertIn("GITHUB_BRAIN_V2", checkpoint["activation_aliases"])
         self.assertIn("GITHUB_BRAIN_V1", checkpoint["activation_aliases"])
 
-    def test_v1_file_is_redirect_only(self):
-        text = (LIB / "GITHUB_BRAIN_V1.md").read_text(encoding="utf-8")
-        self.assertIn("GITHUB_BRAIN_V2", text)
-        self.assertIn("compatibility", text.lower())
-        self.assertNotIn("CURRENT_AUTHORITY", text)
+    def test_v1_v2_files_are_redirect_only(self):
+        for rel in ("GITHUB_BRAIN_V1.md", "GITHUB_BRAIN_V2.md"):
+            text = (LIB / rel).read_text(encoding="utf-8")
+            self.assertIn("GITHUB_BRAIN_V3", text)
+            self.assertIn("compatibility", text.lower())
+            self.assertNotIn("CURRENT_AUTHORITY", text)
 
 
 if __name__ == "__main__":

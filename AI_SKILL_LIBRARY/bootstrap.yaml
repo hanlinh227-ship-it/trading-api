@@ -1,12 +1,14 @@
-version: 1
-checkpoint_id: GITHUB_BRAIN_V2
-protocol_version: 2.4.0
+version: 2
+checkpoint_id: GITHUB_BRAIN_V3
+protocol_version: 3.0.0
 mandatory_router: task_router
 default_profile: FAST
+kernel: AI_SKILL_LIBRARY/kernel.yaml
 
 paths:
-  brain: AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md
+  brain: AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md
   core_protocol: AI_SKILL_LIBRARY/CORE_PROTOCOL.md
+  kernel: AI_SKILL_LIBRARY/kernel.yaml
   router: AI_SKILL_LIBRARY/router.yaml
   runtime: AI_SKILL_LIBRARY/runtime.yaml
   context: AI_SKILL_LIBRARY/context.yaml
@@ -21,6 +23,7 @@ paths:
   evals: AI_SKILL_LIBRARY/evals.yaml
   observability: AI_SKILL_LIBRARY/observability.yaml
   security: AI_SKILL_LIBRARY/security.yaml
+  migration: AI_SKILL_LIBRARY/migration.yaml
 
 lazy_load:
   full_skill_catalog: true
@@ -57,32 +60,6 @@ fast_path:
     - credential_sensitive_action
     - material_evidence_conflict
     - dependency_graph_required
-
-context_scheduler:
-  enabled: true
-  config: AI_SKILL_LIBRARY/context.yaml
-  work_cycle_cache: true
-  deduplicate: true
-  freshness_invalidation: true
-
-reliability:
-  config: AI_SKILL_LIBRARY/reliability.yaml
-  bounded_retry: true
-  circuit_breaker: true
-  degraded_state_disclosure: true
-
-evidence:
-  config: AI_SKILL_LIBRARY/evidence.yaml
-  provenance_ledger: true
-  hidden_reasoning_persistence: false
-  material_conflict_escalation: true
-
-orchestration:
-  config: AI_SKILL_LIBRARY/orchestration.yaml
-  task_graph: true
-  bounded_parallelism: true
-  dependency_aware: true
-  serial_fallback: true
 
 refresh_triggers:
   - new_chat_or_work_cycle

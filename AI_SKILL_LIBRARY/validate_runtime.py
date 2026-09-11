@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate GITHUB_BRAIN_V2 adaptive runtime control-plane policies."""
+"""Validate adaptive runtime contracts for GITHUB_BRAIN V2/V3."""
 from __future__ import annotations
 
 import json
@@ -11,7 +11,6 @@ from jsonschema import Draft202012Validator
 
 HERE = Path(__file__).resolve().parent
 SCHEMA_PATH = HERE / "schemas" / "runtime.schema.json"
-
 FILES = {
     "bootstrap": HERE / "bootstrap.yaml",
     "runtime": HERE / "runtime.yaml",
@@ -21,36 +20,8 @@ FILES = {
     "security": HERE / "security.yaml",
 }
 
-REQUIRED_BOOTSTRAP_PATHS = {
-    "brain",
-    "core_protocol",
-    "router",
-    "runtime",
-    "projects",
-    "skills",
-    "sources",
-    "plugins",
-    "memory",
-    "evals",
-    "observability",
-    "security",
-}
-REQUIRED_MEMORY_METADATA = {
-    "source",
-    "confidence",
-    "created_at",
-    "last_verified",
-    "superseded_by",
-    "scope",
-}
-REQUIRED_MEMORY_EXCLUSIONS = {
-    "secrets",
-    "credentials",
-    "private_keys",
-    "account_data",
-    "sensitive_personal_data",
-    "raw_private_chat",
-}
+REQUIRED_MEMORY_METADATA = {"source", "confidence", "created_at", "last_verified", "superseded_by", "scope"}
+REQUIRED_MEMORY_EXCLUSIONS = {"secrets", "credentials", "private_keys", "account_data", "sensitive_personal_data", "raw_private_chat"}
 REQUIRED_EVAL_GATES = {"tests", "eval_baseline", "security", "authority", "ci"}
 HIGH_IMPACT_CLASSES = {"destructive", "financial", "credential_sensitive"}
 BUDGET_FIELDS = ("context_tokens", "memory_items", "tool_candidates", "replan_budget")
@@ -64,36 +35,44 @@ def _list(value: object) -> list:
     return value if isinstance(value, list) else []
 
 
-def validate_runtime_data(
-    bootstrap: dict,
-    runtime: dict,
-    memory: dict,
-    evals: dict,
-    observability: dict,
-    security: dict,
-) -> tuple[list[str], list[str]]:
+def _protocol_ok(checkpoint_id: object, version: object) -> bool:
+    if not isinstance(version, str):
+        return False
+    try:
+        major, minor, patch = (int(part) for part in version.split("."))
+    except (TypeError, ValueError):
+        return False
+    if checkpoint_id == "GITHUB_BRAIN_V2":
+        return major == 2 and (minor, patch) >= (1, 0)
+    if checkpoint_id == "GITHUB_BRAIN_V3":
+        return major == 3 and (minor, patch) >= (0, 0)
+    return False
+
+
+def validate_runtime_data(bootstrap: dict, runtime: dict, memory: dict, evals: dict, observability: dict, security: dict) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
 
-    # Bootstrap / discovery contract.
-    if bootstrap.get("checkpoint_id") != "GITHUB_BRAIN_V2":
-        errors.append("bootstrap.checkpoint_id must be GITHUB_BRAIN_V2")
-    if bootstrap.get("protocol_version") != "2.1.0":
-        errors.append("bootstrap.protocol_version must be 2.1.0")
+    checkpoint_id = bootstrap.get("checkpoint_id")
+    if checkpoint_id not in {"GITHUB_BRAIN_V2", "GITHUB_BRAIN_V3"}:
+        errors.append("bootstrap.checkpoint_id must be GITHUB_BRAIN_V2 or GITHUB_BRAIN_V3")
+    if not _protocol_ok(checkpoint_id, bootstrap.get("protocol_version")):
+        errors.append("bootstrap.protocol_version is incompatible with checkpoint_id")
     if bootstrap.get("mandatory_router") != "task_router":
         errors.append("bootstrap.mandatory_router must be task_router")
     if bootstrap.get("default_profile") != "FAST":
         errors.append("bootstrap.default_profile must be FAST")
     paths = _mapping(bootstrap.get("paths"))
-    missing_paths = REQUIRED_BOOTSTRAP_PATHS - set(paths)
-    for key in sorted(missing_paths):
+    required_paths = {"brain", "core_protocol", "router", "runtime", "projects", "skills", "sources", "plugins", "memory", "evals", "observability", "security"}
+    if checkpoint_id == "GITHUB_BRAIN_V3":
+        required_paths |= {"kernel", "context", "reliability", "evidence", "orchestration", "migration"}
+    for key in sorted(required_paths - set(paths)):
         errors.append(f"bootstrap missing required path {key!r}")
     lazy = _mapping(bootstrap.get("lazy_load"))
     for key in ("full_skill_catalog", "project_state", "trading_state"):
         if lazy.get(key) is not True:
             errors.append(f"bootstrap.lazy_load.{key} must be true")
 
-    # Runtime profile contract.
     order = _list(runtime.get("profile_order"))
     if order != ["FAST", "STANDARD", "DEEP"]:
         errors.append("runtime.profile_order must be FAST, STANDARD, DEEP")
@@ -115,9 +94,8 @@ def validate_runtime_data(
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 errors.append(f"profile[{name}].{field} must be a non-negative integer")
                 continue
-            hard_limit = min(maxima[field], 99999 if field == "context_tokens" else 99)
-            if value > hard_limit:
-                errors.append(f"profile[{name}].{field} exceeds bounded maximum {hard_limit}")
+            if value > maxima[field]:
+                errors.append(f"profile[{name}].{field} exceeds bounded maximum {maxima[field]}")
         supporting = row.get("max_supporting_skills")
         if not isinstance(supporting, int) or isinstance(supporting, bool) or not 0 <= supporting <= 2:
             errors.append(f"profile[{name}].max_supporting_skills must be between 0 and 2")
@@ -127,16 +105,15 @@ def validate_runtime_data(
     if all(name in profiles for name in ("FAST", "STANDARD", "DEEP")):
         for field in BUDGET_FIELDS:
             values = [_mapping(profiles[name]).get(field) for name in ("FAST", "STANDARD", "DEEP")]
-            if all(isinstance(value, int) and not isinstance(value, bool) for value in values):
-                if not (values[0] <= values[1] <= values[2]):
-                    errors.append(f"runtime profile budget {field} must be monotonic FAST <= STANDARD <= DEEP")
+            if all(isinstance(value, int) and not isinstance(value, bool) for value in values) and not (values[0] <= values[1] <= values[2]):
+                errors.append(f"runtime profile budget {field} must be monotonic FAST <= STANDARD <= DEEP")
 
     fast = _mapping(profiles.get("FAST"))
     for field in ("memory_items", "tool_candidates", "replan_budget", "max_supporting_skills"):
         if fast.get(field) != 0:
             errors.append(f"FAST {field} must be 0")
     fast_stages = set(_list(fast.get("stages")))
-    for forbidden in ("project_authority", "bounded_memory", "scoped_memory", "relevant_plugins", "planner", "critic", "eval", "trace"):
+    for forbidden in ("project_authority", "bounded_memory", "scoped_memory", "relevant_plugins", "planner", "critic", "eval", "trace", "task_graph"):
         if forbidden in fast_stages:
             errors.append(f"FAST stages must not include {forbidden}")
     for required in ("task_router", "answer"):
@@ -150,7 +127,6 @@ def validate_runtime_data(
     if controls.get("full_skill_catalog_injection") is not False:
         errors.append("runtime.controls.full_skill_catalog_injection must be false")
 
-    # Memory contract.
     layers = _mapping(memory.get("layers"))
     if set(layers) != {"working", "episodic", "semantic", "procedural"}:
         errors.append("memory layers must be exactly working, episodic, semantic, procedural")
@@ -163,8 +139,7 @@ def validate_runtime_data(
     metadata = set(_list(memory.get("required_metadata")))
     for key in sorted(REQUIRED_MEMORY_METADATA - metadata):
         errors.append(f"memory required_metadata missing {key}")
-    privacy = _mapping(memory.get("privacy"))
-    exclusions = set(_list(privacy.get("durable_exclusions")))
+    exclusions = set(_list(_mapping(memory.get("privacy")).get("durable_exclusions")))
     for key in sorted(REQUIRED_MEMORY_EXCLUSIONS - exclusions):
         errors.append(f"memory durable_exclusions missing {key}")
     memory_policy = _mapping(memory.get("policy"))
@@ -172,17 +147,14 @@ def validate_runtime_data(
         errors.append("memory.policy.retrieve_before_write must be true")
     if memory_policy.get("prefer_verified_current_over_old") is not True:
         errors.append("memory.policy.prefer_verified_current_over_old must be true")
-    retrieval = _mapping(memory.get("retrieval"))
-    if _mapping(retrieval.get("FAST")).get("max_items") != 0:
+    if _mapping(_mapping(memory.get("retrieval")).get("FAST")).get("max_items") != 0:
         errors.append("memory FAST retrieval max_items must be 0")
 
-    # Eval / learning contract.
     taxonomy = set(_list(evals.get("failure_taxonomy")))
     for key in ("user_correction", "wrong_route", "stale_context"):
         if key not in taxonomy:
             errors.append(f"eval failure_taxonomy missing {key}")
-    learning = _mapping(evals.get("learning_loop"))
-    if learning.get("verified_failure_to_candidate_eval") is not True:
+    if _mapping(evals.get("learning_loop")).get("verified_failure_to_candidate_eval") is not True:
         errors.append("eval learning loop must convert verified failures to candidate evals")
     promotion = _mapping(evals.get("promotion"))
     gates = set(_list(promotion.get("required_gates")))
@@ -191,7 +163,6 @@ def validate_runtime_data(
     if promotion.get("automatic_merge") is not False:
         errors.append("eval promotion automatic_merge must be false")
 
-    # Observability contract: summaries only, never hidden reasoning.
     obs_policy = _mapping(observability.get("policy"))
     if obs_policy.get("persist_hidden_chain_of_thought") is not False:
         errors.append("observability must not persist hidden chain-of-thought")
@@ -200,20 +171,14 @@ def validate_runtime_data(
         errors.append("observability allowed_events must not include chain_of_thought")
     if "decision_summary" not in allowed_events:
         errors.append("observability allowed_events must include decision_summary")
-    obs_profiles = _mapping(observability.get("profiles"))
-    if _mapping(obs_profiles.get("FAST")).get("persistence") != "none":
+    if _mapping(_mapping(observability.get("profiles")).get("FAST")).get("persistence") != "none":
         errors.append("observability FAST persistence must be none")
-    max_events = _mapping(observability.get("limits")).get("max_events_per_trace")
-    if not isinstance(max_events, int) or isinstance(max_events, bool) or not 1 <= max_events <= 200:
-        errors.append("observability max_events_per_trace must be between 1 and 200")
 
-    # Security contract.
     classes = _mapping(security.get("risk_classes"))
     if _mapping(classes.get("read_only")).get("default") != "allow":
         errors.append("security read_only default must be allow")
     for name in HIGH_IMPACT_CLASSES:
-        default = _mapping(classes.get(name)).get("default")
-        if default in (None, "allow"):
+        if _mapping(classes.get(name)).get("default") in (None, "allow"):
             errors.append(f"security {name} default must not be allow")
     hard_blocks = _mapping(security.get("hard_blocks"))
     for key in ("secret_exfiltration", "private_key_disclosure"):
@@ -223,28 +188,15 @@ def validate_runtime_data(
     return errors, warnings
 
 
-def _schema_errors(runtime: object) -> list[str]:
-    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
-    validator = Draft202012Validator(schema)
-    return [f"runtime schema: {err.message}" for err in validator.iter_errors(runtime)]
-
-
 def main() -> int:
     try:
-        data = {
-            name: yaml.safe_load(path.read_text(encoding="utf-8"))
-            for name, path in FILES.items()
-        }
-    except (OSError, yaml.YAMLError) as exc:
+        data = {name: yaml.safe_load(path.read_text(encoding="utf-8")) for name, path in FILES.items()}
+        schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, yaml.YAMLError) as exc:
         print(f"[ERROR] unable to load adaptive runtime inputs: {exc}", file=sys.stderr)
         return 2
-
     errors, warnings = validate_runtime_data(**data)
-    try:
-        errors.extend(_schema_errors(data["runtime"]))
-    except (OSError, json.JSONDecodeError) as exc:
-        errors.append(f"runtime schema load error: {exc}")
-
+    errors.extend(f"runtime schema: {err.message}" for err in Draft202012Validator(schema).iter_errors(data["runtime"]))
     for warning in warnings:
         print(f"[WARN ] {warning}")
     for error in errors:

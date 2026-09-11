@@ -1,0 +1,33 @@
+version: 1
+current: 3.0.0
+authority: AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md
+compatibility_aliases: [GITHUB_BRAIN_V2, GITHUB_BRAIN_V1]
+
+milestones:
+  - version: 2.1.0
+    name: adaptive_runtime
+    status: historical
+    added: [FAST_STANDARD_DEEP, bounded_memory, eval_learning, observability, security]
+  - version: 2.2.0
+    name: context_scheduler
+    status: historical
+    added: [context_ranking, work_cycle_cache, deduplication, freshness_invalidation]
+  - version: 2.3.0
+    name: reliability_evidence
+    status: historical
+    added: [bounded_retry, circuit_breaker, provenance_ledger, conflict_resolution, uncertainty_escalation]
+  - version: 2.4.0
+    name: task_graph_orchestration
+    status: historical
+    added: [dependency_graph, bounded_parallelism, serial_fallback, orchestration_budgets]
+  - version: 3.0.0
+    name: unified_kernel
+    status: current
+    added: [single_v3_authority, kernel_control_plane, capability_negotiation, recovery_state_machine, global_invariants, compatibility_redirects]
+
+promotion_policy:
+  sequential_history_required: true
+  no_competing_authority: true
+  compatibility_files_redirect_only: true
+  preserve_project_runtime_authority: true
+  trading_authority_must_not_change: true
