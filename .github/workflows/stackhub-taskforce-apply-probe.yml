@@ -1,0 +1,95 @@
+name: STACKHUB TaskForce Apply Probe
+
+on:
+  push:
+    branches: ['stackhub-v2-autonomous-bounty']
+    paths:
+      - '.github/workflows/stackhub-taskforce-apply-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apply-once:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEPLOY_ENABLED: ${{ secrets.STACKHUB_DEPLOY_ENABLED }}
+      VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
+      VPS_USER: ${{ secrets.STACKHUB_VPS_USER }}
+      VPS_PORT: ${{ secrets.STACKHUB_VPS_PORT }}
+      VPS_SSH_KEY_B64: ${{ secrets.STACKHUB_VPS_SSH_KEY_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${DEPLOY_ENABLED:-}" = "true"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s' "$VPS_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_stackhub
+          chmod 600 ~/.ssh/id_stackhub
+          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Apply once to exact validation task and print safe response
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          sudo -n true
+          sudo systemctl stop stackhub-v2-canary.service || true
+          set -a
+          . /etc/stackhub/stackhub.env
+          set +a
+          test -n "${TASKFORCE_API_KEY:-}" || { echo 'TaskForce key missing'; exit 1; }
+          /opt/stackhub/.venv/bin/python - <<'PY'
+          import asyncio, json, os
+          import httpx
+
+          BASE='https://task-force.app'
+          TASK='cmnjgb45s000104jgotxw8gki'
+          HEAD={
+              'X-API-Key': os.environ['TASKFORCE_API_KEY'],
+              'Accept':'application/json',
+              'Content-Type':'application/json',
+          }
+
+          async def main():
+              async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+                  r=await client.post(
+                      f'{BASE}/api/agent/tasks/{TASK}/apply',
+                      headers=HEAD,
+                      json={'message':'I can handle this task efficiently.'},
+                  )
+                  try:
+                      data=r.json()
+                  except Exception:
+                      data={'content_type':r.headers.get('content-type'),'body_preview':r.text[:300]}
+                  safe={'http':r.status_code}
+                  if isinstance(data,dict):
+                      safe['error']=data.get('error')
+                      safe['code']=data.get('code')
+                      app=data.get('application')
+                      if isinstance(app,dict):
+                          safe['application']={k:app.get(k) for k in ('id','taskId','status') if k in app}
+                      if safe.get('error') is None and safe.get('application') is None:
+                          safe['response_keys']=sorted(data.keys())
+                  else:
+                      safe['body_kind']=type(data).__name__
+                  print(json.dumps(safe,sort_keys=True,default=str))
+                  if r.status_code not in (200,201,400,409):
+                      raise SystemExit(f'unexpected HTTP {r.status_code}')
+          asyncio.run(main())
+          PY
+          REMOTE
+
+      - name: Cleanup runner SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_stackhub
