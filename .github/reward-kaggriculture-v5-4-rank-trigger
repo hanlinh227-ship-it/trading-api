@@ -1,2 +1,2 @@
-run=v5.7-agro-economic-001
-reason=canonical-rich-economy-runtime-green-use-every-failure-to-improve-crop-herd-price-production-coordination
+run=v5.7-main-canonical-conflict-free-001
+reason=single-main-writer-isolated-memory-deduped-next-round-preserve-learning-history
