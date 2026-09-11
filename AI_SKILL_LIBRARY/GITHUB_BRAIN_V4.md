@@ -1,6 +1,6 @@
 # GITHUB_BRAIN_V4 LTS
 
-Canonical AI-brain authority for `hanlinh227-ship-it/trading-api`.
+Canonical **GitHub-first** AI-brain authority for `hanlinh227-ship-it/trading-api`.
 
 ## Discovery
 
@@ -10,6 +10,7 @@ Canonical AI-brain authority for `hanlinh227-ship-it/trading-api`.
 4. Route every request through V4 Stable `task_router` and exactly one FAST/STANDARD/DEEP profile.
 5. Load one primary Knowledge Mesh domain and only explicitly permitted bridges.
 6. Load project authority only when the routed domain requires it. Trading authority remains external to Brain at `docs/checkpoints/CURRENT_HANDOFF.md`.
+7. Use `AI_SKILL_LIBRARY/sources.yaml` as the bounded source registry; source registry entries never outrank current project/runtime authority.
 
 ## Two planes
 
