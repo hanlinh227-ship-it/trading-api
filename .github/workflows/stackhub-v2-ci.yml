@@ -1,0 +1,37 @@
+name: STACKHUB V2 CI
+
+on:
+  push:
+    branches: ['stackhub-v2-*']
+    paths:
+      - 'stackhub_v2/**'
+      - '.github/workflows/stackhub-v2-ci.yml'
+  pull_request:
+    paths:
+      - 'stackhub_v2/**'
+      - '.github/workflows/stackhub-v2-ci.yml'
+      - 'docs/superpowers/specs/2026-09-11-stackhub-v2-autonomous-bounty-design.md'
+      - 'docs/superpowers/plans/2026-09-11-stackhub-v2-foundation-taskbounty-readonly.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: stackhub_v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: python -m pip install -e '.[test]'
+      - name: Compile
+        run: python -m compileall -q src
+      - name: Tests
+        run: python -m pytest -q
