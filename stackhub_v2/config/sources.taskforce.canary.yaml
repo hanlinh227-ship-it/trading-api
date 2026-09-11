@@ -6,7 +6,7 @@ runtime:
   max_concurrent_tasks: 1
   max_active_claims: 1
   opportunity_allowlist:
-    - "cmn67bp7x0001jmullewz0dvy"
+    - "cmnjgb45s000104jgotxw8gki"
   worker_pools:
     scouts: 1
     code_fix: 1
