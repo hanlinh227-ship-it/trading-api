@@ -8,8 +8,8 @@ Branch: `github-brain-v2-expanded`
 
 Upgrade the current GitHub-first knowledge layer from `GITHUB_BRAIN_V1` to a modular `GITHUB_BRAIN_V2` that:
 
-- routes every substantive new request through a lightweight intent router;
-- activates only the relevant skills for that request;
+- routes every user request through a lightweight skill router;
+- activates only the additional skills relevant to that request;
 - supports many more domains without cross-domain contamination;
 - keeps project/runtime state authoritative over generic knowledge;
 - separates behavioral skills, knowledge sources, tools/plugins, and project state;
@@ -22,7 +22,7 @@ Upgrade the current GitHub-first knowledge layer from `GITHUB_BRAIN_V1` to a mod
 - Do not fine-tune a model as part of this migration.
 - Do not execute third-party repositories merely to ingest knowledge.
 - Do not dump private chat history or secrets into this public repository.
-- Do not force every request to load every skill or every source.
+- Do not force every request to load every domain skill or every source.
 - Do not weaken trading safety/risk/runtime controls.
 - Do not delete historical files until reference/authority analysis shows they are superseded and unreferenced.
 
@@ -30,14 +30,14 @@ Upgrade the current GitHub-first knowledge layer from `GITHUB_BRAIN_V1` to a mod
 
 Default reasoning path:
 
-`request -> bootstrap -> intent router -> project-state authority -> primary skill -> supporting skills -> relevant sources -> relevant tools/plugins -> critical review -> execute -> verify -> answer`
+`request -> task_router skill -> bootstrap -> intent classification -> project-state authority -> primary domain skill -> supporting skills -> relevant sources -> relevant tools/plugins -> critical review -> execute -> verify -> answer`
 
 Rules:
 
-1. Every substantive request passes through the router.
-2. Router may return `NO_SPECIAL_SKILL` for trivial/general requests.
-3. Default maximum active domain skills per request: 3.
-4. One skill is primary; at most two are supporting unless an explicit workflow requires more.
+1. Every user request activates `task_router`; there is no path that bypasses the skill layer.
+2. A trivial/general request may use only `task_router` plus the minimum core reasoning needed; it does not have to load a domain skill.
+3. Default maximum active domain skills per request: 3. Core router/verification skills do not count against this limit.
+4. One domain skill is primary; at most two are supporting unless an explicit workflow requires more.
 5. Skills must declare `triggers`, `excludes`, `requires`, `conflicts_with`, `priority`, `tools`, `sources`, and `output_contract`.
 6. Project state always outranks external reference material for implementation/state questions.
 7. Live-data domains must pass freshness/source validation before conclusions.
@@ -257,25 +257,29 @@ AI_SKILL_LIBRARY/
 
 ## 6. Router behavior and conflict prevention
 
-Each skill definition must include conflict metadata. Router resolution order:
+`task_router` is mandatory for every request. It determines whether additional domain skills are necessary.
+
+Router resolution order:
 
 1. Detect explicit project context.
 2. Detect required freshness/tooling.
-3. Choose primary domain.
-4. Choose one primary skill.
+3. Classify intent and task type.
+4. Choose one primary domain skill when needed.
 5. Add supporting skills only when they materially improve the task.
-6. Apply conflict rules.
+6. Apply `excludes` and `conflicts_with` rules.
 7. Apply domain-specific authority rules.
 8. Reject duplicate/competing authority loaders.
+9. If no domain skill is required, continue with `task_router` + minimum core reasoning only.
 
 Examples:
 
-- Photoshop request -> `photoshop + graphic_design`; trading excluded.
-- BTC live analysis -> `trading_router + crypto + live_data_validation`; Blender/Adobe excluded.
-- Blender shoe model -> `blender_modeling + design_3d`; `to3D` optional only if useful.
-- Video scene prompt -> `video_prompt + scene_continuity + camera_direction`; coding excluded unless code generation is requested.
-- Android app bug -> `android + debugging + coding`.
-- Academic critique -> `critical_thinking + academic_research + citation_review`.
+- Photoshop request -> `task_router + photoshop + graphic_design`; trading excluded.
+- BTC live analysis -> `task_router + trading_router + crypto + live_data_validation`; Blender/Adobe excluded.
+- Blender shoe model -> `task_router + blender_modeling + design_3d`; `to3D` optional only if useful.
+- Video scene prompt -> `task_router + video_prompt + scene_continuity + camera_direction`; coding excluded unless code generation is requested.
+- Android app bug -> `task_router + android + debugging + coding`.
+- Academic critique -> `task_router + critical_thinking + academic_research + citation_review`.
+- Simple general question -> `task_router` only, unless freshness or specialist knowledge requires another skill.
 
 ## 7. Tool / plugin routing
 
@@ -344,11 +348,11 @@ Likely cleanup candidates include old root version audit/state files, obsolete h
 
 Persistent instruction target:
 
-1. New substantive request arrives.
-2. If GitHub is available, refresh `AI_SKILL_LIBRARY/checkpoint.json`.
+1. Every new request first activates `task_router`.
+2. If GitHub is available, refresh `AI_SKILL_LIBRARY/checkpoint.json` before substantive specialist work.
 3. Load `GITHUB_BRAIN_V2.md`.
 4. Run router classification.
-5. Load only the selected skills and project state.
+5. Load only selected additional skills and project state.
 6. Use relevant sources/plugins/tools.
 7. Run critical review + verification before final answer where appropriate.
 
@@ -357,13 +361,14 @@ Compatibility aliases:
 - `GITHUB_BRAIN_V1` -> redirect to current V2 manifest after migration.
 - `GITHUB_BRAIN_V2` -> canonical activation key.
 
-Important product limitation: repository instructions can guide repo-aware/context-aware sessions, but GitHub alone cannot technically force a platform surface that has no GitHub connector/context to perform a live GitHub read. The fallback rule must remain explicit.
+Important product limitation: repository instructions can guide repo-aware/context-aware sessions, but GitHub alone cannot technically force a platform surface that has no GitHub connector/context to perform a live GitHub read. The persistent ChatGPT instruction should therefore require the router/skill protocol in all chats and require a fresh GitHub read whenever the connector is available. The fallback rule must remain explicit.
 
 ## 12. Validation and CI
 
 Add validators/tests for:
 
 - schema validity;
+- mandatory `task_router` path;
 - skill file existence;
 - router targets;
 - duplicate skill ids;
@@ -382,7 +387,7 @@ CI must fail on structural or authority conflicts before merge.
 ## 13. Migration sequence
 
 1. Introduce V2 manifest/router/protocol/schemas without deleting V1.
-2. Add core skills and router tests.
+2. Add `task_router`, core skills, and router tests.
 3. Add domain skills in grouped batches.
 4. Split plugin/tool registry from source registry.
 5. Add project authority registry.
@@ -413,6 +418,7 @@ The core bootstrap and routing contract should remain stable.
 V2 is ready for activation when all conditions hold:
 
 - checkpoint identifies `GITHUB_BRAIN_V2` as canonical;
+- every request has a mandatory `task_router` path;
 - V1 activation key safely redirects to V2;
 - router selects relevant skills without loading unrelated domains;
 - plugin registry is separated from skill/source registries;
