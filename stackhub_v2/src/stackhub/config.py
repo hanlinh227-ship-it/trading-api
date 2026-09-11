@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .source_capabilities import SourceCapabilities
+
 
 class SourceConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -17,6 +19,7 @@ class SourceConfig(BaseModel):
     read_only: bool
     request_timeout_seconds: int = Field(gt=0)
     min_poll_interval_seconds: int = Field(ge=60)
+    capabilities: SourceCapabilities = Field(default_factory=SourceCapabilities)
 
     @field_validator("base_url")
     @classmethod
@@ -64,15 +67,18 @@ class RuntimeConfig(BaseModel):
         if self.worker_enabled:
             if self.dry_run:
                 raise ValueError("worker_enabled=true requires dry_run=false")
-            if taskbounty is None or not taskbounty.enabled:
-                raise ValueError("TaskBounty must be enabled when worker is enabled")
-            if taskbounty.read_only:
-                raise ValueError("worker_enabled=true requires TaskBounty read_only=false")
+            mutable_sources = [
+                source
+                for source in self.sources.values()
+                if source.enabled and not source.read_only
+            ]
+            if not mutable_sources:
+                raise ValueError("worker_enabled=true requires at least one enabled mutable source")
         else:
             if self.dry_run is not True:
                 raise ValueError("dry_run=false requires worker_enabled=true")
-            if taskbounty is not None and taskbounty.read_only is not True:
-                raise ValueError("TaskBounty must remain read-only when worker is disabled")
+            if any(source.enabled and not source.read_only for source in self.sources.values()):
+                raise ValueError("all enabled sources must remain read-only when worker is disabled")
 
         return self
 
