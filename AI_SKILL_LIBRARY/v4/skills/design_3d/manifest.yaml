@@ -1,0 +1,8 @@
+id: design_3d
+version: 4.0.0
+domain: design_3d
+source: legacy_catalog_adapter
+skills: [design_3d, modeling, topology, uv, materials, lighting, rigging, animation, rendering, blender, design_3d_blender]
+permissions: [read_only]
+risk_ceiling: read_only
+evals: [geometry, topology, rendering]
