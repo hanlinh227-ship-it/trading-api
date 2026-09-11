@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["version", "policy", "domains"],
+  "properties": {
+    "version": {"const": 4},
+    "policy": {"type": "object"},
+    "domains": {"type": "array", "minItems": 10, "items": {"type": "object", "required": ["id", "pack"], "properties": {"id": {"type": "string"}, "pack": {"type": "string"}}, "additionalProperties": true}}
+  },
+  "additionalProperties": false
+}
