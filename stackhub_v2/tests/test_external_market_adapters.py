@@ -18,19 +18,19 @@ def source_config(base_url: str) -> SourceConfig:
 
 
 @pytest.mark.asyncio
-async def test_moltjobs_discovery_normalizes_open_jobs_and_uses_bearer_auth():
+async def test_moltjobs_discovery_normalizes_open_jobs_and_uses_api_key_header():
     from stackhub.adapters.moltjobs import MoltJobsAdapter
 
     seen = []
 
     async def handler(request: httpx.Request):
-        seen.append((request.method, request.url.path, request.headers.get("Authorization")))
+        seen.append((request.method, request.url.path, request.headers.get("X-Api-Key")))
         assert request.url.params["status"] == "OPEN"
         assert request.url.params["limit"] == "25"
         return httpx.Response(
             200,
             json={
-                "jobs": [
+                "data": [
                     {
                         "id": "mj-1",
                         "title": "Clean product catalog",
@@ -39,7 +39,8 @@ async def test_moltjobs_discovery_normalizes_open_jobs_and_uses_bearer_auth():
                         "deadline": "2026-09-20T00:00:00Z",
                         "requirements": ["Return CSV", "No duplicates"],
                     }
-                ]
+                ],
+                "meta": {"nextCursor": None},
             },
         )
 
@@ -52,7 +53,7 @@ async def test_moltjobs_discovery_normalizes_open_jobs_and_uses_bearer_auth():
     items = await adapter.discover(limit=25)
     await client.aclose()
 
-    assert seen == [("GET", "/v1/jobs", "Bearer mj_test_placeholder")]
+    assert seen == [("GET", "/v1/jobs", "mj_test_placeholder")]
     assert len(items) == 1
     item = items[0]
     assert item.id == "mj-1"
@@ -93,7 +94,7 @@ async def test_taskforce_discovery_normalizes_active_tasks_and_uses_api_key():
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     adapter = TaskForceAdapter(
-        source_config("https://task-force.app"),
+        source_config("https://www.task-force.app"),
         api_key="apv_test_placeholder",
         client=client,
     )
