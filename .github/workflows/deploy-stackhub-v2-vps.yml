@@ -1,0 +1,150 @@
+name: Deploy STACKHUB V2 to VPS
+
+on:
+  push:
+    branches: ['stackhub-v2-autonomous-bounty']
+    paths:
+      - 'stackhub_v2/**'
+      - '.github/workflows/deploy-stackhub-v2-vps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: ${{ secrets.STACKHUB_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
+      VPS_USER: ${{ secrets.STACKHUB_VPS_USER }}
+      VPS_PORT: ${{ secrets.STACKHUB_VPS_PORT }}
+      TASKBOUNTY_API_KEY: ${{ secrets.TASKBOUNTY_API_KEY }}
+      GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+      STACKHUB_SOLVER_COMMAND: ${{ secrets.STACKHUB_SOLVER_COMMAND }}
+      STACKHUB_ACTIVATE_LIVE: ${{ secrets.STACKHUB_ACTIVATE_LIVE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required deployment secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${VPS_HOST:-}" || { echo 'Missing STACKHUB_VPS_HOST'; exit 1; }
+          test -n "${VPS_USER:-}" || { echo 'Missing STACKHUB_VPS_USER'; exit 1; }
+          test -n "${{ secrets.STACKHUB_VPS_SSH_KEY }}" || { echo 'Missing STACKHUB_VPS_SSH_KEY'; exit 1; }
+          test -n "${TASKBOUNTY_API_KEY:-}" || { echo 'Missing TASKBOUNTY_API_KEY'; exit 1; }
+          test -n "${STACKHUB_SOLVER_COMMAND:-}" || { echo 'Missing STACKHUB_SOLVER_COMMAND'; exit 1; }
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.STACKHUB_VPS_SSH_KEY }}" > ~/.ssh/id_stackhub
+          chmod 600 ~/.ssh/id_stackhub
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Build protected runtime environment file
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          def env_line(name: str) -> str:
+              value = os.environ.get(name, '')
+              value = value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+              return f'{name}="{value}"\n'
+
+          names = ['TASKBOUNTY_API_KEY', 'STACKHUB_SOLVER_COMMAND']
+          if os.environ.get('GUMROAD_ACCESS_TOKEN'):
+              names.append('GUMROAD_ACCESS_TOKEN')
+          Path('/tmp/stackhub.env').write_text(''.join(env_line(name) for name in names), encoding='utf-8')
+          PY
+          chmod 600 /tmp/stackhub.env
+
+      - name: Upload runtime secret file
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          scp -P "$PORT" -i ~/.ssh/id_stackhub /tmp/stackhub.env "$VPS_USER@$VPS_HOST:/tmp/stackhub.env"
+
+      - name: Provision or update STACKHUB on VPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          sudo -n true
+          command -v git >/dev/null
+          command -v python3 >/dev/null
+
+          if [ ! -d /opt/stackhub/.git ]; then
+            sudo rm -rf /opt/stackhub
+            sudo git clone --branch stackhub-v2-autonomous-bounty --single-branch https://github.com/hanlinh227-ship-it/trading-api.git /opt/stackhub
+          else
+            sudo git -C /opt/stackhub fetch origin stackhub-v2-autonomous-bounty
+            sudo git -C /opt/stackhub checkout stackhub-v2-autonomous-bounty
+            sudo git -C /opt/stackhub reset --hard origin/stackhub-v2-autonomous-bounty
+          fi
+
+          if [ ! -x /opt/stackhub/.venv/bin/python ]; then
+            sudo python3 -m venv /opt/stackhub/.venv
+          fi
+          sudo /opt/stackhub/.venv/bin/python -m pip install --upgrade pip
+          sudo /opt/stackhub/.venv/bin/python -m pip install -e /opt/stackhub/stackhub_v2
+
+          sudo install -d -m 0755 /etc/stackhub /var/lib/stackhub
+          sudo install -m 0600 /tmp/stackhub.env /etc/stackhub/stackhub.env
+          rm -f /tmp/stackhub.env
+
+          if [ ! -f /etc/stackhub/sources.yaml ]; then
+            sudo install -m 0644 /opt/stackhub/stackhub_v2/config/sources.live.example.yaml /etc/stackhub/sources.yaml
+          fi
+
+          sudo install -m 0644 /opt/stackhub/stackhub_v2/deploy/stackhub-v2.service.example /etc/systemd/system/stackhub-v2.service
+          sudo systemctl daemon-reload
+
+          set -a
+          . /etc/stackhub/stackhub.env
+          set +a
+          cd /opt/stackhub/stackhub_v2
+
+          /opt/stackhub/.venv/bin/python -m stackhub.account_doctor
+          /opt/stackhub/.venv/bin/stackhub doctor --config config/sources.yaml
+          /opt/stackhub/.venv/bin/stackhub scan-once --config config/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+          /opt/stackhub/.venv/bin/stackhub status --config config/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+          REMOTE
+
+      - name: Optional first live mutation and 24/7 activation
+        if: ${{ secrets.STACKHUB_ACTIVATE_LIVE == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          set -a
+          . /etc/stackhub/stackhub.env
+          set +a
+          cd /opt/stackhub/stackhub_v2
+          /opt/stackhub/.venv/bin/stackhub orchestrate-once --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+          sudo systemctl enable --now stackhub-v2.service
+          sleep 3
+          sudo systemctl --no-pager --full status stackhub-v2.service
+          /opt/stackhub/.venv/bin/stackhub status --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+          REMOTE
+
+      - name: Cleanup runner secrets
+        if: always()
+        shell: bash
+        run: |
+          rm -f ~/.ssh/id_stackhub /tmp/stackhub.env
