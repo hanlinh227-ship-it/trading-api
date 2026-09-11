@@ -21,7 +21,7 @@ def _config() -> SourceConfig:
 
 
 @pytest.mark.asyncio
-async def test_discovery_uses_current_tasks_endpoint_and_open_state():
+async def test_discovery_uses_live_data_list_envelope_and_open_state():
     seen: list[tuple[str, str, str | None, str | None]] = []
 
     async def handler(request: httpx.Request):
@@ -36,7 +36,7 @@ async def test_discovery_uses_current_tasks_endpoint_and_open_state():
         return httpx.Response(
             200,
             json={
-                "tasks": [
+                "data": [
                     {
                         "id": "tb_live_1",
                         "title": "Fix pagination regression",
@@ -62,3 +62,18 @@ async def test_discovery_uses_current_tasks_endpoint_and_open_state():
     assert items[0].id == "tb_live_1"
     assert items[0].reward.amount == Decimal("40.00")
     assert items[0].competition_model == "best_submission"
+
+
+@pytest.mark.asyncio
+async def test_live_empty_data_list_is_healthy_no_work():
+    async def handler(request: httpx.Request):
+        return httpx.Response(200, json={"data": []})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = TaskBountyAdapter(_config(), client=client, api_key="taskbounty-test-key")
+    try:
+        items = await adapter.discover(limit=100)
+    finally:
+        await client.aclose()
+
+    assert items == []
