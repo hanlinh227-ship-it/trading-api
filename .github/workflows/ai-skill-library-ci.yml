@@ -1,0 +1,44 @@
+name: AI Skill Library CI
+
+on:
+  push:
+    branches: [main, ai-skill-library-v1]
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - '.github/workflows/ai-skill-library-ci.yml'
+      - 'AGENTS.md'
+  pull_request:
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - '.github/workflows/ai-skill-library-ci.yml'
+      - 'AGENTS.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: AI_SKILL_LIBRARY/requirements.txt
+      - name: Install validator dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+      - name: Compile Python
+        run: python -m py_compile AI_SKILL_LIBRARY/ingest_sources.py AI_SKILL_LIBRARY/validate_registry.py
+      - name: Run integration tests
+        run: python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
+      - name: Validate registry and checkpoint
+        run: python AI_SKILL_LIBRARY/validate_registry.py
+      - name: Validate ingest selection without cloning
+        run: python AI_SKILL_LIBRARY/ingest_sources.py --all --dry-run --output /tmp/ai-skill-library.jsonl
+      - name: Audit upstream repositories
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python AI_SKILL_LIBRARY/validate_registry.py --check-remote
