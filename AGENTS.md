@@ -1,40 +1,35 @@
 # AGENTS.md — GITHUB_BRAIN_V2 Entrypoint
 
-This repository uses one routed global AI bootstrap.
+This repository uses one routed global AI bootstrap. Keep this file small; domain behavior belongs in the V2 registries/skills, not here.
 
-## Mandatory bootstrap and routing
-When GitHub access is available, a new chat/substantive work cycle first refreshes:
+## Bootstrap
+When GitHub access is available, refresh:
 1. `AI_SKILL_LIBRARY/checkpoint.json`
 2. `AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md`
 3. `AI_SKILL_LIBRARY/CORE_PROTOCOL.md`
 4. `AI_SKILL_LIBRARY/router.yaml`
 
-After bootstrap, **every user request passes through the lightweight router before domain/project state is loaded**, including ordinary questions. The router may choose `general_problem_solving`; routing does not mean loading every specialist skill.
+Every request then passes through `task_router`. A simple request may need no additional domain skill.
 
-For each request:
-1. classify intent;
-2. select the smallest valid skill set;
-3. load only selected skill files;
-4. load a project `CURRENT_AUTHORITY` only if that domain requires it;
-5. use relevant sources/plugins only when useful;
-6. apply critical review when consequential and verification before completion.
+## Per-request flow
+`request -> task_router -> project authority -> primary skill -> max 2 supporting skills -> relevant sources -> relevant plugins/tools -> critical review -> execute -> verify -> answer`
 
-`GITHUB_BRAIN_V1` is a compatibility activation alias to V2.
+- Skill metadata: `AI_SKILL_LIBRARY/skills/catalog.yaml`
+- Project authority: `AI_SKILL_LIBRARY/projects.yaml`
+- Knowledge sources: `AI_SKILL_LIBRARY/sources.yaml`
+- Optional tools/plugins: `AI_SKILL_LIBRARY/plugins.yaml`
 
-Do not preload every skill or every project checkpoint. In particular, **do not load Trading state for non-Trading tasks**. GitHub `main` source/runtime state is authoritative when documentation lags.
+Load only what the route needs. Do not preload every skill or every project checkpoint. In particular, do not load Trading state for non-Trading work.
 
-## Skill budget
-Default: one primary domain skill plus at most two supporting domain skills. `critical_thinking` and `verification` are cross-cutting review layers.
+`GITHUB_BRAIN_V1` is a compatibility alias to V2 via `AI_SKILL_LIBRARY/GITHUB_BRAIN_V1.md`.
 
-The router covers software/coding, debugging/TDD, platform/deployment, Trading, MT5/MQL5, game development, 2D/UX/product design, 3D/Blender, Adobe media workflows, prompt engineering, image/video generation, scriptwriting, academic research, data/documents, marketing/business, and general problem solving.
+## Authority
+Project/runtime source state outranks generic knowledge. `projects.yaml` permits one CURRENT/ACTIVE authority per project. Historical snapshots never self-promote by filename or version.
 
-## Project authority
-`AI_SKILL_LIBRARY/router.yaml` defines one `CURRENT_AUTHORITY` per registered project scope. Historical snapshots never override it.
+For Trading, only after routing to Trading: load `docs/checkpoints/CURRENT_HANDOFF.md` and the canonical checkpoint it names. Preserve live infrastructure dependencies and hard risk/protection controls. Never fabricate market/account/runtime data and never call a source commit LIVE without runtime verification.
 
-For Trading, load the routed Trading authority and its explicit canonical pointer only after selecting a Trading route. Preserve hard risk/protection invariants, never fabricate market/account data, never expose secrets, and never treat external research as live execution authority.
-
-## Engineering workflow
-For implementation changes, use an isolated branch, behavior-first tests where applicable, root-cause debugging, and fresh verification before merge/completion. One writer at a time when shared state can conflict.
+## Engineering changes
+Use test-first behavior changes where applicable: confirm RED, implement minimum GREEN, run the relevant validators/tests, inspect diff/CI, and verify before merge/completion claims.
 
 ## Fallback
-If GitHub is unavailable, disclose that the V2 checkpoint could not be freshly loaded and use last-known context. Never pretend a fresh GitHub read occurred.
+If GitHub cannot be refreshed, disclose `fresh_git_context=false` and use last-known context. Never pretend a fresh GitHub read occurred.
