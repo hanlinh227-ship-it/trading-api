@@ -1,4 +1,4 @@
-# manual trigger after B64 SSH secret configured
+# deploy safe 24/7 multi-source scanner; live mutation remains separately gated
 name: Deploy STACKHUB V2 to VPS
 
 on:
@@ -24,18 +24,20 @@ jobs:
       VPS_SSH_KEY: ${{ secrets.STACKHUB_VPS_SSH_KEY }}
       VPS_SSH_KEY_B64: ${{ secrets.STACKHUB_VPS_SSH_KEY_B64 }}
       TASKBOUNTY_API_KEY: ${{ secrets.TASKBOUNTY_API_KEY }}
+      MOLTJOBS_API_KEY: ${{ secrets.MOLTJOBS_API_KEY }}
+      TASKFORCE_API_KEY: ${{ secrets.TASKFORCE_API_KEY }}
       GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
       STACKHUB_SOLVER_COMMAND: ${{ secrets.STACKHUB_SOLVER_COMMAND }}
       STACKHUB_ACTIVATE_LIVE: ${{ secrets.STACKHUB_ACTIVATE_LIVE }}
     steps:
       - name: Deployment disabled
         if: env.DEPLOY_ENABLED != 'true'
-        run: echo 'STACKHUB VPS deployment is disabled. Set STACKHUB_DEPLOY_ENABLED=true when VPS secrets are ready.'
+        run: echo 'STACKHUB VPS deployment is disabled.'
 
       - uses: actions/checkout@v4
         if: env.DEPLOY_ENABLED == 'true'
 
-      - name: Validate required deployment secrets
+      - name: Validate deployment inputs
         if: env.DEPLOY_ENABLED == 'true'
         shell: bash
         run: |
@@ -46,8 +48,14 @@ jobs:
             echo 'Missing STACKHUB_VPS_SSH_KEY_B64 or STACKHUB_VPS_SSH_KEY'
             exit 1
           fi
-          test -n "${TASKBOUNTY_API_KEY:-}" || { echo 'Missing TASKBOUNTY_API_KEY'; exit 1; }
-          test -n "${STACKHUB_SOLVER_COMMAND:-}" || { echo 'Missing STACKHUB_SOLVER_COMMAND'; exit 1; }
+          if [ -z "${TASKBOUNTY_API_KEY:-}" ] && [ -z "${MOLTJOBS_API_KEY:-}" ] && [ -z "${TASKFORCE_API_KEY:-}" ]; then
+            echo 'At least one job-source API key is required'
+            exit 1
+          fi
+          if [ "${STACKHUB_ACTIVATE_LIVE:-false}" = "true" ]; then
+            test -n "${STACKHUB_SOLVER_COMMAND:-}" || { echo 'LIVE requires STACKHUB_SOLVER_COMMAND'; exit 1; }
+            [ "$STACKHUB_SOLVER_COMMAND" != "/bin/true" ] || { echo 'LIVE blocked: /bin/true is only a placeholder solver'; exit 1; }
+          fi
 
       - name: Prepare SSH
         if: env.DEPLOY_ENABLED == 'true'
@@ -69,7 +77,7 @@ jobs:
           PY
           fi
           chmod 600 ~/.ssh/id_stackhub
-          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null || { echo 'Configured VPS SSH key is not a valid OpenSSH private key'; exit 1; }
+          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null
           PORT="${VPS_PORT:-22}"
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
@@ -88,9 +96,14 @@ jobs:
               value = value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
               return f'{name}="{value}"\n'
 
-          names = ['TASKBOUNTY_API_KEY', 'STACKHUB_SOLVER_COMMAND']
-          if os.environ.get('GUMROAD_ACCESS_TOKEN'):
-              names.append('GUMROAD_ACCESS_TOKEN')
+          candidates = [
+              'TASKBOUNTY_API_KEY',
+              'MOLTJOBS_API_KEY',
+              'TASKFORCE_API_KEY',
+              'GUMROAD_ACCESS_TOKEN',
+              'STACKHUB_SOLVER_COMMAND',
+          ]
+          names = [name for name in candidates if os.environ.get(name)]
           Path('/tmp/stackhub.env').write_text(''.join(env_line(name) for name in names), encoding='utf-8')
           PY
           chmod 600 /tmp/stackhub.env
@@ -103,7 +116,7 @@ jobs:
           PORT="${VPS_PORT:-22}"
           scp -P "$PORT" -i ~/.ssh/id_stackhub /tmp/stackhub.env "$VPS_USER@$VPS_HOST:/tmp/stackhub.env"
 
-      - name: Provision or update STACKHUB on VPS
+      - name: Provision safe multi-source scanner on VPS
         if: env.DEPLOY_ENABLED == 'true'
         shell: bash
         run: |
@@ -134,10 +147,9 @@ jobs:
           sudo install -m 0600 /tmp/stackhub.env /etc/stackhub/stackhub.env
           rm -f /tmp/stackhub.env
 
-          if [ ! -f /etc/stackhub/sources.yaml ]; then
-            sudo install -m 0644 /opt/stackhub/stackhub_v2/config/sources.live.example.yaml /etc/stackhub/sources.yaml
-          fi
-
+          # Until LIVE mutation is explicitly verified, the persistent service always receives
+          # the checked-in dry-run/read-only multi-source configuration.
+          sudo install -m 0644 /opt/stackhub/stackhub_v2/config/sources.yaml /etc/stackhub/sources.yaml
           sudo install -m 0644 /opt/stackhub/stackhub_v2/deploy/stackhub-v2.service.example /etc/systemd/system/stackhub-v2.service
           sudo systemctl daemon-reload
 
@@ -147,29 +159,24 @@ jobs:
           cd /opt/stackhub/stackhub_v2
 
           /opt/stackhub/.venv/bin/python -m stackhub.account_doctor
-          /opt/stackhub/.venv/bin/stackhub doctor --config config/sources.yaml
-          /opt/stackhub/.venv/bin/stackhub scan-once --config config/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
-          /opt/stackhub/.venv/bin/stackhub status --config config/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+          /opt/stackhub/.venv/bin/stackhub doctor --config /etc/stackhub/sources.yaml
+          /opt/stackhub/.venv/bin/stackhub scan-once --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+          /opt/stackhub/.venv/bin/stackhub status --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+
+          # Run discovery continuously even while mutation/solving remains disabled.
+          sudo systemctl enable stackhub-v2.service
+          sudo systemctl restart stackhub-v2.service
+          sleep 3
+          sudo systemctl is-active stackhub-v2.service
+          sudo systemctl --no-pager --full status stackhub-v2.service
           REMOTE
 
-      - name: Optional first live mutation and 24/7 activation
+      - name: Live activation remains blocked pending verified mutation config
         if: env.DEPLOY_ENABLED == 'true' && env.STACKHUB_ACTIVATE_LIVE == 'true'
         shell: bash
         run: |
-          set -euo pipefail
-          PORT="${VPS_PORT:-22}"
-          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
-          set -euo pipefail
-          set -a
-          . /etc/stackhub/stackhub.env
-          set +a
-          cd /opt/stackhub/stackhub_v2
-          /opt/stackhub/.venv/bin/stackhub orchestrate-once --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
-          sudo systemctl enable --now stackhub-v2.service
-          sleep 3
-          sudo systemctl --no-pager --full status stackhub-v2.service
-          /opt/stackhub/.venv/bin/stackhub status --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
-          REMOTE
+          echo 'LIVE mutation is intentionally blocked until MoltJobs/TaskForce bid/application lifecycle and a real solver are independently verified.'
+          exit 1
 
       - name: Cleanup runner secrets
         if: always()
