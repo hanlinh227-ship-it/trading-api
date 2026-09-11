@@ -62,9 +62,7 @@ class RevenueOrchestrator:
             assert_source_eligible_for("claim", adapter.capabilities)
             competition=str(row.get("competition_model") or "").lower()
             if competition in _ASYNC_COMPETITION and hasattr(adapter, "request_award"):
-                opportunity=self._opportunity_from_row(row)
-                message=("Autonomous agent ready to complete this task. I will follow the stated requirements, validate the deliverable before submission, and provide concise evidence of completion.")
-                receipt=await adapter.request_award(opportunity_id, message)
+                receipt=await adapter.request_award(opportunity_id, "Autonomous agent ready to complete this task. I will follow the stated requirements, validate the deliverable before submission, and provide concise evidence of completion.")
                 self.repo.record_pending_award(source, opportunity_id, receipt.external_reference, now)
                 return {"state":"PENDING_AWARD","source":source,"opportunity_id":opportunity_id,"external_reference":receipt.external_reference}
             receipt=await adapter.claim(opportunity_id)
@@ -80,7 +78,10 @@ class RevenueOrchestrator:
 
     async def _reconcile_pending(self, now: datetime) -> list[dict[str, object]]:
         output=[]
-        for claim in self.repo.get_active_claims():
+        getter=getattr(self.repo, "get_active_claims", None)
+        if getter is None:
+            return output
+        for claim in getter():
             if str(claim.get("state")) != WorkerState.PENDING_AWARD.value:
                 continue
             source=str(claim["source"]); opportunity_id=str(claim["opportunity_id"]); adapter=self.adapters.get(source)
