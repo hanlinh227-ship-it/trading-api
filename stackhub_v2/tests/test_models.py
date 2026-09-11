@@ -30,12 +30,12 @@ def test_reward_rejects_negative_amount():
         Reward(amount=Decimal("-0.01"), asset="USDC", network="base")
 
 
-def _write_config(path: Path, *, dry_run="true", spend="0", read_only="true", base_url="https://www.task-bounty.com/api/v1"):
+def _write_config(path: Path, *, dry_run="true", spend="0", read_only="true", base_url="https://www.task-bounty.com/api/v1", scan_interval="300", min_poll_interval="60"):
     path.write_text(textwrap.dedent(f"""
     runtime:
       dry_run: {dry_run}
       external_spend_limit_usd: "{spend}"
-      scan_interval_seconds: 300
+      scan_interval_seconds: {scan_interval}
       max_concurrent_tasks: 1
     sources:
       taskbounty:
@@ -44,7 +44,7 @@ def _write_config(path: Path, *, dry_run="true", spend="0", read_only="true", ba
         agent_native: true
         read_only: {read_only}
         request_timeout_seconds: 20
-        min_poll_interval_seconds: 60
+        min_poll_interval_seconds: {min_poll_interval}
     """), encoding="utf-8")
 
 
@@ -53,6 +53,7 @@ def _write_config(path: Path, *, dry_run="true", spend="0", read_only="true", ba
     {"spend": "0.01"},
     {"read_only": "false"},
     {"base_url": "https://task-bounty.example.com/api/v1"},
+    {"scan_interval": "60", "min_poll_interval": "120"},
 ])
 def test_config_rejects_unsafe_values(tmp_path, kwargs):
     path = tmp_path / "sources.yaml"
