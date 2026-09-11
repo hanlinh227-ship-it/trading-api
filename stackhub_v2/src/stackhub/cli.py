@@ -82,10 +82,16 @@ def doctor(
 
 
 @app.command("status")
-def status(db: Path = typer.Option(Path("runtime-data/stackhub-v2.db"), "--db")) -> None:
+def status(
+    db: Path = typer.Option(Path("runtime-data/stackhub-v2.db"), "--db"),
+    config: Path = typer.Option(Path("config/sources.yaml"), "--config"),
+) -> None:
+    cfg = load_runtime_config(config)
     repo = _repo(db)
     try:
-        typer.echo(json.dumps(redact(status_dict(build_status(repo))), sort_keys=True, default=str))
+        mode = "DRY-RUN" if cfg.dry_run or not cfg.worker_enabled else "LIVE-CANDIDATE"
+        report = {"mode": mode, **status_dict(build_status(repo))}
+        typer.echo(json.dumps(redact(report), sort_keys=True, default=str))
     finally:
         repo.close()
 
