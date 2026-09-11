@@ -2,6 +2,8 @@ version: 2
 defaults:
   route_every_request: true
   mandatory_skill: task_router
+  adaptive_runtime: true
+  default_runtime_profile: FAST
   max_domain_skills: 3
   max_supporting_skills: 2
   cross_cutting_skills: [critical_thinking, verification]
@@ -11,18 +13,24 @@ defaults:
   preload_trading_state: false
   skill_catalog_path: AI_SKILL_LIBRARY/skills/catalog.yaml
   project_registry_path: AI_SKILL_LIBRARY/projects.yaml
+  runtime_config_path: AI_SKILL_LIBRARY/runtime.yaml
+  bootstrap_path: AI_SKILL_LIBRARY/bootstrap.yaml
   dynamic_catalog_selection: true
 
 execution_order:
   - task_router
+  - runtime_profile
   - project_authority
   - primary_skill
   - supporting_skills
+  - relevant_memory
   - relevant_sources
   - relevant_plugins
+  - security_gate
   - critical_review
   - execute
   - verification
+  - eval_feedback
   - answer
 
 skills:

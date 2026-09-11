@@ -10,9 +10,9 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
-MANIFEST_PATH = HERE / 'checkpoint.json'
-ROUTER_PATH = HERE / 'router.yaml'
-PLUGINS_PATH = HERE / 'plugins.yaml'
+MANIFEST_PATH = HERE / "checkpoint.json"
+ROUTER_PATH = HERE / "router.yaml"
+PLUGINS_PATH = HERE / "plugins.yaml"
 
 
 def _inside_root(root: Path, rel: str) -> Path | None:
@@ -26,6 +26,16 @@ def _inside_root(root: Path, rel: str) -> Path | None:
     return resolved
 
 
+def _v2_version_ok(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        major, minor, patch = (int(part) for part in value.split("."))
+    except (TypeError, ValueError):
+        return False
+    return major == 2 and (minor, patch) >= (1, 0)
+
+
 def validate_brain_data(
     manifest: dict,
     router: dict,
@@ -37,173 +47,190 @@ def validate_brain_data(
     warnings: list[str] = []
 
     if not isinstance(manifest, dict):
-        return ['manifest must be a mapping'], warnings
-    if manifest.get('checkpoint_id') != 'GITHUB_BRAIN_V2':
+        return ["manifest must be a mapping"], warnings
+    if manifest.get("checkpoint_id") != "GITHUB_BRAIN_V2":
         errors.append("manifest.checkpoint_id must be 'GITHUB_BRAIN_V2'")
-    if manifest.get('version') != '2.0.0':
-        errors.append("manifest.version must be '2.0.0'")
-    aliases = manifest.get('activation_aliases', [])
-    if not isinstance(aliases, list) or 'GITHUB_BRAIN_V1' not in aliases:
-        errors.append('manifest.activation_aliases must keep GITHUB_BRAIN_V1 compatibility')
+    if not _v2_version_ok(manifest.get("version")):
+        errors.append("manifest.version must be a semantic GITHUB_BRAIN_V2 version >= 2.1.0")
+    aliases = manifest.get("activation_aliases", [])
+    if not isinstance(aliases, list) or "GITHUB_BRAIN_V1" not in aliases:
+        errors.append("manifest.activation_aliases must keep GITHUB_BRAIN_V1 compatibility")
 
     expected_paths = {
-        'checkpoint_path': 'AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md',
-        'router_path': 'AI_SKILL_LIBRARY/router.yaml',
-        'plugins_path': 'AI_SKILL_LIBRARY/plugins.yaml',
-        'registry_path': 'AI_SKILL_LIBRARY/sources.yaml',
-        'validator_path': 'AI_SKILL_LIBRARY/validate_brain.py',
+        "bootstrap_path": "AI_SKILL_LIBRARY/bootstrap.yaml",
+        "checkpoint_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md",
+        "router_path": "AI_SKILL_LIBRARY/router.yaml",
+        "runtime_path": "AI_SKILL_LIBRARY/runtime.yaml",
+        "plugins_path": "AI_SKILL_LIBRARY/plugins.yaml",
+        "registry_path": "AI_SKILL_LIBRARY/sources.yaml",
+        "projects_path": "AI_SKILL_LIBRARY/projects.yaml",
+        "skill_catalog_path": "AI_SKILL_LIBRARY/skills/catalog.yaml",
+        "memory_path": "AI_SKILL_LIBRARY/memory.yaml",
+        "evals_path": "AI_SKILL_LIBRARY/evals.yaml",
+        "observability_path": "AI_SKILL_LIBRARY/observability.yaml",
+        "security_path": "AI_SKILL_LIBRARY/security.yaml",
+        "validator_path": "AI_SKILL_LIBRARY/validate_brain.py",
+        "router_validator_path": "AI_SKILL_LIBRARY/validate_router.py",
+        "authority_validator_path": "AI_SKILL_LIBRARY/validate_authority.py",
+        "runtime_validator_path": "AI_SKILL_LIBRARY/validate_runtime.py",
     }
     for key, expected in expected_paths.items():
         if manifest.get(key) != expected:
-            errors.append(f'manifest.{key} must be {expected!r}')
+            errors.append(f"manifest.{key} must be {expected!r}")
         path = _inside_root(root, expected)
         if path is None or not path.is_file():
-            errors.append(f'manifest target missing: {expected}')
+            errors.append(f"manifest target missing: {expected}")
 
-    if not isinstance(router, dict) or router.get('version') != 2:
-        errors.append('router.version must be 2')
+    if not isinstance(router, dict) or router.get("version") != 2:
+        errors.append("router.version must be 2")
         return errors, warnings
-    defaults = router.get('defaults')
+    defaults = router.get("defaults")
     if not isinstance(defaults, dict):
-        errors.append('router.defaults must be a mapping')
+        errors.append("router.defaults must be a mapping")
         defaults = {}
-    max_domain = defaults.get('max_domain_skills')
+    max_domain = defaults.get("max_domain_skills")
     if not isinstance(max_domain, int) or max_domain < 1:
-        errors.append('router.defaults.max_domain_skills must be a positive integer')
+        errors.append("router.defaults.max_domain_skills must be a positive integer")
         max_domain = 3
-    if defaults.get('route_every_request') is not True:
-        errors.append('router.defaults.route_every_request must be true')
-    if defaults.get('preload_all_skills') is not False:
-        errors.append('router.defaults.preload_all_skills must be false')
-    if defaults.get('preload_trading_state') is not False:
-        errors.append('router.defaults.preload_trading_state must be false')
+    if defaults.get("route_every_request") is not True:
+        errors.append("router.defaults.route_every_request must be true")
+    if defaults.get("mandatory_skill") != "task_router":
+        errors.append("router.defaults.mandatory_skill must be task_router")
+    if defaults.get("adaptive_runtime") is not True:
+        errors.append("router.defaults.adaptive_runtime must be true")
+    if defaults.get("default_runtime_profile") != "FAST":
+        errors.append("router.defaults.default_runtime_profile must be FAST")
+    if defaults.get("preload_all_skills") is not False:
+        errors.append("router.defaults.preload_all_skills must be false")
+    if defaults.get("preload_trading_state") is not False:
+        errors.append("router.defaults.preload_trading_state must be false")
 
-    plugin_entries = plugins.get('plugins', []) if isinstance(plugins, dict) else []
+    plugin_entries = plugins.get("plugins", []) if isinstance(plugins, dict) else []
     plugin_caps: set[str] = set()
     for idx, plugin in enumerate(plugin_entries, start=1):
         if not isinstance(plugin, dict):
-            errors.append(f'plugin[{idx}] must be a mapping')
+            errors.append(f"plugin[{idx}] must be a mapping")
             continue
-        cap = plugin.get('capability')
+        cap = plugin.get("capability")
         if not isinstance(cap, str) or not cap:
-            errors.append(f'plugin[{idx}] capability must be non-empty')
+            errors.append(f"plugin[{idx}] capability must be non-empty")
         elif cap in plugin_caps:
-            errors.append(f'plugin[{idx}] duplicate capability {cap!r}')
+            errors.append(f"plugin[{idx}] duplicate capability {cap!r}")
         else:
             plugin_caps.add(cap)
 
-    skills = router.get('skills', [])
+    skills = router.get("skills", [])
     if not isinstance(skills, list) or not skills:
-        errors.append('router.skills must be a non-empty list')
+        errors.append("router.skills must be a non-empty list")
         skills = []
     ids: set[str] = set()
     skill_rows: dict[str, dict] = {}
     for idx, skill in enumerate(skills, start=1):
         if not isinstance(skill, dict):
-            errors.append(f'skill[{idx}] must be a mapping')
+            errors.append(f"skill[{idx}] must be a mapping")
             continue
-        sid = skill.get('id')
+        sid = skill.get("id")
         if not isinstance(sid, str) or not sid:
-            errors.append(f'skill[{idx}] id must be non-empty')
+            errors.append(f"skill[{idx}] id must be non-empty")
             continue
         if sid in ids:
-            errors.append(f'skill[{idx}] duplicate skill id {sid!r}')
+            errors.append(f"skill[{idx}] duplicate skill id {sid!r}")
         ids.add(sid)
         skill_rows[sid] = skill
-        path = _inside_root(root, skill.get('path'))
+        path = _inside_root(root, skill.get("path"))
         if path is None or not path.is_file():
-            errors.append(f'skill[{sid}] path missing or outside repo: {skill.get("path")!r}')
-        priority = skill.get('priority')
+            errors.append(f"skill[{sid}] path missing or outside repo: {skill.get('path')!r}")
+        priority = skill.get("priority")
         if not isinstance(priority, int):
-            errors.append(f'skill[{sid}] priority must be an integer')
-        for cap in skill.get('plugin_ids', []):
+            errors.append(f"skill[{sid}] priority must be an integer")
+        for cap in skill.get("plugin_ids", []):
             if cap not in plugin_caps:
-                errors.append(f'skill[{sid}] unknown plugin capability {cap!r}')
+                errors.append(f"skill[{sid}] unknown plugin capability {cap!r}")
 
     for sid, skill in skill_rows.items():
-        for field in ('requires', 'conflicts_with'):
+        for field in ("requires", "conflicts_with"):
             refs = skill.get(field, [])
             if not isinstance(refs, list):
-                errors.append(f'skill[{sid}] {field} must be a list')
+                errors.append(f"skill[{sid}] {field} must be a list")
                 continue
             for ref in refs:
                 if ref not in ids:
-                    errors.append(f'skill[{sid}] {field} references unknown skill {ref!r}')
+                    errors.append(f"skill[{sid}] {field} references unknown skill {ref!r}")
                 if ref == sid:
-                    errors.append(f'skill[{sid}] cannot {field} itself')
+                    errors.append(f"skill[{sid}] cannot {field} itself")
 
-    routes = router.get('routes', [])
+    routes = router.get("routes", [])
     route_ids: set[str] = set()
     for idx, route in enumerate(routes, start=1):
         if not isinstance(route, dict):
-            errors.append(f'route[{idx}] must be a mapping')
+            errors.append(f"route[{idx}] must be a mapping")
             continue
-        rid = route.get('id')
+        rid = route.get("id")
         if not isinstance(rid, str) or not rid:
-            errors.append(f'route[{idx}] id must be non-empty')
+            errors.append(f"route[{idx}] id must be non-empty")
             continue
         if rid in route_ids:
-            errors.append(f'route[{idx}] duplicate route id {rid!r}')
+            errors.append(f"route[{idx}] duplicate route id {rid!r}")
         route_ids.add(rid)
-        supporting = route.get('supporting', [])
+        supporting = route.get("supporting", [])
         if not isinstance(supporting, list):
-            errors.append(f'route[{rid}] supporting must be a list')
+            errors.append(f"route[{rid}] supporting must be a list")
             supporting = []
-        selected = [route.get('primary')] + list(supporting)
+        selected = [route.get("primary")] + list(supporting)
         for sid in selected:
             if sid not in ids:
-                errors.append(f'route[{rid}] references unknown skill {sid!r}')
-        domain_selected = [sid for sid in selected if sid not in {'critical_thinking', 'verification'}]
+                errors.append(f"route[{rid}] references unknown skill {sid!r}")
+        domain_selected = [sid for sid in selected if sid not in {"critical_thinking", "verification"}]
         if len(domain_selected) > max_domain:
-            errors.append(f'route[{rid}] selects {len(domain_selected)} domain skills; max is {max_domain}')
+            errors.append(f"route[{rid}] selects {len(domain_selected)} domain skills; max is {max_domain}")
         selected_set = set(selected)
         for sid in selected_set & ids:
-            requirements = set(skill_rows[sid].get('requires', []))
+            requirements = set(skill_rows[sid].get("requires", []))
             missing = requirements - selected_set
             for required in sorted(missing):
                 errors.append(f"route[{rid}] missing required skill {required!r} for {sid!r}")
-            conflicts = set(skill_rows[sid].get('conflicts_with', []))
+            conflicts = set(skill_rows[sid].get("conflicts_with", []))
             collision = conflicts & selected_set
             if collision:
-                errors.append(f'route[{rid}] contains conflicting skills {sid!r} and {sorted(collision)!r}')
+                errors.append(f"route[{rid}] contains conflicting skills {sid!r} and {sorted(collision)!r}")
 
-    authorities = router.get('authorities', [])
+    authorities = router.get("authorities", [])
     if not isinstance(authorities, list) or not authorities:
-        errors.append('router.authorities must be a non-empty list')
+        errors.append("router.authorities must be a non-empty list")
         authorities = []
     by_scope: dict[str, list[dict]] = {}
     for idx, authority in enumerate(authorities, start=1):
         if not isinstance(authority, dict):
-            errors.append(f'authority[{idx}] must be a mapping')
+            errors.append(f"authority[{idx}] must be a mapping")
             continue
-        scope = authority.get('scope')
+        scope = authority.get("scope")
         if not isinstance(scope, str) or not scope:
-            errors.append(f'authority[{idx}] scope must be non-empty')
+            errors.append(f"authority[{idx}] scope must be non-empty")
             continue
         by_scope.setdefault(scope, []).append(authority)
-        path = _inside_root(root, authority.get('path'))
+        path = _inside_root(root, authority.get("path"))
         if path is None or not path.is_file():
-            errors.append(f'authority[{scope}] path missing or outside repo: {authority.get("path")!r}')
-        follows = authority.get('follows')
+            errors.append(f"authority[{scope}] path missing or outside repo: {authority.get('path')!r}")
+        follows = authority.get("follows")
         if follows:
             follow_path = _inside_root(root, follows)
             if follow_path is None or not follow_path.is_file():
-                errors.append(f'authority[{scope}] follows missing or outside repo: {follows!r}')
+                errors.append(f"authority[{scope}] follows missing or outside repo: {follows!r}")
 
     for scope, entries in by_scope.items():
-        current = [e for e in entries if e.get('status') == 'CURRENT_AUTHORITY']
+        current = [entry for entry in entries if entry.get("status") == "CURRENT_AUTHORITY"]
         if len(current) > 1:
-            errors.append(f'multiple current authorities for scope {scope!r}')
+            errors.append(f"multiple current authorities for scope {scope!r}")
         elif len(current) == 0:
-            errors.append(f'no current authority for scope {scope!r}')
+            errors.append(f"no current authority for scope {scope!r}")
 
     return errors, warnings
 
 
 def _load() -> tuple[dict, dict, dict]:
-    manifest = json.loads(MANIFEST_PATH.read_text(encoding='utf-8'))
-    router = yaml.safe_load(ROUTER_PATH.read_text(encoding='utf-8'))
-    plugins = yaml.safe_load(PLUGINS_PATH.read_text(encoding='utf-8'))
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    router = yaml.safe_load(ROUTER_PATH.read_text(encoding="utf-8"))
+    plugins = yaml.safe_load(PLUGINS_PATH.read_text(encoding="utf-8"))
     return manifest, router, plugins
 
 
@@ -211,16 +238,16 @@ def main() -> int:
     try:
         manifest, router, plugins = _load()
     except (FileNotFoundError, json.JSONDecodeError, yaml.YAMLError) as exc:
-        print(f'[ERROR] unable to load V2 brain files: {exc}', file=sys.stderr)
+        print(f"[ERROR] unable to load V2 brain files: {exc}", file=sys.stderr)
         return 2
     errors, warnings = validate_brain_data(manifest, router, plugins)
     for warning in warnings:
-        print(f'[WARN ] {warning}')
+        print(f"[WARN ] {warning}")
     for error in errors:
-        print(f'[ERROR] {error}', file=sys.stderr)
-    print(f'Brain validation summary: {len(errors)} error(s), {len(warnings)} warning(s)')
+        print(f"[ERROR] {error}", file=sys.stderr)
+    print(f"Brain validation summary: {len(errors)} error(s), {len(warnings)} warning(s)")
     return 1 if errors else 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

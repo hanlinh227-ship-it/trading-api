@@ -1,0 +1,62 @@
+version: 1
+checkpoint_id: GITHUB_BRAIN_V2
+protocol_version: 2.1.0
+mandatory_router: task_router
+default_profile: FAST
+
+paths:
+  brain: AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md
+  core_protocol: AI_SKILL_LIBRARY/CORE_PROTOCOL.md
+  router: AI_SKILL_LIBRARY/router.yaml
+  runtime: AI_SKILL_LIBRARY/runtime.yaml
+  projects: AI_SKILL_LIBRARY/projects.yaml
+  skills: AI_SKILL_LIBRARY/skills/catalog.yaml
+  sources: AI_SKILL_LIBRARY/sources.yaml
+  plugins: AI_SKILL_LIBRARY/plugins.yaml
+  memory: AI_SKILL_LIBRARY/memory.yaml
+  evals: AI_SKILL_LIBRARY/evals.yaml
+  observability: AI_SKILL_LIBRARY/observability.yaml
+  security: AI_SKILL_LIBRARY/security.yaml
+
+lazy_load:
+  full_skill_catalog: true
+  project_state: true
+  trading_state: true
+  sources: true
+  plugins: true
+  durable_memory: true
+  evals: true
+  observability: true
+  security_detail: true
+
+fast_path:
+  requires_all:
+    - single_intent
+    - low_risk
+    - no_project_mutation
+    - no_live_or_external_freshness_requirement
+    - no_external_tool_required
+  escalate_on:
+    - multi_step
+    - architecture
+    - project_mutation
+    - external_freshness
+    - live_data
+    - trading
+    - deployment
+    - destructive_action
+    - financial_action
+    - credential_sensitive_action
+
+refresh_triggers:
+  - new_chat_or_work_cycle
+  - user_requests_checkpoint_or_refresh
+  - continue_existing_project
+  - current_project_state_required
+  - code_or_config_change
+  - pre_merge_or_deploy
+  - active_or_live_status_claim
+
+fallback:
+  marker: fresh_git_context=false
+  behavior: continue_from_last_known_context_and_disclose_refresh_failure

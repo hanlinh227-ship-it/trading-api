@@ -1,0 +1,96 @@
+version: 1
+profile_order: [FAST, STANDARD, DEEP]
+
+selection:
+  FAST:
+    all:
+      - single_intent
+      - low_risk
+      - no_project_mutation
+      - no_live_or_external_freshness_requirement
+      - no_external_tool_required
+  STANDARD:
+    any:
+      - domain_skill_required
+      - project_context_required
+      - ordinary_research
+      - artifact_creation
+      - external_tool_required
+  DEEP:
+    any:
+      - multi_step_architecture
+      - brain_or_protocol_change
+      - deployment_or_runtime_claim
+      - live_or_trading_task
+      - destructive_action
+      - financial_action
+      - credential_sensitive_action
+      - complex_research
+
+profiles:
+  FAST:
+    context_tokens: 2500
+    memory_items: 0
+    tool_candidates: 0
+    replan_budget: 0
+    max_supporting_skills: 0
+    persistent_trace: false
+    stages: [task_router, minimal_core, answer]
+  STANDARD:
+    context_tokens: 7000
+    memory_items: 4
+    tool_candidates: 3
+    replan_budget: 1
+    max_supporting_skills: 2
+    persistent_trace: conditional
+    stages:
+      - task_router
+      - runtime_profile
+      - project_authority
+      - primary_skill
+      - supporting_skills
+      - bounded_memory
+      - relevant_sources
+      - relevant_plugins
+      - execute
+      - verification
+      - answer
+  DEEP:
+    context_tokens: 16000
+    memory_items: 8
+    tool_candidates: 5
+    replan_budget: 2
+    max_supporting_skills: 2
+    persistent_trace: bounded
+    stages:
+      - task_router
+      - runtime_profile
+      - project_authority
+      - scoped_memory
+      - planner
+      - primary_skill
+      - supporting_skills
+      - relevant_sources
+      - relevant_plugins
+      - security_gate
+      - execute
+      - critic
+      - verification
+      - eval
+      - trace
+      - answer
+
+controls:
+  one_profile_per_request: true
+  control_plane_does_not_consume_supporting_skill_budget: true
+  full_skill_catalog_injection: false
+  freshness_can_escalate_profile: true
+  project_mutation_min_profile: STANDARD
+  high_impact_min_profile: DEEP
+  planner_only_when_profile: DEEP
+  critic_only_when_profile: DEEP
+  eval_only_when_profile: DEEP
+  max_context_tokens: 20000
+  max_memory_items: 12
+  max_tool_candidates: 8
+  max_replan_budget: 3

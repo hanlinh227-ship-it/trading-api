@@ -1,0 +1,47 @@
+version: 1
+policy:
+  least_privilege: true
+  classify_before_action: true
+  explicit_user_request_can_authorize_within_existing_policy: true
+  project_policy_can_be_stricter: true
+  tool_success_does_not_imply_permission: true
+  secrets_never_enter_public_repo: true
+
+risk_classes:
+  read_only:
+    default: allow
+    approval_required: false
+  reversible_write:
+    default: allow_if_explicit_user_request
+    approval_required: context_dependent
+  destructive:
+    default: require_explicit_approval
+    approval_required: true
+  financial:
+    default: require_explicit_authorization_and_project_policy
+    approval_required: true
+  credential_sensitive:
+    default: deny_by_default
+    approval_required: true
+
+hard_blocks:
+  secret_exfiltration: true
+  private_key_disclosure: true
+  credential_logging: true
+  bypass_hard_risk_controls: true
+  fabricate_authorization: true
+
+capabilities:
+  github_read: read_only
+  github_branch_commit: reversible_write
+  github_merge_main: destructive
+  delete_repository_data: destructive
+  market_data_read: read_only
+  trading_order_or_position_change: financial
+  payment_or_withdrawal: financial
+  secret_read_or_export: credential_sensitive
+
+required_gates:
+  destructive: [explicit_scope, rollback_or_impact_check, verification]
+  financial: [explicit_scope, project_authority, hard_risk_controls, live_state_verification]
+  credential_sensitive: [need_to_know, no_exfiltration, redact_outputs]
