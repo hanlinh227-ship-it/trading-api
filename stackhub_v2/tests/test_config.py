@@ -29,6 +29,12 @@ def test_load_runtime_config_accepts_locked_read_only_file():
     assert all(config.sources[name].capabilities.external_spend_required is False for name in ("taskbounty", "moltjobs", "taskforce"))
 
 
+def test_taskforce_uses_canonical_api_host_without_www_redirect():
+    path = Path(__file__).parents[1] / "config" / "sources.yaml"
+    config = load_runtime_config(path)
+    assert config.sources["taskforce"].base_url == "https://task-force.app"
+
+
 @pytest.mark.parametrize(
     "updates",
     [
