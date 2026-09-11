@@ -24,7 +24,9 @@ def test_load_runtime_config_accepts_locked_read_only_file():
     config = load_runtime_config(path)
     assert config.dry_run is True
     assert config.external_spend_limit_usd == Decimal("0")
-    assert config.sources["taskbounty"].read_only is True
+    assert set(config.sources) >= {"taskbounty", "moltjobs", "taskforce"}
+    assert all(config.sources[name].read_only for name in ("taskbounty", "moltjobs", "taskforce"))
+    assert all(config.sources[name].capabilities.external_spend_required is False for name in ("taskbounty", "moltjobs", "taskforce"))
 
 
 @pytest.mark.parametrize(
