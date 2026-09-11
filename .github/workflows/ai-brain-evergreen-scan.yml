@@ -1,0 +1,33 @@
+name: AI Brain V4 Evergreen Scan
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan-quarantine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install validator dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+      - name: Scan public GitHub for machine-readable V4 skill candidates
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python AI_SKILL_LIBRARY/v4/tools/evergreen.py scan --root . --output /tmp/v4-quarantine-scan.json
+      - name: Summarize quarantine scan
+        run: python -c "import json; d=json.load(open('/tmp/v4-quarantine-scan.json')); print('quarantine candidates=', len(d.get('candidates', [])), 'errors=', len(d.get('errors', [])))"
+      - name: Upload quarantine scan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: v4-evergreen-quarantine-scan
+          path: /tmp/v4-quarantine-scan.json
+          retention-days: 7
