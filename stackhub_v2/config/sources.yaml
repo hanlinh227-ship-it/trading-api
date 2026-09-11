@@ -14,7 +14,6 @@ runtime:
     submission: 1
 
 sources:
-  moljobs_placeholder: null
   taskbounty:
     enabled: true
     base_url: "https://www.task-bounty.com/api/v1"
