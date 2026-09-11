@@ -125,7 +125,7 @@ jobs:
           Type=simple
           WorkingDirectory=/opt/stackhub/stackhub_v2
           EnvironmentFile=/etc/stackhub/stackhub.env
-          Environment=STACKHUB_SOLVER_COMMAND=/opt/stackhub/.venv/bin/python -m stackhub.local_solver
+          Environment="STACKHUB_SOLVER_COMMAND=/opt/stackhub/.venv/bin/python -m stackhub.local_solver"
           Environment=STACKHUB_LOCAL_MODEL=qwen2.5-coder:1.5b-instruct
           Environment=STACKHUB_ARTIFACT_ROOT=/var/lib/stackhub/artifacts
           ExecStart=/opt/stackhub/.venv/bin/stackhub run --config /opt/stackhub/stackhub_v2/config/sources.taskforce.canary.yaml --db /var/lib/stackhub/stackhub-taskforce-canary.db
@@ -139,6 +139,7 @@ jobs:
           UNIT
           sudo systemctl daemon-reload
           sudo systemctl enable --now stackhub-v2-canary.service
+          sudo systemctl restart stackhub-v2-canary.service
           sleep 3
           sudo systemctl is-active stackhub-v2-canary.service
           sudo systemctl --no-pager --full status stackhub-v2-canary.service
