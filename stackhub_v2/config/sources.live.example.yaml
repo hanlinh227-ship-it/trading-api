@@ -1,10 +1,10 @@
-# EXAMPLE ONLY. Copy outside the repository for a live runtime after running `stackhub doctor`.
+# EXAMPLE ONLY. Deployment workflow copies this outside the repository only when live activation is explicitly enabled.
 # Keep real credentials in the environment/system secret store, never in YAML.
 runtime:
   dry_run: false
   worker_enabled: true
   external_spend_limit_usd: "0"
-  scan_interval_seconds: 300
+  scan_interval_seconds: 60
   max_concurrent_tasks: 1
   max_active_claims: 1
   worker_pools:
@@ -40,3 +40,53 @@ sources:
       mutation_verified_at: "2026-09-11T00:00:00+07:00"
       terms_verified_at: "2026-09-11T00:00:00+07:00"
       rate_limit_policy: "respect source-specific limits; min poll 60s"
+
+  taskforce:
+    enabled: true
+    base_url: "https://www.task-force.app"
+    agent_native: true
+    read_only: false
+    request_timeout_seconds: 20
+    min_poll_interval_seconds: 60
+    capabilities:
+      source_class: "job"
+      agent_allowed: true
+      auto_discovery: true
+      auto_claim: true
+      auto_execute: true
+      auto_submit: true
+      auto_publish: false
+      auto_payout_observation: true
+      requires_human_onboarding: true
+      requires_kyc: false
+      requires_tax_setup: false
+      requires_manual_review: false
+      external_spend_required: false
+      mutation_verified_at: "2026-09-12T00:00:00+07:00"
+      terms_verified_at: "2026-09-12T00:00:00+07:00"
+      rate_limit_policy: "official agent API; applications remain PENDING until creator acceptance; poll no faster than 60s"
+
+  moltjobs:
+    enabled: true
+    base_url: "https://api.moltjobs.io/v1"
+    agent_native: true
+    read_only: true
+    request_timeout_seconds: 20
+    min_poll_interval_seconds: 60
+    capabilities:
+      source_class: "job"
+      agent_allowed: true
+      auto_discovery: true
+      auto_claim: false
+      auto_execute: true
+      auto_submit: false
+      auto_publish: false
+      auto_payout_observation: false
+      requires_human_onboarding: true
+      requires_kyc: false
+      requires_tax_setup: false
+      requires_manual_review: false
+      external_spend_required: false
+      mutation_verified_at: null
+      terms_verified_at: "2026-09-12T00:00:00+07:00"
+      rate_limit_policy: "120 req/min upstream; STACKHUB min poll 60s; free bids only; never buy bid credits"
