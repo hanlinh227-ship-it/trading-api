@@ -44,14 +44,19 @@ class RevenueOrchestrator:
         )
 
     def _recover_failure(self, source: str, opportunity_id: str, now: datetime, exc: Exception) -> dict[str, object]:
+        error_code = getattr(exc, "error_code", None)
+        status_code = getattr(exc, "status_code", None)
+        safe_reason = str(error_code or type(exc).__name__)
+        if status_code is not None:
+            safe_reason = f"{safe_reason}:http_{status_code}"
         row_state=self.repo.conn.execute("SELECT state FROM claims WHERE source=? AND opportunity_id=?",(source,opportunity_id)).fetchone()
         current=None if row_state is None else str(row_state["state"])
         if current in _RECOVERABLE_ACTIVE_STATES:
             try:
-                self.repo.transition_claim(source, opportunity_id, WorkerState.FAILED_RETRYABLE, now, type(exc).__name__)
+                self.repo.transition_claim(source, opportunity_id, WorkerState.FAILED_RETRYABLE, now, safe_reason)
             except Exception:
                 pass
-        return {"state":"FAILED_RETRYABLE","source":source,"opportunity_id":opportunity_id,"reason":type(exc).__name__}
+        return {"state":"FAILED_RETRYABLE","source":source,"opportunity_id":opportunity_id,"reason":safe_reason}
 
     async def _solve_claimed(self, row: dict[str, object], workspace_reference: str, now: datetime) -> dict[str, object]:
         source=str(row["source"]); opportunity_id=str(row["id"])
