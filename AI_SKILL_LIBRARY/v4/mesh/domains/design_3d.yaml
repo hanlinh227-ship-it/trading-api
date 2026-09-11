@@ -1,0 +1,8 @@
+id: design_3d
+version: 4.0.0
+sources: []
+tools: [two_d_to_three_d]
+evals: [geometry, topology, rendering]
+authority_required: false
+memory_namespace: design_3d
+bridge_policy: explicit_only
