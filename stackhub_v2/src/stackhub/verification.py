@@ -5,6 +5,7 @@ from pathlib import Path
 from collections.abc import Sequence
 import re
 import subprocess
+import sys
 
 
 _SECRET_PATTERNS = (
@@ -36,6 +37,13 @@ def _tail(value: str, limit: int = 8192) -> str:
     return value[-limit:]
 
 
+def _portable_command(command: Sequence[str]) -> list[str]:
+    resolved = list(command)
+    if resolved and resolved[0] in {"python", "python3"}:
+        resolved[0] = sys.executable
+    return resolved
+
+
 def verify_workspace(
     path: Path,
     test_command: Sequence[str],
@@ -55,6 +63,8 @@ def verify_workspace(
     if not path.is_dir():
         raise ValueError("solver workspace does not exist")
 
+    command = _portable_command(test_command)
+
     try:
         diff_text = diff_path.read_text(encoding="utf-8")
     except OSError:
@@ -64,7 +74,7 @@ def verify_workspace(
 
     try:
         result = subprocess.run(
-            list(test_command),
+            command,
             cwd=path,
             capture_output=True,
             text=True,
@@ -82,7 +92,7 @@ def verify_workspace(
 
     passed = exit_code == 0 and secret_free
     return VerificationEvidence(
-        test_command=tuple(test_command),
+        test_command=tuple(command),
         exit_code=exit_code,
         stdout_tail=_tail(stdout),
         stderr_tail=_tail(stderr),
