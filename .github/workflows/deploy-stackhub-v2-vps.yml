@@ -13,42 +13,51 @@ permissions:
 
 jobs:
   deploy:
-    if: ${{ secrets.STACKHUB_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      DEPLOY_ENABLED: ${{ secrets.STACKHUB_DEPLOY_ENABLED }}
       VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
       VPS_USER: ${{ secrets.STACKHUB_VPS_USER }}
       VPS_PORT: ${{ secrets.STACKHUB_VPS_PORT }}
+      VPS_SSH_KEY: ${{ secrets.STACKHUB_VPS_SSH_KEY }}
       TASKBOUNTY_API_KEY: ${{ secrets.TASKBOUNTY_API_KEY }}
       GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
       STACKHUB_SOLVER_COMMAND: ${{ secrets.STACKHUB_SOLVER_COMMAND }}
       STACKHUB_ACTIVATE_LIVE: ${{ secrets.STACKHUB_ACTIVATE_LIVE }}
     steps:
+      - name: Deployment disabled
+        if: env.DEPLOY_ENABLED != 'true'
+        run: echo 'STACKHUB VPS deployment is disabled. Set STACKHUB_DEPLOY_ENABLED=true when VPS secrets are ready.'
+
       - uses: actions/checkout@v4
+        if: env.DEPLOY_ENABLED == 'true'
 
       - name: Validate required deployment secrets
+        if: env.DEPLOY_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail
           test -n "${VPS_HOST:-}" || { echo 'Missing STACKHUB_VPS_HOST'; exit 1; }
           test -n "${VPS_USER:-}" || { echo 'Missing STACKHUB_VPS_USER'; exit 1; }
-          test -n "${{ secrets.STACKHUB_VPS_SSH_KEY }}" || { echo 'Missing STACKHUB_VPS_SSH_KEY'; exit 1; }
+          test -n "${VPS_SSH_KEY:-}" || { echo 'Missing STACKHUB_VPS_SSH_KEY'; exit 1; }
           test -n "${TASKBOUNTY_API_KEY:-}" || { echo 'Missing TASKBOUNTY_API_KEY'; exit 1; }
           test -n "${STACKHUB_SOLVER_COMMAND:-}" || { echo 'Missing STACKHUB_SOLVER_COMMAND'; exit 1; }
 
       - name: Prepare SSH
+        if: env.DEPLOY_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "${{ secrets.STACKHUB_VPS_SSH_KEY }}" > ~/.ssh/id_stackhub
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_stackhub
           chmod 600 ~/.ssh/id_stackhub
           PORT="${VPS_PORT:-22}"
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
       - name: Build protected runtime environment file
+        if: env.DEPLOY_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -70,6 +79,7 @@ jobs:
           chmod 600 /tmp/stackhub.env
 
       - name: Upload runtime secret file
+        if: env.DEPLOY_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -77,6 +87,7 @@ jobs:
           scp -P "$PORT" -i ~/.ssh/id_stackhub /tmp/stackhub.env "$VPS_USER@$VPS_HOST:/tmp/stackhub.env"
 
       - name: Provision or update STACKHUB on VPS
+        if: env.DEPLOY_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -125,7 +136,7 @@ jobs:
           REMOTE
 
       - name: Optional first live mutation and 24/7 activation
-        if: ${{ secrets.STACKHUB_ACTIVATE_LIVE == 'true' }}
+        if: env.DEPLOY_ENABLED == 'true' && env.STACKHUB_ACTIVATE_LIVE == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -146,5 +157,4 @@ jobs:
       - name: Cleanup runner secrets
         if: always()
         shell: bash
-        run: |
-          rm -f ~/.ssh/id_stackhub /tmp/stackhub.env
+        run: rm -f ~/.ssh/id_stackhub /tmp/stackhub.env
