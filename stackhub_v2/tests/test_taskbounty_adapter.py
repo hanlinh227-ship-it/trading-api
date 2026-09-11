@@ -1,6 +1,5 @@
-import json
 from decimal import Decimal
-from pathlib import Path
+
 import httpx
 import pytest
 
@@ -12,44 +11,35 @@ def source_config():
     return SourceConfig(enabled=True, base_url="https://www.task-bounty.com/api/v1", agent_native=True, read_only=True, request_timeout_seconds=20, min_poll_interval_seconds=60)
 
 
-@pytest.mark.asyncio
-async def test_fetch_open_uses_public_json_feed_then_normalizes_task_detail_without_auth():
-    old_payload = json.loads((Path(__file__).parent / "fixtures/taskbounty_open.json").read_text())
-    task = old_payload["tasks"][0]
-    feed = {
-        "version": "https://jsonfeed.org/version/1.1",
-        "title": "TaskBounty open bounties",
-        "items": [
-            {
-                "id": task["id"],
-                "url": task["github_issue_url"],
-                "title": task["title"],
-                "content_text": "Funded coding bounty",
-            }
-        ],
+def task_payload():
+    return {
+        "id": "tb-123",
+        "title": "Fix regression",
+        "bounty_cents": 5000,
+        "github_repo_url": "https://github.com/acme/repo",
+        "github_issue_url": "https://github.com/acme/repo/issues/7",
+        "complexity_tag": "small",
+        "language": "python",
     }
+
+
+@pytest.mark.asyncio
+async def test_fetch_open_uses_current_tasks_endpoint_without_auth_when_public():
+    task = task_payload()
     seen = []
 
     async def handler(request: httpx.Request):
-        seen.append((request.method, request.url.path, request.headers.get("Authorization")))
+        seen.append((request.method, request.url.path, request.url.params.get("state"), request.url.params.get("limit"), request.headers.get("Authorization")))
         assert request.method == "GET"
-        if request.url.path == "/api/v1/bounties.json":
-            assert request.url.params["limit"] == "20"
-            assert "state" not in request.url.params
-            return httpx.Response(200, json=feed, headers={"Content-Type": "application/feed+json"})
-        if request.url.path == f"/api/v1/tasks/{task['id']}":
-            return httpx.Response(200, json=task)
-        raise AssertionError(f"unexpected request: {request.url}")
+        assert request.url.path == "/api/v1/tasks"
+        return httpx.Response(200, json={"tasks": [task]})
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     adapter = TaskBountyAdapter(source_config(), client=client)
     items = await adapter.fetch_open(limit=20)
     await client.aclose()
 
-    assert seen == [
-        ("GET", "/api/v1/bounties.json", None),
-        ("GET", f"/api/v1/tasks/{task['id']}", None),
-    ]
+    assert seen == [("GET", "/api/v1/tasks", "open", "20", None)]
     assert len(items) == 1
     item = items[0]
     assert item.id == task["id"]
@@ -58,23 +48,16 @@ async def test_fetch_open_uses_public_json_feed_then_normalizes_task_detail_with
     assert item.reward.asset == "USD"
     assert item.competition_model == "best_submission"
     assert item.estimated_effort_minutes == 30
+    assert f"Issue: {task['github_issue_url']}" in item.requirements
 
 
 @pytest.mark.asyncio
-async def test_empty_public_json_feed_is_healthy_and_returns_no_opportunities():
+async def test_empty_current_tasks_response_is_healthy_and_returns_no_opportunities():
     seen = []
 
     async def handler(request: httpx.Request):
-        seen.append((request.method, request.url.path, request.headers.get("Authorization")))
-        return httpx.Response(
-            200,
-            json={
-                "version": "https://jsonfeed.org/version/1.1",
-                "title": "TaskBounty open bounties",
-                "items": [],
-            },
-            headers={"Content-Type": "application/feed+json"},
-        )
+        seen.append((request.method, request.url.path))
+        return httpx.Response(200, json={"tasks": []})
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     adapter = TaskBountyAdapter(source_config(), client=client)
@@ -82,7 +65,7 @@ async def test_empty_public_json_feed_is_healthy_and_returns_no_opportunities():
     await client.aclose()
 
     assert items == []
-    assert seen == [("GET", "/api/v1/bounties.json", None)]
+    assert seen == [("GET", "/api/v1/tasks")]
 
 
 @pytest.mark.asyncio
@@ -91,32 +74,32 @@ async def test_optional_api_key_is_sent_when_configured_but_not_required_for_dis
 
     async def handler(request: httpx.Request):
         seen.append((request.method, request.url.path, request.headers.get("Authorization")))
-        return httpx.Response(200, json={"version": "https://jsonfeed.org/version/1.1", "items": []})
+        return httpx.Response(200, json={"tasks": []})
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     adapter = TaskBountyAdapter(source_config(), client=client, api_key="tb_live_SECRETSECRETSECRET")
     assert await adapter.fetch_open(limit=5) == []
     await client.aclose()
-    assert seen == [("GET", "/api/v1/bounties.json", "Bearer tb_live_SECRETSECRETSECRET")]
+    assert seen == [("GET", "/api/v1/tasks", "Bearer tb_live_SECRETSECRETSECRET")]
 
 
 @pytest.mark.asyncio
-async def test_malformed_feed_item_is_rejected_as_protocol_error():
+async def test_malformed_task_is_rejected_as_protocol_error():
     async def handler(request: httpx.Request):
-        return httpx.Response(200, json={"version": "https://jsonfeed.org/version/1.1", "items": [{"title": "missing id"}]})
+        return httpx.Response(200, json={"tasks": [{"title": "missing id"}]})
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     adapter = TaskBountyAdapter(source_config(), client=client)
     with pytest.raises(TaskBountyProtocolError) as caught:
         await adapter.fetch_open()
     await client.aclose()
-    assert caught.value.error_code in {"validation_error", "protocol_error"}
+    assert caught.value.error_code == "validation_error"
 
 
 @pytest.mark.asyncio
 async def test_rate_limit_parses_retry_after_header():
     async def handler(request: httpx.Request):
-        assert request.url.path == "/api/v1/bounties.json"
+        assert request.url.path == "/api/v1/tasks"
         return httpx.Response(429, headers={"Retry-After": "600"}, json={"error": "rate_limited"})
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
