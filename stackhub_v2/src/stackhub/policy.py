@@ -32,6 +32,16 @@ _EXTERNAL_ACCOUNT_PATTERNS = (
     r"\bfrom your (account|profile|channel)\b",
     r"\bsend the public link\b",
     r"\buse your personal account\b",
+    r"\bnative[_ -]?forum[_ -]?proof\b",
+    r"\boriginal visible contribution\b.*\bverified authorship\b",
+)
+_PERSONAL_PHYSICAL_PATTERNS = (
+    r"\brecord (a |your )?face\b",
+    r"\bface motion video\b",
+    r"\bfront camera\b.*\b(face|head)\b",
+    r"\bfull face\b",
+    r"\bone submission per person\b",
+    r"\bsign a consent form\b",
 )
 
 
@@ -54,6 +64,7 @@ def evaluate_opportunity(opportunity: Opportunity, runtime: RuntimeConfig) -> Po
     if _matches_any(combined_text, _PROMPT_INJECTION_PATTERNS): reasons.append("prompt_injection_like_instruction")
     if _matches_any(combined_text, _TRADING_TARGET_PATTERNS): reasons.append("prohibited_production_trading_target")
     if _matches_any(combined_text, _EXTERNAL_ACCOUNT_PATTERNS): reasons.append("prohibited_external_account_action")
+    if _matches_any(combined_text, _PERSONAL_PHYSICAL_PATTERNS): reasons.append("prohibited_personal_physical_task")
 
     spend_terms = ("deposit", "purchase", "pay fee", "buy credits", "external spend")
     normalized = combined_text.lower()
