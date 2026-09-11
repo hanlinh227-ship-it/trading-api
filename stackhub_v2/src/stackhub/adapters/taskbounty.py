@@ -4,25 +4,15 @@ from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import quote
 
 import httpx
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel, Field, ValidationError
 
+from stackhub.adapters.base import AdapterError, ClaimReceipt, SubmissionReceipt
 from stackhub.config import SourceConfig
 from stackhub.models import Opportunity, Reward
 
 
-class TaskBountyProtocolError(RuntimeError):
-    def __init__(
-        self,
-        message: str,
-        *,
-        status_code: int | None = None,
-        error_code: str | None = None,
-        retry_after_seconds: int | None = None,
-    ):
-        super().__init__(message)
-        self.status_code = status_code
-        self.error_code = error_code
-        self.retry_after_seconds = retry_after_seconds
+class TaskBountyProtocolError(AdapterError):
+    pass
 
 
 class TaskAccess(BaseModel):
@@ -103,10 +93,19 @@ def _parse_task_detail(payload: object) -> _Task:
 
 
 class TaskBountyAdapter:
-    """TaskBounty adapter. Discovery is read-only; mutations are separately gated."""
+    """TaskBounty source adapter with generic discovery/claim/submit aliases."""
 
-    def __init__(self, config: SourceConfig, *, client: httpx.AsyncClient | None = None, api_key: str | None = None):
+    source_name = "taskbounty"
+
+    def __init__(
+        self,
+        config: SourceConfig,
+        *,
+        client: httpx.AsyncClient | None = None,
+        api_key: str | None = None,
+    ):
         self.config = config
+        self.capabilities = config.capabilities
         self.api_key = api_key.strip() if api_key else None
         self._owned_client = client is None
         self.client = client or httpx.AsyncClient(timeout=config.request_timeout_seconds)
@@ -119,9 +118,15 @@ class TaskBountyAdapter:
 
     def _mutation_headers(self) -> dict[str, str]:
         if self.config.read_only:
-            raise TaskBountyProtocolError("TaskBounty mutation disabled", error_code="mutation_disabled")
+            raise TaskBountyProtocolError(
+                "TaskBounty mutation disabled",
+                error_code="mutation_disabled",
+            )
         if not self.api_key:
-            raise TaskBountyProtocolError("TaskBounty API key required", error_code="auth_required")
+            raise TaskBountyProtocolError(
+                "TaskBounty API key required",
+                error_code="auth_required",
+            )
         headers = self._headers()
         headers["Content-Type"] = "application/json"
         return headers
@@ -140,9 +145,15 @@ class TaskBountyAdapter:
         except httpx.HTTPStatusError as exc:
             _raise_http_error(exc)
         except ValidationError as exc:
-            raise TaskBountyProtocolError("TaskBounty response validation failed", error_code="validation_error") from exc
+            raise TaskBountyProtocolError(
+                "TaskBounty response validation failed",
+                error_code="validation_error",
+            ) from exc
         except (httpx.HTTPError, ValueError) as exc:
-            raise TaskBountyProtocolError("TaskBounty protocol error", error_code="protocol_error") from exc
+            raise TaskBountyProtocolError(
+                "TaskBounty protocol error",
+                error_code="protocol_error",
+            ) from exc
 
         items: list[Opportunity] = []
         for feed_item in feed.items:
@@ -156,9 +167,15 @@ class TaskBountyAdapter:
             except httpx.HTTPStatusError as exc:
                 _raise_http_error(exc)
             except ValidationError as exc:
-                raise TaskBountyProtocolError("TaskBounty response validation failed", error_code="validation_error") from exc
+                raise TaskBountyProtocolError(
+                    "TaskBounty response validation failed",
+                    error_code="validation_error",
+                ) from exc
             except (httpx.HTTPError, ValueError) as exc:
-                raise TaskBountyProtocolError("TaskBounty protocol error", error_code="protocol_error") from exc
+                raise TaskBountyProtocolError(
+                    "TaskBounty protocol error",
+                    error_code="protocol_error",
+                ) from exc
 
             solver_amount = (
                 Decimal(task.bounty_cents) * Decimal("0.80") / Decimal("100")
@@ -168,19 +185,28 @@ class TaskBountyAdapter:
             items.append(
                 Opportunity(
                     id=task.id,
-                    source="taskbounty",
+                    source=self.source_name,
                     url=task.github_issue_url,
                     category="coding",
                     reward=Reward(amount=solver_amount, asset="USD", network=None),
                     deadline=None,
-                    requirements=(f"Fix the funded GitHub issue in {repo}", f"Language: {lang}"),
+                    requirements=(
+                        f"Fix the funded GitHub issue in {repo}",
+                        f"Language: {lang}",
+                    ),
                     acceptance_criteria=("Pass TaskBounty end-to-end verification",),
                     competition_model="best_submission",
                     agent_allowed=True,
-                    estimated_effort_minutes=_EFFORT.get((task.complexity_tag or "").lower(), 60),
+                    estimated_effort_minutes=_EFFORT.get(
+                        (task.complexity_tag or "").lower(),
+                        60,
+                    ),
                 )
             )
         return items
+
+    async def discover(self, limit: int = 50) -> list[Opportunity]:
+        return await self.fetch_open(limit=limit)
 
     async def access_task(self, task_id: str) -> TaskAccess:
         headers = self._mutation_headers()
@@ -200,9 +226,24 @@ class TaskBountyAdapter:
         except httpx.HTTPStatusError as exc:
             _raise_http_error(exc)
         except (KeyError, ValidationError, ValueError) as exc:
-            raise TaskBountyProtocolError("TaskBounty access response invalid", error_code="validation_error") from exc
+            raise TaskBountyProtocolError(
+                "TaskBounty access response invalid",
+                error_code="validation_error",
+            ) from exc
         except httpx.HTTPError as exc:
-            raise TaskBountyProtocolError("TaskBounty protocol error", error_code="protocol_error") from exc
+            raise TaskBountyProtocolError(
+                "TaskBounty protocol error",
+                error_code="protocol_error",
+            ) from exc
+
+    async def claim(self, opportunity_id: str) -> ClaimReceipt:
+        access = await self.access_task(opportunity_id)
+        return ClaimReceipt(
+            source=self.source_name,
+            opportunity_id=opportunity_id,
+            workspace_reference=access.clone_url,
+            expires_at=access.expires_at,
+        )
 
     async def submit_pr(self, task_id: str, external_link: str) -> SubmissionResult:
         headers = self._mutation_headers()
@@ -227,9 +268,29 @@ class TaskBountyAdapter:
         except httpx.HTTPStatusError as exc:
             _raise_http_error(exc)
         except (ValidationError, ValueError) as exc:
-            raise TaskBountyProtocolError("TaskBounty submission response invalid", error_code="validation_error") from exc
+            raise TaskBountyProtocolError(
+                "TaskBounty submission response invalid",
+                error_code="validation_error",
+            ) from exc
         except httpx.HTTPError as exc:
-            raise TaskBountyProtocolError("TaskBounty protocol error", error_code="protocol_error") from exc
+            raise TaskBountyProtocolError(
+                "TaskBounty protocol error",
+                error_code="protocol_error",
+            ) from exc
+
+    async def submit(
+        self,
+        opportunity_id: str,
+        artifact_reference: str,
+    ) -> SubmissionReceipt:
+        result = await self.submit_pr(opportunity_id, artifact_reference)
+        return SubmissionReceipt(
+            source=self.source_name,
+            opportunity_id=opportunity_id,
+            reference=result.external_link,
+            submission_id=result.id,
+            status=result.status,
+        )
 
     async def aclose(self) -> None:
         if self._owned_client:
