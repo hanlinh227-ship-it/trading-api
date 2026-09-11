@@ -28,6 +28,29 @@ def _repo(path: Path) -> StackHubRepository:
     return repo
 
 
+def _allowed_claim_diagnostics(repo: StackHubRepository) -> tuple[dict[str, int], list[dict[str, object]]]:
+    count_rows = repo.conn.execute(
+        """SELECT c.state, COUNT(*) AS n
+        FROM claims c
+        JOIN opportunities o ON o.source=c.source AND o.id=c.opportunity_id
+        WHERE o.policy_allowed=1
+        GROUP BY c.state
+        ORDER BY c.state"""
+    ).fetchall()
+    counts = {str(row["state"]): int(row["n"]) for row in count_rows}
+    blocked_rows = repo.conn.execute(
+        """SELECT c.source, c.opportunity_id, c.state, c.last_error_code
+        FROM claims c
+        JOIN opportunities o ON o.source=c.source AND o.id=c.opportunity_id
+        WHERE o.policy_allowed=1
+          AND c.state IN ('FAILED_PERMANENT','REJECTED','SUBMITTED','PAID')
+        ORDER BY c.id DESC
+        LIMIT 20"""
+    ).fetchall()
+    blocked = [dict(row) for row in blocked_rows]
+    return counts, blocked
+
+
 async def _close_adapters(adapters: dict[str, object]) -> None:
     for adapter in adapters.values():
         closer = getattr(adapter, "aclose", None)
@@ -92,9 +115,12 @@ def status(
         dry_run = cfg.dry_run or not cfg.worker_enabled
         mode = "DRY-RUN" if dry_run else "LIVE-CANDIDATE"
         mutation_status = "claims/submissions disabled" if dry_run else "capability-gated"
+        allowed_claim_state_counts, blocked_allowed_claims = _allowed_claim_diagnostics(repo)
         report = {
             "mode": mode,
             "mutation_status": mutation_status,
+            "allowed_claim_state_counts": allowed_claim_state_counts,
+            "blocked_allowed_claims": blocked_allowed_claims,
             **status_dict(build_status(repo)),
         }
         typer.echo(json.dumps(redact(report), sort_keys=True, default=str))
