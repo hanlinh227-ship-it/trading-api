@@ -22,7 +22,7 @@ class RepositoryOpportunityPool:
                 ScoreInputs(
                     payout_value_usd=(
                         opportunity.reward.amount
-                        if opportunity.reward.asset.upper() == "USD"
+                        if opportunity.reward.asset.upper() in {"USD", "USDC"}
                         else Decimal("0")
                     ),
                     win_probability=Decimal("0.35"),
