@@ -1,12 +1,29 @@
 version: 2
 defaults:
   route_every_request: true
+  mandatory_skill: task_router
   max_domain_skills: 3
+  max_supporting_skills: 2
   cross_cutting_skills: [critical_thinking, verification]
   unknown_intent: general_problem_solving
   load_project_authority_after_routing: true
   preload_all_skills: false
   preload_trading_state: false
+  skill_catalog_path: AI_SKILL_LIBRARY/skills/catalog.yaml
+  project_registry_path: AI_SKILL_LIBRARY/projects.yaml
+  dynamic_catalog_selection: true
+
+execution_order:
+  - task_router
+  - project_authority
+  - primary_skill
+  - supporting_skills
+  - relevant_sources
+  - relevant_plugins
+  - critical_review
+  - execute
+  - verification
+  - answer
 
 skills:
   - {id: task_router, path: AI_SKILL_LIBRARY/skills/core/task_router.md, domains: [core], aliases: [intent_classification, task_decomposition, skill_selection], triggers: [route task, choose skill, mixed task, new chat], excludes: [], requires: [], conflicts_with: [], priority: 100, plugin_ids: [], source_categories: []}

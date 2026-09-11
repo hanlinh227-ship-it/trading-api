@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "skill.schema.json",
+  "type": "object",
+  "required": ["id", "domain", "triggers", "excludes", "requires", "conflicts_with", "priority", "tools", "sources", "output_contract"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "domain": {"type": "string", "minLength": 1},
+    "triggers": {"type": "array", "items": {"type": "string"}},
+    "excludes": {"type": "array", "items": {"type": "string"}},
+    "requires": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9_]+$"}, "uniqueItems": true},
+    "conflicts_with": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9_]+$"}, "uniqueItems": true},
+    "priority": {"type": "integer", "minimum": 0, "maximum": 100},
+    "tools": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "sources": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "output_contract": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": true
+}

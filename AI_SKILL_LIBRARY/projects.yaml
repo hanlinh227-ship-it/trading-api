@@ -1,0 +1,40 @@
+version: 1
+policy:
+  current_statuses: [CURRENT, ACTIVE, CURRENT_AUTHORITY]
+  one_current_authority_per_project: true
+  project_state_precedes_external_sources: true
+  historical_state_cannot_self_promote: true
+  delete_legacy_only_after_reference_runtime_authority_audit: true
+projects:
+  - id: ai_brain
+    status: CURRENT
+    domains: [core, engineering, trading, game, design, prompt, writing, academic, data_docs, business]
+    authority: AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md
+    canonical_checkpoint: AI_SKILL_LIBRARY/checkpoint.json
+    routed_by: task_router
+    notes: Global routing/skill authority only; it does not replace project runtime state.
+  - id: trading
+    status: CURRENT
+    domains: [trading]
+    authority: docs/checkpoints/CURRENT_HANDOFF.md
+    canonical_checkpoint: docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md
+    authority_token: BYBIT-BTC-STATEFLOW-2.1
+    routed_by: trading_router
+    load_only_when: [trading, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, backtesting, mt5_mql5, trading_bot, live_data_validation]
+    retired_execution_authorities:
+      - legacy multi-coin Bybit
+      - Forex
+      - Meme
+      - Signal V10/V11
+      - AI-council execution
+    preserve_runtime_dependencies:
+      - Bybit LIVE credential lookup
+      - Bybit V5 signing primitive
+      - VPS signed private proxy /bybit/private
+      - Cloudflare VPC/service binding
+      - readonly health/control/deployment verification
+      - existing BTC state KV key
+    live_claim_requires:
+      - successful worker validation/deploy
+      - /bybit/health runtime revision/version alignment
+      - authenticated account access

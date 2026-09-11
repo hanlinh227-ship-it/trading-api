@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "router.schema.json",
+  "type": "object",
+  "required": ["version", "defaults", "routes"],
+  "properties": {
+    "version": {"const": 2},
+    "defaults": {
+      "type": "object",
+      "required": ["route_every_request", "mandatory_skill", "max_domain_skills", "max_supporting_skills", "preload_all_skills", "preload_trading_state"],
+      "properties": {
+        "route_every_request": {"const": true},
+        "mandatory_skill": {"const": "task_router"},
+        "max_domain_skills": {"type": "integer", "minimum": 1, "maximum": 3},
+        "max_supporting_skills": {"type": "integer", "minimum": 0, "maximum": 2},
+        "preload_all_skills": {"const": false},
+        "preload_trading_state": {"const": false}
+      }
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "intent", "primary", "supporting"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "intent": {"type": "string", "minLength": 1},
+          "primary": {"type": ["string", "null"]},
+          "supporting": {"type": "array", "maxItems": 2, "items": {"type": "string"}}
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}
