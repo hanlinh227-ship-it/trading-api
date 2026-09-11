@@ -44,7 +44,7 @@ jobs:
           PORT="${VPS_PORT:-22}"
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
-      - name: Retry one legacy generic TaskForce 400 and capture exact result
+      - name: Capture exact TaskForce apply error
         if: env.DEPLOY_ENABLED == 'true'
         shell: bash
         run: |
@@ -52,48 +52,43 @@ jobs:
           PORT="${VPS_PORT:-22}"
           ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
-          trap 'sudo systemctl start stackhub-v2.service >/dev/null 2>&1 || true' EXIT
-          sudo systemctl stop stackhub-v2.service
           set -a; . /etc/stackhub/stackhub.env; set +a
-          TARGET=$(/opt/stackhub/.venv/bin/python - <<'PY'
-          import sqlite3
-          db=sqlite3.connect('/var/lib/stackhub/stackhub-v2.db')
-          db.row_factory=sqlite3.Row
-          row=db.execute('''
-            SELECT c.opportunity_id
-            FROM claims c
-            JOIN opportunities o ON o.source=c.source AND o.id=c.opportunity_id
-            WHERE c.source='taskforce'
-              AND c.state='FAILED_PERMANENT'
-              AND c.last_error_code='http_400:http_400'
-              AND o.policy_allowed=1
-            ORDER BY CAST(o.reward_amount AS REAL) DESC, o.id
-            LIMIT 1
-          ''').fetchone()
-          if row is None:
-              print('')
-          else:
-              oid=row['opportunity_id']
-              db.execute("UPDATE claims SET state='FAILED_RETRYABLE', last_error_code='legacy_generic_400_canary' WHERE source='taskforce' AND opportunity_id=?",(oid,))
-              db.commit()
-              print(oid)
-          db.close()
-          PY
-          )
-          if [ -z "$TARGET" ]; then
-            echo 'no_legacy_generic_400_candidate'
-            exit 0
-          fi
-          echo "canary_target=$TARGET"
-          echo '=== ORCHESTRATE CANARY ==='
-          /opt/stackhub/.venv/bin/stackhub orchestrate-once --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db || true
-          echo '=== CANARY RESULT ==='
-          TARGET="$TARGET" /opt/stackhub/.venv/bin/python - <<'PY'
-          import json, os, sqlite3
+          /opt/stackhub/.venv/bin/python - <<'PY'
+          import json, os, sqlite3, httpx
           db=sqlite3.connect('/var/lib/stackhub/stackhub-v2.db'); db.row_factory=sqlite3.Row
-          row=db.execute("SELECT source,opportunity_id,state,last_error_code,clone_url,updated_at FROM claims WHERE source='taskforce' AND opportunity_id=?",(os.environ['TARGET'],)).fetchone()
-          print(json.dumps(dict(row),sort_keys=True))
+          row=db.execute('''
+            SELECT o.id,o.category,o.reward_amount,o.requirements_json,o.acceptance_criteria_json
+            FROM opportunities o
+            JOIN claims c ON c.source=o.source AND c.opportunity_id=o.id
+            WHERE o.source='taskforce' AND o.policy_allowed=1
+              AND c.state='FAILED_PERMANENT' AND c.last_error_code='http_400:http_400'
+            ORDER BY CAST(o.reward_amount AS REAL) DESC,o.id LIMIT 1
+          ''').fetchone()
           db.close()
+          if row is None:
+              print('no_generic_400_candidate')
+              raise SystemExit(0)
+          task_id=row['id']
+          print('task='+json.dumps(dict(row),sort_keys=True))
+          headers={'X-API-Key':os.environ['TASKFORCE_API_KEY'],'Accept':'application/json'}
+          message='Autonomous agent ready to complete this task. I will follow the stated requirements, validate the deliverable before submission, and provide concise evidence of completion.'
+          with httpx.Client(timeout=20,follow_redirects=True) as client:
+              browse=client.get('https://www.task-force.app/api/agent/tasks',headers=headers,params={'status':'ACTIVE','limit':100})
+              data=browse.json() if browse.headers.get('content-type','').startswith('application/json') else {}
+              tasks=data.get('tasks',[]) if isinstance(data,dict) else []
+              match=next((x for x in tasks if isinstance(x,dict) and str(x.get('id'))==task_id),None)
+              if match:
+                  safe={k:v for k,v in match.items() if k.lower() not in {'apikey','api_key','token','secret','privatekey','private_key'}}
+                  print('live_task='+json.dumps(safe,sort_keys=True,default=str))
+              r=client.post(f'https://www.task-force.app/api/agent/tasks/{task_id}/apply',headers=headers,json={'message':message})
+              print('apply_status='+str(r.status_code))
+              try:
+                  payload=r.json()
+              except Exception:
+                  payload={'non_json_body':r.text[:500]}
+              if isinstance(payload,dict):
+                  payload={k:v for k,v in payload.items() if k.lower() not in {'apikey','api_key','token','secret','privatekey','private_key'}}
+              print('apply_response='+json.dumps(payload,sort_keys=True,default=str))
           PY
           REMOTE
 
