@@ -1,2 +1,2 @@
-run=v6.1-main-canonical-live-champion-ledger-002
-reason=use-latest-champion-ledger-with-clean-pending-score-and-no-duplicate-live-submission
+run=v6.2-main-canonical-live-production-first-001
+reason=restore-strong-production-baseline-use-staged-defense-and-preserve-live-champion-ledger
