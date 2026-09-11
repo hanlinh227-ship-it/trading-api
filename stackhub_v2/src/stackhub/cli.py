@@ -89,8 +89,14 @@ def status(
     cfg = load_runtime_config(config)
     repo = _repo(db)
     try:
-        mode = "DRY-RUN" if cfg.dry_run or not cfg.worker_enabled else "LIVE-CANDIDATE"
-        report = {"mode": mode, **status_dict(build_status(repo))}
+        dry_run = cfg.dry_run or not cfg.worker_enabled
+        mode = "DRY-RUN" if dry_run else "LIVE-CANDIDATE"
+        mutation_status = "claims/submissions disabled" if dry_run else "capability-gated"
+        report = {
+            "mode": mode,
+            "mutation_status": mutation_status,
+            **status_dict(build_status(repo)),
+        }
         typer.echo(json.dumps(redact(report), sort_keys=True, default=str))
     finally:
         repo.close()
