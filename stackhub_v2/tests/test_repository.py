@@ -74,6 +74,31 @@ def test_initialize_rearms_old_dynamic_taskforce_availability_failure(tmp_path):
     assert claim["last_error_code"] == "task_not_accepting_applications:http_400"
 
 
+def test_initialize_rearms_legacy_generic_taskforce_http400_failure_once_for_reclassification(tmp_path):
+    path = tmp_path / "stackhub.db"
+    repo = StackHubRepository(path)
+    repo.initialize()
+    repo.conn.execute(
+        "INSERT INTO claims(source,opportunity_id,state,updated_at,last_error_code) VALUES(?,?,?,?,?)",
+        (
+            "taskforce",
+            "tf-legacy-400",
+            "FAILED_PERMANENT",
+            "2026-09-11T20:00:00+00:00",
+            "http_400:http_400",
+        ),
+    )
+    repo.conn.commit()
+    repo.close()
+
+    reopened = StackHubRepository(path)
+    reopened.initialize()
+    claim = reopened.get_claim("taskforce", "tf-legacy-400")
+
+    assert claim["state"] == "FAILED_RETRYABLE"
+    assert claim["last_error_code"] == "http_400:http_400"
+
+
 def test_failed_retryable_claim_waits_for_retry_cooldown(tmp_path):
     repo = StackHubRepository(tmp_path / "stackhub.db")
     repo.initialize()
