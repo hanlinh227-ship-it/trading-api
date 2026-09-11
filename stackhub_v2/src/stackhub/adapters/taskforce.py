@@ -48,7 +48,10 @@ class TaskForceAdapter:
         self.capabilities = config.capabilities
         self.api_key = api_key.strip() if api_key else None
         self._owned_client = client is None
-        self.client = client or httpx.AsyncClient(timeout=config.request_timeout_seconds)
+        self.client = client or httpx.AsyncClient(
+            timeout=config.request_timeout_seconds,
+            follow_redirects=True,
+        )
 
     def _headers(self) -> dict[str, str]:
         if not self.api_key:
