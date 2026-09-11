@@ -1,6 +1,6 @@
 version: 1
 checkpoint_id: GITHUB_BRAIN_V2
-protocol_version: 2.2.0
+protocol_version: 2.3.0
 mandatory_router: task_router
 default_profile: FAST
 
@@ -10,6 +10,8 @@ paths:
   router: AI_SKILL_LIBRARY/router.yaml
   runtime: AI_SKILL_LIBRARY/runtime.yaml
   context: AI_SKILL_LIBRARY/context.yaml
+  reliability: AI_SKILL_LIBRARY/reliability.yaml
+  evidence: AI_SKILL_LIBRARY/evidence.yaml
   projects: AI_SKILL_LIBRARY/projects.yaml
   skills: AI_SKILL_LIBRARY/skills/catalog.yaml
   sources: AI_SKILL_LIBRARY/sources.yaml
@@ -30,6 +32,8 @@ lazy_load:
   observability: true
   security_detail: true
   context_detail: true
+  reliability_detail: true
+  evidence_detail: true
 
 fast_path:
   requires_all:
@@ -49,6 +53,7 @@ fast_path:
     - destructive_action
     - financial_action
     - credential_sensitive_action
+    - material_evidence_conflict
 
 context_scheduler:
   enabled: true
@@ -56,6 +61,18 @@ context_scheduler:
   work_cycle_cache: true
   deduplicate: true
   freshness_invalidation: true
+
+reliability:
+  config: AI_SKILL_LIBRARY/reliability.yaml
+  bounded_retry: true
+  circuit_breaker: true
+  degraded_state_disclosure: true
+
+evidence:
+  config: AI_SKILL_LIBRARY/evidence.yaml
+  provenance_ledger: true
+  hidden_reasoning_persistence: false
+  material_conflict_escalation: true
 
 refresh_triggers:
   - new_chat_or_work_cycle

@@ -1,0 +1,47 @@
+version: 1
+milestone: 2.3.0
+purpose: evidence provenance ledger, conflict handling and uncertainty escalation
+
+ledger:
+  enabled: true
+  persist_hidden_reasoning: false
+  record:
+    - claim_summary
+    - evidence_reference
+    - source_class
+    - freshness
+    - verification_status
+    - conflict_status
+  max_entries_per_request: 24
+
+source_classes:
+  - current_runtime
+  - current_project_authority
+  - first_party_current
+  - peer_reviewed_or_primary
+  - approved_reference
+  - model_background
+
+conflicts:
+  prefer_current_authority: true
+  prefer_fresher_equal_authority: true
+  never_silently_average_conflicts: true
+  material_conflict_requires_resolution_or_disclosure: true
+  historical_snapshot_cannot_override_current: true
+
+uncertainty:
+  escalate_material_conflict: true
+  distinguish_fact_inference_assumption: true
+  require_verification_when_material_and_available: true
+  disclose_unresolved_material_uncertainty: true
+
+provenance:
+  preserve_source_identity: true
+  preserve_timestamp_when_material: true
+  preserve_project_scope: true
+  cache_must_retain_original_provenance: true
+
+claims:
+  live_requires_runtime_evidence: true
+  completion_requires_fresh_verification: true
+  confidence_language_is_not_evidence: true
