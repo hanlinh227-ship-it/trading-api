@@ -1,0 +1,79 @@
+name: Repair SignalHub V3.23.1 Scan Runtime
+
+on:
+  push:
+    branches: [signalhub-v3231-entry-precision-cutrate]
+    paths: ['.github/workflows/repair-signalhub-v3231-scan-runtime.yml']
+  workflow_dispatch:
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Materialize repaired V3.23.1
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/patch_signalhub_v3227_market_only_health_seven.py');s=p.read_text()
+          old="a=block(a,'    private void renderSignals(boolean animate){','    private String performanceSummary(){',render,'renderSignals')"
+          new="a=block(a,'    private void renderSignals(boolean animate){','    private void addCryptoSignalGroup(',render,'renderSignals')"
+          if old in s:s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          python3 scripts/fix_patch_signalhub_v3230_markers.py
+          python3 scripts/patch_signalhub_v3225_realtime_unique_book.py
+          python3 scripts/patch_signalhub_v3225_build_compat.py
+          python3 scripts/patch_signalhub_v3226_balanced_realtime_book.py
+          python3 scripts/patch_signalhub_v3227_market_only_health_seven.py
+          python3 scripts/patch_signalhub_v3227_runtime_fix.py
+          python3 scripts/patch_signalhub_v3230_resilient_ledger_clean.py
+          python3 scripts/patch_signalhub_v3230_postfix.py
+          python3 scripts/patch_signalhub_v3230_provider_failover.py
+          python3 scripts/patch_signalhub_v3230_integrity_refresh.py
+          python3 scripts/patch_signalhub_v3231_entry_precision_cutrate.py
+          python3 scripts/patch_signalhub_v3231_admission_balance.py
+          python3 scripts/patch_signalhub_v3231_scan_runtime_fix.py
+          node --check signalhub-worker/gateway-v3.js
+          grep -q "async function retireAllLegacyActiveSignals" signalhub-worker/gateway-v3.js
+      - name: Deploy repair
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --config wrangler.jsonc
+      - name: Verify repaired scans
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 60); do
+            curl -fsS --max-time 20 "$BASE/v3/status?repair=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:x=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.23.1',x.get('version')
+          assert ((x.get('decisionPolicy') or {}).get('healthModel'))=='V3231_PRECISION_HEALTH_HYSTERESIS_1S',x.get('decisionPolicy')
+          PY
+            then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1
+          for style in SWING SCALP; do
+            code=$(curl -sS --max-time 330 -o "/tmp/$style.json" -w '%{http_code}' "$BASE/v3/scan?market=CRYPTO&style=$style&repair=$RANDOM" || true)
+            echo "$style HTTP=$code"
+            python3 - "$style" <<'PY'
+          import json,sys
+          x=json.load(open('/tmp/'+sys.argv[1]+'.json'))
+          print(sys.argv[1],json.dumps({k:x.get(k) for k in ['ok','error','detail','status','evaluated','actionable','strictConfirmed','safeFill','created','activeAfter']},ensure_ascii=False))
+          assert x.get('error')!='SCAN_RUNTIME_ERROR',x
+          assert x.get('ok') is True,x
+          PY
+          done
