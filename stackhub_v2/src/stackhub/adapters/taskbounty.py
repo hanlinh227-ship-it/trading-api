@@ -28,18 +28,6 @@ class SubmissionResult(BaseModel):
     external_link: str = Field(min_length=1)
 
 
-class _FeedItem(BaseModel):
-    id: str = Field(min_length=1)
-    url: str | None = None
-    title: str | None = None
-    content_text: str | None = None
-
-
-class _Feed(BaseModel):
-    version: str | None = None
-    items: list[_FeedItem]
-
-
 class _Task(BaseModel):
     id: str = Field(min_length=1)
     title: str = Field(min_length=1)
@@ -83,17 +71,23 @@ def _raise_http_error(exc: httpx.HTTPStatusError) -> None:
     ) from exc
 
 
-def _parse_task_detail(payload: object) -> _Task:
-    if isinstance(payload, dict):
-        if isinstance(payload.get("task"), dict):
-            payload = payload["task"]
-        elif isinstance(payload.get("tasks"), list) and len(payload["tasks"]) == 1:
-            payload = payload["tasks"][0]
-    return _Task.model_validate(payload)
+def _parse_task_list(payload: object) -> list[_Task]:
+    if not isinstance(payload, dict) or not isinstance(payload.get("tasks"), list):
+        raise TaskBountyProtocolError(
+            "TaskBounty response validation failed",
+            error_code="validation_error",
+        )
+    try:
+        return [_Task.model_validate(item) for item in payload["tasks"]]
+    except ValidationError as exc:
+        raise TaskBountyProtocolError(
+            "TaskBounty response validation failed",
+            error_code="validation_error",
+        ) from exc
 
 
 class TaskBountyAdapter:
-    """TaskBounty source adapter with generic discovery/claim/submit aliases."""
+    """TaskBounty source adapter using the current REST task lifecycle."""
 
     source_name = "taskbounty"
 
@@ -108,10 +102,10 @@ class TaskBountyAdapter:
         self.capabilities = config.capabilities
         self.api_key = api_key.strip() if api_key else None
         self._owned_client = client is None
-        self.client = client or httpx.AsyncClient(timeout=config.request_timeout_seconds)
+        self.client = client or httpx.AsyncClient(timeout=config.request_timeout_seconds, follow_redirects=True)
 
     def _headers(self) -> dict[str, str]:
-        headers = {"Accept": "application/feed+json, application/json"}
+        headers = {"Accept": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
@@ -136,19 +130,16 @@ class TaskBountyAdapter:
         headers = self._headers()
         try:
             response = await self.client.get(
-                f"{self.config.base_url.rstrip('/')}/bounties.json",
-                params={"limit": limit},
+                f"{self.config.base_url.rstrip('/')}/tasks",
+                params={"state": "open", "limit": limit},
                 headers=headers,
             )
             response.raise_for_status()
-            feed = _Feed.model_validate(response.json())
+            tasks = _parse_task_list(response.json())
         except httpx.HTTPStatusError as exc:
             _raise_http_error(exc)
-        except ValidationError as exc:
-            raise TaskBountyProtocolError(
-                "TaskBounty response validation failed",
-                error_code="validation_error",
-            ) from exc
+        except TaskBountyProtocolError:
+            raise
         except (httpx.HTTPError, ValueError) as exc:
             raise TaskBountyProtocolError(
                 "TaskBounty protocol error",
@@ -156,27 +147,7 @@ class TaskBountyAdapter:
             ) from exc
 
         items: list[Opportunity] = []
-        for feed_item in feed.items:
-            try:
-                detail = await self.client.get(
-                    f"{self.config.base_url.rstrip('/')}/tasks/{quote(feed_item.id, safe='')}",
-                    headers=headers,
-                )
-                detail.raise_for_status()
-                task = _parse_task_detail(detail.json())
-            except httpx.HTTPStatusError as exc:
-                _raise_http_error(exc)
-            except ValidationError as exc:
-                raise TaskBountyProtocolError(
-                    "TaskBounty response validation failed",
-                    error_code="validation_error",
-                ) from exc
-            except (httpx.HTTPError, ValueError) as exc:
-                raise TaskBountyProtocolError(
-                    "TaskBounty protocol error",
-                    error_code="protocol_error",
-                ) from exc
-
+        for task in tasks:
             solver_amount = (
                 Decimal(task.bounty_cents) * Decimal("0.80") / Decimal("100")
             ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -192,9 +163,15 @@ class TaskBountyAdapter:
                     deadline=None,
                     requirements=(
                         f"Fix the funded GitHub issue in {repo}",
+                        f"Issue: {task.github_issue_url}",
                         f"Language: {lang}",
                     ),
-                    acceptance_criteria=("Pass TaskBounty end-to-end verification",),
+                    acceptance_criteria=(
+                        "Add or update regression coverage where appropriate",
+                        "Run the repository test suite relevant to the change",
+                        "Open an upstream GitHub pull request containing the tested fix",
+                        "Pass TaskBounty end-to-end verification",
+                    ),
                     competition_model="best_submission",
                     agent_allowed=True,
                     estimated_effort_minutes=_EFFORT.get(
