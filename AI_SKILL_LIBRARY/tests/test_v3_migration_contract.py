@@ -11,15 +11,8 @@ LIB = ROOT / "AI_SKILL_LIBRARY"
 class BrainV3MigrationContractTests(unittest.TestCase):
     def test_required_v22_to_v3_files_exist(self):
         for rel in (
-            "context.yaml",
-            "reliability.yaml",
-            "evidence.yaml",
-            "orchestration.yaml",
-            "kernel.yaml",
-            "migration.yaml",
-            "GITHUB_BRAIN_V3.md",
-            "validate_v3.py",
-            "schemas/kernel.schema.json",
+            "context.yaml", "reliability.yaml", "evidence.yaml", "orchestration.yaml", "kernel.yaml",
+            "migration.yaml", "GITHUB_BRAIN_V3.md", "validate_v3.py", "schemas/kernel.schema.json",
         ):
             self.assertTrue((LIB / rel).is_file(), rel)
 
@@ -30,30 +23,35 @@ class BrainV3MigrationContractTests(unittest.TestCase):
         self.assertEqual(data["current"], "3.0.0")
         self.assertEqual(data["authority"], "AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md")
 
-    def test_checkpoint_promotes_v3_and_keeps_v1_v2_compatibility(self):
+    def test_v3_is_preserved_as_compatibility_under_v4(self):
         checkpoint = json.loads((LIB / "checkpoint.json").read_text(encoding="utf-8"))
-        self.assertEqual(checkpoint["checkpoint_id"], "GITHUB_BRAIN_V3")
-        self.assertEqual(checkpoint["version"], "3.0.0")
-        self.assertEqual(checkpoint["checkpoint_path"], "AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md")
-        self.assertEqual(checkpoint["kernel_path"], "AI_SKILL_LIBRARY/kernel.yaml")
+        self.assertEqual(checkpoint["checkpoint_id"], "GITHUB_BRAIN_V4")
+        self.assertEqual(checkpoint["version"], "4.0.0")
+        self.assertEqual(checkpoint["checkpoint_path"], "AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md")
+        self.assertIn("GITHUB_BRAIN_V3", checkpoint["activation_aliases"])
         self.assertIn("GITHUB_BRAIN_V2", checkpoint["activation_aliases"])
         self.assertIn("GITHUB_BRAIN_V1", checkpoint["activation_aliases"])
+        v3 = (LIB / "GITHUB_BRAIN_V3.md").read_text(encoding="utf-8")
+        self.assertIn("GITHUB_BRAIN_V4", v3)
+        self.assertIn("compatibility", v3.lower())
+        self.assertNotIn("CURRENT_AUTHORITY", v3)
 
-    def test_v2_becomes_redirect_only_and_v3_is_single_ai_brain_authority(self):
-        v2 = (LIB / "GITHUB_BRAIN_V2.md").read_text(encoding="utf-8")
-        self.assertIn("GITHUB_BRAIN_V3", v2)
-        self.assertIn("compatibility", v2.lower())
-        self.assertNotIn("CURRENT_AUTHORITY", v2)
+    def test_legacy_brains_redirect_and_v4_is_single_ai_brain_authority(self):
+        for rel in ("GITHUB_BRAIN_V1.md", "GITHUB_BRAIN_V2.md", "GITHUB_BRAIN_V3.md"):
+            text = (LIB / rel).read_text(encoding="utf-8")
+            self.assertIn("GITHUB_BRAIN_V4", text)
+            self.assertIn("compatibility", text.lower())
+            self.assertNotIn("CURRENT_AUTHORITY", text)
 
         projects = yaml.safe_load((LIB / "projects.yaml").read_text(encoding="utf-8"))
         ai = [row for row in projects["projects"] if row["id"] == "ai_brain"]
         self.assertEqual(len(ai), 1)
-        self.assertEqual(ai[0]["authority"], "AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md")
+        self.assertEqual(ai[0]["authority"], "AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md")
 
         router = yaml.safe_load((LIB / "router.yaml").read_text(encoding="utf-8"))
         current = [row for row in router["authorities"] if row["scope"] == "ai_brain" and row["status"] == "CURRENT_AUTHORITY"]
         self.assertEqual(len(current), 1)
-        self.assertEqual(current[0]["path"], "AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md")
+        self.assertEqual(current[0]["path"], "AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md")
 
     def test_v22_context_scheduler_is_bounded_and_fast_safe(self):
         data = yaml.safe_load((LIB / "context.yaml").read_text(encoding="utf-8"))
@@ -82,7 +80,7 @@ class BrainV3MigrationContractTests(unittest.TestCase):
         self.assertIs(data["parallelism"]["serial_fallback"], True)
         self.assertIs(data["safety"]["parallel_high_impact_writes"], False)
 
-    def test_v3_kernel_unifies_control_plane_and_keeps_fast_path_light(self):
+    def test_v3_kernel_is_preserved_as_historical_compatibility(self):
         kernel = yaml.safe_load((LIB / "kernel.yaml").read_text(encoding="utf-8"))
         self.assertEqual(kernel["version"], 3)
         self.assertEqual(kernel["authority"], "GITHUB_BRAIN_V3")
