@@ -51,19 +51,23 @@ def _cash_defense_tier(f):
 
 
 def _runtime_params(p,f):
-    """Convert capital-heavy defaults into opponent-aware live cash defense."""
+    """Convert capital-heavy defaults into opponent-aware live cash defense.
+
+    Runtime parameters must stay inside the base controller contract.  Deeper reserves that exceed
+    the public ``land_buffer`` range are enforced by ``_capital_floor`` instead of leaking invalid
+    values into ``validate_params``.
+    """
     q=dict(p)
     gap=float(f.get('gap',0) or 0)
     tier=_cash_defense_tier(f)
     opp_hands=int(f.get('opponent_hands',0) or 0)
-    opp_quadrants=int(f.get('opponent_unlocked_quadrants',1) or 1)
 
-    # Conservative live baseline.  The third quadrant / larger labor force is earned by a cash lead
-    # or by the opponent already proving that extra scale is necessary.
+    # Conservative live baseline.  Three quadrants is the minimum legal target in the base policy;
+    # actual expansion is still blocked by _capital_guard whenever the cash race is weak.
     q['target_hands']=min(int(q.get('target_hands',9) or 9),8)
     q['expansion_mode']='balanced'
     q['land_buffer']=max(float(q.get('land_buffer',0) or 0),1050.0)
-    q['land_target_quadrants']=3 if (gap>1200 or opp_quadrants>=3) else 2
+    q['land_target_quadrants']=3
     q['fill_target']=min(float(q.get('fill_target',.72) or .72),.72)
     q['seed_scale']=min(float(q.get('seed_scale',1.05) or 1.05),1.05)
     q['cow_max']=min(int(q.get('cow_max',3) or 0),3)
@@ -82,7 +86,7 @@ def _runtime_params(p,f):
 
     if tier>=1:
         q['target_hands']=min(q['target_hands'],7)
-        q['land_target_quadrants']=min(q['land_target_quadrants'],2)
+        q['land_target_quadrants']=3
         q['land_buffer']=max(q['land_buffer'],1500.0)
         q['fill_target']=min(q['fill_target'],.64)
         q['seed_scale']=min(q['seed_scale'],.90)
@@ -102,16 +106,17 @@ def _runtime_params(p,f):
         q['seed_scale']=min(q['seed_scale'],.74)
         q['fill_target']=min(q['fill_target'],.56)
         q['crop_mode']='grains'
-        q['land_buffer']=max(q['land_buffer'],2200.0)
+        q['land_buffer']=1600.0
         q['sell_batch']=max(q['sell_batch'],16)
 
     if tier>=3:
         # Deep-deficit recovery: no speculative scale.  Use existing productive assets and maximize
-        # realized cash; new spending is restricted to short-cycle seeds and survival inputs.
+        # realized cash; the >$3k reserve is enforced by _capital_floor while this public parameter
+        # remains within the base controller's validated 0..1600 range.
         q['target_hands']=min(q['target_hands'],5)
         q['seed_scale']=min(q['seed_scale'],.58)
         q['fill_target']=min(q['fill_target'],.48)
-        q['land_buffer']=max(q['land_buffer'],3000.0)
+        q['land_buffer']=1600.0
         q['sell_batch']=max(q['sell_batch'],24)
 
     if gap>2500:
@@ -121,7 +126,26 @@ def _runtime_params(p,f):
         q['animal_roi_floor']=max(q['animal_roi_floor'],1.15)
         q['target_hands']=min(q['target_hands'],8)
 
+    # Fail closed at the boundary even if future edits change a tier.  This is deliberately narrow:
+    # it normalizes only the two fields that caused the first V5.9 live runtime failure.
+    q['land_target_quadrants']=4 if int(q.get('land_target_quadrants',3) or 3)>=4 else 3
+    q['land_buffer']=min(1600.0,max(0.0,float(q.get('land_buffer',0) or 0)))
     return validate_params(q)
+
+
+def validate_live_runtime_contracts():
+    """Pure parameter-contract probes used by CI; no simulator or local match is executed."""
+    base=validate_params(None)
+    probes=(
+        {'gap':0,'day':1,'remaining_turns':720,'opponent_hands':5},
+        {'gap':-1000,'day':10,'remaining_turns':420,'opponent_hands':7},
+        {'gap':-2600,'day':8,'remaining_turns':220,'opponent_hands':8},
+        {'gap':-5000,'day':12,'remaining_turns':120,'opponent_hands':9},
+        {'gap':3200,'day':8,'remaining_turns':360,'opponent_hands':8},
+    )
+    for f in probes:
+        _runtime_params(base,f)
+    return True
 
 
 def _capital_floor(f,p):
@@ -302,7 +326,6 @@ def _sell_view(f):
     cash-pressure branch in ``sell_decision`` exactly when realized cash was needed most.
     """
     out=dict(f)
-    gap=float(f.get('gap',0) or 0)
     tier=_cash_defense_tier(f)
     if tier>0:
         out['regime']='comeback'
