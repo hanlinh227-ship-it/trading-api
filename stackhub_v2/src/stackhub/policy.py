@@ -21,25 +21,17 @@ _HUMAN_SIMULATION_PATTERNS = (
     r"\bimpersonat(e|ion)\b",
     r"\bspoof (ip|location|device)\b",
 )
-
-_WALLET_SECRET_PATTERNS = (
-    r"\bseed phrase\b",
-    r"\bmnemonic\b",
-    r"\bprivate key\b",
-)
-
+_WALLET_SECRET_PATTERNS = (r"\bseed phrase\b", r"\bmnemonic\b", r"\bprivate key\b")
 _PROMPT_INJECTION_PATTERNS = (
-    r"ignore previous (instructions|policy)",
-    r"override (system|policy)",
-    r"enable spending",
-    r"disable (guardrail|policy|safety)",
+    r"ignore previous (instructions|policy)", r"override (system|policy)", r"enable spending", r"disable (guardrail|policy|safety)",
 )
-
-_TRADING_TARGET_PATTERNS = (
-    r"production trading",
-    r"live trading",
-    r"bybit production",
-    r"mt5 production",
+_TRADING_TARGET_PATTERNS = (r"production trading", r"live trading", r"bybit production", r"mt5 production")
+_EXTERNAL_ACCOUNT_PATTERNS = (
+    r"\bpost (an?|the|this)?\s*(instagram|tiktok|facebook|linkedin|youtube|x|twitter)\b",
+    r"\bpublish (an?|the|this)?\s*(instagram|tiktok|facebook|linkedin|youtube|x|twitter)\b",
+    r"\bfrom your (account|profile|channel)\b",
+    r"\bsend the public link\b",
+    r"\buse your personal account\b",
 )
 
 
@@ -50,24 +42,18 @@ def _matches_any(text: str, patterns: tuple[str, ...]) -> bool:
 
 def evaluate_opportunity(opportunity: Opportunity, runtime: RuntimeConfig) -> PolicyDecision:
     reasons: list[str] = []
-
     if opportunity.agent_allowed is not True:
         reasons.append("agent_permission_unknown" if opportunity.agent_allowed is None else "agent_permission_forbidden")
-
     source = runtime.sources.get(opportunity.source)
     if source is None or not source.enabled or not source.agent_native:
         reasons.append("source_not_enabled_for_agents")
 
     combined_text = "\n".join((*opportunity.requirements, *opportunity.acceptance_criteria))
-
-    if _matches_any(combined_text, _HUMAN_SIMULATION_PATTERNS):
-        reasons.append("prohibited_human_simulation")
-    if _matches_any(combined_text, _WALLET_SECRET_PATTERNS):
-        reasons.append("prohibited_wallet_secret")
-    if _matches_any(combined_text, _PROMPT_INJECTION_PATTERNS):
-        reasons.append("prompt_injection_like_instruction")
-    if _matches_any(combined_text, _TRADING_TARGET_PATTERNS):
-        reasons.append("prohibited_production_trading_target")
+    if _matches_any(combined_text, _HUMAN_SIMULATION_PATTERNS): reasons.append("prohibited_human_simulation")
+    if _matches_any(combined_text, _WALLET_SECRET_PATTERNS): reasons.append("prohibited_wallet_secret")
+    if _matches_any(combined_text, _PROMPT_INJECTION_PATTERNS): reasons.append("prompt_injection_like_instruction")
+    if _matches_any(combined_text, _TRADING_TARGET_PATTERNS): reasons.append("prohibited_production_trading_target")
+    if _matches_any(combined_text, _EXTERNAL_ACCOUNT_PATTERNS): reasons.append("prohibited_external_account_action")
 
     spend_terms = ("deposit", "purchase", "pay fee", "buy credits", "external spend")
     normalized = combined_text.lower()
