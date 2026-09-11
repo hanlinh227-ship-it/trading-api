@@ -1,0 +1,80 @@
+version: 1
+milestone: 2.2.0
+purpose: bounded context scheduling, cache reuse, deduplication and freshness-aware invalidation
+
+policy:
+  authority_first: true
+  task_relevance_first: true
+  freshness_aware: true
+  deduplicate: true
+  minimize_context: true
+  cache_never_outranks_fresh_authority: true
+  unresolved_conflict_escalates_profile: true
+
+ranking:
+  order:
+    - current_project_authority
+    - current_runtime_or_source_state
+    - task_relevance
+    - freshness
+    - evidence_quality
+    - estimated_context_cost
+  drop_when:
+    - duplicate
+    - superseded
+    - unrelated_domain
+    - stale_without_historical_need
+
+profiles:
+  FAST:
+    max_registry_reads: 1
+    max_context_sources: 1
+    durable_memory_items: 0
+    allow_cache_reuse: true
+    allow_project_state: false
+  STANDARD:
+    max_registry_reads: 4
+    max_context_sources: 6
+    durable_memory_items: 4
+    allow_cache_reuse: true
+    allow_project_state: true
+  DEEP:
+    max_registry_reads: 8
+    max_context_sources: 12
+    durable_memory_items: 8
+    allow_cache_reuse: true
+    allow_project_state: true
+
+cache:
+  scope: work_cycle
+  cache_registry_reads: true
+  cache_verified_authority_resolution: true
+  cache_tool_discovery: true
+  cache_live_data: false
+  require_freshness_check_before_reuse: true
+  invalidate_on:
+    - checkpoint_change
+    - project_authority_change
+    - source_revision_change
+    - explicit_user_refresh
+    - live_or_current_state_request
+    - mutation_or_deploy
+
+compression:
+  enabled: true
+  preserve:
+    - user_constraints
+    - current_authority
+    - acceptance_criteria
+    - unresolved_risks
+    - evidence_references
+  never_compress_into_fact:
+    - assumption
+    - inference
+    - stale_runtime_state
+
+fast_path:
+  no_full_catalog: true
+  no_durable_memory: true
+  no_trading_state: true
+  no_external_registry_scan_without_need: true

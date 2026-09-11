@@ -35,6 +35,7 @@ profiles:
     replan_budget: 0
     max_supporting_skills: 0
     persistent_trace: false
+    context_registry_reads: 1
     stages: [task_router, minimal_core, answer]
   STANDARD:
     context_tokens: 7000
@@ -43,9 +44,11 @@ profiles:
     replan_budget: 1
     max_supporting_skills: 2
     persistent_trace: conditional
+    context_registry_reads: 4
     stages:
       - task_router
       - runtime_profile
+      - context_plan
       - project_authority
       - primary_skill
       - supporting_skills
@@ -62,9 +65,11 @@ profiles:
     replan_budget: 2
     max_supporting_skills: 2
     persistent_trace: bounded
+    context_registry_reads: 8
     stages:
       - task_router
       - runtime_profile
+      - context_plan
       - project_authority
       - scoped_memory
       - planner
@@ -90,7 +95,10 @@ controls:
   planner_only_when_profile: DEEP
   critic_only_when_profile: DEEP
   eval_only_when_profile: DEEP
+  context_scheduler: true
+  context_cache_scope: work_cycle
   max_context_tokens: 20000
   max_memory_items: 12
   max_tool_candidates: 8
   max_replan_budget: 3
+  max_registry_reads: 10
