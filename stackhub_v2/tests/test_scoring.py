@@ -1,44 +1,50 @@
 from decimal import Decimal
-from stackhub.models import Opportunity, Reward
-from stackhub.scoring import ScoreInputs, ScoredOpportunity, score_opportunity, rank_opportunities
+import pytest
+from pydantic import ValidationError
+
+from stackhub.scoring import ScoreInputs, ScoredOpportunity, rank_opportunities, score_opportunity
 
 
-def opp(id: str, minutes: int = 20):
-    return Opportunity(
-        id=id, source="taskbounty", url=f"https://www.task-bounty.com/task/{id}", category="coding",
-        reward=Reward(amount=Decimal("20"), asset="USD", network=None), deadline=None,
-        requirements=(), acceptance_criteria=(), competition_model="best_submission",
-        agent_allowed=True, estimated_effort_minutes=minutes,
-    )
-
-
-def test_score_formula():
-    result = score_opportunity(opp("a"), ScoreInputs(
-        payout_value_usd=Decimal("20"), win_probability=Decimal("0.5"), verification_probability=Decimal("0.8"),
-        model_cost_usd=Decimal("0"), compute_cost_usd=Decimal("0"), chain_fee_usd=Decimal("0"),
+def make_inputs(**updates):
+    data = dict(
+        payout_value_usd=Decimal("20"),
+        win_probability=Decimal("0.5"),
+        verification_probability=Decimal("0.8"),
+        model_cost_usd=Decimal("0"),
+        compute_cost_usd=Decimal("0"),
+        chain_fee_usd=Decimal("0"),
         expected_failed_work_cost_usd=Decimal("0"),
-    ))
+    )
+    data.update(updates)
+    return ScoreInputs(**data)
+
+
+def test_score_formula(allowed_opportunity):
+    result = score_opportunity(allowed_opportunity, make_inputs())
     assert result.expected_net_value_usd == Decimal("8.00")
     assert result.score_usd_per_minute == Decimal("0.4000")
 
 
-def test_negative_expected_value_is_preserved():
-    result = score_opportunity(opp("a"), ScoreInputs(
-        payout_value_usd=Decimal("1"), win_probability=Decimal("1"), verification_probability=Decimal("1"),
-        model_cost_usd=Decimal("2"), compute_cost_usd=Decimal("0"), chain_fee_usd=Decimal("0"),
-        expected_failed_work_cost_usd=Decimal("0"),
-    ))
-    assert result.expected_net_value_usd == Decimal("-1")
-
-
-def test_rank_is_deterministic():
-    same = ScoreInputs(
-        payout_value_usd=Decimal("10"), win_probability=Decimal("1"), verification_probability=Decimal("1"),
-        model_cost_usd=Decimal("0"), compute_cost_usd=Decimal("0"), chain_fee_usd=Decimal("0"), expected_failed_work_cost_usd=Decimal("0"),
+def test_negative_expected_value_is_preserved(allowed_opportunity):
+    result = score_opportunity(
+        allowed_opportunity,
+        make_inputs(model_cost_usd=Decimal("20")),
     )
-    b, a = opp("b", 10), opp("a", 10)
+    assert result.expected_net_value_usd == Decimal("-12.00")
+    assert result.score_usd_per_minute == Decimal("-0.6000")
+
+
+def test_probability_outside_range_is_rejected():
+    with pytest.raises(ValidationError):
+        make_inputs(win_probability=Decimal("1.1"))
+
+
+def test_rank_is_deterministic(allowed_opportunity):
+    a = allowed_opportunity.model_copy(update={"id": "a", "source": "taskbounty"})
+    b = allowed_opportunity.model_copy(update={"id": "b", "source": "taskbounty"})
+    result = score_opportunity(a, make_inputs())
     ranked = rank_opportunities([
-        ScoredOpportunity(opportunity=b, result=score_opportunity(b, same)),
-        ScoredOpportunity(opportunity=a, result=score_opportunity(a, same)),
+        ScoredOpportunity(opportunity=b, result=result),
+        ScoredOpportunity(opportunity=a, result=result),
     ])
-    assert [x.opportunity.id for x in ranked] == ["a", "b"]
+    assert [item.opportunity.id for item in ranked] == ["a", "b"]

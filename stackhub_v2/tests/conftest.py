@@ -2,6 +2,8 @@ from decimal import Decimal
 import pytest
 from stackhub.config import RuntimeConfig, SourceConfig
 from stackhub.models import Opportunity, Reward
+from stackhub.policy import PolicyDecision
+from stackhub.scoring import ScoreResult
 
 
 @pytest.fixture
@@ -38,4 +40,17 @@ def allowed_opportunity():
         competition_model="first_pass",
         agent_allowed=True,
         estimated_effort_minutes=20,
+    )
+
+
+@pytest.fixture
+def allowed_policy():
+    return PolicyDecision(allowed=True, reasons=())
+
+
+@pytest.fixture
+def score_result():
+    return ScoreResult(
+        expected_net_value_usd=Decimal("8.00"),
+        score_usd_per_minute=Decimal("0.4000"),
     )
