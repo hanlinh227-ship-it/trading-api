@@ -19,9 +19,9 @@ Updated: 2026-09-11 +07
 - Every submission/publication requires verification evidence.
 - Do not call the runtime LIVE unless deployment/runtime is independently verified.
 
-## Implemented foundation
+## Implementation state
 
-### 1. Bounded worker pools
+### 1. Bounded worker pools — IMPLEMENTED
 - scouts: 3
 - code_fix: 2
 - research_data: 2
@@ -29,80 +29,93 @@ Updated: 2026-09-11 +07
 - verification: 2
 - submission: 1
 - global active paid-task ceiling: 4
-- Original foundation commit: `5ea58d75d6fdc4dc3b2d36d9041e15a842bcba1b`.
+- Foundation commit: `5ea58d75d6fdc4dc3b2d36d9041e15a842bcba1b`.
 
-### 2. Source-agnostic durable lifecycle/reservations
-Canonical lifecycle:
+### 2. Durable source-agnostic lifecycle/reservations — IMPLEMENTED
+Lifecycle:
 `DISCOVERED -> ELIGIBLE -> RESERVED -> CLAIMED -> SOLVING -> VERIFIED -> SUBMITTED -> PAID`
-with `FAILED_RETRYABLE`, `FAILED_PERMANENT`, `EXPIRED`, `REJECTED`.
+plus `FAILED_RETRYABLE`, `FAILED_PERMANENT`, `EXPIRED`, `REJECTED`.
 
-Implemented atomic SQLite `BEGIN IMMEDIATE` reservation, global capacity enforcement, migration-safe claim fields, terminal-state handling and transition validation.
-Focused lifecycle/reservation verification previously observed: `8 passed`.
+Includes atomic SQLite `BEGIN IMMEDIATE` reservation, global capacity enforcement, migration-safe fields, terminal-state handling and transition validation. Focused lifecycle/reservation test evidence: `8 passed`.
 
-### 3. Source capability policy gate
-Implemented action-specific `discover/claim/submit/publish/observe_payout` capabilities, zero-spend rejection, mutation/terms verification timestamps and read-only defaults. Focused verification previously observed: `6 passed`.
+### 3. Source capability policy gate — IMPLEMENTED
+Action-specific `discover/claim/submit/publish/observe_payout` permissions, zero-spend reject, mutation/terms verification timestamps and read-only defaults. Focused evidence: `6 passed`.
 
-### 4. Multi-source normalization and revenue scoring
+### 4. Multi-source opportunity normalization/scoring — IMPLEMENTED
 Commit: `fac4a72710d70c90c9db82f52e5ec72102f97a61`.
-Implemented normalized multi-lane opportunity schema and deterministic expected-realized-revenue-per-worker-minute scoring. RED was observed before implementation; focused scratch suite: `3 passed`.
+Common multi-lane schema plus expected-realized-revenue-per-worker-minute scoring. Focused evidence: `3 passed`.
 
-### 5. Generic adapter/scout boundary
+### 5. Generic adapter/scout layer — IMPLEMENTED
 Commits: `10dbd4f40d1ee3b1df248b7118f08a5d5716113f`, `0549a07e65c787c4079393e5a91ea34e143430f5`.
-Implemented generic discovery/claim/submit adapter contracts, read-only Scout, and TaskBounty adapter compatibility with the generic interface. Focused scratch suite: `3 passed`.
+Generic discover/claim/submit contracts, read-only scouts, TaskBounty conforming to the generic contract. Focused evidence: `3 passed`.
 
-### 6. Solver isolation, verification and idempotent submission
+### 6. Solver isolation + verification + submission — IMPLEMENTED
 Commit: `f8ac47727cb05efef2d4f7cedfcfd832b5e1b113`.
-Solvers return Artifact + Evidence and receive no marketplace submit handle. Verification rejects empty artifacts, missing evidence and detected secrets. Submission requires `VERIFIED` state and source capability approval. Focused scratch suite: `3 passed`.
+Solver returns Artifact + Evidence without marketplace submit credentials. Verification blocks empty artifacts/missing evidence/secrets. Submission requires VERIFIED state, source capability approval and idempotency. Focused evidence: `3 passed`.
 
-### 7. Continuous revenue orchestrator + fallback lanes
+### 7. Continuous revenue orchestrator + fallback lanes — IMPLEMENTED
 Commit: `b820555929fd52f51b2f2f54b51bc0003aa3a517`.
-Implemented cross-source global reservation, bounded concurrent execution, source switching and fallback queue for Service/API, Digital Asset, source discovery and product improvement work. Focused scratch suite: `2 passed`.
+Cross-source global reservation, bounded concurrent execution, source switching, and fallback queue for Service/API, Digital Asset, source discovery and product improvement. Focused evidence: `2 passed`.
 
-### 8. Evidence-only payout reconciliation and revenue metrics
+### 8. Payout reconciliation + revenue metrics — IMPLEMENTED
 Commit: `4af0c38b8987753cdbbaf93a112b8a1b8731c6e7`.
-Only externally evidenced payout records count as realized revenue. Metrics include paid today/7d/30d, source totals and source concentration. Focused scratch suite: `3 passed`.
+Only externally evidenced payout counts as realized revenue. Tracks paid today/7d/30d and source concentration. Focused evidence: `3 passed`.
 
-### 9. Account integration/runtime entrypoints
-Commits: `499b146ac5b1f244b30a9aecca871dd8959f63a1`, `21c96000158522780ebb4a597a564fb9b73a6c3a`.
+### 9. Account integration/runtime entrypoints — IMPLEMENTED
+Core commits: `499b146ac5b1f244b30a9aecca871dd8959f63a1`, `21c96000158522780ebb4a597a564fb9b73a6c3a`, fixes `7ef741c81e3901ea1831b5663c7a847ea2ca8de8`, `004ba0e95be84b17fac9d3529e62a90a1bc62b59`.
+
 Implemented:
 - adapter registry;
-- environment secret doctor;
-- command-based isolated solver bridge with marketplace credential stripping;
-- truthful runtime status;
-- source-agnostic CLI commands: `doctor`, `scan-once`, `opportunities`, `status`, `orchestrate-once`, `run`;
-- shared `RepositoryOpportunityPool`;
-- `INTEGRATION.env.example`;
-- `INTEGRATION_GUIDE.md`;
+- environment-secret doctor;
+- isolated command solver bridge with marketplace credential stripping;
+- truthful runtime status with `DRY-RUN` vs `LIVE-CANDIDATE` and mutation status;
+- source-agnostic CLI: `doctor`, `scan-once`, `opportunities`, `status`, `orchestrate-once`, `run`;
+- shared repository opportunity pool;
+- `INTEGRATION.env.example` and `INTEGRATION_GUIDE.md`;
 - safe read-only checked-in config remains unchanged;
-- separate `config/sources.live.example.yaml` starts with `max_active_claims: 1` and contains no credentials;
-- example systemd 24/7 service at `deploy/stackhub-v2.service.example`.
+- separate `config/sources.live.example.yaml` begins with `max_active_claims: 1` and no credentials;
+- `deploy/stackhub-v2.service.example` for persistent 24/7 process management.
 
-Combined focused scratch verification across Tasks 3-8 before the final CLI/docs commit: `19 passed`. CLI draft was syntax-compiled before write. This is NOT a claim that the full repository suite or deployment runtime has passed.
+Combined focused scratch verification across Tasks 3-8 before final CI: `19 passed`.
+
+## Fresh CI evidence on commit `004ba0e95be84b17fac9d3529e62a90a1bc62b59`
+`STACKHUB V2 CI` run `34615953296`: SUCCESS.
+- package install: success
+- compile: success
+- full STACKHUB V2 pytest suite: success
+- committed credential/wallet-secret rejection: success
+- checked-in default read-only proof: success
+- GitHub Brain V4 authority validation: success
+- current public TaskBounty discovery contract probe: success
+- live read-only TaskBounty smoke + idempotency: success
+
+`AI Skill Library CI` run `34615953318`: SUCCESS, including compile, integration tests, source/router/project authority/V3/V4 validators and upstream audit.
+
+Earlier CI failures were used as regression evidence: first exposed missing `DRY-RUN`; second exposed missing `claims/submissions disabled`; both were fixed with truthful config-derived runtime reporting before the green run above.
 
 ## Account state supplied by user
 - PayPal: available.
 - TaskBounty account: available.
-- TaskBounty API key: available, but must remain in deployment/system secret storage and must not be committed or pasted into chat.
+- TaskBounty API key: available but must remain in deployment/system secret storage; never commit or paste into chat.
+- User states remaining required accounts are already available.
 
-STACKHUB intentionally does not request PayPal passwords/session credentials. Marketplace payout is configured on the marketplace itself. Crypto payout integration, if used, is public receiving-address-only.
+STACKHUB intentionally does not request PayPal passwords/session credentials. Configure platform payout inside the platform. Crypto payout, if used, is public receiving-address-only.
 
-## Integration procedure
+## Account integration procedure
 1. Put `TASKBOUNTY_API_KEY` in deployment/system secret storage.
-2. Configure `STACKHUB_SOLVER_COMMAND` to an authorized solver wrapper/CLI; solver subprocess does not receive marketplace secrets.
-3. Install package and run `stackhub doctor --config config/sources.yaml`.
-4. Run read-only `stackhub scan-once`, inspect `stackhub opportunities` and `stackhub status`.
-5. Copy `config/sources.live.example.yaml` to a deployment-only path. Keep `max_active_claims: 1` for first mutation.
-6. Run `stackhub orchestrate-once` and manually inspect the first end-to-end marketplace result.
-7. Only after first mutation is independently verified, use `stackhub run`/systemd for continuous runtime.
-8. Add further platforms through source-specific adapters only after their current API/terms/agent permissions are verified. Unsupported/human-only sources remain `ASSISTED` or `DISCOVERY_ONLY`.
+2. Configure `STACKHUB_SOLVER_COMMAND` to the authorized AI solver wrapper/CLI. Marketplace secrets are stripped from the solver subprocess environment.
+3. Run `stackhub doctor --config config/sources.yaml`.
+4. Run read-only `stackhub scan-once`; inspect `stackhub opportunities` and `stackhub status`.
+5. Copy `config/sources.live.example.yaml` to a deployment-only path and keep `max_active_claims: 1` for the first mutation.
+6. Run `stackhub orchestrate-once` and inspect the first real marketplace claim/submission end-to-end.
+7. After independent first-task verification, run `stackhub run` under systemd for continuous operation.
+8. Add other platforms with concrete source-specific adapters only after current API/terms/agent permission are verified. Human-only or unsupported platforms stay `ASSISTED`/`DISCOVERY_ONLY`.
 
 ## Remaining release gates
-- Full repository regression suite/validators have not yet been independently executed in this environment.
-- GitHub CI status must be checked for the final branch HEAD; absence of checks is not success.
-- Actual TaskBounty API connection using the user's secret has not been executed here because the secret is not exposed to this chat/tool environment.
-- Actual solver command/account connection is not yet configured in this environment.
-- Deployment service heartbeat has not been independently verified.
-- Non-TaskBounty platforms still require concrete source adapters; the core is adapter-ready, but STACKHUB must not invent unofficial automation contracts.
+- Actual authenticated TaskBounty mutation using the user's private API key has NOT been run in this chat/tool environment because the secret is not exposed here.
+- Actual solver CLI/account bridge has NOT been connected in this environment.
+- 24/7 deployment heartbeat has NOT been independently observed.
+- Non-TaskBounty accounts require their concrete official adapter implementations. The core is adapter-ready; unofficial or prohibited automation must not be invented.
 
 ## Operational status
-STACKHUB V2 is **integration-ready at the core/runtime layer**, but is **NOT yet verified LIVE 24/7**. The next gate is user-side secret/solver integration followed by read-only doctor/scan and one-task live verification before continuous operation.
+STACKHUB V2 core/runtime is **integration-ready and CI-green**. It is **NOT yet verified LIVE 24/7 earning** until the user's secrets/solver are connected, one real mutation is verified, and the deployment heartbeat is observed.
