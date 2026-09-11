@@ -72,13 +72,23 @@ def _raise_http_error(exc: httpx.HTTPStatusError) -> None:
 
 
 def _parse_task_list(payload: object) -> list[_Task]:
-    if not isinstance(payload, dict) or not isinstance(payload.get("tasks"), list):
+    if not isinstance(payload, dict):
         raise TaskBountyProtocolError(
             "TaskBounty response validation failed",
             error_code="validation_error",
         )
+
+    rows = payload.get("data")
+    if rows is None:
+        rows = payload.get("tasks")
+    if not isinstance(rows, list):
+        raise TaskBountyProtocolError(
+            "TaskBounty response validation failed",
+            error_code="validation_error",
+        )
+
     try:
-        return [_Task.model_validate(item) for item in payload["tasks"]]
+        return [_Task.model_validate(item) for item in rows]
     except ValidationError as exc:
         raise TaskBountyProtocolError(
             "TaskBounty response validation failed",
