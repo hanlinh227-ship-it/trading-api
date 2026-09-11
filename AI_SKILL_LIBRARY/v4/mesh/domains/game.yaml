@@ -1,0 +1,8 @@
+id: game
+version: 4.0.0
+sources: [game, code]
+tools: [software_development_workflow]
+evals: [game_design, engine_constraints]
+authority_required: false
+memory_namespace: game
+bridge_policy: explicit_only
