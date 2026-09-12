@@ -12,5 +12,5 @@ compatibility:
   min_architecture: 4.0.0
 promotion:
   class: feature
-  validated: false
+  validated: true
   source: cognitive_harmonization
