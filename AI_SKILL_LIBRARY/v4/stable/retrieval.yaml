@@ -1,0 +1,96 @@
+version: 1
+purpose: single_retrieval_contract_exact_first_tiered_index_bounded_by_profile
+policy:
+  routing_authority: false
+  reasoning_authority: false
+  exact_before_semantic: true
+  semantic_only_after_exact_miss: true
+  fast_preloads_warm_or_cold: false
+  full_repository_scan_per_request: false
+  authority_filter_required: true
+  freshness_filter_required: true
+  index_path: AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml
+  index_builder: AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py
+  budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
+  on_index_unavailable: fallback_to_checkpoint_declared_paths
+  on_semantic_conflict: prefer_authoritative_verified_source
+  cache_contract_owner: AI_SKILL_LIBRARY/v4/stable/context.yaml
+
+# REQUEST -> TASK ROUTER -> DOMAIN -> PROJECT AUTHORITY IF REQUIRED -> PRIMARY SKILL
+#   -> MAX 2 SUPPORTING SKILLS -> RELEVANT INDEX -> RELEVANT SOURCES -> TOOLS -> ANSWER
+order:
+  - request
+  - task_router
+  - domain
+  - project_authority_if_required
+  - primary_skill
+  - supporting_skills_max_2
+  - relevant_index
+  - relevant_sources
+  - tools
+  - answer
+
+metadata_dimensions:
+  - domain
+  - skill_id
+  - project_scope
+  - authority_level
+  - risk_class
+  - freshness
+  - source_type
+  - release_version
+  - checkpoint
+  - provider
+  - tool
+  - tags
+  - aliases
+  - tier
+
+tiers:
+  HOT:
+    purpose: router_authority_current_skills_current_release
+    preload: on_bootstrap_only
+    max_entries: 200
+    contents: [checkpoint, global_checkpoint, release_pointer, stable_router, stable_runtime, budgets, retrieval, skill_gateway_snapshot, canonical_skill, project_authority_pointer]
+  WARM:
+    purpose: supporting_docs_sources_research_references
+    preload: false
+    load_when: [STANDARD, DEEP]
+    contents: [supporting_policy, skill_reasoning_text, upstream_source, provider_registry, plugin_registry, domain_pack, bridge]
+  COLD:
+    purpose: legacy_checkpoints_historical_releases_retired_systems
+    preload: false
+    load_when: [explicit_request, rollback, audit]
+    contents: [legacy_checkpoint, historical_release, compatibility_alias, audit_record, archived_workflow]
+
+profiles:
+  FAST:
+    tiers: [HOT]
+    stages: [exact_lookup]
+    semantic_retrieval: false
+    semantic_cache: false
+    max_index_hits: 3
+    max_source_candidates: 0
+  STANDARD:
+    tiers: [HOT, WARM]
+    stages: [exact_lookup, metadata_filter, lexical_retrieve]
+    semantic_retrieval: after_exact_miss
+    semantic_cache: true
+    max_index_hits: 12
+    max_source_candidates: 6
+  DEEP:
+    tiers: [HOT, WARM, COLD_ON_EXPLICIT_REQUEST]
+    stages: [exact_lookup, metadata_filter, lexical_retrieve, semantic_retrieve, rerank_dedupe]
+    semantic_retrieval: after_exact_miss
+    semantic_cache: true
+    max_index_hits: 24
+    max_source_candidates: 12
+
+exact_lookup_keys: [skill_id, alias, domain, path, checkpoint, release_version, project_scope]
+
+invariants:
+  - index_entries_are_pointers_not_authority
+  - hot_tier_never_contains_legacy_or_historical_entries
+  - fast_never_touches_warm_or_cold
+  - stale_index_fails_ci
+  - trading_runtime_state_is_never_indexed

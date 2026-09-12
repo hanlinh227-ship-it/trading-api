@@ -1,3 +1,5 @@
+> ARCHIVED (COLD). This V2-era note is superseded by GITHUB_BRAIN_V4; see AI_SKILL_LIBRARY/checkpoint.json.
+
 # GITHUB_BRAIN_V2 Legacy Cleanup
 
 Cleanup scope: remove superseded update/checkpoint snapshots from the working tree so agents do not load competing authority. Git history remains the archive.

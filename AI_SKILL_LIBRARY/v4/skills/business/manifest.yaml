@@ -2,7 +2,8 @@ id: business
 version: 4.0.0
 domain: business
 source: legacy_catalog_adapter
-skills: [business, marketing, marketing_business]
+skills: [business, marketing]
+legacy_aliases: [marketing_business]
 permissions: [read_only]
 risk_ceiling: read_only
 evals: [decision_quality, assumptions, measurable_next_steps]

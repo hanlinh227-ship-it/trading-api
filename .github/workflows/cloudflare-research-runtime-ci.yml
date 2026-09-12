@@ -40,16 +40,12 @@ jobs:
       - name: Install Brain validator dependencies
         run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
 
-      - name: Compile and validate exact-checkout Skill Gateway snapshot
+      - name: Brain validation via single entrypoint (validators, snapshot, release, index, consolidation)
         shell: bash
         run: |
           set -euo pipefail
           SOURCE_SHA="$(git rev-parse HEAD)"
-          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
-            --source-sha "$SOURCE_SHA" \
-            --output AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
-          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py \
-            AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA" --skip-tests
           echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
 
       - name: Public Bybit bridge safety tests

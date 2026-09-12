@@ -41,6 +41,16 @@ Rules:
 - Provider capability remains evidence/execution metadata, not reasoning authority.
 - Routing traces may contain verifiable profile/domain/skill/capsule/source-SHA/latency metadata only; never hidden chain-of-thought, credentials, secrets or private provider payloads.
 
+## Consolidation contract (release 4.3.0+)
+
+- One router: `AI_SKILL_LIBRARY/v4/stable/router.yaml`; legacy `AI_SKILL_LIBRARY/router.yaml` is a compatibility adapter with `routing_authority: false`.
+- One budget file: `AI_SKILL_LIBRARY/v4/stable/budgets.yaml` (FAST: 1 skill load, 0 supporting, 0 sources, ≤3 index hits, 1 retrieval stage, 0 tool calls, HOT tier only).
+- One retrieval contract: `AI_SKILL_LIBRARY/v4/stable/retrieval.yaml` + committed index `AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml` (HOT/WARM/COLD; exact lookup before semantic; stale index fails CI).
+- One validation entrypoint: `python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha <sha>`.
+- Release manifests/hashes/history are generated: `python AI_SKILL_LIBRARY/v4/tools/release.py build --version X.Y.Z ...`.
+- Alias skill rows (`alias_of`) never route; the compiled snapshot exposes `skill_aliases`.
+- Production deploy workflows queue (`cancel-in-progress: false`) so a Worker deploy is never cancelled mid-flight by a sibling workflow.
+
 ## Skill Gateway production deployment contract
 
 Production Skill Gateway releases use GitHub Actions exact-main deployment to Cloudflare Workers.

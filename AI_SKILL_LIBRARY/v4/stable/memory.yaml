@@ -1,4 +1,17 @@
 version: 4
+authority: false
+role: context_only
+layers_contract:
+  working: {durable: false, scope: request, authority: false}
+  project: {durable: true, scope: project, authority: false, must_defer_to: current_project_authority}
+  durable_preferences: {durable: true, scope: user, authority: false, content: [format, language, style, tooling_preferences]}
+conflict:
+  action: reverify_or_supersede
+  majority_vote: false
+  silent_averaging: false
+  current_project_authority_wins: true
+  older_memory_may_override_newer_project_authority: false
+never_store: [credentials, api_keys, private_keys, secrets, hidden_reasoning, seed_phrases, session_tokens, raw_private_chat, unreviewed_runtime_state]
 policy:
   retrieve_before_write: true
   domain_scoped: true
@@ -11,6 +24,8 @@ policy:
 required_metadata: [source, confidence, created_at, last_verified, superseded_by, scope, domain]
 layers:
   working: {durable: false, max_items: 12, max_item_tokens: 600}
+  project: {durable: true, max_items: 20, max_item_tokens: 500, defers_to: current_project_authority}
+  durable_preferences: {durable: true, max_items: 20, max_item_tokens: 200}
   episodic: {durable: true, max_items: 30, max_item_tokens: 400}
   semantic: {durable: true, max_items: 50, max_item_tokens: 500}
   procedural: {durable: true, max_items: 30, max_item_tokens: 600}

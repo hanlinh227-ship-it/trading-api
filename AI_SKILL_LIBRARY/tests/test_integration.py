@@ -42,7 +42,11 @@ class IntegrationContractTests(unittest.TestCase):
         self.assertIn('validate_brain.py', workflow)
         self.assertIn('validate_v3.py', workflow)
         self.assertIn('validate_v4.py', workflow)
-        self.assertIn('unittest', workflow)
+        # Unit tests run inside the single validation entrypoint.
+        self.assertIn('AI_SKILL_LIBRARY/v4/tools/ci_validate.py', workflow)
+        self.assertNotIn('--skip-tests', workflow)
+        entrypoint = (ROOT / 'AI_SKILL_LIBRARY/v4/tools/ci_validate.py').read_text(encoding='utf-8')
+        self.assertIn('unittest', entrypoint)
         self.assertIn('--dry-run', workflow)
         self.assertIn('py_compile', workflow)
 

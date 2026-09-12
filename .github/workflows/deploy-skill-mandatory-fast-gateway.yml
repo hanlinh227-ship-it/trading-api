@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: cloudflare-zero-local-runtime-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
@@ -65,23 +65,11 @@ jobs:
       - name: Install Brain dependencies
         run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
 
-      - name: Verify exact-main Brain contracts
-        run: |
-          python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
-          python AI_SKILL_LIBRARY/validate_router.py
-          python AI_SKILL_LIBRARY/validate_authority.py
-          python AI_SKILL_LIBRARY/validate_v4.py
-          python AI_SKILL_LIBRARY/validate_skill_gateway.py
-
-      - name: Compile and validate exact-main hot snapshot
+      - name: Verify exact-main Brain contracts and compile hot snapshot (single entrypoint)
         shell: bash
         run: |
           set -euo pipefail
-          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
-            --source-sha "$SKILL_GATEWAY_SOURCE_SHA" \
-            --output AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
-          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py \
-            AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SKILL_GATEWAY_SOURCE_SHA"
 
       - name: Install Worker dependencies
         working-directory: cloudflare-worker

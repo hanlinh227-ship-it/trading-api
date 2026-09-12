@@ -1,4 +1,7 @@
 version: 1
+superseded_by: GITHUB_BRAIN_V4
+authority_role: compatibility_alias
+canonical_authority: AI_SKILL_LIBRARY/checkpoint.json
 policy:
   least_privilege: true
   classify_before_action: true

@@ -1,4 +1,6 @@
 version: 4
+budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
+retrieval_path: AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
 profile_order: [FAST, STANDARD, DEEP]
 
 selection:
@@ -38,6 +40,9 @@ profiles:
     evergreen_sync: false
     preload_trading: false
     persistent_trace: false
+    retrieval_index_tiers: [HOT]
+    exact_lookup_only: true
+    max_file_reads: 2
     stages: [task_router, minimal_core, fast_knowledge_plane, primary_domain, primary_skill, skill_execution_capsule, response_quality_gate, answer]
   STANDARD:
     context_tokens: 7000
@@ -52,6 +57,8 @@ profiles:
     evergreen_sync: false
     preload_trading: false
     persistent_trace: conditional
+    retrieval_index_tiers: [HOT, WARM]
+    max_file_reads: 8
     stages: [task_router, runtime_profile, authority, capability_fusion, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, retrieval_plane, memory, sources, tools, execute, response_quality_gate, verify, answer]
   DEEP:
     context_tokens: 16000
@@ -66,9 +73,12 @@ profiles:
     evergreen_sync: false
     preload_trading: route_only
     persistent_trace: bounded
+    retrieval_index_tiers: [HOT, WARM, COLD_ON_EXPLICIT_REQUEST]
+    max_file_reads: 20
     stages: [task_router, runtime_profile, authority, capability_fusion, context_plan, planner, task_graph, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, retrieval_plane, memory, sources, tools, security_gate, execute, critic, response_quality_gate, verify, eval, answer]
 
 hard_limits:
+  authority: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
   max_context_tokens: 20000
   max_memory_items: 12
   max_tool_candidates: 8

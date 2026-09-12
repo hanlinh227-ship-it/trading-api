@@ -2,7 +2,8 @@ id: adobe
 version: 4.0.0
 domain: adobe
 source: legacy_catalog_adapter
-skills: [photoshop, illustrator, premiere_pro, after_effects, lightroom, audition, indesign, acrobat, adobe_media]
+skills: [photoshop, illustrator, premiere_pro, after_effects, lightroom, audition, indesign, acrobat]
+legacy_aliases: [adobe_media]
 permissions: [read_only]
 risk_ceiling: read_only
 evals: [non_destructive_workflow, export_validation]

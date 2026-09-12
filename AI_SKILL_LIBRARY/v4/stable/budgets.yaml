@@ -1,0 +1,100 @@
+version: 1
+purpose: single_bounded_performance_budget_for_every_runtime_profile
+policy:
+  single_source_of_truth: true
+  every_budget_is_bounded: true
+  other_files_must_not_exceed_these_values: true
+  consumers:
+    - AI_SKILL_LIBRARY/v4/stable/runtime.yaml
+    - AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml
+    - AI_SKILL_LIBRARY/v4/stable/harmonization.yaml
+    - AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
+    - AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml
+    - AI_SKILL_LIBRARY/orchestration.yaml
+  may_not_override: [security, authority, permission_ceiling, trading_hard_risk_controls]
+  correctness_and_safety_are_not_budgeted_down: true
+
+# request -> normalize -> router -> primary skill -> capsule -> answer
+profiles:
+  FAST:
+    max_skill_loads: 1
+    max_supporting_skills: 0
+    max_source_candidates: 0
+    max_index_hits: 3
+    max_retrieval_stages: 1
+    max_graph_nodes: 1
+    max_parallel_nodes: 1
+    max_revisions: 0
+    max_durable_memory_items: 0
+    max_context_tokens: 2500
+    max_file_reads: 2
+    max_tool_calls: 0
+    max_external_routing_calls: 0
+    index_tiers: [HOT]
+    planner: false
+    maker_checker: false
+    independent_grader: false
+    external_framework_required: false
+    vector_retrieval: false
+  STANDARD:
+    max_skill_loads: 3
+    max_supporting_skills: 2
+    max_source_candidates: 6
+    max_index_hits: 12
+    max_retrieval_stages: 3
+    max_graph_nodes: 4
+    max_parallel_nodes: 2
+    max_revisions: 1
+    max_durable_memory_items: 4
+    max_context_tokens: 7000
+    max_file_reads: 8
+    max_tool_calls: 8
+    max_external_routing_calls: 0
+    index_tiers: [HOT, WARM]
+    planner: when_material
+    maker_checker: when_material
+    independent_grader: false
+    external_framework_required: false
+    vector_retrieval: after_exact_miss
+  DEEP:
+    max_skill_loads: 3
+    max_supporting_skills: 2
+    max_source_candidates: 12
+    max_index_hits: 24
+    max_retrieval_stages: 5
+    max_graph_nodes: 10
+    max_parallel_nodes: 4
+    max_revisions: 2
+    max_durable_memory_items: 8
+    max_context_tokens: 16000
+    max_file_reads: 20
+    max_tool_calls: 16
+    max_external_routing_calls: 0
+    index_tiers: [HOT, WARM, COLD_ON_EXPLICIT_REQUEST]
+    planner: bounded
+    maker_checker: true
+    independent_grader: required_for_high_impact_or_complex
+    external_framework_required: false
+    vector_retrieval: after_exact_miss
+
+hard_limits:
+  max_context_tokens: 20000
+  max_memory_items: 12
+  max_tool_candidates: 8
+  max_replans: 3
+  max_parallel_tasks: 4
+  max_supporting_skills: 2
+  max_bridge_nodes: 2
+  max_graph_nodes: 10
+  max_revisions: 2
+  recursion: none
+  agent_spawning: bounded_by_max_graph_nodes
+  parallel_frameworks: 0
+  provider_voting: forbidden
+  hidden_chain_of_thought_persistence: forbidden
+
+measurement:
+  fast_benchmark: cloudflare-worker/benchmark-skill-gateway.mjs
+  fast_p95_ms_max: 25
+  external_routing_calls_must_be: 0
+  record: [profile, domain, skill, capsule_hash, source_sha, latency_ms, index_hits, file_reads, tool_calls]

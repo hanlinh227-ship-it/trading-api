@@ -4,6 +4,7 @@ ledger:
   persist_hidden_reasoning: false
   max_entries_per_request: 24
   record: [claim_summary, evidence_reference, source_class, freshness, verification_status, conflict_status, domain]
+precedence_is_canonical_for: [AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md, AI_SKILL_LIBRARY/v4/stable/harmonization.yaml, AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml, AI_SKILL_LIBRARY/skills/registry/conflict_policy.yaml]
 source_precedence: [current_runtime, current_project_authority, first_party_current, peer_reviewed_or_primary, approved_reference, scoped_verified_memory, model_background]
 conflicts:
   prefer_current_authority: true

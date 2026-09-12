@@ -34,13 +34,19 @@ class ZeroLocalManifestTests(unittest.TestCase):
             "npm test",
             "npm run typecheck",
             "npm run build",
+            "AI_SKILL_LIBRARY/v4/tools/ci_validate.py",
+        ):
+            self.assertIn(required, text)
+        # The single entrypoint must still run every Brain validator exactly once.
+        entrypoint = (ROOT / "AI_SKILL_LIBRARY/v4/tools/ci_validate.py").read_text(encoding="utf-8")
+        for required in (
             "validate_skill_registry.py",
             "validate_brain.py",
             "validate_router.py",
             "validate_v4.py",
             "validate_authority.py",
         ):
-            self.assertIn(required, text)
+            self.assertEqual(entrypoint.count(f'"AI_SKILL_LIBRARY/{required}"'), 1, required)
 
     def test_ci_smokes_venue_bound_execution_quotes(self):
         text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")

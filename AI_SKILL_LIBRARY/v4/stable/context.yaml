@@ -20,6 +20,8 @@ bridge_budget:
   trading_state_cross_domain: forbidden
 semantic_index:
   optional: true
+  contract_owner: AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
+  budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
   routing_authority: false
   authority_filter_required: true
   freshness_filter_required: true
@@ -34,6 +36,8 @@ cache:
   scope: work_cycle
   exact_enabled: true
   semantic_enabled: true
+  semantic_enabled_profiles: [STANDARD, DEEP]
+  fast_exact_only: true
   semantic_similarity_min: 0.93
   cache_live_data: false
   require_freshness_check_before_reuse: true

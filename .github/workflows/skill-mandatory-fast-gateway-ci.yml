@@ -37,23 +37,12 @@ jobs:
       - name: Install Brain dependencies
         run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
 
-      - name: Validate canonical Brain contracts
-        run: |
-          python AI_SKILL_LIBRARY/validate_v4.py
-          python AI_SKILL_LIBRARY/validate_router.py
-          python AI_SKILL_LIBRARY/validate_authority.py
-          python AI_SKILL_LIBRARY/validate_skill_gateway.py
-
-      - name: Compile exact-checkout hot snapshot
+      - name: Brain validation via single entrypoint (validators, snapshot, release, index, consolidation)
         shell: bash
         run: |
           set -euo pipefail
           SOURCE_SHA="$(git rev-parse HEAD)"
-          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
-            --source-sha "$SOURCE_SHA" \
-            --output AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
-          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py \
-            AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA" --skip-tests
           echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
 
       - name: Install Worker dependencies

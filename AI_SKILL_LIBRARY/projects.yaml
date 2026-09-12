@@ -35,6 +35,8 @@ projects:
       - Cloudflare VPC/service binding
       - readonly health/control/deployment verification
       - existing BTC state KV key
+    execution_authority_never_from: [github_research, provider_consensus, legacy_memory, legacy_checkpoint, crypto_agent, multi_market_research, brain_upgrade, upstream_repository, plugin]
+    research_is_analysis_only: true
     live_claim_requires:
       - successful worker validation/deploy
       - /bybit/health runtime revision/version alignment

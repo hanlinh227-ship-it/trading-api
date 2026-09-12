@@ -7,7 +7,7 @@ Canonical **GitHub-first** AI-brain authority for `hanlinh227-ship-it/trading-ap
 1. Read `AI_SKILL_LIBRARY/checkpoint.json`.
 2. Resolve `release_pointer_path` to `AI_SKILL_LIBRARY/v4/releases/current.json`.
 3. Verify the selected immutable release manifest before use.
-4. Resolve `skill_registry_index_path` and perform the lightweight registry-index lookup required for every request; do not preload provider detail.
+4. Resolve `skill_registry_index_path` and perform the lightweight registry-index lookup required for every request; do not preload provider detail. For any further file lookup use `retrieval_index_path` (exact lookup first, tiered HOT/WARM/COLD per `stable_retrieval_path`) and the per-profile budgets in `stable_budgets_path`.
 5. Route every request through V4 Stable `task_router` and exactly one FAST/STANDARD/DEEP profile.
 6. Load one primary Knowledge Mesh domain and only explicitly permitted bridges.
 7. Load project authority only when the routed domain requires it. Trading authority remains external to Brain at `docs/checkpoints/CURRENT_HANDOFF.md`.
@@ -44,6 +44,9 @@ New skills default to no routing authority. Low-risk declarative Class A skills 
 
 ## Authority and evidence
 Precedence: current runtime/project authority → V4 security invariants → active Stable release contract → domain policy → verified current evidence → skill-pack/provider evidence precedence → scoped verified memory → external reference knowledge. Material unresolved conflict blocks promotion and must be disclosed during normal reasoning when relevant.
+
+## Consolidation invariants
+One Brain, one router (`v4/stable/router.yaml`), one authority precedence chain (`v4/stable/evidence.yaml`), one budget file, one retrieval contract, one validation entrypoint. Legacy V1–V3 control-plane files carry `superseded_by: GITHUB_BRAIN_V4`. Duplicate skills are aliases (`alias_of`), never competing primaries. Creative Visual Fusion and Capability Fusion are subordinate layers; memory is context, never authority; Trading execution authority lives only in `docs/checkpoints/CURRENT_HANDOFF.md` and is never widened by research, providers, memory, legacy checkpoints or upstream repositories.
 
 ## Long-term rule
 Do not redesign the brain merely to add knowledge. Add or improve a domain node, bridge, skill pack, provider registry, adapter, eval, source policy or capability release; let Evergreen validate it; promote only a verified immutable release.

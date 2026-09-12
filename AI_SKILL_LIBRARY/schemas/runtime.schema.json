@@ -6,6 +6,9 @@
   "required": ["version", "profile_order", "selection", "profiles", "controls"],
   "properties": {
     "version": {"type": "integer", "const": 1},
+    "superseded_by": {"const": "GITHUB_BRAIN_V4"},
+    "authority_role": {"const": "compatibility_alias"},
+    "canonical_authority": {"type": "string"},
     "profile_order": {
       "type": "array",
       "prefixItems": [

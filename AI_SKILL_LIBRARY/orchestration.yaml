@@ -1,4 +1,8 @@
 version: 1
+superseded_by: GITHUB_BRAIN_V4
+authority_role: compatibility_alias
+canonical_authority: AI_SKILL_LIBRARY/checkpoint.json
+budgets_authority: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
 milestone: 2.4.0
 purpose: dependency-aware task graph orchestration with bounded safe parallelism
 
@@ -8,7 +12,7 @@ task_graph:
   require_explicit_dependencies: true
   join_requires_all_required_predecessors: true
   cycle_detection: true
-  max_nodes: 12
+  max_nodes: 10
 
 parallelism:
   enabled: true
@@ -28,6 +32,7 @@ parallelism:
 
 budgets:
   max_tool_calls_per_request: 16
+  budgets_authority: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
   max_parallel_tool_calls: 4
   max_replans: 3
   max_failed_branches_before_serial_fallback: 2
