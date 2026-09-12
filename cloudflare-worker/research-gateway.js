@@ -1,4 +1,7 @@
 import {ResearchRuntime} from '../crypto-research-gateway/src/research.ts';
+import {PROVIDERS} from '../crypto-research-gateway/src/providers/index.ts';
+import {BybitProvider} from '../crypto-research-gateway/src/providers/bybit.ts';
+import {createBybitBridgeFetchJson} from './research-bybit-transport.js';
 
 const SERVICE_NAME='crypto-research-gateway';
 const SERVICE_VERSION='0.1.0';
@@ -13,6 +16,18 @@ const EXECUTION_VENUES=new Set(['bybit','binance']);
 const MARKET_TOOLS=['market_snapshot','market_candles','market_orderbook','market_execution_quote','derivatives_funding_oi'];
 const ALLOWED_KEYS=new Set(['action','symbol','instrument','preferredVenue','interval','limit','side','executionVenue']);
 const encoder=new TextEncoder();
+let bybitTransportConfigured=false;
+
+function configureCloudflareBybit(env={}){
+  if(bybitTransportConfigured||!env.AI_BRIDGE)return;
+  try{
+    PROVIDERS.bybit=new BybitProvider({fetchJson:createBybitBridgeFetchJson(env)});
+  }catch(error){
+    const message=String(error?.message||error);
+    PROVIDERS.bybit=new BybitProvider({fetchJson:async()=>{throw new Error(message);}});
+  }
+  bybitTransportConfigured=true;
+}
 
 function json(body,status=200){
   return new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
@@ -74,6 +89,7 @@ export function createResearchGatewayHandler({runtime=new ResearchRuntime(),now=
   return async function handleResearchGateway(request,env={}){
     const url=new URL(request.url);
     if(!['/health','/capabilities','/research/market'].includes(url.pathname))return null;
+    configureCloudflareBybit(env);
 
     if(url.pathname==='/health'){
       if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
