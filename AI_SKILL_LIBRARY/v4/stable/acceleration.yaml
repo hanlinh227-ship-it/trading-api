@@ -1,0 +1,119 @@
+version: 1
+purpose: canonical_low_latency_retrieval_typed_execution_and_eval_acceleration
+
+authority:
+  single_brain_authority_chain: true
+  cache_or_index_never_outranks_authority: true
+  provider_routing_never_outranks_authority: true
+  security_and_freshness_cannot_be_downgraded: true
+  current_runtime_precedes_cached_runtime_state: true
+
+retrieval:
+  order: [exact_normalized_lookup, semantic_candidates, lexical_and_canonical_files]
+  semantic_service_required: false
+  semantic_adapter_contract: optional_vector_index
+  compatible_patterns: [qdrant_style_vector_filtering, haystack_style_retrieval_pipeline]
+  preserve: [provenance, source_revision, authority_scope, freshness_semantics, domain_scope]
+  max_candidates:
+    FAST: 4
+    STANDARD: 12
+    DEEP: 24
+  fallback: lexical_and_canonical_files
+
+cache:
+  exact_cache: true
+  semantic_cache: conditional
+  scope_default: work_cycle
+  external_shared_cache_required: false
+  final_answer_cache_forbidden_for:
+    - live_or_current
+    - trading
+    - credentials
+    - destructive
+    - deployment
+    - financial_action
+  invalidate_on:
+    - checkpoint_change
+    - release_pointer_change
+    - project_authority_change
+    - source_revision_change
+    - explicit_user_refresh
+    - freshness_requirement_change
+    - mutation_or_deploy
+  reuse_requires: [same_authority_scope, compatible_freshness, compatible_permissions, source_revision_valid]
+  compatible_patterns: [gptcache_style_semantic_similarity]
+
+typed_skill_contracts:
+  enabled: true
+  compatible_patterns: [pydantic_ai_style_typed_capabilities]
+  required_fields:
+    - input_contract_id
+    - output_contract_id
+    - permission_ceiling
+    - freshness_requirement
+    - tools
+    - sources
+    - failure_mode
+  runtime_capsule_remains_canonical: true
+  schema_failure: fail_closed
+
+execution_graph:
+  enabled_for: [STANDARD, DEEP]
+  compatible_patterns: [langgraph_style_stateful_graph, loop_designer_maker_checker]
+  max_parallel_tasks: 4
+  max_replans: 3
+  unbounded_recursion: false
+  durable_resume_required: false
+  STANDARD:
+    max_graph_nodes: 3
+    maker_checker_revisions: 1
+    independent_grader: false
+  DEEP:
+    max_graph_nodes: 8
+    maker_checker_revisions: 2
+    independent_grader: high_impact_or_complex
+  may_not_override: [project_authority, security, permission_ceiling, trading_hard_risk_controls]
+
+provider_routing:
+  enabled: conditional
+  compatible_patterns: [litellm_style_health_latency_routing]
+  scheduling_signals: [capability_fit, health, latency, availability, cost_when_equivalent]
+  provider_output_is_authority: false
+  majority_vote_for_truth: false
+  silent_quality_downgrade: false
+  must_preserve: [freshness_requirement, evidence_quality, security, required_capability]
+
+evaluation:
+  compatible_patterns: [promptfoo_style_regression_matrix, pydantic_evals_style_typed_eval, deepeval_style_semantic_checks, groktobench_style_readiness_probes]
+  protected_regressions_block_promotion: true
+  semantic_quality_checks: [relevance, grounding, contradiction, authority_alignment, freshness_alignment]
+  deterministic_contract_tests_required: true
+  verifier_independent_when_high_impact: true
+
+inference_serving:
+  compatible_patterns: [sglang_style_prefix_cache_and_batching, vllm_style_continuous_batching]
+  mandatory_self_hosting: false
+  activate_only_when_self_hosted_models_exist: true
+  may_not_change_reasoning_authority: true
+
+profiles:
+  FAST:
+    external_semantic_lookup: false
+    execution_graph_nodes: 0
+    answer_semantic_cache: low_risk_only
+    external_provider_router: false
+  STANDARD:
+    external_semantic_lookup: optional
+    execution_graph_nodes: 3
+    answer_semantic_cache: authority_safe_non_live_only
+    external_provider_router: optional
+  DEEP:
+    external_semantic_lookup: optional
+    execution_graph_nodes: 8
+    answer_semantic_cache: evidence_reuse_only_by_default
+    external_provider_router: optional
+
+fallback:
+  on_acceleration_failure: existing_stable_deterministic_path
+  optimization_failure_must_not_block_safe_answer: true
+  authority_or_freshness_failure_must_not_use_cache_as_substitute: true
