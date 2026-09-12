@@ -37,6 +37,14 @@ function capabilityForAction(action: MarketAction): string {
   return 'derivatives_funding_oi';
 }
 
+function classifyProviderFailure(provider: string, instrument: PublicInstrument, error: unknown): string {
+  const message = error instanceof Error ? error.message : 'provider_request_failed';
+  if (provider === 'binance' && instrument === 'perpetual' && message === 'provider_http_451') {
+    return 'region_restricted_binance_futures_cloud_region';
+  }
+  return message;
+}
+
 export class ResearchRuntime {
   private health: ProviderHealth;
   private lastProbeAt: number | null = null;
@@ -110,7 +118,7 @@ export class ResearchRuntime {
         executionVenue: resolved.venue,
         failures: [{
           provider: resolved.venue,
-          error: error instanceof Error ? error.message : 'provider_request_failed',
+          error: classifyProviderFailure(resolved.venue, input.instrument, error),
         }],
       };
     }
@@ -126,7 +134,7 @@ export class ResearchRuntime {
         } catch (error) {
           failures.push({
             provider: secondaryVenue,
-            error: error instanceof Error ? error.message : 'provider_request_failed',
+            error: classifyProviderFailure(secondaryVenue, input.instrument, error),
           });
         }
       }
@@ -197,7 +205,7 @@ export class ResearchRuntime {
         }
         successes.push({ provider: id, data: await provider.derivatives(input.symbol) });
       } catch (error) {
-        failures.push({ provider: id, error: error instanceof Error ? error.message : 'provider_request_failed' });
+        failures.push({ provider: id, error: classifyProviderFailure(id, input.instrument, error) });
       }
     }));
 
