@@ -80,6 +80,15 @@ class ZeroLocalManifestTests(unittest.TestCase):
         self.assertEqual(manifest["service_root"], "crypto-research-gateway")
         self.assertEqual(manifest["health_path"], "/health")
 
+    def test_cloud_runtime_requires_github_main_auto_deploy(self):
+        manifest = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml").read_text(encoding="utf-8"))
+        source = manifest["production_source"]
+        self.assertEqual(source["provider"], "github")
+        self.assertEqual(source["repository"], "hanlinh227-ship-it/trading-api")
+        self.assertEqual(source["branch"], "main")
+        self.assertTrue(source["auto_deploy_on_push"])
+        self.assertFalse(source["commit_pin_allowed_in_normal_operation"])
+
 
 if __name__ == "__main__":
     unittest.main()
