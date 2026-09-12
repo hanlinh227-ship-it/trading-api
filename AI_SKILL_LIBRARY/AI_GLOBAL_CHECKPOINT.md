@@ -13,9 +13,9 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Mandatory routing contract: exactly one primary skill + validated execution capsule for every GitHub Brain request
 - FAST routing: exact-SHA hot snapshot, zero GitHub/provider/network calls for route selection
 - Fallback primary skill: `core_reasoning`
-- Baseline verified Skill Gateway rollout SHA: `cba14c77f04467599f660b092c414878342ea11e`
-- Baseline verified Cloudflare Worker version: `b891a92a-1df6-4259-b269-24edf56077b8`
-- Baseline warm FAST benchmark: p50 `1.1485 ms`, p95 `1.2812 ms`, external routing calls `0`
+- Baseline verified Skill Gateway rollout SHA: `f9388fee0d2b73d7311c8d2ce850efb8d16354c2`
+- Baseline verified Cloudflare Worker version: `2f444cd5-5c17-40b9-8a6c-04fad0a74a46`
+- Baseline warm FAST benchmark: p50 `0.6804 ms`, p95 `0.7667 ms`, external routing calls `0`
 - Live-price research runtime: Railway service `crypto-research-gateway-prod`, Southeast Asia / Singapore, one replica
 - Live-price public research gateway: `crypto-research-gateway-prod-production.up.railway.app`
 - Live-price release marker: `live-price-execution-v1`
@@ -64,16 +64,19 @@ Production Skill Gateway releases use GitHub Actions exact-main deployment to Cl
 7. The production smoke matrix includes representative core, engineering, writing, and trading requests and requires expected primary skill/profile plus a valid capsule hash.
 8. A failed compile, validator, benchmark, dry-run, deploy, exact-SHA verification, or route smoke blocks completion. The previous verified production version remains the rollback target.
 
-Verified baseline rollout evidence on SHA `cba14c77f04467599f660b092c414878342ea11e`:
+Verified baseline rollout evidence on SHA `f9388fee0d2b73d7311c8d2ce850efb8d16354c2` (release `4.3.0`, Worker version `2f444cd5-5c17-40b9-8a6c-04fad0a74a46`):
 
-- `104` Brain tests passed.
-- Router, authority, V4 and Skill Gateway validators reported `0` errors.
-- `104` skills and `104` execution capsules compiled into the exact-SHA snapshot.
-- Warm FAST benchmark: p50 `1.1485 ms`, p95 `1.2812 ms`, external calls `0`.
-- Wrangler dry-run passed with existing KV/VPC bindings and preserved runtime switches.
-- `/runtime/contract` exact revision passed.
-- `/brain/health` exact SHA passed.
-- Production routes passed: `core_reasoning/FAST`, `debugging/STANDARD`, `advertising_copy/FAST`, `trading_router/DEEP`.
+- `153` `AI_SKILL_LIBRARY/tests` tests passed; `26` repository tests passed.
+- Router, authority, runtime, V3/V4, registry and Skill Gateway validators reported `0` errors; registry retained `1` non-blocking warning.
+- `105` skills and `105` execution capsules compiled into the exact-SHA snapshot.
+- Retrieval index verified fresh: HOT `126`, WARM `131`, COLD `30`.
+- Warm FAST benchmark: p50 `0.6804 ms`, p95 `0.7667 ms`, external calls `0`.
+- Wrangler dry-run passed with existing KV/VPC bindings and `RUNTIME_SWITCHES=PRESERVE_EXISTING` / `LIVE_ACK=PRESERVE_EXISTING`.
+- Cloudflare deployment succeeded for Worker `trading-v77-scanner`; startup time `6 ms`.
+- `/runtime/contract` exact revision passed for `f9388fee0d2b73d7311c8d2ce850efb8d16354c2`.
+- `/brain/health` exact SHA/schema/primary-skill/capsule/external-routing contract passed.
+- Production routes passed on exact deployed SHA: `core_reasoning/FAST`, `debugging/STANDARD`, `advertising_copy/FAST`, `trading_router/DEEP`.
+- Deployment record: `SKILL_MANDATORY_FAST_GATEWAY_DEPLOY=PASS`, `FAST_EXTERNAL_ROUTING_CALLS=0`, `RUNTIME_SWITCH_MUTATION=false`.
 
 ## Live-price research deployment contract
 
