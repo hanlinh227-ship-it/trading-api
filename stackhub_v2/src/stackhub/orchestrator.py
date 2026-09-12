@@ -23,11 +23,12 @@ _RECOVERABLE_ACTIVE_STATES = {
     WorkerState.VERIFIED.value,
 }
 _TRANSIENT_HTTP_STATUSES = {408, 425, 429}
-_DYNAMIC_AVAILABILITY_ERROR_CODES = {
+_TERMINAL_AVAILABILITY_ERROR_CODES = {
     "task_full",
     "task_not_accepting_applications",
 }
 _PERMANENT_ERROR_CODES = {
+    *_TERMINAL_AVAILABILITY_ERROR_CODES,
     "agent_not_verified",
     "auth_invalid",
     "auth_required",
@@ -38,9 +39,7 @@ _PERMANENT_ERROR_CODES = {
 
 
 def _classify_failure_state(*, status_code: int | None, error_code: str | None) -> WorkerState:
-    """Classify marketplace failures so dynamic availability can recover without looping permanent failures."""
-    if error_code in _DYNAMIC_AVAILABILITY_ERROR_CODES:
-        return WorkerState.FAILED_RETRYABLE
+    """Classify marketplace failures without retrying listings the marketplace has closed."""
     if error_code in _PERMANENT_ERROR_CODES:
         return WorkerState.FAILED_PERMANENT
     if status_code is None:
@@ -70,6 +69,38 @@ class RevenueOrchestrator:
             competition_model=str(row.get("competition_model") or "unknown"), agent_allowed=bool(row.get("agent_allowed")),
             estimated_effort_minutes=int(row.get("estimated_effort_minutes") or 60),
         )
+
+    def _quarantine_closed_taskforce_listings(self, now: datetime) -> None:
+        """Upgrade old retryable TaskForce closed/full failures to terminal.
+
+        Live evidence showed TaskForce can continue returning a task from the ACTIVE
+        browse endpoint after /apply deterministically returns
+        task_not_accepting_applications. Retrying those rows every five minutes only
+        burns cycles and blocks progress to other listings, so quarantine the exact
+        closed/full listing IDs already observed by the worker.
+        """
+        conn = getattr(self.repo, "conn", None)
+        if conn is None:
+            return
+        rows = conn.execute(
+            """SELECT source, opportunity_id
+            FROM claims
+            WHERE source='taskforce'
+              AND state=?
+              AND (
+                  last_error_code LIKE 'task_not_accepting_applications%'
+                  OR last_error_code LIKE 'task_full%'
+              )""",
+            (WorkerState.FAILED_RETRYABLE.value,),
+        ).fetchall()
+        for row in rows:
+            self.repo.transition_claim(
+                str(row["source"]),
+                str(row["opportunity_id"]),
+                WorkerState.FAILED_PERMANENT,
+                now,
+                "closed_listing_quarantined",
+            )
 
     def _recover_failure(self, source: str, opportunity_id: str, now: datetime, exc: Exception) -> dict[str, object]:
         error_code = getattr(exc, "error_code", None)
@@ -153,6 +184,7 @@ class RevenueOrchestrator:
 
     async def run_batch(self, *, now: datetime | None = None) -> list[dict[str, object]]:
         now=now or datetime.now(timezone.utc)
+        self._quarantine_closed_taskforce_listings(now)
         output=await self._reconcile_pending(now)
         reserved=[]
         for _ in range(self.max_active_claims):
