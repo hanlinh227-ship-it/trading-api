@@ -18,7 +18,7 @@ policy:
 domain_routes:
   core: [task_router, core_reasoning, critical_thinking, fact_checking, research, planning, verification, troubleshooting, comparison, recommendation, learning, summarization, translation, general_problem_solving, error_recovery]
   engineering: [coding, debugging, tdd, software_architecture, github, api, database, security, android, web_app, deployment, automation]
-  trading: [trading_router, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, backtesting, mt5_mql5, trading_bot, live_data_validation]
+  trading: [trading_router, trading, multi_market_analysis, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, backtesting, mt5_mql5, trading_bot, live_data_validation, market_analysis, risk_execution, quant_backtesting]
   game: [game_development, game_design, godot, unity, game_ai, game_2d, game_3d]
   design_2d: [ux_ui, product_design, graphic_design, branding, typography, layout, design_2d]
   design_3d: [design_3d, modeling, topology, uv, materials, lighting, rigging, animation, rendering, blender]

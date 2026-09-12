@@ -12,6 +12,7 @@ At a new substantive work cycle when GitHub is available:
 6. Load one primary Knowledge Mesh domain. Supporting skills/bridges are optional and bounded by the selected profile; provider capability never becomes reasoning authority.
 7. Only after routing, lazy-load project authority, bounded memory, sources, provider metadata, and tools that are materially required.
 8. Before provider execution resolve the cloud runtime and relevant provider policy. Normal research must not depend on user-local installation.
+9. For any new skill, provider, upstream method, or Brain upgrade, resolve checkpoint `stable_harmonization_path` first and apply its normalize/dedupe/conflict/promotion contract before the candidate may become canonical.
 
 There is no valid `request -> answer` bypass inside the GitHub Brain orchestration path. `task_router` is mandatory infrastructure but does not satisfy the primary-skill requirement.
 
@@ -33,6 +34,14 @@ There is no valid `request -> answer` bypass inside the GitHub Brain orchestrati
 - Provider conflicts use the checkpoint-resolved conflict policy. Never majority-vote or silently average conflicting provider claims.
 - Unknown/new provider skills default to quarantine with zero routing authority.
 - `HIGH_RISK` financial/wallet/credential capabilities are discoverable for classification but never auto-activate.
+
+## Harmonization
+- There is one canonical reasoning-authority chain; imported skills, provider methods, upstream repositories and model opinions are evidence/capability inputs, never a parallel Brain.
+- Prefer strengthening an existing canonical skill when a new candidate is semantically equivalent; use aliases/adapters rather than duplicate reasoning authorities.
+- Every future skill or upstream upgrade must pass checkpoint-resolved harmonization, provenance/license, overlap/conflict, security, eval and Evergreen promotion gates before routing authority is granted.
+- Current runtime facts, current project authority and Stable security/risk policy outrank imported guidance. Unresolved material conflict is surfaced and blocks dependent high-consequence conclusions.
+- FAST keeps the zero-extra-loop latency contract; STANDARD may use a bounded maker/checker pass when material; DEEP may use bounded maker/checker plus independent grading according to the harmonization policy.
+- Do not persist hidden chain-of-thought. Preserve only decision metadata, evidence provenance, eval outcomes and approved project state.
 
 ## Zero-local cloud runtime
 - Normal research execution must not require the user to install Node, npm, Python, exchange skill bundles, provider CLIs, or local MCP servers.

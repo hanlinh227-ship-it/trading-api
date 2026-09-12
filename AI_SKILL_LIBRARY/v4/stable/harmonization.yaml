@@ -1,0 +1,100 @@
+version: 1
+purpose: permanent_harmonization_layer_for_skills_knowledge_and_future_upgrades
+
+authority:
+  single_reasoning_authority_chain: true
+  provider_or_upstream_is_evidence_not_authority: true
+  current_runtime_precedes_cached_state: true
+  current_project_authority_precedes_imported_guidance: true
+  stable_security_and_risk_cannot_be_weakened: true
+
+candidate_intake:
+  default_state: quarantine
+  zero_routing_authority_until_promoted: true
+  require:
+    - provenance
+    - license_or_usage_status
+    - declared_domain
+    - declared_capabilities
+    - risk_class
+    - overlap_scan
+    - conflict_scan
+    - eval_impact
+  reject_if:
+    - hidden_permission_expansion
+    - credential_or_secret_material
+    - unverifiable_runtime_claim
+    - duplicate_authority_without_adapter_need
+
+normalization:
+  before_comparison: true
+  dimensions:
+    - domain
+    - task_intent
+    - authority_level
+    - risk_class
+    - input_contract
+    - output_contract
+    - tools
+    - sources
+    - freshness_semantics
+    - units_and_scale
+    - runtime_requirements
+
+skill_deduplication:
+  canonical_skill_first: true
+  strengthen_existing_skill_when_semantically_equivalent: true
+  prefer_alias_or_adapter_over_duplicate_reasoning_skill: true
+  allow_new_primary_skill_only_when_distinct_capability_is_material: true
+  never_stack_equivalent_skills_as_votes: true
+
+conflict_resolution:
+  use_registry_conflict_policy: true
+  majority_vote_for_truth: false
+  silent_averaging: false
+  unresolved_material_conflict: disclose_and_block_dependent_high_consequence_conclusion
+  security_or_permission_conflict: fail_closed
+
+cognitive_execution:
+  FAST:
+    maker_checker: false
+    independent_grader: false
+    artifact_pyramid: false
+  STANDARD:
+    maker_checker: when_material
+    max_revisions: 1
+    independent_grader: false
+    artifact_pyramid: optional
+  DEEP:
+    maker_checker: true
+    max_revisions: 2
+    independent_grader: required_for_high_impact_or_complex
+    artifact_pyramid: true
+  invariants:
+    - no_unbounded_recursion
+    - no_hidden_chain_of_thought_persistence
+    - preserve_provenance
+    - verify_after_merge
+
+artifact_pyramid:
+  levels:
+    - executive_conclusion
+    - synthesis
+    - evidence_or_dossiers
+  default_expand_only_when_useful: true
+  preserve_traceability: true
+
+promotion:
+  use_existing_evergreen_release_gates: true
+  require_no_material_regression: true
+  require_authority_check: true
+  require_security_check: true
+  require_eval_check: true
+  require_validator_check: true
+  financial_or_credential_permission_expansion_never_auto_promotes: true
+
+future_upgrade_contract:
+  every_new_skill_or_upstream_upgrade_must_pass_harmonization: true
+  checkpoint_resolved_policy_required: true
+  do_not_create_parallel_brain: true
+  do_not_replace_project_authority_silently: true
