@@ -49,6 +49,7 @@ jobs:
             AI_SKILL_LIBRARY/validate_runtime.py \
             AI_SKILL_LIBRARY/validate_v3.py \
             AI_SKILL_LIBRARY/validate_v4.py \
+            AI_SKILL_LIBRARY/validate_cognitive_harmonization.py \
             AI_SKILL_LIBRARY/validate_skill_gateway.py \
             AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
             AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py
@@ -69,6 +70,8 @@ jobs:
         run: python AI_SKILL_LIBRARY/validate_v3.py
       - name: Validate V4 LTS dual-plane
         run: python AI_SKILL_LIBRARY/validate_v4.py
+      - name: Validate cognitive harmonization
+        run: python AI_SKILL_LIBRARY/validate_cognitive_harmonization.py
       - name: Validate Skill-Mandatory Fast Gateway contract
         run: python AI_SKILL_LIBRARY/validate_skill_gateway.py
       - name: Compile and validate exact-checkout Skill Gateway snapshot
