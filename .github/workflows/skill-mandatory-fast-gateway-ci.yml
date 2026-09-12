@@ -6,12 +6,14 @@ on:
       - 'AI_SKILL_LIBRARY/**'
       - 'cloudflare-worker/**'
       - '.github/workflows/skill-mandatory-fast-gateway-ci.yml'
+      - '.github/workflows/deploy-skill-mandatory-fast-gateway.yml'
   push:
     branches: [main]
     paths:
       - 'AI_SKILL_LIBRARY/**'
       - 'cloudflare-worker/**'
       - '.github/workflows/skill-mandatory-fast-gateway-ci.yml'
+      - '.github/workflows/deploy-skill-mandatory-fast-gateway.yml'
   workflow_dispatch:
 
 permissions:
