@@ -105,10 +105,20 @@ jobs:
           PY
 
           for SYMBOL in BTCUSDT SOLUSDT; do
-            curl --fail --silent \
+            HTTP_CODE="$(curl --silent \
+              -o "/tmp/binance-${SYMBOL}.json" \
+              -w '%{http_code}' \
               -H 'content-type: application/json' \
               -d "{\"action\":\"execution_quote\",\"symbol\":\"${SYMBOL}\",\"instrument\":\"perpetual\",\"side\":\"LONG\",\"executionVenue\":\"binance\"}" \
-              http://127.0.0.1:3100/research/market > "/tmp/binance-${SYMBOL}.json"
+              http://127.0.0.1:3100/research/market)"
+            echo "Binance ${SYMBOL} execution smoke HTTP ${HTTP_CODE}"
+            cat "/tmp/binance-${SYMBOL}.json"
+            echo
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo 'Gateway log:'
+              cat /tmp/zero-local-gateway.log || true
+              exit 1
+            fi
           done
 
           python - <<'PY'
@@ -154,10 +164,18 @@ jobs:
 
           BYBIT_MODE="$(cat /tmp/bybit-smoke-mode)"
           if [ "$BYBIT_MODE" = "live" ]; then
-            curl --fail --silent \
+            HTTP_CODE="$(curl --silent \
+              -o /tmp/bybit-BTCUSDT.json \
+              -w '%{http_code}' \
               -H 'content-type: application/json' \
               -d '{"action":"execution_quote","symbol":"BTCUSDT","instrument":"perpetual","side":"SHORT","executionVenue":"bybit"}' \
-              http://127.0.0.1:3100/research/market > /tmp/bybit-BTCUSDT.json
+              http://127.0.0.1:3100/research/market)"
+            echo "Bybit BTCUSDT execution smoke HTTP ${HTTP_CODE}"
+            cat /tmp/bybit-BTCUSDT.json
+            echo
+            if [ "$HTTP_CODE" != "200" ]; then
+              exit 1
+            fi
             python - <<'PY'
           import json
           from pathlib import Path
