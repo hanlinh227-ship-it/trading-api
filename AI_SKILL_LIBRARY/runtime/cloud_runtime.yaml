@@ -17,8 +17,20 @@ production_source:
   provider: github
   repository: hanlinh227-ship-it/trading-api
   branch: main
-  auto_deploy_on_push: true
-  commit_pin_allowed_in_normal_operation: false
+  deployment_trigger: railway_connector_exact_commit
+  auto_deploy_on_push: false
+  github_app_required: false
+  user_local_action_required: false
+  deployment_commit_pin_required: true
+production_verification:
+  release_marker: live-price-execution-v1
+  railway_success_required: true
+  live_execution_smoke_required: true
+  required_execution_venues:
+    - bybit
+    - binance
+  exact_source_sha_health_field: deploymentSourceSha
+  railway_deployment_metadata_must_match_source_sha: true
 execution_boundary:
   reasoning_authority: false
   provider_evidence_only: true
