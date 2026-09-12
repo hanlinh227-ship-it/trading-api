@@ -68,8 +68,8 @@ class ZeroLocalManifestTests(unittest.TestCase):
             "crypto-research-gateway-prod-production.up.railway.app",
             "deploymentCommitSha",
             "GITHUB_SHA",
-            "executionVenue\\\":\\\"bybit",
-            "executionVenue\\\":\\\"binance",
+            "bybit LONG BTCUSDT ask",
+            "binance LONG BTCUSDT ask",
             "Production venue-bound execution smoke",
         ):
             self.assertIn(required, text)
