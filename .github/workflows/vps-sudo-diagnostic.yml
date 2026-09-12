@@ -1,0 +1,30 @@
+name: VPS Sudo Diagnostic
+
+on:
+  push:
+    branches: [fix/vps-noninteractive-bridge-install]
+    paths:
+      - '.github/workflows/vps-sudo-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 5
+    env:
+      V11_SECRET: ${{ secrets.V11_AI_BRIDGE_SECRET }}
+      BYBIT_SECRET: ${{ secrets.BYBIT_VPS_BRIDGE_SECRET }}
+    steps:
+      - name: Inspect bridge secret availability without disclosure
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,os
+          print(json.dumps({
+            'v11SecretPresent': bool(os.environ.get('V11_SECRET')),
+            'bybitSecretPresent': bool(os.environ.get('BYBIT_SECRET')),
+          },sort_keys=True))
+          PY
