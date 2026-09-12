@@ -1,0 +1,33 @@
+name: VPS Sudo Diagnostic
+
+on:
+  push:
+    branches: [fix/vps-noninteractive-bridge-install]
+    paths:
+      - '.github/workflows/vps-sudo-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect existing non-interactive sudo contract
+        shell: bash
+        run: |
+          set +e
+          echo "RUNNER_USER=$(id -un)"
+          id
+          echo '--- sudo -n -l ---'
+          sudo -n -l
+          echo "SUDO_LIST_EXIT=$?"
+          echo '--- sudo -n bash read-only probe ---'
+          sudo -n bash -c 'printf "SUDO_BASH_UID=%s\n" "$(id -u)"; test -r /etc/bybit-btc-bridge.env; echo BRIDGE_ENV_READABLE=$?'
+          echo "SUDO_BASH_EXIT=$?"
+          echo '--- sudo -n systemctl read-only probe ---'
+          sudo -n systemctl is-active bybit-btc-bridge.service
+          echo "SUDO_SYSTEMCTL_EXIT=$?"
+          exit 0
