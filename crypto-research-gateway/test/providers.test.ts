@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { BybitProvider } from '../src/providers/bybit.js';
 import { fetchJson } from '../src/providers/http.js';
 import { normalizeProviderSymbol } from '../src/providers/index.js';
 
@@ -25,5 +26,12 @@ describe('provider safety helpers', () => {
   it('throws on non-2xx provider responses', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('down', { status: 503 }));
     await expect(fetchJson('https://example.test/public')).rejects.toThrow(/503/);
+  });
+
+  it('classifies a Bybit 403 health probe as region-restricted instead of generic failure', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('forbidden', { status: 403 }));
+    const result = await new BybitProvider().healthProbe();
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('region_restricted_bybit_cloud_region');
   });
 });
