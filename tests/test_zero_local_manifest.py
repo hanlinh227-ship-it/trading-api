@@ -62,6 +62,18 @@ class ZeroLocalManifestTests(unittest.TestCase):
         ):
             self.assertIn(required, text)
 
+    def test_main_ci_verifies_exact_railway_production_commit_and_both_execution_venues(self):
+        text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
+        for required in (
+            "crypto-research-gateway-prod-production.up.railway.app",
+            "deploymentCommitSha",
+            "GITHUB_SHA",
+            "executionVenue\\\":\\\"bybit",
+            "executionVenue\\\":\\\"binance",
+            "Production venue-bound execution smoke",
+        ):
+            self.assertIn(required, text)
+
     def test_cloud_runtime_manifest_names_railway_service_root(self):
         manifest = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml").read_text(encoding="utf-8"))
         self.assertEqual(manifest["runtime"], "railway")
