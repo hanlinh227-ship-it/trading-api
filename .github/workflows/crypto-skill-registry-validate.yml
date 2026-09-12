@@ -6,11 +6,13 @@ on:
       - crypto-agent-registry-v4
     paths:
       - 'AI_SKILL_LIBRARY/**'
+      - 'crypto-agent-skills/**'
       - 'tests/test_skill_registry.py'
       - '.github/workflows/crypto-skill-registry-validate.yml'
   pull_request:
     paths:
       - 'AI_SKILL_LIBRARY/**'
+      - 'crypto-agent-skills/**'
       - 'tests/test_skill_registry.py'
       - '.github/workflows/crypto-skill-registry-validate.yml'
 
