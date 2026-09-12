@@ -8,7 +8,7 @@ files:
   - {path: AI_SKILL_LIBRARY/v4/stable/memory.yaml, sha256: 6e9712369dabf10e091dfdf1ff21bd2eeae59374c6b9f8c015da20c70d1d3d0a, role: memory}
   - {path: AI_SKILL_LIBRARY/v4/stable/harmonization.yaml, sha256: 915101e5981e38fe84bac56f85daf443a0625f3b6fc2be6261c778b5f07f6bd6, role: harmonization}
   - {path: AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml, sha256: fa5b2ef71077143f56e8892eb65ed253337e77bc5f0cb983024eb84edab3e162, role: capability_fusion}
-  - {path: AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml, sha256: e4d8088a3fcfdc18f1d5f503e33dc3af46bb59966683dcab97d43ffc668fbf34, role: creative_visual_fusion}
+  - {path: AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml, sha256: 25710a05204895032851d72f43945d182c0155f48757207fa0d3122e49d03c7e, role: creative_visual_fusion}
   - {path: AI_SKILL_LIBRARY/v4/mesh/graph.yaml, sha256: 1862eb2eeb82f33dc5cca58a8f19fa23e9ab6f86be14cbd34ee8596e994e0ea4, role: mesh}
   - {path: AI_SKILL_LIBRARY/v4/evergreen/policy.yaml, sha256: fdd3bab4fb794970cc561d281009e1c7e961154ace2d2632acbe0ff57d43e209, role: evergreen}
   - {path: AI_SKILL_LIBRARY/v4/stable/security.yaml, sha256: 548f818e974d22d967315ebb9609694679f991e372c61cb3e94da5d82fe9c7d3, role: security}
