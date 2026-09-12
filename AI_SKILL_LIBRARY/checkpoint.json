@@ -16,6 +16,7 @@
   "stable_observability_path": "AI_SKILL_LIBRARY/v4/stable/observability.yaml",
   "stable_security_path": "AI_SKILL_LIBRARY/v4/stable/security.yaml",
   "stable_reputation_path": "AI_SKILL_LIBRARY/v4/stable/reputation.yaml",
+  "cognitive_harmonization_path": "AI_SKILL_LIBRARY/v4/stable/cognitive_harmonization.yaml",
   "mesh_graph_path": "AI_SKILL_LIBRARY/v4/mesh/graph.yaml",
   "mesh_bridges_path": "AI_SKILL_LIBRARY/v4/mesh/bridges.yaml",
   "evergreen_policy_path": "AI_SKILL_LIBRARY/v4/evergreen/policy.yaml",
