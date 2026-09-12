@@ -18,11 +18,30 @@ bridge_budget:
   total_bridge_tokens_standard: 2500
   total_bridge_tokens_deep: 5000
   trading_state_cross_domain: forbidden
+semantic_index:
+  optional: true
+  routing_authority: false
+  authority_filter_required: true
+  freshness_filter_required: true
+  hybrid_retrieval: true
+  retrieval_modes: [lexical, semantic]
+  rerank: true
+  deduplicate: true
+  metadata_filters: [domain, project_scope, authority_revision, source_revision, freshness, verification, confidence]
+  on_unavailable: fallback_to_canonical_retrieval
+  on_conflict: prefer_authoritative_verified_source
 cache:
   scope: work_cycle
+  exact_enabled: true
+  semantic_enabled: true
+  semantic_similarity_min: 0.93
   cache_live_data: false
   require_freshness_check_before_reuse: true
+  require_authority_compatibility_before_reuse: true
+  compatibility_fingerprint: [primary_skill, domain, output_contract, checkpoint_id, release_version, authority_revision]
+  forbidden_for: [live_or_current_state, trading_entry_or_execution, credentials_or_secrets, destructive_action, private_connected_source_content, deployment_or_runtime_claim]
   invalidate_on: [checkpoint_change, release_pointer_change, project_authority_change, source_revision_change, explicit_user_refresh, live_or_current_state_request, mutation_or_deploy]
+  on_backend_failure: execute_normally
 compression:
   enabled: true
   preserve: [user_constraints, current_authority, acceptance_criteria, unresolved_risks, evidence_references, domain_scope]
