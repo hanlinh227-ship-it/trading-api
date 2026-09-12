@@ -5,13 +5,14 @@ This repository uses one GitHub-first V4 LTS dual-plane brain. Keep this file co
 ## Bootstrap
 At a new substantive work cycle when GitHub is available:
 1. Read `AI_SKILL_LIBRARY/checkpoint.json`.
-2. Resolve `release_pointer_path` to `AI_SKILL_LIBRARY/v4/releases/current.json`.
-3. Verify the selected release manifest before treating it as Stable authority.
-4. Resolve `skill_registry_index_path` from the checkpoint and perform the lightweight registry-index lookup required for every request. Do not preload provider detail.
-5. Resolve `cloud_runtime_policy_path` and `cloud_runtime_manifest_path` before provider execution; normal crypto research must not depend on local installation.
-6. Route every request through V4 Stable `task_router` and exactly one `FAST`, `STANDARD`, or `DEEP` profile.
-7. Load one primary Knowledge Mesh domain and only explicitly allowed bridges.
-8. After domain selection, lazy-load only the matching provider registry, source registry, or capability metadata declared by the checkpoint/domain pack. Provider capability does not become reasoning authority.
+2. Resolve `global_checkpoint_path` and read `AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md` before inferring current runtime/deployment state from conversation history.
+3. Resolve `release_pointer_path` to `AI_SKILL_LIBRARY/v4/releases/current.json`.
+4. Verify the selected release manifest before treating it as Stable authority.
+5. Resolve `skill_registry_index_path` from the checkpoint and perform the lightweight registry-index lookup required for every request. Do not preload provider detail.
+6. Resolve `cloud_runtime_policy_path` and `cloud_runtime_manifest_path` before provider execution; normal crypto research must not depend on local installation.
+7. Route every request through V4 Stable `task_router` and exactly one `FAST`, `STANDARD`, or `DEEP` profile.
+8. Load one primary Knowledge Mesh domain and only explicitly allowed bridges.
+9. After domain selection, lazy-load only the matching provider registry, source registry, or capability metadata declared by the checkpoint/domain pack. Provider capability does not become reasoning authority.
 
 Do not preload the full legacy catalog, provider registries, unrelated domains, project states, durable memory, tools, Evergreen, or Trading state for simple work.
 
@@ -28,6 +29,7 @@ Do not preload the full legacy catalog, provider registries, unrelated domains, 
 - Normal research execution must not require the user to install Node, npm, Python, exchange skill bundles, provider CLIs, or local MCP servers.
 - Execution preference is checkpoint-resolved and cloud-first: connected cloud tool -> public first-party HTTPS -> approved remote read-only MCP -> explicit degraded failure.
 - Never fall back to asking for a local installation merely because a provider adapter is unavailable.
+- Production Railway releases use the checkpoint-resolved connector-managed exact-commit protocol; do not assume Railway GitHub autodeploy exists.
 - `RESEARCH_SAFE` may execute in the approved cloud gateway when healthy.
 - `AUTH_READ_ONLY` remains disabled until separate credential authorization and must use cloud-held restricted read-only secrets only.
 - `HIGH_RISK` has no cloud execution path in the zero-local research runtime.
