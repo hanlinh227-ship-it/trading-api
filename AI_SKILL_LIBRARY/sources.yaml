@@ -41,6 +41,13 @@ sources:
   - {<<: *rag_only, category: prompt, repo: openai/openai-cookbook, license: MIT, focus: "AI application examples, evals, retrieval and prompting"}
   - {<<: *rag_only, category: prompt, repo: f/awesome-chatgpt-prompts, license: CC0-1.0, focus: "community prompt patterns"}
 
+  # CREATIVE VISUAL / IMAGE GENERATION / EDITING
+  - {<<: *rag_only, category: prompt, repo: lllyasviel/ControlNet, license: Apache-2.0, focus: "pose, depth, edge and structural composition conditioning patterns for visual generation; reference methodology only"}
+  - {<<: *rag_only, category: prompt, repo: tencent-ailab/IP-Adapter, license: Apache-2.0, focus: "image-reference, identity and style conditioning patterns for visual consistency"}
+  - {<<: *rag_only, category: prompt, repo: facebookresearch/segment-anything, license: Apache-2.0, focus: "mask-first segmentation and precise visual edit targeting patterns"}
+  - {<<: *rag_only, category: prompt, repo: IDEA-Research/GroundingDINO, license: Apache-2.0, focus: "text-to-object grounding and open-set target detection patterns for local visual edits"}
+  - {<<: *rag_only, category: prompt, repo: xinntao/Real-ESRGAN, license: BSD-3-Clause, focus: "image/video restoration, super-resolution and artifact-reduction finalization patterns"}
+
   # SCRIPT / SCREENWRITING / STORY STRUCTURE TOOLS
   - {<<: *rag_only, category: script, repo: nyousefi/Fountain, license: MIT, focus: "screenplay structure and Fountain format"}
   - {<<: *rag_only, category: script, repo: wildwinter/screenplay-tools, license: MIT, focus: "screenplay parsing/writing across Fountain and FDX"}

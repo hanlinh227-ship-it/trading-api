@@ -18,6 +18,7 @@
   "stable_reputation_path": "AI_SKILL_LIBRARY/v4/stable/reputation.yaml",
   "stable_harmonization_path": "AI_SKILL_LIBRARY/v4/stable/harmonization.yaml",
   "stable_capability_fusion_path": "AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml",
+  "stable_creative_visual_fusion_path": "AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml",
   "mesh_graph_path": "AI_SKILL_LIBRARY/v4/mesh/graph.yaml",
   "mesh_bridges_path": "AI_SKILL_LIBRARY/v4/mesh/bridges.yaml",
   "evergreen_policy_path": "AI_SKILL_LIBRARY/v4/evergreen/policy.yaml",

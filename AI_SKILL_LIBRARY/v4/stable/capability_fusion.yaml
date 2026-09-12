@@ -142,6 +142,17 @@ self_hosted_serving_patterns:
     - speculative_decoding_when_supported
   cannot_change_reasoning_authority: true
 
+creative_visual_fusion:
+  policy_path: AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml
+  routing_authority: false
+  reasoning_authority: false
+  canonical_skill_first: true
+  zero_local_preserved: true
+  activation_domains: [prompt, design, adobe, writing]
+  use_existing_primary_skills: true
+  external_framework_required: false
+  may_not_override: [security, project_authority, permission_ceiling, primary_skill_contract]
+
 upstream_pattern_map:
   langchain-ai/langgraph:
     status: approved_reference
