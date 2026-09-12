@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Skill Gateway Snapshot",
+  "type": "object",
+  "required": ["schema_version", "source_sha", "release_id", "generated_at", "fallback_primary_skill", "profiles", "domains", "skills", "capsules", "routing_aliases", "profile_escalation", "fresh_state_terms", "hashes"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "release_id": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string", "minLength": 1},
+    "fallback_primary_skill": {"const": "core_reasoning"},
+    "profiles": {"type": "object", "minProperties": 3},
+    "domains": {"type": "object", "minProperties": 1},
+    "skills": {"type": "object", "minProperties": 1},
+    "capsules": {"type": "object", "minProperties": 1},
+    "routing_aliases": {"type": "object"},
+    "profile_escalation": {"type": "object"},
+    "fresh_state_terms": {"type": "array", "items": {"type": "string"}},
+    "hashes": {
+      "type": "object",
+      "required": ["checkpoint", "release_manifest", "router", "runtime", "registry_index", "skill_catalog", "security", "authority", "routing_aliases", "domain_manifests"],
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
