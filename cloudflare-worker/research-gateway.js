@@ -10,6 +10,7 @@ const DEPLOYMENT_RELEASE='live-price-execution-v1';
 const HEALTH_TTL_MS=30_000;
 const MAX_BODY_BYTES=256_000;
 const FALLBACK_TIMEOUT_MS=12_000;
+const MAX_EXECUTION_QUOTE_AGE_MS=5_000;
 const DEFAULT_FALLBACK_GATEWAY_URL='https://crypto-research-gateway-prod-production.up.railway.app';
 const ACTIONS=new Set(['snapshot','candles','orderbook','funding_oi','execution_quote']);
 const INSTRUMENTS=new Set(['spot','perpetual']);
@@ -79,6 +80,20 @@ function shouldUseBybitSafetyFallback(input,result){
   return input.executionVenue===undefined||input.executionVenue==='bybit';
 }
 
+function isValidFallbackExecutionQuote(input,quote){
+  if(!quote||typeof quote!=='object')return false;
+  if(quote.executionVerified!==true||quote.status!=='OK'||quote.venue!=='bybit')return false;
+  if(quote.instrument!==input.instrument||quote.side!==input.side)return false;
+  const bid=Number(quote.bid);
+  const ask=Number(quote.ask);
+  const executablePrice=Number(quote.executablePrice);
+  const quoteAgeMs=Number(quote.quoteAgeMs);
+  if(!Number.isFinite(bid)||!Number.isFinite(ask)||!Number.isFinite(executablePrice)||!Number.isFinite(quoteAgeMs))return false;
+  if(bid<=0||ask<=0||bid>ask||quoteAgeMs<0||quoteAgeMs>MAX_EXECUTION_QUOTE_AGE_MS)return false;
+  const expected=input.side==='LONG'?ask:bid;
+  return executablePrice===expected;
+}
+
 async function runBybitSafetyFallback(input,result,{fallbackFetch,fallbackGatewayUrl}){
   if(!shouldUseBybitSafetyFallback(input,result))return null;
   const base=String(fallbackGatewayUrl||'').replace(/\/+$/,'');
@@ -96,7 +111,7 @@ async function runBybitSafetyFallback(input,result,{fallbackFetch,fallbackGatewa
     const payload=JSON.parse(text);
     if(!payload||typeof payload!=='object'||payload.ok!==true)return null;
     const quote=payload.executionQuote;
-    if(!quote||quote.executionVerified!==true||quote.venue!=='bybit')return null;
+    if(!isValidFallbackExecutionQuote(input,quote))return null;
     return {
       ...payload,
       edgeRuntimeProvider:'cloudflare-workers',
