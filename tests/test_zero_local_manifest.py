@@ -62,13 +62,12 @@ class ZeroLocalManifestTests(unittest.TestCase):
         ):
             self.assertIn(required, text)
 
-    def test_main_ci_verifies_connector_managed_railway_release_and_both_execution_venues(self):
+    def test_main_ci_verifies_exact_connector_managed_source_sha_and_both_execution_venues(self):
         text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
         for required in (
             "crypto-research-gateway-prod-production.up.railway.app",
-            "deploymentSourceSha",
+            "deploymentCommitSha",
             "GITHUB_SHA",
-            "live-price-execution-v1",
             "bybit LONG BTCUSDT ask",
             "binance LONG BTCUSDT ask",
             "Production venue-bound execution smoke",
