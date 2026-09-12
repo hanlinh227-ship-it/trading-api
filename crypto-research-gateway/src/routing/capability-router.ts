@@ -1,10 +1,18 @@
-export type ProviderHealth = Record<string, { ok: boolean; checkedAt: number }>;
+export type ProviderHealth = Record<string, {
+  ok: boolean;
+  checkedAt: number;
+  latencyMs?: number;
+  error?: string;
+}>;
+
+export type ExecutionVenue = 'bybit' | 'binance';
 
 const PROVIDER_ORDER = ['binance', 'okx', 'bybit', 'gate', 'kucoin'] as const;
 const SAFE_CAPABILITIES = new Set([
   'market_snapshot',
   'market_candles',
   'market_orderbook',
+  'market_execution_quote',
   'derivatives_funding_oi',
   'token_research',
   'token_risk_check',
@@ -33,4 +41,21 @@ export function selectProviders(input: {
     : healthy;
 
   return ordered.slice(0, max);
+}
+
+export function resolveExecutionVenue(input: {
+  executionVenue?: ExecutionVenue;
+  instrument: 'spot' | 'perpetual';
+  health: ProviderHealth;
+}): { venue: ExecutionVenue; available: boolean; reason?: string } {
+  void input.instrument;
+  const venue: ExecutionVenue = input.executionVenue ?? 'bybit';
+  if (input.health[venue]?.ok === true) {
+    return { venue, available: true };
+  }
+  return {
+    venue,
+    available: false,
+    reason: 'execution_venue_unavailable',
+  };
 }
