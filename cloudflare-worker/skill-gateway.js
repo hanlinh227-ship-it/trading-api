@@ -27,9 +27,7 @@ function matchTerms(text,terms=[]){
 
 function candidateScore(meta,text){
   if(matchTerms(text,meta.excludes||[]).length)return null;
-  const triggerHits=matchTerms(text,meta.triggers||[]);
-  const aliasHits=matchTerms(text,meta.aliases||[]);
-  const hits=[...triggerHits,...aliasHits];
+  const hits=[...new Set([...matchTerms(text,meta.triggers||[]),...matchTerms(text,meta.aliases||[])])];
   if(!hits.length)return null;
   const longest=Math.max(...hits.map(x=>x.length));
   const totalLength=hits.reduce((sum,x)=>sum+x.length,0);
