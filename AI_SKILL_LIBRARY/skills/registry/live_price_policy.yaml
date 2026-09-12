@@ -1,0 +1,25 @@
+version: 1
+purpose: venue_bound_live_execution_price
+execution:
+  default_production_venue: bybit
+  default_production_instrument: perpetual
+  executable_long_semantic: ask
+  executable_short_semantic: bid
+freshness:
+  executable_target_ms: 2000
+  executable_hard_stale_ms: 5000
+  contextual_max_age_ms: 10000
+cross_venue:
+  divergence_bps: 30
+  require_same_symbol: true
+  require_same_instrument: true
+  require_same_quote_currency: true
+  require_same_price_semantic: true
+  silent_averaging: false
+safety:
+  fail_closed: true
+  require_source_timestamp: true
+  allow_cross_venue_execution_substitution: false
+  last_as_execution_price: false
+  mark_as_execution_price: false
+  index_as_execution_price: false

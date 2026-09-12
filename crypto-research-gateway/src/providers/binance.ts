@@ -12,9 +12,9 @@ export class BinanceProvider implements PublicMarketProvider {
 
   async snapshot(symbol: string, instrument: PublicInstrument): Promise<MarketObservation[]> {
     const providerSymbol = normalizeProviderSymbol(this.id, symbol, instrument);
-    const received = Date.now();
     if (instrument === 'spot') {
       const row = asRecord(await fetchJson(`${SPOT}/api/v3/ticker/24hr?symbol=${encodeURIComponent(providerSymbol)}`));
+      const received = Date.now();
       return [{
         provider: this.id,
         venue: this.id,
@@ -23,31 +23,37 @@ export class BinanceProvider implements PublicMarketProvider {
         quoteCurrency: quoteCurrency(symbol),
         priceSemantic: 'last',
         price: positivePrice(row.lastPrice, 'lastPrice'),
-        sourceTimestampMs: numberValue(row.closeTime ?? received, 'closeTime'),
+        sourceTimestampMs: numberValue(row.closeTime, 'closeTime'),
         receivedTimestampMs: received,
       }];
     }
 
-    const [lastRaw, premiumRaw] = await Promise.all([
+    const [bookRaw, lastRaw, premiumRaw] = await Promise.all([
+      fetchJson(`${FUTURES}/fapi/v1/ticker/bookTicker?symbol=${encodeURIComponent(providerSymbol)}`),
       fetchJson(`${FUTURES}/fapi/v1/ticker/price?symbol=${encodeURIComponent(providerSymbol)}`),
       fetchJson(`${FUTURES}/fapi/v1/premiumIndex?symbol=${encodeURIComponent(providerSymbol)}`),
     ]);
+    const received = Date.now();
+    const book = asRecord(bookRaw);
     const last = asRecord(lastRaw);
     const premium = asRecord(premiumRaw);
-    const ts = numberValue(premium.time ?? last.time ?? received, 'time');
     const common = {
       provider: this.id,
       venue: this.id,
       symbol: canonicalSymbol(symbol),
       instrumentType: 'perpetual' as const,
       quoteCurrency: quoteCurrency(symbol),
-      sourceTimestampMs: ts,
       receivedTimestampMs: received,
     };
+    const bookTimestamp = numberValue(book.time, 'time');
+    const lastTimestamp = numberValue(last.time, 'time');
+    const premiumTimestamp = numberValue(premium.time, 'time');
     return [
-      { ...common, priceSemantic: 'last', price: positivePrice(last.price, 'price') },
-      { ...common, priceSemantic: 'mark', price: positivePrice(premium.markPrice, 'markPrice') },
-      { ...common, priceSemantic: 'index', price: positivePrice(premium.indexPrice, 'indexPrice') },
+      { ...common, priceSemantic: 'bid', price: positivePrice(book.bidPrice, 'bidPrice'), sourceTimestampMs: bookTimestamp },
+      { ...common, priceSemantic: 'ask', price: positivePrice(book.askPrice, 'askPrice'), sourceTimestampMs: bookTimestamp },
+      { ...common, priceSemantic: 'last', price: positivePrice(last.price, 'price'), sourceTimestampMs: lastTimestamp },
+      { ...common, priceSemantic: 'mark', price: positivePrice(premium.markPrice, 'markPrice'), sourceTimestampMs: premiumTimestamp },
+      { ...common, priceSemantic: 'index', price: positivePrice(premium.indexPrice, 'indexPrice'), sourceTimestampMs: premiumTimestamp },
     ];
   }
 

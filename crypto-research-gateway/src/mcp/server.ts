@@ -9,6 +9,7 @@ export const READ_ONLY_TOOL_NAMES = [
   'market_snapshot',
   'market_candles',
   'market_orderbook',
+  'market_execution_quote',
   'derivatives_funding_oi',
   'token_research',
   'token_risk_check',
@@ -29,6 +30,13 @@ const marketInput = z.object({
   limit: z.number().int().min(1).max(500).optional(),
 });
 
+const executionInput = z.object({
+  symbol: z.string().min(3).max(40),
+  instrument: z.enum(['spot', 'perpetual']).default('perpetual'),
+  side: z.enum(['LONG', 'SHORT']),
+  executionVenue: z.enum(['bybit', 'binance']).optional(),
+});
+
 function asTextResult(value: unknown) {
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(value) }],
@@ -38,7 +46,11 @@ function asTextResult(value: unknown) {
 function createServer(runtime: ResearchRuntime): McpServer {
   const server = new McpServer({ name: SERVICE_NAME, version: SERVICE_VERSION });
 
-  const registerMarket = (name: (typeof READ_ONLY_TOOL_NAMES)[number], action: MarketAction, description: string) => {
+  const registerMarket = (
+    name: 'market_snapshot' | 'market_candles' | 'market_orderbook' | 'derivatives_funding_oi',
+    action: Exclude<MarketAction, 'execution_quote'>,
+    description: string,
+  ) => {
     server.registerTool(name, { description, inputSchema: marketInput }, async (input) => {
       const result = await runtime.runMarket({ ...input, action });
       return asTextResult(result);
@@ -49,6 +61,15 @@ function createServer(runtime: ResearchRuntime): McpServer {
   registerMarket('market_candles', 'candles', 'Read public candlestick data from approved providers.');
   registerMarket('market_orderbook', 'orderbook', 'Read public order-book data from approved providers.');
   registerMarket('derivatives_funding_oi', 'funding_oi', 'Read public derivatives funding and open-interest context.');
+
+  server.registerTool(
+    'market_execution_quote',
+    {
+      description: 'Read a venue-bound executable bid/ask quote with freshness and same-semantic divergence gates.',
+      inputSchema: executionInput,
+    },
+    async (input) => asTextResult(await runtime.runMarket({ ...input, action: 'execution_quote' })),
+  );
 
   const unavailableInput = z.object({ query: z.string().min(1).max(500) });
   for (const name of ['token_research', 'token_risk_check', 'crypto_news_research'] as const) {

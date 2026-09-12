@@ -30,6 +30,7 @@
   "provider_conflict_policy_path": "AI_SKILL_LIBRARY/skills/registry/conflict_policy.yaml",
   "cloud_runtime_policy_path": "AI_SKILL_LIBRARY/skills/registry/runtime_policy.yaml",
   "cloud_runtime_manifest_path": "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml",
+  "live_price_policy_path": "AI_SKILL_LIBRARY/skills/registry/live_price_policy.yaml",
   "skill_registry_validator_path": "AI_SKILL_LIBRARY/validate_skill_registry.py",
   "legacy_skill_catalog_path": "AI_SKILL_LIBRARY/skills/catalog.yaml",
   "legacy_skill_adapter_path": "AI_SKILL_LIBRARY/v4/skills/legacy_catalog_adapter.yaml",

@@ -12,6 +12,7 @@ health_path: /health
 capabilities_path: /capabilities
 mcp_path: /mcp
 service_root: crypto-research-gateway
+live_price_policy_path: AI_SKILL_LIBRARY/skills/registry/live_price_policy.yaml
 execution_boundary:
   reasoning_authority: false
   provider_evidence_only: true

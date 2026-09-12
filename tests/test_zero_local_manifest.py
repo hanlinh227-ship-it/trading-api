@@ -16,6 +16,12 @@ class ZeroLocalManifestTests(unittest.TestCase):
         self.assertIn('restartPolicyType = "ON_FAILURE"', text)
         self.assertNotIn("cronSchedule", text)
 
+    def test_railway_production_region_is_southeast_asia_only(self):
+        text = (GATEWAY / "railway.toml").read_text(encoding="utf-8")
+        self.assertIn('[deploy.multiRegionConfig."asia-southeast1-eqsg3a"]', text)
+        self.assertIn('numReplicas = 1', text)
+        self.assertNotIn('[deploy.multiRegionConfig."us-', text)
+
     def test_gateway_requires_node_22_or_newer(self):
         import json
 
@@ -34,6 +40,37 @@ class ZeroLocalManifestTests(unittest.TestCase):
             "validate_router.py",
             "validate_v4.py",
             "validate_authority.py",
+        ):
+            self.assertIn(required, text)
+
+    def test_ci_smokes_venue_bound_execution_quotes(self):
+        text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
+        for required in (
+            "action",
+            "execution_quote",
+            "executionVenue",
+            "binance",
+            "side",
+            "LONG",
+            "executionVerified",
+            "quoteAgeMs",
+            "spreadBps",
+            "bid",
+            "ask",
+            "region_restricted_bybit_cloud_region",
+            "region_restricted_binance_futures_cloud_region",
+        ):
+            self.assertIn(required, text)
+
+    def test_main_ci_verifies_exact_railway_production_commit_and_both_execution_venues(self):
+        text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
+        for required in (
+            "crypto-research-gateway-prod-production.up.railway.app",
+            "deploymentCommitSha",
+            "GITHUB_SHA",
+            "bybit LONG BTCUSDT ask",
+            "binance LONG BTCUSDT ask",
+            "Production venue-bound execution smoke",
         ):
             self.assertIn(required, text)
 

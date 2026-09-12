@@ -1,10 +1,16 @@
+import { buildExecutionQuote, type TradeSide } from './execution/execution-quote.js';
 import { resolveObservations } from './normalization/conflict-resolver.js';
 import type { MarketObservation } from './normalization/market-normalizer.js';
 import { getProvider, PROVIDERS } from './providers/index.js';
 import type { ProviderId, PublicInstrument } from './providers/types.js';
-import { selectProviders, type ProviderHealth } from './routing/capability-router.js';
+import {
+  resolveExecutionVenue,
+  selectProviders,
+  type ExecutionVenue,
+  type ProviderHealth,
+} from './routing/capability-router.js';
 
-export type MarketAction = 'snapshot' | 'candles' | 'orderbook' | 'funding_oi';
+export type MarketAction = 'snapshot' | 'candles' | 'orderbook' | 'funding_oi' | 'execution_quote';
 
 export type MarketResearchInput = {
   action: MarketAction;
@@ -13,6 +19,8 @@ export type MarketResearchInput = {
   preferredVenue?: string;
   interval?: string;
   limit?: number;
+  side?: TradeSide;
+  executionVenue?: ExecutionVenue;
 };
 
 export type RuntimeOptions = {
@@ -25,7 +33,16 @@ function capabilityForAction(action: MarketAction): string {
   if (action === 'snapshot') return 'market_snapshot';
   if (action === 'candles') return 'market_candles';
   if (action === 'orderbook') return 'market_orderbook';
+  if (action === 'execution_quote') return 'market_execution_quote';
   return 'derivatives_funding_oi';
+}
+
+function classifyProviderFailure(provider: string, instrument: PublicInstrument, error: unknown): string {
+  const message = error instanceof Error ? error.message : 'provider_request_failed';
+  if (provider === 'binance' && instrument === 'perpetual' && message === 'provider_http_451') {
+    return 'region_restricted_binance_futures_cloud_region';
+  }
+  return message;
 }
 
 export class ResearchRuntime {
@@ -62,7 +79,93 @@ export class ResearchRuntime {
     return this.getHealth();
   }
 
+  private async runExecutionQuote(input: MarketResearchInput): Promise<Record<string, unknown>> {
+    const capability = 'market_execution_quote';
+    if (!input.side) {
+      return { ok: false, degraded: true, error: 'side_required', capability };
+    }
+
+    const resolved = resolveExecutionVenue({
+      executionVenue: input.executionVenue,
+      instrument: input.instrument,
+      health: this.health,
+    });
+    if (!resolved.available) {
+      return {
+        ok: false,
+        degraded: true,
+        error: 'VENUE_UNAVAILABLE',
+        capability,
+        executionVenue: resolved.venue,
+        providerHealth: this.health[resolved.venue] ?? null,
+      };
+    }
+
+    const provider = getProvider(resolved.venue);
+    if (!provider) {
+      return { ok: false, degraded: true, error: 'VENUE_UNAVAILABLE', capability, executionVenue: resolved.venue };
+    }
+
+    let primary: MarketObservation[];
+    try {
+      primary = await provider.snapshot(input.symbol, input.instrument);
+    } catch (error) {
+      return {
+        ok: false,
+        degraded: true,
+        error: 'VENUE_UNAVAILABLE',
+        capability,
+        executionVenue: resolved.venue,
+        failures: [{
+          provider: resolved.venue,
+          error: classifyProviderFailure(resolved.venue, input.instrument, error),
+        }],
+      };
+    }
+
+    const failures: Array<{ provider: string; error: string }> = [];
+    const secondaryVenue: ExecutionVenue = resolved.venue === 'bybit' ? 'binance' : 'bybit';
+    let secondary: MarketObservation[] = [];
+    if (this.health[secondaryVenue]?.ok === true) {
+      const secondaryProvider = getProvider(secondaryVenue);
+      if (secondaryProvider) {
+        try {
+          secondary = await secondaryProvider.snapshot(input.symbol, input.instrument);
+        } catch (error) {
+          failures.push({
+            provider: secondaryVenue,
+            error: classifyProviderFailure(secondaryVenue, input.instrument, error),
+          });
+        }
+      }
+    }
+
+    const executionQuote = buildExecutionQuote({
+      venue: resolved.venue,
+      symbol: input.symbol,
+      instrumentType: input.instrument,
+      side: input.side,
+      observations: primary,
+      crossVenueObservations: secondary,
+    });
+    const ok = executionQuote.status === 'OK';
+
+    return {
+      ok,
+      degraded: failures.length > 0 || !executionQuote.fresh || !ok,
+      ...(ok ? {} : { error: executionQuote.status }),
+      capability,
+      providers: [resolved.venue, ...(secondary.length > 0 ? [secondaryVenue] : [])],
+      executionQuote,
+      failures,
+    };
+  }
+
   async runMarket(input: MarketResearchInput): Promise<Record<string, unknown>> {
+    if (input.action === 'execution_quote') {
+      return this.runExecutionQuote(input);
+    }
+
     const capability = capabilityForAction(input.action);
     const selected = selectProviders({
       capability,
@@ -102,7 +205,7 @@ export class ResearchRuntime {
         }
         successes.push({ provider: id, data: await provider.derivatives(input.symbol) });
       } catch (error) {
-        failures.push({ provider: id, error: error instanceof Error ? error.message : 'provider_request_failed' });
+        failures.push({ provider: id, error: classifyProviderFailure(id, input.instrument, error) });
       }
     }));
 

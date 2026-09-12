@@ -11,13 +11,23 @@ export type BuildAppOptions = {
 };
 
 const marketRequestSchema = z.object({
-  action: z.enum(['snapshot', 'candles', 'orderbook', 'funding_oi']),
+  action: z.enum(['snapshot', 'candles', 'orderbook', 'funding_oi', 'execution_quote']),
   symbol: z.string().min(3).max(40),
   instrument: z.enum(['spot', 'perpetual']).default('spot'),
   preferredVenue: z.string().min(2).max(20).optional(),
   interval: z.string().min(1).max(12).optional(),
   limit: z.number().int().min(1).max(500).optional(),
-}).strict();
+  side: z.enum(['LONG', 'SHORT']).optional(),
+  executionVenue: z.enum(['bybit', 'binance']).optional(),
+}).strict().superRefine((value, ctx) => {
+  if (value.action === 'execution_quote' && !value.side) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['side'],
+      message: 'side_required_for_execution_quote',
+    });
+  }
+});
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: 256_000 });
@@ -39,6 +49,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       service: SERVICE_NAME,
       version: SERVICE_VERSION,
       runtimeMode: RUNTIME_MODE,
+      deploymentCommitSha: process.env.RAILWAY_GIT_COMMIT_SHA ?? null,
       localInstallRequired: false,
       lastPublicProbeTimestamp: runtime.getLastProbeAt(),
       healthyProviders,
