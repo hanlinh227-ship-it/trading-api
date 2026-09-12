@@ -13,9 +13,19 @@ for(const f of required)if(!fs.existsSync(path.join(root,f)))errors.push(`MISSIN
 const forbiddenFiles=['bybit-auto-v1.js'];
 for(const f of forbiddenFiles)if(fs.existsSync(path.join(root,f)))errors.push(`LEGACY BOT FILE MUST BE REMOVED ${f}`);
 
+function resolveRuntimeTarget(target){
+  const direct=path.join(root,target);
+  if(fs.existsSync(direct))return target;
+  if(path.extname(target)==='.js'){
+    const tsTarget=target.slice(0,-3)+'.ts';
+    if(fs.existsSync(path.join(root,tsTarget)))return tsTarget;
+  }
+  return null;
+}
+
 function reachableImports(entry){
   const seen=new Set(),stack=[entry];
-  while(stack.length){const rel=stack.pop();if(seen.has(rel))continue;seen.add(rel);const abs=path.join(root,rel);if(!fs.existsSync(abs)){errors.push(`RUNTIME_IMPORT_MISSING ${rel}`);continue;}const txt=fs.readFileSync(abs,'utf8');const re=/(?:import|export)\s+(?:[^'";]*?\s+from\s+)?["'](\.\.?\/[^"']+)["']/g;let m;while((m=re.exec(txt))){let target=path.normalize(path.join(path.dirname(rel),m[1]));if(!path.extname(target))target+='.js';if(!fs.existsSync(path.join(root,target)))errors.push(`RUNTIME_IMPORT_MISSING ${rel} -> ${target}`);else stack.push(target);}}
+  while(stack.length){const rel=stack.pop();if(seen.has(rel))continue;seen.add(rel);const abs=path.join(root,rel);if(!fs.existsSync(abs)){errors.push(`RUNTIME_IMPORT_MISSING ${rel}`);continue;}const txt=fs.readFileSync(abs,'utf8');const re=/(?:import|export)\s+(?:[^'";]*?\s+from\s+)?["'](\.\.?\/[^"']+)["']/g;let m;while((m=re.exec(txt))){let target=path.normalize(path.join(path.dirname(rel),m[1]));if(!path.extname(target))target+='.js';const resolved=resolveRuntimeTarget(target);if(!resolved)errors.push(`RUNTIME_IMPORT_MISSING ${rel} -> ${target}`);else stack.push(resolved);}}
   return seen;
 }
 const runtime=reachableImports('index.js');

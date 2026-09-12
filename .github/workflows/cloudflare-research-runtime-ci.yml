@@ -1,0 +1,96 @@
+name: Cloudflare Research Runtime CI
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-worker/**'
+      - 'crypto-research-gateway/**'
+      - '.github/workflows/cloudflare-research-runtime-ci.yml'
+      - '.github/workflows/deploy-cloudflare-worker.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare-worker/**'
+      - 'crypto-research-gateway/**'
+      - '.github/workflows/cloudflare-research-runtime-ci.yml'
+      - '.github/workflows/deploy-cloudflare-worker.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-cloudflare-research-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install gateway dependencies
+        working-directory: crypto-research-gateway
+        run: npm install --no-audit --no-fund
+
+      - name: Gateway behavior tests with diagnostic log
+        working-directory: crypto-research-gateway
+        shell: bash
+        run: |
+          set +e
+          npm test -- --reporter=verbose 2>&1 | tee gateway-test.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Upload gateway test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflare-gateway-test-log
+          path: crypto-research-gateway/gateway-test.log
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Gateway typecheck
+        working-directory: crypto-research-gateway
+        run: npm run typecheck
+
+      - name: Gateway build
+        working-directory: crypto-research-gateway
+        run: npm run build
+
+      - name: Install Cloudflare Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm install --no-audit --no-fund
+
+      - name: Worker source preflight and real Wrangler bundle dry-run
+        working-directory: cloudflare-worker
+        shell: bash
+        env:
+          TRADING_KV_NAMESPACE_ID: '00000000000000000000000000000000'
+          AI_BRIDGE_SERVICE_ID: '00000000-0000-4000-8000-000000000000'
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set +e
+          {
+            npm run check &&
+            npm run prepare:wrangler &&
+            npx wrangler deploy --dry-run --outdir .wrangler-ci-dry-run
+          } 2>&1 | tee wrangler-check.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Upload Wrangler log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflare-wrangler-check-log
+          path: cloudflare-worker/wrangler-check.log
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Confirm CI and deployment authority split
+        run: |
+          echo 'PR CI validates source and the real Wrangler bundle only.'
+          echo 'Production deploy authority is GitHub Actions exact-main via Wrangler.'
+          echo 'The pre-existing failing Cloudflare Builds GitHub App is not production authority.'
+          echo 'No runtime variables or trading LIVE switches are changed by this validation job.'

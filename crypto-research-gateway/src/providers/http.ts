@@ -1,5 +1,6 @@
 const DEFAULT_TIMEOUT_MS = 5_000;
 const MAX_RESPONSE_BYTES = 2_000_000;
+const RESPONSE_ENCODER = new TextEncoder();
 
 export async function fetchJson(url: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<unknown> {
   const response = await fetch(url, {
@@ -17,7 +18,7 @@ export async function fetchJson(url: string, timeoutMs = DEFAULT_TIMEOUT_MS): Pr
   }
 
   const text = await response.text();
-  if (Buffer.byteLength(text, 'utf8') > MAX_RESPONSE_BYTES) {
+  if (RESPONSE_ENCODER.encode(text).byteLength > MAX_RESPONSE_BYTES) {
     throw new Error('provider_response_too_large');
   }
 
