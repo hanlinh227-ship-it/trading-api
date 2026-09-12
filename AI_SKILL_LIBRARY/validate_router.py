@@ -14,6 +14,8 @@ ROUTER_PATH = HERE / "router.yaml"
 CATALOG_PATH = HERE / "skills" / "catalog.yaml"
 PLUGINS_PATH = HERE / "plugins.yaml"
 SOURCES_PATH = HERE / "sources.yaml"
+STABLE_ROUTER_PATH = HERE / "v4" / "stable" / "router.yaml"
+STABLE_RUNTIME_PATH = HERE / "v4" / "stable" / "runtime.yaml"
 SCHEMAS = HERE / "schemas"
 REQUIRED_METADATA = {
     "id", "domain", "triggers", "excludes", "requires", "conflicts_with",
@@ -181,6 +183,34 @@ def validate_router_data(router: dict, catalog: dict, plugins: dict, sources: di
     return errors, warnings
 
 
+def validate_skill_mandatory_contract(stable_router: dict, stable_runtime: dict, catalog: dict) -> list[str]:
+    errors: list[str] = []
+    skill_ids = {
+        row.get("id") for row in catalog.get("skills", [])
+        if isinstance(row, dict) and isinstance(row.get("id"), str)
+    }
+    policy = stable_router.get("policy", {}) if isinstance(stable_router, dict) else {}
+    fallback = policy.get("fallback_primary_skill")
+    if policy.get("primary_skill_required") is not True:
+        errors.append("V4 stable router must require a primary skill")
+    if policy.get("skill_execution_capsule_required") is not True:
+        errors.append("V4 stable router must require a skill execution capsule")
+    if fallback != "core_reasoning":
+        errors.append("V4 fallback_primary_skill must be core_reasoning")
+    if fallback not in skill_ids:
+        errors.append(f"V4 fallback_primary_skill references unknown skill {fallback!r}")
+    profiles = stable_runtime.get("profiles", {}) if isinstance(stable_runtime, dict) else {}
+    for name in ("FAST", "STANDARD", "DEEP"):
+        profile = profiles.get(name, {})
+        if profile.get("primary_skill_count") != 1:
+            errors.append(f"V4 {name} primary_skill_count must be 1")
+        if profile.get("skill_capsule_required") is not True:
+            errors.append(f"V4 {name} skill_capsule_required must be true")
+    if profiles.get("FAST", {}).get("max_supporting_skills") != 0:
+        errors.append("V4 FAST max_supporting_skills must be 0")
+    return errors
+
+
 def _schema_errors(instance: object, schema_path: Path, label: str) -> list[str]:
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     validator = Draft202012Validator(schema)
@@ -193,11 +223,14 @@ def main() -> int:
         catalog = yaml.safe_load(CATALOG_PATH.read_text(encoding="utf-8"))
         plugins = yaml.safe_load(PLUGINS_PATH.read_text(encoding="utf-8"))
         sources = yaml.safe_load(SOURCES_PATH.read_text(encoding="utf-8"))
+        stable_router = yaml.safe_load(STABLE_ROUTER_PATH.read_text(encoding="utf-8"))
+        stable_runtime = yaml.safe_load(STABLE_RUNTIME_PATH.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
         print(f"[ERROR] unable to load router inputs: {exc}", file=sys.stderr)
         return 2
 
     errors, warnings = validate_router_data(router, catalog, plugins, sources)
+    errors.extend(validate_skill_mandatory_contract(stable_router, stable_runtime, catalog))
     try:
         errors.extend(_schema_errors(router, SCHEMAS / "router.schema.json", "router schema"))
         for row in catalog.get("skills", []):

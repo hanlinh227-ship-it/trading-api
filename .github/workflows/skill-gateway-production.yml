@@ -1,0 +1,145 @@
+name: Skill Gateway Cloudflare Production
+
+on:
+  workflow_run:
+    workflows: ['AI Skill Library CI']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skill-gateway-cloudflare-production
+  cancel-in-progress: false
+
+env:
+  WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+
+jobs:
+  deploy-exact-main-snapshot:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+      AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
+      V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve exact main SHA and validate triggering SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+          if [ "${{ github.event_name }}" = workflow_run ]; then
+            test "$SOURCE_SHA" = "${{ github.event.workflow_run.head_sha }}"
+          fi
+          echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA"
+      - name: Install Brain validator dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+      - name: Compile and validate exact-main snapshot
+        run: |
+          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py --source-sha "$SOURCE_SHA" --output AI_SKILL_LIBRARY/v4/runtime/generated/skill_gateway_snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py AI_SKILL_LIBRARY/v4/runtime/generated/skill_gateway_snapshot.json
+          python AI_SKILL_LIBRARY/validate_router.py
+          python AI_SKILL_LIBRARY/validate_authority.py
+          python AI_SKILL_LIBRARY/validate_v4.py
+      - name: Validate Cloudflare deployment credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${TRADING_KV_NAMESPACE_ID:-}"
+          if [ -z "${AI_BRIDGE_SERVICE_ID:-}" ] && [ -z "${V11_AI_BRIDGE_SERVICE_ID:-}" ]; then exit 1; fi
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm install --no-audit --no-fund
+      - name: Generate exact-main Worker snapshot and verify contracts
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          GITHUB_SHA="$SOURCE_SHA" npm run prepare:wrangler
+          npm run check
+          node benchmark-skill-gateway.mjs
+          node --input-type=module - <<'NODE'
+          import {SKILL_GATEWAY_SNAPSHOT} from './generated/skill-gateway-snapshot.js';
+          if(SKILL_GATEWAY_SNAPSHOT.source_sha!==process.env.SOURCE_SHA)throw new Error('production_snapshot_sha_mismatch');
+          console.log('PRODUCTION_SKILL_SNAPSHOT=PASS '+SKILL_GATEWAY_SNAPSHOT.source_sha);
+          NODE
+          npx wrangler deploy --dry-run --outdir .wrangler-skill-prod
+      - name: Deploy exact-main Worker without mutating trading switches
+        working-directory: cloudflare-worker
+        run: npx wrangler deploy
+      - name: Verify production Brain health exact SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            code="$(curl -sS --connect-timeout 5 --max-time 20 -o /tmp/brain-health.json -w '%{http_code}' "$WORKER_BASE_URL/brain/health" || true)"
+            if [ "$code" = 200 ] && SOURCE_SHA="$SOURCE_SHA" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          x=json.loads(Path('/tmp/brain-health.json').read_text())
+          assert x.get('ok') is True
+          assert x.get('sourceSha')==os.environ['SOURCE_SHA']
+          assert x.get('schemaVersion')==1
+          assert x.get('primarySkillRequired') is True
+          assert x.get('executionCapsuleRequired') is True
+          assert x.get('externalRoutingCalls')==0
+          print('PRODUCTION_BRAIN_HEALTH=PASS',x['sourceSha'])
+          PY
+            then exit 0; fi
+            sleep 8
+          done
+          cat /tmp/brain-health.json || true
+          exit 1
+      - name: Production skill routing smoke matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, subprocess, os
+          base=os.environ['WORKER_BASE_URL']+'/brain/route'
+          cases=[
+            ('giải thích khái niệm này','core_reasoning',None),
+            ('sửa lỗi API','debugging',None),
+            ('viết quảng cáo giày','advertising_copy',None),
+            ('viết prompt video giữ nhân vật','video_prompt',None),
+            ('nghiên cứu học thuật có nguồn','academic_research',None),
+            ('quét BTC live','trading_router','DEEP'),
+            ('zxqv plmno nonsense','core_reasoning',None),
+          ]
+          for text,skill,profile in cases:
+            raw=subprocess.check_output(['curl','-fsS','--connect-timeout','5','--max-time','20','-H','content-type: application/json','-d',json.dumps({'text':text},ensure_ascii=False),base],text=True)
+            x=json.loads(raw)
+            assert x.get('ok') is True,(text,x)
+            assert x.get('primarySkill')==skill,(text,x)
+            assert x.get('capsule',{}).get('skillId')==skill,(text,x)
+            assert x.get('capsule',{}).get('capsuleHash'),(text,x)
+            assert x.get('externalRoutingCalls')==0,(text,x)
+            if profile: assert x.get('profile')==profile,(text,x)
+            print('PRODUCTION_BRAIN_ROUTE=PASS',skill,x.get('profile'))
+          PY
+      - name: Production authority record
+        run: |
+          echo "SKILL_GATEWAY_DEPLOYMENT_AUTHORITY=GITHUB_ACTIONS_EXACT_MAIN"
+          echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA"
+          echo "TRADING_RUNTIME_SWITCH_MUTATION=false"
+          echo "FAST_EXTERNAL_ROUTING_CALLS=0"

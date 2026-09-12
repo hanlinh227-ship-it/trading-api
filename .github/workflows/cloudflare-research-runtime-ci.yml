@@ -6,6 +6,8 @@ on:
       - 'cloudflare-worker/**'
       - 'crypto-research-gateway/**'
       - 'bybit-live-bridge/**'
+      - 'AI_SKILL_LIBRARY/v4/**'
+      - 'AI_SKILL_LIBRARY/skills/**'
       - '.github/workflows/cloudflare-research-runtime-ci.yml'
       - '.github/workflows/deploy-cloudflare-worker.yml'
   push:
@@ -14,6 +16,8 @@ on:
       - 'cloudflare-worker/**'
       - 'crypto-research-gateway/**'
       - 'bybit-live-bridge/**'
+      - 'AI_SKILL_LIBRARY/v4/**'
+      - 'AI_SKILL_LIBRARY/skills/**'
       - '.github/workflows/cloudflare-research-runtime-ci.yml'
       - '.github/workflows/deploy-cloudflare-worker.yml'
 
@@ -29,9 +33,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Public Bybit bridge safety tests
         run: python3 bybit-live-bridge/test_public_proxy.py
+
+      - name: Install Brain validator dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+
+      - name: Compile exact-SHA Skill Gateway snapshot
+        run: |
+          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py --source-sha "$GITHUB_SHA" --output AI_SKILL_LIBRARY/v4/runtime/generated/skill_gateway_snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py AI_SKILL_LIBRARY/v4/runtime/generated/skill_gateway_snapshot.json
 
       - name: Install gateway dependencies
         working-directory: crypto-research-gateway
@@ -77,8 +92,9 @@ jobs:
         run: |
           set +e
           {
-            npm run check &&
             npm run prepare:wrangler &&
+            npm run check &&
+            node benchmark-skill-gateway.mjs &&
             npx wrangler deploy --dry-run --outdir .wrangler-ci-dry-run
           } 2>&1 | tee wrangler-check.log
           status=${PIPESTATUS[0]}
@@ -95,6 +111,5 @@ jobs:
 
       - name: Confirm CI and deployment authority split
         run: |
-          echo 'PR CI validates bridge safety, gateway behavior, source and the real Wrangler bundle.'
-          echo 'Production deploy authority is GitHub Actions exact-main via Wrangler.'
+          echo 'PR CI validates bridge safety, gateway behavior, exact-SHA Skill Gateway snapshot and real Wrangler bundle.'
           echo 'No runtime variables or trading LIVE switches are changed by this validation job.'
