@@ -42,4 +42,38 @@ describe('HTTP surface', () => {
     expect(response.json().degraded).toBe(true);
     await app.close();
   });
+
+  it('requires side for execution_quote requests', async () => {
+    const app = buildApp({ probeOnStart: false });
+    const response = await app.inject({
+      method: 'POST',
+      url: '/research/market',
+      payload: {
+        action: 'execution_quote',
+        symbol: 'BTCUSDT',
+        instrument: 'perpetual',
+        executionVenue: 'binance',
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it('accepts the execution_quote schema with an explicit side and fails closed on unavailable venue', async () => {
+    const app = buildApp({ probeOnStart: false, forceAllProvidersDown: true });
+    const response = await app.inject({
+      method: 'POST',
+      url: '/research/market',
+      payload: {
+        action: 'execution_quote',
+        symbol: 'BTCUSDT',
+        instrument: 'perpetual',
+        side: 'LONG',
+        executionVenue: 'binance',
+      },
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.json().error).toBe('VENUE_UNAVAILABLE');
+    await app.close();
+  });
 });
