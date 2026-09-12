@@ -1,0 +1,40 @@
+name: Zero Local Cloud Runtime
+
+on:
+  push:
+    branches:
+      - zero-local-cloud-runtime-20260912
+      - main
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'crypto-research-gateway/**'
+      - 'tests/test_cloud_runtime_policy.py'
+      - 'tests/test_zero_local_manifest.py'
+      - '.github/workflows/zero-local-cloud-runtime.yml'
+      - 'AGENTS.md'
+      - 'crypto-agent-skills/**'
+  pull_request:
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'crypto-research-gateway/**'
+      - 'tests/test_cloud_runtime_policy.py'
+      - 'tests/test_zero_local_manifest.py'
+      - '.github/workflows/zero-local-cloud-runtime.yml'
+      - 'AGENTS.md'
+      - 'crypto-agent-skills/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python validator dependencies
+        run: python -m pip install --disable-pip-version-check pyyaml jsonschema
+      - name: Zero-local policy regression tests
+        run: python -m unittest discover -s tests -p 'test_cloud_runtime_policy.py' -v
