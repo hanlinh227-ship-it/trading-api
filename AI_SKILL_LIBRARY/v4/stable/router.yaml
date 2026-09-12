@@ -9,6 +9,8 @@ policy:
   primary_skill_required: true
   fallback_primary_skill: core_reasoning
   skill_execution_capsule_required: true
+  acceleration_preflight_required: true
+  acceleration_may_not_assert_authority: true
   max_supporting_skills: 2
   full_catalog_preload: false
   evergreen_on_request_path: false
@@ -31,6 +33,7 @@ domain_routes:
 
 selection_order:
   - task_router
+  - acceleration_preflight
   - runtime_profile
   - project_authority_if_required
   - primary_domain
