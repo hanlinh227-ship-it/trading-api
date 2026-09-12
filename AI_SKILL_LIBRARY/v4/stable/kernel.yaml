@@ -3,6 +3,7 @@ architecture: GITHUB_BRAIN_V4
 lts: true
 default_profile: FAST
 release_pointer: AI_SKILL_LIBRARY/v4/releases/current.json
+cognitive_harmonization: AI_SKILL_LIBRARY/v4/stable/cognitive_harmonization.yaml
 
 planes:
   stable:
@@ -52,3 +53,7 @@ invariants:
   verification_before_completion_claim: true
   protected_regression_blocks_promotion: true
   release_rollback_target_required: true
+  external_methods_are_reference_not_authority: true
+  cognitive_loops_are_bounded: true
+  harmonization_cannot_expand_permissions: true
+  fast_harmonization_disabled: true
