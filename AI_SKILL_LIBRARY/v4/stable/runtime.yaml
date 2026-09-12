@@ -16,6 +16,12 @@ adaptive:
   may_not_override: [security, authority, permission_ceiling, trading_hard_risk_controls]
   signals: [risk, task_complexity, freshness_requirement, tool_requirement, prior_route_eval, verification_need]
 
+harmonization:
+  policy: AI_SKILL_LIBRARY/v4/stable/cognitive_harmonization.yaml
+  fast_enabled: false
+  standard_mode: checker_on_demand
+  deep_mode: maker_checker_with_independent_grader
+
 profiles:
   FAST:
     context_tokens: 2500
@@ -44,7 +50,7 @@ profiles:
     evergreen_sync: false
     preload_trading: false
     persistent_trace: conditional
-    stages: [task_router, runtime_profile, authority, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, memory, sources, tools, execute, response_quality_gate, verify, answer]
+    stages: [task_router, runtime_profile, authority, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, memory, sources, tools, execute, checker_on_demand, harmonize, response_quality_gate, verify, artifact_shape, answer]
   DEEP:
     context_tokens: 16000
     durable_memory_items: 8
@@ -58,7 +64,7 @@ profiles:
     evergreen_sync: false
     preload_trading: route_only
     persistent_trace: bounded
-    stages: [task_router, runtime_profile, authority, context_plan, planner, task_graph, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, memory, sources, tools, security_gate, execute, critic, response_quality_gate, verify, eval, answer]
+    stages: [task_router, runtime_profile, authority, context_plan, planner, task_graph, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, memory, sources, tools, security_gate, execute, maker_checker, independent_grader, harmonize, critic, response_quality_gate, verify, eval, artifact_shape, answer]
 
 hard_limits:
   max_context_tokens: 20000
