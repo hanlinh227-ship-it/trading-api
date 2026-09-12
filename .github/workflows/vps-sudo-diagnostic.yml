@@ -14,31 +14,17 @@ jobs:
   diagnose:
     runs-on: [self-hosted, Linux, X64, trading-vps]
     timeout-minutes: 5
+    env:
+      V11_SECRET: ${{ secrets.V11_AI_BRIDGE_SECRET }}
+      BYBIT_SECRET: ${{ secrets.BYBIT_VPS_BRIDGE_SECRET }}
     steps:
-      - name: Inspect user cron capability for bridge watchdog
+      - name: Inspect bridge secret availability without disclosure
         shell: bash
         run: |
-          set +e
-          echo "RUNNER_USER=$(id -un)"
-          echo "HOME=$HOME"
-          echo '--- cron daemon ---'
-          systemctl is-active cron 2>&1; echo "CRON_SERVICE_EXIT=$?"
-          command -v crontab; echo "CRONTAB_BIN_EXIT=$?"
-          echo '--- current user crontab ---'
-          crontab -l 2>&1; echo "CRONTAB_LIST_EXIT=$?"
-          echo '--- writable deploy paths ---'
-          mkdir -p "$HOME/.local/share/bybit-public-bridge" "$HOME/.local/state/bybit-public-bridge"
-          test -w "$HOME/.local/share/bybit-public-bridge"; echo "APP_PATH_WRITABLE=$?"
-          test -w "$HOME/.local/state/bybit-public-bridge"; echo "STATE_PATH_WRITABLE=$?"
-          echo '--- port / process prerequisites ---'
-          ss -ltn 2>/dev/null | awk '$4 ~ /:8789$/ {found=1;print "PORT_8789_LISTENING=true"} END{if(!found)print "PORT_8789_LISTENING=false"}'
-          command -v flock; echo "FLOCK_EXIT=$?"
-          command -v nohup; echo "NOHUP_EXIT=$?"
           python3 - <<'PY'
-          try:
-            import websocket
-            print('WEBSOCKET_CLIENT=true')
-          except Exception:
-            print('WEBSOCKET_CLIENT=false')
+          import json,os
+          print(json.dumps({
+            'v11SecretPresent': bool(os.environ.get('V11_SECRET')),
+            'bybitSecretPresent': bool(os.environ.get('BYBIT_SECRET')),
+          },sort_keys=True))
           PY
-          exit 0
