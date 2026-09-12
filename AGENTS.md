@@ -8,9 +8,10 @@ At a new substantive work cycle when GitHub is available:
 2. Resolve `release_pointer_path` to `AI_SKILL_LIBRARY/v4/releases/current.json`.
 3. Verify the selected release manifest before treating it as Stable authority.
 4. Resolve `skill_registry_index_path` from the checkpoint and perform the lightweight registry-index lookup required for every request. Do not preload provider detail.
-5. Route every request through V4 Stable `task_router` and exactly one `FAST`, `STANDARD`, or `DEEP` profile.
-6. Load one primary Knowledge Mesh domain and only explicitly allowed bridges.
-7. After domain selection, lazy-load only the matching provider registry, source registry, or capability metadata declared by the checkpoint/domain pack. Provider capability does not become reasoning authority.
+5. Resolve `cloud_runtime_policy_path` and `cloud_runtime_manifest_path` before provider execution; normal crypto research must not depend on local installation.
+6. Route every request through V4 Stable `task_router` and exactly one `FAST`, `STANDARD`, or `DEEP` profile.
+7. Load one primary Knowledge Mesh domain and only explicitly allowed bridges.
+8. After domain selection, lazy-load only the matching provider registry, source registry, or capability metadata declared by the checkpoint/domain pack. Provider capability does not become reasoning authority.
 
 Do not preload the full legacy catalog, provider registries, unrelated domains, project states, durable memory, tools, Evergreen, or Trading state for simple work.
 
@@ -22,6 +23,15 @@ Do not preload the full legacy catalog, provider registries, unrelated domains, 
 - Provider conflicts use the checkpoint-resolved conflict policy. Never majority-vote or silently average conflicting provider claims.
 - Unknown/new provider skills default to quarantine with zero routing authority.
 - `HIGH_RISK` financial/wallet/credential capabilities are discoverable for classification but never auto-activate.
+
+## Zero-local cloud runtime
+- Normal research execution must not require the user to install Node, npm, Python, exchange skill bundles, provider CLIs, or local MCP servers.
+- Execution preference is checkpoint-resolved and cloud-first: connected cloud tool -> public first-party HTTPS -> approved remote read-only MCP -> explicit degraded failure.
+- Never fall back to asking for a local installation merely because a provider adapter is unavailable.
+- `RESEARCH_SAFE` may execute in the approved cloud gateway when healthy.
+- `AUTH_READ_ONLY` remains disabled until separate credential authorization and must use cloud-held restricted read-only secrets only.
+- `HIGH_RISK` has no cloud execution path in the zero-local research runtime.
+- Cloud provider output is evidence only and remains subordinate to project authority, Stable security, freshness and the conflict policy.
 
 ## Two planes
 - **Stable Runtime Plane** answers normal requests immediately from the last known-good validated release. It must work even when Evergreen is offline.
