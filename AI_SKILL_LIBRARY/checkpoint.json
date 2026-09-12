@@ -22,6 +22,7 @@
   "evergreen_promotion_path": "AI_SKILL_LIBRARY/v4/evergreen/promotion.yaml",
   "plugins_path": "AI_SKILL_LIBRARY/plugins.yaml",
   "registry_path": "AI_SKILL_LIBRARY/sources.yaml",
+  "crypto_agent_source_registry_path": "AI_SKILL_LIBRARY/sources/crypto_agent_official.yaml",
   "projects_path": "AI_SKILL_LIBRARY/projects.yaml",
   "skill_catalog_path": "AI_SKILL_LIBRARY/skills/catalog.yaml",
   "skill_registry_index_path": "AI_SKILL_LIBRARY/skills/registry/index.yaml",
