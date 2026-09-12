@@ -15,30 +15,30 @@ jobs:
     runs-on: [self-hosted, Linux, X64, trading-vps]
     timeout-minutes: 5
     steps:
-      - name: Inspect user service capability for VPC bridge
+      - name: Inspect user cron capability for bridge watchdog
         shell: bash
         run: |
           set +e
           echo "RUNNER_USER=$(id -un)"
           echo "HOME=$HOME"
-          echo "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-}"
-          echo '--- linger/user manager ---'
-          loginctl show-user "$(id -un)" -p Linger -p State -p RuntimePath 2>&1 || true
-          systemctl --user is-system-running 2>&1; echo "USER_SYSTEMD_EXIT=$?"
-          systemctl --user list-units --type=service --no-pager 2>&1 | head -40 || true
-          echo '--- writable user service paths ---'
-          test -w "$HOME"; echo "HOME_WRITABLE=$?"
-          mkdir -p "$HOME/.config/systemd/user" "$HOME/.local/share/bybit-public-bridge" 2>&1
-          echo "MKDIR_EXIT=$?"
-          test -w "$HOME/.config/systemd/user"; echo "USER_UNIT_DIR_WRITABLE=$?"
-          echo '--- port 8789 ---'
+          echo '--- cron daemon ---'
+          systemctl is-active cron 2>&1; echo "CRON_SERVICE_EXIT=$?"
+          command -v crontab; echo "CRONTAB_BIN_EXIT=$?"
+          echo '--- current user crontab ---'
+          crontab -l 2>&1; echo "CRONTAB_LIST_EXIT=$?"
+          echo '--- writable deploy paths ---'
+          mkdir -p "$HOME/.local/share/bybit-public-bridge" "$HOME/.local/state/bybit-public-bridge"
+          test -w "$HOME/.local/share/bybit-public-bridge"; echo "APP_PATH_WRITABLE=$?"
+          test -w "$HOME/.local/state/bybit-public-bridge"; echo "STATE_PATH_WRITABLE=$?"
+          echo '--- port / process prerequisites ---'
           ss -ltn 2>/dev/null | awk '$4 ~ /:8789$/ {found=1;print "PORT_8789_LISTENING=true"} END{if(!found)print "PORT_8789_LISTENING=false"}'
-          echo '--- Python dependencies ---'
+          command -v flock; echo "FLOCK_EXIT=$?"
+          command -v nohup; echo "NOHUP_EXIT=$?"
           python3 - <<'PY'
           try:
             import websocket
             print('WEBSOCKET_CLIENT=true')
-          except Exception as e:
+          except Exception:
             print('WEBSOCKET_CLIENT=false')
           PY
           exit 0
