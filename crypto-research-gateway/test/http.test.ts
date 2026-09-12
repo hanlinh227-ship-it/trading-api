@@ -16,7 +16,15 @@ describe('HTTP surface', () => {
     await app.close();
   });
 
-  it('health exposes the nonsecret Railway Git commit for exact production verification', async () => {
+  it('health exposes a stable production release marker for connector-managed rollout verification', async () => {
+    const app = buildApp({ probeOnStart: false });
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().deploymentRelease).toBe('live-price-execution-v1');
+    await app.close();
+  });
+
+  it('health exposes Railway Git commit metadata when GitHub-triggered metadata exists', async () => {
     process.env.RAILWAY_GIT_COMMIT_SHA = 'abc123';
     const app = buildApp({ probeOnStart: false });
     const response = await app.inject({ method: 'GET', url: '/health' });
