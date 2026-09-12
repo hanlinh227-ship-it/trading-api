@@ -132,23 +132,37 @@ jobs:
             printf '%s\n' "$BRAIN" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.sourceSha!==process.env.EXPECTED||x.schemaVersion!==1||x.primarySkillRequired!==true||x.capsuleRequired!==true||x.externalRoutingCalls!==0)process.exit(3);console.log('BRAIN_HEALTH=PASS '+x.sourceSha)}catch{process.exit(3)}})" || return 1
             return 0
           }
-          for attempt in 1 2 3 4 5 6; do if verify_once; then exit 0; fi; sleep 8; done
+          for attempt in 1 2 3 4 5 6; do
+            if verify_once; then exit 0; fi
+            echo "BRAIN_HEALTH_RETRY attempt=$attempt"
+            sleep 8
+          done
           exit 1
 
-      - name: Production brain route matrix
+      - name: Production brain route matrix with propagation tolerance
         shell: bash
         run: |
           set -euo pipefail
-          check_route() {
+          check_route_once() {
             text="$1" expected_skill="$2" expected_profile="$3"
             body="$(TEXT="$text" node -e "process.stdout.write(JSON.stringify({text:process.env.TEXT}))")"
-            result="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' -d "$body" "$WORKER_BASE_URL/brain/route")"
-            printf '%s\n' "$result" | EXPECTED_SKILL="$expected_skill" EXPECTED_PROFILE="$expected_profile" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s),r=x.route||{};if(x.ok!==true||r.primarySkill!==process.env.EXPECTED_SKILL||r.profile!==process.env.EXPECTED_PROFILE||r.sourceSha!==process.env.EXPECTED_SHA||r.externalRoutingCalls!==0||!x.capsule?.capsule_hash)process.exit(2);console.log('BRAIN_ROUTE=PASS '+r.primarySkill+' '+r.profile+' '+r.routeLatencyMs+'ms')})"
+            result="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' -d "$body" "$WORKER_BASE_URL/brain/route" || true)"
+            printf '%s\n' "$result" | EXPECTED_SKILL="$expected_skill" EXPECTED_PROFILE="$expected_profile" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),r=x.route||{};if(x.ok!==true||r.primarySkill!==process.env.EXPECTED_SKILL||r.profile!==process.env.EXPECTED_PROFILE||r.sourceSha!==process.env.EXPECTED_SHA||r.externalRoutingCalls!==0||!x.capsule?.capsule_hash)process.exit(2);console.log('BRAIN_ROUTE=PASS '+r.primarySkill+' '+r.profile+' '+r.routeLatencyMs+'ms')}catch{process.exit(2)}})"
           }
-          check_route 'giải thích bác sĩ nội trú' core_reasoning FAST
-          check_route 'sửa lỗi API này' debugging STANDARD
-          check_route 'viết quảng cáo giày cho quý bà' advertising_copy FAST
-          check_route 'quét market BTC live' trading_router DEEP
+          check_route_eventually() {
+            text="$1" expected_skill="$2" expected_profile="$3"
+            for attempt in 1 2 3 4 5 6; do
+              if check_route_once "$text" "$expected_skill" "$expected_profile"; then return 0; fi
+              echo "BRAIN_ROUTE_RETRY attempt=$attempt expected_skill=$expected_skill expected_profile=$expected_profile"
+              sleep 5
+            done
+            echo "BRAIN_ROUTE_FAILED expected_skill=$expected_skill expected_profile=$expected_profile text=$text"
+            return 1
+          }
+          check_route_eventually 'giải thích bác sĩ nội trú' core_reasoning FAST
+          check_route_eventually 'sửa lỗi API này' debugging STANDARD
+          check_route_eventually 'viết quảng cáo giày cho quý bà' advertising_copy FAST
+          check_route_eventually 'quét market BTC live' trading_router DEEP
 
       - name: Deployment record
         run: |
@@ -157,3 +171,4 @@ jobs:
           echo "PRIMARY_SKILL_REQUIRED=true"
           echo "FAST_EXTERNAL_ROUTING_CALLS=0"
           echo "RUNTIME_SWITCH_MUTATION=false"
+          echo "ROUTE_SMOKE_PROPAGATION_RETRY=true"
