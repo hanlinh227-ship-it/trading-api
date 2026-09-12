@@ -8,3 +8,10 @@ authority: docs/checkpoints/CURRENT_HANDOFF.md
 memory_namespace: trading
 bridge_policy: explicit_only
 cross_domain_runtime_state: forbidden
+provider_registry: AI_SKILL_LIBRARY/skills/providers/crypto_agents.yaml
+provider_registry_load_when: [crypto, bitcoin, altcoin, token_research, crypto_market_data, onchain_research]
+provider_registry_lazy_load: true
+provider_registry_preload: false
+provider_registry_reasoning_authority: false
+conflict_policy: AI_SKILL_LIBRARY/skills/registry/conflict_policy.yaml
+unresolved_material_conflict: disclose_or_block_dependent_conclusion

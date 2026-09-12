@@ -1,0 +1,20 @@
+# Never commit credentials or local auth material
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.*
+credentials.*
+config.toml
+.oauth*
+.auth*
+*.token
+*.secret
+
+# Local runtime caches
+node_modules/
+.venv/
+__pycache__/
+.skill-update-tmp/

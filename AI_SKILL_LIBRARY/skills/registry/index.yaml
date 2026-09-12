@@ -1,0 +1,38 @@
+version: 1
+policy:
+  lookup_every_request: true
+  index_only_before_domain_selection: true
+  lazy_provider_load: true
+  preload_provider_details: false
+  provider_registry_is_capability_metadata: true
+  provider_registry_is_reasoning_authority: false
+  project_authority_precedes_registry: true
+  stable_security_precedes_registry: true
+  max_provider_candidates_per_request: 3
+  unresolved_material_conflict: escalate
+  missing_registry_behavior: use_canonical_skill_only_and_disclose_if_material
+canonical_skill_catalog: AI_SKILL_LIBRARY/skills/catalog.yaml
+conflict_policy: AI_SKILL_LIBRARY/skills/registry/conflict_policy.yaml
+registries:
+  - id: canonical_skills
+    scope: all
+    path: AI_SKILL_LIBRARY/skills/catalog.yaml
+    load: index_only
+    routing_authority: true
+  - id: crypto_agents
+    scope: trading.crypto
+    path: AI_SKILL_LIBRARY/skills/providers/crypto_agents.yaml
+    load: after_domain_match
+    routing_authority: false
+    capability_role: evidence_and_tool_selection
+selection_contract:
+  reasoning_selection:
+    primary_skill_count: 1
+    max_supporting_skills: 2
+  provider_selection:
+    counts_toward_reasoning_skill_budget: false
+    max_candidates: 3
+    prefer_exact_capability_match: true
+    prefer_research_safe: true
+    auth_read_only_requires_authorized_credential: true
+    high_risk_auto_select: false

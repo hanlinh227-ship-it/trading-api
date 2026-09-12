@@ -1,0 +1,54 @@
+name: Crypto Skill Registry Validate
+
+on:
+  push:
+    branches:
+      - main
+      - crypto-agent-registry-v4
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'crypto-agent-skills/**'
+      - 'tests/test_skill_registry.py'
+      - '.github/workflows/crypto-skill-registry-validate.yml'
+  pull_request:
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'crypto-agent-skills/**'
+      - 'tests/test_skill_registry.py'
+      - '.github/workflows/crypto-skill-registry-validate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install validator dependencies
+        run: python -m pip install --disable-pip-version-check pyyaml jsonschema
+
+      - name: Registry regression tests
+        run: python -m unittest discover -s tests -p 'test_skill_registry.py' -v
+
+      - name: Registry validator
+        run: python AI_SKILL_LIBRARY/validate_skill_registry.py
+
+      - name: Brain validator
+        run: python AI_SKILL_LIBRARY/validate_brain.py
+
+      - name: Router validator
+        run: python AI_SKILL_LIBRARY/validate_router.py
+
+      - name: V4 validator
+        run: python AI_SKILL_LIBRARY/validate_v4.py
+
+      - name: Authority validator
+        run: python AI_SKILL_LIBRARY/validate_authority.py

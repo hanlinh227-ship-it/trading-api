@@ -1,0 +1,85 @@
+version: 1
+mode: fail-closed
+high_risk_actions:
+  - place_order
+  - cancel_order
+  - amend_order
+  - close_position
+  - set_leverage
+  - change_margin_mode
+  - create_trading_bot
+  - stop_trading_bot
+  - transfer_funds
+  - withdraw_funds
+  - deposit_action
+  - asset_conversion_execution
+  - create_wallet
+  - authenticate_wallet
+  - export_private_key
+  - sign_transaction
+  - broadcast_transaction
+  - send_token
+  - swap_token
+  - bridge_token
+  - pay_service
+  - x402_payment
+  - defi_deposit
+  - defi_withdraw
+  - stake
+  - unstake
+  - earn_purchase
+  - earn_redeem
+  - contract_call_with_value
+
+blocked_capability_groups:
+  binance:
+    - binance-agentic-wallet
+    - payment
+    - onchain-pay
+    - p2p_write_actions
+    - spot_or_derivatives_execution
+  okx:
+    - okx-cex-trade
+    - okx-cex-bot
+    - okx-cex-portfolio:write_actions
+    - okx-cex-earn:write_actions
+    - okx-agentic-wallet
+    - okx-defi:write_actions
+    - okx-agent-payments-protocol
+  bybit:
+    - spot
+    - derivatives
+    - earn
+    - account:write_actions
+    - strategy_execution
+    - trading_bot
+    - copy_trading
+    - alpha_trade
+    - pay
+    - fiat
+  gate:
+    - exchange_private_mcp_write_actions
+    - dex_wallet_and_swap
+    - gate-dex-trade
+    - gate-exchange-spot:write_actions
+    - gate-exchange-futures
+    - gate-exchange-trading
+    - gate-exchange-transfer
+    - gate-exchange-pay
+    - gate-exchange-autoinvest:write_actions
+    - gate-exchange-earn:write_actions
+  coinbase:
+    - wallet_authentication
+    - wallet_creation
+    - send_usdc
+    - send_assets
+    - trade
+    - fund
+    - x402_pay
+    - wallet_action_provider
+    - onchain_write_actions
+
+activation_rule: >-
+  Any capability in this file remains disabled until a later task explicitly
+  authorizes it, current official documentation is re-checked, the exact
+  credential scope is reviewed, and the user gives separate explicit approval.
