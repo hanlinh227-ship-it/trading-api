@@ -1,0 +1,111 @@
+version: 1
+policy:
+  purpose: official_crypto_agent_skill_reference
+  training: false
+  default_usage_tier: REFERENCE_ONLY
+  preserve_provenance: true
+  official_sources_only: true
+  fetch_on_demand: true
+  vendor_full_upstream_repo: false
+  newly_discovered_skills_enter_quarantine: true
+sources:
+  - id: binance_skills_hub
+    provider: Binance
+    repo: binance/binance-skills-hub
+    url: https://github.com/binance/binance-skills-hub
+    source_class: first_party_official
+    usage_tier: REFERENCE_ONLY
+    rag: false
+    training: false
+    license: PER_SKILL_MIT_DECLARATION
+    focus: [crypto_market_data, token_research, token_audit, address_research, signals, wallet_and_execution_reference]
+  - id: okx_agent_skills
+    provider: OKX
+    repo: okx/agent-skills
+    url: https://github.com/okx/agent-skills
+    source_class: first_party_official
+    usage_tier: REFERENCE_ONLY
+    rag: false
+    training: false
+    license: MIT
+    focus: [cex_market, sentiment, smart_money, cex_trade_reference]
+  - id: okx_agent_trade_kit
+    provider: OKX
+    repo: okx/agent-trade-kit
+    url: https://github.com/okx/agent-trade-kit
+    source_class: first_party_official
+    usage_tier: REFERENCE_ONLY
+    rag: false
+    training: false
+    license: MIT
+    focus: [market_module, news, smartmoney, mcp_cli_reference]
+  - id: okx_onchainos
+    provider: OKX
+    repo: okx/onchainos-skills
+    url: https://github.com/okx/onchainos-skills
+    source_class: first_party_official
+    usage_tier: REFERENCE_ONLY
+    rag: false
+    training: false
+    license: MIT
+    focus: [dex_market, onchain_research, wallet_swap_bridge_reference, defi_reference]
+  - id: bybit_skills
+    provider: Bybit
+    repo: bybit-exchange/skills
+    url: https://github.com/bybit-exchange/skills
+    source_class: first_party_official
+    usage_tier: REFERENCE_ONLY
+    rag: false
+    training: false
+    license: MIT
+    focus: [market_module, kline, ticker, orderbook, funding, open_interest, write_capability_reference]
+  - id: gate_skills
+    provider: Gate
+    repo: gate/gate-skills
+    url: https://github.com/gate/gate-skills
+    source_class: first_party_official
+    usage_tier: REFERENCE_ONLY
+    rag: false
+    training: false
+    license: PER_SKILL_DECLARATION
+    focus: [info_research, risk_check, news, macro, dex_market, exchange_write_reference]
+  - id: gate_mcp
+    provider: Gate
+    repo: gate/gate-mcp
+    url: https://github.com/gate/gate-mcp
+    source_class: first_party_official
+    usage_tier: REFERENCE_ONLY
+    rag: false
+    training: false
+    license: MIT
+    focus: [public_market_mcp, info_mcp, news_mcp, docs_mcp, authenticated_exchange_reference]
+  - id: kucoin_skills_hub
+    provider: KuCoin
+    repo: Kucoin/kucoin-skills-hub
+    url: https://github.com/Kucoin/kucoin-skills-hub
+    source_class: first_party_official
+    usage_tier: REFERENCE_ONLY
+    rag: false
+    training: false
+    license: MIT
+    focus: [spot_get, margin_get, futures_get, assets_get, earn_get, convert_get, broker_get]
+  - id: coinbase_agentic_wallet_skills
+    provider: Coinbase
+    repo: coinbase/agentic-wallet-skills
+    url: https://github.com/coinbase/agentic-wallet-skills
+    source_class: first_party_official
+    usage_tier: REFERENCE_ONLY
+    rag: false
+    training: false
+    license: MIT
+    focus: [onchain_query_reference, wallet_send_trade_payment_reference]
+  - id: coinbase_agentkit
+    provider: Coinbase
+    repo: coinbase/agentkit
+    url: https://github.com/coinbase/agentkit
+    source_class: first_party_official
+    usage_tier: REFERENCE_ONLY
+    rag: false
+    training: false
+    license: Apache-2.0
+    focus: [agent_wallet_architecture, action_providers, wallet_providers, mcp_reference]
