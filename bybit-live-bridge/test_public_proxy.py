@@ -15,12 +15,9 @@ class FakeResponse:
     def __init__(self, payload, status=200):
         self.payload = payload
         self.status = status
-    def __enter__(self):
-        return self
-    def __exit__(self, *_):
-        return False
-    def read(self, _limit=-1):
-        return json.dumps(self.payload).encode()
+    def __enter__(self): return self
+    def __exit__(self, *_): return False
+    def read(self, _limit=-1): return json.dumps(self.payload).encode()
 
 
 class PublicBybitProxyTests(unittest.TestCase):
@@ -46,18 +43,16 @@ class PublicBybitProxyTests(unittest.TestCase):
             self.assertEqual(status, 403)
             self.assertEqual(payload['error'], 'BYBIT_PUBLIC_PATH_NOT_ALLOWED')
 
-    def test_rejects_arbitrary_url_or_host(self):
+    def test_rejects_arbitrary_path_or_override_host(self):
         status, payload = proxy.bybit_public_proxy('https://evil.example/v5/market/tickers', 'category=linear')
         self.assertEqual(status, 403)
         self.assertEqual(payload['error'], 'BYBIT_PUBLIC_PATH_NOT_ALLOWED')
+        status, payload = proxy.bybit_public_proxy('/v5/market/tickers', 'category=linear', bases=('https://evil.example',))
+        self.assertEqual(status, 403)
+        self.assertEqual(payload['error'], 'BYBIT_PUBLIC_BASE_NOT_ALLOWED')
 
     def test_rejects_malformed_or_ambiguous_query(self):
-        bad_queries = [
-            'symbol=BTCUSDT%0d%0aX-Evil%3A1',
-            'symbol=BTCUSDT&symbol=ETHUSDT',
-            'category=linear&bad%20key=x',
-        ]
-        for query in bad_queries:
+        for query in ['symbol=BTCUSDT%0d%0aX-Evil%3A1', 'symbol=BTCUSDT&symbol=ETHUSDT', 'category=linear&bad%20key=x']:
             status, payload = proxy.bybit_public_proxy('/v5/market/tickers', query)
             self.assertEqual(status, 400)
             self.assertEqual(payload['error'], 'BYBIT_PUBLIC_QUERY_INVALID')
