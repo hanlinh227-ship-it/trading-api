@@ -1,0 +1,174 @@
+version: 1
+purpose: fuse_open_source_capability_patterns_into_native_v4_without_parallel_authority
+
+policy:
+  single_authority_chain: true
+  upstream_is_reference_not_authority: true
+  mandatory_external_runtime_dependency: false
+  zero_local_cloud_runtime_preserved: true
+  native_contracts_preferred: true
+  project_authority_precedes_capability_patterns: true
+  stable_security_precedes_capability_patterns: true
+  capability_failure_must_not_disable_stable: true
+
+fast_knowledge_plane:
+  exact_cache: true
+  semantic_cache: true
+  semantic_similarity_min: 0.93
+  compatibility_fingerprint:
+    - primary_skill
+    - domain
+    - output_contract
+    - checkpoint_id
+    - release_version
+    - authority_revision
+  cache_forbidden_for:
+    - live_or_current_state
+    - trading_entry_or_execution
+    - credentials_or_secrets
+    - destructive_action
+    - private_connected_source_content
+    - deployment_or_runtime_claim
+  require_freshness_compatibility: true
+  require_authority_compatibility: true
+  on_cache_miss: execute_normally
+  on_cache_backend_failure: execute_normally
+  routing_authority: false
+
+retrieval_plane:
+  index_backend: pluggable_optional
+  routing_authority: false
+  authority_filter_required: true
+  freshness_filter_required: true
+  stages:
+    - normalize
+    - authority_filter
+    - freshness_filter
+    - lexical_retrieve
+    - semantic_retrieve
+    - metadata_filter
+    - rerank
+    - dedupe
+    - context_pack
+  metadata_dimensions:
+    - domain
+    - project_scope
+    - authority_revision
+    - source_revision
+    - freshness
+    - verification
+    - confidence
+  on_index_unavailable: fallback_to_canonical_retrieval
+  on_semantic_retrieval_conflict: prefer_authoritative_verified_source
+
+execution_graph:
+  bounded: true
+  stateful_when_useful: true
+  resumable_artifacts_only: true
+  max_nodes_standard: 4
+  max_nodes_deep: 10
+  max_parallel_standard: 2
+  max_parallel_deep: 4
+  max_resume_attempts: 1
+  max_revisions_standard: 1
+  max_revisions_deep: 2
+  persist_hidden_reasoning: false
+  persisted_state_may_include:
+    - task_status
+    - accepted_constraints
+    - evidence_references
+    - artifact_locations
+    - verification_outcomes
+  persisted_state_must_exclude:
+    - hidden_chain_of_thought
+    - secrets
+    - credentials
+    - private_keys
+    - raw_sensitive_personal_data
+
+maker_checker_grader:
+  FAST: {maker_checker: false, independent_grader: false}
+  STANDARD: {maker_checker: when_material, independent_grader: false}
+  DEEP: {maker_checker: true, independent_grader: required_for_high_impact_or_complex}
+  checker_cannot_expand_permissions: true
+  grader_is_not_authority: true
+
+typed_capability_contracts:
+  input_schema_required: true
+  output_contract_required: true
+  permission_ceiling_required: true
+  domain_required: true
+  tools_declared: true
+  sources_declared: true
+  risk_ceiling_required: true
+  provenance_required: true
+  capsule_hash_required_for_routed_skill: true
+  on_schema_failure: fail_closed
+  on_permission_expansion: fail_closed
+  on_unknown_tool: fail_closed
+  normalize_provider_output_before_use: true
+
+memory_patterns:
+  retrieve_before_write: true
+  semantic_ranking_allowed: true
+  authority_precedes_memory: true
+  verified_newer_state_may_supersede_old: true
+  contradiction_action: reverify_or_supersede
+  majority_vote_for_memory_truth: false
+
+provider_routing_patterns:
+  providers_are_execution_resources_not_authority: true
+  signals:
+    - capability_fit
+    - health
+    - latency
+    - rate_limit_state
+    - reliability
+    - cost_when_relevant
+  bounded_fallback: true
+  cooldown_on_transient_failure: true
+  circuit_breaker: true
+  no_majority_vote_for_truth: true
+  no_permission_widening_on_fallback: true
+
+self_hosted_serving_patterns:
+  default_enabled: false
+  optional_only: true
+  requires_explicit_runtime_adapter: true
+  patterns:
+    - prefix_cache
+    - continuous_batching
+    - paged_attention
+    - speculative_decoding_when_supported
+  cannot_change_reasoning_authority: true
+
+upstream_pattern_map:
+  langchain-ai/langgraph:
+    status: approved_reference
+    absorbs: [bounded_execution_graph, checkpoint_resume, explicit_state_transitions]
+  pydantic/pydantic-ai:
+    status: approved_reference
+    absorbs: [typed_capability_contracts, schema_validation, eval_harness_patterns]
+  deepset-ai/haystack:
+    status: approved_reference
+    absorbs: [context_engineered_retrieval, explicit_pipeline_stages, routing_retrieval_memory_separation]
+  qdrant/qdrant:
+    status: approved_reference
+    absorbs: [hybrid_semantic_index, metadata_filtering, vector_retrieval]
+  mem0ai/mem0:
+    status: approved_reference
+    absorbs: [selective_memory, consolidation, scoped_retrieval]
+  promptfoo/promptfoo:
+    status: approved_reference
+    absorbs: [eval_matrix, regression_testing, red_team_patterns]
+  sgl-project/sglang:
+    status: approved_reference_optional_self_hosted
+    absorbs: [prefix_cache, continuous_batching, speculative_serving_patterns]
+  zilliztech/GPTCache:
+    status: approved_reference
+    absorbs: [semantic_cache, similarity_threshold, cache_miss_fallback]
+  BerriAI/litellm:
+    status: design_reference_only_license_unresolved
+    absorbs: [provider_health_routing, cooldown, bounded_fallback]
+    code_reuse: false
+    registry_promotion: blocked_until_license_resolved
