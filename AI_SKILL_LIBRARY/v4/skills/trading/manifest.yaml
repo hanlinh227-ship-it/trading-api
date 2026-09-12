@@ -8,3 +8,10 @@ project_authority_required: true
 execution_permissions_inherited_from_project_only: true
 risk_ceiling: project_policy
 evals: [trading_authority, live_data_freshness, risk_controls]
+provider_registry: AI_SKILL_LIBRARY/skills/providers/crypto_agents.yaml
+provider_registry_scope: crypto_only_after_trading_route
+provider_registry_role: evidence_and_tool_selection
+provider_registry_reasoning_authority: false
+conflict_policy: AI_SKILL_LIBRARY/skills/registry/conflict_policy.yaml
+max_provider_candidates: 3
+high_risk_auto_activate: false
