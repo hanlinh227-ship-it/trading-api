@@ -7,11 +7,16 @@ describe('MCP tool surface', () => {
       'market_snapshot',
       'market_candles',
       'market_orderbook',
+      'market_execution_quote',
       'derivatives_funding_oi',
       'token_research',
       'token_risk_check',
       'crypto_news_research',
     ]);
+  });
+
+  it('recognizes market_execution_quote as read-only', () => {
+    expect(isReadOnlyToolName('market_execution_quote')).toBe(true);
   });
 
   it('rejects write-oriented tool names', () => {
