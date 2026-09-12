@@ -43,3 +43,9 @@ Provider data is evidence only. Canonical reasoning and conflict resolution rema
 ## Secrets
 
 Default public research uses zero exchange credentials. Future authenticated read-only support, if separately authorized, must use Railway secret storage and restricted read-only permissions.
+
+## Deployment verification
+
+Pre-merge verification runs the exact feature-branch build in GitHub Actions and performs a live credentialless `/health` smoke test against the approved public providers. Railway production is sourced from the canonical repository `main` branch; production activation therefore occurs only after the PR is merged and the same runtime is redeployed from `main`.
+
+Completion requires the canonical Railway deployment to report `SUCCESS`, `/health` to preserve `localInstallRequired: false`, `/capabilities` to expose read-only tools only, and post-merge GitHub CI to remain green.
