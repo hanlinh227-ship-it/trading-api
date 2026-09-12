@@ -37,6 +37,21 @@ class ZeroLocalManifestTests(unittest.TestCase):
         ):
             self.assertIn(required, text)
 
+    def test_ci_smokes_venue_bound_execution_quotes(self):
+        text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
+        for required in (
+            '"action":"execution_quote"',
+            '"executionVenue":"binance"',
+            '"side":"LONG"',
+            'executionVerified',
+            'quoteAgeMs',
+            'spreadBps',
+            'bid',
+            'ask',
+            'region_restricted_bybit_cloud_region',
+        ):
+            self.assertIn(required, text)
+
     def test_cloud_runtime_manifest_names_railway_service_root(self):
         manifest = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml").read_text(encoding="utf-8"))
         self.assertEqual(manifest["runtime"], "railway")
