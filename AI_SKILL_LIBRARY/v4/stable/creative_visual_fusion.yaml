@@ -1,0 +1,132 @@
+version: 1
+purpose: fuse_creative_image_prompt_script_design_and_edit_patterns_into_native_v4
+
+policy:
+  single_authority_chain: true
+  routing_authority: false
+  reasoning_authority: false
+  canonical_skill_first: true
+  upstream_is_reference_not_authority: true
+  mandatory_external_runtime_dependency: false
+  zero_local_cloud_runtime_preserved: true
+  project_authority_precedes_creative_patterns: true
+  stable_security_precedes_creative_patterns: true
+  no_parallel_creative_brain: true
+  no_permission_expansion: true
+  preserve_user_constraints: true
+  reference_assets_are_source_of_truth_when_present: true
+
+modules:
+  creative_direction:
+    purpose: translate audience_platform_goal_and_style_constraints_into_visual_direction
+    outputs: [audience, platform, purpose, visual_language, brand_style, deliverable_constraints]
+  script_to_shots:
+    purpose: convert_script_or_narration_into_beats_scenes_shots_and_transitions
+    stages: [hook_detection, beat_decomposition, scene_mapping, shot_planning, pacing, transition_logic, coverage_diversity]
+  visual_prompt_compiler:
+    purpose: compile_render_ready_visual_prompts_from_explicit_constraints
+    fields: [subject, action, environment, composition, camera, lighting, materials_style, continuity_facts, negative_constraints, render_constraints]
+  continuity_engine:
+    purpose: preserve_identity_environment_props_counts_and_temporal_visual_state
+    checks: [character_identity, wardrobe, props, environment, object_count, time_of_day, light_direction, camera_state, previous_next_scene_compatibility]
+  visual_edit_reasoning:
+    purpose: classify_visual_edit_intent_and_select_the_smallest_safe_edit_scope
+    operations: [remove, replace, recolor, relight, inpaint, outpaint, repair, background_swap, restoration, upscale]
+  render_quality_critic:
+    purpose: check_visual_output_or_prompt_for_render_and_design_failures
+    checks: [prompt_fidelity, identity_consistency, scene_continuity, object_count, anatomy_risk, deformation_risk, perspective, lighting, camera_repetition, design_hierarchy, render_suitability]
+
+continuity:
+  max_state_items_standard: 12
+  max_state_items_deep: 32
+  authority: false
+  persist_hidden_reasoning: false
+  allowed_state:
+    - character_identity
+    - wardrobe
+    - props
+    - environment
+    - object_count
+    - time_of_day
+    - light_direction
+    - camera_state
+    - continuity_constraints
+  preserve_explicit_facts: true
+  on_conflict: prefer_user_and_project_authority_then_reverify
+  never_promote_inference_to_locked_fact: true
+
+visual_edit_reasoning:
+  smallest_necessary_scope: true
+  preserve_non_target_content: true
+  missing_target_action: fail_closed
+  missing_reference_action: fail_closed_when_reference_required
+  may_silently_add_or_remove_subjects: false
+  preserve_identity_geometry_style_facts_unless_explicitly_changed: true
+  targeting_order: [inspect, ground_target, segment_or_mask, edit_region, consistency_check, finalization]
+  render_strategy_inputs: [reference_identity, pose, depth, edge, composition, mask, edit_intent]
+
+profiles:
+  FAST:
+    external_framework_required: false
+    continuity_preload_items: 0
+    maker_checker: false
+    independent_grader: false
+    modules: [visual_prompt_compiler]
+  STANDARD:
+    external_framework_required: false
+    continuity_preload_items: 12
+    maker_checker: when_material
+    independent_grader: false
+    modules: [creative_direction, script_to_shots, visual_prompt_compiler, continuity_engine, visual_edit_reasoning, render_quality_critic]
+  DEEP:
+    external_framework_required: false
+    continuity_preload_items: 32
+    maker_checker: true
+    independent_grader: required_for_high_impact_or_complex
+    modules: [creative_direction, script_to_shots, visual_prompt_compiler, continuity_engine, visual_edit_reasoning, render_quality_critic]
+
+canonical_skill_bindings:
+  prompt: [prompt_engineering, image_prompt, video_prompt, negative_constraints, prompt_debugging, character_consistency, scene_continuity, camera_direction, storyboard, image_video_generation, generative_media]
+  design: [graphic_design, branding, typography, layout, design_2d, design_3d, lighting, rendering, ux_ui, product_design]
+  adobe: [photoshop, illustrator, premiere_pro, after_effects, lightroom, audition, indesign, acrobat]
+  writing: [scriptwriting, screenwriting, voice_over, advertising_copy, hook_retention, storytelling]
+
+upstream_pattern_map:
+  lllyasviel/ControlNet:
+    status: approved_reference
+    absorbs: [pose_conditioning, depth_conditioning, edge_conditioning, structural_composition_control]
+  tencent-ailab/IP-Adapter:
+    status: approved_reference
+    absorbs: [image_reference_conditioning, identity_preservation_patterns, style_reference_patterns]
+  facebookresearch/segment-anything:
+    status: approved_reference
+    absorbs: [mask_first_editing, object_segmentation, precise_edit_scope]
+  IDEA-Research/GroundingDINO:
+    status: approved_reference
+    absorbs: [text_to_object_grounding, open_set_target_detection, grounded_edit_targeting]
+  xinntao/Real-ESRGAN:
+    status: approved_reference
+    absorbs: [restoration_finalization, super_resolution, artifact_reduction]
+  Comfy-Org/ComfyUI:
+    status: design_reference_only_license_not_auto_approved
+    absorbs: [explicit_visual_workflow_graphs, reproducible_node_stages, pipeline_composition]
+    code_reuse: false
+    registry_promotion: manual_review_required
+
+render_strategy:
+  prompt_only_when_sufficient: true
+  reference_conditioning_when_identity_matters: true
+  structural_conditioning_when_pose_or_composition_matters: true
+  mask_first_when_local_edit_matters: true
+  restoration_is_finalization_not_reasoning_authority: true
+  choose_strategy_by_task_not_by_provider_preference: true
+
+invariants:
+  - no_duplicate_primary_creative_skill
+  - no_parallel_router
+  - no_hidden_reasoning_persistence
+  - no_silent_subject_count_change
+  - no_silent_reference_identity_change
+  - no_external_framework_as_authority
+  - no_permission_widening
+  - verify_output_against_explicit_constraints
