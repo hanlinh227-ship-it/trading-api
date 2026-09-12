@@ -29,6 +29,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -55,3 +56,13 @@ jobs:
       - name: Gateway build
         working-directory: crypto-research-gateway
         run: npm run build
+      - name: Validate skill registry
+        run: python AI_SKILL_LIBRARY/validate_skill_registry.py
+      - name: Validate routed Brain compatibility
+        run: python AI_SKILL_LIBRARY/validate_brain.py
+      - name: Validate router schemas
+        run: python AI_SKILL_LIBRARY/validate_router.py
+      - name: Validate V4 LTS
+        run: python AI_SKILL_LIBRARY/validate_v4.py
+      - name: Validate project authority
+        run: python AI_SKILL_LIBRARY/validate_authority.py
