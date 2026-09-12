@@ -27,7 +27,7 @@ def _config() -> SourceConfig:
 
 
 @pytest.mark.asyncio
-async def test_discovery_excludes_expired_tasks_even_when_api_labels_them_active():
+async def test_discovery_excludes_expired_or_non_applicable_tasks_even_when_api_labels_them_active():
     async def handler(request: httpx.Request):
         return httpx.Response(
             200,
@@ -46,6 +46,27 @@ async def test_discovery_excludes_expired_tasks_even_when_api_labels_them_active
                         "slotsAvailable": 1,
                     },
                     {
+                        "id": "full-1",
+                        "title": "Already full",
+                        "category": "development",
+                        "totalBudget": 10,
+                        "requirements": "Return tested code",
+                        "deadline": "2026-09-20T12:00:00.000Z",
+                        "maxWorkers": 1,
+                        "currentWorkers": 1,
+                    },
+                    {
+                        "id": "closed-1",
+                        "title": "Applications closed",
+                        "category": "development",
+                        "totalBudget": 10,
+                        "requirements": "Return tested code",
+                        "deadline": "2026-09-20T12:00:00.000Z",
+                        "maxWorkers": 2,
+                        "currentWorkers": 0,
+                        "acceptingApplications": False,
+                    },
+                    {
                         "id": "live-1",
                         "title": "Current coding job",
                         "category": "development",
@@ -55,6 +76,7 @@ async def test_discovery_excludes_expired_tasks_even_when_api_labels_them_active
                         "maxWorkers": 1,
                         "currentWorkers": 0,
                         "slotsAvailable": 1,
+                        "acceptingApplications": True,
                     },
                 ]
             },
