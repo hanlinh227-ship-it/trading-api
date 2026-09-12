@@ -22,37 +22,43 @@ profiles:
     durable_memory_items: 0
     tool_candidates: 0
     replan_budget: 0
+    primary_skill_count: 1
+    skill_capsule_required: true
     max_supporting_skills: 0
     max_bridge_nodes: 0
     max_parallel_tasks: 1
     evergreen_sync: false
     preload_trading: false
     persistent_trace: false
-    stages: [task_router, minimal_core, primary_domain, answer]
+    stages: [task_router, minimal_core, primary_domain, primary_skill, skill_execution_capsule, answer]
   STANDARD:
     context_tokens: 7000
     durable_memory_items: 4
     tool_candidates: 3
     replan_budget: 1
+    primary_skill_count: 1
+    skill_capsule_required: true
     max_supporting_skills: 2
     max_bridge_nodes: 1
     max_parallel_tasks: 2
     evergreen_sync: false
     preload_trading: false
     persistent_trace: conditional
-    stages: [task_router, runtime_profile, authority, primary_domain, permitted_bridges, skills, memory, sources, tools, execute, verify, answer]
+    stages: [task_router, runtime_profile, authority, primary_domain, permitted_bridges, primary_skill, skill_execution_capsule, supporting_skills, memory, sources, tools, execute, verify, answer]
   DEEP:
     context_tokens: 16000
     durable_memory_items: 8
     tool_candidates: 5
     replan_budget: 2
+    primary_skill_count: 1
+    skill_capsule_required: true
     max_supporting_skills: 2
     max_bridge_nodes: 2
     max_parallel_tasks: 4
     evergreen_sync: false
     preload_trading: route_only
     persistent_trace: bounded
-    stages: [task_router, runtime_profile, authority, context_plan, planner, task_graph, primary_domain, permitted_bridges, skills, memory, sources, tools, security_gate, execute, critic, verify, eval, answer]
+    stages: [task_router, runtime_profile, authority, context_plan, planner, task_graph, primary_domain, permitted_bridges, primary_skill, skill_execution_capsule, supporting_skills, memory, sources, tools, security_gate, execute, critic, verify, eval, answer]
 
 hard_limits:
   max_context_tokens: 20000
