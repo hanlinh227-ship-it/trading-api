@@ -60,6 +60,46 @@ def _deadline_is_expired(value: object, *, now: datetime | None = None) -> bool:
     return deadline.astimezone(timezone.utc) <= current.astimezone(timezone.utc)
 
 
+def _explicitly_false(value: object) -> bool:
+    if isinstance(value, bool):
+        return value is False
+    if isinstance(value, (int, float)):
+        return value == 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"false", "0", "no", "closed", "disabled"}
+    return False
+
+
+def _applications_are_open(row: dict[str, object]) -> bool:
+    # The browse endpoint can briefly keep tasks labelled ACTIVE after their
+    # application window has closed. Prefer explicit availability fields when
+    # present so the worker does not hammer /apply with deterministic HTTP 400s.
+    for key in ("acceptingApplications", "applicationsOpen", "isAcceptingApplications"):
+        if key in row and _explicitly_false(row.get(key)):
+            return False
+
+    slots_available = row.get("slotsAvailable")
+    if slots_available is not None:
+        try:
+            if int(slots_available) <= 0:
+                return False
+        except (TypeError, ValueError):
+            pass
+
+    current_workers = row.get("currentWorkers")
+    max_workers = row.get("maxWorkers")
+    if current_workers is not None and max_workers is not None:
+        try:
+            maximum = int(max_workers)
+            current = int(current_workers)
+            if maximum > 0 and current >= maximum:
+                return False
+        except (TypeError, ValueError):
+            pass
+
+    return True
+
+
 def _safe_error_details(response: httpx.Response) -> tuple[str | None, str | None]:
     try:
         payload = response.json()
@@ -147,13 +187,8 @@ class TaskForceAdapter:
                 raise TaskForceProtocolError("TaskForce response validation failed", error_code="validation_error")
             if _deadline_is_expired(row.get("deadline")):
                 continue
-            slots_available = row.get("slotsAvailable")
-            if slots_available is not None:
-                try:
-                    if int(slots_available) <= 0:
-                        continue
-                except (TypeError, ValueError):
-                    pass
+            if not _applications_are_open(row):
+                continue
             try:
                 amount = Decimal(str(row.get("totalBudget", row.get("budget", row.get("reward", 0)))))
             except Exception as exc:
