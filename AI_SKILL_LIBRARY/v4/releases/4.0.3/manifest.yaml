@@ -1,0 +1,18 @@
+version: 4.0.3
+architecture: GITHUB_BRAIN_V4
+files:
+  - {path: AI_SKILL_LIBRARY/v4/stable/kernel.yaml, sha256: e0179ebee4edd87b9fcc610fdeea4e21b0a51f1ee1771303163adb8b73eb5ab2, role: kernel}
+  - {path: AI_SKILL_LIBRARY/v4/stable/runtime.yaml, sha256: ebb191650a52610b40b88fdbabe1a8d04846ce1d8405212585bd6c8afb5ceaf6, role: runtime}
+  - {path: AI_SKILL_LIBRARY/v4/stable/router.yaml, sha256: 1d25ea97a0532502f2add05794d9f7fc02f69ee801a3635b484673486a0dc39f, role: router}
+  - {path: AI_SKILL_LIBRARY/v4/stable/context.yaml, sha256: 851ac26ba6aa2803c7129fa156a710c3242b44d5c820d9a6dd5b8785bd757c82, role: context}
+  - {path: AI_SKILL_LIBRARY/v4/stable/harmonization.yaml, sha256: 9c64f325c0a4a3fb9767610af5edb17ac113bab5f8c7daea8be300d606f74f0c, role: harmonization}
+  - {path: AI_SKILL_LIBRARY/v4/stable/acceleration.yaml, sha256: 986519d45e3f9df1e1df493e5ca92e14339f6797088c081a11104cf04c547d5d, role: acceleration}
+  - {path: AI_SKILL_LIBRARY/v4/mesh/graph.yaml, sha256: 1862eb2eeb82f33dc5cca58a8f19fa23e9ab6f86be14cbd34ee8596e994e0ea4, role: mesh}
+  - {path: AI_SKILL_LIBRARY/v4/evergreen/policy.yaml, sha256: fdd3bab4fb794970cc561d281009e1c7e961154ace2d2632acbe0ff57d43e209, role: evergreen}
+  - {path: AI_SKILL_LIBRARY/v4/stable/security.yaml, sha256: 548f818e974d22d967315ebb9609694679f991e372c61cb3e94da5d82fe9c7d3, role: security}
+compatibility:
+  min_architecture: 4.0.0
+promotion:
+  class: feature
+  validated: true
+  source: brain_acceleration_layer
