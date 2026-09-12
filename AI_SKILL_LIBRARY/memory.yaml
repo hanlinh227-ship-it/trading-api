@@ -1,4 +1,7 @@
 version: 1
+superseded_by: GITHUB_BRAIN_V4
+authority_role: compatibility_alias
+canonical_authority: AI_SKILL_LIBRARY/checkpoint.json
 policy:
   retrieve_before_write: true
   prefer_verified_current_over_old: true

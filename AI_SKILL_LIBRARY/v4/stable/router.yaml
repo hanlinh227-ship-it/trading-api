@@ -1,5 +1,8 @@
 version: 4
 policy:
+  routing_authority: true
+  parallel_router_allowed: false
+  legacy_router_adapter: AI_SKILL_LIBRARY/router.yaml
   route_every_request: true
   mandatory_router: task_router
   adaptive_profile_selection: true
@@ -14,11 +17,15 @@ policy:
   evergreen_on_request_path: false
   unresolved_material_conflict_escalates: true
   authority_before_memory: true
+  alias_skills_never_primary: true
+  budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
+  retrieval_path: AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
+  retrieval_index_path: AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml
 
 domain_routes:
   core: [task_router, core_reasoning, critical_thinking, fact_checking, research, planning, verification, troubleshooting, comparison, recommendation, learning, summarization, translation, general_problem_solving, error_recovery]
   engineering: [coding, debugging, tdd, software_architecture, github, api, database, security, android, web_app, deployment, automation]
-  trading: [trading_router, trading, multi_market_analysis, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, backtesting, mt5_mql5, trading_bot, live_data_validation, market_analysis, risk_execution, quant_backtesting]
+  trading: [trading_router, multi_market_analysis, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, mt5_mql5, trading_bot, live_data_validation, market_analysis, risk_execution, quant_backtesting]
   game: [game_development, game_design, godot, unity, game_ai, game_2d, game_3d]
   design_2d: [ux_ui, product_design, graphic_design, branding, typography, layout, design_2d]
   design_3d: [design_3d, modeling, topology, uv, materials, lighting, rigging, animation, rendering, blender]
@@ -26,20 +33,21 @@ domain_routes:
   prompt_media: [prompt_engineering, image_prompt, video_prompt, negative_constraints, prompt_debugging, character_consistency, scene_continuity, camera_direction, storyboard]
   writing: [scriptwriting, screenwriting, voice_over, advertising_copy, hook_retention, storytelling]
   academic: [academic_research, literature_review, methodology, qualitative_research, quantitative_analysis, interdisciplinary_research, citation_review]
-  data_docs: [data_analysis, spreadsheet, chart, report, docx, pdf, slides, presentation]
-  business: [business, marketing, marketing_business]
+  data_docs: [data_analysis, spreadsheet, chart, report, docx, pdf, slides]
+  business: [business, marketing]
 
 selection_order:
   - task_router
   - runtime_profile
-  - project_authority_if_required
   - primary_domain
-  - permitted_mesh_bridges
+  - project_authority_if_required
   - primary_skill
   - skill_execution_capsule
-  - supporting_skills
-  - bounded_memory
+  - supporting_skills_max_2
+  - permitted_mesh_bridges
+  - relevant_index_exact_first
   - relevant_sources
+  - bounded_memory
   - relevant_tools
   - security_gate_if_required
   - execute

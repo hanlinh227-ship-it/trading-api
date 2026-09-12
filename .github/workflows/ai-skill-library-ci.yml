@@ -53,34 +53,13 @@ jobs:
             AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
             AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py
           python -m compileall -q AI_SKILL_LIBRARY/v4
-      - name: Run integration tests
-        run: python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
-      - name: Validate source registry
-        run: python AI_SKILL_LIBRARY/validate_registry.py
-      - name: Validate routed brain compatibility
-        run: python AI_SKILL_LIBRARY/validate_brain.py
-      - name: Validate router and skill schemas
-        run: python AI_SKILL_LIBRARY/validate_router.py
-      - name: Validate project authority
-        run: python AI_SKILL_LIBRARY/validate_authority.py
-      - name: Validate legacy adaptive runtime compatibility
-        run: python AI_SKILL_LIBRARY/validate_runtime.py
-      - name: Validate legacy V3 compatibility
-        run: python AI_SKILL_LIBRARY/validate_v3.py
-      - name: Validate V4 LTS dual-plane
-        run: python AI_SKILL_LIBRARY/validate_v4.py
-      - name: Validate Skill-Mandatory Fast Gateway contract
-        run: python AI_SKILL_LIBRARY/validate_skill_gateway.py
-      - name: Compile and validate exact-checkout Skill Gateway snapshot
+      - name: Brain validation via single entrypoint (validators, snapshot, release, index, consolidation, tests)
         shell: bash
         run: |
           set -euo pipefail
           SOURCE_SHA="$(git rev-parse HEAD)"
-          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
-            --source-sha "$SOURCE_SHA" \
-            --output AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
-          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py \
-            AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA"
+          echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
       - name: Validate ingest selection without cloning
         run: python AI_SKILL_LIBRARY/ingest_sources.py --all --dry-run --output /tmp/ai-skill-library.jsonl
       - name: Audit upstream repositories

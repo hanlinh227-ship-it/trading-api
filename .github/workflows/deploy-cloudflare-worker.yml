@@ -20,7 +20,7 @@ permissions:
 
 concurrency:
   group: cloudflare-zero-local-runtime-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev

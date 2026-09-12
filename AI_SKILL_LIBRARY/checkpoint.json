@@ -19,6 +19,11 @@
   "stable_harmonization_path": "AI_SKILL_LIBRARY/v4/stable/harmonization.yaml",
   "stable_capability_fusion_path": "AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml",
   "stable_creative_visual_fusion_path": "AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml",
+  "stable_budgets_path": "AI_SKILL_LIBRARY/v4/stable/budgets.yaml",
+  "stable_retrieval_path": "AI_SKILL_LIBRARY/v4/stable/retrieval.yaml",
+  "retrieval_index_path": "AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml",
+  "retrieval_index_builder_path": "AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py",
+  "workspace_map_path": "AI_SKILL_LIBRARY/v4/index/workspace_map.yaml",
   "mesh_graph_path": "AI_SKILL_LIBRARY/v4/mesh/graph.yaml",
   "mesh_bridges_path": "AI_SKILL_LIBRARY/v4/mesh/bridges.yaml",
   "evergreen_policy_path": "AI_SKILL_LIBRARY/v4/evergreen/policy.yaml",
@@ -63,11 +68,26 @@
   "validator_path": "AI_SKILL_LIBRARY/validate_brain.py",
   "router_validator_path": "AI_SKILL_LIBRARY/validate_router.py",
   "authority_validator_path": "AI_SKILL_LIBRARY/validate_authority.py",
+  "ci_validate_path": "AI_SKILL_LIBRARY/v4/tools/ci_validate.py",
+  "release_tool_path": "AI_SKILL_LIBRARY/v4/tools/release.py",
+  "consolidation_audit_path": "AI_SKILL_LIBRARY/v4/audit/BRAIN_CONSOLIDATION_2026-09-12.md",
   "compatibility_v3_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md",
   "compatibility_v2_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md",
   "compatibility_v1_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V1.md",
   "activation_key": "GITHUB_BRAIN_V4",
-  "activation_aliases": ["GITHUB_BRAIN_V3", "GITHUB_BRAIN_V2", "GITHUB_BRAIN_V1"],
+  "activation_aliases": [
+    "GITHUB_BRAIN_V3",
+    "GITHUB_BRAIN_V2",
+    "GITHUB_BRAIN_V1"
+  ],
   "mode": "github-first-v4-lts-dual-plane",
-  "fallback": "continue_from_last_verified_stable_release_and_disclose_refresh_failure"
+  "fallback": "continue_from_last_verified_stable_release_and_disclose_refresh_failure",
+  "index_tiers": {
+    "HOT": "router_authority_current_skills_current_release",
+    "WARM": "supporting_docs_sources_references",
+    "COLD": "legacy_checkpoints_historical_releases_retired_systems"
+  },
+  "fast_profile_tiers": [
+    "HOT"
+  ]
 }

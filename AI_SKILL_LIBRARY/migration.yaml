@@ -1,4 +1,7 @@
 version: 1
+superseded_by: GITHUB_BRAIN_V4
+authority_role: compatibility_alias
+canonical_authority: AI_SKILL_LIBRARY/checkpoint.json
 current: 3.0.0
 authority: AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md
 compatibility_aliases: [GITHUB_BRAIN_V2, GITHUB_BRAIN_V1]

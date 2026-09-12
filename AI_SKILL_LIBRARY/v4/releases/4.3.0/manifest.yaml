@@ -1,0 +1,60 @@
+version: 4.3.0
+architecture: GITHUB_BRAIN_V4
+files:
+- path: AI_SKILL_LIBRARY/v4/stable/kernel.yaml
+  sha256: e0179ebee4edd87b9fcc610fdeea4e21b0a51f1ee1771303163adb8b73eb5ab2
+  role: kernel
+- path: AI_SKILL_LIBRARY/v4/stable/runtime.yaml
+  sha256: d6dd01156b52f3ca88ff1f6bc35bddd9c4a5d9cbf38b278efc22699f42115990
+  role: runtime
+- path: AI_SKILL_LIBRARY/v4/stable/router.yaml
+  sha256: 7d5b368c9880e01def90f224b2c297cb35afc4272b78a5b933e121d534cb1dc3
+  role: router
+- path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
+  sha256: a84794d18363ee8042831445cf309a58066f3fc1fb901ad1d016454dc5020836
+  role: budgets
+- path: AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
+  sha256: c0f65b7982ee46995d4c79b988df555b75f742088291a0d77b9eee87abf6ce41
+  role: retrieval
+- path: AI_SKILL_LIBRARY/v4/stable/context.yaml
+  sha256: e3539bf78abb36f87bb642c15c6c8fc95a74206d2bd126396421c4fba9236f1e
+  role: context
+- path: AI_SKILL_LIBRARY/v4/stable/memory.yaml
+  sha256: 9f12f668fa5772e9622d2f64f5d7046c0fe59f960dfb0a435047a80b7072dd62
+  role: memory
+- path: AI_SKILL_LIBRARY/v4/stable/evidence.yaml
+  sha256: 98542333991a9b467b3fd8f62049d1479efdb584c027ee8ef2937207f0747c7d
+  role: evidence
+- path: AI_SKILL_LIBRARY/v4/stable/harmonization.yaml
+  sha256: 7e28d94973932337c8bb6fec3cb88b665f3d0d3ae5e8060320929f39287e09ed
+  role: harmonization
+- path: AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml
+  sha256: a1e624e3053e70b34665f0d2d163be90abad12fd34b414daf1a8bdc530383752
+  role: capability_fusion
+- path: AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml
+  sha256: d7940705dc70da3fe386de098d200aaf59ce02e9652b2e88a0af2e7c447f57a0
+  role: creative_visual_fusion
+- path: AI_SKILL_LIBRARY/v4/mesh/graph.yaml
+  sha256: 1862eb2eeb82f33dc5cca58a8f19fa23e9ab6f86be14cbd34ee8596e994e0ea4
+  role: mesh
+- path: AI_SKILL_LIBRARY/v4/mesh/bridges.yaml
+  sha256: 4c1ff386c78dfcf9e2b46923f394b594d55a4722c4562748a4306e82089a7bdf
+  role: bridges
+- path: AI_SKILL_LIBRARY/v4/runtime/routing_aliases.yaml
+  sha256: 538b6b79d34931b146a568468e6c1e48f729c4954f4f026d3d90bab26a705bba
+  role: routing_aliases
+- path: AI_SKILL_LIBRARY/v4/evergreen/policy.yaml
+  sha256: fdd3bab4fb794970cc561d281009e1c7e961154ace2d2632acbe0ff57d43e209
+  role: evergreen
+- path: AI_SKILL_LIBRARY/v4/stable/security.yaml
+  sha256: 548f818e974d22d967315ebb9609694679f991e372c61cb3e94da5d82fe9c7d3
+  role: security
+- path: AI_SKILL_LIBRARY/evals.yaml
+  sha256: 6e93c758f217a0ef7473f68b9dee16670f161aacf550c8427ab8c97e80880f02
+  role: evals
+compatibility:
+  min_architecture: 4.0.0
+promotion:
+  class: feature
+  validated: true
+  source: brain_v4_consolidation

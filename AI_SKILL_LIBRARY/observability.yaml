@@ -1,4 +1,7 @@
 version: 1
+superseded_by: GITHUB_BRAIN_V4
+authority_role: compatibility_alias
+canonical_authority: AI_SKILL_LIBRARY/checkpoint.json
 policy:
   persist_hidden_chain_of_thought: false
   record_decision_summaries: true

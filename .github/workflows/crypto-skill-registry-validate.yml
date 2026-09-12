@@ -38,17 +38,10 @@ jobs:
       - name: Registry regression tests
         run: python -m unittest discover -s tests -p 'test_skill_registry.py' -v
 
-      - name: Registry validator
-        run: python AI_SKILL_LIBRARY/validate_skill_registry.py
-
-      - name: Brain validator
-        run: python AI_SKILL_LIBRARY/validate_brain.py
-
-      - name: Router validator
-        run: python AI_SKILL_LIBRARY/validate_router.py
-
-      - name: V4 validator
-        run: python AI_SKILL_LIBRARY/validate_v4.py
-
-      - name: Authority validator
-        run: python AI_SKILL_LIBRARY/validate_authority.py
+      - name: Brain validation via single entrypoint (validators, snapshot, release, index, consolidation)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA" --skip-tests
+          echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"

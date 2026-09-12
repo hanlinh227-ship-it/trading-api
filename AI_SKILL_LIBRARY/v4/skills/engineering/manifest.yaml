@@ -2,7 +2,8 @@ id: engineering
 version: 4.0.0
 domain: engineering
 source: legacy_catalog_adapter
-skills: [coding, debugging, tdd, software_architecture, github, api, database, security, android, web_app, deployment, automation, software_engineering, debugging_tdd, platform_engineering]
+skills: [coding, debugging, tdd, software_architecture, github, api, database, security, android, web_app, deployment, automation]
+legacy_aliases: [software_engineering, debugging_tdd, platform_engineering]
 permissions: [read_only, reversible_write]
 risk_ceiling: destructive_with_explicit_approval
 evals: [engineering_correctness, engineering_tdd, engineering_security]

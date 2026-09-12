@@ -2,6 +2,7 @@ version: 1
 purpose: permanent_harmonization_layer_for_skills_knowledge_and_future_upgrades
 
 authority:
+  precedence_source: AI_SKILL_LIBRARY/v4/stable/evidence.yaml
   single_reasoning_authority_chain: true
   provider_or_upstream_is_evidence_not_authority: true
   current_runtime_precedes_cached_state: true
@@ -56,7 +57,9 @@ conflict_resolution:
   security_or_permission_conflict: fail_closed
 
 cognitive_execution:
+  budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
   FAST:
+    max_revisions: 0
     maker_checker: false
     independent_grader: false
     artifact_pyramid: false

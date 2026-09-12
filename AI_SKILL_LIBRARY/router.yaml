@@ -1,4 +1,10 @@
 version: 2
+superseded_by: GITHUB_BRAIN_V4
+authority_role: compatibility_alias
+canonical_authority: AI_SKILL_LIBRARY/checkpoint.json
+routing_authority: false
+canonical_router: AI_SKILL_LIBRARY/v4/stable/router.yaml
+mode: compatibility_adapter
 defaults:
   route_every_request: true
   mandatory_skill: task_router

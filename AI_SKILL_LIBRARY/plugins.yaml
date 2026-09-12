@@ -1,5 +1,7 @@
 version: 1
 policy:
+  routing_authority: false
+  reasoning_authority: false
   optional_by_default: true
   missing_plugin_behavior: degrade_gracefully
   plugins_are_tools_not_skills: true

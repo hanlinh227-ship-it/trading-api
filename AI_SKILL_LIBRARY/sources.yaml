@@ -8,11 +8,20 @@ policy:
   preserve_provenance: true
   new_sources_require_explicit_training_approval: true
   auto_fine_tune_from_registry: false
+  sources_are_authority: false
+  precedence_source: AI_SKILL_LIBRARY/v4/stable/evidence.yaml
+  tiers: [WARM, COLD]
+  default_tier: WARM
+  max_sources_per_category: 20
+  max_total_sources: 96
+  load_only_after_domain_selection: true
+  fast_profile_loads_sources: false
+  new_source_requires: [provenance, license, capability_overlap_scan, risk_class, permission_ceiling, performance_impact, eval_impact, authority_impact]
 
 _defaults:
-  rag_only: &rag_only {rag: true, training: false, usage_tier: RAG_ONLY}
-  reference_only: &reference_only {rag: false, training: false, usage_tier: REFERENCE_ONLY}
-  manual_review: &manual_review {rag: false, training: false, usage_tier: MANUAL_REVIEW, manual_approval: true}
+  rag_only: &rag_only {rag: true, training: false, usage_tier: RAG_ONLY, tier: WARM}
+  reference_only: &reference_only {rag: false, training: false, usage_tier: REFERENCE_ONLY, tier: COLD}
+  manual_review: &manual_review {rag: false, training: false, usage_tier: MANUAL_REVIEW, manual_approval: true, tier: COLD}
 
 sources:
   # GAME DEVELOPMENT

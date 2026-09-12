@@ -39,6 +39,20 @@ def _norm(text: object) -> str:
     return " ".join(value.split())
 
 
+def _term(value: object, *, where: str) -> str:
+    """Normalize a routing term and reject terms whose casefold differs from lower().
+
+    The Cloudflare runtime lowercases with toLocaleLowerCase('und'); the compiler uses
+    casefold(). Terms where the two differ (e.g. containing U+00DF) would be present in
+    the snapshot but could never match at runtime, so they are rejected at compile time.
+    """
+    normalized = _norm(value)
+    runtime_form = " ".join(unicodedata.normalize("NFKC", str(value or "")).lower().split())
+    if normalized and normalized != runtime_form:
+        raise ValueError(f"routing term is not lowercase-stable ({where}): {value!r}")
+    return normalized
+
+
 def _canonical_hash(payload: dict) -> str:
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -104,6 +118,18 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
             raise ValueError(f"duplicate skill id: {sid}")
         catalog_by_id[sid] = row
 
+    # Alias rows never become primary skills; their triggers fold into the canonical skill.
+    skill_aliases: dict[str, str] = {}
+    for sid, row in catalog_by_id.items():
+        target = row.get("alias_of")
+        if target is None:
+            continue
+        if not isinstance(target, str) or target not in catalog_by_id:
+            raise ValueError(f"skill {sid} alias_of unknown skill {target!r}")
+        if catalog_by_id[target].get("alias_of"):
+            raise ValueError(f"skill {sid} aliases another alias {target}")
+        skill_aliases[sid] = target
+
     domain_routes = router.get("domain_routes", {})
     if not isinstance(domain_routes, dict):
         raise ValueError("stable router domain_routes must be a mapping")
@@ -122,6 +148,8 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
                 continue
             if sid not in catalog_by_id:
                 raise ValueError(f"domain {domain} references unknown skill {sid}")
+            if sid in skill_aliases:
+                raise ValueError(f"domain {domain} routes alias skill {sid}; route {skill_aliases[sid]} instead")
             if sid in skill_domain and skill_domain[sid] != domain:
                 raise ValueError(f"skill {sid} appears in multiple primary domains")
             skill_domain[sid] = domain
@@ -139,14 +167,25 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
     for sid in alias_rows:
         if sid not in catalog_by_id:
             raise ValueError(f"routing alias references unknown skill: {sid}")
-        if sid not in selectable_ids:
+        if sid not in selectable_ids and sid not in skill_aliases:
             raise ValueError(f"routing alias references non-routable skill: {sid}")
 
     normalized_aliases: dict[str, list[str]] = {
-        sid: sorted({_norm(value) for value in values if _norm(value)})
+        sid: sorted({_term(value, where=f"alias:{sid}") for value in values if _norm(value)})
         for sid, values in alias_rows.items()
         if isinstance(values, list)
     }
+    for alias_id, target in skill_aliases.items():
+        if target not in selectable_ids:
+            raise ValueError(f"alias {alias_id} targets non-routable skill {target}")
+        manifest_aliases = {str(v) for v in manifests[skill_domain[target]].get("legacy_aliases", [])}
+        if alias_id not in manifest_aliases:
+            raise ValueError(f"domain manifest {skill_domain[target]} does not declare legacy alias {alias_id}")
+        folded = set(normalized_aliases.get(target, []))
+        folded.update(_term(v, where=f"trigger:{alias_id}") for v in catalog_by_id[alias_id].get("triggers", []) if _norm(v))
+        folded.update(normalized_aliases.get(alias_id, []))
+        normalized_aliases[target] = sorted(folded)
+        normalized_aliases.pop(alias_id, None)
 
     skills: dict[str, dict] = {}
     capsules: dict[str, dict] = {}
@@ -163,9 +202,9 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
         meta = {
             "id": sid,
             "domain": domain,
-            "triggers": sorted({_norm(value) for value in row.get("triggers", []) if _norm(value)}),
+            "triggers": sorted({_term(value, where=f"trigger:{sid}") for value in row.get("triggers", []) if _norm(value)}),
             "aliases": normalized_aliases.get(sid, []),
-            "excludes": sorted({_norm(value) for value in row.get("excludes", []) if _norm(value)}),
+            "excludes": sorted({_term(value, where=f"exclude:{sid}") for value in row.get("excludes", []) if _norm(value)}),
             "priority": int(row.get("priority", 0)),
             "requires": sorted(str(value) for value in row.get("requires", [])),
             "conflicts_with": sorted(str(value) for value in row.get("conflicts_with", [])),
@@ -193,6 +232,28 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
         }
         capsule["capsule_hash"] = _canonical_hash(capsule)
         capsules[sid] = capsule
+
+    trigger_owner: dict[str, str] = {}
+    for sid, meta in skills.items():
+        if not meta["primary_selectable"]:
+            continue
+        for term in meta["triggers"]:
+            if term in trigger_owner:
+                raise ValueError(f"ambiguous trigger {term!r}: owned by {trigger_owner[term]} and {sid}")
+            trigger_owner[term] = sid
+    # A folded/declared alias term never competes with another skill's trigger: the trigger owner wins.
+    alias_owner: dict[str, str] = {}
+    for sid in sorted(skills):
+        meta = skills[sid]
+        if not meta["primary_selectable"]:
+            continue
+        kept = [term for term in meta["aliases"] if trigger_owner.get(term, sid) == sid]
+        for term in kept:
+            if term in alias_owner and alias_owner[term] != sid:
+                raise ValueError(f"ambiguous alias {term!r}: owned by {alias_owner[term]} and {sid}")
+            alias_owner[term] = sid
+        meta["aliases"] = kept
+        normalized_aliases[sid] = kept
 
     fallback = str(router.get("policy", {}).get("fallback_primary_skill") or "")
     if fallback != "core_reasoning" or fallback not in skills:
@@ -234,6 +295,7 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
         "skills": skills,
         "capsules": capsules,
         "routing_aliases": normalized_aliases,
+        "skill_aliases": dict(sorted(skill_aliases.items())),
         "profile_escalation": profile_escalation,
         "fresh_state_terms": fresh_state_terms,
         "hashes": {

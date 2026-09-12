@@ -1,4 +1,4 @@
-# CORE_PROTOCOL — GITHUB_BRAIN_V3
+# CORE_PROTOCOL — GITHUB_BRAIN_V3 (compatibility alias; superseded by GITHUB_BRAIN_V4 — resolve `AI_SKILL_LIBRARY/checkpoint.json`)
 
 ## 1. Mandatory execution model
 Every request enters `task_router`, selects exactly one runtime profile, and follows the smallest valid path.

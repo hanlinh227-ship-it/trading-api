@@ -4,6 +4,10 @@ policy:
   mandatory_skill: task_router
   default_primary_count: 1
   default_max_supporting: 2
+  canonical_router: AI_SKILL_LIBRARY/v4/stable/router.yaml
+  alias_rows_are_never_primary: true
+  alias_triggers_fold_into_canonical_skill: true
+  one_primary_skill_per_purpose: true
 _templates:
   core: &core {domain: core, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [], sources: [], output_contract: "Return a scoped, evidence-aware result and state material uncertainty."}
   engineering: &engineering {domain: engineering, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [software_development_workflow], sources: [code, software], output_contract: "Return an implementation or technical answer with tests/verification appropriate to the change."}
@@ -27,7 +31,7 @@ skills:
   - {<<: *core, id: troubleshooting, triggers: [troubleshoot, error, broken]}
   - {<<: *core, id: comparison, triggers: [compare, versus]}
   - {<<: *core, id: recommendation, triggers: [recommend, choose]}
-  - {<<: *core, id: learning, triggers: [learn, teach, explain]}
+  - {<<: *core, id: learning, triggers: [learn, teach, tutorial]}
   - {<<: *core, id: summarization, triggers: [summarize, summary]}
   - {<<: *core, id: translation, triggers: [translate, translation]}
   - {<<: *core, id: general_problem_solving, triggers: [general question, how to]}
@@ -44,18 +48,18 @@ skills:
   - {<<: *engineering, id: web_app, triggers: [web app, frontend, backend]}
   - {<<: *engineering, id: deployment, triggers: [deploy, production, ci cd]}
   - {<<: *engineering, id: automation, triggers: [automation, workflow]}
-  - {<<: *engineering, id: software_engineering, triggers: [software engineering, coding]}
-  - {<<: *engineering, id: debugging_tdd, triggers: [bugfix, regression test]}
-  - {<<: *engineering, id: platform_engineering, triggers: [platform, cloudflare, deployment]}
-  - {<<: *trading, id: trading, triggers: [trade, trading, market]}
+  - {<<: *engineering, id: software_engineering, triggers: [software engineering, coding], alias_of: coding, role: alias}
+  - {<<: *engineering, id: debugging_tdd, triggers: [bugfix, regression test], alias_of: debugging, role: alias}
+  - {<<: *engineering, id: platform_engineering, triggers: [platform, cloudflare, deployment], alias_of: deployment, role: alias}
+  - {<<: *trading, id: trading, triggers: [trade, trading], alias_of: trading_router, role: alias}
   - {<<: *trading, id: crypto, triggers: [crypto, bitcoin, altcoin], tools: [multi_asset_market_data, crypto_market_data]}
   - {<<: *trading, id: forex, triggers: [forex, fx]}
   - {<<: *trading, id: futures, triggers: [futures, perpetual]}
   - {<<: *trading, id: indices, triggers: [index, indices, nq, es]}
   - {<<: *trading, id: market_microstructure, triggers: [orderbook, order flow, microstructure]}
-  - {<<: *trading, id: technical_analysis, triggers: [technical analysis, chart, structure]}
+  - {<<: *trading, id: technical_analysis, triggers: [technical analysis, chart pattern, price structure]}
   - {<<: *trading, id: risk_management, triggers: [risk, stop loss, position sizing]}
-  - {<<: *trading, id: backtesting, triggers: [backtest, monte carlo], tools: [software_development_workflow]}
+  - {<<: *trading, id: backtesting, triggers: [backtest, monte carlo], tools: [software_development_workflow], alias_of: quant_backtesting, role: alias}
   - {<<: *trading, id: mt5_mql5, triggers: [mt5, mql5, expert advisor], tools: [software_development_workflow]}
   - {<<: *trading, id: trading_bot, triggers: [trading bot, auto trade], tools: [multi_asset_market_data, crypto_market_data, software_development_workflow]}
   - {<<: *trading, id: live_data_validation, triggers: [live price, freshness, quote age], tools: [multi_asset_market_data, crypto_market_data], priority: 95}
@@ -71,7 +75,7 @@ skills:
   - {<<: *game, id: game_ai, triggers: [game ai, npc ai]}
   - {<<: *game, id: game_2d, triggers: [2d game]}
   - {<<: *game, id: game_3d, triggers: [3d game]}
-  - {<<: *game, id: game_dev, triggers: [game, gameplay, level]}
+  - {<<: *game, id: game_dev, triggers: [game, gameplay, level], alias_of: game_development, role: alias}
   - {<<: *design, id: ux_ui, triggers: [ux, ui, interface], tools: [ux_ui_design, product_design]}
   - {<<: *design, id: product_design, triggers: [product design, user flow], tools: [ux_ui_design, product_design]}
   - {<<: *design, id: graphic_design, triggers: [graphic design]}
@@ -89,8 +93,8 @@ skills:
   - {<<: *design, id: animation, triggers: [animation], tools: [], sources: []}
   - {<<: *design, id: rendering, triggers: [rendering], tools: [], sources: []}
   - {<<: *design, id: blender, triggers: [blender], tools: [two_d_to_three_d], sources: []}
-  - {<<: *design, id: design_2d_ux, triggers: [ux ui, graphic design]}
-  - {<<: *design, id: design_3d_blender, triggers: [blender, 3d asset], tools: [two_d_to_three_d], sources: []}
+  - {<<: *design, id: design_2d_ux, triggers: [ux ui, graphic design], alias_of: ux_ui, role: alias}
+  - {<<: *design, id: design_3d_blender, triggers: [blender, 3d asset], tools: [two_d_to_three_d], sources: [], alias_of: blender, role: alias}
   - {<<: *adobe, id: photoshop, triggers: [photoshop, photo edit]}
   - {<<: *adobe, id: illustrator, triggers: [illustrator, vector]}
   - {<<: *adobe, id: premiere_pro, triggers: [premiere pro, video edit]}
@@ -99,7 +103,7 @@ skills:
   - {<<: *adobe, id: audition, triggers: [audition, audio edit]}
   - {<<: *adobe, id: indesign, triggers: [indesign, publication]}
   - {<<: *adobe, id: acrobat, triggers: [acrobat, pdf edit]}
-  - {<<: *adobe, id: adobe_media, triggers: [adobe workflow]}
+  - {<<: *adobe, id: adobe_media, triggers: [adobe workflow], alias_of: photoshop, role: alias}
   - {<<: *prompt, id: prompt_engineering, triggers: [prompt engineering, prompt]}
   - {<<: *prompt, id: image_prompt, triggers: [image prompt, image generation]}
   - {<<: *prompt, id: video_prompt, triggers: [video prompt, video generation]}
@@ -109,8 +113,8 @@ skills:
   - {<<: *prompt, id: scene_continuity, triggers: [scene continuity, continuity]}
   - {<<: *prompt, id: camera_direction, triggers: [camera direction, camera move]}
   - {<<: *prompt, id: storyboard, triggers: [storyboard, shot list]}
-  - {<<: *prompt, id: image_video_generation, triggers: [generate image, generate video], tools: [video_generation, two_d_to_three_d]}
-  - {<<: *prompt, id: generative_media, triggers: [generative media, image edit, video edit], tools: [video_generation, two_d_to_three_d]}
+  - {<<: *prompt, id: image_video_generation, triggers: [generate image, generate video], tools: [video_generation, two_d_to_three_d], alias_of: image_prompt, role: alias}
+  - {<<: *prompt, id: generative_media, triggers: [generative media, image edit, video edit], tools: [video_generation, two_d_to_three_d], alias_of: video_prompt, role: alias}
   - {<<: *writing, id: scriptwriting, triggers: [script, scriptwriting]}
   - {<<: *writing, id: screenwriting, triggers: [screenplay, screenwriting]}
   - {<<: *writing, id: voice_over, triggers: [voice over, narration]}
@@ -131,8 +135,8 @@ skills:
   - {<<: *data_docs, id: docx, triggers: [docx, word]}
   - {<<: *data_docs, id: pdf, triggers: [pdf]}
   - {<<: *data_docs, id: slides, triggers: [slides, pptx]}
-  - {<<: *data_docs, id: presentation, triggers: [presentation, pitch deck]}
-  - {<<: *data_docs, id: data_documents, triggers: [document, data artifact]}
+  - {<<: *data_docs, id: presentation, triggers: [presentation, pitch deck], alias_of: slides, role: alias}
+  - {<<: *data_docs, id: data_documents, triggers: [document, data artifact], alias_of: report, role: alias}
   - {<<: *business, id: business, triggers: [business, strategy]}
   - {<<: *business, id: marketing, triggers: [marketing, campaign]}
-  - {<<: *business, id: marketing_business, triggers: [marketing, business analysis]}
+  - {<<: *business, id: marketing_business, triggers: [marketing, business analysis], alias_of: marketing, role: alias}

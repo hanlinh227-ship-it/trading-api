@@ -1,0 +1,87 @@
+version: 1
+purpose: one_page_answer_to_where_is_what_so_no_request_scans_the_repository
+single_brain: GITHUB_BRAIN_V4
+single_router: AI_SKILL_LIBRARY/v4/stable/router.yaml
+single_authority_chain: [AGENTS.md, AI_SKILL_LIBRARY/checkpoint.json, AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md, AI_SKILL_LIBRARY/v4/releases/current.json, AI_SKILL_LIBRARY/v4/stable/router.yaml]
+retrieval_contract: AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
+retrieval_index: AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml
+budgets: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
+
+# Logical layout (files are not moved for aesthetics; this map is the lookup surface).
+groups:
+  core: [AGENTS.md, CLAUDE.md, AI_SKILL_LIBRARY/checkpoint.json, AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md, AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md, AI_SKILL_LIBRARY/README.md]
+  v4: [AI_SKILL_LIBRARY/v4/stable, AI_SKILL_LIBRARY/v4/mesh, AI_SKILL_LIBRARY/v4/evergreen, AI_SKILL_LIBRARY/v4/releases, AI_SKILL_LIBRARY/v4/schemas, AI_SKILL_LIBRARY/v4/runtime]
+  skills: [AI_SKILL_LIBRARY/skills/catalog.yaml, AI_SKILL_LIBRARY/v4/skills, AI_SKILL_LIBRARY/skills, AI_SKILL_LIBRARY/skills/registry, AI_SKILL_LIBRARY/skills/providers]
+  projects: [AI_SKILL_LIBRARY/projects.yaml]
+  sources: [AI_SKILL_LIBRARY/sources.yaml, AI_SKILL_LIBRARY/sources, AI_SKILL_LIBRARY/plugins.yaml, AI_SKILL_LIBRARY/LICENSE_POLICY.md]
+  runtime: [AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml, AI_SKILL_LIBRARY/skills/registry/runtime_policy.yaml, AI_SKILL_LIBRARY/skills/registry/live_price_policy.yaml, cloudflare-worker/skill-gateway.js, cloudflare-worker/skill-gateway-handler.js]
+  evals: [AI_SKILL_LIBRARY/evals.yaml, AI_SKILL_LIBRARY/v4/tools/evaluate.py]
+  tests: [AI_SKILL_LIBRARY/tests, tests, cloudflare-worker/test-skill-gateway.mjs, cloudflare-worker/test-skill-gateway-handler.mjs, cloudflare-worker/test-skill-gateway-snapshot.mjs]
+  tools: [AI_SKILL_LIBRARY/v4/tools, AI_SKILL_LIBRARY/validate_brain.py, AI_SKILL_LIBRARY/validate_router.py, AI_SKILL_LIBRARY/validate_authority.py, AI_SKILL_LIBRARY/validate_v4.py, AI_SKILL_LIBRARY/validate_skill_gateway.py, AI_SKILL_LIBRARY/validate_skill_registry.py, AI_SKILL_LIBRARY/validate_registry.py, AI_SKILL_LIBRARY/validate_runtime.py, AI_SKILL_LIBRARY/validate_v3.py]
+  archive: [AI_SKILL_LIBRARY/v4/audit, .github/workflows-archive, AI_SKILL_LIBRARY/GITHUB_BRAIN_V1.md, AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md, AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md]
+
+tiers:
+  HOT:
+    purpose: preloaded at bootstrap; everything a FAST request may touch
+    paths:
+      - AGENTS.md
+      - AI_SKILL_LIBRARY/checkpoint.json
+      - AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md
+      - AI_SKILL_LIBRARY/v4/releases/current.json
+      - AI_SKILL_LIBRARY/v4/stable/router.yaml
+      - AI_SKILL_LIBRARY/v4/stable/runtime.yaml
+      - AI_SKILL_LIBRARY/v4/stable/budgets.yaml
+      - AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
+      - AI_SKILL_LIBRARY/v4/runtime/routing_aliases.yaml
+      - AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml
+  WARM:
+    purpose: supporting policy, skill reasoning text, sources, providers; STANDARD/DEEP after routing
+    paths:
+      - AI_SKILL_LIBRARY/v4/stable
+      - AI_SKILL_LIBRARY/v4/mesh
+      - AI_SKILL_LIBRARY/v4/skills
+      - AI_SKILL_LIBRARY/skills
+      - AI_SKILL_LIBRARY/sources.yaml
+      - AI_SKILL_LIBRARY/plugins.yaml
+      - AI_SKILL_LIBRARY/evals.yaml
+  COLD:
+    purpose: legacy checkpoints, historical releases, retired systems; explicit request / rollback / audit only
+    paths:
+      - AI_SKILL_LIBRARY/v4/releases
+      - AI_SKILL_LIBRARY/v4/audit
+      - AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md
+      - AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md
+      - AI_SKILL_LIBRARY/GITHUB_BRAIN_V1.md
+      - AI_SKILL_LIBRARY/CORE_PROTOCOL.md
+      - AI_SKILL_LIBRARY/kernel.yaml
+      - AI_SKILL_LIBRARY/router.yaml
+      - AI_SKILL_LIBRARY/bootstrap.yaml
+      - AI_SKILL_LIBRARY/migration.yaml
+      - .github/workflows-archive
+
+# Authorities that live outside the Brain and are loaded only when the router selects that project.
+external_authorities:
+  trading: [docs/checkpoints/CURRENT_HANDOFF.md, docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md]
+
+# Legacy compatibility files: readable, validated, never authority.
+compatibility_aliases:
+  - {path: AI_SKILL_LIBRARY/kernel.yaml, claims: GITHUB_BRAIN_V3, resolves_to: GITHUB_BRAIN_V4}
+  - {path: AI_SKILL_LIBRARY/migration.yaml, claims: 3.0.0, resolves_to: GITHUB_BRAIN_V4}
+  - {path: AI_SKILL_LIBRARY/bootstrap.yaml, claims: GITHUB_BRAIN_V3, resolves_to: GITHUB_BRAIN_V4}
+  - {path: AI_SKILL_LIBRARY/router.yaml, claims: v2_router, resolves_to: AI_SKILL_LIBRARY/v4/stable/router.yaml}
+
+# Areas in the repository that are NOT part of the Brain and NOT Trading authority.
+out_of_brain_scope:
+  - {path: CHECKPOINTS/, what: Kaggriculture reward-solver checkpoint, routing: none}
+  - {path: request.json, what: legacy scan request artifact, routing: none}
+  - {path: scan-request.json, what: legacy scan request artifact, routing: none}
+  - {path: index.html, what: legacy V73-V76 architecture page, routing: none}
+  - {path: meme-alpha-runtime/, what: retired Meme execution runtime (retired by CURRENT_HANDOFF), routing: none}
+  - {path: reward-hunter/, what: Kaggriculture solver, routing: none}
+  - {path: bitcoin-puzzle71/, what: research tool, routing: none}
+  - {path: btc-wallet-recovery/, what: HIGH_RISK research tool; never auto-activates, routing: none}
+  - {path: .github/workflows (bybit-*/btc-*/kaggriculture-*/reward-* one-shot triggers), what: trading-adjacent one-shot workflows awaiting owner review, routing: none}
+
+domain_name_map:
+  note: router/mesh domain ids are canonical; catalog template names are legacy labels resolved by the compiler
+  router_to_catalog_template: {design_2d: design, design_3d: design, prompt_media: prompt}

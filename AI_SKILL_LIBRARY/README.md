@@ -1,105 +1,56 @@
-# AI Skill Library — GITHUB_BRAIN_V2
+# AI Skill Library — GITHUB_BRAIN_V4
 
-`GITHUB_BRAIN_V2` is the repository-level routed skill layer for ChatGPT, Claude, Codex, and other repo-aware agents.
+`GITHUB_BRAIN_V4` is the single repository-level AI brain for ChatGPT, Claude, Codex and other repo-aware agents. It does not fine-tune a model. It provides one deterministic bootstrap, one router, one authority chain, canonical skills with bounded supporting skills, a tiered retrieval index, and a license-aware knowledge-source registry.
 
-It does **not** fine-tune a model. It provides a deterministic bootstrap, skill router, project-authority registry, plugin capability map, and license-aware knowledge source registry.
+`GITHUB_BRAIN_V3`, `GITHUB_BRAIN_V2` and `GITHUB_BRAIN_V1` are compatibility aliases only. Their files resolve to V4 through `checkpoint.json` and carry `superseded_by: GITHUB_BRAIN_V4`.
 
-## Bootstrap
+## Bootstrap (HOT tier only)
 
-Canonical order:
+1. `AGENTS.md`
+2. `AI_SKILL_LIBRARY/checkpoint.json` — discovery root; never hard-code versions or paths elsewhere.
+3. `AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md` — current runtime/deployment state.
+4. `AI_SKILL_LIBRARY/v4/releases/current.json` — verify the immutable release manifest.
+5. `AI_SKILL_LIBRARY/v4/stable/router.yaml` — the only router. Exactly one profile (`FAST`/`STANDARD`/`DEEP`), exactly one primary skill, its validated execution capsule.
+6. `AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml` — exact lookup first (skill id, alias, path, project scope); semantic search only after an exact miss and never in `FAST`.
+7. Lazy-load project authority, ≤2 supporting skills, relevant sources and tools only when the routed profile permits (`AI_SKILL_LIBRARY/v4/stable/budgets.yaml`).
 
-1. `AI_SKILL_LIBRARY/checkpoint.json`
-2. `AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md`
-3. `AI_SKILL_LIBRARY/CORE_PROTOCOL.md`
-4. `AI_SKILL_LIBRARY/router.yaml`
-5. selected skill files only
-6. current project authority only when the selected route requires it
-7. relevant `sources.yaml` categories and optional `plugins.yaml` capabilities
-8. critical review and verification
+`AI_SKILL_LIBRARY/v4/index/workspace_map.yaml` answers "where is what" without scanning the repository.
 
-The stable activation key is `GITHUB_BRAIN_V2`. `GITHUB_BRAIN_V1` remains a compatibility alias and routes to V2.
+## Retrieval order
 
-## Why routing exists
+`REQUEST → task_router → domain → project authority (if required) → primary skill → ≤2 supporting skills → relevant index (exact first) → relevant sources → tools → answer`
 
-The repository contains unrelated domains and historical project material. Loading everything at once causes context contamination and competing instructions. V2 therefore routes first and loads the smallest relevant context.
+Tiers: **HOT** (router, authority, current skills, current release), **WARM** (supporting policy, skill reasoning text, sources), **COLD** (legacy checkpoints, historical releases, retired systems). `FAST` never touches WARM/COLD.
 
-Default domain budget: **one primary skill + at most two supporting domain skills**. `critical_thinking` and `verification` are cross-cutting layers and do not count toward this budget.
+## Skills
 
-Trading state is never a global preload.
+`skills/catalog.yaml` is the canonical skill list. Rows with `alias_of` are aliases: never primary, never routed; their triggers fold into the canonical skill at compile time. Each purpose has exactly one primary skill; a trigger term is owned by exactly one primary skill (the compiler rejects ambiguity).
 
-## Skill families
+Domain packs live in `v4/skills/<domain>/manifest.yaml`; reasoning text for the larger skills lives in `skills/<family>/*.md` (WARM).
 
-V2 initially routes across:
+## Authority
 
-- core reasoning, research, critique, planning and verification;
-- coding, architecture, debugging/TDD, GitHub/API/database/security, deployment, Cloudflare, Android, web and automation;
-- crypto, forex, futures, indices, market microstructure, technical analysis, risk/execution, quant/backtesting and MT5/MQL5;
-- game design/development, Godot/Unity/web games, game AI, level design and optimization;
-- graphic design, UX/UI, product design, branding, typography, color/layout and product photography;
-- 3D modeling, topology, UV/texturing, materials, lighting, rigging/animation/rendering and Blender;
-- Photoshop, Illustrator, Premiere Pro, After Effects, Lightroom, Audition, InDesign and Acrobat workflows;
-- prompt engineering, image/video prompting, negative constraints, prompt debugging, continuity/camera/storyboard and generative-media workflows;
-- screenwriting, voice-over, advertising copy, hooks/retention, storytelling, children's content, YouTube/social scripts;
-- academic/literature/methodology/qualitative/quantitative/interdisciplinary/citation review;
-- spreadsheets, charts, reports, DOCX/PDF/slides/presentations;
-- marketing, content strategy, product marketing, campaigns, customer research, pitching, business analysis and remote-work evaluation.
+Precedence (`v4/stable/evidence.yaml`, referenced everywhere else): current runtime → current project authority → first-party current → peer-reviewed/primary → approved reference → scoped verified memory → model background.
 
-Closely related leaf capabilities are exposed as aliases under focused skill files to keep the library compact and avoid contradictory duplicate instructions.
+Providers, plugins, upstream repositories and memory are evidence or tools, never reasoning authority. No majority vote, no silent averaging. Trading authority is external to the Brain (`projects.yaml` → `docs/checkpoints/CURRENT_HANDOFF.md`) and loads only after a Trading route; research and multi-market analysis never widen execution authority.
 
-## Plugins are not skills
+## Releases
 
-`plugins.yaml` maps optional capabilities. Current mappings include Figma, Product Design, Runway, to3D, Scite, Massive, Binance and Superpowers.
-
-A missing optional plugin must not break the route. The agent should fall back to available tools/source reasoning and disclose material limitations.
-
-## Project authority
-
-`router.yaml` defines exactly one `CURRENT_AUTHORITY` for each registered project scope. Historical snapshots cannot override it.
-
-For Trading, authority is loaded only after a Trading route is selected. External repositories/plugins are references or data sources, never proof of profitability or execution authority.
-
-## Knowledge sources and licensing
-
-`sources.yaml` is knowledge-only. It is separate from behavioral skills.
-
-Policy for new sources:
-
-- default retrieval: enabled when license/provenance permit;
-- default training: **disabled**;
-- future training/fine-tune dataset use requires explicit approval;
-- manual/per-item/unclear rights remain disabled until reviewed;
-- provenance is preserved;
-- third-party repositories are never executed merely for ingestion.
-
-Existing V1 sources retain their explicit approved flags during migration.
-
-## Adding a new skill
-
-To extend V2 without redesigning the architecture:
-
-1. Add one focused Markdown skill file under `AI_SKILL_LIBRARY/skills/<family>/`.
-2. Register one unique skill ID in `router.yaml`.
-3. Add aliases/triggers/exclusions/requirements/conflicts/priority.
-4. Add optional plugin capabilities or source categories only if needed.
-5. Add or update tests.
-6. Run `validate_brain.py` and CI.
-
-Do not create another global checkpoint merely to add a domain.
-
-## Validation
+Never edit SHA256 values by hand:
 
 ```bash
-python -m py_compile AI_SKILL_LIBRARY/ingest_sources.py AI_SKILL_LIBRARY/validate_registry.py AI_SKILL_LIBRARY/validate_brain.py
-python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
-python AI_SKILL_LIBRARY/validate_registry.py
-python AI_SKILL_LIBRARY/validate_brain.py
-python AI_SKILL_LIBRARY/ingest_sources.py --all --dry-run --output /tmp/ai-skill-library.jsonl
+python AI_SKILL_LIBRARY/v4/tools/release.py build --version X.Y.Z --source <reason> --validated --known-good
+python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --write
 ```
 
-CI also performs a non-executing upstream repository audit.
+## Validation (single entrypoint)
 
-## New chats
+```bash
+python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$(git rev-parse HEAD)"
+```
 
-Persistent ChatGPT/project instructions can point to `GITHUB_BRAIN_V2`. In a repo-aware chat, the first substantive task should refresh the checkpoint and pass through the router.
+This runs every validator, the release/index freshness checks, the consolidation checks (single router, alias rows, budget consistency, trading bridge guards) and the unit tests exactly once. CI workflows call the same entrypoint.
 
-GitHub cannot itself force a ChatGPT surface that does not expose GitHub access to perform a fresh repository read. In that case, the protocol requires explicit disclosure and fallback to last-known context rather than pretending a refresh occurred.
+## Adding a skill, source or upstream pattern
+
+Strengthen an existing canonical skill first. A new primary skill is admitted only when it is materially distinct, passes `v4/stable/harmonization.yaml` (provenance, license, overlap, conflict, risk, permission, performance, eval, authority impact) and starts in Evergreen quarantine with zero routing authority. Never create a parallel Brain, a second router, a second memory system, a separate creative brain or a duplicate Trading authority.

@@ -1,6 +1,10 @@
 version: 1
 purpose: fuse_open_source_capability_patterns_into_native_v4_without_parallel_authority
 
+authority:
+  precedence_source: AI_SKILL_LIBRARY/v4/stable/evidence.yaml
+  budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
+  retrieval_contract: AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
 policy:
   single_authority_chain: true
   upstream_is_reference_not_authority: true
@@ -14,6 +18,8 @@ policy:
 fast_knowledge_plane:
   exact_cache: true
   semantic_cache: true
+  semantic_cache_profiles: [STANDARD, DEEP]
+  fast_exact_only: true
   semantic_similarity_min: 0.93
   compatibility_fingerprint:
     - primary_skill
@@ -36,6 +42,8 @@ fast_knowledge_plane:
   routing_authority: false
 
 retrieval_plane:
+  contract_owner: AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
+  exact_before_semantic: true
   index_backend: pluggable_optional
   routing_authority: false
   authority_filter_required: true
@@ -62,6 +70,7 @@ retrieval_plane:
   on_semantic_retrieval_conflict: prefer_authoritative_verified_source
 
 execution_graph:
+  budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
   bounded: true
   stateful_when_useful: true
   resumable_artifacts_only: true

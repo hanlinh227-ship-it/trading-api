@@ -86,10 +86,29 @@ profiles:
     modules: [creative_direction, script_to_shots, visual_prompt_compiler, continuity_engine, visual_edit_reasoning, render_quality_critic]
 
 canonical_skill_bindings:
-  prompt: [prompt_engineering, image_prompt, video_prompt, negative_constraints, prompt_debugging, character_consistency, scene_continuity, camera_direction, storyboard, image_video_generation, generative_media]
+  prompt: [prompt_engineering, image_prompt, video_prompt, negative_constraints, prompt_debugging, character_consistency, scene_continuity, camera_direction, storyboard]
   design: [graphic_design, branding, typography, layout, design_2d, design_3d, lighting, rendering, ux_ui, product_design]
   adobe: [photoshop, illustrator, premiere_pro, after_effects, lightroom, audition, indesign, acrobat]
   writing: [scriptwriting, screenwriting, voice_over, advertising_copy, hook_retention, storytelling]
+
+# Shared creative logic has exactly one canonical owner skill; other skills reference, never duplicate.
+shared_logic_owner:
+  identity_preservation: character_consistency
+  scene_continuity: scene_continuity
+  object_counts: scene_continuity
+  camera_variation: camera_direction
+  reference_preservation: character_consistency
+  mask_first_editing: photoshop
+  target_grounding: photoshop
+  render_constraints: image_prompt
+  negative_constraints: negative_constraints
+  shot_planning: storyboard
+  script_to_beats: scriptwriting
+  timeline_editing: premiere_pro
+  layout_hierarchy: layout
+  visual_direction: graphic_design
+legacy_alias_ids_resolved_by_catalog: [image_video_generation, generative_media, adobe_media, design_2d_ux, design_3d_blender]
+budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
 
 upstream_pattern_map:
   lllyasviel/ControlNet:

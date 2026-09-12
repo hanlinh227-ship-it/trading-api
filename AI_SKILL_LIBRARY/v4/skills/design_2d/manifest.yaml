@@ -2,7 +2,8 @@ id: design_2d
 version: 4.0.0
 domain: design_2d
 source: legacy_catalog_adapter
-skills: [ux_ui, product_design, graphic_design, branding, typography, layout, design_2d, design_2d_ux]
+skills: [ux_ui, product_design, graphic_design, branding, typography, layout, design_2d]
+legacy_aliases: [design_2d_ux]
 permissions: [read_only]
 risk_ceiling: read_only
 evals: [ux_consistency, accessibility, layout]

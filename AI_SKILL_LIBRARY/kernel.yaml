@@ -1,4 +1,7 @@
 version: 3
+superseded_by: GITHUB_BRAIN_V4
+authority_role: compatibility_alias
+canonical_authority: AI_SKILL_LIBRARY/checkpoint.json
 authority: GITHUB_BRAIN_V3
 default_profile: FAST
 

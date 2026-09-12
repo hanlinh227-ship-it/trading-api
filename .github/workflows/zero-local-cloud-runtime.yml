@@ -64,16 +64,13 @@ jobs:
       - name: Gateway build
         working-directory: crypto-research-gateway
         run: npm run build
-      - name: Validate skill registry
-        run: python AI_SKILL_LIBRARY/validate_skill_registry.py
-      - name: Validate routed Brain compatibility
-        run: python AI_SKILL_LIBRARY/validate_brain.py
-      - name: Validate router schemas
-        run: python AI_SKILL_LIBRARY/validate_router.py
-      - name: Validate V4 LTS
-        run: python AI_SKILL_LIBRARY/validate_v4.py
-      - name: Validate project authority
-        run: python AI_SKILL_LIBRARY/validate_authority.py
+      - name: Brain validation via single entrypoint (validators, snapshot, release, index, consolidation)
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA" --skip-tests
+          echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
       - name: Live public provider and execution quote smoke test
         working-directory: crypto-research-gateway
         shell: bash
