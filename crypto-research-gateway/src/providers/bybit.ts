@@ -5,6 +5,7 @@ import { canonicalSymbol, normalizeProviderSymbol, quoteCurrency } from './symbo
 import type { PublicInstrument, PublicMarketProvider } from './types.js';
 
 const BASE = 'https://api.bybit.com';
+export type BybitJsonFetcher = (url: string, timeoutMs?: number) => Promise<unknown>;
 
 function resultList(raw: unknown): { root: Record<string, unknown>; row: Record<string, unknown> } {
   const root = asRecord(raw);
@@ -16,11 +17,16 @@ function resultList(raw: unknown): { root: Record<string, unknown>; row: Record<
 
 export class BybitProvider implements PublicMarketProvider {
   readonly id = 'bybit' as const;
+  private readonly fetcher: BybitJsonFetcher;
+
+  constructor(options: { fetchJson?: BybitJsonFetcher } = {}) {
+    this.fetcher = options.fetchJson ?? fetchJson;
+  }
 
   async snapshot(symbol: string, instrument: PublicInstrument): Promise<MarketObservation[]> {
     const providerSymbol = normalizeProviderSymbol(this.id, symbol, instrument);
     const category = instrument === 'spot' ? 'spot' : 'linear';
-    const { root, row } = resultList(await fetchJson(`${BASE}/v5/market/tickers?category=${category}&symbol=${encodeURIComponent(providerSymbol)}`));
+    const { root, row } = resultList(await this.fetcher(`${BASE}/v5/market/tickers?category=${category}&symbol=${encodeURIComponent(providerSymbol)}`));
     const received = Date.now();
     const ts = numberValue(root.time, 'time');
     const common = {
@@ -47,20 +53,20 @@ export class BybitProvider implements PublicMarketProvider {
   async candles(symbol: string, instrument: PublicInstrument, interval: string, limit: number): Promise<unknown> {
     const providerSymbol = normalizeProviderSymbol(this.id, symbol, instrument);
     const category = instrument === 'spot' ? 'spot' : 'linear';
-    return fetchJson(`${BASE}/v5/market/kline?category=${category}&symbol=${encodeURIComponent(providerSymbol)}&interval=${encodeURIComponent(interval)}&limit=${Math.min(Math.max(limit, 1), 1000)}`);
+    return this.fetcher(`${BASE}/v5/market/kline?category=${category}&symbol=${encodeURIComponent(providerSymbol)}&interval=${encodeURIComponent(interval)}&limit=${Math.min(Math.max(limit, 1), 1000)}`);
   }
 
   async orderbook(symbol: string, instrument: PublicInstrument, limit: number): Promise<unknown> {
     const providerSymbol = normalizeProviderSymbol(this.id, symbol, instrument);
     const category = instrument === 'spot' ? 'spot' : 'linear';
-    return fetchJson(`${BASE}/v5/market/orderbook?category=${category}&symbol=${encodeURIComponent(providerSymbol)}&limit=${Math.min(Math.max(limit, 1), 200)}`);
+    return this.fetcher(`${BASE}/v5/market/orderbook?category=${category}&symbol=${encodeURIComponent(providerSymbol)}&limit=${Math.min(Math.max(limit, 1), 200)}`);
   }
 
   async derivatives(symbol: string): Promise<unknown> {
     const providerSymbol = normalizeProviderSymbol(this.id, symbol, 'perpetual');
     const [ticker, openInterest] = await Promise.all([
-      fetchJson(`${BASE}/v5/market/tickers?category=linear&symbol=${encodeURIComponent(providerSymbol)}`),
-      fetchJson(`${BASE}/v5/market/open-interest?category=linear&symbol=${encodeURIComponent(providerSymbol)}&intervalTime=5min&limit=1`),
+      this.fetcher(`${BASE}/v5/market/tickers?category=linear&symbol=${encodeURIComponent(providerSymbol)}`),
+      this.fetcher(`${BASE}/v5/market/open-interest?category=linear&symbol=${encodeURIComponent(providerSymbol)}&intervalTime=5min&limit=1`),
     ]);
     return { provider: this.id, symbol: providerSymbol, ticker, openInterest };
   }
