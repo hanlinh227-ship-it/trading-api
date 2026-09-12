@@ -16,6 +16,12 @@ class ZeroLocalManifestTests(unittest.TestCase):
         self.assertIn('restartPolicyType = "ON_FAILURE"', text)
         self.assertNotIn("cronSchedule", text)
 
+    def test_railway_production_region_is_southeast_asia_only(self):
+        text = (GATEWAY / "railway.toml").read_text(encoding="utf-8")
+        self.assertIn('[deploy.multiRegionConfig."asia-southeast1-eqsg3a"]', text)
+        self.assertIn('numReplicas = 1', text)
+        self.assertNotIn('[deploy.multiRegionConfig."us-', text)
+
     def test_gateway_requires_node_22_or_newer(self):
         import json
 
@@ -52,6 +58,7 @@ class ZeroLocalManifestTests(unittest.TestCase):
             "bid",
             "ask",
             "region_restricted_bybit_cloud_region",
+            "region_restricted_binance_futures_cloud_region",
         ):
             self.assertIn(required, text)
 
