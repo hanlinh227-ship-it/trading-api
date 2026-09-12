@@ -1,0 +1,79 @@
+name: Cloudflare VPC Diagnostic
+
+on:
+  push:
+    branches: [fix/vps-noninteractive-bridge-install]
+    paths:
+      - '.github/workflows/cloudflare-vpc-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
+      V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
+      WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+    steps:
+      - name: Inspect sanitized VPC service metadata and Worker state
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE_ID="${AI_BRIDGE_SERVICE_ID:-${V11_AI_BRIDGE_SERVICE_ID:-}}"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$SERVICE_ID"
+          RAW="$(curl -fsS --connect-timeout 5 --max-time 20 \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/connectivity/directory/services/$SERVICE_ID")"
+          RAW="$RAW" python3 - <<'PY'
+          import json, os
+          x=json.loads(os.environ['RAW'])
+          r=x.get('result') or {}
+          host=str(r.get('hostname') or r.get('ipv4') or r.get('ipv6') or '')
+          ports=r.get('ports') or {}
+          print(json.dumps({
+            'apiSuccess': x.get('success') is True,
+            'serviceType': r.get('type'),
+            'httpPort': r.get('http_port') or ports.get('http') or ports.get('http_port'),
+            'httpsPort': r.get('https_port') or ports.get('https') or ports.get('https_port'),
+            'hostClass': 'loopback' if host in ('127.0.0.1','localhost','::1') else ('configured' if host else 'unknown'),
+            'hasTunnel': bool(r.get('tunnel_id') or r.get('tunnelId')),
+            'hasServiceId': bool(r.get('id')),
+          }, sort_keys=True))
+          PY
+          for path in /runtime/contract /health /bybit/health; do
+            echo "--- $path ---"
+            code="$(curl -sS --connect-timeout 5 --max-time 25 -o /tmp/body -w '%{http_code}' "$WORKER_BASE_URL$path" || true)"
+            echo "HTTP=$code"
+            BODY="$(cat /tmp/body 2>/dev/null || true)" BODY="$BODY" python3 - <<'PY'
+          import json,os
+          s=os.environ.get('BODY','')
+          try:x=json.loads(s)
+          except Exception:
+            print('JSON=false'); raise SystemExit
+          safe={k:x.get(k) for k in ('ok','service','version','mode','runtimeProvider','deploymentSourceSha','localInstallRequired') if k in x}
+          if 'execution' in x and isinstance(x['execution'],dict): safe['executionReady']=x['execution'].get('ready')
+          if 'error' in x:safe['error']=x.get('error')
+          print(json.dumps(safe,sort_keys=True))
+          PY
+          done
+          echo '--- execution quote ---'
+          code="$(curl -sS --connect-timeout 5 --max-time 25 -o /tmp/quote -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            -d '{"action":"execution_quote","symbol":"BTCUSDT","instrument":"perpetual","side":"LONG","executionVenue":"bybit"}' \
+            "$WORKER_BASE_URL/research/market" || true)"
+          echo "HTTP=$code"
+          BODY="$(cat /tmp/quote 2>/dev/null || true)" BODY="$BODY" python3 - <<'PY'
+          import json,os
+          try:x=json.loads(os.environ.get('BODY',''))
+          except Exception: print('JSON=false'); raise SystemExit
+          q=x.get('executionQuote') or x.get('execution_quote') or x.get('quote') or x
+          print(json.dumps({k:q.get(k) for k in ('status','venue','instrument','side','executionVerified','quoteAgeMs','error') if isinstance(q,dict) and k in q},sort_keys=True))
+          PY
