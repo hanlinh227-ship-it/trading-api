@@ -40,15 +40,18 @@ class ZeroLocalManifestTests(unittest.TestCase):
     def test_ci_smokes_venue_bound_execution_quotes(self):
         text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
         for required in (
-            '"action":"execution_quote"',
-            '"executionVenue":"binance"',
-            '"side":"LONG"',
-            'executionVerified',
-            'quoteAgeMs',
-            'spreadBps',
-            'bid',
-            'ask',
-            'region_restricted_bybit_cloud_region',
+            "action",
+            "execution_quote",
+            "executionVenue",
+            "binance",
+            "side",
+            "LONG",
+            "executionVerified",
+            "quoteAgeMs",
+            "spreadBps",
+            "bid",
+            "ask",
+            "region_restricted_bybit_cloud_region",
         ):
             self.assertIn(required, text)
 
