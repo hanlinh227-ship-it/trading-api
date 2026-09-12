@@ -5,6 +5,8 @@ policy:
   popularity_is_not_trust: true
   official_sources_preferred: true
   repository_source_allowlist_required_for_code: true
+  financial_capability_default: class_d_quarantine
+  provider_discovery_never_expands_permissions: true
 source_classes:
   official_docs: {cadence: daily, executable: false}
   approved_github: {cadence: daily, executable: possible}
@@ -14,6 +16,8 @@ source_classes:
   stable_telemetry: {cadence: event_driven, executable: false}
 github_queries:
   - {domain: engineering, query: "agent skill manifest yaml stars:>20"}
+  - {domain: trading, query: "crypto exchange agent skills SKILL.md market data"}
+  - {domain: trading, query: "crypto MCP agent market data token risk smart money"}
   - {domain: game, query: "game development agent skill yaml stars:>10"}
   - {domain: design_2d, query: "ux ui agent skill yaml stars:>10"}
   - {domain: design_3d, query: "blender 3d agent skill yaml stars:>10"}
@@ -35,3 +39,6 @@ normalization:
   require_permissions: true
   require_evals: true
   require_provenance: true
+  require_risk_class_for_financial_domain: true
+  require_provider_source_identity_for_financial_domain: true
+  unknown_financial_write_capability: HIGH_RISK
