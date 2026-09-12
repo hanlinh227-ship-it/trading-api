@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "skill_gateway_snapshot.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_sha",
+    "release_id",
+    "generated_at",
+    "fallback_primary_skill",
+    "profiles",
+    "domains",
+    "skills",
+    "capsules",
+    "aliases",
+    "hashes",
+    "routing_policy",
+    "profile_selection",
+    "registry_policy"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "release_id": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string", "minLength": 1},
+    "fallback_primary_skill": {"type": "string", "minLength": 1},
+    "profiles": {
+      "type": "object",
+      "required": ["FAST", "STANDARD", "DEEP"],
+      "additionalProperties": false,
+      "properties": {
+        "FAST": {"$ref": "#/$defs/profile"},
+        "STANDARD": {"$ref": "#/$defs/profile"},
+        "DEEP": {"$ref": "#/$defs/profile"}
+      }
+    },
+    "domains": {"type": "object", "minProperties": 1},
+    "skills": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/skill"}
+    },
+    "capsules": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/capsule"}
+    },
+    "aliases": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {"type": "string", "minLength": 1}
+      }
+    },
+    "hashes": {"type": "object", "minProperties": 8},
+    "routing_policy": {
+      "type": "object",
+      "required": ["primary_skill_required", "skill_execution_capsule_required", "fallback_primary_skill", "no_network_fast_selection"],
+      "properties": {
+        "primary_skill_required": {"const": true},
+        "skill_execution_capsule_required": {"const": true},
+        "fallback_primary_skill": {"type": "string", "minLength": 1},
+        "no_network_fast_selection": {"const": true},
+        "authority_before_memory": {"type": "boolean"}
+      }
+    },
+    "profile_selection": {"type": "object"},
+    "registry_policy": {"type": "object"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "required": ["primary_skill_count", "skill_capsule_required", "max_supporting_skills", "max_bridge_nodes", "max_parallel_tasks", "tool_candidates", "durable_memory_items"],
+      "properties": {
+        "primary_skill_count": {"const": 1},
+        "skill_capsule_required": {"const": true},
+        "max_supporting_skills": {"type": "integer", "minimum": 0, "maximum": 2},
+        "max_bridge_nodes": {"type": "integer", "minimum": 0, "maximum": 2},
+        "max_parallel_tasks": {"type": "integer", "minimum": 1, "maximum": 4},
+        "tool_candidates": {"type": "integer", "minimum": 0, "maximum": 8},
+        "durable_memory_items": {"type": "integer", "minimum": 0, "maximum": 12}
+      },
+      "additionalProperties": false
+    },
+    "skill": {
+      "type": "object",
+      "required": ["id", "domain", "triggers", "aliases", "excludes", "requires", "conflicts_with", "priority", "tools", "sources", "output_contract"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "domain": {"type": "string", "minLength": 1},
+        "triggers": {"type": "array", "items": {"type": "string"}},
+        "aliases": {"type": "array", "items": {"type": "string"}},
+        "excludes": {"type": "array", "items": {"type": "string"}},
+        "requires": {"type": "array", "items": {"type": "string"}},
+        "conflicts_with": {"type": "array", "items": {"type": "string"}},
+        "priority": {"type": "integer"},
+        "tools": {"type": "array", "items": {"type": "string"}},
+        "sources": {"type": "array", "items": {"type": "string"}},
+        "output_contract": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "capsule": {
+      "type": "object",
+      "required": ["skill_id", "domain", "output_contract", "requires", "excludes", "conflicts_with", "priority", "tools", "sources", "permissions", "risk_ceiling", "manifest_path", "response_checks", "capsule_hash"],
+      "properties": {
+        "skill_id": {"type": "string", "minLength": 1},
+        "domain": {"type": "string", "minLength": 1},
+        "output_contract": {"type": "string", "minLength": 1},
+        "requires": {"type": "array", "items": {"type": "string"}},
+        "excludes": {"type": "array", "items": {"type": "string"}},
+        "conflicts_with": {"type": "array", "items": {"type": "string"}},
+        "priority": {"type": "integer"},
+        "tools": {"type": "array", "items": {"type": "string"}},
+        "sources": {"type": "array", "items": {"type": "string"}},
+        "permissions": {"type": "array", "items": {"type": "string"}},
+        "risk_ceiling": {"type": "string", "minLength": 1},
+        "manifest_path": {"type": "string", "minLength": 1},
+        "response_checks": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "capsule_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    }
+  }
+}
