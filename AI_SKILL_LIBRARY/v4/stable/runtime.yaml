@@ -30,7 +30,10 @@ profiles:
     evergreen_sync: false
     preload_trading: false
     persistent_trace: false
-    stages: [task_router, minimal_core, primary_domain, primary_skill, skill_execution_capsule, response_quality_gate, answer]
+    external_semantic_lookup: false
+    execution_graph_nodes: 0
+    semantic_cache_scope: low_risk_work_cycle_only
+    stages: [task_router, acceleration_preflight, minimal_core, primary_domain, primary_skill, skill_execution_capsule, response_quality_gate, answer]
   STANDARD:
     context_tokens: 7000
     durable_memory_items: 4
@@ -44,7 +47,10 @@ profiles:
     evergreen_sync: false
     preload_trading: false
     persistent_trace: conditional
-    stages: [task_router, runtime_profile, authority, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, memory, sources, tools, execute, response_quality_gate, verify, answer]
+    external_semantic_lookup: optional
+    execution_graph_nodes: 3
+    semantic_cache_scope: authority_safe_non_live_only
+    stages: [task_router, acceleration_preflight, runtime_profile, authority, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, memory, sources, tools, execute, response_quality_gate, verify, answer]
   DEEP:
     context_tokens: 16000
     durable_memory_items: 8
@@ -58,7 +64,10 @@ profiles:
     evergreen_sync: false
     preload_trading: route_only
     persistent_trace: bounded
-    stages: [task_router, runtime_profile, authority, context_plan, planner, task_graph, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, memory, sources, tools, security_gate, execute, critic, response_quality_gate, verify, eval, answer]
+    external_semantic_lookup: optional
+    execution_graph_nodes: 8
+    semantic_cache_scope: evidence_reuse_only_by_default
+    stages: [task_router, acceleration_preflight, runtime_profile, authority, context_plan, planner, task_graph, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, memory, sources, tools, security_gate, execute, critic, response_quality_gate, verify, eval, answer]
 
 hard_limits:
   max_context_tokens: 20000
@@ -68,3 +77,4 @@ hard_limits:
   max_parallel_tasks: 4
   max_supporting_skills: 2
   max_bridge_nodes: 2
+  max_execution_graph_nodes: 8
