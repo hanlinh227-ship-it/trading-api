@@ -1,0 +1,76 @@
+name: Cloudflare Research Runtime CI
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-worker/**'
+      - 'crypto-research-gateway/**'
+      - '.github/workflows/cloudflare-research-runtime-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare-worker/**'
+      - 'crypto-research-gateway/**'
+      - '.github/workflows/cloudflare-research-runtime-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-cloudflare-research-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install gateway dependencies
+        working-directory: crypto-research-gateway
+        run: npm install --no-audit --no-fund
+
+      - name: Gateway behavior tests with diagnostic log
+        id: gateway-tests
+        working-directory: crypto-research-gateway
+        shell: bash
+        run: |
+          set +e
+          npm test -- --reporter=verbose 2>&1 | tee gateway-test.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Upload gateway test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflare-gateway-test-log
+          path: crypto-research-gateway/gateway-test.log
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Gateway typecheck
+        working-directory: crypto-research-gateway
+        run: npm run typecheck
+
+      - name: Gateway build
+        working-directory: crypto-research-gateway
+        run: npm run build
+
+      - name: Install Cloudflare Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm install --no-audit --no-fund
+
+      - name: Wrangler bundle dry-run with inert binding identifiers
+        working-directory: cloudflare-worker
+        env:
+          TRADING_KV_NAMESPACE_ID: '00000000000000000000000000000000'
+          AI_BRIDGE_SERVICE_ID: '00000000-0000-4000-8000-000000000000'
+          GITHUB_SHA: ${{ github.sha }}
+        run: npm run check
+
+      - name: Confirm validation-only authority
+        run: |
+          echo 'GitHub Actions validates source and bundle only.'
+          echo 'Cloudflare Builds remains the sole Worker deployment authority.'
+          echo 'No runtime variables or trading LIVE switches are changed here.'
