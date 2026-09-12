@@ -1,0 +1,87 @@
+version: 1
+purpose: bounded_multi_method_reasoning_without_competing_authority
+
+source_inspiration:
+  groktopus_methods_are_reference_only: true
+  adopted_patterns: [bounded_agent_loop, maker_checker, independent_grader, artifact_pyramid, verified_distillation]
+
+authority:
+  external_framework_is_reasoning_authority: false
+  provider_consensus_is_authorization: false
+  current_project_authority_precedes_external_methods: true
+  stable_security_precedes_external_methods: true
+  current_runtime_precedes_cached_or_reference_state: true
+
+profiles:
+  FAST:
+    mode: disabled
+    reason: preserve_zero_external_routing_and_minimal_latency
+  STANDARD:
+    mode: checker_on_demand
+    max_checker_passes: 1
+    independent_grader: false
+  DEEP:
+    mode: maker_checker_with_independent_grader
+    max_checker_passes: 2
+    independent_grader: true
+
+agent_loop:
+  enabled: true
+  activate_for: [complex_multi_step, high_impact, architecture_or_protocol_change, unresolved_material_conflict, benchmark_worthy]
+  max_iterations: 3
+  stop_on: [acceptance_criteria_met, verified_blocker, authority_conflict, security_block, budget_exhausted]
+  may_expand_permissions: false
+  may_bypass_security_or_authority: false
+  financial_execution_allowed: false
+  hidden_reasoning_persistence: false
+
+maker_checker:
+  maker_uses_selected_primary_skill: true
+  checker_must_recheck_constraints: true
+  checker_must_check_counterevidence: true
+  checker_must_check_freshness_when_material: true
+  checker_must_not_become_second_authority: true
+
+grader:
+  enabled_for: [DEEP]
+  independent_from_maker_when_available: true
+  inputs: [task_contract, authority_contract, evidence_ledger, candidate_output]
+  score_dimensions: [correctness, authority, evidence, verification, constraint_adherence, safety]
+  acceptance_requires_no_material_authority_or_safety_failure: true
+  majority_vote_for_truth: false
+
+harmonization:
+  normalize_before_compare: true
+  preserve_provenance: true
+  preserve_freshness: true
+  majority_vote_for_truth: false
+  silent_averaging_of_conflicts: false
+  equal_authority_prefer_fresher: true
+  project_policy_wins_over_external_method: true
+  unresolved_material_conflict: disclose_and_block_high_consequence_dependent_conclusion
+  output_distinguishes: [FACT, INFERENCE, ASSUMPTION]
+
+artifact_pyramid:
+  enabled: true
+  layers: [summary, analysis, evidence_dossier]
+  default_layer: summary
+  expand_on_user_need_or_task_complexity: true
+  may_override_verification: false
+  may_override_authority: false
+  evidence_dossier_preserves_provenance: true
+
+learning:
+  direct_stable_self_patch: false
+  distill_verified_failures_to_candidate_eval: true
+  distill_verified_reusable_patterns_to_evergreen_candidate: true
+  promotion_required: true
+  candidate_has_zero_routing_authority_until_promoted: true
+  permission_expansion_by_learning: false
+  secrets_or_sensitive_payloads_may_be_distilled: false
+
+safety:
+  trading_execution_authority_unchanged: true
+  live_claim_requires_runtime_evidence: true
+  credential_operations_fail_closed: true
+  destructive_actions_fail_closed_on_ambiguity: true
+  security_gate_precedes_side_effects: true
