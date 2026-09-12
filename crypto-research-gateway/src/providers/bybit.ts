@@ -22,7 +22,7 @@ export class BybitProvider implements PublicMarketProvider {
     const category = instrument === 'spot' ? 'spot' : 'linear';
     const { root, row } = resultList(await fetchJson(`${BASE}/v5/market/tickers?category=${category}&symbol=${encodeURIComponent(providerSymbol)}`));
     const received = Date.now();
-    const ts = numberValue(root.time ?? received, 'time');
+    const ts = numberValue(root.time, 'time');
     const common = {
       provider: this.id,
       venue: this.id,
@@ -33,6 +33,8 @@ export class BybitProvider implements PublicMarketProvider {
       receivedTimestampMs: received,
     };
     const observations: MarketObservation[] = [
+      { ...common, priceSemantic: 'bid', price: positivePrice(row.bid1Price, 'bid1Price') },
+      { ...common, priceSemantic: 'ask', price: positivePrice(row.ask1Price, 'ask1Price') },
       { ...common, priceSemantic: 'last', price: positivePrice(row.lastPrice, 'lastPrice') },
     ];
     if (instrument === 'perpetual') {
