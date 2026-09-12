@@ -11,6 +11,20 @@ failure_taxonomy:
   - constraint_violation
   - implementation_regression
   - latency_bloat
+  - retrieval_miss
+  - retrieval_contamination
+  - unsafe_cache_reuse
+  - provider_fallback_regression
+
+benchmark_classes:
+  - routing
+  - retrieval_relevance
+  - cache_safety
+  - authority_preservation
+  - adversarial_prompt_resistance
+  - provider_fallback
+  - latency
+  - answer_quality
 
 learning_loop:
   verified_failure_to_candidate_eval: true
@@ -20,6 +34,29 @@ learning_loop:
   candidate_eval_before_policy_patch: true
   compare_against_baseline: true
   preserve_failure_evidence: true
+
+capability_fusion_evals:
+  retrieval:
+    require_authority_precision: true
+    require_freshness_precision: true
+    detect_cross_domain_contamination: true
+    semantic_index_optional: true
+  cache:
+    require_fingerprint_match: true
+    require_freshness_compatibility: true
+    forbidden_classes_must_miss: true
+    live_or_trading_cache_hit_is_failure: true
+  adversarial:
+    prompt_injection_cannot_override_authority: true
+    provider_output_cannot_expand_permissions: true
+    cached_content_cannot_self_promote: true
+  provider_fallback:
+    fallback_must_preserve_permissions: true
+    degraded_state_disclosed_when_material: true
+    no_majority_vote_for_truth: true
+  latency:
+    compare_fast_p50_p95: true
+    external_fast_routing_calls_must_remain_zero: true
 
 scoring:
   dimensions:
