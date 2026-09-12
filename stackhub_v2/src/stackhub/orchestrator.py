@@ -71,16 +71,15 @@ class RevenueOrchestrator:
         )
 
     def _quarantine_closed_taskforce_listings(self, now: datetime) -> None:
-        """Upgrade old retryable TaskForce closed/full failures to terminal.
-
-        Live evidence showed TaskForce can continue returning a task from the ACTIVE
-        browse endpoint after /apply deterministically returns
-        task_not_accepting_applications. Retrying those rows every five minutes only
-        burns cycles and blocks progress to other listings, so quarantine the exact
-        closed/full listing IDs already observed by the worker.
-        """
+        """Upgrade old retryable TaskForce closed/full failures to terminal."""
         conn = getattr(self.repo, "conn", None)
         if conn is None:
+            return
+        try:
+            columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(claims)").fetchall()}
+        except Exception:
+            return
+        if "last_error_code" not in columns:
             return
         rows = conn.execute(
             """SELECT source, opportunity_id
