@@ -5,6 +5,7 @@ on:
     paths:
       - 'cloudflare-worker/**'
       - 'crypto-research-gateway/**'
+      - 'bybit-live-bridge/**'
       - '.github/workflows/cloudflare-research-runtime-ci.yml'
       - '.github/workflows/deploy-cloudflare-worker.yml'
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - 'cloudflare-worker/**'
       - 'crypto-research-gateway/**'
+      - 'bybit-live-bridge/**'
       - '.github/workflows/cloudflare-research-runtime-ci.yml'
       - '.github/workflows/deploy-cloudflare-worker.yml'
 
@@ -27,6 +29,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Public Bybit bridge safety tests
+        run: python3 bybit-live-bridge/test_public_proxy.py
 
       - name: Install gateway dependencies
         working-directory: crypto-research-gateway
@@ -90,7 +95,6 @@ jobs:
 
       - name: Confirm CI and deployment authority split
         run: |
-          echo 'PR CI validates source and the real Wrangler bundle only.'
+          echo 'PR CI validates bridge safety, gateway behavior, source and the real Wrangler bundle.'
           echo 'Production deploy authority is GitHub Actions exact-main via Wrangler.'
-          echo 'The pre-existing failing Cloudflare Builds GitHub App is not production authority.'
           echo 'No runtime variables or trading LIVE switches are changed by this validation job.'
