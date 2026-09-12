@@ -1,0 +1,74 @@
+name: Skill-Mandatory Fast Gateway CI
+
+on:
+  pull_request:
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'cloudflare-worker/skill-gateway*.js'
+      - 'cloudflare-worker/index.js'
+      - 'cloudflare-worker/prepare-wrangler.mjs'
+      - 'cloudflare-worker/package.json'
+      - 'cloudflare-worker/benchmark-skill-gateway.mjs'
+      - '.github/workflows/skill-mandatory-fast-gateway-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'cloudflare-worker/skill-gateway*.js'
+      - 'cloudflare-worker/index.js'
+      - 'cloudflare-worker/prepare-wrangler.mjs'
+      - 'cloudflare-worker/package.json'
+      - 'cloudflare-worker/benchmark-skill-gateway.mjs'
+      - '.github/workflows/skill-mandatory-fast-gateway-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-skill-gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TRADING_KV_NAMESPACE_ID: '00000000000000000000000000000000'
+      AI_BRIDGE_SERVICE_ID: '00000000-0000-4000-8000-000000000000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Brain validator dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+      - name: Canonical Brain regressions
+        run: |
+          python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
+          python AI_SKILL_LIBRARY/validate_router.py
+          python AI_SKILL_LIBRARY/validate_authority.py
+          python AI_SKILL_LIBRARY/validate_v4.py
+      - name: Compile and validate exact checkout snapshot
+        run: |
+          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py --source-sha "$GITHUB_SHA" --output AI_SKILL_LIBRARY/v4/runtime/generated/skill_gateway_snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py AI_SKILL_LIBRARY/v4/runtime/generated/skill_gateway_snapshot.json
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm install --no-audit --no-fund
+      - name: Generate Worker snapshot and run no-network contracts
+        working-directory: cloudflare-worker
+        run: |
+          npm run prepare:wrangler
+          npm run check
+          node benchmark-skill-gateway.mjs
+      - name: Verify generated Worker snapshot exact SHA
+        run: |
+          node --input-type=module - <<'NODE'
+          import {SKILL_GATEWAY_SNAPSHOT} from './cloudflare-worker/generated/skill-gateway-snapshot.js';
+          if(SKILL_GATEWAY_SNAPSHOT.source_sha!==process.env.GITHUB_SHA.toLowerCase())throw new Error('generated_snapshot_sha_mismatch');
+          if(SKILL_GATEWAY_SNAPSHOT.profiles.FAST.max_supporting_skills!==0)throw new Error('fast_supporting_skill_drift');
+          console.log('WORKER_SKILL_SNAPSHOT_EXACT_SHA=PASS '+SKILL_GATEWAY_SNAPSHOT.source_sha);
+          NODE
+      - name: Real Wrangler bundle dry-run
+        working-directory: cloudflare-worker
+        run: npx wrangler deploy --dry-run --outdir .wrangler-skill-gateway
