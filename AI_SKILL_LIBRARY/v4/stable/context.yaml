@@ -18,10 +18,19 @@ bridge_budget:
   total_bridge_tokens_standard: 2500
   total_bridge_tokens_deep: 5000
   trading_state_cross_domain: forbidden
+semantic_index:
+  exact_normalized_lookup_first: true
+  semantic_candidates_optional: true
+  external_service_required: false
+  lexical_fallback: true
+  preserve: [provenance, source_revision, authority_scope, freshness_semantics, domain_scope]
+  candidate_only_until_authority_resolved: true
 cache:
   scope: work_cycle
   cache_live_data: false
   require_freshness_check_before_reuse: true
+  cache_final_answer_forbidden_for: [live_or_current, trading, credentials, destructive, deployment, financial_action]
+  reuse_requires: [same_authority_scope, compatible_freshness, compatible_permissions, source_revision_valid]
   invalidate_on: [checkpoint_change, release_pointer_change, project_authority_change, source_revision_change, explicit_user_refresh, live_or_current_state_request, mutation_or_deploy]
 compression:
   enabled: true
