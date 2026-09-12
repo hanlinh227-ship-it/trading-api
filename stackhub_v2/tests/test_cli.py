@@ -70,6 +70,72 @@ def test_status_exposes_safe_allowed_claim_blockers(tmp_path):
     ]
 
 
+def test_status_exposes_retryable_claim_diagnostics(tmp_path):
+    db_path = tmp_path / "retryable.db"
+    repo = StackHubRepository(db_path)
+    repo.initialize()
+    repo.conn.execute(
+        """
+        INSERT INTO opportunities(
+            source,id,url,category,reward_amount,reward_asset,
+            requirements_json,acceptance_criteria_json,competition_model,
+            policy_allowed,policy_reasons_json,score_usd_per_minute
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        (
+            "taskforce",
+            "tf-retryable",
+            "https://example.invalid/task",
+            "development",
+            "1",
+            "USDC",
+            "[]",
+            "[]",
+            "application",
+            1,
+            "[]",
+            "0.25",
+        ),
+    )
+    repo.conn.execute(
+        """INSERT INTO claims(
+            source,opportunity_id,state,updated_at,retry_count,next_retry_at,
+            last_error_code,last_error_message
+        ) VALUES(?,?,?,?,?,?,?,?)""",
+        (
+            "taskforce",
+            "tf-retryable",
+            "FAILED_RETRYABLE",
+            "2026-09-11T20:00:00+00:00",
+            3,
+            "2026-09-11T20:05:00+00:00",
+            "http_503",
+            "temporary upstream failure",
+        ),
+    )
+    repo.conn.commit()
+    repo.close()
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["status", "--db", str(db_path)])
+
+    assert result.exit_code == 0
+    report = json.loads(result.stdout)
+    assert report["allowed_claim_state_counts"] == {"FAILED_RETRYABLE": 1}
+    assert report["retryable_allowed_claims"] == [
+        {
+            "source": "taskforce",
+            "opportunity_id": "tf-retryable",
+            "state": "FAILED_RETRYABLE",
+            "retry_count": 3,
+            "next_retry_at": "2026-09-11T20:05:00+00:00",
+            "last_error_code": "http_503",
+            "last_error_message": "temporary upstream failure",
+            "claim_updated_at": "2026-09-11T20:00:00+00:00",
+        }
+    ]
+
+
 def test_mutating_commands_are_not_exposed():
     runner = CliRunner()
     for command in ("claim", "submit", "withdraw", "payout", "spend"):
