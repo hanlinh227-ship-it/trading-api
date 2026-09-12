@@ -2,6 +2,13 @@ name: Deploy Skill-Mandatory Fast Gateway
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'cloudflare-worker/**'
+      - '.github/workflows/deploy-skill-mandatory-fast-gateway.yml'
+      - 'AGENTS.md'
 
 permissions:
   contents: read
