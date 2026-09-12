@@ -49,6 +49,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       service: SERVICE_NAME,
       version: SERVICE_VERSION,
       runtimeMode: RUNTIME_MODE,
+      deploymentRelease: 'live-price-execution-v1',
       deploymentCommitSha: process.env.RAILWAY_GIT_COMMIT_SHA ?? null,
       localInstallRequired: false,
       lastPublicProbeTimestamp: runtime.getLastProbeAt(),
