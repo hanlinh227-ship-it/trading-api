@@ -85,11 +85,16 @@ jobs:
           import json
           from pathlib import Path
           data = json.loads(Path('/tmp/zero-local-health.json').read_text())
-          required = {'binance', 'okx', 'bybit', 'gate', 'kucoin'}
           healthy = set(data.get('healthyProviders', []))
-          missing = sorted(required - healthy)
+          required_unrestricted = {'binance', 'okx', 'gate', 'kucoin'}
+          missing = sorted(required_unrestricted - healthy)
           if missing:
               raise SystemExit(f'public provider probes failed: {missing}')
+          bybit = data.get('providers', {}).get('bybit', {})
+          bybit_ok = 'bybit' in healthy
+          bybit_region_restricted = bybit.get('error') == 'region_restricted_bybit_cloud_region'
+          if not (bybit_ok or bybit_region_restricted):
+              raise SystemExit(f'Bybit failed for an unexpected reason: {bybit}')
           if data.get('localInstallRequired') is not False:
               raise SystemExit('local install unexpectedly required')
           PY
