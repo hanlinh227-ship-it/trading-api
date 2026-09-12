@@ -28,7 +28,9 @@ def _repo(path: Path) -> StackHubRepository:
     return repo
 
 
-def _allowed_claim_diagnostics(repo: StackHubRepository) -> tuple[dict[str, int], list[dict[str, object]]]:
+def _allowed_claim_diagnostics(
+    repo: StackHubRepository,
+) -> tuple[dict[str, int], list[dict[str, object]], list[dict[str, object]]]:
     count_rows = repo.conn.execute(
         """SELECT c.state, COUNT(*) AS n
         FROM claims c
@@ -47,8 +49,26 @@ def _allowed_claim_diagnostics(repo: StackHubRepository) -> tuple[dict[str, int]
         ORDER BY c.id DESC
         LIMIT 20"""
     ).fetchall()
+    retryable_rows = repo.conn.execute(
+        """SELECT
+            c.source,
+            c.opportunity_id,
+            c.state,
+            c.retry_count,
+            c.next_retry_at,
+            c.last_error_code,
+            substr(c.last_error_message, 1, 240) AS last_error_message,
+            c.updated_at AS claim_updated_at
+        FROM claims c
+        JOIN opportunities o ON o.source=c.source AND o.id=c.opportunity_id
+        WHERE o.policy_allowed=1
+          AND c.state='FAILED_RETRYABLE'
+        ORDER BY c.id DESC
+        LIMIT 20"""
+    ).fetchall()
     blocked = [dict(row) for row in blocked_rows]
-    return counts, blocked
+    retryable = [dict(row) for row in retryable_rows]
+    return counts, blocked, retryable
 
 
 async def _close_adapters(adapters: dict[str, object]) -> None:
@@ -115,12 +135,17 @@ def status(
         dry_run = cfg.dry_run or not cfg.worker_enabled
         mode = "DRY-RUN" if dry_run else "LIVE-CANDIDATE"
         mutation_status = "claims/submissions disabled" if dry_run else "capability-gated"
-        allowed_claim_state_counts, blocked_allowed_claims = _allowed_claim_diagnostics(repo)
+        (
+            allowed_claim_state_counts,
+            blocked_allowed_claims,
+            retryable_allowed_claims,
+        ) = _allowed_claim_diagnostics(repo)
         report = {
             "mode": mode,
             "mutation_status": mutation_status,
             "allowed_claim_state_counts": allowed_claim_state_counts,
             "blocked_allowed_claims": blocked_allowed_claims,
+            "retryable_allowed_claims": retryable_allowed_claims,
             **status_dict(build_status(repo)),
         }
         typer.echo(json.dumps(redact(report), sort_keys=True, default=str))
