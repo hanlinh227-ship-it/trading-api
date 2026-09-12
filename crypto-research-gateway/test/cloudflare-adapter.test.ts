@@ -21,6 +21,18 @@ function fakeRuntime() {
   };
 }
 
+function degradedRuntime() {
+  return {
+    getLastProbeAt: () => 1_000,
+    getHealth: () => ({
+      bybit: { ok: false, checkedAt: 1_000, error: 'provider_bridge_fetch_failed' },
+      binance: { ok: true, checkedAt: 1_000 },
+    }),
+    probeAll: async () => ({}),
+    runMarket: async () => ({ ok: false, degraded: true, error: 'provider_bridge_fetch_failed' }),
+  };
+}
+
 describe('Cloudflare research gateway adapter', () => {
   it('returns null for unrelated routes so existing trading handlers remain authoritative', async () => {
     const handle = createResearchGatewayHandler({ runtime: fakeRuntime() as never, now: () => 2_000 });
@@ -68,5 +80,66 @@ describe('Cloudflare research gateway adapter', () => {
     expect(body.echo.symbol).toBe('BTCUSDT');
     expect(body.echo.side).toBe('LONG');
     expect(body.echo.executionVenue).toBe('bybit');
+  });
+
+  it('fails over only a degraded Bybit-bound request through the Railway safety path', async () => {
+    let fallbackCalls = 0;
+    const fallbackFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      fallbackCalls += 1;
+      expect(String(input)).toBe('https://crypto-research-gateway-prod-production.up.railway.app/research/market');
+      expect(init?.method).toBe('POST');
+      const requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      expect(requestBody.executionVenue).toBe('bybit');
+      return new Response(JSON.stringify({
+        ok: true,
+        degraded: false,
+        executionQuote: {
+          executionVerified: true,
+          status: 'OK',
+          venue: 'bybit',
+          instrument: 'perpetual',
+          side: 'LONG',
+          bid: 100,
+          ask: 101,
+          executablePrice: 101,
+          quoteAgeMs: 25,
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    const handle = createResearchGatewayHandler({
+      runtime: degradedRuntime() as never,
+      now: () => 2_000,
+      fallbackFetch,
+    });
+    const response = await handle(new Request('https://worker.test/research/market', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'execution_quote', symbol: 'BTCUSDT', instrument: 'perpetual', side: 'LONG', executionVenue: 'bybit' }),
+    }), { RUNTIME_REVISION: 'sha-1' });
+    expect(response?.status).toBe(200);
+    const body = await response?.json() as Record<string, unknown>;
+    expect(body.ok).toBe(true);
+    expect(body.edgeRuntimeProvider).toBe('cloudflare-workers');
+    expect(body.upstreamFallback).toBe('railway');
+    expect(fallbackCalls).toBe(1);
+  });
+
+  it('never sends a degraded Binance-bound request to the Railway Bybit fallback', async () => {
+    let fallbackCalls = 0;
+    const handle = createResearchGatewayHandler({
+      runtime: degradedRuntime() as never,
+      now: () => 2_000,
+      fallbackFetch: async () => {
+        fallbackCalls += 1;
+        return new Response('{}', { status: 500 });
+      },
+    });
+    const response = await handle(new Request('https://worker.test/research/market', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'execution_quote', symbol: 'BTCUSDT', instrument: 'perpetual', side: 'LONG', executionVenue: 'binance' }),
+    }), { RUNTIME_REVISION: 'sha-1' });
+    expect(response?.status).toBe(503);
+    expect(fallbackCalls).toBe(0);
   });
 });
