@@ -1,68 +1,74 @@
-# Crypto Agent Skills — Research-Only Setup
+# Crypto Agent Skills — Zero-Local Research Runtime
 
 Setup date: 2026-09-12
 
-Status: **GITHUB REGISTRY INTEGRATED / RESEARCH-ONLY**
+Status: **GITHUB BRAIN + CLOUD RUNTIME / RESEARCH-ONLY**
 
-This workspace is intentionally configured as a documentation, routing, and safety layer for crypto-market research. It does **not** activate live-trading credentials, wallet authentication, withdrawals, swaps, bridges, transaction broadcasting, payments, or automated order placement.
+Normal crypto research does **not** require Node, npm, Python, provider skill packages, exchange CLIs, or a local MCP server on the user's computer.
 
-## GitHub Brain integration
+## Runtime path
 
-The repository-level skill registry is integrated on branch `crypto-agent-registry-v4`:
+```text
+User / ChatGPT
+  -> GitHub checkpoint
+  -> skill registry + task_router
+  -> canonical reasoning skill
+  -> approved RESEARCH_SAFE capability
+  -> Railway crypto-research-gateway
+  -> public first-party provider API
+  -> normalized evidence + conflict policy
+  -> answer
+```
 
-- `AI_SKILL_LIBRARY/checkpoint.json` exposes the current registry, provider-registry, conflict-policy, source-registry and validator pointers.
-- `AI_SKILL_LIBRARY/skills/registry/index.yaml` is the small lookup surface consulted by `task_router` for every request.
-- `AI_SKILL_LIBRARY/skills/providers/crypto_agents.yaml` normalizes Binance, OKX, Bybit, Gate, KuCoin and Coinbase provider capabilities.
-- `AI_SKILL_LIBRARY/skills/registry/conflict_policy.yaml` prevents majority-vote/averaging conflicts and applies authority/freshness/semantic reconciliation.
-- `AI_SKILL_LIBRARY/sources/crypto_agent_official.yaml` records official provider sources as reference-only, training disabled.
-- `AI_SKILL_LIBRARY/validate_skill_registry.py` and `.github/workflows/crypto-skill-registry-validate.yml` enforce safety and regression invariants.
+GitHub remains the canonical control plane. Railway is execution only. Provider output is evidence, not independent reasoning authority.
 
-Provider capabilities are metadata/evidence adapters only. They do not become independent reasoning authorities and do not replace the existing one-primary-skill + bounded-supporting-skills route.
+## Canonical files
 
-## Workspace
+- `AI_SKILL_LIBRARY/checkpoint.json` — discovery root.
+- `AI_SKILL_LIBRARY/skills/registry/index.yaml` — lightweight lookup for every request.
+- `AI_SKILL_LIBRARY/skills/providers/crypto_agents.yaml` — provider capability identity/risk metadata.
+- `AI_SKILL_LIBRARY/skills/registry/conflict_policy.yaml` — semantic normalization and conflict handling.
+- `AI_SKILL_LIBRARY/skills/registry/runtime_policy.yaml` — zero-local execution precedence.
+- `AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml` — cloud runtime manifest.
+- `crypto-research-gateway/` — read-only Node.js 22 cloud gateway.
 
-- `docs/` — official-source notes and capability references.
-- `config/` — explicit research allowlist and HIGH-RISK blocklist.
-- `notes/` — operator notes/checkpoint area; no secrets allowed.
-- `INSTALLED_SKILLS_REPORT.md` — provider/capability status matrix.
-- `AGENT_USAGE_GUIDE.md` — Vietnamese research workflows and prompt templates.
-- `SETUP_ERRORS.md` — unresolved local-runtime checks and setup errors.
-- `SAFETY_RULES.md` — mandatory operating rules.
+## Provider execution state
 
-## Current preparation state
+| Provider | GitHub registry | Default cloud research |
+|---|---|---|
+| Binance | integrated | public market data enabled |
+| OKX | integrated | public CEX market data enabled |
+| Bybit | integrated | public market data enabled only where the cloud region is permitted by Bybit; regional 403 is reported explicitly and is never bypassed |
+| Gate | integrated | public market data enabled |
+| KuCoin | integrated | public market data enabled |
+| Coinbase | integrated | reference/query metadata only until a clearly isolated credentialless read adapter is approved |
 
-| Provider | GitHub registry | Research scope prepared | Live execution |
-|---|---|---|---|
-| Binance | integrated | market rank, token info, token audit, address info, signal research | disabled |
-| OKX CEX | integrated | public market data and read-only analysis | disabled |
-| OKX OnchainOS | integrated | DEX/on-chain research metadata; auth-read-only gated | wallet/action paths disabled |
-| Bybit | integrated | public Market module separated from mixed write modules | spot/derivatives/account/earn/actions disabled |
-| Gate | integrated | public market, info, news, docs and research skills | exchange/DEX action endpoints disabled |
-| KuCoin | integrated | current GET/read-only Skills Hub + future write guard | write actions quarantined if upstream changes |
-| Coinbase | integrated | query reference metadata | wallet/auth/send/trade/pay/onchain actions disabled |
+## Cloud capabilities
 
-`installed` is reserved for a package/skill that has actually been installed and verified in the user's local agent runtime. Repository registry integration does not imply local CLI/package installation. Local-runtime components remain `prepared` until verified on the actual Mac/Windows/Linux host.
+Executable default research surface:
+- market snapshot;
+- candles/K-line;
+- order book;
+- derivatives funding/open-interest context where the provider exposes it publicly.
+
+The remote MCP surface exposes only read-only tool names. Token/news/risk tools that do not yet have a safe public adapter return `capability_not_available` rather than simulated data.
+
+## Restrictions
+
+`AUTH_READ_ONLY` remains disabled until separate credential authorization. If enabled later, secrets must live only in cloud secret storage with read/query scope and no withdrawal/write permission.
+
+`HIGH_RISK` has no executable zero-local route. This includes live orders, cancel/amend/close, leverage/account mutation, wallet actions, transfers, withdrawals, swaps, bridges, transaction signing/broadcasting, payments and DeFi/earn financial actions.
 
 ## Conflict handling
 
-The system does not combine contradictory provider opinions by voting. It first normalizes token identity, chain, venue, instrument type, quote currency, price semantics, timestamps/windows and units. Then it applies current runtime/project authority and current first-party evidence precedence. Material unresolved conflict is disclosed and blocks dependent high-consequence conclusions.
+Provider results are not votes. The gateway preserves venue/instrument/price semantics/timestamps, and the Brain applies `conflict_policy.yaml`. Spot/perpetual and last/mark/index are never silently merged. Material unresolved divergence blocks the dependent high-consequence conclusion.
 
-A credible security/risk warning is asymmetric: a benign result from another provider does not automatically cancel the warning.
+## Credentials
 
-## Credential policy
+Default public research uses no exchange API key. No API secret, private key, seed phrase, OAuth token or wallet credential belongs in GitHub.
 
-No real API key, API secret, private key, seed phrase, passphrase, OAuth token, session token, or wallet credential has been added by this setup.
+## Local installation
 
-If authenticated read-only data is required later, use the minimum possible permissions, preferably a dedicated sub-account/API key with **no withdrawal permission**. Live trading remains a separate HIGH-RISK activation that requires a new explicit authorization.
+**Required for normal research: NO.**
 
-## Verification
-
-GitHub Actions regression CI validates:
-- skill-registry safety tests;
-- provider registry invariants;
-- Brain validator;
-- router validator;
-- V4 validator;
-- authority validator.
-
-Local environment/version checks remain documented in `SETUP_ERRORS.md` because a hosted ChatGPT session cannot prove the user's actual local CLI installation state.
+Local diagnostics in older setup notes are developer troubleshooting only and are not part of the runtime path.

@@ -1,0 +1,100 @@
+name: Zero Local Cloud Runtime
+
+on:
+  push:
+    branches:
+      - zero-local-cloud-runtime-20260912
+      - main
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'crypto-research-gateway/**'
+      - 'tests/test_cloud_runtime_policy.py'
+      - 'tests/test_zero_local_manifest.py'
+      - '.github/workflows/zero-local-cloud-runtime.yml'
+      - 'AGENTS.md'
+      - 'crypto-agent-skills/**'
+  pull_request:
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'crypto-research-gateway/**'
+      - 'tests/test_cloud_runtime_policy.py'
+      - 'tests/test_zero_local_manifest.py'
+      - '.github/workflows/zero-local-cloud-runtime.yml'
+      - 'AGENTS.md'
+      - 'crypto-agent-skills/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Python validator dependencies
+        run: python -m pip install --disable-pip-version-check pyyaml jsonschema
+      - name: Zero-local policy regression tests
+        run: python -m unittest discover -s tests -p 'test_cloud_runtime_policy.py' -v
+      - name: Zero-local deployment manifest tests
+        run: python -m unittest discover -s tests -p 'test_zero_local_manifest.py' -v
+      - name: Install gateway dependencies in CI
+        working-directory: crypto-research-gateway
+        run: npm install --no-audit --no-fund
+      - name: Gateway behavior tests
+        working-directory: crypto-research-gateway
+        run: npm test
+      - name: Gateway typecheck
+        working-directory: crypto-research-gateway
+        run: npm run typecheck
+      - name: Gateway build
+        working-directory: crypto-research-gateway
+        run: npm run build
+      - name: Validate skill registry
+        run: python AI_SKILL_LIBRARY/validate_skill_registry.py
+      - name: Validate routed Brain compatibility
+        run: python AI_SKILL_LIBRARY/validate_brain.py
+      - name: Validate router schemas
+        run: python AI_SKILL_LIBRARY/validate_router.py
+      - name: Validate V4 LTS
+        run: python AI_SKILL_LIBRARY/validate_v4.py
+      - name: Validate project authority
+        run: python AI_SKILL_LIBRARY/validate_authority.py
+      - name: Live public provider smoke test
+        working-directory: crypto-research-gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=3100 npm start >/tmp/zero-local-gateway.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3100/health > /tmp/zero-local-health.json; then
+              break
+            fi
+            sleep 1
+          done
+          cat /tmp/zero-local-health.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('/tmp/zero-local-health.json').read_text())
+          healthy = set(data.get('healthyProviders', []))
+          required_unrestricted = {'binance', 'okx', 'gate', 'kucoin'}
+          missing = sorted(required_unrestricted - healthy)
+          if missing:
+              raise SystemExit(f'public provider probes failed: {missing}')
+          bybit = data.get('providers', {}).get('bybit', {})
+          bybit_ok = 'bybit' in healthy
+          bybit_region_restricted = bybit.get('error') == 'region_restricted_bybit_cloud_region'
+          if not (bybit_ok or bybit_region_restricted):
+              raise SystemExit(f'Bybit failed for an unexpected reason: {bybit}')
+          if data.get('localInstallRequired') is not False:
+              raise SystemExit('local install unexpectedly required')
+          PY
