@@ -14,11 +14,28 @@ layers:
   episodic: {durable: true, max_items: 30, max_item_tokens: 400}
   semantic: {durable: true, max_items: 50, max_item_tokens: 500}
   procedural: {durable: true, max_items: 30, max_item_tokens: 600}
+semantic_index_adapter:
+  optional: true
+  authority: false
+  allowed_layers: [semantic, procedural, episodic]
+  authority_filter_required: true
+  freshness_filter_required: true
+  metadata_scope_required: true
+  on_unavailable: canonical_ranked_retrieval
+  may_not_write_unverified_content: true
 retrieval:
   FAST: {layers: [], max_items: 0, max_total_tokens: 0}
   STANDARD: {layers: [semantic, procedural, episodic], max_items: 4, max_total_tokens: 1800}
   DEEP: {layers: [semantic, procedural, episodic], max_items: 8, max_total_tokens: 4000}
   ranking: [domain_scope, project_scope, semantic_relevance, freshness, verification, confidence]
+consolidation:
+  enabled: true
+  deduplicate: true
+  require_scope_match: true
+  write_requires: [reusable, verified, scoped, non_sensitive]
+  conflict_action: reverify_or_supersede
+  majority_vote_for_truth: false
+  preserve_provenance: true
 maintenance:
   decay_enabled: true
   decay_protected_for_current_authority: true
