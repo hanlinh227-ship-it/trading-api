@@ -5,7 +5,7 @@
   "scripts": {
     "check": "node validate-worker.mjs && node validate-btc-hyperscale.mjs",
     "prepare:wrangler": "node prepare-wrangler.mjs",
-    "deploy": "npm run check && npm run prepare:wrangler && wrangler deploy",
+    "deploy": "npm run check && npm run prepare:wrangler && wrangler deploy --dry-run",
     "preview": "npm run check && npm run prepare:wrangler && wrangler versions upload"
   },
   "devDependencies": {
