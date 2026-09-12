@@ -10,6 +10,7 @@ Read-only cloud execution runtime for GitHub Brain crypto research.
 - MCP TypeScript SDK v2 Streamable HTTP
 - Railway deployment from GitHub
 - production replica pinned to Railway Southeast Asia
+- production source tracks canonical GitHub `main` with automatic deploys; normal operation must not pin a commit SHA
 - no local user installation required
 
 ## HTTP surface
@@ -93,7 +94,7 @@ Default public research uses zero exchange credentials. Future authenticated rea
 
 Pre-merge verification runs the exact feature-branch build in GitHub Actions. CI validates policy, unit behavior, typecheck/build, Brain/registry/router/V4/authority contracts, public provider health, and live venue-bound execution quotes. GitHub-hosted US runners may classify Bybit or Binance Futures as explicitly region-restricted; only the exact known restriction classifications are accepted, and no proxy or geographic bypass is used.
 
-Railway production is sourced from the canonical repository `main` branch and runs in Southeast Asia. `/health` exposes the nonsecret `RAILWAY_GIT_COMMIT_SHA` as `deploymentCommitSha`, allowing post-merge CI to wait for the exact production revision rather than smoke-testing an older deployment.
+Railway production is sourced from the canonical repository `main` branch, deploys automatically from GitHub pushes that affect the service root, and runs in Southeast Asia. Manual exact-commit pins are recovery-only and do not satisfy the normal production deployment contract. `/health` exposes the nonsecret `RAILWAY_GIT_COMMIT_SHA` as `deploymentCommitSha`, allowing post-merge CI to wait for the exact GitHub-triggered production revision rather than smoke-testing an older deployment.
 
 After every relevant push to `main`, the production smoke job waits for `deploymentCommitSha == GITHUB_SHA`, confirms the Railway upstream zone is Southeast Asia, verifies `/capabilities` remains read-only, and POSTs live `execution_quote` requests for BTCUSDT and SOLUSDT against both Bybit Linear and Binance USD-M. Both venues must return verified bid/ask execution quotes within the 5-second hard freshness gate.
 
