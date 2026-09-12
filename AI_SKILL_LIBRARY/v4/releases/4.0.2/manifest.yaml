@@ -1,0 +1,16 @@
+version: 4.0.2
+architecture: GITHUB_BRAIN_V4
+files:
+  - {path: AI_SKILL_LIBRARY/v4/stable/kernel.yaml, sha256: 3592e703b543b5485cefa9bbcb2e3fd39a2ca509387ab01788028c4d1c970cb7, role: kernel}
+  - {path: AI_SKILL_LIBRARY/v4/stable/runtime.yaml, sha256: 70a3f3dcb9091d68c36a6ffd0eb1e6aa858f365f8f8cccdeed15a95024052478, role: runtime}
+  - {path: AI_SKILL_LIBRARY/v4/stable/router.yaml, sha256: 52fd4a1cdf090545d36ab4c09dda72d562dd2f972e6d7824e6f4343a81e21f8c, role: router}
+  - {path: AI_SKILL_LIBRARY/v4/mesh/graph.yaml, sha256: 1862eb2eeb82f33dc5cca58a8f19fa23e9ab6f86be14cbd34ee8596e994e0ea4, role: mesh}
+  - {path: AI_SKILL_LIBRARY/v4/evergreen/policy.yaml, sha256: fdd3bab4fb794970cc561d281009e1c7e961154ace2d2632acbe0ff57d43e209, role: evergreen}
+  - {path: AI_SKILL_LIBRARY/v4/stable/security.yaml, sha256: 548f818e974d22d967315ebb9609694679f991e372c61cb3e94da5d82fe9c7d3, role: security}
+  - {path: AI_SKILL_LIBRARY/v4/stable/cognitive_harmonization.yaml, sha256: 72b97c95c4c34d4746619c4fc49bd03f564f055a13df92a289982f6e86b50af5, role: cognitive_harmonization}
+compatibility:
+  min_architecture: 4.0.0
+promotion:
+  class: feature
+  validated: true
+  source: cognitive_harmonization

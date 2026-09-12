@@ -7,12 +7,21 @@ Canonical **GitHub-first** AI-brain authority for `hanlinh227-ship-it/trading-ap
 1. Read `AI_SKILL_LIBRARY/checkpoint.json`.
 2. Resolve `release_pointer_path` to `AI_SKILL_LIBRARY/v4/releases/current.json`.
 3. Verify the selected immutable release manifest before use.
-4. Resolve `skill_registry_index_path` and perform the lightweight registry-index lookup required for every request; do not preload provider detail.
-5. Route every request through V4 Stable `task_router` and exactly one FAST/STANDARD/DEEP profile.
-6. Load one primary Knowledge Mesh domain and only explicitly permitted bridges.
-7. Load project authority only when the routed domain requires it. Trading authority remains external to Brain at `docs/checkpoints/CURRENT_HANDOFF.md`.
-8. After domain selection, lazy-load only the relevant provider/source registry declared by the checkpoint or domain pack. Provider capabilities are evidence/tool metadata, not reasoning authority.
-9. Use `AI_SKILL_LIBRARY/sources.yaml` plus checkpoint-declared bounded source subregistries; source entries never outrank current project/runtime authority.
+4. Resolve `cognitive_harmonization_path`; treat it as Stable reasoning-method policy, never as a second authority.
+5. Resolve `skill_registry_index_path` and perform the lightweight registry-index lookup required for every request; do not preload provider detail.
+6. Route every request through V4 Stable `task_router` and exactly one FAST/STANDARD/DEEP profile.
+7. Load one primary Knowledge Mesh domain and only explicitly permitted bridges.
+8. Load project authority only when the routed domain requires it. Trading authority remains external to Brain at `docs/checkpoints/CURRENT_HANDOFF.md`.
+9. After domain selection, lazy-load only the relevant provider/source registry declared by the checkpoint or domain pack. Provider capabilities are evidence/tool metadata, not reasoning authority.
+10. Use `AI_SKILL_LIBRARY/sources.yaml` plus checkpoint-declared bounded source subregistries; source entries never outrank current project/runtime authority.
+
+## Cognitive harmonization
+
+The Stable policy may combine bounded reasoning methods without creating competing authorities. FAST keeps harmonization disabled. STANDARD may run a single checker on demand. DEEP may use maker/checker plus an independent grader, bounded by the runtime budgets and the harmonization repeat cap.
+
+External frameworks such as Groktopus are reference inputs only. They can contribute patterns such as bounded agent loops, independent grading, maker/checker separation, verified distillation, and artifact pyramids, but they never outrank current runtime, project authority, Stable security, or verified evidence.
+
+Evidence harmonization normalizes claims before comparison, preserves provenance/freshness, forbids majority-vote truth and silent averaging, and blocks high-consequence dependent conclusions when material conflicts remain unresolved. Artifact shaping may present `summary -> analysis -> evidence dossier`, but formatting never overrides authority or verification.
 
 ## Skill Registry
 
