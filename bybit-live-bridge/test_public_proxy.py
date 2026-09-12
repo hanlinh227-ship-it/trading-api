@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
 import importlib.util
-import io
 import json
-import os
 import pathlib
 import unittest
 from unittest.mock import patch
 
-os.environ.setdefault('BYBIT_DYNAMIC_WS_DISCOVERY', 'false')
-os.environ.setdefault('BYBIT_VPS_BRIDGE_SECRET', 'test-secret')
-
-MODULE_PATH = pathlib.Path(__file__).with_name('bybit_live_bridge.py')
-spec = importlib.util.spec_from_file_location('bybit_live_bridge_under_test', MODULE_PATH)
-bridge = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(bridge)
+MODULE_PATH = pathlib.Path(__file__).with_name('bybit_public_proxy.py')
+spec = importlib.util.spec_from_file_location('bybit_public_proxy_under_test', MODULE_PATH)
+proxy = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(proxy)
 
 
 class FakeResponse:
@@ -36,8 +31,8 @@ class PublicBybitProxyTests(unittest.TestCase):
             seen['headers'] = {k.lower(): v for k, v in req.headers.items()}
             seen['method'] = req.get_method()
             return FakeResponse({'retCode': 0, 'time': 123, 'result': {'list': []}})
-        with patch.object(bridge.urllib.request, 'urlopen', fake_urlopen):
-            status, payload = bridge.bybit_public_proxy('/v5/market/tickers', 'category=linear&symbol=BTCUSDT')
+        with patch.object(proxy.urllib.request, 'urlopen', fake_urlopen):
+            status, payload = proxy.bybit_public_proxy('/v5/market/tickers', 'category=linear&symbol=BTCUSDT')
         self.assertEqual(status, 200)
         self.assertEqual(payload['retCode'], 0)
         self.assertEqual(seen['method'], 'GET')
@@ -47,12 +42,12 @@ class PublicBybitProxyTests(unittest.TestCase):
 
     def test_rejects_non_market_paths(self):
         for path in ['/v5/order/realtime', '/v5/position/list', '/v5/account/wallet-balance']:
-            status, payload = bridge.bybit_public_proxy(path, 'category=linear')
+            status, payload = proxy.bybit_public_proxy(path, 'category=linear')
             self.assertEqual(status, 403)
             self.assertEqual(payload['error'], 'BYBIT_PUBLIC_PATH_NOT_ALLOWED')
 
     def test_rejects_arbitrary_url_or_host(self):
-        status, payload = bridge.bybit_public_proxy('https://evil.example/v5/market/tickers', 'category=linear')
+        status, payload = proxy.bybit_public_proxy('https://evil.example/v5/market/tickers', 'category=linear')
         self.assertEqual(status, 403)
         self.assertEqual(payload['error'], 'BYBIT_PUBLIC_PATH_NOT_ALLOWED')
 
@@ -63,7 +58,7 @@ class PublicBybitProxyTests(unittest.TestCase):
             'category=linear&bad%20key=x',
         ]
         for query in bad_queries:
-            status, payload = bridge.bybit_public_proxy('/v5/market/tickers', query)
+            status, payload = proxy.bybit_public_proxy('/v5/market/tickers', query)
             self.assertEqual(status, 400)
             self.assertEqual(payload['error'], 'BYBIT_PUBLIC_QUERY_INVALID')
 
