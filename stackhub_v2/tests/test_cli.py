@@ -98,19 +98,13 @@ def test_status_exposes_retryable_claim_diagnostics(tmp_path):
         ),
     )
     repo.conn.execute(
-        """INSERT INTO claims(
-            source,opportunity_id,state,updated_at,retry_count,next_retry_at,
-            last_error_code,last_error_message
-        ) VALUES(?,?,?,?,?,?,?,?)""",
+        "INSERT INTO claims(source,opportunity_id,state,updated_at,last_error_code) VALUES(?,?,?,?,?)",
         (
             "taskforce",
             "tf-retryable",
             "FAILED_RETRYABLE",
             "2026-09-11T20:00:00+00:00",
-            3,
-            "2026-09-11T20:05:00+00:00",
-            "http_503",
-            "temporary upstream failure",
+            "http_503:http_503",
         ),
     )
     repo.conn.commit()
@@ -127,11 +121,9 @@ def test_status_exposes_retryable_claim_diagnostics(tmp_path):
             "source": "taskforce",
             "opportunity_id": "tf-retryable",
             "state": "FAILED_RETRYABLE",
-            "retry_count": 3,
-            "next_retry_at": "2026-09-11T20:05:00+00:00",
-            "last_error_code": "http_503",
-            "last_error_message": "temporary upstream failure",
+            "last_error_code": "http_503:http_503",
             "claim_updated_at": "2026-09-11T20:00:00+00:00",
+            "retry_cooldown_seconds": 300,
         }
     ]
 
