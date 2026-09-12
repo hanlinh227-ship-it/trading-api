@@ -14,24 +14,53 @@ jobs:
   diagnose:
     runs-on: [self-hosted, Linux, X64, trading-vps]
     timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
+      V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
     steps:
-      - name: Inspect bridge permissions and existing sudo contract
+      - name: Compare runner with configured VPC origin
         shell: bash
         run: |
-          set +e
-          echo "RUNNER_USER=$(id -un)"
-          id
+          set -euo pipefail
+          SERVICE_ID="${AI_BRIDGE_SERVICE_ID:-${V11_AI_BRIDGE_SERVICE_ID:-}}"
+          RAW="$(curl -fsS --connect-timeout 5 --max-time 20 \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/connectivity/directory/services/$SERVICE_ID")"
+          LOCAL_IPS="$(hostname -I 2>/dev/null || true)"
+          RAW="$RAW" LOCAL_IPS="$LOCAL_IPS" python3 - <<'PY'
+          import json,os,ipaddress
+          x=json.loads(os.environ['RAW']); r=x.get('result') or {}; h=r.get('host') or {}
+          origin=str(h.get('ipv4') or h.get('ipv6') or '')
+          local={z for z in os.environ.get('LOCAL_IPS','').split() if z}
+          loop=False
+          try: loop=ipaddress.ip_address(origin).is_loopback
+          except Exception: loop=(str(h.get('hostname') or '').lower()=='localhost')
+          network=h.get('network') or h.get('resolver_network') or {}
+          print(json.dumps({
+            'apiSuccess':x.get('success') is True,
+            'serviceType':r.get('type'),
+            'httpPort':r.get('http_port'),
+            'hostKind':'ipv4' if h.get('ipv4') else ('ipv6' if h.get('ipv6') else ('hostname' if h.get('hostname') else 'unknown')),
+            'originIsLoopback':loop,
+            'originMatchesLocalInterface':origin in local if origin else False,
+            'hasTunnel':bool(network.get('tunnel_id')),
+          },sort_keys=True))
+          PY
+          echo '--- local bridge state ---'
+          python3 - <<'PY'
+          import os,subprocess,json
+          def exists(p): return os.path.exists(p)
+          def writable(p): return os.access(p,os.W_OK)
+          out={'appDirExists':exists('/opt/bybit-btc-bridge'),'appDirWritable':writable('/opt/bybit-btc-bridge'),'unitExists':exists('/etc/systemd/system/bybit-btc-bridge.service'),'envExists':exists('/etc/bybit-btc-bridge.env')}
+          try:
+            s=subprocess.run(['systemctl','is-active','bybit-btc-bridge.service'],capture_output=True,text=True,timeout=3)
+            out['serviceState']=(s.stdout or s.stderr).strip()
+          except Exception as e: out['serviceState']='probe_error'
+          print(json.dumps(out,sort_keys=True))
+          PY
+          echo '--- tunnel process ---'
+          if pgrep -x cloudflared >/dev/null 2>&1; then echo 'CLOUDFLARED_RUNNING=true'; else echo 'CLOUDFLARED_RUNNING=false'; fi
           echo '--- sudo contract ---'
           sudo -n -l
-          echo '--- bridge paths ---'
-          ls -ld /opt /opt/bybit-btc-bridge /etc/systemd/system/bybit-btc-bridge.service /etc/bybit-btc-bridge.env 2>&1 || true
-          find /opt/bybit-btc-bridge -maxdepth 1 -type f -printf '%M %u:%g %p\n' 2>&1 | sort || true
-          echo '--- write probes without mutation ---'
-          test -w /opt/bybit-btc-bridge; echo "APP_DIR_WRITABLE=$?"
-          test -w /opt/bybit-btc-bridge/bybit_live_bridge.py; echo "BRIDGE_FILE_WRITABLE=$?"
-          test -w /etc/systemd/system/bybit-btc-bridge.service; echo "UNIT_WRITABLE=$?"
-          echo '--- process/service ---'
-          systemctl is-active bybit-btc-bridge.service 2>&1 || true
-          systemctl show bybit-btc-bridge.service -p MainPID -p User -p Group -p ExecStart -p FragmentPath --no-pager 2>&1 || true
-          ps -eo user:20,pid,ppid,cmd | grep -E '[b]ybit_(live|public)_bridge|[a]ctions-runner' || true
-          exit 0
