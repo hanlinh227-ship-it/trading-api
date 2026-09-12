@@ -9,10 +9,11 @@ afterEach(() => {
 describe('Web runtime compatibility', () => {
   it('parses provider JSON without requiring the Node Buffer global', async () => {
     vi.stubGlobal('Buffer', undefined);
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true }), {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
       status: 200,
-      headers: { 'content-type': 'application/json' },
-    })));
+      text: async () => JSON.stringify({ ok: true }),
+    })) as unknown as typeof fetch);
 
     await expect(fetchJson('https://example.test/market')).resolves.toEqual({ ok: true });
   });
