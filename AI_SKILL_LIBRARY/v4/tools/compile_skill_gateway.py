@@ -112,7 +112,10 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
     for domain, ids in domain_routes.items():
         if not isinstance(ids, list):
             raise ValueError(f"domain route must be a list: {domain}")
-        normalized_domains[str(domain)] = []
+        domain = str(domain)
+        if domain not in manifests:
+            raise ValueError(f"stable router references domain without V4 manifest: {domain}")
+        normalized_domains[domain] = []
         for sid in ids:
             sid = str(sid)
             if sid == "task_router":
@@ -121,11 +124,14 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
                 raise ValueError(f"domain {domain} references unknown skill {sid}")
             if sid in skill_domain and skill_domain[sid] != domain:
                 raise ValueError(f"skill {sid} appears in multiple primary domains")
-            skill_domain[sid] = str(domain)
-            normalized_domains[str(domain)].append(sid)
+            skill_domain[sid] = domain
+            normalized_domains[domain].append(sid)
 
-    # Infrastructure skill still receives a capsule but is never a primary candidate.
+    if "task_router" not in catalog_by_id:
+        raise ValueError("task_router missing from canonical catalog")
+    # Infrastructure skill receives a capsule but is never a primary candidate.
     skill_domain["task_router"] = "core"
+    selectable_ids = set(skill_domain)
 
     alias_rows = aliases_data.get("aliases", {})
     if not isinstance(alias_rows, dict):
@@ -133,6 +139,8 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
     for sid in alias_rows:
         if sid not in catalog_by_id:
             raise ValueError(f"routing alias references unknown skill: {sid}")
+        if sid not in selectable_ids:
+            raise ValueError(f"routing alias references non-routable skill: {sid}")
 
     normalized_aliases: dict[str, list[str]] = {
         sid: sorted({_norm(value) for value in values if _norm(value)})
@@ -142,17 +150,14 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
 
     skills: dict[str, dict] = {}
     capsules: dict[str, dict] = {}
-    for sid in sorted(catalog_by_id):
+    for sid in sorted(selectable_ids):
         row = catalog_by_id[sid]
-        domain = skill_domain.get(sid)
-        if not domain:
-            # Keep catalog-only compatibility skills selectable only through safe core fallback rules.
-            domain = "core"
+        domain = skill_domain[sid]
         manifest = manifests.get(domain)
         if manifest is None:
             raise ValueError(f"missing V4 manifest for domain {domain} (skill {sid})")
         manifest_skills = {str(value) for value in manifest.get("skills", [])}
-        if sid not in manifest_skills and sid != "task_router":
+        if sid not in manifest_skills:
             raise ValueError(f"domain manifest {domain} does not declare skill {sid}")
 
         meta = {
