@@ -71,7 +71,7 @@ jobs:
         run: python AI_SKILL_LIBRARY/validate_v4.py
       - name: Validate project authority
         run: python AI_SKILL_LIBRARY/validate_authority.py
-      - name: Live public provider smoke test
+      - name: Live public provider and execution quote smoke test
         working-directory: crypto-research-gateway
         shell: bash
         run: |
@@ -103,3 +103,76 @@ jobs:
           if data.get('localInstallRequired') is not False:
               raise SystemExit('local install unexpectedly required')
           PY
+
+          for SYMBOL in BTCUSDT SOLUSDT; do
+            curl --fail --silent \
+              -H 'content-type: application/json' \
+              -d "{\"action\":\"execution_quote\",\"symbol\":\"${SYMBOL}\",\"instrument\":\"perpetual\",\"side\":\"LONG\",\"executionVenue\":\"binance\"}" \
+              http://127.0.0.1:3100/research/market > "/tmp/binance-${SYMBOL}.json"
+          done
+
+          python - <<'PY'
+          import json, math
+          from pathlib import Path
+          for symbol in ('BTCUSDT', 'SOLUSDT'):
+              data = json.loads(Path(f'/tmp/binance-{symbol}.json').read_text())
+              quote = data.get('executionQuote', {})
+              if data.get('ok') is not True:
+                  raise SystemExit(f'{symbol}: execution quote not ok: {data}')
+              if quote.get('venue') != 'binance' or quote.get('instrumentType') != 'perpetual':
+                  raise SystemExit(f'{symbol}: venue/instrument mismatch: {quote}')
+              if quote.get('executableSemantic') != 'ask':
+                  raise SystemExit(f'{symbol}: LONG did not use ask: {quote}')
+              if quote.get('executionVerified') is not True or quote.get('status') != 'OK':
+                  raise SystemExit(f'{symbol}: execution quote not verified: {quote}')
+              bid = float(quote.get('bid', 0))
+              ask = float(quote.get('ask', 0))
+              age = float(quote.get('quoteAgeMs', 1e18))
+              spread = float(quote.get('spreadBps', math.nan))
+              if not (bid > 0 and ask > 0 and bid <= ask):
+                  raise SystemExit(f'{symbol}: invalid bid/ask: {quote}')
+              if not (0 <= age <= 5000):
+                  raise SystemExit(f'{symbol}: quoteAgeMs outside hard freshness gate: {quote}')
+              if not (math.isfinite(spread) and spread >= 0):
+                  raise SystemExit(f'{symbol}: invalid spreadBps: {quote}')
+              if int(quote.get('sourceTimestampMs', 0)) <= 0 or int(quote.get('receivedTimestampMs', 0)) <= 0:
+                  raise SystemExit(f'{symbol}: invalid timestamps: {quote}')
+          PY
+
+          python - <<'PY' > /tmp/bybit-smoke-mode
+          import json
+          from pathlib import Path
+          data = json.loads(Path('/tmp/zero-local-health.json').read_text())
+          healthy = set(data.get('healthyProviders', []))
+          if 'bybit' in healthy:
+              print('live')
+          elif data.get('providers', {}).get('bybit', {}).get('error') == 'region_restricted_bybit_cloud_region':
+              print('region_restricted')
+          else:
+              print('unexpected')
+          PY
+
+          BYBIT_MODE="$(cat /tmp/bybit-smoke-mode)"
+          if [ "$BYBIT_MODE" = "live" ]; then
+            curl --fail --silent \
+              -H 'content-type: application/json' \
+              -d '{"action":"execution_quote","symbol":"BTCUSDT","instrument":"perpetual","side":"SHORT","executionVenue":"bybit"}' \
+              http://127.0.0.1:3100/research/market > /tmp/bybit-BTCUSDT.json
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('/tmp/bybit-BTCUSDT.json').read_text())
+          quote = data.get('executionQuote', {})
+          if data.get('ok') is not True or quote.get('executionVerified') is not True:
+              raise SystemExit(f'Bybit execution quote not verified: {data}')
+          if quote.get('venue') != 'bybit' or quote.get('executableSemantic') != 'bid':
+              raise SystemExit(f'Bybit SHORT did not use Bybit bid: {quote}')
+          if not (0 <= float(quote.get('quoteAgeMs', 1e18)) <= 5000):
+              raise SystemExit(f'Bybit quote stale: {quote}')
+          PY
+          elif [ "$BYBIT_MODE" = "region_restricted" ]; then
+            echo 'Bybit live execution smoke skipped only because CI cloud region is explicitly restricted by Bybit.'
+          else
+            echo 'Unexpected Bybit health classification.' >&2
+            exit 1
+          fi
