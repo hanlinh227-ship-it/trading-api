@@ -20,6 +20,7 @@ from .solvers.command import CommandSolver
 from .telemetry import redact
 
 app = typer.Typer(help="STACKHUB V2 continuous multi-source revenue runtime")
+_RETRY_COOLDOWN_SECONDS = 300
 
 
 def _repo(path: Path) -> StackHubRepository:
@@ -54,10 +55,7 @@ def _allowed_claim_diagnostics(
             c.source,
             c.opportunity_id,
             c.state,
-            c.retry_count,
-            c.next_retry_at,
             c.last_error_code,
-            substr(c.last_error_message, 1, 240) AS last_error_message,
             c.updated_at AS claim_updated_at
         FROM claims c
         JOIN opportunities o ON o.source=c.source AND o.id=c.opportunity_id
@@ -67,7 +65,10 @@ def _allowed_claim_diagnostics(
         LIMIT 20"""
     ).fetchall()
     blocked = [dict(row) for row in blocked_rows]
-    retryable = [dict(row) for row in retryable_rows]
+    retryable = [
+        {**dict(row), "retry_cooldown_seconds": _RETRY_COOLDOWN_SECONDS}
+        for row in retryable_rows
+    ]
     return counts, blocked, retryable
 
 
