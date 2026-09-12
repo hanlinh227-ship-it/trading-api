@@ -4,6 +4,7 @@
   "canonical_repo": "hanlinh227-ship-it/trading-api",
   "canonical_branch": "main",
   "checkpoint_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md",
+  "global_checkpoint_path": "AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md",
   "release_pointer_path": "AI_SKILL_LIBRARY/v4/releases/current.json",
   "stable_kernel_path": "AI_SKILL_LIBRARY/v4/stable/kernel.yaml",
   "stable_router_path": "AI_SKILL_LIBRARY/v4/stable/router.yaml",

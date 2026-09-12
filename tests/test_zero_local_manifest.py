@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import unittest
 
 import yaml
@@ -23,8 +24,6 @@ class ZeroLocalManifestTests(unittest.TestCase):
         self.assertNotIn('[deploy.multiRegionConfig."us-', text)
 
     def test_gateway_requires_node_22_or_newer(self):
-        import json
-
         package = json.loads((GATEWAY / "package.json").read_text(encoding="utf-8"))
         self.assertEqual(package["engines"]["node"], ">=22")
 
@@ -62,7 +61,7 @@ class ZeroLocalManifestTests(unittest.TestCase):
         ):
             self.assertIn(required, text)
 
-    def test_main_ci_verifies_exact_railway_production_commit_and_both_execution_venues(self):
+    def test_main_ci_verifies_exact_connector_managed_source_sha_and_both_execution_venues(self):
         text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
         for required in (
             "crypto-research-gateway-prod-production.up.railway.app",
@@ -80,14 +79,39 @@ class ZeroLocalManifestTests(unittest.TestCase):
         self.assertEqual(manifest["service_root"], "crypto-research-gateway")
         self.assertEqual(manifest["health_path"], "/health")
 
-    def test_cloud_runtime_requires_github_main_auto_deploy(self):
+    def test_cloud_runtime_uses_connector_managed_exact_commit_releases(self):
         manifest = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml").read_text(encoding="utf-8"))
         source = manifest["production_source"]
         self.assertEqual(source["provider"], "github")
         self.assertEqual(source["repository"], "hanlinh227-ship-it/trading-api")
         self.assertEqual(source["branch"], "main")
-        self.assertTrue(source["auto_deploy_on_push"])
-        self.assertFalse(source["commit_pin_allowed_in_normal_operation"])
+        self.assertEqual(source["deployment_trigger"], "railway_connector_exact_commit")
+        self.assertFalse(source["auto_deploy_on_push"])
+        self.assertFalse(source["github_app_required"])
+        self.assertFalse(source["user_local_action_required"])
+        self.assertTrue(source["deployment_commit_pin_required"])
+        verification = manifest["production_verification"]
+        self.assertEqual(verification["release_marker"], "live-price-execution-v1")
+        self.assertTrue(verification["railway_success_required"])
+        self.assertEqual(verification["required_execution_venues"], ["bybit", "binance"])
+        self.assertTrue(verification["live_execution_smoke_required"])
+
+    def test_global_checkpoint_is_resolved_for_every_new_work_cycle(self):
+        checkpoint = json.loads((ROOT / "AI_SKILL_LIBRARY/checkpoint.json").read_text(encoding="utf-8"))
+        self.assertEqual(checkpoint["global_checkpoint_path"], "AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md")
+        global_checkpoint = ROOT / checkpoint["global_checkpoint_path"]
+        self.assertTrue(global_checkpoint.is_file())
+        text = global_checkpoint.read_text(encoding="utf-8")
+        for required in (
+            "ZERO_LOCAL_CLOUD_RUNTIME_V1",
+            "crypto-research-gateway-prod",
+            "live-price-execution-v1",
+            "railway_connector_exact_commit",
+            "HIGH_RISK",
+        ):
+            self.assertIn(required, text)
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md", agents)
 
 
 if __name__ == "__main__":

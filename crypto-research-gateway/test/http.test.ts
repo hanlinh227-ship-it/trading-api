@@ -4,6 +4,7 @@ import { buildApp } from '../src/server.js';
 afterEach(() => {
   delete process.env.TEST_FAKE_SECRET;
   delete process.env.RAILWAY_GIT_COMMIT_SHA;
+  delete process.env.DEPLOYMENT_SOURCE_SHA;
 });
 
 describe('HTTP surface', () => {
@@ -16,12 +17,32 @@ describe('HTTP surface', () => {
     await app.close();
   });
 
-  it('health exposes the nonsecret Railway Git commit for exact production verification', async () => {
-    process.env.RAILWAY_GIT_COMMIT_SHA = 'abc123';
+  it('health exposes a stable production release marker for connector-managed rollout verification', async () => {
     const app = buildApp({ probeOnStart: false });
     const response = await app.inject({ method: 'GET', url: '/health' });
     expect(response.statusCode).toBe(200);
-    expect(response.json().deploymentCommitSha).toBe('abc123');
+    expect(response.json().deploymentRelease).toBe('live-price-execution-v1');
+    await app.close();
+  });
+
+  it('health exposes the connector-managed exact source SHA as both source and compatibility commit metadata', async () => {
+    process.env.DEPLOYMENT_SOURCE_SHA = 'source-sha-123';
+    const app = buildApp({ probeOnStart: false });
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().deploymentSourceSha).toBe('source-sha-123');
+    expect(response.json().deploymentCommitSha).toBe('source-sha-123');
+    await app.close();
+  });
+
+  it('health prefers Railway Git commit metadata when GitHub-triggered metadata exists', async () => {
+    process.env.DEPLOYMENT_SOURCE_SHA = 'connector-sha';
+    process.env.RAILWAY_GIT_COMMIT_SHA = 'github-sha';
+    const app = buildApp({ probeOnStart: false });
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().deploymentSourceSha).toBe('connector-sha');
+    expect(response.json().deploymentCommitSha).toBe('github-sha');
     await app.close();
   });
 

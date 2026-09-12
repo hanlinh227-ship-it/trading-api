@@ -44,12 +44,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     const providers = runtime.getHealth();
     const healthyProviders = Object.entries(providers).filter(([, status]) => status.ok).map(([id]) => id);
     const degradedProviders = Object.entries(providers).filter(([, status]) => !status.ok).map(([id]) => id);
+    const deploymentSourceSha = process.env.DEPLOYMENT_SOURCE_SHA ?? null;
     return {
       ok: true,
       service: SERVICE_NAME,
       version: SERVICE_VERSION,
       runtimeMode: RUNTIME_MODE,
-      deploymentCommitSha: process.env.RAILWAY_GIT_COMMIT_SHA ?? null,
+      deploymentRelease: 'live-price-execution-v1',
+      deploymentSourceSha,
+      deploymentCommitSha: process.env.RAILWAY_GIT_COMMIT_SHA ?? deploymentSourceSha,
       localInstallRequired: false,
       lastPublicProbeTimestamp: runtime.getLastProbeAt(),
       healthyProviders,
