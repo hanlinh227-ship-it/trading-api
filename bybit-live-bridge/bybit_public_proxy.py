@@ -8,21 +8,13 @@ Bybit authentication/signature headers.
 from __future__ import annotations
 
 import json
-import os
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
 
-DEFAULT_BASES = tuple(dict.fromkeys(
-    x.rstrip('/')
-    for x in [
-        os.environ.get('BYBIT_API_BASE_URL', '').strip(),
-        'https://api.bybit.com',
-        'https://api.bytick.com',
-    ]
-    if x.strip() and x.startswith('https://')
-))
+DEFAULT_BASES = ('https://api.bybit.com', 'https://api.bytick.com')
+ALLOWED_BASES = frozenset(DEFAULT_BASES)
 PATH_RE = re.compile(r'^/v5/market/[A-Za-z0-9-]{1,64}$')
 KEY_RE = re.compile(r'^[A-Za-z][A-Za-z0-9_]{0,39}$')
 MAX_QUERY_PAIRS = 24
@@ -31,7 +23,7 @@ MAX_RESPONSE_BYTES = 2_000_000
 USER_AGENT = 'github-brain-zero-local-public-bridge/1.0'
 
 
-def _invalid_query(query: str):
+def _safe_query(query: str):
     try:
         pairs = urllib.parse.parse_qsl(query, keep_blank_values=True, strict_parsing=True) if query else []
     except ValueError:
@@ -61,18 +53,18 @@ def bybit_public_proxy(path: str, query: str = '', bases=DEFAULT_BASES):
     path = str(path or '')
     if not PATH_RE.fullmatch(path):
         return 403, {'ok': False, 'error': 'BYBIT_PUBLIC_PATH_NOT_ALLOWED'}
-    safe_query = _invalid_query(str(query or ''))
+    safe_query = _safe_query(str(query or ''))
     if safe_query is None:
         return 400, {'ok': False, 'error': 'BYBIT_PUBLIC_QUERY_INVALID'}
 
-    attempts = []
+    requested_bases = tuple(str(x).rstrip('/') for x in bases)
+    if not requested_bases or any(base not in ALLOWED_BASES for base in requested_bases):
+        return 403, {'ok': False, 'error': 'BYBIT_PUBLIC_BASE_NOT_ALLOWED'}
+
     last_status = 502
     last_payload = {'ok': False, 'error': 'BYBIT_PUBLIC_UPSTREAM_UNAVAILABLE'}
-    for base in bases:
-        if not str(base).startswith('https://'):
-            continue
-        attempts.append(base)
-        url = base.rstrip('/') + path + (('?' + safe_query) if safe_query else '')
+    for base in requested_bases:
+        url = base + path + (('?' + safe_query) if safe_query else '')
         req = urllib.request.Request(
             url,
             method='GET',
