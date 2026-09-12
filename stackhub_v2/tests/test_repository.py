@@ -49,7 +49,7 @@ def test_source_health_keeps_history_and_latest(tmp_path):
     assert repo.count_source_health("taskbounty") == 2
 
 
-def test_initialize_rearms_old_dynamic_taskforce_availability_failure(tmp_path):
+def test_initialize_quarantines_closed_taskforce_availability_failure(tmp_path):
     path = tmp_path / "stackhub.db"
     repo = StackHubRepository(path)
     repo.initialize()
@@ -57,7 +57,32 @@ def test_initialize_rearms_old_dynamic_taskforce_availability_failure(tmp_path):
         "INSERT INTO claims(source,opportunity_id,state,updated_at,last_error_code) VALUES(?,?,?,?,?)",
         (
             "taskforce",
-            "tf-reopen",
+            "tf-closed",
+            "FAILED_RETRYABLE",
+            "2026-09-11T20:00:00+00:00",
+            "task_not_accepting_applications:http_400",
+        ),
+    )
+    repo.conn.commit()
+    repo.close()
+
+    reopened = StackHubRepository(path)
+    reopened.initialize()
+    claim = reopened.get_claim("taskforce", "tf-closed")
+
+    assert claim["state"] == "FAILED_PERMANENT"
+    assert claim["last_error_code"] == "task_not_accepting_applications:http_400"
+
+
+def test_initialize_keeps_closed_taskforce_permanent_failure_terminal(tmp_path):
+    path = tmp_path / "stackhub.db"
+    repo = StackHubRepository(path)
+    repo.initialize()
+    repo.conn.execute(
+        "INSERT INTO claims(source,opportunity_id,state,updated_at,last_error_code) VALUES(?,?,?,?,?)",
+        (
+            "taskforce",
+            "tf-closed-terminal",
             "FAILED_PERMANENT",
             "2026-09-11T20:00:00+00:00",
             "task_not_accepting_applications:http_400",
@@ -68,10 +93,9 @@ def test_initialize_rearms_old_dynamic_taskforce_availability_failure(tmp_path):
 
     reopened = StackHubRepository(path)
     reopened.initialize()
-    claim = reopened.get_claim("taskforce", "tf-reopen")
+    claim = reopened.get_claim("taskforce", "tf-closed-terminal")
 
-    assert claim["state"] == "FAILED_RETRYABLE"
-    assert claim["last_error_code"] == "task_not_accepting_applications:http_400"
+    assert claim["state"] == "FAILED_PERMANENT"
 
 
 def test_initialize_rearms_legacy_generic_taskforce_http400_failure_once_for_reclassification(tmp_path):
