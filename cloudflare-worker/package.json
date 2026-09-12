@@ -5,9 +5,10 @@
   "scripts": {
     "check": "node validate-worker.mjs && node validate-btc-hyperscale.mjs && node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs",
     "test:skill-gateway": "node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs",
+    "prepare:skill-gateway": "node prepare-skill-gateway.mjs",
     "prepare:wrangler": "node prepare-wrangler.mjs",
-    "deploy": "npm run check && npm run prepare:wrangler && wrangler deploy --dry-run",
-    "preview": "npm run check && npm run prepare:wrangler && wrangler versions upload"
+    "deploy": "npm run prepare:skill-gateway && npm run check && npm run prepare:wrangler && wrangler deploy --dry-run",
+    "preview": "npm run prepare:skill-gateway && npm run check && npm run prepare:wrangler && wrangler versions upload"
   },
   "devDependencies": {
     "wrangler": "4.124.0"
