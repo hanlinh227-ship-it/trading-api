@@ -82,12 +82,28 @@ def validate_v4(root: Path = ROOT) -> tuple[list[str], list[str]]:
         if kernel.get("invariants", {}).get(key) is not True:
             errors.append(f"V4 invariant {key} must be true")
 
-    fast = runtime.get("profiles", {}).get("FAST", {})
+    profiles = runtime.get("profiles", {})
+    fast = profiles.get("FAST", {})
     for key, expected in {"durable_memory_items": 0, "tool_candidates": 0, "max_bridge_nodes": 0, "evergreen_sync": False, "preload_trading": False}.items():
         if fast.get(key) != expected:
             errors.append(f"FAST {key} must be {expected!r}")
-    if router.get("policy", {}).get("knowledge_mesh_required") is not True or router.get("policy", {}).get("release_bundle_only") is not True:
+    policy = router.get("policy", {})
+    if policy.get("knowledge_mesh_required") is not True or policy.get("release_bundle_only") is not True:
         errors.append("Stable router must require mesh and release bundle")
+    if policy.get("primary_skill_required") is not True:
+        errors.append("Stable router must require exactly one primary skill")
+    if policy.get("fallback_primary_skill") != "core_reasoning":
+        errors.append("Stable router fallback primary skill must be core_reasoning")
+    if policy.get("skill_execution_capsule_required") is not True:
+        errors.append("Stable router must require a skill execution capsule")
+    for profile_name in ("FAST", "STANDARD", "DEEP"):
+        profile = profiles.get(profile_name, {})
+        if profile.get("primary_skill_count") != 1:
+            errors.append(f"{profile_name} primary_skill_count must be 1")
+        if profile.get("skill_capsule_required") is not True:
+            errors.append(f"{profile_name} skill_capsule_required must be true")
+    if fast.get("max_supporting_skills") != 0:
+        errors.append("FAST max_supporting_skills must be 0")
 
     domain_rows = graph.get("domains", [])
     ids = [row.get("id") for row in domain_rows if isinstance(row, dict)]
