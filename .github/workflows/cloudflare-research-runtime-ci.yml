@@ -62,7 +62,7 @@ jobs:
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
 
-      - name: Wrangler bundle dry-run with inert binding identifiers
+      - name: Worker source preflight and real Wrangler bundle dry-run
         working-directory: cloudflare-worker
         shell: bash
         env:
@@ -71,7 +71,11 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: |
           set +e
-          npm run check 2>&1 | tee wrangler-check.log
+          {
+            npm run check &&
+            npm run prepare:wrangler &&
+            npx wrangler deploy --dry-run --outdir .wrangler-ci-dry-run
+          } 2>&1 | tee wrangler-check.log
           status=${PIPESTATUS[0]}
           exit "$status"
 
@@ -86,7 +90,7 @@ jobs:
 
       - name: Confirm CI and deployment authority split
         run: |
-          echo 'PR CI validates source and bundle only.'
+          echo 'PR CI validates source and the real Wrangler bundle only.'
           echo 'Production deploy authority is GitHub Actions exact-main via Wrangler.'
           echo 'The pre-existing failing Cloudflare Builds GitHub App is not production authority.'
           echo 'No runtime variables or trading LIVE switches are changed by this validation job.'
