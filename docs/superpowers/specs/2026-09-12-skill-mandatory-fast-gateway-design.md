@@ -1,7 +1,7 @@
 # Skill-Mandatory Fast Gateway Design
 
 ## Status
-Design approved in chat; written spec pending user review before implementation planning.
+Approved by user on 2026-09-12 for implementation planning.
 
 ## Goal
 Make every request handled by GitHub Brain pass through at least one real reasoning skill before answer generation, while reducing routing latency by compiling stable routing/skill metadata into a hot exact-SHA snapshot that does not require a GitHub read on the FAST path.
