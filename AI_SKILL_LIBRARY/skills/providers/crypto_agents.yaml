@@ -1,0 +1,454 @@
+version: 1
+scope: trading.crypto
+policy:
+  all_provider_skills_discoverable_via_official_bundle: true
+  provider_capabilities_are_reasoning_authority: false
+  default_unclassified_action: quarantine_no_routing
+  max_selected_provider_capabilities: 3
+  research_only_default: true
+  auth_read_only_requires_explicit_credential_authorization: true
+  high_risk_routing_authority: false
+  high_risk_auto_activate: false
+  execution_permission_inherited_from_project_only: true
+  provider_discovery_never_expands_permissions: true
+  stale_upstream_metadata_requires_refresh: true
+
+modes:
+  RESEARCH_SAFE:
+    routing_authority: false
+    auto_activate: true
+    credential_policy: public_or_none
+    can_write_financial_state: false
+  AUTH_READ_ONLY:
+    routing_authority: false
+    auto_activate: false
+    credential_policy: restricted_read_only_explicit_authorization
+    can_write_financial_state: false
+  HIGH_RISK:
+    routing_authority: false
+    auto_activate: false
+    credential_policy: explicit_high_risk_workflow_only
+    can_write_financial_state: true
+
+providers:
+  - id: binance_skills_hub
+    provider: Binance
+    official_repo: https://github.com/binance/binance-skills-hub
+    upstream_roots: [skills/binance-web3, skills/binance]
+    coverage: all_upstream_skills_via_bundle
+    default_unclassified_action: quarantine_no_routing
+  - id: okx_agent_skills
+    provider: OKX
+    official_repo: https://github.com/okx/agent-skills
+    upstream_roots: [skills]
+    coverage: all_upstream_skills_via_bundle
+    default_unclassified_action: quarantine_no_routing
+  - id: okx_agent_trade_kit
+    provider: OKX
+    official_repo: https://github.com/okx/agent-trade-kit
+    upstream_roots: [skills, docs/modules]
+    coverage: all_modules_via_bundle
+    default_unclassified_action: quarantine_no_routing
+  - id: okx_onchainos
+    provider: OKX
+    official_repo: https://github.com/okx/onchainos-skills
+    upstream_roots: [skills, workflows]
+    coverage: all_upstream_skills_via_bundle
+    default_unclassified_action: quarantine_no_routing
+  - id: bybit_skills
+    provider: Bybit
+    official_repo: https://github.com/bybit-exchange/skills
+    upstream_roots: [SKILL.md, modules]
+    coverage: all_modules_via_bundle
+    default_unclassified_action: quarantine_no_routing
+  - id: gate_skills
+    provider: Gate
+    official_repo: https://github.com/gate/gate-skills
+    upstream_roots: [skills]
+    coverage: all_upstream_skills_via_bundle
+    default_unclassified_action: quarantine_no_routing
+  - id: gate_mcp
+    provider: Gate
+    official_repo: https://github.com/gate/gate-mcp
+    upstream_roots: [README.md, docs]
+    coverage: all_mcp_surfaces_via_bundle
+    default_unclassified_action: quarantine_no_routing
+  - id: kucoin_skills_hub
+    provider: KuCoin
+    official_repo: https://github.com/Kucoin/kucoin-skills-hub
+    upstream_roots: [skills]
+    coverage: all_upstream_skills_via_bundle
+    default_unclassified_action: quarantine_no_routing
+  - id: coinbase_agentic_wallet_skills
+    provider: Coinbase
+    official_repo: https://github.com/coinbase/agentic-wallet-skills
+    upstream_roots: [skills/agentic-wallet]
+    coverage: all_upstream_skills_via_bundle
+    default_unclassified_action: quarantine_no_routing
+  - id: coinbase_agentkit
+    provider: Coinbase
+    official_repo: https://github.com/coinbase/agentkit
+    upstream_roots: [typescript, python]
+    coverage: all_action_and_wallet_providers_via_bundle
+    default_unclassified_action: quarantine_no_routing
+
+capabilities:
+  # Binance research
+  - id: binance.crypto_market_rank
+    provider_bundle: binance_skills_hub
+    upstream: skills/binance-web3/crypto-market-rank/SKILL.md
+    use_cases: [market_data, ranking, sentiment, smart_money, inflow]
+    triggers: [market rank, trending crypto, top search, inflow rank, smart money rank]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: no_public_default
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+  - id: binance.query_token_info
+    provider_bundle: binance_skills_hub
+    upstream: skills/binance-web3/query-token-info/SKILL.md
+    use_cases: [token_research, market_data, liquidity, holder_count]
+    triggers: [token info, token metadata, token price, token liquidity]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: no_public_default
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+  - id: binance.query_token_audit
+    provider_bundle: binance_skills_hub
+    upstream: skills/binance-web3/query-token-audit/SKILL.md
+    use_cases: [risk_check, honeypot, scam_detection, contract_risk]
+    triggers: [token audit, token safe, honeypot, rug risk, contract risk]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: no_public_default
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+  - id: binance.query_address_info
+    provider_bundle: binance_skills_hub
+    upstream: skills/binance-web3/query-address-info/SKILL.md
+    use_cases: [public_wallet_observation, holdings, smart_money]
+    triggers: [wallet holdings, address portfolio, public wallet positions]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: no_public_default
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+  - id: binance.trading_signal_research
+    provider_bundle: binance_skills_hub
+    upstream: skills/binance-web3/binance-trading-signal/SKILL.md
+    use_cases: [signal_research, watchlist, backtest_context]
+    triggers: [trading signal, smart money signal, signal history]
+    mode: RESEARCH_SAFE
+    risk: MEDIUM
+    api_key: depends_on_endpoint
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+    restrictions: [no_execution_handoff, no_wallet_action, no_auto_strategy_write]
+  - id: binance.wallet_payment_execution
+    provider_bundle: binance_skills_hub
+    upstream: bundle:wallet_payment_trade
+    use_cases: [wallet, trading, transfer, payment, onchain_action]
+    triggers: [send, transfer, withdraw, swap, pay, execute trade]
+    mode: HIGH_RISK
+    risk: HIGH
+    api_key: yes_or_wallet_auth
+    can_affect_real_funds: true
+    routing_authority: false
+    auto_activate: false
+
+  # OKX CEX / research
+  - id: okx.cex_market
+    provider_bundle: okx_agent_skills
+    upstream: skills/okx-cex-market/SKILL.md
+    use_cases: [market_data, kline, ticker, orderbook, funding, open_interest, indicators]
+    triggers: [OKX market, OKX ticker, funding rate, open interest, technical indicators]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: no
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+  - id: okx.trade_kit_market
+    provider_bundle: okx_agent_trade_kit
+    upstream: docs/modules/market.md
+    use_cases: [market_data, futures_data, screening, indicators]
+    triggers: [OKX market module, market filter, OI history]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: no
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+    runtime_constraint: modules_market_or_read_only
+  - id: okx.trade_kit_news
+    provider_bundle: okx_agent_trade_kit
+    upstream: docs/modules/news.md
+    use_cases: [news, sentiment]
+    triggers: [OKX news, coin sentiment, crypto news]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: depends_on_current_endpoint
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+  - id: okx.sentiment_tracker
+    provider_bundle: okx_agent_skills
+    upstream: skills/okx-sentiment-tracker/SKILL.md
+    use_cases: [sentiment, news, trending]
+    triggers: [sentiment tracker, market mood, social buzz]
+    mode: AUTH_READ_ONLY
+    risk: MEDIUM
+    api_key: yes_current_upstream
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: false
+  - id: okx.smartmoney
+    provider_bundle: okx_agent_skills
+    upstream: skills/okx-cex-smartmoney/SKILL.md
+    use_cases: [smart_money, trader_leaderboard, position_analysis]
+    triggers: [OKX smart money, top trader positions, consensus signal]
+    mode: AUTH_READ_ONLY
+    risk: MEDIUM
+    api_key: yes
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: false
+  - id: okx.dex_market
+    provider_bundle: okx_onchainos
+    upstream: skills/okx-dex-market/SKILL.md
+    use_cases: [onchain_market, token_research, smart_money, whale_tracking, token_security_context]
+    triggers: [DEX market, onchain token, whale signal, holder cluster, top traders]
+    mode: AUTH_READ_ONLY
+    risk: MEDIUM
+    api_key: yes_current_upstream_or_sandbox
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: false
+  - id: okx.cex_trade_and_account_mutation
+    provider_bundle: okx_agent_skills
+    upstream: bundle:okx-cex-trade_portfolio_bot_earn
+    use_cases: [trading, account_mutation, transfer, bot, earn]
+    triggers: [place order, transfer, change mode, grid bot, DCA bot, earn purchase]
+    mode: HIGH_RISK
+    risk: HIGH
+    api_key: yes
+    can_affect_real_funds: true
+    routing_authority: false
+    auto_activate: false
+  - id: okx.agentic_wallet
+    provider_bundle: okx_onchainos
+    upstream: skills/okx-agentic-wallet/SKILL.md
+    use_cases: [wallet, send, swap, bridge, contract_call, broadcast]
+    triggers: [wallet action, send token, swap, bridge, broadcast transaction]
+    mode: HIGH_RISK
+    risk: HIGH
+    api_key: yes
+    can_affect_real_funds: true
+    routing_authority: false
+    auto_activate: false
+  - id: okx.defi_and_payments
+    provider_bundle: okx_onchainos
+    upstream: bundle:okx-defi_okx-agent-payments-protocol
+    use_cases: [defi_invest, staking, deposit, withdraw, payment]
+    triggers: [DeFi deposit, stake, claim, x402 payment, MPP payment]
+    mode: HIGH_RISK
+    risk: HIGH
+    api_key: yes
+    can_affect_real_funds: true
+    routing_authority: false
+    auto_activate: false
+
+  # Bybit
+  - id: bybit.market
+    provider_bundle: bybit_skills
+    upstream: modules/market.md
+    use_cases: [market_data, kline, ticker, orderbook, funding, open_interest, volatility]
+    triggers: [Bybit market, Bybit ticker, Bybit kline, Bybit funding, Bybit OI]
+    mode: RESEARCH_SAFE
+    risk: MEDIUM
+    api_key: no_for_public_market
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+    restrictions: [public_market_only, no_mainnet_credential_bootstrap]
+  - id: bybit.write_capabilities
+    provider_bundle: bybit_skills
+    upstream: bundle:spot_derivatives_account_earn_strategy_bot_copy_alpha_pay_fiat
+    use_cases: [trading, account, wallet, earn, bot, copy_trade, dex_swap, payment, fiat]
+    triggers: [Bybit order, leverage, transfer, earn, bot, copy trade, alpha trade, pay]
+    mode: HIGH_RISK
+    risk: HIGH
+    api_key: yes
+    can_affect_real_funds: true
+    routing_authority: false
+    auto_activate: false
+
+  # Gate public research
+  - id: gate.public_market_mcp
+    provider_bundle: gate_mcp
+    upstream: https://api.gatemcp.ai/mcp
+    use_cases: [market_data, futures_data, orderbook, kline, funding, liquidation]
+    triggers: [Gate market, Gate futures data, Gate funding, Gate liquidation]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: no
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+  - id: gate.info_research
+    provider_bundle: gate_skills
+    upstream: bundle:gate-info-research_coinanalysis_coincompare_riskcheck_macroimpact_marketoverview_defianalysis_tokenonchain_trendanalysis_addresstracker
+    use_cases: [token_research, risk_check, macro, onchain, technical_analysis, public_address]
+    triggers: [Gate research, coin analysis, coin compare, risk check, macro impact, token onchain]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: no_for_public_info
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+  - id: gate.news_research
+    provider_bundle: gate_skills
+    upstream: bundle:gate-news-briefing_communityscan_eventexplain_listing
+    use_cases: [news, sentiment, event_explanation, listing]
+    triggers: [Gate news, community sentiment, event explain, listing news]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: no_for_public_news
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+  - id: gate.dex_market
+    provider_bundle: gate_skills
+    upstream: skills/gate-dex-market
+    use_cases: [onchain_market, token_info, kline, security_audit]
+    triggers: [Gate DEX market, DEX token info, DEX risk]
+    mode: RESEARCH_SAFE
+    risk: MEDIUM
+    api_key: depends_on_selected_public_surface
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+    restrictions: [market_data_only, no_dex_trade_handoff]
+  - id: gate.private_read_queries
+    provider_bundle: gate_skills
+    upstream: bundle:assets_positions_tradfi_private_queries
+    use_cases: [account_read, positions_read, asset_read]
+    triggers: [Gate balance, Gate positions, Gate account read]
+    mode: AUTH_READ_ONLY
+    risk: MEDIUM
+    api_key: oauth_or_restricted_auth
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: false
+  - id: gate.write_capabilities
+    provider_bundle: gate_skills
+    upstream: bundle:exchange_trading_futures_dex_trade_wallet_transfer_pay_earn_autoinvest_launchpool_loans
+    use_cases: [trading, futures_execution, wallet, transfer, payment, earn, dex_trade, loans]
+    triggers: [Gate order, Gate futures trade, Gate swap, Gate transfer, Gate pay, Gate earn]
+    mode: HIGH_RISK
+    risk: HIGH
+    api_key: yes_or_oauth
+    can_affect_real_funds: true
+    routing_authority: false
+    auto_activate: false
+
+  # KuCoin current GET-only hub
+  - id: kucoin.public_market
+    provider_bundle: kucoin_skills_hub
+    upstream: bundle:spot_margin-trading_futures-trading
+    use_cases: [market_data, futures_data, funding, orderbook, kline, risk_limits]
+    triggers: [KuCoin market, KuCoin futures, KuCoin funding, KuCoin orderbook]
+    mode: RESEARCH_SAFE
+    risk: LOW
+    api_key: no_for_public_market
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: true
+    upstream_invariant: current_hub_get_only
+  - id: kucoin.private_get_queries
+    provider_bundle: kucoin_skills_hub
+    upstream: bundle:assets_private_orders_positions_earn_convert_broker
+    use_cases: [account_read, order_read, position_read, assets, earn_query, convert_query, broker_query]
+    triggers: [KuCoin balance, KuCoin positions, KuCoin order history, KuCoin assets]
+    mode: AUTH_READ_ONLY
+    risk: MEDIUM
+    api_key: yes_for_private_queries
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: false
+    upstream_invariant: current_hub_get_only
+  - id: kucoin.future_write_capability_guard
+    provider_bundle: kucoin_skills_hub
+    upstream: future:write_endpoints_if_added
+    use_cases: [future_trading_or_transfer_write]
+    triggers: [KuCoin place order, KuCoin transfer, KuCoin cancel order]
+    mode: HIGH_RISK
+    risk: HIGH
+    api_key: yes
+    can_affect_real_funds: true
+    routing_authority: false
+    auto_activate: false
+    note: prevents_future_write_endpoints_from_inheriting_current_get_only_trust
+
+  # Coinbase
+  - id: coinbase.onchain_query_reference
+    provider_bundle: coinbase_agentic_wallet_skills
+    upstream: skills/agentic-wallet/references/query-onchain.md
+    use_cases: [onchain_research]
+    triggers: [query Base onchain data, CDP SQL research]
+    mode: AUTH_READ_ONLY
+    risk: MEDIUM
+    api_key: yes_current_service
+    can_affect_real_funds: false
+    routing_authority: false
+    auto_activate: false
+    restrictions: [query_only, no_wallet_action_provider]
+  - id: coinbase.agentic_wallet_actions
+    provider_bundle: coinbase_agentic_wallet_skills
+    upstream: bundle:auth_balance_send_trade_fund_x402_pay
+    use_cases: [wallet, send, trade, fund, payment]
+    triggers: [Coinbase wallet, send USDC, trade token, fund wallet, x402 pay]
+    mode: HIGH_RISK
+    risk: HIGH
+    api_key: yes_or_wallet_auth
+    can_affect_real_funds: true
+    routing_authority: false
+    auto_activate: false
+  - id: coinbase.agentkit_wallet_actions
+    provider_bundle: coinbase_agentkit
+    upstream: bundle:wallet_providers_action_providers
+    use_cases: [wallet, onchain_action, transfer, token_action]
+    triggers: [AgentKit wallet, AgentKit transfer, AgentKit onchain action]
+    mode: HIGH_RISK
+    risk: HIGH
+    api_key: yes
+    can_affect_real_funds: true
+    routing_authority: false
+    auto_activate: false
+
+selection_rules:
+  - when: market_data
+    prefer_modes: [RESEARCH_SAFE]
+    max_capabilities: 3
+  - when: token_risk
+    prefer_use_cases: [risk_check, contract_risk]
+    max_capabilities: 2
+  - when: smart_money
+    prefer_use_cases: [smart_money, inflow, public_wallet_observation]
+    max_capabilities: 3
+  - when: sentiment
+    prefer_use_cases: [sentiment, news]
+    max_capabilities: 2
+  - when: authenticated_private_read
+    require_mode: AUTH_READ_ONLY
+    require_explicit_credential_authorization: true
+  - when: financial_write_or_wallet_action
+    require_mode: HIGH_RISK
+    automatic_selection: false
+    require_separate_high_risk_workflow: true
