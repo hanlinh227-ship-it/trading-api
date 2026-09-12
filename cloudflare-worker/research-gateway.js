@@ -83,7 +83,8 @@ function shouldUseBybitSafetyFallback(input,result){
 function isValidFallbackExecutionQuote(input,quote){
   if(!quote||typeof quote!=='object')return false;
   if(quote.executionVerified!==true||quote.status!=='OK'||quote.venue!=='bybit')return false;
-  if(quote.instrument!==input.instrument||quote.side!==input.side)return false;
+  const quoteInstrument=quote.instrumentType??quote.instrument;
+  if(quoteInstrument!==input.instrument||quote.side!==input.side)return false;
   const bid=Number(quote.bid);
   const ask=Number(quote.ask);
   const executablePrice=Number(quote.executablePrice);
