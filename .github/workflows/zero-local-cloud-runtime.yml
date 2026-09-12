@@ -66,3 +66,30 @@ jobs:
         run: python AI_SKILL_LIBRARY/validate_v4.py
       - name: Validate project authority
         run: python AI_SKILL_LIBRARY/validate_authority.py
+      - name: Live public provider smoke test
+        working-directory: crypto-research-gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=3100 npm start >/tmp/zero-local-gateway.log 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3100/health > /tmp/zero-local-health.json; then
+              break
+            fi
+            sleep 1
+          done
+          cat /tmp/zero-local-health.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('/tmp/zero-local-health.json').read_text())
+          required = {'binance', 'okx', 'bybit', 'gate', 'kucoin'}
+          healthy = set(data.get('healthyProviders', []))
+          missing = sorted(required - healthy)
+          if missing:
+              raise SystemExit(f'public provider probes failed: {missing}')
+          if data.get('localInstallRequired') is not False:
+              raise SystemExit('local install unexpectedly required')
+          PY
