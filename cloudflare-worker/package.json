@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node validate-worker.mjs && node validate-btc-hyperscale.mjs && node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs && node test-skill-gateway-snapshot.mjs",
+    "check": "node validate-worker.mjs && node validate-btc-hyperscale.mjs && node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs && node test-skill-gateway-snapshot.mjs && node test-research-gateway-failover.mjs",
     "test:skill-gateway": "node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs && node test-skill-gateway-snapshot.mjs",
     "prepare:skill-gateway": "node prepare-skill-gateway.mjs",
     "prepare:wrangler": "node prepare-wrangler.mjs",
