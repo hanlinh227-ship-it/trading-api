@@ -64,6 +64,10 @@ export class BybitProvider implements PublicMarketProvider {
   }
 
   async healthProbe() {
-    return probe(() => this.snapshot('BTCUSDT', 'spot'));
+    const result = await probe(() => this.snapshot('BTCUSDT', 'spot'));
+    if (!result.ok && result.error === 'provider_http_403') {
+      return { ...result, error: 'region_restricted_bybit_cloud_region' };
+    }
+    return result;
   }
 }
