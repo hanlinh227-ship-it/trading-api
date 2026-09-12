@@ -3,6 +3,7 @@ name: Crypto Skill Registry Validate
 on:
   push:
     branches:
+      - main
       - crypto-agent-registry-v4
     paths:
       - 'AI_SKILL_LIBRARY/**'
