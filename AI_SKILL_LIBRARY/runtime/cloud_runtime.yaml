@@ -1,0 +1,20 @@
+version: 1
+runtime: railway
+node_major: 22
+local_install_required: false
+local_cli_execution: false
+local_mcp_server_required: false
+cloud_runtime_required_for_provider_execution: true
+default_execution_mode: research_safe_only
+high_risk_cloud_execution: false
+auth_read_only_default_enabled: false
+health_path: /health
+capabilities_path: /capabilities
+mcp_path: /mcp
+service_root: crypto-research-gateway
+execution_boundary:
+  reasoning_authority: false
+  provider_evidence_only: true
+  shell_execution: false
+  local_process_spawn: false
+  credentialless_public_default: true
