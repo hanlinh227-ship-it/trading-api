@@ -62,11 +62,11 @@ def test_permanent_http_failures_do_not_loop_forever():
         assert _classify_failure_state(status_code=status, error_code=f"http_{status}") == WorkerState.FAILED_PERMANENT
 
 
-def test_dynamic_marketplace_availability_failures_are_retryable():
+def test_closed_marketplace_availability_failures_are_terminal_for_that_listing():
     from stackhub.orchestrator import _classify_failure_state
 
     for error_code in ("task_not_accepting_applications", "task_full"):
-        assert _classify_failure_state(status_code=400, error_code=error_code) == WorkerState.FAILED_RETRYABLE
+        assert _classify_failure_state(status_code=400, error_code=error_code) == WorkerState.FAILED_PERMANENT
 
 
 def test_transient_http_failures_remain_retryable():
