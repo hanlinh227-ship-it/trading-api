@@ -6,6 +6,9 @@ policy:
   knowledge_mesh_required: true
   release_bundle_only: true
   one_primary_domain: true
+  primary_skill_required: true
+  fallback_primary_skill: core_reasoning
+  skill_execution_capsule_required: true
   max_supporting_skills: 2
   full_catalog_preload: false
   evergreen_on_request_path: false
@@ -33,11 +36,13 @@ selection_order:
   - primary_domain
   - permitted_mesh_bridges
   - primary_skill
+  - skill_execution_capsule
   - supporting_skills
   - bounded_memory
   - relevant_sources
   - relevant_tools
   - security_gate_if_required
   - execute
+  - response_quality_gate
   - verification
   - answer
