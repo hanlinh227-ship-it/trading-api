@@ -61,6 +61,7 @@ skills:
   - {<<: *trading, id: live_data_validation, triggers: [live price, freshness, quote age], tools: [multi_asset_market_data, crypto_market_data], priority: 95}
   - {<<: *trading, id: trading_router, triggers: [trading route, trade request], tools: [multi_asset_market_data, crypto_market_data]}
   - {<<: *trading, id: market_analysis, triggers: [market analysis, entry analysis], tools: [multi_asset_market_data, crypto_market_data]}
+  - {<<: *trading, id: multi_market_analysis, triggers: [multi market analysis, cross asset analysis, cross market analysis, multi asset analysis, global market analysis], tools: [multi_asset_market_data, crypto_market_data], priority: 96}
   - {<<: *trading, id: risk_execution, triggers: [execution, leverage, sl tp], tools: [multi_asset_market_data, crypto_market_data]}
   - {<<: *trading, id: quant_backtesting, triggers: [quant, strategy validation], tools: [software_development_workflow]}
   - {<<: *game, id: game_development, triggers: [game development, build game]}
