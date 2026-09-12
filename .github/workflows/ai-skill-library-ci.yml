@@ -2,10 +2,16 @@ name: AI Skill Library CI
 
 on:
   push:
-    branches: [main, github-brain-v2, 'github-brain-v2-*', 'github-brain-v3-*', 'github-brain-v4-*']
+    branches: [main, github-brain-v2, 'github-brain-v2-*', 'github-brain-v3-*', 'github-brain-v4-*', 'feature/skill-mandatory-fast-gateway']
     paths:
       - 'AI_SKILL_LIBRARY/**'
+      - 'cloudflare-worker/skill-gateway*.js'
+      - 'cloudflare-worker/index.js'
+      - 'cloudflare-worker/prepare-wrangler.mjs'
+      - 'cloudflare-worker/package.json'
       - '.github/workflows/ai-skill-library-ci.yml'
+      - '.github/workflows/skill-mandatory-fast-gateway-ci.yml'
+      - '.github/workflows/skill-gateway-production.yml'
       - '.github/workflows/ai-brain-evergreen-*.yml'
       - '.github/workflows/ai-brain-v4-release.yml'
       - 'AGENTS.md'
@@ -14,7 +20,13 @@ on:
   pull_request:
     paths:
       - 'AI_SKILL_LIBRARY/**'
+      - 'cloudflare-worker/skill-gateway*.js'
+      - 'cloudflare-worker/index.js'
+      - 'cloudflare-worker/prepare-wrangler.mjs'
+      - 'cloudflare-worker/package.json'
       - '.github/workflows/ai-skill-library-ci.yml'
+      - '.github/workflows/skill-mandatory-fast-gateway-ci.yml'
+      - '.github/workflows/skill-gateway-production.yml'
       - '.github/workflows/ai-brain-evergreen-*.yml'
       - '.github/workflows/ai-brain-v4-release.yml'
       - 'AGENTS.md'
@@ -48,10 +60,25 @@ jobs:
             AI_SKILL_LIBRARY/validate_authority.py \
             AI_SKILL_LIBRARY/validate_runtime.py \
             AI_SKILL_LIBRARY/validate_v3.py \
-            AI_SKILL_LIBRARY/validate_v4.py
+            AI_SKILL_LIBRARY/validate_v4.py \
+            AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
+            AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py
           python -m compileall -q AI_SKILL_LIBRARY/v4
       - name: Run integration tests
         run: python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
+      - name: Compile and validate exact-SHA hot skill snapshot
+        run: |
+          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py --source-sha "$GITHUB_SHA" --output AI_SKILL_LIBRARY/v4/runtime/generated/skill_gateway_snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py AI_SKILL_LIBRARY/v4/runtime/generated/skill_gateway_snapshot.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          x=json.loads(Path('AI_SKILL_LIBRARY/v4/runtime/generated/skill_gateway_snapshot.json').read_text())
+          assert x['source_sha']==os.environ['GITHUB_SHA'].lower()
+          assert x['fallback_primary_skill']=='core_reasoning'
+          assert x['profiles']['FAST']['max_supporting_skills']==0
+          print('SKILL_GATEWAY_EXACT_SHA=PASS',x['source_sha'])
+          PY
       - name: Validate source registry
         run: python AI_SKILL_LIBRARY/validate_registry.py
       - name: Validate routed brain compatibility
