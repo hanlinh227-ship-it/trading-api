@@ -1,34 +1,140 @@
-name: Validate BTCUSDT Bybit Hyperscale
+name: Deploy Cloudflare Zero-Local Runtime
+
 on:
   push:
     branches: [main]
     paths:
       - 'cloudflare-worker/**'
+      - 'crypto-research-gateway/**'
       - '.github/workflows/deploy-cloudflare-worker.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
+
 concurrency:
-  group: btcusdt-bybit-hyperscale-validation
+  group: cloudflare-zero-local-runtime-production
   cancel-in-progress: true
+
+env:
+  WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+
 jobs:
-  validate-only:
-    runs-on: [self-hosted, Linux, X64, trading-vps]
-    timeout-minutes: 12
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+      AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
+      V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
     steps:
       - uses: actions/checkout@v4
-        with: {ref: main, fetch-depth: 1}
-      - name: Validate BTC-only source and runtime contracts
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate deployment credentials and existing bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${TRADING_KV_NAMESPACE_ID:-}"
+          if [ -z "${AI_BRIDGE_SERVICE_ID:-}" ] && [ -z "${V11_AI_BRIDGE_SERVICE_ID:-}" ]; then
+            echo 'Missing existing Cloudflare VPC service binding id' >&2
+            exit 1
+          fi
+
+      - name: Install gateway dependencies
+        working-directory: crypto-research-gateway
+        run: npm install --no-audit --no-fund
+
+      - name: Verify shared research runtime
+        working-directory: crypto-research-gateway
+        run: |
+          npm test
+          npm run typecheck
+          npm run build
+
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm install --no-audit --no-fund
+
+      - name: Validate Worker source and bundle
+        working-directory: cloudflare-worker
+        run: npm run check
+
+      - name: Prepare exact-revision config and deploy
         working-directory: cloudflare-worker
         shell: bash
         run: |
           set -euo pipefail
-          npm install --no-audit --no-fund
-          npm run check
-          echo 'BTC_GITHUB_CI_VALIDATION_ONLY=PASS'
-      - name: Explain deployment authority
+          npm run prepare:wrangler
+          node - <<'NODE'
+          const fs=require('fs');
+          const raw=fs.readFileSync('wrangler.jsonc','utf8');
+          const x=JSON.parse(raw);
+          if(x.name!=='trading-v77-scanner') throw new Error('unexpected_worker_name');
+          if(x.keep_vars!==true) throw new Error('keep_vars_must_be_true');
+          if(x.vars?.RUNTIME_REVISION!==process.env.GITHUB_SHA) throw new Error('runtime_revision_mismatch');
+          const forbidden=['BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_AUTO_ENABLED'];
+          for(const key of forbidden) if(Object.prototype.hasOwnProperty.call(x.vars||{},key)) throw new Error('runtime_switch_must_not_be_generated:'+key);
+          console.log('CLOUDFLARE_DEPLOY_CONFIG=PASS revision='+x.vars.RUNTIME_REVISION);
+          NODE
+          npx wrangler deploy
+
+      - name: Verify exact deployed revision and existing trading contract
         shell: bash
         run: |
-          echo 'Cloudflare Builds is the sole Worker deployment authority.'
-          echo 'GitHub Actions validates source only and never changes Worker runtime variables.'
-          echo 'BYBIT_BTC_LIVE_ACK is never forced by this workflow.'
+          set -euo pipefail
+          verify_once() {
+            CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract" || true)"
+            printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA)process.exit(2);console.log('CLOUDFLARE_RUNTIME_REVISION=PASS '+x.runtimeRevision)}catch{process.exit(2)}})" || return 1
+            HEALTH="$(curl -fsS --connect-timeout 5 --max-time 25 "$WORKER_BASE_URL/health" || true)"
+            printf '%s\n' "$HEALTH" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeProvider!=='cloudflare-workers'||x.deploymentSourceSha!==process.env.GITHUB_SHA||x.localInstallRequired!==false)process.exit(3);console.log('CLOUDFLARE_RESEARCH_HEALTH=PASS')}catch{process.exit(3)}})" || return 1
+            CAPS="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/capabilities" || true)"
+            printf '%s\n' "$CAPS" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),t=x.tools||[];if(!t.includes('market_execution_quote')||t.some(v=>/place_order|cancel_order|withdraw|transfer|swap|bridge|wallet|payment/i.test(v)))process.exit(4);console.log('CLOUDFLARE_READ_ONLY_CAPABILITIES=PASS')}catch{process.exit(4)}})" || return 1
+            return 0
+          }
+          for attempt in 1 2 3 4 5 6; do
+            echo "CLOUDFLARE_VERIFY_ATTEMPT=$attempt"
+            if verify_once; then exit 0; fi
+            sleep 8
+          done
+          echo 'CLOUDFLARE_EXACT_REVISION_VERIFY=FAIL' >&2
+          exit 1
+
+      - name: Production venue-bound execution smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          quote() {
+            body="$1"
+            curl -fsS --connect-timeout 5 --max-time 25 \
+              -H 'content-type: application/json' \
+              -d "$body" "$WORKER_BASE_URL/research/market"
+          }
+          assert_quote() {
+            venue="$1" side="$2" body="$3"
+            printf '%s\n' "$body" | VENUE="$venue" SIDE="$side" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s),q=x.executionQuote||x.execution_quote||x.quote||x;const e=q.executionQuote||q.execution_quote||q;if(x.ok!==true||e.executionVerified!==true||e.status!=='OK'||e.venue!==process.env.VENUE||e.instrument!=='perpetual'||e.side!==process.env.SIDE)process.exit(2);const expected=process.env.SIDE==='LONG'?e.ask:e.bid;if(Number(e.executablePrice)!==Number(expected)||Number(e.quoteAgeMs)>5000||Number(e.bid)<=0||Number(e.ask)<=0||Number(e.bid)>Number(e.ask))process.exit(3);console.log('LIVE_EXECUTION_QUOTE=PASS '+e.venue+' '+e.side+' '+e.executablePrice+' ageMs='+e.quoteAgeMs)})"
+          }
+          BYBIT_LONG="$(quote '{"action":"execution_quote","symbol":"BTCUSDT","instrument":"perpetual","side":"LONG","executionVenue":"bybit"}')"
+          assert_quote bybit LONG "$BYBIT_LONG"
+          BYBIT_SHORT="$(quote '{"action":"execution_quote","symbol":"SOLUSDT","instrument":"perpetual","side":"SHORT","executionVenue":"bybit"}')"
+          assert_quote bybit SHORT "$BYBIT_SHORT"
+          BINANCE_LONG="$(quote '{"action":"execution_quote","symbol":"BTCUSDT","instrument":"perpetual","side":"LONG","executionVenue":"binance"}' || true)"
+          if [ -n "$BINANCE_LONG" ]; then
+            printf '%s\n' "$BINANCE_LONG" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok===true)process.exit(0);const text=JSON.stringify(x);if(!/region_restricted_binance_futures_cloud_region|VENUE_UNAVAILABLE/i.test(text))process.exit(2);console.log('BINANCE_REGION_RESTRICTION=EXPLICIT')})"
+          fi
+
+      - name: Deployment authority record
+        run: |
+          echo 'CLOUDFLARE_DEPLOYMENT_AUTHORITY=GITHUB_ACTIONS_EXACT_MAIN'
+          echo 'USER_LOCAL_RUNTIME_REQUIRED=false'
+          echo 'RUNTIME_SWITCH_MUTATION=false'
