@@ -48,6 +48,34 @@ skill_deduplication:
   allow_new_primary_skill_only_when_distinct_capability_is_material: true
   never_stack_equivalent_skills_as_votes: true
 
+upstream_absorption:
+  capability_categories:
+    - retrieval_index
+    - memory_context
+    - orchestration_graph
+    - provider_routing
+    - evaluation
+    - inference_serving
+    - cache
+  equivalent_capability_action: strengthen_canonical_policy
+  create_parallel_router: false
+  create_parallel_reasoning_authority: false
+  create_parallel_project_authority: false
+  mandatory_external_framework_dependency: false
+  examples:
+    qdrant: retrieval_index
+    haystack: retrieval_index
+    mem0: memory_context
+    langgraph: orchestration_graph
+    loop_designer: orchestration_graph
+    litellm: provider_routing
+    promptfoo: evaluation
+    pydantic_ai: evaluation
+    deepeval: evaluation
+    groktobench: evaluation
+    sglang: inference_serving
+    gptcache: cache
+
 conflict_resolution:
   use_registry_conflict_policy: true
   majority_vote_for_truth: false
@@ -98,3 +126,4 @@ future_upgrade_contract:
   checkpoint_resolved_policy_required: true
   do_not_create_parallel_brain: true
   do_not_replace_project_authority_silently: true
+  acceleration_policy_must_remain_authority_subordinate: true
