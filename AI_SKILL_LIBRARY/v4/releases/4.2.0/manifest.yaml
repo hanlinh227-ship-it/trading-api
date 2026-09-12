@@ -1,0 +1,21 @@
+version: 4.2.0
+architecture: GITHUB_BRAIN_V4
+files:
+  - {path: AI_SKILL_LIBRARY/v4/stable/kernel.yaml, sha256: e0179ebee4edd87b9fcc610fdeea4e21b0a51f1ee1771303163adb8b73eb5ab2, role: kernel}
+  - {path: AI_SKILL_LIBRARY/v4/stable/runtime.yaml, sha256: 10b8290a340dba36b6677acbe605ddb846b544ac91216b22acff8708ef6efa84, role: runtime}
+  - {path: AI_SKILL_LIBRARY/v4/stable/router.yaml, sha256: dc94e8e615d3c233153fec5d350959f1d70e26fa299f4626827b01a802856e05, role: router}
+  - {path: AI_SKILL_LIBRARY/v4/stable/context.yaml, sha256: c52b5ecf96cf0b66fd73ae991e2f9a22046f5b4ebe3126760577e8491c0a24df, role: context}
+  - {path: AI_SKILL_LIBRARY/v4/stable/memory.yaml, sha256: 6e9712369dabf10e091dfdf1ff21bd2eeae59374c6b9f8c015da20c70d1d3d0a, role: memory}
+  - {path: AI_SKILL_LIBRARY/v4/stable/harmonization.yaml, sha256: 915101e5981e38fe84bac56f85daf443a0625f3b6fc2be6261c778b5f07f6bd6, role: harmonization}
+  - {path: AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml, sha256: fa5b2ef71077143f56e8892eb65ed253337e77bc5f0cb983024eb84edab3e162, role: capability_fusion}
+  - {path: AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml, sha256: e4d8088a3fcfdc18f1d5f503e33dc3af46bb59966683dcab97d43ffc668fbf34, role: creative_visual_fusion}
+  - {path: AI_SKILL_LIBRARY/v4/mesh/graph.yaml, sha256: 1862eb2eeb82f33dc5cca58a8f19fa23e9ab6f86be14cbd34ee8596e994e0ea4, role: mesh}
+  - {path: AI_SKILL_LIBRARY/v4/evergreen/policy.yaml, sha256: fdd3bab4fb794970cc561d281009e1c7e961154ace2d2632acbe0ff57d43e209, role: evergreen}
+  - {path: AI_SKILL_LIBRARY/v4/stable/security.yaml, sha256: 548f818e974d22d967315ebb9609694679f991e372c61cb3e94da5d82fe9c7d3, role: security}
+  - {path: AI_SKILL_LIBRARY/evals.yaml, sha256: 6e93c758f217a0ef7473f68b9dee16670f161aacf550c8427ab8c97e80880f02, role: evals}
+compatibility:
+  min_architecture: 4.0.0
+promotion:
+  class: feature
+  validated: true
+  source: creative_visual_fusion_upgrade
