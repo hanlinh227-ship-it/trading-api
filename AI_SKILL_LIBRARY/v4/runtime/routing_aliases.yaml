@@ -1,0 +1,106 @@
+version: 1
+aliases:
+  core_reasoning: ["giải thích", "khái niệm", "tại sao", "là gì", "how does", "what is"]
+  critical_thinking: ["phản biện", "đánh giá lập luận", "challenge assumption"]
+  fact_checking: ["kiểm chứng", "kiểm tra sự thật", "xác minh thông tin"]
+  research: ["tìm hiểu", "nghiên cứu nguồn", "tìm nguồn"]
+  planning: ["lập kế hoạch", "roadmap", "kế hoạch triển khai"]
+  verification: ["xác minh", "kiểm tra lần cuối", "verify"]
+  troubleshooting: ["khắc phục sự cố", "không hoạt động", "bị lỗi"]
+  comparison: ["so sánh", "khác nhau", "versus"]
+  recommendation: ["nên chọn", "đề xuất", "khuyên dùng"]
+  summarization: ["tóm tắt", "rút gọn"]
+  translation: ["dịch", "dịch sang"]
+  debugging: ["sửa lỗi", "lỗi code", "debug", "fix bug"]
+  coding: ["viết code", "lập trình", "implement code"]
+  software_architecture: ["kiến trúc phần mềm", "thiết kế hệ thống", "system architecture"]
+  github: ["github", "repository", "pull request", "repo"]
+  api: ["api", "endpoint", "giao thức api"]
+  database: ["cơ sở dữ liệu", "database", "sql"]
+  security: ["bảo mật", "security", "threat model"]
+  android: ["android", "apk", "widget điện thoại"]
+  web_app: ["web app", "ứng dụng web", "frontend", "backend"]
+  deployment: ["triển khai", "deploy", "production", "ci cd"]
+  automation: ["tự động hóa", "automation", "workflow"]
+  trading_router: ["quét market", "tìm entry", "giao dịch live", "quét thị trường", "market entry"]
+  crypto: ["crypto", "bitcoin", "btc", "altcoin", "coin"]
+  forex: ["forex", "ngoại hối", "fx"]
+  futures: ["futures", "future", "perpetual"]
+  market_microstructure: ["orderbook", "order flow", "vi cấu trúc thị trường"]
+  technical_analysis: ["phân tích kỹ thuật", "cấu trúc giá", "technical analysis"]
+  risk_management: ["quản trị rủi ro", "stop loss", "position sizing"]
+  backtesting: ["backtest", "kiểm thử chiến lược", "monte carlo"]
+  mt5_mql5: ["mt5", "mql5", "expert advisor", "ea mt5"]
+  live_data_validation: ["giá live", "quote age", "freshness", "dữ liệu trực tiếp"]
+  game_development: ["làm game", "phát triển game", "build game"]
+  game_design: ["thiết kế game", "game mechanics", "cơ chế game"]
+  godot: ["godot"]
+  unity: ["unity"]
+  game_ai: ["game ai", "npc ai", "ai trong game"]
+  ux_ui: ["thiết kế ux ui", "giao diện", "ux ui", "user interface"]
+  product_design: ["product design", "luồng người dùng", "user flow"]
+  graphic_design: ["thiết kế đồ họa", "graphic design"]
+  design_3d: ["thiết kế 3d", "3d design"]
+  modeling: ["3d modeling", "dựng hình 3d"]
+  blender: ["blender", "dựng blender"]
+  photoshop: ["photoshop", "chỉnh ảnh"]
+  premiere_pro: ["premiere pro", "dựng video premiere"]
+  after_effects: ["after effects", "motion graphics"]
+  prompt_engineering: ["viết prompt", "prompt engineering"]
+  image_prompt: ["prompt ảnh", "image prompt"]
+  video_prompt: ["prompt video", "viết prompt video"]
+  negative_constraints: ["negative prompt", "ràng buộc render", "không được lỗi"]
+  character_consistency: ["giữ nhân vật", "nhân vật không thay đổi", "character consistency"]
+  scene_continuity: ["liền mạch scene", "scene continuity", "cảnh chám"]
+  camera_direction: ["góc máy", "camera move", "camera direction"]
+  storyboard: ["storyboard", "shot list", "phân cảnh"]
+  scriptwriting: ["viết kịch bản", "scriptwriting", "kịch bản"]
+  voice_over: ["voice over", "lời thoại", "thuyết minh"]
+  advertising_copy: ["viết quảng cáo", "kịch bản quảng cáo", "ad copy", "quảng cáo sản phẩm"]
+  hook_retention: ["hook", "giữ chân", "retention"]
+  storytelling: ["kể chuyện", "storytelling"]
+  academic_research: ["nghiên cứu học thuật", "bài nghiên cứu", "academic research"]
+  literature_review: ["tổng quan tài liệu", "literature review"]
+  methodology: ["phương pháp nghiên cứu", "methodology"]
+  qualitative_research: ["nghiên cứu định tính", "qualitative research"]
+  quantitative_analysis: ["phân tích định lượng", "thống kê", "quantitative analysis"]
+  citation_review: ["kiểm tra trích dẫn", "citation review"]
+  data_analysis: ["phân tích dữ liệu", "data analysis"]
+  spreadsheet: ["excel", "spreadsheet", "google sheets", "bảng tính"]
+  chart: ["biểu đồ", "chart", "graph"]
+  report: ["báo cáo", "report"]
+  docx: ["word", "docx"]
+  pdf: ["pdf"]
+  slides: ["slide", "pptx", "powerpoint"]
+  presentation: ["thuyết trình", "presentation", "pitch deck"]
+  business: ["kinh doanh", "business strategy", "chiến lược kinh doanh"]
+  marketing: ["marketing", "chiến dịch marketing"]
+profile_escalation:
+  STANDARD:
+    - "có nguồn"
+    - "tìm nguồn"
+    - "tạo file"
+    - "dùng công cụ"
+    - "project"
+    - "dự án"
+    - "artifact"
+  DEEP:
+    - "kiến trúc"
+    - "architecture"
+    - "protocol"
+    - "giao thức"
+    - "deploy"
+    - "production"
+    - "runtime"
+    - "live"
+    - "trading"
+    - "giao dịch"
+    - "market entry"
+    - "private key"
+    - "credential"
+    - "mật khẩu"
+    - "xóa dữ liệu"
+    - "destructive"
+    - "thanh toán"
+    - "financial action"
+fresh_state_terms: ["mới nhất", "hiện tại", "hôm nay", "live", "realtime", "real-time", "giá hiện tại"]

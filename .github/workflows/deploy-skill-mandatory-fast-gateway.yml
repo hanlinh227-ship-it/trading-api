@@ -1,0 +1,152 @@
+name: Deploy Skill-Mandatory Fast Gateway
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-zero-local-runtime-production
+  cancel-in-progress: true
+
+env:
+  WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+
+jobs:
+  deploy-exact-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+      AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
+      V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: AI_SKILL_LIBRARY/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Resolve and lock exact main SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          test -n "$SOURCE_SHA"
+          echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+          echo "EXACT_MAIN_SHA=$SOURCE_SHA"
+
+      - name: Validate deployment credentials and existing bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${TRADING_KV_NAMESPACE_ID:-}"
+          if [ -z "${AI_BRIDGE_SERVICE_ID:-}" ] && [ -z "${V11_AI_BRIDGE_SERVICE_ID:-}" ]; then exit 1; fi
+
+      - name: Install Brain dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+
+      - name: Verify exact-main Brain contracts
+        run: |
+          python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
+          python AI_SKILL_LIBRARY/validate_router.py
+          python AI_SKILL_LIBRARY/validate_authority.py
+          python AI_SKILL_LIBRARY/validate_v4.py
+          python AI_SKILL_LIBRARY/validate_skill_gateway.py
+
+      - name: Compile and validate exact-main hot snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
+            --source-sha "$SKILL_GATEWAY_SOURCE_SHA" \
+            --output AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py \
+            AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm install --no-audit --no-fund
+
+      - name: Prepare, test and benchmark exact-main Skill Gateway
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
+          npm run prepare:skill-gateway
+          npm run check
+          node benchmark-skill-gateway.mjs
+
+      - name: Prepare safe exact-revision Wrangler config
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
+          npm run prepare:wrangler
+          node - <<'NODE'
+          const fs=require('fs');const x=JSON.parse(fs.readFileSync('wrangler.jsonc','utf8'));
+          const expected=process.env.SKILL_GATEWAY_SOURCE_SHA;
+          if(x.name!=='trading-v77-scanner'||x.keep_vars!==true||x.vars?.RUNTIME_REVISION!==expected)throw new Error('unsafe_skill_gateway_deploy_config');
+          for(const key of ['BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_AUTO_ENABLED'])if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('runtime_switch_must_not_be_generated:'+key);
+          console.log('SKILL_GATEWAY_DEPLOY_CONFIG=PASS revision='+expected);
+          NODE
+          npx wrangler deploy --dry-run --outdir .wrangler-skill-gateway-prod-dry-run
+
+      - name: Deploy exact-main Worker
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
+          npx wrangler deploy
+
+      - name: Verify exact deployed revision and Skill Gateway health
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify_once() {
+            CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract" || true)"
+            printf '%s\n' "$CONTRACT" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2);console.log('RUNTIME_REVISION=PASS '+x.runtimeRevision)}catch{process.exit(2)}})" || return 1
+            BRAIN="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/health" || true)"
+            printf '%s\n' "$BRAIN" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.sourceSha!==process.env.EXPECTED||x.schemaVersion!==1||x.primarySkillRequired!==true||x.capsuleRequired!==true||x.externalRoutingCalls!==0)process.exit(3);console.log('BRAIN_HEALTH=PASS '+x.sourceSha)}catch{process.exit(3)}})" || return 1
+            return 0
+          }
+          for attempt in 1 2 3 4 5 6; do if verify_once; then exit 0; fi; sleep 8; done
+          exit 1
+
+      - name: Production brain route matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_route() {
+            text="$1" expected_skill="$2" expected_profile="$3"
+            body="$(TEXT="$text" node -e "process.stdout.write(JSON.stringify({text:process.env.TEXT}))")"
+            result="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' -d "$body" "$WORKER_BASE_URL/brain/route")"
+            printf '%s\n' "$result" | EXPECTED_SKILL="$expected_skill" EXPECTED_PROFILE="$expected_profile" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s),r=x.route||{};if(x.ok!==true||r.primarySkill!==process.env.EXPECTED_SKILL||r.profile!==process.env.EXPECTED_PROFILE||r.sourceSha!==process.env.EXPECTED_SHA||r.externalRoutingCalls!==0||!x.capsule?.capsule_hash)process.exit(2);console.log('BRAIN_ROUTE=PASS '+r.primarySkill+' '+r.profile+' '+r.routeLatencyMs+'ms')})"
+          }
+          check_route 'giải thích bác sĩ nội trú' core_reasoning FAST
+          check_route 'sửa lỗi API này' debugging STANDARD
+          check_route 'viết quảng cáo giày cho quý bà' advertising_copy FAST
+          check_route 'quét market BTC live' trading_router DEEP
+
+      - name: Deployment record
+        run: |
+          echo "SKILL_MANDATORY_FAST_GATEWAY_DEPLOY=PASS"
+          echo "SOURCE_SHA=$SKILL_GATEWAY_SOURCE_SHA"
+          echo "PRIMARY_SKILL_REQUIRED=true"
+          echo "FAST_EXTERNAL_ROUTING_CALLS=0"
+          echo "RUNTIME_SWITCH_MUTATION=false"

@@ -5,6 +5,11 @@ releases:
     architecture: GITHUB_BRAIN_V4
     manifest: AI_SKILL_LIBRARY/v4/releases/4.0.0/manifest.yaml
     previous: null
+  - version: 4.0.1
+    known_good: true
+    architecture: GITHUB_BRAIN_V4
+    manifest: AI_SKILL_LIBRARY/v4/releases/4.0.1/manifest.yaml
+    previous: 4.0.0
 rollback:
   pointer_only: true
   require_known_good: true

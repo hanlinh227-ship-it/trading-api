@@ -28,7 +28,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,7 +48,10 @@ jobs:
             AI_SKILL_LIBRARY/validate_authority.py \
             AI_SKILL_LIBRARY/validate_runtime.py \
             AI_SKILL_LIBRARY/validate_v3.py \
-            AI_SKILL_LIBRARY/validate_v4.py
+            AI_SKILL_LIBRARY/validate_v4.py \
+            AI_SKILL_LIBRARY/validate_skill_gateway.py \
+            AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
+            AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py
           python -m compileall -q AI_SKILL_LIBRARY/v4
       - name: Run integration tests
         run: python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
@@ -66,6 +69,18 @@ jobs:
         run: python AI_SKILL_LIBRARY/validate_v3.py
       - name: Validate V4 LTS dual-plane
         run: python AI_SKILL_LIBRARY/validate_v4.py
+      - name: Validate Skill-Mandatory Fast Gateway contract
+        run: python AI_SKILL_LIBRARY/validate_skill_gateway.py
+      - name: Compile and validate exact-checkout Skill Gateway snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
+            --source-sha "$SOURCE_SHA" \
+            --output AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py \
+            AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
       - name: Validate ingest selection without cloning
         run: python AI_SKILL_LIBRARY/ingest_sources.py --all --dry-run --output /tmp/ai-skill-library.jsonl
       - name: Audit upstream repositories

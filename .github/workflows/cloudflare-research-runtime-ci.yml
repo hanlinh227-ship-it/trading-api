@@ -6,6 +6,7 @@ on:
       - 'cloudflare-worker/**'
       - 'crypto-research-gateway/**'
       - 'bybit-live-bridge/**'
+      - 'AI_SKILL_LIBRARY/**'
       - '.github/workflows/cloudflare-research-runtime-ci.yml'
       - '.github/workflows/deploy-cloudflare-worker.yml'
   push:
@@ -14,6 +15,7 @@ on:
       - 'cloudflare-worker/**'
       - 'crypto-research-gateway/**'
       - 'bybit-live-bridge/**'
+      - 'AI_SKILL_LIBRARY/**'
       - '.github/workflows/cloudflare-research-runtime-ci.yml'
       - '.github/workflows/deploy-cloudflare-worker.yml'
 
@@ -23,12 +25,32 @@ permissions:
 jobs:
   validate-cloudflare-research-runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: AI_SKILL_LIBRARY/requirements.txt
+
+      - name: Install Brain validator dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+
+      - name: Compile and validate exact-checkout Skill Gateway snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
+            --source-sha "$SOURCE_SHA" \
+            --output AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py \
+            AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+          echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
 
       - name: Public Bybit bridge safety tests
         run: python3 bybit-live-bridge/test_public_proxy.py
@@ -73,10 +95,11 @@ jobs:
         env:
           TRADING_KV_NAMESPACE_ID: '00000000000000000000000000000000'
           AI_BRIDGE_SERVICE_ID: '00000000-0000-4000-8000-000000000000'
-          GITHUB_SHA: ${{ github.sha }}
         run: |
           set +e
+          export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
           {
+            npm run prepare:skill-gateway &&
             npm run check &&
             npm run prepare:wrangler &&
             npx wrangler deploy --dry-run --outdir .wrangler-ci-dry-run
@@ -95,6 +118,6 @@ jobs:
 
       - name: Confirm CI and deployment authority split
         run: |
-          echo 'PR CI validates bridge safety, gateway behavior, source and the real Wrangler bundle.'
-          echo 'Production deploy authority is GitHub Actions exact-main via Wrangler.'
+          echo 'PR CI validates bridge safety, gateway behavior, exact-SHA Skill Gateway snapshot, source and the real Wrangler bundle.'
+          echo 'Production deploy authority remains GitHub Actions exact-main via Wrangler.'
           echo 'No runtime variables or trading LIVE switches are changed by this validation job.'

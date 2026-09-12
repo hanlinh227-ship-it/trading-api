@@ -1,0 +1,91 @@
+name: Skill-Mandatory Fast Gateway CI
+
+on:
+  pull_request:
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'cloudflare-worker/**'
+      - '.github/workflows/skill-mandatory-fast-gateway-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'AI_SKILL_LIBRARY/**'
+      - 'cloudflare-worker/**'
+      - '.github/workflows/skill-mandatory-fast-gateway-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-skill-gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: AI_SKILL_LIBRARY/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Brain dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+
+      - name: Validate canonical Brain contracts
+        run: |
+          python AI_SKILL_LIBRARY/validate_v4.py
+          python AI_SKILL_LIBRARY/validate_router.py
+          python AI_SKILL_LIBRARY/validate_authority.py
+          python AI_SKILL_LIBRARY/validate_skill_gateway.py
+
+      - name: Compile exact-checkout hot snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          python AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py \
+            --source-sha "$SOURCE_SHA" \
+            --output AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+          python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py \
+            AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json
+          echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm install --no-audit --no-fund
+
+      - name: Build exact-SHA Worker snapshot module
+        working-directory: cloudflare-worker
+        run: |
+          export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
+          npm run prepare:skill-gateway
+
+      - name: Run Skill Gateway routing and HTTP contracts
+        working-directory: cloudflare-worker
+        run: npm run test:skill-gateway
+
+      - name: Benchmark warm FAST routing
+        working-directory: cloudflare-worker
+        run: node benchmark-skill-gateway.mjs
+
+      - name: Real Wrangler bundle dry-run
+        working-directory: cloudflare-worker
+        env:
+          TRADING_KV_NAMESPACE_ID: '00000000000000000000000000000000'
+          AI_BRIDGE_SERVICE_ID: '00000000-0000-4000-8000-000000000000'
+        run: |
+          export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
+          npm run check
+          npm run prepare:wrangler
+          npx wrangler deploy --dry-run --outdir .wrangler-skill-gateway-ci
+
+      - name: Contract summary
+        run: |
+          echo "SKILL_GATEWAY_CI=PASS"
+          echo "PRIMARY_SKILL_REQUIRED=true"
+          echo "FAST_EXTERNAL_ROUTING_CALLS=0"
+          echo "SNAPSHOT_SOURCE_SHA=$SKILL_GATEWAY_SOURCE_SHA"
