@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/server.js';
+
+afterEach(() => {
+  delete process.env.TEST_FAKE_SECRET;
+  delete process.env.RAILWAY_GIT_COMMIT_SHA;
+});
 
 describe('HTTP surface', () => {
   it('health never exposes environment secrets', async () => {
@@ -8,6 +13,15 @@ describe('HTTP surface', () => {
     const response = await app.inject({ method: 'GET', url: '/health' });
     expect(response.statusCode).toBe(200);
     expect(response.body).not.toContain('do-not-leak');
+    await app.close();
+  });
+
+  it('health exposes the nonsecret Railway Git commit for exact production verification', async () => {
+    process.env.RAILWAY_GIT_COMMIT_SHA = 'abc123';
+    const app = buildApp({ probeOnStart: false });
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().deploymentCommitSha).toBe('abc123');
     await app.close();
   });
 
