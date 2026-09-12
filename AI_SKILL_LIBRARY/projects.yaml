@@ -21,7 +21,7 @@ projects:
     canonical_checkpoint: docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md
     authority_token: BYBIT-BTC-STATEFLOW-2.1
     routed_by: trading_router
-    load_only_when: [trading, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, backtesting, mt5_mql5, trading_bot, live_data_validation]
+    load_only_when: [trading, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, backtesting, mt5_mql5, trading_bot, live_data_validation, market_analysis, multi_market_analysis, risk_execution, quant_backtesting]
     retired_execution_authorities:
       - legacy multi-coin Bybit
       - Forex
