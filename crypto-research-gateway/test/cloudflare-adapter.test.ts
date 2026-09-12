@@ -82,7 +82,7 @@ describe('Cloudflare research gateway adapter', () => {
     expect(body.echo.executionVenue).toBe('bybit');
   });
 
-  it('fails over only a degraded Bybit-bound request through the Railway safety path', async () => {
+  it('fails over only a degraded Bybit-bound request through the Railway safety path using the canonical quote schema', async () => {
     let fallbackCalls = 0;
     const fallbackFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       fallbackCalls += 1;
@@ -97,7 +97,7 @@ describe('Cloudflare research gateway adapter', () => {
           executionVerified: true,
           status: 'OK',
           venue: 'bybit',
-          instrument: 'perpetual',
+          instrumentType: 'perpetual',
           side: 'LONG',
           bid: 100,
           ask: 101,
@@ -124,6 +124,34 @@ describe('Cloudflare research gateway adapter', () => {
     expect(fallbackCalls).toBe(1);
   });
 
+  it('rejects a fallback quote whose instrumentType does not match the request', async () => {
+    const handle = createResearchGatewayHandler({
+      runtime: degradedRuntime() as never,
+      now: () => 2_000,
+      fallbackFetch: async () => new Response(JSON.stringify({
+        ok: true,
+        degraded: false,
+        executionQuote: {
+          executionVerified: true,
+          status: 'OK',
+          venue: 'bybit',
+          instrumentType: 'spot',
+          side: 'LONG',
+          bid: 100,
+          ask: 101,
+          executablePrice: 101,
+          quoteAgeMs: 25,
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } }),
+    });
+    const response = await handle(new Request('https://worker.test/research/market', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'execution_quote', symbol: 'BTCUSDT', instrument: 'perpetual', side: 'LONG', executionVenue: 'bybit' }),
+    }), { RUNTIME_REVISION: 'sha-1' });
+    expect(response?.status).toBe(503);
+  });
+
   it('rejects a stale Railway safety quote and preserves the degraded response', async () => {
     const handle = createResearchGatewayHandler({
       runtime: degradedRuntime() as never,
@@ -135,7 +163,7 @@ describe('Cloudflare research gateway adapter', () => {
           executionVerified: true,
           status: 'OK',
           venue: 'bybit',
-          instrument: 'perpetual',
+          instrumentType: 'perpetual',
           side: 'LONG',
           bid: 100,
           ask: 101,
