@@ -31,7 +31,6 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Gateway behavior tests with diagnostic log
-        id: gateway-tests
         working-directory: crypto-research-gateway
         shell: bash
         run: |
@@ -63,11 +62,25 @@ jobs:
 
       - name: Wrangler bundle dry-run with inert binding identifiers
         working-directory: cloudflare-worker
+        shell: bash
         env:
           TRADING_KV_NAMESPACE_ID: '00000000000000000000000000000000'
           AI_BRIDGE_SERVICE_ID: '00000000-0000-4000-8000-000000000000'
           GITHUB_SHA: ${{ github.sha }}
-        run: npm run check
+        run: |
+          set +e
+          npm run check 2>&1 | tee wrangler-check.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Upload Wrangler log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflare-wrangler-check-log
+          path: cloudflare-worker/wrangler-check.log
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: Confirm validation-only authority
         run: |
