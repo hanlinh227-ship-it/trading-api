@@ -80,6 +80,25 @@ describe('ResearchRuntime execution_quote', () => {
     expect((result.executionQuote as { executableSemantic: string }).executableSemantic).toBe('bid');
   });
 
+  it('classifies Binance USD-M HTTP 451 as a cloud-region restriction', async () => {
+    const runtime = await runtimeWithHealth({ bybit: false, binance: true });
+    vi.spyOn(PROVIDERS.binance, 'snapshot').mockRejectedValue(new Error('provider_http_451'));
+
+    const result = await runtime.runMarket({
+      action: 'execution_quote' as never,
+      symbol: 'BTCUSDT',
+      instrument: 'perpetual',
+      side: 'LONG',
+      executionVenue: 'binance',
+    } as never);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('VENUE_UNAVAILABLE');
+    expect(result.failures).toEqual([
+      { provider: 'binance', error: 'region_restricted_binance_futures_cloud_region' },
+    ]);
+  });
+
   it('does not compare a secondary Spot quote against a Perpetual execution quote', async () => {
     const runtime = await runtimeWithHealth({ bybit: true, binance: true });
     vi.spyOn(PROVIDERS.bybit, 'snapshot').mockResolvedValue(quoteRows('bybit', 'perpetual'));
