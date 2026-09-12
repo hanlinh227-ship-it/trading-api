@@ -9,6 +9,7 @@ Read-only cloud execution runtime for GitHub Brain crypto research.
 - Fastify
 - MCP TypeScript SDK v2 Streamable HTTP
 - Railway deployment from GitHub
+- production replica pinned to Railway Southeast Asia
 - no local user installation required
 
 ## HTTP surface
@@ -76,7 +77,7 @@ Credentialless public adapters:
 
 For executable price semantics, Bybit and Binance are first-class venue-bound sources. Generic provider ranking remains available for broader research and does not determine execution venue.
 
-Bybit HTTP 403 from a provider-restricted cloud region is classified as `region_restricted_bybit_cloud_region`; the service never attempts to bypass provider geographic restrictions. When Bybit is the requested execution venue and unavailable, the gateway returns `VENUE_UNAVAILABLE` rather than substituting Binance.
+Bybit HTTP 403 from a provider-restricted cloud region is classified as `region_restricted_bybit_cloud_region`. Binance USD-M HTTP 451 from a restricted cloud region is classified as `region_restricted_binance_futures_cloud_region`. The service never attempts to bypass provider geographic restrictions. When the requested execution venue is unavailable, the gateway returns `VENUE_UNAVAILABLE` rather than substituting another venue.
 
 ## Safety
 
@@ -90,8 +91,10 @@ Default public research uses zero exchange credentials. Future authenticated rea
 
 ## Deployment verification
 
-Pre-merge verification runs the exact feature-branch build in GitHub Actions. CI validates policy, unit behavior, typecheck/build, Brain/registry/router/V4/authority contracts, public provider health, and live venue-bound execution quotes for Binance BTCUSDT/SOLUSDT. Bybit execution smoke must also succeed when the CI region is permitted; an explicit `region_restricted_bybit_cloud_region` classification is the only accepted region-based skip. No proxy or geographic bypass is used.
+Pre-merge verification runs the exact feature-branch build in GitHub Actions. CI validates policy, unit behavior, typecheck/build, Brain/registry/router/V4/authority contracts, public provider health, and live venue-bound execution quotes. GitHub-hosted US runners may classify Bybit or Binance Futures as explicitly region-restricted; only the exact known restriction classifications are accepted, and no proxy or geographic bypass is used.
 
-Railway production is sourced from the canonical repository `main` branch; production activation therefore occurs only after the PR is merged and the same runtime is redeployed from `main`.
+Railway production is sourced from the canonical repository `main` branch and runs in Southeast Asia. `/health` exposes the nonsecret `RAILWAY_GIT_COMMIT_SHA` as `deploymentCommitSha`, allowing post-merge CI to wait for the exact production revision rather than smoke-testing an older deployment.
 
-Completion requires the canonical Railway deployment to report `SUCCESS`, `/health` to preserve `localInstallRequired: false`, `/capabilities` to expose read-only tools only, the execution-quote path to retain fail-closed semantics, and post-merge GitHub CI to remain green.
+After every relevant push to `main`, the production smoke job waits for `deploymentCommitSha == GITHUB_SHA`, confirms the Railway upstream zone is Southeast Asia, verifies `/capabilities` remains read-only, and POSTs live `execution_quote` requests for BTCUSDT and SOLUSDT against both Bybit Linear and Binance USD-M. Both venues must return verified bid/ask execution quotes within the 5-second hard freshness gate.
+
+Completion requires the canonical Railway deployment to report `SUCCESS`, exact-commit production smoke to pass, `/health` to preserve `localInstallRequired: false`, `/capabilities` to expose read-only tools only, the execution-quote path to retain fail-closed semantics, and post-merge GitHub CI to remain green.
