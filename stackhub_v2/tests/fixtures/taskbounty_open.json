@@ -1,0 +1,14 @@
+{
+  "tasks": [
+    {
+      "id": "f6c0fe10-be90-405c-ba2e-382b6d4b2042",
+      "title": "Fix null pointer in checkout",
+      "bounty_cents": 5000,
+      "github_repo_url": "https://github.com/acme/repo",
+      "github_issue_url": "https://github.com/acme/repo/issues/42",
+      "created_at": "2026-05-13T12:00:00.000Z",
+      "complexity_tag": "small",
+      "language": "typescript"
+    }
+  ]
+}

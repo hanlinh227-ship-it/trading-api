@@ -1,0 +1,150 @@
+name: STACKHUB TaskForce Canary
+
+on:
+  push:
+    branches: ['stackhub-v2-autonomous-bounty']
+    paths:
+      - '.github/workflows/stackhub-taskforce-canary.yml'
+      - 'stackhub_v2/config/sources.taskforce.canary.yaml'
+      - 'stackhub_v2/src/stackhub/local_solver.py'
+      - 'stackhub_v2/src/stackhub/orchestrator.py'
+      - 'stackhub_v2/src/stackhub/policy.py'
+      - 'stackhub_v2/src/stackhub/config.py'
+      - 'stackhub_v2/src/stackhub/adapters/taskforce.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DEPLOY_ENABLED: ${{ secrets.STACKHUB_DEPLOY_ENABLED }}
+      VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
+      VPS_USER: ${{ secrets.STACKHUB_VPS_USER }}
+      VPS_PORT: ${{ secrets.STACKHUB_VPS_PORT }}
+      VPS_SSH_KEY_B64: ${{ secrets.STACKHUB_VPS_SSH_KEY_B64 }}
+      TASKFORCE_API_KEY: ${{ secrets.TASKFORCE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate canary inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${DEPLOY_ENABLED:-}" = "true" || { echo 'STACKHUB deployment disabled'; exit 1; }
+          test -n "${VPS_HOST:-}" || { echo 'Missing VPS host'; exit 1; }
+          test -n "${VPS_USER:-}" || { echo 'Missing VPS user'; exit 1; }
+          test -n "${VPS_SSH_KEY_B64:-}" || { echo 'Missing B64 SSH key'; exit 1; }
+          test -n "${TASKFORCE_API_KEY:-}" || { echo 'Missing TaskForce API key'; exit 1; }
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s' "$VPS_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_stackhub
+          chmod 600 ~/.ssh/id_stackhub
+          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Install benchmark and start exact TaskForce canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          sudo -n true
+
+          sudo git -C /opt/stackhub fetch origin stackhub-v2-autonomous-bounty
+          sudo git -C /opt/stackhub checkout stackhub-v2-autonomous-bounty
+          sudo git -C /opt/stackhub reset --hard origin/stackhub-v2-autonomous-bounty
+          sudo /opt/stackhub/.venv/bin/python -m pip install -e /opt/stackhub/stackhub_v2
+
+          if ! command -v ollama >/dev/null 2>&1; then
+            curl -fsSL https://ollama.com/install.sh -o /tmp/install-ollama.sh
+            sudo sh /tmp/install-ollama.sh
+            rm -f /tmp/install-ollama.sh
+          fi
+          sudo systemctl enable --now ollama
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
+          ollama pull qwen2.5-coder:1.5b-instruct
+
+          sudo install -d -m 0755 /var/lib/stackhub/artifacts
+          cd /opt/stackhub/stackhub_v2
+          export STACKHUB_LOCAL_MODEL='qwen2.5-coder:1.5b-instruct'
+          export STACKHUB_ARTIFACT_ROOT='/var/lib/stackhub/artifacts'
+
+          cat >/tmp/stackhub-solver-benchmark.json <<'JSON'
+          {"opportunity":{"id":"solver-benchmark","source":"local","category":"coding","requirements":["Return the token STACKHUB_SOLVER_OK and one sentence stating this is a local solver benchmark."],"acceptance_criteria":["The deliverable contains STACKHUB_SOLVER_OK."]},"workspace_reference":"benchmark"}
+          JSON
+          /opt/stackhub/.venv/bin/python -m stackhub.local_solver </tmp/stackhub-solver-benchmark.json >/tmp/stackhub-solver-result.json
+          /opt/stackhub/.venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          result=json.loads(Path('/tmp/stackhub-solver-result.json').read_text())
+          artifact=Path(result['artifact_reference'])
+          text=artifact.read_text(encoding='utf-8')
+          if 'STACKHUB_SOLVER_OK' not in text:
+              raise SystemExit('local solver benchmark failed acceptance token')
+          if not result.get('evidence'):
+              raise SystemExit('local solver benchmark missing evidence')
+          print(json.dumps({'solver_benchmark':'PASS','artifact_bytes':artifact.stat().st_size,'model':result.get('metadata',{}).get('model')},sort_keys=True))
+          PY
+          rm -f /tmp/stackhub-solver-benchmark.json /tmp/stackhub-solver-result.json
+
+          set -a
+          . /etc/stackhub/stackhub.env
+          set +a
+          test -n "${TASKFORCE_API_KEY:-}" || { echo 'TaskForce key missing on VPS'; exit 1; }
+          export STACKHUB_SOLVER_COMMAND='/opt/stackhub/.venv/bin/python -m stackhub.local_solver'
+
+          /opt/stackhub/.venv/bin/python -m stackhub.taskforce_verify
+          /opt/stackhub/.venv/bin/stackhub doctor --config config/sources.taskforce.canary.yaml
+
+          CANARY_DB=/var/lib/stackhub/stackhub-taskforce-canary.db
+          /opt/stackhub/.venv/bin/stackhub orchestrate-once --config config/sources.taskforce.canary.yaml --db "$CANARY_DB"
+          /opt/stackhub/.venv/bin/stackhub status --config config/sources.taskforce.canary.yaml --db "$CANARY_DB"
+
+          sudo tee /etc/systemd/system/stackhub-v2-canary.service >/dev/null <<'UNIT'
+          [Unit]
+          Description=STACKHUB V2 exact TaskForce canary lifecycle
+          After=network-online.target ollama.service
+          Wants=network-online.target
+
+          [Service]
+          Type=simple
+          WorkingDirectory=/opt/stackhub/stackhub_v2
+          EnvironmentFile=/etc/stackhub/stackhub.env
+          Environment="STACKHUB_SOLVER_COMMAND=/opt/stackhub/.venv/bin/python -m stackhub.local_solver"
+          Environment=STACKHUB_LOCAL_MODEL=qwen2.5-coder:1.5b-instruct
+          Environment=STACKHUB_ARTIFACT_ROOT=/var/lib/stackhub/artifacts
+          ExecStart=/opt/stackhub/.venv/bin/stackhub run --config /opt/stackhub/stackhub_v2/config/sources.taskforce.canary.yaml --db /var/lib/stackhub/stackhub-taskforce-canary.db
+          Restart=always
+          RestartSec=30
+          NoNewPrivileges=true
+          PrivateTmp=true
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now stackhub-v2-canary.service
+          sudo systemctl restart stackhub-v2-canary.service
+          sleep 3
+          sudo systemctl is-active stackhub-v2-canary.service
+          sudo systemctl --no-pager --full status stackhub-v2-canary.service
+          REMOTE
+
+      - name: Cleanup runner SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_stackhub
