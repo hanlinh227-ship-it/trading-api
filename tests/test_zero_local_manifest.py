@@ -62,12 +62,13 @@ class ZeroLocalManifestTests(unittest.TestCase):
         ):
             self.assertIn(required, text)
 
-    def test_main_ci_verifies_exact_railway_production_commit_and_both_execution_venues(self):
+    def test_main_ci_verifies_connector_managed_railway_release_and_both_execution_venues(self):
         text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
         for required in (
             "crypto-research-gateway-prod-production.up.railway.app",
-            "deploymentCommitSha",
+            "deploymentSourceSha",
             "GITHUB_SHA",
+            "live-price-execution-v1",
             "bybit LONG BTCUSDT ask",
             "binance LONG BTCUSDT ask",
             "Production venue-bound execution smoke",
@@ -80,14 +81,22 @@ class ZeroLocalManifestTests(unittest.TestCase):
         self.assertEqual(manifest["service_root"], "crypto-research-gateway")
         self.assertEqual(manifest["health_path"], "/health")
 
-    def test_cloud_runtime_requires_github_main_auto_deploy(self):
+    def test_cloud_runtime_uses_connector_managed_exact_commit_releases(self):
         manifest = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml").read_text(encoding="utf-8"))
         source = manifest["production_source"]
         self.assertEqual(source["provider"], "github")
         self.assertEqual(source["repository"], "hanlinh227-ship-it/trading-api")
         self.assertEqual(source["branch"], "main")
-        self.assertTrue(source["auto_deploy_on_push"])
-        self.assertFalse(source["commit_pin_allowed_in_normal_operation"])
+        self.assertEqual(source["deployment_trigger"], "railway_connector_exact_commit")
+        self.assertFalse(source["auto_deploy_on_push"])
+        self.assertFalse(source["github_app_required"])
+        self.assertFalse(source["user_local_action_required"])
+        self.assertTrue(source["deployment_commit_pin_required"])
+        verification = manifest["production_verification"]
+        self.assertEqual(verification["release_marker"], "live-price-execution-v1")
+        self.assertTrue(verification["railway_success_required"])
+        self.assertEqual(verification["required_execution_venues"], ["bybit", "binance"])
+        self.assertTrue(verification["live_execution_smoke_required"])
 
 
 if __name__ == "__main__":
