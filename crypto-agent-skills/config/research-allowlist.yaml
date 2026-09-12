@@ -1,0 +1,83 @@
+version: 1
+mode: research-only
+policy:
+  public_data_first: true
+  credentialed_read_only_requires_separate_setup: true
+  live_trading_enabled: false
+  wallet_actions_enabled: false
+  withdrawal_enabled: false
+  transfer_enabled: false
+  swap_enabled: false
+  bridge_enabled: false
+  transaction_broadcast_enabled: false
+
+providers:
+  binance:
+    source: https://github.com/binance/binance-skills-hub
+    allowed:
+      - crypto-market-rank
+      - query-token-info
+      - query-token-audit
+      - query-address-info
+      - binance-trading-signal:read_and_analysis_only
+  okx_cex:
+    source: https://github.com/okx/agent-skills
+    allowed:
+      - okx-cex-market
+      - okx-cex-news:if_present_in_current_upstream
+      - okx-sentiment-tracker:read_only_queries_only
+    runtime_constraints:
+      - use_market_module_only_when_possible
+      - use_read_only_flag_when_using_agent_trade_kit
+  okx_onchain:
+    source: https://github.com/okx/onchainos-skills
+    allowed:
+      - okx-dex-market:read_only_only
+      - token-research
+      - smart-money
+      - new-token-screening
+      - public-address-wallet-analysis
+  bybit:
+    source: https://github.com/bybit-exchange/skills
+    allowed:
+      - market:ticker
+      - market:kline
+      - market:orderbook
+      - market:funding_rate
+      - market:open_interest
+      - market:volatility
+      - market:condition_summary
+  gate:
+    skills_source: https://github.com/gate/gate-skills
+    mcp_source: https://github.com/gate/gate-mcp
+    allowed:
+      - public_market_mcp
+      - info_mcp
+      - news_mcp
+      - docs_mcp
+      - gate-info-research
+      - gate-info-coinanalysis
+      - gate-info-coincompare
+      - gate-info-riskcheck
+      - gate-info-macroimpact
+      - gate-news-briefing
+      - gate-news-communityscan
+      - gate-news-eventexplain
+      - gate-dex-market:market_data_only
+  kucoin:
+    source: https://github.com/Kucoin/kucoin-skills-hub
+    docs: https://www.kucoin.com/docs-new/kucoin_skills_hub
+    allowed:
+      - spot:get_only
+      - margin-trading:get_only
+      - futures-trading:get_only
+      - assets:get_only
+      - earn:get_only
+      - convert:get_only
+      - broker:get_only
+  coinbase:
+    skills_source: https://github.com/coinbase/agentic-wallet-skills
+    agentkit_source: https://github.com/coinbase/agentkit
+    allowed:
+      - documentation_only
+      - public_onchain_research_only_if_no_wallet_or_payment_action_is_loaded
