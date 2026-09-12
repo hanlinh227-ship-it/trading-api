@@ -1,0 +1,77 @@
+version: 1
+purpose: harmonize_provider_evidence_without_parallel_reasoning_authorities
+principles:
+  provider_outputs_are_evidence_not_votes: true
+  majority_vote_for_truth: false
+  silent_averaging_of_conflicts: false
+  current_project_authority_precedes_provider_guidance: true
+  stable_security_precedes_provider_guidance: true
+  high_risk_signal_is_not_canceled_by_lower_risk_opinion: true
+source_precedence:
+  - current_runtime
+  - current_project_authority
+  - current_first_party
+  - fresher_equal_authority
+  - approved_reference
+  - scoped_verified_memory
+  - model_background
+normalization_before_conflict:
+  required:
+    - canonical_symbol_or_contract
+    - chain_or_network_when_onchain
+    - venue
+    - instrument_type
+    - quote_currency
+    - price_semantics
+    - timestamp
+    - timezone
+    - interval_or_window
+    - unit_and_scale
+  instrument_types:
+    - spot
+    - perpetual
+    - delivery_futures
+    - options
+    - index
+    - cfd
+  price_semantics:
+    - last
+    - mark
+    - index
+    - bid
+    - ask
+    - mid
+conflict_resolution:
+  same_authority:
+    prefer_fresher: true
+    require_semantic_equivalence: true
+  cross_venue:
+    allow_comparison: true
+    never_assume_price_identity: true
+    disclose_material_basis_difference: true
+  provider_vs_project_policy:
+    winner: current_project_authority
+  provider_vs_stable_security:
+    winner: stable_security
+  unresolved_material_conflict:
+    action: disclose_and_block_dependent_high_consequence_conclusion
+  live_entry_price_divergence:
+    action: no_entry_until_resolved
+risk_reconciliation:
+  security_flags:
+    aggregation: worst_credible_flag_pending_investigation
+    never_average_down: true
+  permission_disagreement:
+    action: fail_closed
+  credential_ambiguity:
+    action: fail_closed
+  write_capability_ambiguity:
+    action: classify_high_risk
+output_contract:
+  distinguish:
+    - FACT
+    - INFERENCE
+    - ASSUMPTION
+  include_source_and_freshness_when_material: true
+  disclose_unresolved_material_conflict: true
+  never_present_provider_consensus_as_authorization: true
