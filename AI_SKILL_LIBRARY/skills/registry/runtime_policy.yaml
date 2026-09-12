@@ -1,0 +1,28 @@
+version: 1
+policy:
+  allow_local_install_fallback: false
+  allow_local_cli_execution: false
+  allow_local_mcp_server: false
+  public_research_default: true
+  auth_read_only_default_enabled: false
+  high_risk_cloud_execution: false
+  fail_closed_on_permission_ambiguity: true
+  fail_closed_on_unknown_capability: true
+  provider_output_is_reasoning_authority: false
+execution_preference:
+  - connected_cloud_tool
+  - public_first_party_https
+  - approved_remote_read_only_mcp
+  - degraded_failure
+runtime_targets:
+  cloud_gateway:
+    allowed_modes: [RESEARCH_SAFE]
+    max_provider_candidates: 3
+  none:
+    allowed_modes: [AUTH_READ_ONLY, HIGH_RISK]
+normal_execution_contract:
+  never_request_local_install: true
+  never_spawn_local_provider_cli: true
+  never_require_local_node_python: true
+  disclose_degraded_state: true
+  cached_data_cannot_masquerade_as_live: true
