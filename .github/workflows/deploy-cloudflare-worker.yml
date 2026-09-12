@@ -7,6 +7,11 @@ on:
       - 'cloudflare-worker/**'
       - 'crypto-research-gateway/**'
       - 'bybit-live-bridge/**'
+      - 'AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml'
+      - 'AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md'
+      - 'AGENTS.md'
+      - 'tests/test_cloud_runtime_policy.py'
+      - '.github/workflows/zero-local-cloud-runtime.yml'
       - '.github/workflows/deploy-cloudflare-worker.yml'
   workflow_dispatch:
 
@@ -32,9 +37,14 @@ jobs:
       - name: Verify public proxy safety contract
         run: python3 bybit-live-bridge/test_public_proxy.py
       - name: Install exact-main bridge service
+        id: install_bridge
+        continue-on-error: true
         working-directory: bybit-live-bridge
         run: bash install.sh
       - name: Verify bridge service health
+        id: verify_bridge
+        if: steps.install_bridge.outcome == 'success'
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -44,8 +54,17 @@ jobs:
             fi
             sleep 2
           done
-          sudo systemctl --no-pager --full status bybit-btc-bridge.service || true
           exit 1
+      - name: Record VPC bridge readiness
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.install_bridge.outcome }}" = "success" ] && [ "${{ steps.verify_bridge.outcome }}" = "success" ]; then
+            echo 'BYBIT_VPC_BRIDGE=READY'
+          else
+            echo 'BYBIT_VPC_BRIDGE=DEGRADED_RAILWAY_SAFETY_FALLBACK_ACTIVE'
+          fi
 
   validate-and-deploy:
     needs: deploy-public-bridge
@@ -141,6 +160,6 @@ jobs:
       - name: Deployment authority record
         run: |
           echo 'CLOUDFLARE_DEPLOYMENT_AUTHORITY=GITHUB_ACTIONS_EXACT_MAIN'
-          echo 'BYBIT_PUBLIC_TRANSPORT=VPC_UNSIGNED_MARKET_ONLY'
+          echo 'BYBIT_PUBLIC_TRANSPORT=VPC_UNSIGNED_MARKET_FIRST_RAILWAY_SAFETY_FALLBACK'
           echo 'USER_LOCAL_RUNTIME_REQUIRED=false'
           echo 'RUNTIME_SWITCH_MUTATION=false'

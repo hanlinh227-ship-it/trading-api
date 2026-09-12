@@ -9,6 +9,9 @@ const RUNTIME_MODE='zero-local-research-safe';
 const DEPLOYMENT_RELEASE='live-price-execution-v1';
 const HEALTH_TTL_MS=30_000;
 const MAX_BODY_BYTES=256_000;
+const FALLBACK_TIMEOUT_MS=12_000;
+const MAX_EXECUTION_QUOTE_AGE_MS=5_000;
+const DEFAULT_FALLBACK_GATEWAY_URL='https://crypto-research-gateway-prod-production.up.railway.app';
 const ACTIONS=new Set(['snapshot','candles','orderbook','funding_oi','execution_quote']);
 const INSTRUMENTS=new Set(['spot','perpetual']);
 const SIDES=new Set(['LONG','SHORT']);
@@ -71,7 +74,61 @@ async function parseJsonBody(request){
   return JSON.parse(text);
 }
 
-export function createResearchGatewayHandler({runtime=new ResearchRuntime(),now=()=>Date.now()}={}){
+function shouldUseBybitSafetyFallback(input,result){
+  if(!result||result.ok!==false||result.degraded!==true)return false;
+  if(input.action!=='execution_quote')return false;
+  return input.executionVenue===undefined||input.executionVenue==='bybit';
+}
+
+function isValidFallbackExecutionQuote(input,quote){
+  if(!quote||typeof quote!=='object')return false;
+  if(quote.executionVerified!==true||quote.status!=='OK'||quote.venue!=='bybit')return false;
+  if(quote.instrument!==input.instrument||quote.side!==input.side)return false;
+  const bid=Number(quote.bid);
+  const ask=Number(quote.ask);
+  const executablePrice=Number(quote.executablePrice);
+  const quoteAgeMs=Number(quote.quoteAgeMs);
+  if(!Number.isFinite(bid)||!Number.isFinite(ask)||!Number.isFinite(executablePrice)||!Number.isFinite(quoteAgeMs))return false;
+  if(bid<=0||ask<=0||bid>ask||quoteAgeMs<0||quoteAgeMs>MAX_EXECUTION_QUOTE_AGE_MS)return false;
+  const expected=input.side==='LONG'?ask:bid;
+  return executablePrice===expected;
+}
+
+async function runBybitSafetyFallback(input,result,{fallbackFetch,fallbackGatewayUrl}){
+  if(!shouldUseBybitSafetyFallback(input,result))return null;
+  const base=String(fallbackGatewayUrl||'').replace(/\/+$/,'');
+  if(!base.startsWith('https://'))return null;
+  try{
+    const response=await fallbackFetch(base+'/research/market',{
+      method:'POST',
+      headers:{'content-type':'application/json','accept':'application/json'},
+      body:JSON.stringify(input),
+      signal:AbortSignal.timeout(FALLBACK_TIMEOUT_MS),
+    });
+    if(!response.ok)return null;
+    const text=await response.text();
+    if(encoder.encode(text).byteLength>MAX_BODY_BYTES)return null;
+    const payload=JSON.parse(text);
+    if(!payload||typeof payload!=='object'||payload.ok!==true)return null;
+    const quote=payload.executionQuote;
+    if(!isValidFallbackExecutionQuote(input,quote))return null;
+    return {
+      ...payload,
+      edgeRuntimeProvider:'cloudflare-workers',
+      upstreamFallback:'railway',
+      fallbackReason:String(result.error||result.reason||'cloudflare_bybit_degraded').slice(0,160),
+    };
+  }catch{
+    return null;
+  }
+}
+
+export function createResearchGatewayHandler({
+  runtime=new ResearchRuntime(),
+  now=()=>Date.now(),
+  fallbackFetch=fetch,
+  fallbackGatewayUrl=DEFAULT_FALLBACK_GATEWAY_URL,
+}={}){
   let probePromise=null;
   let healthValidUntil=0;
 
@@ -106,6 +163,7 @@ export function createResearchGatewayHandler({runtime=new ResearchRuntime(),now=
         deploymentRelease:DEPLOYMENT_RELEASE,
         deploymentSourceSha:String(env.RUNTIME_REVISION||''),
         localInstallRequired:false,
+        bybitTransportPriority:['cloudflare-vpc-bridge','railway-safety-fallback'],
         lastPublicProbeTimestamp:runtime.getLastProbeAt(),
         healthyProviders,
         degradedProviders,
@@ -126,6 +184,8 @@ export function createResearchGatewayHandler({runtime=new ResearchRuntime(),now=
     if(!input)return json({ok:false,degraded:false,error:'invalid_research_request'},400);
     await ensureHealth();
     const result=await runtime.runMarket(input);
+    const fallback=await runBybitSafetyFallback(input,result,{fallbackFetch,fallbackGatewayUrl});
+    if(fallback)return json(fallback,200);
     return json(result,result?.degraded===true&&result?.ok===false?503:200);
   };
 }
