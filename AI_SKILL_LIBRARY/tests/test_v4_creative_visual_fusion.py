@@ -119,12 +119,18 @@ class V4CreativeVisualFusionTests(unittest.TestCase):
             "facebookresearch/segment-anything",
             "IDEA-Research/GroundingDINO",
             "xinntao/Real-ESRGAN",
-            "comfyanonymous/ComfyUI",
         }
         self.assertTrue(expected.issubset(rows))
         for repo in expected:
             self.assertFalse(rows[repo]["training"], repo)
             self.assertIn(rows[repo]["usage_tier"], {"RAG_ONLY", "REFERENCE_ONLY"}, repo)
+
+    def test_comfyui_patterns_are_design_reference_only_until_license_gate_changes(self):
+        creative = load_yaml(LIB / "v4/stable/creative_visual_fusion.yaml")
+        comfy = creative["upstream_pattern_map"]["Comfy-Org/ComfyUI"]
+        self.assertEqual(comfy["status"], "design_reference_only_license_not_auto_approved")
+        self.assertFalse(comfy["code_reuse"])
+        self.assertEqual(comfy["registry_promotion"], "manual_review_required")
 
     def test_harmonization_requires_creative_overlap_and_conflict_gates(self):
         harmonization = load_yaml(LIB / "v4/stable/harmonization.yaml")
