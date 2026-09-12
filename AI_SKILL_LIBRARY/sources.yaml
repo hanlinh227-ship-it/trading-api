@@ -77,3 +77,13 @@ sources:
   - {<<: *rag_only, category: software, repo: django/django, license: BSD-3-Clause, focus: "mature web framework architecture and testing"}
   - {<<: *rag_only, category: software, repo: facebook/react, license: MIT, focus: "frontend architecture, rendering and component systems"}
   - {<<: *rag_only, category: software, repo: nestjs/nest, license: MIT, focus: "TypeScript backend architecture and dependency injection"}
+
+  # AI ORCHESTRATION / RETRIEVAL / MEMORY / EVAL / SERVING
+  - {<<: *rag_only, category: software, repo: langchain-ai/langgraph, license: MIT, focus: "bounded stateful agent graphs, checkpoint/resume and explicit execution transitions; reference patterns only"}
+  - {<<: *rag_only, category: software, repo: pydantic/pydantic-ai, license: MIT, focus: "typed agent/capability contracts, schema validation and eval harness patterns"}
+  - {<<: *rag_only, category: software, repo: deepset-ai/haystack, license: Apache-2.0, focus: "context-engineered retrieval pipelines with explicit retrieval, routing, memory and generation boundaries"}
+  - {<<: *rag_only, category: software, repo: qdrant/qdrant, license: Apache-2.0, focus: "hybrid semantic/vector retrieval, metadata filtering and high-performance indexing"}
+  - {<<: *rag_only, category: software, repo: mem0ai/mem0, license: Apache-2.0, focus: "selective scoped memory, consolidation and long-term retrieval patterns"}
+  - {<<: *rag_only, category: software, repo: promptfoo/promptfoo, license: MIT, focus: "LLM/agent eval matrices, CI regression testing and red-team patterns"}
+  - {<<: *reference_only, category: software, repo: sgl-project/sglang, license: Apache-2.0, focus: "optional self-hosted inference patterns: prefix caching, batching and high-performance serving"}
+  - {<<: *reference_only, category: software, repo: zilliztech/GPTCache, license: MIT, focus: "semantic cache similarity thresholds, cache safety and miss fallback patterns"}
