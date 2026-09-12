@@ -31,7 +31,11 @@ jobs:
           node-version: '22'
 
       - name: Public Bybit bridge safety tests
-        run: python3 bybit-live-bridge/test_public_proxy.py
+        run: |
+          python3 bybit-live-bridge/test_public_proxy.py
+          python3 bybit-live-bridge/test_public_daemon.py
+          bash -n bybit-live-bridge/install-user.sh
+          bash -n bybit-live-bridge/watchdog-user.sh
 
       - name: Install gateway dependencies
         working-directory: crypto-research-gateway
