@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectProviders } from '../src/routing/capability-router.js';
+import { resolveExecutionVenue, selectProviders } from '../src/routing/capability-router.js';
 
 const healthy = {
   binance: { ok: true, checkedAt: 1 },
@@ -25,5 +25,30 @@ describe('selectProviders', () => {
 
   it('never routes high-risk capability ids', () => {
     expect(selectProviders({ capability: 'place_order', health: healthy })).toEqual([]);
+  });
+});
+
+describe('resolveExecutionVenue', () => {
+  it('defaults production-style execution quotes to Bybit', () => {
+    expect(resolveExecutionVenue({ instrument: 'perpetual', health: healthy })).toEqual({
+      venue: 'bybit',
+      available: true,
+    });
+  });
+
+  it('honors explicit Binance execution venue', () => {
+    expect(resolveExecutionVenue({ executionVenue: 'binance', instrument: 'perpetual', health: healthy })).toEqual({
+      venue: 'binance',
+      available: true,
+    });
+  });
+
+  it('does not silently substitute Binance when Bybit execution is unavailable', () => {
+    const health = { ...healthy, bybit: { ok: false, checkedAt: 1 } };
+    expect(resolveExecutionVenue({ executionVenue: 'bybit', instrument: 'perpetual', health })).toEqual({
+      venue: 'bybit',
+      available: false,
+      reason: 'execution_venue_unavailable',
+    });
   });
 });
