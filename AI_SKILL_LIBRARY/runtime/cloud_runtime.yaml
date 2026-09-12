@@ -13,6 +13,12 @@ capabilities_path: /capabilities
 mcp_path: /mcp
 service_root: crypto-research-gateway
 live_price_policy_path: AI_SKILL_LIBRARY/skills/registry/live_price_policy.yaml
+production_source:
+  provider: github
+  repository: hanlinh227-ship-it/trading-api
+  branch: main
+  auto_deploy_on_push: true
+  commit_pin_allowed_in_normal_operation: false
 execution_boundary:
   reasoning_authority: false
   provider_evidence_only: true
