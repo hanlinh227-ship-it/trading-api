@@ -45,7 +45,12 @@ if (-not (Test-Path (Join-Path $RepoRoot ".git"))) {
 
 if (-not (Test-Path $SecretFile)) {
     $bytes = New-Object byte[] 48
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $rng.GetBytes($bytes)
+    } finally {
+        $rng.Dispose()
+    }
     $secret = [Convert]::ToBase64String($bytes)
     [System.IO.File]::WriteAllText($SecretFile, $secret, [System.Text.Encoding]::UTF8)
     Write-Host "Created local pairing secret." -ForegroundColor Green
