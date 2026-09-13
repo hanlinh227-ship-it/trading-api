@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from g9_runtime.provider_binance import BinancePublicMinuteProvider
+from g9_runtime.provider_chain import FailoverMinuteProvider
 
 
 class FakeResponse:
@@ -83,3 +86,45 @@ def test_public_provider_builds_causal_market_and_derivatives_context_without_cr
     session.open_interest = 1010.0
     second = provider.fetch_minute_state(now + timedelta(minutes=1))
     assert second["symbols"]["BTCUSDT"]["entry"]["open_interest_delta"] == 0.01
+
+
+class DownProvider:
+    def fetch_minute_state(self, now):
+        raise RuntimeError("HTTP 451 geo-blocked")
+
+
+class GoodProvider:
+    def fetch_minute_state(self, now):
+        return {
+            "schema_version": 1,
+            "kind": "g9_minute_intelligence",
+            "event_time": now.isoformat(),
+            "provider": "BYBIT_PUBLIC_LINEAR",
+            "symbols": {"BTCUSDT": {"market": {"freshness": "FRESH"}, "entry": {"taker_imbalance": "UNKNOWN"}}},
+            "research_only": True,
+            "production_execution_authority": False,
+        }
+
+
+def test_provider_chain_degrades_locally_when_primary_is_geo_blocked():
+    chain = FailoverMinuteProvider([
+        ("BINANCE_PUBLIC_USD_M", DownProvider()),
+        ("BYBIT_PUBLIC_LINEAR", GoodProvider()),
+    ])
+    now = datetime(2026, 9, 13, 15, 10, tzinfo=timezone.utc)
+    payload = chain.fetch_minute_state(now)
+
+    assert payload["provider"] == "BYBIT_PUBLIC_LINEAR"
+    assert payload["provider_status"] == "DEGRADED_FAILOVER"
+    assert payload["provider_failures"][0]["provider"] == "BINANCE_PUBLIC_USD_M"
+    assert "451" in payload["provider_failures"][0]["error"]
+    assert payload["production_execution_authority"] is False
+
+
+def test_provider_chain_fails_closed_only_when_all_sources_fail():
+    chain = FailoverMinuteProvider([
+        ("binance", DownProvider()),
+        ("backup", DownProvider()),
+    ])
+    with pytest.raises(RuntimeError, match="all minute providers failed"):
+        chain.fetch_minute_state(datetime(2026, 9, 13, 15, 10, tzinfo=timezone.utc))
