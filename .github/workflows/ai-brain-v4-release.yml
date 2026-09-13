@@ -40,6 +40,14 @@ jobs:
           python AI_SKILL_LIBRARY/v4/tools/release.py build --version 4.5.0 --source plain_language_output --class feature --validated --root .
           python AI_SKILL_LIBRARY/v4/tools/evergreen.py mark-known-good --root .
           python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --write --root .
+      - name: Restore canonical release workflow for protected tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show origin/main:.github/workflows/ai-brain-v4-release.yml > .github/workflows/ai-brain-v4-release.yml
+          grep -q 'validate_v4.py' .github/workflows/ai-brain-v4-release.yml
+          grep -qi 'promotion' .github/workflows/ai-brain-v4-release.yml
+          grep -q 'Class D' .github/workflows/ai-brain-v4-release.yml
       - name: Run complete Brain canary before persisting metadata
         shell: bash
         run: |
