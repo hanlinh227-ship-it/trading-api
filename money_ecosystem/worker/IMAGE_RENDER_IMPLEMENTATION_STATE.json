@@ -1,14 +1,15 @@
 {
-  "version": 2,
+  "version": 3,
   "image_render_ready": false,
   "contract_validation": "IMPLEMENTED_UNVERIFIED_ON_PC",
   "local_preflight": "IMPLEMENTED_UNVERIFIED_ON_PC",
   "comfyui_adapter": "IMPLEMENTED_UNVERIFIED_ON_PC",
   "serial_executor": "IMPLEMENTED_UNVERIFIED_ON_PC",
   "qa_packaging": "IMPLEMENTED_UNVERIFIED_ON_PC",
+  "reference_workflow_profile": "PROFILE_ADDED_REQUIRES_LOCAL_IPADAPTER",
   "worker_dispatch_integration": "PENDING",
-  "reference_workflow_profile": "PENDING",
   "real_worker_smoke_test": "PENDING",
   "zero_paid_services": true,
-  "cloud_fallback": false
+  "cloud_fallback": false,
+  "next_gate": "run tests and ComfyUI object_info preflight on connected Windows Worker"
 }
