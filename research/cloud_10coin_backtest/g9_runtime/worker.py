@@ -28,7 +28,10 @@ class Lease(Protocol):
 def _seal_live_snapshot(payload: dict[str, Any], *, source_sha: str, now: datetime) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("minute provider payload must be object")
-    if payload.get("production_execution_authority") is not False:
+    if (
+        "production_execution_authority" in payload
+        and payload.get("production_execution_authority") is not False
+    ):
         raise ValueError("provider execution authority escalation forbidden")
     if "research_only" in payload and payload.get("research_only") is not True:
         raise ValueError("minute provider must remain research-only")
