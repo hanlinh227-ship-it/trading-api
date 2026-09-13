@@ -162,6 +162,30 @@ creative_visual_fusion:
   external_framework_required: false
   may_not_override: [security, project_authority, permission_ceiling, primary_skill_contract]
 
+brain_4_6_selective_fusion:
+  baseline_release: 4.5.0
+  target_release: 4.6.0
+  canonical_skill_count_target: 109
+  strengthen_existing_skill_first: true
+  bulk_repository_import: false
+  reference_only_by_default: true
+  code_reuse_by_default: false
+  active_registry_requires_allowed_license: true
+  unresolved_or_disallowed_license_action: reference_only_not_active_registry
+  fast_path_changes: false
+  routing_authority: false
+  permission_expansion: false
+  mandatory_runtime_dependency: false
+  bottleneck_checks:
+    - context_cost
+    - fast_latency
+    - external_routing_calls
+    - duplicate_capability
+    - trigger_ownership
+    - authority_overlap
+    - permission_ceiling
+    - source_maintenance
+
 upstream_pattern_map:
   openai/skills:
     status: approved_reference
@@ -216,3 +240,85 @@ upstream_pattern_map:
     absorbs: [provider_health_routing, cooldown, bounded_fallback]
     code_reuse: false
     registry_promotion: blocked_until_license_resolved
+
+  google/adk-python:
+    status: approved_reference
+    license: Apache-2.0
+    absorbs: [bounded_agent_handoffs, explicit_state_transitions, agent_evaluation_patterns, typed_tool_contracts]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  openai/openai-agents-python:
+    status: approved_reference
+    license: MIT
+    absorbs: [bounded_handoffs, guardrail_patterns, tracing_metadata, human_review_boundaries]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  NVIDIA/garak:
+    status: approved_reference
+    license: Apache-2.0
+    absorbs: [adversarial_prompt_tests, vulnerability_probe_taxonomy, failure_detection_patterns]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  langchain-ai/open-swe:
+    status: approved_reference
+    license: MIT
+    absorbs: [issue_to_pr_workflow, isolated_repository_changes, review_feedback_loop, bounded_repo_context]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  nautechsystems/nautilus_trader:
+    status: design_reference_only_license_not_in_registry_allowlist
+    license: LGPL-3.0
+    absorbs: [event_driven_backtest_concepts, deterministic_simulation, execution_assumption_modeling, research_live_semantic_consistency]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+    registry_promotion: blocked_by_current_license_allowlist
+    financial_execution: false
+  KhronosGroup/glTF-Validator:
+    status: approved_reference
+    license: Apache-2.0
+    absorbs: [gltf_schema_validation, export_integrity_checks, asset_error_taxonomy]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  mikedh/trimesh:
+    status: approved_reference
+    license: MIT
+    absorbs: [mesh_integrity_checks, manifold_geometry_checks, topology_validation_patterns]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  isl-org/Open3D:
+    status: approved_reference
+    license: MIT
+    license_evidence: repository_LICENSE_file
+    absorbs: [geometry_validation, point_cloud_mesh_processing, reconstruction_validation_patterns]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  stanfordnlp/dspy:
+    status: approved_reference
+    license: MIT
+    absorbs: [measured_prompt_optimization, objective_scoring, test_case_driven_prompt_revision, prompt_regression_patterns]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  figma/code-connect:
+    status: approved_reference
+    license: MIT
+    absorbs: [design_code_component_mapping, design_system_consistency, component_contract_validation]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  langfuse/langfuse:
+    status: design_reference_only_license_unresolved_for_registry
+    license: NOASSERTION_OR_MIXED
+    absorbs: [observability_metadata, trace_evaluation_patterns, quality_measurement_patterns]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+    registry_promotion: blocked_until_license_scope_resolved
