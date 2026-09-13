@@ -11,7 +11,7 @@ from engine.execution import OrderCandidate
 from engine.metrics import summarize_outcomes
 from optimize.meta_model import select_oof_threshold
 from optimize.nonlinear_model import fit_nonlinear, predict_nonlinear_proba
-from optimize.search import CoinResearchResult, _simulate_fast, diagnose_bottleneck, passes_g2_gate
+from optimize.search import CoinResearchResult, _cost_bps, _simulate_fast, diagnose_bottleneck, passes_g2_gate
 from optimize.search_g4 import FEATURE_NAMES, _dataset, _threshold_grid, build_base_candidates, directional_feature_matrix
 from optimize.stability import chronological_folds
 
@@ -72,7 +72,6 @@ def _fit_side_profile(dev: pd.DataFrame, side: str, config):
             if not oof_parts:
                 continue
             oof = pd.concat(oof_parts, ignore_index=True)
-            # Demand meaningful breadth in DEV OOF so a high-WR tiny tail cannot win.
             min_trades = min(240, max(80, int(len(oof) * 0.12)))
             choice = select_oof_threshold(
                 oof,
@@ -90,7 +89,6 @@ def _fit_side_profile(dev: pd.DataFrame, side: str, config):
                 "oof_total": int(len(oof)),
             }
             rejected.append(row)
-            # Precision is primary, but zero/negative expectancy and tiny tails are penalized by selector score.
             key = (choice["score"], choice["rr2_wr"], choice["completed_trades"])
             if best is None or key > best[0]:
                 best = (key, row, fold_sets)
@@ -129,7 +127,7 @@ def _selected_candidates(segment: pd.DataFrame, runtime: _RuntimeProfile, config
         risk_atr=spec["risk_atr"],
         hold_bars=spec["hold_bars"],
         stride=6,
-        roundtrip_cost_bps=float(config.maker_fee_bps + config.taker_fee_bps + config.slippage_bps),
+        roundtrip_cost_bps=_cost_bps(config),
     )
     if not base:
         return []
