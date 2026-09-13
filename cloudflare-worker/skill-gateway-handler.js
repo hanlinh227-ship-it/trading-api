@@ -30,7 +30,7 @@ function publicCapsule(capsule){
 }
 
 export function createSkillGatewayHandler({snapshot}={}){
-  if(!snapshot||snapshot.schema_version!==1)throw new Error('SKILL_GATEWAY_SNAPSHOT_REQUIRED');
+  if(!snapshot||snapshot.schema_version!==1||snapshot.presentation?.mode!=='plain')throw new Error('SKILL_GATEWAY_SNAPSHOT_REQUIRED');
   return async function handleSkillGateway(request){
     const url=new URL(request.url);
     if(!['/brain/health','/brain/route'].includes(url.pathname))return null;
@@ -44,6 +44,8 @@ export function createSkillGatewayHandler({snapshot}={}){
         schemaVersion:snapshot.schema_version,
         primarySkillRequired:true,
         capsuleRequired:true,
+        plainLanguagePresentation:true,
+        presentationLocale:snapshot.presentation.locale,
         fallbackPrimarySkill:snapshot.fallback_primary_skill,
         externalRoutingCalls:0,
         generatedAt:snapshot.generated_at,
