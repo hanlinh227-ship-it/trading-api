@@ -85,7 +85,7 @@ def _provider_from_env(env: Mapping[str, str], *, symbols: tuple[str, ...], sour
             timeout_seconds=float(env.get("G9_PROVIDER_TIMEOUT_SECONDS", "8")),
         )
     if mode == "binance_direct":
-        return BinancePublicMinuteProvider(symbols=symbols)
+        return BinancePublicMinuteProvider(symbols=symbols, source_sha=source_sha)
     raise ValueError("G9_PROVIDER_MODE must be gateway or binance_direct")
 
 
