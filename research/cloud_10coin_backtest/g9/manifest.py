@@ -59,6 +59,8 @@ def build_evidence_manifest(
             "profile_hash": row.get("profile_hash"),
             "status": row.get("status", "QUARANTINED"),
             "evidence_epoch": evidence_epochs.get(normalized),
+            "oof_metrics": dict(row.get("oof_metrics") or {}),
+            "certification_metrics": dict(row.get("certification_metrics") or {}),
             "production_execution_authority": False,
         }
 
