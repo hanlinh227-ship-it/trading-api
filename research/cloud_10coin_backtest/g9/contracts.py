@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 import hashlib
@@ -97,7 +97,7 @@ class EntryContextSnapshot:
     taker_imbalance: float | None
     cross_asset_score: float | None
     live_quality_score: float
-    model_confidence: float
+    model_confidence: float | None
     historical_oos_win_rate: float | None
     uncertainty: float
 
@@ -111,7 +111,7 @@ class EntryContextSnapshot:
             "taker_imbalance": _unknown(self.taker_imbalance),
             "cross_asset_score": _unknown(self.cross_asset_score),
             "live_quality_score": float(self.live_quality_score),
-            "model_confidence": float(self.model_confidence),
+            "model_confidence": _unknown(self.model_confidence),
             "historical_oos_win_rate": _unknown(self.historical_oos_win_rate),
             "uncertainty": float(self.uncertainty),
             "research_only": True,
