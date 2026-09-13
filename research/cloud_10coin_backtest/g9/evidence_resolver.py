@@ -4,10 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from .manifest import KIND, PRODUCTION_STRATEGY, SCHEMA_VERSION, compute_manifest_hash
+from .manifest import validate_evidence_manifest
 
 
-_VALID_STATUSES = {"RESEARCH_ONLY", "CERTIFIED_RESEARCH", "QUARANTINED"}
 _LIVE_FRESHNESS = {"FRESH", "DEGRADED"}
 
 
@@ -19,57 +18,6 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"invalid evidence manifest: {path}")
     return payload
-
-
-def _manifest_errors(payload: Mapping[str, Any]) -> list[str]:
-    errors: list[str] = []
-    if payload.get("schema_version") != SCHEMA_VERSION:
-        errors.append("SCHEMA_VERSION_INVALID")
-    if payload.get("kind") != KIND:
-        errors.append("KIND_INVALID")
-    if payload.get("research_only") is not True:
-        errors.append("RESEARCH_ONLY_REQUIRED")
-    if payload.get("production_execution_authority") is not False:
-        errors.append("EXECUTION_AUTHORITY_FORBIDDEN")
-
-    authority = payload.get("authority")
-    if not isinstance(authority, Mapping):
-        errors.append("AUTHORITY_INVALID")
-    else:
-        if authority.get("execution") != "none":
-            errors.append("EXECUTION_AUTHORITY_FORBIDDEN")
-        if authority.get("production_strategy") != PRODUCTION_STRATEGY:
-            errors.append("PRODUCTION_STRATEGY_MISMATCH")
-
-    source_sha = payload.get("source_sha")
-    if not isinstance(source_sha, str) or not source_sha:
-        errors.append("SOURCE_SHA_REQUIRED")
-
-    symbols = payload.get("symbols")
-    if not isinstance(symbols, Mapping) or not symbols:
-        errors.append("SYMBOLS_REQUIRED")
-    else:
-        for symbol, raw_row in symbols.items():
-            if not isinstance(raw_row, Mapping):
-                errors.append(f"{symbol}:ROW_INVALID")
-                continue
-            if raw_row.get("status") not in _VALID_STATUSES:
-                errors.append(f"{symbol}:STATUS_INVALID")
-            if raw_row.get("production_execution_authority") is not False:
-                errors.append(f"{symbol}:EXECUTION_AUTHORITY_FORBIDDEN")
-
-    expected = payload.get("manifest_hash")
-    if not isinstance(expected, str) or len(expected) != 64:
-        errors.append("MANIFEST_HASH_INVALID")
-    else:
-        try:
-            int(expected, 16)
-        except ValueError:
-            errors.append("MANIFEST_HASH_INVALID")
-        else:
-            if expected != compute_manifest_hash(payload):
-                errors.append("MANIFEST_HASH_MISMATCH")
-    return errors
 
 
 def _metric(metrics: Mapping[str, Any], *names: str) -> float | None:
@@ -85,10 +33,11 @@ def _metric(metrics: Mapping[str, Any], *names: str) -> float | None:
 
 
 class EvidenceResolver:
-    """Resolve immutable research evidence plus the latest minute context.
+    """Resolve immutable stable evidence plus the latest minute context.
 
-    This adapter is deliberately read-only. It never grants execution authority and
-    never aliases historical OOS performance to model confidence or live quality.
+    Manifest validation is delegated to the canonical G9 manifest validator. This
+    adapter is read-only and never converts OOS performance into model confidence
+    or live quality, nor can it grant production execution authority.
     """
 
     def __init__(self, primary_path: str | Path, fallback_path: str | Path | None = None):
@@ -107,10 +56,10 @@ class EvidenceResolver:
             except ValueError:
                 last_errors = ["MANIFEST_READ_FAILED"]
                 continue
-            errors = _manifest_errors(payload)
+            errors = validate_evidence_manifest(payload)
             if not errors:
                 return payload, used_fallback
-            last_errors = errors
+            last_errors = [str(item).upper().replace("-", "_") for item in errors]
         raise ValueError("no verified G9 evidence manifest: " + ",".join(last_errors))
 
     def resolve_symbol(self, symbol: str, minute_snapshot: Mapping[str, Any]) -> dict[str, Any]:
@@ -150,6 +99,9 @@ class EvidenceResolver:
 
         return {
             "symbol": symbol,
+            "system_contract_version": manifest.get("system_contract_version"),
+            "stable_plane": manifest.get("plane"),
+            "stable_authority_level": manifest.get("authority_level"),
             "source_sha": manifest.get("source_sha"),
             "manifest_hash": manifest.get("manifest_hash"),
             "profile_hash": evidence.get("profile_hash"),
