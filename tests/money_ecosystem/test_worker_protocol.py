@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 import pytest
 
@@ -31,7 +32,7 @@ def test_tampered_payload_is_rejected():
             "args": {},
         },
         secret,
-    )
+    ).to_dict()
     envelope["payload"]["job_id"] = "tampered"
     with pytest.raises(ValueError):
         verify_envelope(envelope, secret)
@@ -76,10 +77,9 @@ def test_queue_skips_seen_job(tmp_path):
         "created_at": "2026-09-14T00:00:00+07:00",
         "args": {"targets": ["python"]},
     }
-    import json
-
+    envelope = sign_payload(payload, secret).to_dict()
     (signed_dir / "current.json").write_text(
-        json.dumps(sign_payload(payload, secret)), encoding="utf-8"
+        json.dumps(envelope), encoding="utf-8"
     )
     queue = WorkerQueue(tmp_path, secret)
     assert queue.next_job()["job_id"] == "job-004"
