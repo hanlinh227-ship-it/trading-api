@@ -127,6 +127,7 @@ jobs:
       - name: Aggregate hard gate
         shell: python
         run: |
+          import csv
           import json
           from pathlib import Path
 
@@ -136,17 +137,18 @@ jobs:
           ]
           rows = []
           for symbol in symbols:
-              matches = list(Path("matrix-results").glob(f"g6-{symbol}/results-{symbol}/coin_results/{symbol}.json"))
-              if not matches:
-                  rows.append({"symbol": symbol, "status": "MISSING"})
+              path = Path("matrix-results") / f"g6-{symbol}" / f"results-{symbol}" / "coin_summary.csv"
+              if not path.exists():
+                  rows.append({"symbol": symbol, "status": "MISSING", "completed_trades": 0, "rr2_wr": 0.0, "expectancy_r": 0.0})
                   continue
-              data = json.loads(matches[0].read_text())
+              with path.open(newline="") as fh:
+                  data = next(csv.DictReader(fh))
               rows.append({
                   "symbol": symbol,
                   "status": data.get("status"),
-                  "completed_trades": data.get("evaluation", {}).get("completed_trades", 0),
-                  "rr2_wr": data.get("evaluation", {}).get("rr2_wr", 0.0),
-                  "expectancy_r": data.get("evaluation", {}).get("expectancy_r", 0.0),
+                  "completed_trades": int(data.get("completed_trades") or 0),
+                  "rr2_wr": float(data.get("rr2_wr") or 0.0),
+                  "expectancy_r": float(data.get("expectancy_r") or 0.0),
               })
           summary = {
               "generation": "g6",
@@ -157,7 +159,10 @@ jobs:
           }
           Path("g6-aggregate.json").write_text(json.dumps(summary, indent=2, sort_keys=True))
           print("G6_AGGREGATE=" + json.dumps(summary, sort_keys=True))
+          if not summary["all_pass"]:
+              raise SystemExit(1)
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: g6-aggregate
           path: g6-aggregate.json
