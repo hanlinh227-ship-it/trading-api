@@ -40,12 +40,7 @@ def _norm(text: object) -> str:
 
 
 def _term(value: object, *, where: str) -> str:
-    """Normalize a routing term and reject terms whose casefold differs from lower().
-
-    The Cloudflare runtime lowercases with toLocaleLowerCase('und'); the compiler uses
-    casefold(). Terms where the two differ (e.g. containing U+00DF) would be present in
-    the snapshot but could never match at runtime, so they are rejected at compile time.
-    """
+    """Normalize a routing term and reject terms whose casefold differs from lower()."""
     normalized = _norm(value)
     runtime_form = " ".join(unicodedata.normalize("NFKC", str(value or "")).lower().split())
     if normalized and normalized != runtime_form:
@@ -76,6 +71,25 @@ def _domain_manifests(root: Path) -> tuple[dict[str, dict], dict[str, str]]:
     return manifests, hashes
 
 
+def _presentation_snapshot(policy: dict) -> dict:
+    answer_rules = policy.get("answer_rules", {})
+    exception = policy.get("technical_output_exception", {})
+    if not isinstance(answer_rules, dict) or not isinstance(exception, dict):
+        raise ValueError("presentation policy sections must be mappings")
+    locale = str(policy.get("locale") or "").strip()
+    mode = str(policy.get("mode") or "").strip()
+    if locale != "vi" or mode != "plain":
+        raise ValueError("presentation policy must use vi/plain")
+    return {
+        "locale": locale,
+        "mode": mode,
+        "hide_internal_ids": bool(answer_rules.get("hide_internal_ids_by_default")),
+        "no_underscore_display_names": bool(answer_rules.get("no_underscore_display_names")),
+        "technical_output_allowed": bool(exception.get("allowed_when_explicitly_requested")),
+        "preserve_exact_machine_tokens": bool(exception.get("never_rewrite_exact_machine_tokens")),
+    }
+
+
 def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str | None = None) -> dict:
     root = Path(root).resolve()
     source_sha = str(source_sha).strip().lower()
@@ -91,6 +105,8 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
     security_path = root / "AI_SKILL_LIBRARY/v4/stable/security.yaml"
     authority_path = root / "AI_SKILL_LIBRARY/projects.yaml"
     aliases_path = root / "AI_SKILL_LIBRARY/v4/runtime/routing_aliases.yaml"
+    presentation_path = root / "AI_SKILL_LIBRARY/v4/stable/presentation.yaml"
+    display_names_path = root / "AI_SKILL_LIBRARY/v4/stable/display_names.yaml"
 
     checkpoint = _json(checkpoint_path)
     pointer = _json(pointer_path)
@@ -99,7 +115,15 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
     registry = _yaml(registry_path)
     catalog = _yaml(catalog_path)
     aliases_data = _yaml(aliases_path)
+    presentation_policy = _yaml(presentation_path)
+    display_names_data = _yaml(display_names_path)
+    presentation = _presentation_snapshot(presentation_policy)
     manifests, manifest_hashes = _domain_manifests(root)
+
+    if checkpoint.get("stable_presentation_path") != "AI_SKILL_LIBRARY/v4/stable/presentation.yaml":
+        raise ValueError("checkpoint stable_presentation_path mismatch")
+    if checkpoint.get("stable_display_names_path") != "AI_SKILL_LIBRARY/v4/stable/display_names.yaml":
+        raise ValueError("checkpoint stable_display_names_path mismatch")
 
     release_version = str(pointer.get("version") or "").strip()
     release_manifest_path = root / str(pointer.get("manifest_path") or "")
@@ -118,7 +142,6 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
             raise ValueError(f"duplicate skill id: {sid}")
         catalog_by_id[sid] = row
 
-    # Alias rows never become primary skills; their triggers fold into the canonical skill.
     skill_aliases: dict[str, str] = {}
     for sid, row in catalog_by_id.items():
         target = row.get("alias_of")
@@ -157,9 +180,27 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
 
     if "task_router" not in catalog_by_id:
         raise ValueError("task_router missing from canonical catalog")
-    # Infrastructure skill receives a capsule but is never a primary candidate.
     skill_domain["task_router"] = "core"
     selectable_ids = set(skill_domain)
+
+    display_names = display_names_data.get("skills", {})
+    if not isinstance(display_names, dict):
+        raise ValueError("display_names skills must be a mapping")
+    unknown_names = set(map(str, display_names)) - selectable_ids
+    missing_names = selectable_ids - set(map(str, display_names))
+    if unknown_names:
+        raise ValueError(f"display names reference unknown canonical skills: {sorted(unknown_names)}")
+    if missing_names:
+        raise ValueError(f"display names missing canonical skills: {sorted(missing_names)}")
+    normalized_display_names: dict[str, str] = {}
+    for sid in sorted(selectable_ids):
+        value = display_names.get(sid)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"display name missing or invalid: {sid}")
+        display_name = " ".join(value.split())
+        if "_" in display_name:
+            raise ValueError(f"display name contains underscore: {sid}")
+        normalized_display_names[sid] = display_name
 
     alias_rows = aliases_data.get("aliases", {})
     if not isinstance(alias_rows, dict):
@@ -201,6 +242,7 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
 
         meta = {
             "id": sid,
+            "display_name": normalized_display_names[sid],
             "domain": domain,
             "triggers": sorted({_term(value, where=f"trigger:{sid}") for value in row.get("triggers", []) if _norm(value)}),
             "aliases": normalized_aliases.get(sid, []),
@@ -241,7 +283,6 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
             if term in trigger_owner:
                 raise ValueError(f"ambiguous trigger {term!r}: owned by {trigger_owner[term]} and {sid}")
             trigger_owner[term] = sid
-    # A folded/declared alias term never competes with another skill's trigger: the trigger owner wins.
     alias_owner: dict[str, str] = {}
     for sid in sorted(skills):
         meta = skills[sid]
@@ -290,6 +331,7 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
         "release_id": release_version,
         "generated_at": generated_at,
         "fallback_primary_skill": fallback,
+        "presentation": presentation,
         "profiles": profile_snapshot,
         "domains": normalized_domains,
         "skills": skills,
@@ -308,6 +350,8 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
             "security": _sha(security_path),
             "authority": _sha(authority_path),
             "routing_aliases": _sha(aliases_path),
+            "presentation": _sha(presentation_path),
+            "display_names": _sha(display_names_path),
             "domain_manifests": manifest_hashes,
         },
         "checkpoint_id": checkpoint.get("checkpoint_id"),
