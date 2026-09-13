@@ -4,6 +4,7 @@ import hashlib
 import json
 from typing import Any, Mapping
 
+from .champion_pool import ChampionPool, LaneKey
 from .system_contract import SYSTEM_CONTRACT_VERSION
 
 
@@ -21,14 +22,13 @@ def _canonical_without_hash(payload: Mapping[str, Any]) -> dict[str, Any]:
     return clean
 
 
-def compute_manifest_hash(payload: Mapping[str, Any]) -> str:
-    raw = json.dumps(
-        _canonical_without_hash(payload),
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    )
+def _hash_payload(payload: Mapping[str, Any]) -> str:
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def compute_manifest_hash(payload: Mapping[str, Any]) -> str:
+    return _hash_payload(_canonical_without_hash(payload))
 
 
 def validate_evidence_manifest(payload: Mapping[str, Any]) -> list[str]:
@@ -81,6 +81,23 @@ def validate_evidence_manifest(payload: Mapping[str, Any]) -> list[str]:
             epoch = row.get("evidence_epoch")
             if epoch is not None and not isinstance(epoch, str):
                 errors.append(f"{symbol}:evidence-epoch-invalid")
+            routes = row.get("routes")
+            if routes is not None:
+                if not isinstance(routes, Mapping):
+                    errors.append(f"{symbol}:routes-invalid")
+                else:
+                    for route_id, route in sorted(routes.items()):
+                        if not isinstance(route, Mapping):
+                            errors.append(f"{symbol}:{route_id}:route-invalid")
+                            continue
+                        if route.get("status") not in ALLOWED_STATUSES:
+                            errors.append(f"{symbol}:{route_id}:status-invalid")
+                        if route.get("production_execution_authority") is not False:
+                            errors.append(f"{symbol}:{route_id}:production-execution-authority-forbidden")
+                        if not isinstance(route.get("profile_hash"), str) or not route.get("profile_hash"):
+                            errors.append(f"{symbol}:{route_id}:profile-hash-required")
+                        if not isinstance(route.get("source_sha"), str) or not route.get("source_sha"):
+                            errors.append(f"{symbol}:{route_id}:source-sha-required")
 
     expected = payload.get("manifest_hash")
     if not isinstance(expected, str) or len(expected) != 64:
@@ -96,12 +113,32 @@ def validate_evidence_manifest(payload: Mapping[str, Any]) -> list[str]:
     return errors
 
 
+def _base_payload(*, source_sha: str, parent_hash: str, data_cutoff: Any) -> dict[str, Any]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "kind": KIND,
+        "system_contract_version": SYSTEM_CONTRACT_VERSION,
+        "plane": PLANE,
+        "authority_level": AUTHORITY_LEVEL,
+        "research_only": True,
+        "production_execution_authority": False,
+        "authority": {
+            "execution": "none",
+            "production_strategy": PRODUCTION_STRATEGY,
+        },
+        "source_sha": source_sha,
+        "parent_snapshot_hash": parent_hash,
+        "data_cutoff": data_cutoff,
+    }
+
+
 def build_evidence_manifest(
     g8_snapshot: Mapping[str, Any],
     *,
     source_sha: str,
     evidence_epochs: Mapping[str, str],
 ) -> dict[str, Any]:
+    """Compatibility projection from legacy/intermediate G8 research output."""
     source_sha = str(source_sha)
     if not source_sha:
         raise ValueError("source_sha is required")
@@ -134,25 +171,93 @@ def build_evidence_manifest(
             "production_execution_authority": False,
         }
 
-    payload: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
-        "kind": KIND,
-        "system_contract_version": SYSTEM_CONTRACT_VERSION,
-        "plane": PLANE,
-        "authority_level": AUTHORITY_LEVEL,
-        "research_only": True,
-        "production_execution_authority": False,
-        "authority": {
-            "execution": "none",
-            "production_strategy": PRODUCTION_STRATEGY,
-        },
-        "source_sha": source_sha,
-        "parent_snapshot_hash": parent_hash,
-        "data_cutoff": g8_snapshot.get("data_cutoff"),
-        "symbols": symbols,
-    }
+    payload = _base_payload(
+        source_sha=source_sha,
+        parent_hash=parent_hash,
+        data_cutoff=g8_snapshot.get("data_cutoff"),
+    )
+    payload["parent_kind"] = "g8_trading_research_evidence"
+    payload["symbols"] = symbols
     payload["manifest_hash"] = compute_manifest_hash(payload)
     errors = validate_evidence_manifest(payload)
     if errors:
         raise ValueError("invalid G9 stable evidence manifest: " + ",".join(errors))
+    return payload
+
+
+def build_evidence_manifest_from_pool(
+    pool: ChampionPool,
+    *,
+    source_sha: str,
+    data_cutoff: str,
+) -> dict[str, Any]:
+    """Project Stable Evidence from the canonical route-level G9 Champion Pool.
+
+    Route metrics remain route-specific. The symbol-level profile hash is only a
+    deterministic route-set identity; no win rates/confidences are averaged.
+    """
+    source_sha = str(source_sha)
+    if not source_sha:
+        raise ValueError("source_sha is required")
+    pool_payload = pool.to_dict()
+    if pool_payload.get("canonical_research_truth") is not True:
+        raise ValueError("G9 Champion Pool must be canonical research truth")
+    if pool_payload.get("production_execution_authority") is not False:
+        raise ValueError("G9 Champion Pool execution authority is forbidden")
+
+    parent_hash = _hash_payload(pool_payload)
+    grouped: dict[str, dict[str, dict[str, Any]]] = {}
+    for lane_id, state in sorted(pool.lanes.items()):
+        champion = state.champion
+        if champion is None:
+            continue
+        lane = LaneKey.from_id(lane_id)
+        route = {
+            "profile_id": champion.profile_id,
+            "profile_hash": champion.profile_hash,
+            "source_sha": champion.source_sha,
+            "evidence_epoch": champion.evidence_epoch,
+            "status": champion.status,
+            "regime": lane.regime,
+            "family": lane.family,
+            "side": lane.side,
+            "oof_metrics": dict(champion.metrics),
+            "certification_metrics": {},
+            "research_only": True,
+            "production_execution_authority": False,
+        }
+        grouped.setdefault(lane.symbol, {})[lane_id] = route
+
+    if not grouped:
+        raise ValueError("canonical G9 Champion Pool has no route champions")
+
+    symbols: dict[str, dict[str, Any]] = {}
+    for symbol, routes in sorted(grouped.items()):
+        statuses = {str(route["status"]) for route in routes.values()}
+        symbol_status = (
+            "CERTIFIED_RESEARCH"
+            if statuses == {"CERTIFIED_RESEARCH"}
+            else "RESEARCH_ONLY"
+        )
+        symbols[symbol] = {
+            "profile_hash": _hash_payload(routes),
+            "status": symbol_status,
+            "evidence_epoch": None,
+            "oof_metrics": {},
+            "certification_metrics": {},
+            "routes": routes,
+            "production_execution_authority": False,
+        }
+
+    payload = _base_payload(
+        source_sha=source_sha,
+        parent_hash=parent_hash,
+        data_cutoff=str(data_cutoff),
+    )
+    payload["parent_kind"] = "g9_continuous_champion_pool"
+    payload["symbols"] = symbols
+    payload["manifest_hash"] = compute_manifest_hash(payload)
+    errors = validate_evidence_manifest(payload)
+    if errors:
+        raise ValueError("invalid G9 Champion Pool evidence manifest: " + ",".join(errors))
     return payload
