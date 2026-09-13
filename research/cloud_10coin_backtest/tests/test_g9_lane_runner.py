@@ -1,8 +1,16 @@
 from pathlib import Path
 
+import pandas as pd
+
 from g8.candidate import CandidateSpec, candidate_hash
+from g8.fitness import TrialMetrics
 from g9.hypothesis import FailureMemory
-from g9.lane_runner import AdaptiveProposalController, build_adaptive_proposals, record_trial_feedback
+from g9.lane_runner import (
+    AdaptiveProposalController,
+    build_adaptive_proposals,
+    execute_adaptive_lane,
+    record_trial_feedback,
+)
 
 
 def parent() -> CandidateSpec:
@@ -84,3 +92,38 @@ def test_controller_carries_mapping_from_proposals_into_feedback(tmp_path: Path)
     assert written == 1
     assert hypothesis_hash in memory.rejected_hashes()
     assert controller.last_allocation
+
+
+def test_execute_adaptive_lane_persists_state_and_returns_research_metadata(tmp_path: Path):
+    def feature_provider(symbol, start, end, config):
+        return pd.DataFrame({"close": [100.0, 100.1, 100.2]})
+
+    def evaluator(symbol, features, config, candidate):
+        return TrialMetrics.good_example(
+            trades=140,
+            rr2_wr=0.70,
+            worst_fold_wr=0.66,
+            wilson_lower=0.62,
+            expectancy_r=0.75,
+            cost_stress_expectancy_r=0.55,
+        )
+
+    payload = execute_adaptive_lane(
+        "SOLUSDT",
+        "2025-01-01",
+        "2025-03-01",
+        tmp_path / "state",
+        tmp_path / "results",
+        candidate_budget=2,
+        source_sha="abc",
+        feature_provider=feature_provider,
+        evaluator_fn=evaluator,
+    )
+
+    assert payload["status"] == "SUCCESS"
+    assert payload["symbol"] == "SOLUSDT"
+    assert payload["research_only"] is True
+    assert payload["production_execution_authority"] is False
+    assert payload["allocation"]
+    assert (tmp_path / "state" / "checkpoint.json").exists()
+    assert (tmp_path / "state" / "trials.jsonl").exists()
