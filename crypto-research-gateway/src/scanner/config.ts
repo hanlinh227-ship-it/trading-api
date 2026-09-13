@@ -60,12 +60,12 @@ export type ScannerConfigOverrides = Partial<Pick<ScannerConfig,
   | 'tieToleranceScore'
 >> & { weights?: Partial<ScannerConfig['weights']> };
 
-export const DEFAULT_SCANNER_CONFIG: ScannerConfig = Object.freeze({
+const defaultScannerConfigValue = scannerConfigSchema.parse({
   authorityToken: SCANNER_AUTHORITY_TOKEN,
   researchOnly: true,
   productionExecutionAuthority: false,
   livePricePolicyPath: LIVE_PRICE_POLICY_PATH,
-  venues: ['bybit', 'binance', 'okx'],
+  venues: SCANNER_VENUES,
   minVenueCoverage: 2,
   broadCandidateLimit: 30,
   deepCandidateLimit: 8,
@@ -89,6 +89,8 @@ export const DEFAULT_SCANNER_CONFIG: ScannerConfig = Object.freeze({
     freshnessCompleteness: 3,
   },
 });
+
+export const DEFAULT_SCANNER_CONFIG: Readonly<ScannerConfig> = Object.freeze(defaultScannerConfigValue);
 
 export function loadScannerConfig(overrides: ScannerConfigOverrides = {}): ScannerConfig {
   return scannerConfigSchema.parse({
