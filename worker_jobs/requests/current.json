@@ -1,9 +1,9 @@
 {
-  "job_id": "image-render-reference-preflight-20260914-06",
+  "job_id": "image-render-reference-preflight-20260914-07",
   "job_type": "MEDIA_PROBE",
-  "created_at": "2026-09-14T06:36:00+07:00",
+  "created_at": "2026-09-14T06:45:00+07:00",
   "args": {
     "targets": ["python", "ffmpeg", "whisper", "kokoro", "comfyui", "comfyui_reference"],
-    "purpose": "IMAGE_RENDER_REFERENCE_LOCK_GATE_AFTER_MANUAL_WORKER_RESTART"
+    "purpose": "IMAGE_RENDER_FULL_REFERENCE_PREFLIGHT_AFTER_RELIABILITY_FIX"
   }
 }
