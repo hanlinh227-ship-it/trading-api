@@ -66,6 +66,21 @@ def _worker_code_changed(repo_root: Path, before: str, after: str) -> bool:
     return any(path.startswith("money_ecosystem/worker/") for path in changed_paths)
 
 
+def _commit_pending_results(repo_root: Path) -> None:
+    result_dir = repo_root / "worker_jobs" / "results"
+    if not result_dir.exists():
+        return
+    add = _git(repo_root, "add", "worker_jobs/results")
+    if add.returncode != 0:
+        raise RuntimeError(f"git add results failed: {add.stdout.strip()}")
+    diff = _git(repo_root, "diff", "--cached", "--quiet")
+    if diff.returncode == 0:
+        return
+    commit = _git(repo_root, "commit", "-m", "worker: publish local result")
+    if commit.returncode != 0:
+        raise RuntimeError(f"git commit failed: {commit.stdout.strip()}")
+
+
 def sync_from_remote(repo_root: Path, branch: str) -> bool:
     before = _head(repo_root)
     result = _git(repo_root, "pull", "--rebase", "origin", branch)
@@ -88,21 +103,18 @@ def _restart_self() -> None:
     )
 
 
-def push_results(repo_root: Path, branch: str) -> None:
+def push_results(repo_root: Path, branch: str) -> bool:
     result_dir = repo_root / "worker_jobs" / "results"
     if not result_dir.exists():
-        return
+        return False
 
-    _git(repo_root, "add", "worker_jobs/results")
-    diff = _git(repo_root, "diff", "--cached", "--quiet")
-    if diff.returncode != 0:
-        commit = _git(repo_root, "commit", "-m", "worker: publish local result")
-        if commit.returncode != 0:
-            raise RuntimeError(f"git commit failed: {commit.stdout.strip()}")
-
+    _commit_pending_results(repo_root)
+    before = _head(repo_root)
     rebase = _git(repo_root, "pull", "--rebase", "origin", branch)
     if rebase.returncode != 0:
         raise RuntimeError(f"git pull --rebase before push failed: {rebase.stdout.strip()}")
+    after = _head(repo_root)
+    code_changed = _worker_code_changed(repo_root, before, after)
 
     ahead = _git(repo_root, "rev-list", "--count", f"origin/{branch}..HEAD")
     if ahead.returncode != 0:
@@ -112,12 +124,12 @@ def push_results(repo_root: Path, branch: str) -> None:
     except ValueError as exc:
         raise RuntimeError(f"unexpected git rev-list output: {ahead.stdout.strip()}") from exc
 
-    if ahead_count <= 0:
-        return
+    if ahead_count > 0:
+        push = _git(repo_root, "push", "origin", f"HEAD:{branch}")
+        if push.returncode != 0:
+            raise RuntimeError(f"git push failed: {push.stdout.strip()}")
 
-    push = _git(repo_root, "push", "origin", f"HEAD:{branch}")
-    if push.returncode != 0:
-        raise RuntimeError(f"git push failed: {push.stdout.strip()}")
+    return code_changed
 
 
 def _load_secret(secret_file: Path) -> bytes:
@@ -145,10 +157,13 @@ def main() -> int:
 
     while True:
         try:
+            # Recover an uncommitted result left by a crash before pulling.
+            _commit_pending_results(repo_root)
             if sync_from_remote(repo_root, args.branch):
                 _restart_self()
             run_once(queue, repo_root)
-            push_results(repo_root, args.branch)
+            if push_results(repo_root, args.branch):
+                _restart_self()
         except Exception as exc:
             print(f"Worker cycle error: {exc}")
         time.sleep(max(5, args.poll_seconds))
