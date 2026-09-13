@@ -21,7 +21,85 @@ jobs:
           cache: pip
           cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
       - run: pip install -r requirements.txt
-      - name: G3 stability RED/GREEN tests
+      - name: G3 stability tests
         run: PYTHONPATH=. pytest tests/test_g3_stability_selection.py -q
       - name: Full regression suite
         run: PYTHONPATH=. pytest tests -q
+
+  backtest:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        symbol: [BTCUSDT, ETHUSDT, BNBUSDT, XRPUSDT, SOLUSDT, TRXUSDT, DOGEUSDT, LINKUSDT, ADAUSDT, XLMUSDT]
+    defaults:
+      run:
+        working-directory: research/cloud_10coin_backtest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: G3 stable DEV-fold backtest ${{ matrix.symbol }}
+        shell: bash
+        run: |
+          set -o pipefail
+          PYTHONPATH=. python run.py --generation g3 --symbols "${{ matrix.symbol }}" --start 2024-01-01 --end 2026-08-31 | tee "g3-${{ matrix.symbol }}.log"
+      - name: Stage coin artifact
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "matrix_artifact/${{ matrix.symbol }}"
+          cp -r results/* "matrix_artifact/${{ matrix.symbol }}/" 2>/dev/null || true
+          cp "g3-${{ matrix.symbol }}.log" "matrix_artifact/${{ matrix.symbol }}/" 2>/dev/null || true
+      - name: Upload coin result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g3-${{ matrix.symbol }}
+          path: research/cloud_10coin_backtest/matrix_artifact/${{ matrix.symbol }}
+          if-no-files-found: warn
+          retention-days: 14
+
+  aggregate:
+    needs: backtest
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: g3-*
+          path: artifacts
+      - name: Build G3 hard-gate summary
+        shell: bash
+        run: |
+          python - <<'PY'
+          import csv, glob, json
+          rows=[]
+          for path in glob.glob('artifacts/**/coin_summary.csv', recursive=True):
+              with open(path, newline='') as f: rows.extend(csv.DictReader(f))
+          by_symbol={r['symbol']:r for r in rows}
+          universe=['BTCUSDT','ETHUSDT','BNBUSDT','XRPUSDT','SOLUSDT','TRXUSDT','DOGEUSDT','LINKUSDT','ADAUSDT','XLMUSDT']
+          normalized=[]
+          for s in universe:
+              r=by_symbol.get(s)
+              if not r:
+                  normalized.append({'symbol':s,'status':'MISSING'}); continue
+              normalized.append({'symbol':s,'status':r.get('status'),'completed_trades':int(float(r.get('completed_trades',0) or 0)),'rr2_wr':float(r.get('rr2_wr',0) or 0),'expectancy_r':float(r.get('expectancy_r',0) or 0),'bottlenecks':r.get('bottlenecks','')})
+          pass_count=sum(1 for r in normalized if r.get('status')=='PASS')
+          payload={'generation':'g3-stability','total':10,'pass_count':pass_count,'all_pass':pass_count==10,'results':normalized}
+          with open('g3_matrix_summary.json','w') as f: json.dump(payload,f,indent=2)
+          print('G3_MATRIX_FINAL_SUMMARY_JSON='+json.dumps(payload,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g3-matrix-summary
+          path: g3_matrix_summary.json
+          retention-days: 14
