@@ -46,29 +46,56 @@ def _head(repo_root: Path) -> str:
 
 def sync_from_remote(repo_root: Path, branch: str) -> bool:
     before = _head(repo_root)
-    result = _git(repo_root, "pull", "--ff-only", "origin", branch)
+    result = _git(repo_root, "pull", "--rebase", "origin", branch)
     if result.returncode != 0:
-        raise RuntimeError(f"git pull failed: {result.stdout.strip()}")
+        raise RuntimeError(f"git pull --rebase failed: {result.stdout.strip()}")
     after = _head(repo_root)
     return before != after
 
 
 def _restart_self() -> None:
-    print("Worker code updated; restarting to load new code...")
-    os.execv(sys.executable, [sys.executable, *sys.argv])
+    print("Worker code updated; restarting to load new code...", flush=True)
+    os.execv(
+        sys.executable,
+        [
+            sys.executable,
+            "-m",
+            "money_ecosystem.worker.runner",
+            *sys.argv[1:],
+        ],
+    )
 
 
 def push_results(repo_root: Path, branch: str) -> None:
     result_dir = repo_root / "worker_jobs" / "results"
     if not result_dir.exists():
         return
+
     _git(repo_root, "add", "worker_jobs/results")
     diff = _git(repo_root, "diff", "--cached", "--quiet")
-    if diff.returncode == 0:
+    if diff.returncode != 0:
+        commit = _git(repo_root, "commit", "-m", "worker: publish local result")
+        if commit.returncode != 0:
+            raise RuntimeError(f"git commit failed: {commit.stdout.strip()}")
+
+    # A signer/request commit may land while the worker is rendering. Rebase the
+    # local result commit onto the newest remote head before pushing. This also
+    # recovers a result commit stranded by a previous non-fast-forward push.
+    rebase = _git(repo_root, "pull", "--rebase", "origin", branch)
+    if rebase.returncode != 0:
+        raise RuntimeError(f"git pull --rebase before push failed: {rebase.stdout.strip()}")
+
+    ahead = _git(repo_root, "rev-list", "--count", f"origin/{branch}..HEAD")
+    if ahead.returncode != 0:
+        raise RuntimeError(f"git rev-list failed: {ahead.stdout.strip()}")
+    try:
+        ahead_count = int(ahead.stdout.strip() or "0")
+    except ValueError as exc:
+        raise RuntimeError(f"unexpected git rev-list output: {ahead.stdout.strip()}") from exc
+
+    if ahead_count <= 0:
         return
-    commit = _git(repo_root, "commit", "-m", "worker: publish local result")
-    if commit.returncode != 0:
-        raise RuntimeError(f"git commit failed: {commit.stdout.strip()}")
+
     push = _git(repo_root, "push", "origin", f"HEAD:{branch}")
     if push.returncode != 0:
         raise RuntimeError(f"git push failed: {push.stdout.strip()}")
@@ -101,8 +128,10 @@ def main() -> int:
         try:
             if sync_from_remote(repo_root, args.branch):
                 _restart_self()
-            if run_once(queue, repo_root):
-                push_results(repo_root, args.branch)
+            run_once(queue, repo_root)
+            # Always retry publication. A previous push may have failed after the
+            # result was marked seen, so result delivery cannot depend on a new job.
+            push_results(repo_root, args.branch)
         except Exception as exc:
             print(f"Worker cycle error: {exc}")
         time.sleep(max(5, args.poll_seconds))
