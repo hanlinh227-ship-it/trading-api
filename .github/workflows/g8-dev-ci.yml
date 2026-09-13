@@ -6,9 +6,12 @@ on:
       - research/cloud-10coin-g8-brainloop-20260913
   workflow_dispatch:
 
+# Development-only CI: test the latest commit immediately. The final G8 BrainLoop
+# research scheduler uses a separate serialized concurrency group with
+# cancel-in-progress: false so a valid research generation is never interrupted.
 concurrency:
   group: g8-dev-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   test:
