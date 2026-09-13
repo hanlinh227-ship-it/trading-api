@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 
+from AI_SKILL_LIBRARY.v4.tools.build_retrieval_index import build_index
 from AI_SKILL_LIBRARY.v4.tools.compile_skill_gateway import compile_snapshot
 from AI_SKILL_LIBRARY.v4.tools.release import RELEASE_FILES
 
@@ -55,6 +56,17 @@ class PlainLanguagePresentationTests(unittest.TestCase):
         release_paths = {path for path, _role in RELEASE_FILES}
         self.assertIn("AI_SKILL_LIBRARY/v4/stable/presentation.yaml", release_paths)
         self.assertIn("AI_SKILL_LIBRARY/v4/stable/display_names.yaml", release_paths)
+
+    def test_presentation_files_are_hot_retrieval_entries(self):
+        index = build_index(ROOT)
+        by_path = {row.get("path"): row for row in index["entries"]}
+        for path in (
+            "AI_SKILL_LIBRARY/v4/stable/presentation.yaml",
+            "AI_SKILL_LIBRARY/v4/stable/display_names.yaml",
+        ):
+            self.assertIn(path, by_path)
+            self.assertEqual(by_path[path]["tier"], "HOT")
+            self.assertEqual(by_path[path]["authority_level"], "canonical")
 
     def test_trading_authority_stays_read_only(self):
         trading = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/v4/skills/trading/manifest.yaml").read_text(encoding="utf-8"))
