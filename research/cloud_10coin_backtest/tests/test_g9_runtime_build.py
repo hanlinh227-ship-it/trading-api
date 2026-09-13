@@ -1,17 +1,31 @@
 from datetime import datetime, timezone
 
+from g9.data_contract import build_envelope
 from g9_runtime.main import build_runtime
 
 
 class FakeProvider:
     def fetch_minute_state(self, now):
-        return {
+        payload = {
             "schema_version": 1,
             "kind": "g9_minute_intelligence",
             "event_time": now.isoformat(),
             "symbols": {},
             "research_only": True,
             "production_execution_authority": False,
+        }
+        return {
+            **payload,
+            "data_contract": build_envelope(
+                kind="g9_minute_intelligence",
+                source="test-runtime-provider",
+                source_sha="test-sha",
+                event_time=now,
+                ingest_time=now,
+                freshness="FRESH",
+                payload=payload,
+                provenance={"test": True},
+            ),
         }
 
 
@@ -32,5 +46,7 @@ def test_runtime_builds_from_environment_and_can_tick(tmp_path):
     assert runtime.sink.data_dir == tmp_path
     now = datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc)
     assert runtime.tick_once(now)["status"] == "SUCCESS"
-    assert runtime.sink.read_latest()["event_time"] == now.isoformat()
+    latest = runtime.sink.read_latest()
+    assert latest["event_time"] == now.isoformat()
+    assert latest["data_contract"]["production_execution_authority"] is False
     runtime.server.server_close()
