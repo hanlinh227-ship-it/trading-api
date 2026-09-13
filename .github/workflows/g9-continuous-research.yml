@@ -206,10 +206,10 @@ jobs:
           import os
           from pathlib import Path
 
-          from g8.registry import ChampionRegistry, build_brain_snapshot, load_registry, publish_snapshot
+          from g8.registry import ChampionRegistry, load_registry, publish_snapshot
           from g9.aggregator import merge_lane_registries, update_champion_pool_from_registry
           from g9.champion_pool import ChampionPool, load_pool, publish_pool
-          from g9.manifest import build_evidence_manifest
+          from g9.manifest import build_evidence_manifest_from_pool
           from AI_SKILL_LIBRARY.v4.tools.validate_g9_trading_evidence import validate_manifest
 
           root = Path('generated')
@@ -240,23 +240,22 @@ jobs:
 
           pool_path = state_root / 'champion_pool.json'
           pool = load_pool(pool_path) if pool_path.exists() else ChampionPool.empty()
-          pool_promotions = update_champion_pool_from_registry(pool, merged)
+          expected_sha_by_symbol = {
+              symbol: os.environ['GITHUB_SHA']
+              for symbol, status in statuses.items()
+              if status == 'UPDATED'
+          }
+          pool_promotions = update_champion_pool_from_registry(
+              pool,
+              merged,
+              expected_source_sha=expected_sha_by_symbol,
+          )
           publish_pool(pool_path, pool)
 
-          snapshot = build_brain_snapshot(
-              merged,
+          manifest = build_evidence_manifest_from_pool(
+              pool,
               source_sha=os.environ['GITHUB_SHA'],
               data_cutoff=os.environ['END_DATE'],
-          )
-          epochs = {}
-          for symbol, row in merged.symbols.items():
-              record = row.get('research_champion') or {}
-              ids = record.get('evidence_window_ids') or []
-              epochs[symbol] = ids[0] if ids else None
-          manifest = build_evidence_manifest(
-              snapshot,
-              source_sha=os.environ['GITHUB_SHA'],
-              evidence_epochs=epochs,
           )
           errors = validate_manifest(manifest)
           if errors:
