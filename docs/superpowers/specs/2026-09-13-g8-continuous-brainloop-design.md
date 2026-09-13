@@ -123,6 +123,23 @@ Reserved for certification attempts. Repeated adaptive tuning against a revealed
 
 G8 must record which windows each candidate has seen.
 
+### 6.5 Evidence Epoch and Adaptive Trial Budget
+
+Continuous research on the same finite dataset can overfit even purged OOF/CPCV through repeated adaptive search. Therefore every data cutoff defines an `evidence_epoch`.
+
+Each evidence epoch has a bounded adaptive trial budget per coin and per capability family. The budget is recorded in the checkpoint and trial ledger.
+
+When the promotion evidence budget for an epoch is exhausted:
+- the loop MAY continue generating and evaluating exploratory candidates inside SEARCH/DEV;
+- exploratory results remain `QUARANTINED`;
+- no new Brain champion may be promoted from that exhausted evidence epoch;
+- the incumbent verified champion remains active;
+- promotion resumes only when a new independent evidence window is created, normally by new chronological market data or a separately approved untouched outer fold.
+
+The scheduler therefore remains continuous, but Brain promotion is evidence-gated rather than iteration-gated.
+
+A candidate cannot reset or evade the budget by changing its random seed, model family, feature subset, or trial ID.
+
 ## 7. Candidate Factory
 
 Candidate generation is bounded and typed. A candidate is a composition of independently auditable choices:
@@ -165,7 +182,8 @@ The registry maintains:
 - optional certified champion;
 - previous champions / hall of fame;
 - active generation;
-- evidence windows seen;
+- evidence epoch and windows seen;
+- adaptive trial budget consumed / remaining;
 - trial lineage / parent candidate;
 - current best OOF metrics;
 - certification status.
@@ -200,7 +218,8 @@ A challenger may replace a research champion only when all required gates pass:
 - statistical confidence is not worse in a material way;
 - PBO / multiple-testing diagnostics do not materially worsen;
 - the challenger improves the lexicographic fitness against the incumbent;
-- the challenger record is reproducible from seed + config + source SHA.
+- the challenger record is reproducible from seed + config + source SHA;
+- the evidence epoch still has independent promotion budget available.
 
 Promotion is atomic: write a new immutable snapshot, validate it, then move the current pointer.
 
@@ -216,7 +235,7 @@ A `CERTIFIED_CHAMPION` requires:
 - no leakage;
 - stable cost-stress result;
 - successful sealed certification protocol;
-- provenance with source SHA, data range, config hash, trial IDs, and evidence-window IDs.
+- provenance with source SHA, data range, config hash, trial IDs, evidence epoch, and evidence-window IDs.
 
 Certification does not grant order-execution authority. It grants stronger research evidence status only.
 
@@ -230,6 +249,7 @@ Every candidate attempt is appended to an immutable ledger with at least:
 - `seed`;
 - `candidate_hash`;
 - `source_sha`;
+- `evidence_epoch`;
 - feature packs;
 - model family / parameters;
 - geometry;
@@ -310,6 +330,7 @@ The atomic snapshot contains one row per research coin with fields including:
 - research champion ID;
 - certified champion ID or null;
 - generation;
+- evidence epoch;
 - profile hash;
 - source SHA;
 - data cutoff;
@@ -348,6 +369,8 @@ Concurrency:
 
 A single workflow run has a bounded candidate budget. The next run resumes from checkpoint.
 
+If an evidence epoch is promotion-budget exhausted, the workflow continues exploration but MUST report `promotion_locked_for_epoch=true` and MUST NOT change the verified Brain champion pointer.
+
 ## 18. Stop / Continue Rules
 
 The research loop normally continues even after one certified champion is found because stronger challengers may appear.
@@ -363,6 +386,9 @@ Global automatic research may be disabled only by an explicit control state or a
 
 Each run publishes:
 - generation ID;
+- evidence epoch;
+- adaptive trial budget consumed / remaining;
+- `promotion_locked_for_epoch` state;
 - start/end source SHA;
 - per-coin trial counts;
 - incumbent and challenger metrics;
@@ -385,7 +411,8 @@ Fail closed when:
 - leakage audit fails;
 - null tests reveal spurious edge;
 - promotion comparison is incomplete;
-- research result conflicts with higher Trading authority.
+- research result conflicts with higher Trading authority;
+- a promotion is attempted after the evidence epoch budget is exhausted.
 
 The previous verified champion snapshot remains active if a new generation fails.
 
@@ -395,6 +422,7 @@ G8 implementation must be additive to G7 baseline and should reuse existing exec
 
 Expected new responsibilities are separated into focused modules:
 - loop state / checkpoint;
+- evidence epoch / adaptive trial budget;
 - candidate specification and mutation;
 - purged/CPCV validation;
 - fitness and promotion;
@@ -416,6 +444,8 @@ Required classes of tests:
 - CPCV partition integrity;
 - lexicographic fitness ordering;
 - weaker high-WR-but-unstable candidate cannot promote;
+- exhausted evidence epoch blocks promotion while allowing exploration;
+- a new evidence epoch restores promotion eligibility without resetting historical trial counts;
 - atomic champion promotion;
 - corrupt snapshot fails closed;
 - failed generation preserves prior champion;
@@ -435,10 +465,11 @@ G8 is technically complete only when:
 4. a second loop resumes from checkpoint rather than starting from zero;
 5. a deliberately weaker challenger is rejected;
 6. a synthetic stronger challenger in tests promotes atomically;
-7. Brain snapshot validates and can be loaded by the research adapter;
-8. current BTC-only production authority is unchanged;
-9. no financial permission is expanded;
-10. scheduled bounded loop is active and observable.
+7. an exhausted evidence epoch prevents further Brain promotion;
+8. Brain snapshot validates and can be loaded by the research adapter;
+9. current BTC-only production authority is unchanged;
+10. no financial permission is expanded;
+11. scheduled bounded loop is active and observable.
 
 Strategy success is a separate condition. It may be called successful against the user hard target only when the actual evidence reports 10/10 coins meeting the hard target. CI success alone is never strategy success.
 
