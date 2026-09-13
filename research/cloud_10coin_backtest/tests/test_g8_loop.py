@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from g8.candidate import seed_baseline_candidates
 from g8.fitness import TrialMetrics
 from g8.loop import run_generation
 
@@ -80,6 +81,32 @@ def test_new_data_cutoff_starts_new_evidence_epoch(tmp_path):
         feature_provider=_feature_provider, evaluator_fn=_evaluator,
     )
     assert second.evidence_epoch_id != first.evidence_epoch_id
+
+
+def test_generation_accepts_external_proposal_provider(tmp_path):
+    proposed = seed_baseline_candidates("BTCUSDT")[0]
+    seen = []
+
+    def proposal_provider(symbol, row, generation, candidate_budget):
+        assert symbol == "BTCUSDT"
+        assert generation == 1
+        assert candidate_budget == 1
+        return [proposed]
+
+    def evaluator(symbol, features, config, candidate):
+        seen.append(candidate)
+        return _evaluator(symbol, features, config, candidate)
+
+    result = run_generation(
+        ["BTCUSDT"], "2025-01-01", "2025-03-01",
+        tmp_path / "state", tmp_path / "results",
+        candidate_budget=1, source_sha="abc",
+        feature_provider=_feature_provider, evaluator_fn=evaluator,
+        proposal_provider=proposal_provider,
+    )
+
+    assert result.trials_attempted["BTCUSDT"] == 1
+    assert seen == [proposed]
 
 
 def test_g8_workflow_is_research_only_and_non_cancelling():
