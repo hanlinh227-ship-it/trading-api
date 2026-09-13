@@ -100,6 +100,7 @@ class EntryContextSnapshot:
     model_confidence: float | None
     historical_oos_win_rate: float | None
     uncertainty: float
+    mark_index_premium: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         base = {
@@ -110,6 +111,7 @@ class EntryContextSnapshot:
             "open_interest_delta": _unknown(self.open_interest_delta),
             "taker_imbalance": _unknown(self.taker_imbalance),
             "cross_asset_score": _unknown(self.cross_asset_score),
+            "mark_index_premium": _unknown(self.mark_index_premium),
             "live_quality_score": float(self.live_quality_score),
             "model_confidence": _unknown(self.model_confidence),
             "historical_oos_win_rate": _unknown(self.historical_oos_win_rate),
