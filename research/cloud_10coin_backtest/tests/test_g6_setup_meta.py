@@ -1,8 +1,14 @@
 import numpy as np
 import pandas as pd
 
+from config import DEFAULT_CONFIG
 from engine.execution import OrderCandidate
-from optimize.search_g6 import build_setup_candidates, candidate_feature_matrix, label_setup_candidates
+from optimize.search_g6 import (
+    build_setup_candidates,
+    candidate_feature_matrix,
+    label_setup_candidates,
+    search_coin_g6,
+)
 
 
 def _frame(n=90):
@@ -88,3 +94,10 @@ def test_independent_labeling_keeps_only_filled_candidates_and_aligns_features()
     assert set(labels.columns) >= {"rr2_hit", "net_r", "signal_index"}
     assert int(labels.iloc[0]["signal_index"]) == i
     assert bool(labels.iloc[0]["rr2_hit"]) is True
+
+
+def test_search_coin_g6_fails_cleanly_when_no_structural_setups_exist():
+    result = search_coin_g6("BTCUSDT", _frame(240), DEFAULT_CONFIG)
+    assert result.status == "FAIL"
+    assert result.locked_profile is None
+    assert result.evaluation.completed_trades == 0
