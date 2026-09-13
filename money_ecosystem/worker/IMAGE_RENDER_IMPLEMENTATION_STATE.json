@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "image_render_ready": false,
+  "contract_validation": "IMPLEMENTED",
+  "local_preflight": "IMPLEMENTED",
+  "comfyui_adapter": "PENDING",
+  "serial_executor": "PENDING",
+  "qa_packaging": "PENDING",
+  "real_worker_smoke_test": "PENDING",
+  "zero_paid_services": true,
+  "cloud_fallback": false
+}
