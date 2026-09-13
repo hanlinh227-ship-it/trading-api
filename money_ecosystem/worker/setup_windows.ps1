@@ -44,6 +44,16 @@ if (-not (Test-Path (Join-Path $RepoRoot ".git"))) {
     }
 }
 
+Push-Location $RepoRoot
+try {
+    git config user.name "Curious Beyond Worker"
+    if ($LASTEXITCODE -ne 0) { throw "git config user.name failed" }
+    git config user.email "curious-beyond-worker@users.noreply.github.com"
+    if ($LASTEXITCODE -ne 0) { throw "git config user.email failed" }
+} finally {
+    Pop-Location
+}
+
 if (-not (Test-Path $SecretFile)) {
     $bytes = New-Object byte[] 48
     $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
