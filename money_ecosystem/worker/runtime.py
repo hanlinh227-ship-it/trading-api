@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import shutil
 import sys
@@ -10,14 +11,56 @@ from typing import Any
 
 from .allowlist import validate_job_request
 
+_COMFYUI_BASE = "http://127.0.0.1:8188"
+
+
+def _fetch_json(url: str, timeout: float = 1.5) -> dict[str, Any]:
+    with urllib.request.urlopen(url, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
 
 def _probe_comfyui() -> dict[str, Any]:
-    url = "http://127.0.0.1:8188/system_stats"
+    url = _COMFYUI_BASE + "/system_stats"
     try:
         with urllib.request.urlopen(url, timeout=1.5) as response:
             return {"available": response.status == 200, "endpoint": url}
     except (urllib.error.URLError, TimeoutError, OSError):
         return {"available": False, "endpoint": url}
+
+
+def _probe_comfyui_reference() -> dict[str, Any]:
+    url = _COMFYUI_BASE + "/object_info"
+    try:
+        objects = _fetch_json(url)
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        return {
+            "available": False,
+            "endpoint": url,
+            "missing": ["ComfyUI object_info"],
+            "reason": str(exc),
+        }
+
+    required_base = {
+        "CheckpointLoaderSimple",
+        "CLIPTextEncode",
+        "EmptyLatentImage",
+        "KSampler",
+        "VAEDecode",
+        "SaveImage",
+    }
+    missing = sorted(name for name in required_base if name not in objects)
+    reference_nodes = sorted(
+        name for name in objects if "ipadapter" in name.lower()
+    )
+    if not reference_nodes:
+        missing.append("IPAdapter")
+
+    return {
+        "available": not missing,
+        "endpoint": url,
+        "missing": missing,
+        "reference_nodes": reference_nodes[:20],
+    }
 
 
 def _probe_capabilities(targets: list[str]) -> dict[str, Any]:
@@ -42,6 +85,8 @@ def _probe_capabilities(targets: list[str]) -> dict[str, Any]:
             }
         elif target == "comfyui":
             capabilities[target] = _probe_comfyui()
+        elif target == "comfyui_reference":
+            capabilities[target] = _probe_comfyui_reference()
         else:
             capabilities[target] = {
                 "available": False,
