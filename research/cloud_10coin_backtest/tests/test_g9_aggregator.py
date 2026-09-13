@@ -4,14 +4,23 @@ from g9.aggregator import merge_lane_registries, update_champion_pool_from_regis
 from g9.champion_pool import ChampionPool, LaneKey
 
 
-def record(symbol: str, trial_id_seed: int, regime: str, family: str, side: str) -> TrialRecord:
+def record(
+    symbol: str,
+    trial_id_seed: int,
+    regime: str,
+    family: str,
+    side: str,
+    *,
+    source_sha: str = "sha123",
+    promotion_decision: str = "PROMOTE",
+) -> TrialRecord:
     return TrialRecord.build(
         generation=trial_id_seed,
         parent_trial_id=None,
         symbol=symbol,
         seed=trial_id_seed,
         candidate_hash=f"hash-{symbol}-{trial_id_seed}",
-        source_sha="sha123",
+        source_sha=source_sha,
         candidate_spec={
             "symbol": symbol,
             "regime": regime,
@@ -27,7 +36,7 @@ def record(symbol: str, trial_id_seed: int, regime: str, family: str, side: str)
         },
         evidence_window_ids=("epoch-1",),
         metrics={"oof_win_rate": 0.66, "expectancy_r": 0.7},
-        promotion_decision="PROMOTE",
+        promotion_decision=promotion_decision,
         rejection_reasons=(),
         falsification_status="PASS",
     )
@@ -66,10 +75,47 @@ def test_registry_promotions_are_projected_into_route_specific_champion_pool():
     registry = one_symbol_registry("SOLUSDT", rec)
     pool = ChampionPool.empty()
 
-    promoted = update_champion_pool_from_registry(pool, registry)
+    promoted = update_champion_pool_from_registry(pool, registry, expected_source_sha="sha123")
 
     lane = LaneKey("SOLUSDT", "COMPRESSION", "setup_breakout", "LONG")
     assert promoted == 1
     assert pool.lane(lane).champion.profile_id == rec.trial_id
     assert pool.lane(lane).champion.metrics["oof_win_rate"] == 0.66
     assert pool.lane(lane).champion.production_execution_authority is False
+
+
+def test_registry_source_sha_mismatch_is_quarantined_and_cannot_replace_champion():
+    lane = LaneKey("SOLUSDT", "COMPRESSION", "setup_breakout", "LONG")
+    good = record("SOLUSDT", 3, "COMPRESSION", "setup_breakout", "LONG", source_sha="good-sha")
+    bad = record("SOLUSDT", 4, "COMPRESSION", "setup_breakout", "LONG", source_sha="wrong-sha")
+    pool = ChampionPool.empty()
+    update_champion_pool_from_registry(pool, one_symbol_registry("SOLUSDT", good), expected_source_sha="good-sha")
+
+    promoted = update_champion_pool_from_registry(
+        pool,
+        one_symbol_registry("SOLUSDT", bad),
+        expected_source_sha="good-sha",
+    )
+
+    assert promoted == 0
+    assert pool.lane(lane).champion.profile_id == good.trial_id
+    assert pool.to_dict()["quarantined"][-1]["reason"] == "SOURCE_SHA_MISMATCH"
+
+
+def test_non_promote_record_is_quarantined_even_if_upstream_registry_is_malformed():
+    bad = record(
+        "ETHUSDT",
+        9,
+        "RANGE",
+        "setup_sweep",
+        "SHORT",
+        promotion_decision="REJECT",
+    )
+    pool = ChampionPool.empty()
+    promoted = update_champion_pool_from_registry(
+        pool,
+        one_symbol_registry("ETHUSDT", bad),
+        expected_source_sha="sha123",
+    )
+    assert promoted == 0
+    assert pool.to_dict()["quarantined"][-1]["reason"] == "NOT_PROMOTED_RECORD"
