@@ -58,7 +58,9 @@ def push_results(repo_root: Path, branch: str) -> None:
 
 
 def _load_secret(secret_file: Path) -> bytes:
-    secret = secret_file.read_text(encoding="utf-8").strip()
+    # Windows PowerShell 5 may create UTF-8 files with a BOM. utf-8-sig
+    # consumes that marker so the local HMAC key matches the GitHub secret.
+    secret = secret_file.read_text(encoding="utf-8-sig").strip()
     if len(secret) < 32:
         raise ValueError("Worker secret must be at least 32 characters")
     return secret.encode("utf-8")
