@@ -110,3 +110,35 @@ def record_trial_feedback(
         already_rejected.add(hypothesis_digest)
         written += 1
     return written
+
+
+class AdaptiveProposalController:
+    def __init__(self, failure_memory: FailureMemory):
+        self.failure_memory = failure_memory
+        self.candidate_to_hypothesis: dict[str, str] = {}
+        self.last_allocation: dict[str, int] = {}
+
+    def proposals(
+        self,
+        symbol: str,
+        row: Mapping[str, Any],
+        generation: int,
+        candidate_budget: int,
+    ) -> list[CandidateSpec]:
+        proposals, mapping, allocation = build_adaptive_proposals(
+            symbol,
+            row,
+            generation=generation,
+            candidate_budget=candidate_budget,
+            failure_memory=self.failure_memory,
+        )
+        self.candidate_to_hypothesis.update(mapping)
+        self.last_allocation = dict(allocation)
+        return proposals
+
+    def feedback(self, records: Iterable[Mapping[str, Any]]) -> int:
+        return record_trial_feedback(
+            records,
+            self.candidate_to_hypothesis,
+            self.failure_memory,
+        )
