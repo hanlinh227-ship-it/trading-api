@@ -1,0 +1,31 @@
+{
+  "job_id": "image-render-reference-preflight-20260914-04",
+  "status": "DEGRADED",
+  "message": "Media capability probe completed",
+  "artifact_manifest": {
+    "capabilities": {
+      "python": {
+        "available": true,
+        "version": "3.11.9"
+      },
+      "ffmpeg": {
+        "available": true
+      },
+      "whisper": {
+        "available": true
+      },
+      "kokoro": {
+        "available": true
+      },
+      "comfyui": {
+        "available": true,
+        "endpoint": "http://127.0.0.1:8188/system_stats"
+      },
+      "comfyui_reference": {
+        "available": false,
+        "reason": "unsupported probe target"
+      }
+    }
+  },
+  "completed_at": "2026-09-13T23:26:05.596008+00:00"
+}
