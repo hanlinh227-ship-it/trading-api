@@ -43,7 +43,7 @@ profiles:
     retrieval_index_tiers: [HOT]
     exact_lookup_only: true
     max_file_reads: 2
-    stages: [task_router, minimal_core, fast_knowledge_plane, primary_domain, primary_skill, skill_execution_capsule, response_quality_gate, answer]
+    stages: [task_router, minimal_core, fast_knowledge_plane, primary_domain, primary_skill, skill_execution_capsule, response_quality_gate, plain_language_presentation, answer]
   STANDARD:
     context_tokens: 7000
     durable_memory_items: 4
@@ -59,7 +59,7 @@ profiles:
     persistent_trace: conditional
     retrieval_index_tiers: [HOT, WARM]
     max_file_reads: 8
-    stages: [task_router, runtime_profile, authority, capability_fusion, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, retrieval_plane, memory, sources, tools, execute, response_quality_gate, verify, answer]
+    stages: [task_router, runtime_profile, authority, capability_fusion, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, retrieval_plane, memory, sources, tools, execute, response_quality_gate, verify, plain_language_presentation, answer]
   DEEP:
     context_tokens: 16000
     durable_memory_items: 8
@@ -75,7 +75,7 @@ profiles:
     persistent_trace: bounded
     retrieval_index_tiers: [HOT, WARM, COLD_ON_EXPLICIT_REQUEST]
     max_file_reads: 20
-    stages: [task_router, runtime_profile, authority, capability_fusion, context_plan, planner, task_graph, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, retrieval_plane, memory, sources, tools, security_gate, execute, critic, response_quality_gate, verify, eval, answer]
+    stages: [task_router, runtime_profile, authority, capability_fusion, context_plan, planner, task_graph, primary_domain, primary_skill, skill_execution_capsule, permitted_bridges, skills, retrieval_plane, memory, sources, tools, security_gate, execute, critic, response_quality_gate, verify, eval, plain_language_presentation, answer]
 
 hard_limits:
   authority: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
