@@ -20,6 +20,7 @@ class SerialImageExecutor:
                     target=self.output_root/f"scene_{scene.id:02d}.png"
                     artifact_fetcher(artifact,target)
                     accepted=SceneResult(scene.id,"ACCEPTED",attempt,seed,str(target),None); break
-                except Exception as e: last_error=str(e)
+                except Exception as e:
+                    last_error=f"{type(e).__name__}: {e}"
             results.append(accepted or SceneResult(scene.id,"FAILED",job.max_attempts,base_seed+job.max_attempts-1,None,last_error))
         return tuple(results)
