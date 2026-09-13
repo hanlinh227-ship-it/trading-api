@@ -6,6 +6,7 @@ from typing import Any, Iterable
 import requests
 
 from g9.contracts import EntryContextSnapshot
+from g9.data_contract import build_envelope
 from g9.market_state import build_market_state
 
 
@@ -19,6 +20,7 @@ class BinancePublicMinuteProvider:
         session: requests.Session | Any | None = None,
         base_url: str = "https://fapi.binance.com",
         timeout_seconds: float = 5.0,
+        source_sha: str = "UNKNOWN",
     ):
         normalized = [str(symbol).upper() for symbol in symbols]
         if not normalized or len(set(normalized)) != len(normalized):
@@ -27,14 +29,11 @@ class BinancePublicMinuteProvider:
         self.session = session or requests.Session()
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = float(timeout_seconds)
+        self.source_sha = str(source_sha)
         self._previous_open_interest: dict[str, float] = {}
 
     def _get_json(self, path: str, params: dict[str, Any] | None = None) -> Any:
-        response = self.session.get(
-            self.base_url + path,
-            params=params,
-            timeout=self.timeout_seconds,
-        )
+        response = self.session.get(self.base_url + path, params=params, timeout=self.timeout_seconds)
         response.raise_for_status()
         return response.json()
 
@@ -42,11 +41,7 @@ class BinancePublicMinuteProvider:
     def _index_by_symbol(payload: Any) -> dict[str, dict[str, Any]]:
         if isinstance(payload, dict):
             payload = [payload]
-        return {
-            str(row["symbol"]).upper(): dict(row)
-            for row in payload
-            if isinstance(row, dict) and row.get("symbol")
-        }
+        return {str(row["symbol"]).upper(): dict(row) for row in payload if isinstance(row, dict) and row.get("symbol")}
 
     @staticmethod
     def _to_dt_ms(value: int | float | str) -> datetime:
@@ -66,21 +61,17 @@ class BinancePublicMinuteProvider:
                 continue
             volume = float(raw[5])
             taker_buy = float(raw[9])
-            rows.append(
-                {
-                    "event_time": BinancePublicMinuteProvider._to_dt_ms(close_ms),
-                    "open": float(raw[1]),
-                    "high": float(raw[2]),
-                    "low": float(raw[3]),
-                    "close": float(raw[4]),
-                    "volume": volume,
-                }
-            )
+            rows.append({
+                "event_time": BinancePublicMinuteProvider._to_dt_ms(close_ms),
+                "open": float(raw[1]),
+                "high": float(raw[2]),
+                "low": float(raw[3]),
+                "close": float(raw[4]),
+                "volume": volume,
+            })
             total_volume += volume
             total_taker_buy += taker_buy
-        imbalance = None
-        if total_volume > 0:
-            imbalance = round((2.0 * total_taker_buy / total_volume) - 1.0, 8)
+        imbalance = None if total_volume <= 0 else round((2.0 * total_taker_buy / total_volume) - 1.0, 8)
         return rows, imbalance
 
     @staticmethod
@@ -97,21 +88,15 @@ class BinancePublicMinuteProvider:
 
         books = self._index_by_symbol(self._get_json("/fapi/v1/ticker/bookTicker"))
         premiums = self._index_by_symbol(self._get_json("/fapi/v1/premiumIndex"))
-
         staged: dict[str, dict[str, Any]] = {}
+
         for symbol in self.symbols:
             if symbol not in books or symbol not in premiums:
                 raise ValueError(f"missing Binance public state for {symbol}")
             book = books[symbol]
             premium = premiums[symbol]
-            klines = self._get_json(
-                "/fapi/v1/klines",
-                params={"symbol": symbol, "interval": "1m", "limit": 60},
-            )
-            oi_payload = self._get_json(
-                "/fapi/v1/openInterest",
-                params={"symbol": symbol},
-            )
+            klines = self._get_json("/fapi/v1/klines", params={"symbol": symbol, "interval": "1m", "limit": 60})
+            oi_payload = self._get_json("/fapi/v1/openInterest", params={"symbol": symbol})
             bars, taker_imbalance = self._parse_closed_bars(klines, now)
             quote_time = self._to_dt_ms(book.get("time", int(now.timestamp() * 1_000)))
             market = build_market_state(
@@ -126,42 +111,32 @@ class BinancePublicMinuteProvider:
                 last=(float(book["bidPrice"]) + float(book["askPrice"])) / 2.0,
                 quote_event_time=quote_time,
             )
-
             current_oi = float(oi_payload["openInterest"])
             previous_oi = self._previous_open_interest.get(symbol)
-            oi_delta = None
-            if previous_oi not in (None, 0.0):
-                oi_delta = round((current_oi - previous_oi) / previous_oi, 8)
+            oi_delta = None if previous_oi in (None, 0.0) else round((current_oi - previous_oi) / previous_oi, 8)
             self._previous_open_interest[symbol] = current_oi
-
             mark_price = float(premium["markPrice"])
             index_price = float(premium["indexPrice"])
-            mark_index_premium = None if index_price == 0 else (mark_price - index_price) / index_price
-
             staged[symbol] = {
                 "market_obj": market,
                 "funding": float(premium.get("lastFundingRate", 0.0)),
                 "open_interest_delta": oi_delta,
                 "taker_imbalance": taker_imbalance,
-                "mark_index_premium": mark_index_premium,
+                "mark_index_premium": None if index_price == 0 else (mark_price - index_price) / index_price,
             }
 
-        context_sources = [
-            self._regime_score(staged[symbol]["market_obj"].regime)
-            for symbol in ("BTCUSDT", "ETHUSDT")
-            if symbol in staged
-        ]
-        cross_asset_score = None
-        if len(context_sources) == 2:
-            cross_asset_score = sum(context_sources) / 2.0
-
+        context_sources = [self._regime_score(staged[symbol]["market_obj"].regime) for symbol in ("BTCUSDT", "ETHUSDT") if symbol in staged]
+        cross_asset_score = None if len(context_sources) != 2 else sum(context_sources) / 2.0
         symbols_payload: dict[str, dict[str, Any]] = {}
+        freshness_values: list[str] = []
         for symbol, data in staged.items():
             market = data["market_obj"]
+            market_payload = market.to_dict()
+            freshness_values.append(str(market_payload["freshness"]))
             entry = EntryContextSnapshot(
                 symbol=symbol,
                 event_time=now,
-                market_snapshot_id=market.to_dict()["snapshot_id"],
+                market_snapshot_id=market_payload["snapshot_id"],
                 funding=data["funding"],
                 open_interest_delta=data["open_interest_delta"],
                 taker_imbalance=data["taker_imbalance"],
@@ -172,12 +147,14 @@ class BinancePublicMinuteProvider:
                 historical_oos_win_rate=None,
                 uncertainty=float(market.uncertainty),
             )
-            symbols_payload[symbol] = {
-                "market": market.to_dict(),
-                "entry": entry.to_dict(),
-            }
+            symbols_payload[symbol] = {"market": market_payload, "entry": entry.to_dict()}
 
-        return {
+        overall_freshness = "FRESH"
+        if any(value == "STALE" for value in freshness_values):
+            overall_freshness = "STALE"
+        elif any(value == "DEGRADED" for value in freshness_values):
+            overall_freshness = "DEGRADED"
+        payload = {
             "schema_version": 1,
             "kind": "g9_minute_intelligence",
             "event_time": now.isoformat(),
@@ -185,4 +162,17 @@ class BinancePublicMinuteProvider:
             "symbols": symbols_payload,
             "research_only": True,
             "production_execution_authority": False,
+        }
+        return {
+            **payload,
+            "data_contract": build_envelope(
+                kind="g9_minute_intelligence",
+                source="binance-public-usdm",
+                source_sha=self.source_sha,
+                event_time=now,
+                ingest_time=now,
+                freshness=overall_freshness,
+                payload=payload,
+                provenance={"provider": "binance", "transport": "public_https"},
+            ),
         }
