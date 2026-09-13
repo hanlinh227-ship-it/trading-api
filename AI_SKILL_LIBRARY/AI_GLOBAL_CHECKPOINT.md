@@ -13,9 +13,9 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Mandatory routing contract: exactly one primary skill + validated execution capsule for every GitHub Brain request
 - FAST routing: exact-SHA hot snapshot, zero GitHub/provider/network calls for route selection
 - Fallback primary skill: `core_reasoning`
-- Baseline verified Skill Gateway rollout SHA: `f9388fee0d2b73d7311c8d2ce850efb8d16354c2`
-- Baseline verified Cloudflare Worker version: `2f444cd5-5c17-40b9-8a6c-04fad0a74a46`
-- Baseline warm FAST benchmark: p50 `0.6804 ms`, p95 `0.7667 ms`, external routing calls `0`
+- Current capability release target: `4.6.0` selective open-source fusion, preserving `109` routed skills / `109` execution capsules
+- Open-source fusion rule: upstream repositories are reference/evidence only; strengthen existing canonical skills first; no parallel reasoning authority; no permission widening; no mandatory local runtime
+- Plain-language presentation: enabled; user-facing default locale `vi`, simple language; exact technical tokens remain available when needed
 - Live-price research runtime: Railway service `crypto-research-gateway-prod`, Southeast Asia / Singapore, one replica
 - Live-price public research gateway: `crypto-research-gateway-prod-production.up.railway.app`
 - Live-price release marker: `live-price-execution-v1`
@@ -27,7 +27,7 @@ The Cloudflare Skill Gateway rollout does **not** by itself migrate live-price/e
 
 Every handled GitHub Brain request follows:
 
-`request -> task_router -> runtime_profile -> exactly_one_primary_skill -> validated_execution_capsule -> bounded_context/tools_if_needed -> execute -> response_quality_gate -> answer`
+`request -> task_router -> runtime_profile -> exactly_one_primary_skill -> validated_execution_capsule -> bounded_context/tools_if_needed -> execute -> response_quality_gate -> plain_language_presentation -> answer`
 
 Rules:
 
@@ -38,8 +38,26 @@ Rules:
 - `STANDARD` and `DEEP` lazy-load only relevant authority, memory, sources, provider metadata and tools after primary-skill selection.
 - Live/trading, deployment/runtime, destructive, financial, credential-sensitive and other high-impact work must retain escalation/security/authority gates and must not be downgraded to cached FAST behavior.
 - Snapshot data is routing/skill authority metadata, never live market/account/runtime evidence.
-- Provider capability remains evidence/execution metadata, not reasoning authority.
+- Provider and upstream capability remains evidence/execution metadata, not reasoning authority.
 - Routing traces may contain verifiable profile/domain/skill/capsule/source-SHA/latency metadata only; never hidden chain-of-thought, credentials, secrets or private provider payloads.
+
+## Brain 4.6 selective open-source fusion contract
+
+Brain 4.6 improves capability quality without increasing the default canonical routed skill count.
+
+- Default canonical routed skills: `109`.
+- Default execution capsules: `109`.
+- New upstream candidates start quarantined with zero routing/reasoning authority.
+- Active-source registration requires verified provenance, allowed license/usage status, maintenance status, overlap/conflict scan, risk/permission ceiling, performance impact, authority impact and eval impact.
+- If a candidate overlaps an existing skill, strengthen the existing skill first or use a reference/adapter; do not create a competing primary skill.
+- A new primary skill requires a distinct task intent, unique input/output contract, no trigger ownership conflict, measurable eval gain, valid capsule, and security/authority approval.
+- External code is untrusted by default. Reference patterns do not imply code reuse.
+- License-unresolved or non-allowlisted sources remain design/reference-only and cannot auto-promote into active registry/RAG.
+- Upgrade bottleneck checks cover context growth, FAST latency, external routing calls, duplicate capabilities, trigger ownership, authority overlap, permission ceilings, license status and source maintenance.
+- No unresolved bottleneck may be promoted to Stable.
+- No open-source reference may grant trading execution, wallet, credential, destructive or production-write authority.
+
+Quality upgrades in 4.6 include stronger repository workflow verification, adversarial/eval coverage, quantitative realism, 3D asset validation, design-system validation, prompt regression discipline, game runtime validation, source/license provenance checks and duplicate-capability detection.
 
 ## Consolidation contract (release 4.3.0+)
 
@@ -63,20 +81,6 @@ Production Skill Gateway releases use GitHub Actions exact-main deployment to Cl
 6. `/brain/health` must report schema version `1`, `primarySkillRequired=true`, `capsuleRequired=true`, and `externalRoutingCalls=0`.
 7. The production smoke matrix includes representative core, engineering, writing, and trading requests and requires expected primary skill/profile plus a valid capsule hash.
 8. A failed compile, validator, benchmark, dry-run, deploy, exact-SHA verification, or route smoke blocks completion. The previous verified production version remains the rollback target.
-
-Verified baseline rollout evidence on SHA `f9388fee0d2b73d7311c8d2ce850efb8d16354c2` (release `4.3.0`, Worker version `2f444cd5-5c17-40b9-8a6c-04fad0a74a46`):
-
-- `153` `AI_SKILL_LIBRARY/tests` tests passed; `26` repository tests passed.
-- Router, authority, runtime, V3/V4, registry and Skill Gateway validators reported `0` errors; registry retained `1` non-blocking warning.
-- `105` skills and `105` execution capsules compiled into the exact-SHA snapshot.
-- Retrieval index verified fresh: HOT `126`, WARM `131`, COLD `30`.
-- Warm FAST benchmark: p50 `0.6804 ms`, p95 `0.7667 ms`, external calls `0`.
-- Wrangler dry-run passed with existing KV/VPC bindings and `RUNTIME_SWITCHES=PRESERVE_EXISTING` / `LIVE_ACK=PRESERVE_EXISTING`.
-- Cloudflare deployment succeeded for Worker `trading-v77-scanner`; startup time `6 ms`.
-- `/runtime/contract` exact revision passed for `f9388fee0d2b73d7311c8d2ce850efb8d16354c2`.
-- `/brain/health` exact SHA/schema/primary-skill/capsule/external-routing contract passed.
-- Production routes passed on exact deployed SHA: `core_reasoning/FAST`, `debugging/STANDARD`, `advertising_copy/FAST`, `trading_router/DEEP`.
-- Deployment record: `SKILL_MANDATORY_FAST_GATEWAY_DEPLOY=PASS`, `FAST_EXTERNAL_ROUTING_CALLS=0`, `RUNTIME_SWITCH_MUTATION=false`.
 
 ## Live-price research deployment contract
 
@@ -141,13 +145,13 @@ If any required verification is unavailable or stale, disclose degraded state an
 
 `HIGH_RISK` has **no executable route** in this runtime. This includes order placement/cancel/amend/close, leverage mutation, account mutation, wallet signing, transfers, withdrawals, swaps, bridges, payment/x402 and DeFi/earn write actions.
 
-Provider output is evidence only. It never becomes reasoning authority and never overrides project authority, freshness, security, semantic separation or conflict policy.
+Provider/upstream output is evidence only. It never becomes reasoning authority and never overrides project authority, freshness, security, semantic separation or conflict policy.
 
 ## Cross-chat bootstrap rule
 
 For every new substantive work cycle using this repository:
 
-`AGENTS.md -> checkpoint.json -> AI_GLOBAL_CHECKPOINT.md -> current V4 release -> validated Skill Gateway snapshot contract -> task_router -> runtime profile -> exactly one primary skill + execution capsule -> lazy project authority/context/tools as needed -> response quality gate`
+`AGENTS.md -> checkpoint.json -> AI_GLOBAL_CHECKPOINT.md -> current V4 release -> validated Skill Gateway snapshot contract -> task_router -> runtime profile -> exactly one primary skill + execution capsule -> lazy project authority/context/tools as needed -> response quality gate -> plain_language_presentation -> answer`
 
 Do not fetch the full skill catalog/provider registries on every FAST request. FAST route selection uses the already validated exact-SHA hot snapshot. STANDARD/DEEP perform lazy loads only after routing.
 
