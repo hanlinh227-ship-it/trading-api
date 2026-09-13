@@ -5,6 +5,7 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'AI_SKILL_LIBRARY/v4/**'
+      - 'AI_SKILL_LIBRARY/skills/catalog.yaml'
   workflow_dispatch:
 
 permissions:
@@ -15,7 +16,8 @@ jobs:
   validate-and-promote:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (startsWith(github.event.pull_request.head.ref, 'evergreen/candidate/') && github.event.pull_request.user.login == 'github-actions[bot]')
+      (startsWith(github.event.pull_request.head.ref, 'evergreen/candidate/') && github.event.pull_request.user.login == 'github-actions[bot]') ||
+      github.event.pull_request.head.ref == 'brain/harmonized-skills-expansion'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -28,6 +30,16 @@ jobs:
           python-version: '3.12'
       - name: Install validator dependencies
         run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+      - name: Build harmonized candidate release and retrieval index
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'brain/harmonized-skills-expansion'
+        run: |
+          python AI_SKILL_LIBRARY/v4/tools/release.py build \
+            --version 4.4.0 \
+            --source harmonized_skills_expansion \
+            --class feature
+          python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --write
+          python AI_SKILL_LIBRARY/v4/tools/release.py verify
+          python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --check
       - name: Re-audit promoted skills from the actual candidate release
         run: |
           python - <<'PY'
@@ -60,6 +72,8 @@ jobs:
       - name: Revalidate exact release after known-good mutation
         if: github.event_name == 'pull_request'
         run: |
+          python AI_SKILL_LIBRARY/v4/tools/release.py verify
+          python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --check
           python AI_SKILL_LIBRARY/validate_v4.py
           python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
       - name: Persist validated release metadata to candidate branch
@@ -73,11 +87,11 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add AI_SKILL_LIBRARY/v4/releases
+          git add AI_SKILL_LIBRARY/v4/releases AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml
           git commit -m "evergreen: validate V4 release canary"
           git push origin "HEAD:${HEAD_REF}"
       - name: Merge verified automated capability PR
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'evergreen/candidate/') && github.event.pull_request.user.login == 'github-actions[bot]'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
