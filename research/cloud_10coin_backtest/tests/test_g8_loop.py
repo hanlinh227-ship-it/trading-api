@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 
 from g8.fitness import TrialMetrics
@@ -78,3 +80,20 @@ def test_new_data_cutoff_starts_new_evidence_epoch(tmp_path):
         feature_provider=_feature_provider, evaluator_fn=_evaluator,
     )
     assert second.evidence_epoch_id != first.evidence_epoch_id
+
+
+def test_g8_workflow_is_research_only_and_non_cancelling():
+    root = Path(__file__).resolve().parents[3]
+    text = (root / ".github/workflows/g8-brainloop.yml").read_text()
+    assert "cron: '17 * * * *'" in text
+    assert "cancel-in-progress: false" in text
+    assert "run_g8_loop.py" in text
+    assert "research/g8-brainloop-state" in text
+    forbidden = [
+        "wrangler deploy",
+        "railway up",
+        "BYBIT_AUTO_LIVE",
+        "BYBIT_BTC_LIVE_ACK",
+        "/v5/order/create",
+    ]
+    assert all(token not in text for token in forbidden)
