@@ -5,7 +5,7 @@ const capsule = (skill_id, domain) => ({skill_id,domain,output_contract:`${skill
 const skill = (id,domain,aliases,display_name,{tools=[],priority=80,triggers=[]}={}) => ({id,domain,aliases,triggers,excludes:[],priority,requires:['task_router'],conflicts_with:[],tools,sources:[],output_contract:`${id} output`,primary_selectable:true,display_name});
 const snapshot={
   schema_version:1, source_sha:'a'.repeat(40), release_id:'4.5.0', fallback_primary_skill:'core_reasoning',
-  presentation:{locale:'vi',mode:'plain',hide_internal_ids:true,no_underscore_display_names:true},
+  presentation:{locale:'vi',mode:'plain',hide_internal_ids:true,no_underscore_display_names:true,technical_output_allowed:true,preserve_exact_machine_tokens:true},
   profiles:{FAST:{max_supporting_skills:0},STANDARD:{max_supporting_skills:2},DEEP:{max_supporting_skills:2}},
   domains:{core:['core_reasoning'],engineering:['debugging'],writing:['advertising_copy'],trading:['trading_router']},
   skills:{
@@ -47,6 +47,13 @@ assert.throws(()=>assertResponseQuality({route:{...unknown,primarySkill:''},exec
 assert.throws(()=>assertResponseQuality({route:unknown,execution:{...goodExecution,capsuleApplied:false},snapshot}),/capsule/i);
 assert.throws(()=>assertResponseQuality({route:unknown,execution:{...goodExecution,answerText:'Hệ thống đang dùng core_reasoning để xử lý.'},snapshot}),/internal_identifier/i);
 assertResponseQuality({route:unknown,execution:{...goodExecution,answerText:'Mã nội bộ chính xác là core_reasoning.',technicalOutput:true},snapshot});
+
+const exactPlain='Giới hạn là 150 USD vào ngày 13/09/2026. Kết quả này chưa chắc chắn và cần kiểm tra lại.';
+assertResponseQuality({route:unknown,execution:{...goodExecution,answerText:exactPlain},snapshot});
+assert.equal(exactPlain,'Giới hạn là 150 USD vào ngày 13/09/2026. Kết quả này chưa chắc chắn và cần kiểm tra lại.');
+const exactTechnical='Chạy lệnh `python tool.py --skill core_reasoning`; giữ nguyên 150 USD và ngày 13/09/2026.';
+assertResponseQuality({route:unknown,execution:{...goodExecution,answerText:exactTechnical,technicalOutput:true},snapshot});
+assert.equal(exactTechnical,'Chạy lệnh `python tool.py --skill core_reasoning`; giữ nguyên 150 USD và ngày 13/09/2026.');
 
 const oldFetch=globalThis.fetch;
 globalThis.fetch=()=>{throw new Error('NETWORK_FORBIDDEN_ON_FAST_ROUTE');};
