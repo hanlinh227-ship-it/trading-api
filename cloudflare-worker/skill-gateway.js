@@ -9,7 +9,7 @@ function contains(text,needle){
 }
 
 function validSnapshot(snapshot){
-  return snapshot&&snapshot.schema_version===1&&typeof snapshot.source_sha==='string'&&snapshot.skills&&snapshot.capsules&&snapshot.profiles;
+  return snapshot&&snapshot.schema_version===1&&typeof snapshot.source_sha==='string'&&snapshot.skills&&snapshot.capsules&&snapshot.profiles&&snapshot.presentation?.locale==='vi'&&snapshot.presentation?.mode==='plain';
 }
 
 function raiseProfile(current,next){
@@ -70,6 +70,18 @@ function selectProfile(text,meta,snapshot){
   return {profile,fresh};
 }
 
+function validDisplayName(value){
+  return typeof value==='string'&&value.trim().length>0&&!value.includes('_');
+}
+
+function exposedInternalIdentifier(answerText,snapshot){
+  if(typeof answerText!=='string'||!snapshot?.skills)return '';
+  for(const id of Object.keys(snapshot.skills)){
+    if(id.includes('_')&&answerText.includes(id))return id;
+  }
+  return '';
+}
+
 export function routeSkillRequest({text='',trustedHints={}}={},snapshot){
   const started=globalThis.performance?.now?.()??Date.now();
   if(!validSnapshot(snapshot))throw new Error('SKILL_GATEWAY_SNAPSHOT_INVALID');
@@ -78,6 +90,7 @@ export function routeSkillRequest({text='',trustedHints={}}={},snapshot){
   const meta=snapshot.skills[primarySkill];
   const capsule=snapshot.capsules[primarySkill];
   if(!meta||meta.primary_selectable!==true)throw new Error('PRIMARY_SKILL_INVALID');
+  if(!validDisplayName(meta.display_name))throw new Error('PRIMARY_SKILL_DISPLAY_NAME_INVALID');
   if(!capsule||capsule.skill_id!==primarySkill||!capsule.capsule_hash)throw new Error('SKILL_CAPSULE_INVALID');
   const {profile,fresh}=selectProfile(normalized,meta,snapshot);
   if(!snapshot.profiles[profile])throw new Error('RUNTIME_PROFILE_INVALID');
@@ -88,6 +101,7 @@ export function routeSkillRequest({text='',trustedHints={}}={},snapshot){
     profile,
     domain:meta.domain,
     primarySkill,
+    primarySkillName:meta.display_name,
     capsuleId:primarySkill,
     capsuleHash:capsule.capsule_hash,
     outputContract:capsule.output_contract,
@@ -103,7 +117,7 @@ export function routeSkillRequest({text='',trustedHints={}}={},snapshot){
   });
 }
 
-export function assertResponseQuality({route,execution={}}={}){
+export function assertResponseQuality({route,execution={},snapshot}={}){
   if(!route?.primarySkill)throw new Error('QUALITY_GATE_PRIMARY_SKILL_MISSING');
   if(!route?.capsuleHash)throw new Error('QUALITY_GATE_CAPSULE_MISSING');
   if(!['FAST','STANDARD','DEEP'].includes(route.profile))throw new Error('QUALITY_GATE_PROFILE_INVALID');
@@ -112,7 +126,11 @@ export function assertResponseQuality({route,execution={}}={}){
   if(route.requiresFreshState&&execution.freshStateSatisfied!==true)throw new Error('QUALITY_GATE_FRESH_STATE_NOT_SATISFIED');
   if((route.toolRequirement?.length||0)>0&&execution.toolRequirementSatisfied!==true)throw new Error('QUALITY_GATE_TOOL_REQUIREMENT_NOT_SATISFIED');
   if(execution.answered!==true)throw new Error('QUALITY_GATE_EMPTY_ANSWER');
+  if(typeof execution.answerText==='string'&&execution.technicalOutput!==true&&snapshot?.presentation?.hide_internal_ids===true){
+    const leaked=exposedInternalIdentifier(execution.answerText,snapshot);
+    if(leaked)throw new Error(`QUALITY_GATE_INTERNAL_IDENTIFIER_EXPOSED:${leaked}`);
+  }
   return true;
 }
 
-export const _test={normalizeText,candidateScore,selectSkill,selectProfile};
+export const _test={normalizeText,candidateScore,selectSkill,selectProfile,validDisplayName,exposedInternalIdentifier};
