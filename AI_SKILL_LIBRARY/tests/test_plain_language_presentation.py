@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 
 from AI_SKILL_LIBRARY.v4.tools.compile_skill_gateway import compile_snapshot
+from AI_SKILL_LIBRARY.v4.tools.release import RELEASE_FILES
 
 ROOT = Path(__file__).resolve().parents[2]
 SHA = "c" * 40
@@ -49,6 +50,11 @@ class PlainLanguagePresentationTests(unittest.TestCase):
         forbidden = {"permissions", "tools", "routing_authority", "execution_authority", "risk_ceiling"}
         self.assertTrue(forbidden.isdisjoint(policy.keys()))
         self.assertTrue(forbidden.isdisjoint(names.keys()))
+
+    def test_presentation_files_are_part_of_immutable_release(self):
+        release_paths = {path for path, _role in RELEASE_FILES}
+        self.assertIn("AI_SKILL_LIBRARY/v4/stable/presentation.yaml", release_paths)
+        self.assertIn("AI_SKILL_LIBRARY/v4/stable/display_names.yaml", release_paths)
 
     def test_trading_authority_stays_read_only(self):
         trading = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/v4/skills/trading/manifest.yaml").read_text(encoding="utf-8"))
