@@ -1,0 +1,10 @@
+{
+  "job_id": "image-render-preflight-20260914-01",
+  "job_type": "MEDIA_PROBE",
+  "created_at": "2026-09-14T03:30:00+07:00",
+  "payload": {
+    "checks": ["python", "ffmpeg", "whisper", "kokoro", "comfyui"],
+    "comfyui_url": "http://127.0.0.1:8188/system_stats",
+    "purpose": "IMAGE_RENDER_REFERENCE_LOCK_PREFLIGHT"
+  }
+}
