@@ -1,0 +1,53 @@
+name: G9 Development CI
+
+on:
+  push:
+    branches:
+      - research/g9-continuous-trading-intelligence-20260913
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: g9-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: research/cloud_10coin_backtest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: G9 targeted tests
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(tests/test_g9_*.py)
+          if (( ${#files[@]} )); then
+            PYTHONPATH=. pytest "${files[@]}" -q
+          else
+            echo 'No G9 tests yet'
+          fi
+      - name: Research regression
+        run: PYTHONPATH=. pytest tests -q
+      - name: Existing G8 Brain contract
+        shell: bash
+        run: |
+          cd ../..
+          PYTHONPATH=. pytest AI_SKILL_LIBRARY/tests/test_g8_champion_snapshot.py -q
+      - name: Brain V4 validation
+        shell: bash
+        run: |
+          cd ../..
+          python -m pip install 'PyYAML>=6,<7'
+          python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$GITHUB_SHA"
