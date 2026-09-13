@@ -9,6 +9,8 @@ from typing import Mapping
 
 from .app import create_http_server, seconds_until_next_minute
 from .provider_binance import BinancePublicMinuteProvider
+from .provider_bybit import BybitPublicMinuteProvider
+from .provider_chain import FailoverMinuteProvider
 from .storage import FileLease, JsonSnapshotSink
 from .worker import MinuteWorker
 
@@ -73,6 +75,28 @@ def _symbols_from_env(value: str | None) -> tuple[str, ...]:
     return symbols
 
 
+def _default_provider(symbols: tuple[str, ...], env: Mapping[str, str]):
+    order = tuple(
+        part.strip().lower()
+        for part in env.get("G9_PROVIDER_ORDER", "bybit,binance").split(",")
+        if part.strip()
+    )
+    if not order or len(set(order)) != len(order):
+        raise ValueError("G9_PROVIDER_ORDER must contain unique provider names")
+    factories = {
+        "bybit": lambda: BybitPublicMinuteProvider(symbols=symbols),
+        "binance": lambda: BinancePublicMinuteProvider(symbols=symbols),
+    }
+    providers = []
+    for name in order:
+        factory = factories.get(name)
+        if factory is None:
+            raise ValueError(f"unsupported G9 minute provider: {name}")
+        label = "BYBIT_PUBLIC_LINEAR" if name == "bybit" else "BINANCE_PUBLIC_USD_M"
+        providers.append((label, factory()))
+    return FailoverMinuteProvider(providers)
+
+
 def build_runtime(env: Mapping[str, str], *, provider=None) -> G9Runtime:
     symbols = _symbols_from_env(env.get("G9_SYMBOLS"))
     data_dir = Path(env.get("G9_DATA_DIR", "/tmp/g9-data"))
@@ -87,7 +111,7 @@ def build_runtime(env: Mapping[str, str], *, provider=None) -> G9Runtime:
 
     sink = JsonSnapshotSink(data_dir)
     lease = FileLease(data_dir / "minute.lock")
-    provider = provider or BinancePublicMinuteProvider(symbols=symbols)
+    provider = provider or _default_provider(symbols, env)
     worker = MinuteWorker(
         provider=provider,
         sink=sink,
