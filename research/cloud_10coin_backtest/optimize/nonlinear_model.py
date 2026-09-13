@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import numpy as np
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 
 def fit_nonlinear(
     x,
     y,
     *,
-    max_depth: int = 2,
-    learning_rate: float = 0.06,
-    max_iter: int = 100,
-    l2_regularization: float = 1.0,
+    n_estimators: int = 160,
+    max_depth: int = 3,
+    min_samples_leaf: int = 12,
+    max_features: float | str | None = 0.7,
     random_state: int = 17,
 ):
     x = np.asarray(x, dtype=float)
@@ -21,15 +21,16 @@ def fit_nonlinear(
     if len(np.unique(y)) < 2:
         raise ValueError("training labels must contain both classes")
     x = np.nan_to_num(x, nan=0.0, posinf=5.0, neginf=-5.0)
-    model = HistGradientBoostingClassifier(
-        loss="log_loss",
-        learning_rate=float(learning_rate),
-        max_iter=int(max_iter),
+    model = RandomForestClassifier(
+        n_estimators=int(n_estimators),
+        criterion="log_loss",
         max_depth=int(max_depth),
-        min_samples_leaf=12,
-        l2_regularization=float(l2_regularization),
-        early_stopping=False,
+        min_samples_leaf=int(min_samples_leaf),
+        max_features=max_features,
+        bootstrap=True,
+        class_weight="balanced_subsample",
         random_state=int(random_state),
+        n_jobs=1,
     )
     model.fit(x, y)
     return model
