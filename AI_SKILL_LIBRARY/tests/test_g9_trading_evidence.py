@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from AI_SKILL_LIBRARY.v4.tools.validate_g9_trading_evidence import validate_snapshot
+from AI_SKILL_LIBRARY.v4.tools.validate_g9_trading_evidence import validate_manifest, validate_snapshot
 
 
 def _valid_payload():
@@ -26,7 +26,9 @@ def _valid_payload():
 
 
 def test_validator_accepts_research_only_manifest():
-    assert validate_snapshot(_valid_payload()) == []
+    payload = _valid_payload()
+    assert validate_snapshot(payload) == []
+    assert validate_manifest(payload) == []
 
 
 def test_validator_rejects_any_execution_authority_escalation():
