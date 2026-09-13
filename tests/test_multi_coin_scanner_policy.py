@@ -59,6 +59,17 @@ class MultiCoinScannerPolicyTests(unittest.TestCase):
         self.assertIs(runtime["high_risk_cloud_execution"], False)
         self.assertEqual(runtime["default_execution_mode"], "research_safe_only")
 
+    def test_retrieval_builder_indexes_scanner_policy_as_supporting_metadata(self):
+        builder = (LIB / "v4/tools/build_retrieval_index.py").read_text(encoding="utf-8")
+        rel = "AI_SKILL_LIBRARY/skills/registry/multi_coin_scanner_policy.yaml"
+        self.assertIn(rel, builder)
+        index = yaml.safe_load((LIB / "v4/index/retrieval_index.yaml").read_text(encoding="utf-8"))
+        rows = [entry for entry in index["entries"] if entry.get("path") == rel]
+        self.assertEqual(len(rows), 1, rows)
+        self.assertEqual(rows[0]["tier"], "WARM")
+        self.assertEqual(rows[0]["project_scope"], "trading")
+        self.assertEqual(rows[0]["authority_level"], "supporting")
+
 
 if __name__ == "__main__":
     unittest.main()
