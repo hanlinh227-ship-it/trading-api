@@ -1,0 +1,117 @@
+version: 1
+locale: vi
+skills:
+  task_router: Bộ chọn cách xử lý
+  core_reasoning: Giải thích và suy luận
+  critical_thinking: Phản biện
+  fact_checking: Kiểm tra thông tin
+  research: Nghiên cứu
+  planning: Lập kế hoạch
+  verification: Kiểm tra kết quả
+  troubleshooting: Tìm và sửa vấn đề
+  comparison: So sánh
+  recommendation: Gợi ý lựa chọn
+  learning: Hướng dẫn học
+  summarization: Tóm tắt
+  translation: Dịch thuật
+  general_problem_solving: Giải quyết vấn đề
+  error_recovery: Khôi phục khi lỗi
+  coding: Viết mã
+  debugging: Sửa lỗi
+  tdd: Lập trình có kiểm tra
+  software_architecture: Thiết kế hệ thống
+  github: Quản lý GitHub
+  api: Kết nối hệ thống
+  database: Cơ sở dữ liệu
+  security: Bảo mật
+  android: Ứng dụng Android
+  web_app: Ứng dụng web
+  deployment: Đưa hệ thống lên chạy
+  automation: Tự động hóa
+  skill_engineering: Tạo kỹ năng
+  eval_engineering: Kiểm tra kỹ năng
+  trading_router: Phân tích giao dịch
+  multi_market_analysis: Phân tích nhiều thị trường
+  crypto: Tiền điện tử
+  forex: Ngoại hối
+  futures: Hợp đồng tương lai
+  indices: Chỉ số
+  market_microstructure: Cấu trúc lệnh thị trường
+  technical_analysis: Phân tích kỹ thuật
+  risk_management: Quản lý rủi ro
+  mt5_mql5: Lập trình MT5
+  trading_bot: Bot giao dịch
+  live_data_validation: Kiểm tra dữ liệu trực tiếp
+  market_analysis: Phân tích thị trường
+  risk_execution: Kiểm tra lệnh và rủi ro
+  quant_backtesting: Kiểm tra chiến lược bằng dữ liệu cũ
+  quant_validation: Kiểm tra chiến lược
+  game_development: Làm game
+  game_design: Thiết kế game
+  godot: Làm game bằng Godot
+  unity: Làm game bằng Unity
+  game_ai: AI trong game
+  game_2d: Game 2D
+  game_3d: Game 3D
+  ux_ui: Thiết kế giao diện và trải nghiệm
+  product_design: Thiết kế sản phẩm
+  graphic_design: Thiết kế đồ họa
+  branding: Thương hiệu
+  typography: Chữ và kiểu chữ
+  layout: Bố cục
+  design_2d: Thiết kế 2D
+  design_3d: Thiết kế 3D
+  modeling: Dựng mô hình 3D
+  topology: Cấu trúc lưới 3D
+  uv: Trải bề mặt 3D
+  materials: Vật liệu 3D
+  lighting: Ánh sáng 3D
+  rigging: Gắn xương 3D
+  animation: Hoạt hình 3D
+  rendering: Kết xuất hình ảnh
+  blender: Làm việc với Blender
+  asset_validation_3d: Kiểm tra mô hình 3D
+  photoshop: Chỉnh sửa ảnh
+  illustrator: Vẽ đồ họa vector
+  premiere_pro: Dựng video
+  after_effects: Hiệu ứng chuyển động
+  lightroom: Chỉnh màu ảnh
+  audition: Chỉnh âm thanh
+  indesign: Dàn trang
+  acrobat: Chỉnh sửa PDF
+  prompt_engineering: Viết hướng dẫn cho AI
+  image_prompt: Viết mô tả tạo ảnh
+  video_prompt: Viết mô tả tạo video
+  negative_constraints: Điều kiện cần tránh
+  prompt_debugging: Sửa lỗi mô tả AI
+  character_consistency: Giữ nhân vật nhất quán
+  scene_continuity: Giữ cảnh liên tục
+  camera_direction: Hướng máy quay
+  storyboard: Bảng phân cảnh
+  scriptwriting: Viết kịch bản
+  screenwriting: Viết kịch bản phim
+  voice_over: Lời thuyết minh
+  advertising_copy: Viết quảng cáo
+  hook_retention: Mở đầu thu hút
+  storytelling: Kể chuyện
+  academic_research: Nghiên cứu học thuật
+  literature_review: Tổng quan tài liệu
+  methodology: Phương pháp nghiên cứu
+  qualitative_research: Nghiên cứu định tính
+  quantitative_analysis: Phân tích định lượng
+  interdisciplinary_research: Nghiên cứu liên ngành
+  citation_review: Kiểm tra trích dẫn
+  data_analysis: Phân tích dữ liệu
+  spreadsheet: Bảng tính
+  chart: Biểu đồ
+  report: Báo cáo
+  docx: Tài liệu Word
+  pdf: Tài liệu PDF
+  slides: Bài trình chiếu
+  business: Kinh doanh
+  marketing: Tiếp thị
+components:
+  task_router: Bộ chọn cách xử lý
+  response_quality_gate: Cổng kiểm tra câu trả lời
+  plain_language_presentation: Lớp nói dễ hiểu
+  skill_gateway: Cổng kỹ năng
