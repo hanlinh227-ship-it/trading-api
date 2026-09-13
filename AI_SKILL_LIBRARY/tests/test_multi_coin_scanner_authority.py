@@ -46,6 +46,23 @@ class MultiCoinScannerAuthorityTests(unittest.TestCase):
         self.assertIn("BYBIT-BTC-STATEFLOW-2.1", text)
         self.assertIn("scan/research authority does not grant execution authority", text.lower())
 
+    def test_compatibility_router_tracks_scan_and_execution_pointers_separately(self):
+        router = _yaml("AI_SKILL_LIBRARY/router.yaml")
+        trading = next(
+            row for row in router["authorities"]
+            if row["scope"] == "trading" and row["status"] == "CURRENT_AUTHORITY"
+        )
+        self.assertEqual(trading["path"], "docs/checkpoints/CURRENT_HANDOFF.md")
+        self.assertEqual(trading["follows"], "docs/checkpoints/MULTI_COIN_A_PLUS_SCANNER_1_0_20260914.md")
+        self.assertEqual(trading["execution_follows"], "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md")
+
+    def test_trading_router_documents_scanner_without_widening_execution(self):
+        text = (LIB / "skills/trading/trading_router.md").read_text(encoding="utf-8")
+        self.assertIn("MULTI-COIN-USDT-PERP-A-PLUS-SCANNER-1.0", text)
+        self.assertIn("BYBIT-BTC-STATEFLOW-2.1", text)
+        self.assertIn("scanner candidate", text.lower())
+        self.assertIn("does not grant execution", text.lower())
+
     def test_validator_rejects_collapsed_execution_authority(self):
         validator = _load_authority_validator()
         projects = _yaml("AI_SKILL_LIBRARY/projects.yaml")
