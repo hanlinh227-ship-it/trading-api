@@ -53,4 +53,5 @@ selection_order:
   - execute
   - response_quality_gate
   - verification
+  - plain_language_presentation
   - answer
