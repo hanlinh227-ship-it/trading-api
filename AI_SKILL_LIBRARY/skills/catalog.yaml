@@ -37,17 +37,19 @@ skills:
   - {<<: *core, id: general_problem_solving, triggers: [general question, how to]}
   - {<<: *core, id: error_recovery, triggers: [recover, rollback, conflict]}
   - {<<: *engineering, id: coding, triggers: [code, implement]}
-  - {<<: *engineering, id: debugging, triggers: [bug, debug, unexpected behavior]}
+  - {<<: *engineering, id: debugging, triggers: [bug, debug, unexpected behavior, github actions failure]}
   - {<<: *engineering, id: tdd, triggers: [tdd, test driven]}
   - {<<: *engineering, id: software_architecture, triggers: [architecture, system design]}
   - {<<: *engineering, id: github, triggers: [github, repository, pull request]}
   - {<<: *engineering, id: api, triggers: [api, endpoint, contract]}
   - {<<: *engineering, id: database, triggers: [database, sql, schema]}
-  - {<<: *engineering, id: security, triggers: [security, threat model], excludes: [unauthorized exploitation]}
+  - {<<: *engineering, id: security, triggers: [security, threat model, repository threat model], excludes: [unauthorized exploitation]}
   - {<<: *engineering, id: android, triggers: [android, apk, widget]}
   - {<<: *engineering, id: web_app, triggers: [web app, frontend, backend]}
   - {<<: *engineering, id: deployment, triggers: [deploy, production, ci cd]}
   - {<<: *engineering, id: automation, triggers: [automation, workflow]}
+  - {<<: *engineering, id: skill_engineering, triggers: [create a skill, design a skill, update a skill, skill manifest, skill contract, skill registry design, normalize a skill], priority: 94, output_contract: "Return a concise canonical skill design or revision with overlap decision, typed contract, permission ceiling, provenance, eval requirements, and promotion path."}
+  - {<<: *engineering, id: eval_engineering, triggers: [evaluate this skill, benchmark this skill, regression test this skill, compare skill versions, build an eval suite, canary this capability], priority: 93, output_contract: "Return an evidence-based capability evaluation with baseline, representative cases, protected-regression checks, context cost, and promote/revise/reject recommendation without self-promotion."}
   - {<<: *engineering, id: software_engineering, triggers: [software engineering, coding], alias_of: coding, role: alias}
   - {<<: *engineering, id: debugging_tdd, triggers: [bugfix, regression test], alias_of: debugging, role: alias}
   - {<<: *engineering, id: platform_engineering, triggers: [platform, cloudflare, deployment], alias_of: deployment, role: alias}
@@ -67,7 +69,8 @@ skills:
   - {<<: *trading, id: market_analysis, triggers: [market analysis, entry analysis], tools: [multi_asset_market_data, crypto_market_data]}
   - {<<: *trading, id: multi_market_analysis, triggers: [multi market analysis, cross asset analysis, cross market analysis, multi asset analysis, global market analysis], tools: [multi_asset_market_data, crypto_market_data], priority: 96}
   - {<<: *trading, id: risk_execution, triggers: [execution, leverage, sl tp], tools: [multi_asset_market_data, crypto_market_data]}
-  - {<<: *trading, id: quant_backtesting, triggers: [quant, strategy validation], tools: [software_development_workflow]}
+  - {<<: *trading, id: quant_backtesting, triggers: [quant, strategy validation], tools: [software_development_workflow], output_contract: "Return a reproducible quantitative experiment or backtest with assumptions, dataset/split semantics, execution-cost model, and measured results without treating optimization performance as validation."}
+  - {<<: *trading, id: quant_validation, triggers: [validate this backtest, check overfitting, check data leakage, lookahead bias, survivorship bias, walk-forward validation, out-of-sample validation, transaction-cost realism, multiple-testing bias], tools: [software_development_workflow], priority: 94, output_contract: "Return an independent quantitative-methodology audit covering leakage, lookahead, survivorship, costs, sample/regime stability, multiple testing, and out-of-sample evidence; remain read-only and reject unsupported forced-performance conclusions."}
   - {<<: *game, id: game_development, triggers: [game development, build game]}
   - {<<: *game, id: game_design, triggers: [game design, mechanics]}
   - {<<: *game, id: godot, triggers: [godot]}
@@ -76,8 +79,8 @@ skills:
   - {<<: *game, id: game_2d, triggers: [2d game]}
   - {<<: *game, id: game_3d, triggers: [3d game]}
   - {<<: *game, id: game_dev, triggers: [game, gameplay, level], alias_of: game_development, role: alias}
-  - {<<: *design, id: ux_ui, triggers: [ux, ui, interface], tools: [ux_ui_design, product_design]}
-  - {<<: *design, id: product_design, triggers: [product design, user flow], tools: [ux_ui_design, product_design]}
+  - {<<: *design, id: ux_ui, triggers: [ux, ui, interface, design system], tools: [ux_ui_design, product_design]}
+  - {<<: *design, id: product_design, triggers: [product design, user flow, design to code], tools: [ux_ui_design, product_design]}
   - {<<: *design, id: graphic_design, triggers: [graphic design]}
   - {<<: *design, id: branding, triggers: [branding, identity]}
   - {<<: *design, id: typography, triggers: [typography, font hierarchy]}
@@ -93,6 +96,7 @@ skills:
   - {<<: *design, id: animation, triggers: [animation], tools: [], sources: []}
   - {<<: *design, id: rendering, triggers: [rendering], tools: [], sources: []}
   - {<<: *design, id: blender, triggers: [blender], tools: [two_d_to_three_d], sources: []}
+  - {<<: *design, id: asset_validation_3d, triggers: [validate this 3d asset, check blender model, validate export, check normals scale transforms, inspect asset from multiple views], tools: [two_d_to_three_d], sources: [], priority: 94, output_contract: "Return a validation report for 3D asset geometry, transforms, normals, topology, materials/UV when relevant, multi-view inspection, and export/re-import integrity without silently changing the asset."}
   - {<<: *design, id: design_2d_ux, triggers: [ux ui, graphic design], alias_of: ux_ui, role: alias}
   - {<<: *design, id: design_3d_blender, triggers: [blender, 3d asset], tools: [two_d_to_three_d], sources: [], alias_of: blender, role: alias}
   - {<<: *adobe, id: photoshop, triggers: [photoshop, photo edit]}

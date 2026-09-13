@@ -1,0 +1,51 @@
+version: 1
+candidate_set: harmonized_skills_expansion
+state: evaluated_reference_only
+routing_authority: false
+reasoning_authority: false
+permission_expansion: false
+mandatory_runtime_dependency: false
+zero_local_preserved: true
+promotion_target: native_canonical_skills_only
+candidates:
+  - repository: openai/skills
+    license: "Apache-2.0 for referenced skill-creator; per-skill license must be rechecked before any code reuse"
+    provenance: github_public_repository
+    domains: [engineering, security, design_2d]
+    decision: reference_only
+    absorbs: [skill_authoring_progressive_disclosure, deterministic_skill_validation, repository_grounded_threat_modeling, github_ci_diagnosis]
+    code_reuse: false
+    permission_expansion: false
+  - repository: agentskills/agentskills
+    license: Apache-2.0
+    provenance: github_public_repository
+    domains: [engineering]
+    decision: reference_only
+    absorbs: [portable_skill_packaging, skill_metadata_contracts]
+    code_reuse: false
+    permission_expansion: false
+  - repository: ml4t/skills
+    license: Apache-2.0
+    provenance: github_public_repository
+    domains: [trading]
+    decision: reference_only
+    absorbs: [data_leakage, survivorship_bias, transaction_costs, out_of_sample_validation, multiple_testing_discipline]
+    code_reuse: false
+    permission_expansion: false
+    financial_execution: false
+  - repository: ifBars/blender-agent-studio
+    license: MIT
+    provenance: github_public_repository
+    domains: [design_3d]
+    decision: reference_only
+    absorbs: [multi_view_asset_validation, iterative_visual_verification, export_reimport_validation]
+    code_reuse: false
+    permission_expansion: false
+    mandatory_package_runtime: false
+conflict_resolution:
+  canonical_skill_first: true
+  upstream_is_evidence_not_authority: true
+  majority_vote_for_truth: false
+  duplicate_reasoning_authority: reject
+  financial_permission_widening: reject
+  local_runtime_requirement: reject_as_mandatory_dependency
