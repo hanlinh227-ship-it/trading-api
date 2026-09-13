@@ -132,6 +132,7 @@ def run_generation(
     source_sha: str,
     feature_provider: Callable | None = None,
     evaluator_fn: Callable | None = None,
+    proposal_provider: Callable | None = None,
     max_adaptive_trials: int = 200,
 ) -> GenerationResult:
     symbols = [str(symbol).upper() for symbol in symbols]
@@ -189,12 +190,20 @@ def run_generation(
             continue
 
         seen = seen_candidate_hashes(ledger_path, symbol)
-        proposals = _proposal_pool(
-            symbol,
-            row,
-            generation=generation,
-            candidate_budget=candidate_budget,
-        )
+        if proposal_provider is None:
+            proposals = _proposal_pool(
+                symbol,
+                row,
+                generation=generation,
+                candidate_budget=candidate_budget,
+            )
+        else:
+            proposals = list(proposal_provider(symbol, row, generation, candidate_budget))
+            for proposal in proposals:
+                if not isinstance(proposal, CandidateSpec):
+                    raise TypeError("proposal_provider must return CandidateSpec values")
+                if proposal.symbol != symbol:
+                    raise ValueError("proposal_provider candidate symbol mismatch")
         proposals = [spec for spec in proposals if candidate_hash(spec) not in seen]
         proposals = proposals[:candidate_budget]
         incumbent_metrics = _incumbent_metrics(row)
