@@ -37,8 +37,8 @@ if (-not (Test-Path (Join-Path $RepoRoot ".git"))) {
         if ($LASTEXITCODE -ne 0) { throw "git fetch failed" }
         git checkout $Branch
         if ($LASTEXITCODE -ne 0) { throw "git checkout failed" }
-        git pull --ff-only origin $Branch
-        if ($LASTEXITCODE -ne 0) { throw "git pull failed" }
+        git pull --rebase origin $Branch
+        if ($LASTEXITCODE -ne 0) { throw "git pull --rebase failed" }
     } finally {
         Pop-Location
     }
@@ -60,9 +60,18 @@ if (-not (Test-Path $SecretFile)) {
 }
 
 $startContent = @"
-`$ErrorActionPreference = "Stop"
+`$ErrorActionPreference = "Continue"
 Set-Location "$RepoRoot"
-& "$PythonExe" -m money_ecosystem.worker.runner --repo-root "$RepoRoot" --secret-file "$SecretFile" --branch "$Branch" --poll-seconds 15
+while (`$true) {
+    & "$PythonExe" -m money_ecosystem.worker.runner --repo-root "$RepoRoot" --secret-file "$SecretFile" --branch "$Branch" --poll-seconds 15
+    `$exitCode = `$LASTEXITCODE
+    if (`$exitCode -eq -1073741510 -or `$exitCode -eq 130) {
+        Write-Host "Worker stopped by user." -ForegroundColor Yellow
+        break
+    }
+    Write-Host "Worker exited unexpectedly with code `$exitCode; restarting in 3 seconds..." -ForegroundColor Red
+    Start-Sleep -Seconds 3
+}
 "@
 [System.IO.File]::WriteAllText($StartScript, $startContent, $Utf8NoBom)
 
@@ -71,5 +80,4 @@ Write-Host "Setup complete." -ForegroundColor Green
 Write-Host "Local secret file: $SecretFile"
 Write-Host "Start command: powershell -ExecutionPolicy Bypass -File `"$StartScript`""
 Write-Host ""
-Write-Host "NEXT: add the exact contents of worker_secret.txt to the GitHub Actions repository secret CURIOUS_WORKER_HMAC_KEY." -ForegroundColor Yellow
-Write-Host "Do not paste the secret into ChatGPT and do not commit it to GitHub." -ForegroundColor Yellow
+Write-Host "Existing pairing secret is preserved. Do not paste it into ChatGPT or commit it to GitHub." -ForegroundColor Yellow
