@@ -163,6 +163,30 @@ creative_visual_fusion:
   may_not_override: [security, project_authority, permission_ceiling, primary_skill_contract]
 
 upstream_pattern_map:
+  openai/skills:
+    status: approved_reference
+    absorbs: [skill_authoring_progressive_disclosure, deterministic_skill_validation, repository_grounded_threat_modeling, github_ci_diagnosis]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  agentskills/agentskills:
+    status: approved_reference
+    absorbs: [portable_skill_packaging, skill_metadata_contracts, progressive_disclosure_compatibility]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  ml4t/skills:
+    status: approved_reference
+    absorbs: [quantitative_validation, data_leakage_checks, survivorship_bias_checks, transaction_cost_realism, out_of_sample_discipline]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  ifBars/blender-agent-studio:
+    status: approved_reference
+    absorbs: [multi_view_asset_validation, iterative_visual_verification, export_reimport_validation]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
   langchain-ai/langgraph:
     status: approved_reference
     absorbs: [bounded_execution_graph, checkpoint_resume, explicit_state_transitions]
