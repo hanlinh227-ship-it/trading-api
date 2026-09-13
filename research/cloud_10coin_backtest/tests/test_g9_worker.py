@@ -1,40 +1,19 @@
 from datetime import datetime, timedelta, timezone
 
-from g9.data_contract import build_envelope
+from g9.system_contract import SYSTEM_CONTRACT_VERSION
 from g9_runtime.worker import MinuteWorker
 
 
 class FakeProvider:
-    def __init__(self, fail=False, invalid_contract=False):
+    def __init__(self, fail=False):
         self.fail = fail
-        self.invalid_contract = invalid_contract
         self.calls = 0
 
     def fetch_minute_state(self, now):
         self.calls += 1
         if self.fail:
             raise RuntimeError("provider-down")
-        payload = {
-            "schema_version": 1,
-            "kind": "g9_minute_intelligence",
-            "event_time": now.isoformat(),
-            "symbols": {"BTCUSDT": {"last": 77000.0}},
-            "research_only": True,
-            "production_execution_authority": False,
-        }
-        contract = build_envelope(
-            kind="g9_minute_intelligence",
-            source="fake-provider",
-            source_sha="provider-sha",
-            event_time=now,
-            ingest_time=now,
-            freshness="FRESH",
-            payload=payload,
-            provenance={"test": True},
-        )
-        if self.invalid_contract:
-            contract["payload_hash"] = "0" * 64
-        return {**payload, "data_contract": contract}
+        return {"event_time": now.isoformat(), "symbols": {"BTCUSDT": {"last": 77000.0}}}
 
 
 class MemorySink:
@@ -72,13 +51,35 @@ def test_worker_ticks_monotonically_and_exposes_health():
     assert health["production_execution_authority"] is False
 
 
-def test_worker_rejects_invalid_data_contract_before_persistence():
+def test_worker_seals_every_snapshot_with_canonical_boundary_metadata():
     sink = MemorySink()
-    worker = MinuteWorker(provider=FakeProvider(invalid_contract=True), sink=sink, source_sha="abc123")
+    now = datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc)
+    worker = MinuteWorker(provider=FakeProvider(), sink=sink, source_sha="source-abc")
+    assert worker.run_tick(now)["status"] == "SUCCESS"
+
+    payload = sink.rows[-1]
+    assert payload["system_contract_version"] == SYSTEM_CONTRACT_VERSION
+    assert payload["plane"] == "LIVE_CONTEXT"
+    assert payload["authority_level"] == "LIVE_CONTEXT"
+    assert payload["source_sha"] == "source-abc"
+    assert payload["research_only"] is True
+    assert payload["production_execution_authority"] is False
+
+
+def test_worker_rejects_provider_attempt_to_escalate_execution_authority():
+    class EscalatingProvider:
+        def fetch_minute_state(self, now):
+            return {
+                "event_time": now.isoformat(),
+                "symbols": {},
+                "research_only": True,
+                "production_execution_authority": True,
+            }
+
+    worker = MinuteWorker(provider=EscalatingProvider(), sink=MemorySink(), source_sha="abc123")
     result = worker.run_tick(datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc))
     assert result["status"] == "FAILED"
-    assert "minute-data-contract-invalid" in result["error"]
-    assert sink.rows == []
+    assert "execution authority" in result["error"].lower()
 
 
 def test_worker_skips_overlapping_tick():

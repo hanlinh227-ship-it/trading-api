@@ -35,8 +35,17 @@ def merge_lane_registries(
             continue
         if set(lane_registry.symbols) != {symbol}:
             raise ValueError(f"lane registry must contain only {symbol}")
-        merged.symbols[symbol] = dict(lane_registry.symbols[symbol])
+
         generation = max(generation, int(lane_registry.generation))
+        incoming = dict(lane_registry.symbols[symbol])
+        if not incoming.get("research_champion_id"):
+            if merged.symbols[symbol].get("research_champion_id"):
+                statuses[symbol] = "PRESERVED_NO_NEW_CHAMPION"
+            else:
+                statuses[symbol] = "EMPTY"
+            continue
+
+        merged.symbols[symbol] = incoming
         statuses[symbol] = "UPDATED"
     merged.generation = generation
     return merged, statuses
@@ -65,24 +74,104 @@ def _profile_from_row(row: Mapping) -> ResearchProfile | None:
     )
 
 
-def update_champion_pool_from_registry(pool: ChampionPool, registry: ChampionRegistry) -> int:
-    promoted = 0
-    for symbol, row in sorted(registry.symbols.items()):
-        record = row.get("research_champion")
-        if not isinstance(record, Mapping):
-            continue
-        spec = record.get("candidate_spec")
-        if not isinstance(spec, Mapping):
-            continue
-        profile = _profile_from_row(row)
-        if profile is None:
-            continue
-        lane = LaneKey(
+def _expected_sha_for_symbol(
+    expected_source_sha: str | Mapping[str, str] | None,
+    symbol: str,
+) -> str | None:
+    if expected_source_sha is None:
+        return None
+    if isinstance(expected_source_sha, Mapping):
+        value = expected_source_sha.get(symbol)
+        return None if value is None else str(value)
+    return str(expected_source_sha)
+
+
+def _lane_from_record(symbol: str, record: Mapping) -> LaneKey | None:
+    spec = record.get("candidate_spec")
+    if not isinstance(spec, Mapping):
+        return None
+    try:
+        return LaneKey(
             symbol=str(symbol).upper(),
             regime=str(spec["regime"]),
             family=str(spec["family"]),
             side=str(spec["side"]).upper(),
         )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def update_champion_pool_from_registry(
+    pool: ChampionPool,
+    registry: ChampionRegistry,
+    *,
+    expected_source_sha: str | Mapping[str, str] | None = None,
+) -> int:
+    """Project only verified upstream PROMOTE records into canonical G9 truth.
+
+    G8 registry rows are intermediate evidence. Any provenance/promotion mismatch is
+    recorded in the pool quarantine and cannot overwrite an existing route champion.
+    """
+
+    promoted = 0
+    for symbol, row in sorted(registry.symbols.items()):
+        record = row.get("research_champion")
+        if not isinstance(record, Mapping):
+            continue
+        lane = _lane_from_record(symbol, record)
+        profile_id = str(record.get("trial_id") or row.get("research_champion_id") or "unknown")
+        lane_id = (
+            lane.lane_id
+            if lane is not None
+            else f"{str(symbol).upper()}|UNKNOWN|UNKNOWN|UNKNOWN"
+        )
+
+        if str(record.get("promotion_decision") or "").upper() != "PROMOTE":
+            pool.quarantine(
+                lane_key=lane_id,
+                profile_id=profile_id,
+                reason="NOT_PROMOTED_RECORD",
+            )
+            continue
+
+        expected = _expected_sha_for_symbol(expected_source_sha, str(symbol).upper())
+        actual_sha = str(record.get("source_sha") or "")
+        if expected is not None and actual_sha != expected:
+            pool.quarantine(
+                lane_key=lane_id,
+                profile_id=profile_id,
+                reason="SOURCE_SHA_MISMATCH",
+            )
+            continue
+
+        if str(record.get("falsification_status") or "").upper() != "PASS":
+            pool.quarantine(
+                lane_key=lane_id,
+                profile_id=profile_id,
+                reason="FALSIFICATION_NOT_PASS",
+            )
+            continue
+
+        if lane is None:
+            pool.quarantine(
+                lane_key=lane_id,
+                profile_id=profile_id,
+                reason="INVALID_ROUTE_SPEC",
+            )
+            continue
+
+        try:
+            profile = _profile_from_row(row)
+        except (KeyError, TypeError, ValueError):
+            profile = None
+        if profile is None:
+            pool.quarantine(
+                lane_key=lane_id,
+                profile_id=profile_id,
+                reason="INVALID_PROFILE",
+            )
+            continue
+
         state = pool.lane(lane)
         if state.champion is not None and state.champion.profile_id == profile.profile_id:
             continue

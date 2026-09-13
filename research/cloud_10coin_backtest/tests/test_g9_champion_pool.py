@@ -7,6 +7,7 @@ from g9.champion_pool import (
     load_pool,
     publish_pool,
 )
+from g9.system_contract import SYSTEM_CONTRACT_VERSION
 
 
 def profile(profile_id: str, wr: float) -> ResearchProfile:
@@ -77,3 +78,22 @@ def test_pool_persistence_is_atomic_and_preserves_authority_boundary(tmp_path: P
     assert payload["research_only"] is True
     assert payload["production_execution_authority"] is False
     assert payload["authority"]["execution"] == "none"
+    assert payload["canonical_research_truth"] is True
+    assert payload["system_contract_version"] == SYSTEM_CONTRACT_VERSION
+    assert payload["plane"] == "RESEARCH"
+    assert payload["authority_level"] == "RESEARCH_CHAMPION"
+
+
+def test_quarantine_is_persisted_without_becoming_a_champion(tmp_path: Path):
+    pool = ChampionPool.empty()
+    pool.quarantine(
+        lane_key="SOLUSDT|COMPRESSION|setup_breakout|LONG",
+        profile_id="bad-profile",
+        reason="SOURCE_SHA_MISMATCH",
+    )
+    path = tmp_path / "champion_pool.json"
+    publish_pool(path, pool)
+    restored = load_pool(path)
+    assert restored.to_dict()["quarantined"][-1]["reason"] == "SOURCE_SHA_MISMATCH"
+    lane = LaneKey("SOLUSDT", "COMPRESSION", "setup_breakout", "LONG")
+    assert restored.lane(lane).champion is None

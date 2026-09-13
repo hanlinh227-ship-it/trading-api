@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from AI_SKILL_LIBRARY.v4.tools.validate_g9_trading_evidence import validate_manifest, validate_snapshot
 
 
@@ -42,13 +44,21 @@ def test_validator_rejects_tampered_manifest_hash():
     assert "manifest-hash-mismatch" in validate_snapshot(payload)
 
 
-def test_validator_rejects_tampered_canonical_data_contract():
+def test_validator_rejects_wrong_system_plane_even_with_rehashed_manifest():
+    from research.cloud_10coin_backtest.g9.manifest import compute_manifest_hash
+
     payload = _valid_payload()
-    payload["data_contract"]["payload_hash"] = "0" * 64
-    assert "data-contract:payload-hash-mismatch" in validate_snapshot(payload)
+    payload["plane"] = "LIVE_CONTEXT"
+    payload["manifest_hash"] = compute_manifest_hash(payload)
+    errors = validate_snapshot(payload)
+    assert "plane-invalid" in errors
 
 
-def test_validator_rejects_data_contract_authority_escalation():
+def test_validator_rejects_wrong_system_authority_level():
+    from research.cloud_10coin_backtest.g9.manifest import compute_manifest_hash
+
     payload = _valid_payload()
-    payload["data_contract"]["authority"]["execution"] = "trade"
-    assert "data-contract:execution-authority-forbidden" in validate_snapshot(payload)
+    payload["authority_level"] = "LIVE_CONTEXT"
+    payload["manifest_hash"] = compute_manifest_hash(payload)
+    errors = validate_snapshot(payload)
+    assert "authority-level-invalid" in errors
