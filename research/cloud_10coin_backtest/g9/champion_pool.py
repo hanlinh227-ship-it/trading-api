@@ -7,10 +7,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
+from .system_contract import SYSTEM_CONTRACT_VERSION
+
 
 SCHEMA_VERSION = 1
 KIND = "g9_continuous_champion_pool"
 PRODUCTION_STRATEGY = "BYBIT-BTC-STATEFLOW-2.1"
+PLANE = "RESEARCH"
+AUTHORITY_LEVEL = "RESEARCH_CHAMPION"
 _ALLOWED_PROFILE_STATUSES = {"RESEARCH_ONLY", "CERTIFIED_RESEARCH", "QUARANTINED"}
 
 
@@ -127,12 +131,13 @@ class LaneState:
 class ChampionPool:
     max_challengers: int = 3
     lanes: dict[str, LaneState] = field(default_factory=dict)
+    quarantined: list[dict[str, str]] = field(default_factory=list)
 
     @classmethod
     def empty(cls, max_challengers: int = 3) -> "ChampionPool":
         if int(max_challengers) <= 0:
             raise ValueError("max_challengers must be positive")
-        return cls(max_challengers=int(max_challengers), lanes={})
+        return cls(max_challengers=int(max_challengers), lanes={}, quarantined=[])
 
     def lane(self, key: LaneKey) -> LaneState:
         lane_id = key.lane_id
@@ -166,10 +171,27 @@ class ChampionPool:
         state.champion = state.fallback
         state.fallback = previous
 
+    def quarantine(self, *, lane_key: str, profile_id: str, reason: str) -> None:
+        row = {
+            "lane_key": str(lane_key),
+            "profile_id": str(profile_id),
+            "reason": str(reason),
+        }
+        if not all(row.values()):
+            raise ValueError("quarantine metadata must be non-empty")
+        if row not in self.quarantined:
+            self.quarantined.append(row)
+        if len(self.quarantined) > 100:
+            self.quarantined = self.quarantined[-100:]
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema_version": SCHEMA_VERSION,
             "kind": KIND,
+            "system_contract_version": SYSTEM_CONTRACT_VERSION,
+            "plane": PLANE,
+            "authority_level": AUTHORITY_LEVEL,
+            "canonical_research_truth": True,
             "research_only": True,
             "production_execution_authority": False,
             "authority": {
@@ -181,6 +203,7 @@ class ChampionPool:
                 lane_id: self.lanes[lane_id].to_dict()
                 for lane_id in sorted(self.lanes)
             },
+            "quarantined": [dict(item) for item in self.quarantined],
         }
 
     @classmethod
@@ -194,6 +217,17 @@ class ChampionPool:
             raise ValueError("G9 champion pool execution authority is forbidden")
         if authority.get("production_strategy") != PRODUCTION_STRATEGY:
             raise ValueError("production strategy mismatch")
+
+        # Legacy pool snapshots are accepted and normalized on the next publish.
+        if "system_contract_version" in payload and payload.get("system_contract_version") != SYSTEM_CONTRACT_VERSION:
+            raise ValueError("G9 champion pool system contract mismatch")
+        if "plane" in payload and payload.get("plane") != PLANE:
+            raise ValueError("G9 champion pool plane mismatch")
+        if "authority_level" in payload and payload.get("authority_level") != AUTHORITY_LEVEL:
+            raise ValueError("G9 champion pool authority level mismatch")
+        if "canonical_research_truth" in payload and payload.get("canonical_research_truth") is not True:
+            raise ValueError("G9 champion pool canonical truth flag invalid")
+
         max_challengers = int(payload.get("max_challengers", 3))
         if max_challengers <= 0:
             raise ValueError("max_challengers must be positive")
@@ -209,12 +243,36 @@ class ChampionPool:
             if len(state.challengers) > max_challengers:
                 raise ValueError("challenger pool exceeds configured bound")
             lanes[str(lane_id)] = state
-        return cls(max_challengers=max_challengers, lanes=lanes)
+
+        raw_quarantine = payload.get("quarantined") or []
+        if not isinstance(raw_quarantine, list):
+            raise ValueError("quarantined must be a list")
+        quarantined: list[dict[str, str]] = []
+        for raw in raw_quarantine:
+            if not isinstance(raw, Mapping):
+                raise ValueError("invalid quarantine row")
+            row = {
+                "lane_key": str(raw.get("lane_key") or ""),
+                "profile_id": str(raw.get("profile_id") or ""),
+                "reason": str(raw.get("reason") or ""),
+            }
+            if not all(row.values()):
+                raise ValueError("invalid quarantine metadata")
+            quarantined.append(row)
+        return cls(
+            max_challengers=max_challengers,
+            lanes=lanes,
+            quarantined=quarantined[-100:],
+        )
+
+
+def _dict_hash(payload: Mapping[str, Any]) -> str:
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def _pool_hash(pool: ChampionPool) -> str:
-    raw = json.dumps(pool.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False)
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    return _dict_hash(pool.to_dict())
 
 
 def publish_pool(path: str | Path, pool: ChampionPool) -> str:
@@ -242,7 +300,10 @@ def load_pool(path: str | Path) -> ChampionPool:
     if not isinstance(payload, dict):
         raise ValueError("invalid G9 champion pool payload")
     expected = payload.pop("pool_hash", None)
-    pool = ChampionPool.from_dict(payload)
-    if not isinstance(expected, str) or expected != _pool_hash(pool):
+    if not isinstance(expected, str):
+        raise ValueError("G9 champion pool hash missing")
+
+    # Verify exactly what was persisted before applying legacy normalization.
+    if expected != _dict_hash(payload):
         raise ValueError("G9 champion pool hash mismatch")
-    return pool
+    return ChampionPool.from_dict(payload)
