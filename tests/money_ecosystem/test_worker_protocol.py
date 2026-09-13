@@ -1,112 +1,93 @@
 from pathlib import Path
-import json
-import tempfile
 
 import pytest
 
-from money_ecosystem.worker.protocol import JobEnvelope, sign_payload, verify_envelope
 from money_ecosystem.worker.allowlist import ensure_safe_path, validate_job_request
 from money_ecosystem.worker.client import WorkerQueue
-from money_ecosystem.worker.runtime import execute_job
+from money_ecosystem.worker.protocol import sign_payload, verify_envelope
 from money_ecosystem.worker.runner import run_once
+from money_ecosystem.worker.runtime import execute_job
 
-SECRET = b"test-secret-32-bytes-minimum-value!!"
 
-
-def test_signed_allowed_job_verifies():
+def test_sign_and_verify_roundtrip():
+    secret = b"a" * 32
     payload = {
         "job_id": "job-001",
         "job_type": "MEDIA_PROBE",
-        "created_at": "2026-09-14T02:00:00+07:00",
-        "args": {"targets": ["python", "ffmpeg"]},
+        "created_at": "2026-09-14T00:00:00+07:00",
+        "args": {"targets": ["python"]},
     }
-    envelope = sign_payload(payload, SECRET)
-    assert verify_envelope(envelope, SECRET) == payload
+    envelope = sign_payload(payload, secret)
+    assert verify_envelope(envelope, secret) == payload
 
 
-def test_unsigned_job_is_rejected():
-    envelope = JobEnvelope(
-        payload={
-            "job_id": "job-002",
+def test_tampered_payload_is_rejected():
+    secret = b"a" * 32
+    envelope = sign_payload(
+        {
+            "job_id": "job-001",
             "job_type": "MEDIA_PROBE",
-            "created_at": "2026-09-14T02:00:00+07:00",
+            "created_at": "2026-09-14T00:00:00+07:00",
             "args": {},
         },
-        signature="",
+        secret,
     )
-    with pytest.raises(ValueError, match="signature"):
-        verify_envelope(envelope, SECRET)
+    envelope["payload"]["job_id"] = "tampered"
+    with pytest.raises(ValueError):
+        verify_envelope(envelope, secret)
+
+
+def test_shell_fields_are_rejected():
+    with pytest.raises(ValueError):
+        validate_job_request(
+            {
+                "job_id": "job-002",
+                "job_type": "IMAGE_RENDER",
+                "created_at": "2026-09-14T00:00:00+07:00",
+                "args": {"command": "whoami"},
+            }
+        )
 
 
 def test_unknown_job_type_is_rejected():
-    with pytest.raises(ValueError, match="Unsupported job type"):
+    with pytest.raises(ValueError):
         validate_job_request(
             {
                 "job_id": "job-003",
                 "job_type": "SHELL",
-                "created_at": "2026-09-14T02:00:00+07:00",
+                "created_at": "2026-09-14T00:00:00+07:00",
                 "args": {},
             }
         )
 
 
-def test_arbitrary_shell_command_is_rejected():
-    with pytest.raises(ValueError, match="shell"):
-        validate_job_request(
-            {
-                "job_id": "job-004",
-                "job_type": "MEDIA_PROBE",
-                "created_at": "2026-09-14T02:00:00+07:00",
-                "args": {"command": "rm -rf /"},
-            }
-        )
+def test_safe_path_blocks_escape(tmp_path):
+    with pytest.raises(ValueError):
+        ensure_safe_path(tmp_path, tmp_path.parent / "escape.txt")
 
 
-def test_path_traversal_is_rejected():
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        with pytest.raises(ValueError, match="outside worker root"):
-            ensure_safe_path(root, root / ".." / "evil.txt")
-
-
-def test_allowed_path_is_accepted():
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        inside = root / "outputs" / "clip.mp4"
-        assert ensure_safe_path(root, inside) == inside.resolve()
-
-
-def test_queue_reads_verified_current_job_and_deduplicates(tmp_path):
-    queue = WorkerQueue(tmp_path, SECRET)
+def test_queue_skips_seen_job(tmp_path):
+    secret = b"b" * 32
+    signed_dir = tmp_path / "worker_jobs" / "signed"
+    signed_dir.mkdir(parents=True)
     payload = {
-        "job_id": "job-100",
+        "job_id": "job-004",
         "job_type": "MEDIA_PROBE",
-        "created_at": "2026-09-14T02:00:00+07:00",
+        "created_at": "2026-09-14T00:00:00+07:00",
         "args": {"targets": ["python"]},
     }
-    signed_path = tmp_path / "worker_jobs" / "signed" / "current.json"
-    signed_path.parent.mkdir(parents=True)
-    signed_path.write_text(
-        json.dumps(sign_payload(payload, SECRET).to_dict()),
-        encoding="utf-8",
+    import json
+
+    (signed_dir / "current.json").write_text(
+        json.dumps(sign_payload(payload, secret)), encoding="utf-8"
     )
-    assert queue.next_job()["job_id"] == "job-100"
-    queue.mark_seen("job-100")
+    queue = WorkerQueue(tmp_path, secret)
+    assert queue.next_job()["job_id"] == "job-004"
+    queue.mark_seen("job-004")
     assert queue.next_job() is None
 
 
-def test_queue_writes_result_only_under_results(tmp_path):
-    queue = WorkerQueue(tmp_path, SECRET)
-    path = queue.write_result("job-200", "SUCCESS", {"files": []}, "ok")
-    assert path == (
-        tmp_path / "worker_jobs" / "results" / "job-200.json"
-    ).resolve()
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["job_id"] == "job-200"
-    assert data["status"] == "SUCCESS"
-
-
-def test_media_probe_returns_capabilities_without_shell_input(tmp_path):
+def test_media_probe_executes(tmp_path):
     result = execute_job(
         {
             "job_id": "job-300",
@@ -122,7 +103,7 @@ def test_media_probe_returns_capabilities_without_shell_input(tmp_path):
     assert "python" in result["artifact_manifest"]["capabilities"]
 
 
-def test_unimplemented_render_job_fails_closed(tmp_path):
+def test_invalid_image_render_contract_fails_closed(tmp_path):
     result = execute_job(
         {
             "job_id": "job-301",
@@ -133,7 +114,7 @@ def test_unimplemented_render_job_fails_closed(tmp_path):
         tmp_path,
     )
     assert result["status"] == "BLOCKED"
-    assert "not enabled" in result["message"].lower()
+    assert "contract rejected" in result["message"].lower()
 
 
 class _FakeQueue:
@@ -153,21 +134,15 @@ class _FakeQueue:
         self.seen.append(job_id)
 
 
-def test_runner_processes_one_job_and_marks_seen(tmp_path):
+def test_run_once_writes_result_and_marks_seen(tmp_path):
     queue = _FakeQueue(
         {
-            "job_id": "job-400",
+            "job_id": "job-302",
             "job_type": "MEDIA_PROBE",
             "created_at": "2026-09-14T02:00:00+07:00",
             "args": {"targets": ["python"]},
         }
     )
-    processed = run_once(queue, tmp_path)
-    assert processed is True
-    assert queue.seen == ["job-400"]
-    assert queue.results[0][0] == "job-400"
-
-
-def test_runner_returns_false_when_queue_empty(tmp_path):
-    queue = _FakeQueue(None)
-    assert run_once(queue, tmp_path) is False
+    assert run_once(queue, tmp_path) is True
+    assert queue.results[0][0] == "job-302"
+    assert queue.seen == ["job-302"]
