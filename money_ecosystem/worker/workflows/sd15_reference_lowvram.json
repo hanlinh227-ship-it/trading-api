@@ -1,0 +1,19 @@
+{
+  "profile": "sd15_reference_lowvram",
+  "version": 1,
+  "endpoint": "http://127.0.0.1:8188",
+  "serial_only": true,
+  "max_width": 1024,
+  "max_height": 576,
+  "reference_conditioning": "IPAdapter",
+  "required_node_families": ["CheckpointLoaderSimple", "CLIPTextEncode", "EmptyLatentImage", "KSampler", "VAEDecode", "SaveImage", "IPAdapter"],
+  "bindings": {
+    "positive_prompt": "positive.text",
+    "negative_prompt": "negative.text",
+    "width": "latent.width",
+    "height": "latent.height",
+    "seed": "sampler.seed",
+    "references": "ipadapter.reference_images"
+  },
+  "policy": {"paid_api": false, "cloud_gpu": false, "fallback_without_reference": false}
+}
