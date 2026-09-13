@@ -2,7 +2,7 @@ from pathlib import Path
 
 from g8.candidate import CandidateSpec, candidate_hash
 from g9.hypothesis import FailureMemory
-from g9.lane_runner import build_adaptive_proposals, record_trial_feedback
+from g9.lane_runner import AdaptiveProposalController, build_adaptive_proposals, record_trial_feedback
 
 
 def parent() -> CandidateSpec:
@@ -67,3 +67,20 @@ def test_rejected_trial_is_written_to_failure_memory(tmp_path: Path):
     record_trial_feedback(records, mapping, memory)
 
     assert "hypothesis-abc" in memory.rejected_hashes()
+
+
+def test_controller_carries_mapping_from_proposals_into_feedback(tmp_path: Path):
+    memory = FailureMemory(tmp_path / "failures.jsonl")
+    controller = AdaptiveProposalController(memory)
+    proposals = controller.proposals("SOLUSDT", row_for(parent()), generation=8, candidate_budget=3)
+    assert proposals
+    first_hash = candidate_hash(proposals[0])
+    hypothesis_hash = controller.candidate_to_hypothesis[first_hash]
+
+    written = controller.feedback([
+        {"candidate_hash": first_hash, "promotion_decision": "REJECT", "rejection_reasons": ["UNSTABLE_FOLDS"]}
+    ])
+
+    assert written == 1
+    assert hypothesis_hash in memory.rejected_hashes()
+    assert controller.last_allocation
