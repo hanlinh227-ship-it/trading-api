@@ -1,0 +1,150 @@
+version: 1
+candidate_set: brain_4_6_open_source_fusion
+baseline_release: 4.5.0
+target_release: 4.6.0
+routing_authority: false
+reasoning_authority: false
+permission_expansion: false
+mandatory_runtime_dependency: false
+zero_local_preserved: true
+external_code_untrusted_by_default: true
+bulk_code_import: false
+canonical_skill_count_target: 109
+promotion_mode: strengthen_existing_skills_first
+
+verification_policy:
+  repository_identity_required: true
+  license_required_for_active_registry: true
+  maintenance_status_required: true
+  archived_source_active_registry_allowed: false
+  popularity_is_not_trust: true
+  code_reuse_default: false
+  unresolved_license_action: reference_only_not_active_registry
+  disallowed_registry_license_action: reference_only_not_active_registry
+  financial_execution_from_reference: false
+
+candidates:
+  - repository: google/adk-python
+    license: Apache-2.0
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_13
+    domains: [core, engineering]
+    decision: reference_only
+    active_registry_eligible: true
+    absorbs: [bounded_agent_handoffs, explicit_state_transitions, agent_evaluation_patterns, typed_tool_contracts]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: openai/openai-agents-python
+    license: MIT
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_12
+    domains: [core, engineering]
+    decision: reference_only
+    active_registry_eligible: true
+    absorbs: [bounded_handoffs, guardrail_patterns, tracing_metadata, human_review_boundaries]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: NVIDIA/garak
+    license: Apache-2.0
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_09
+    domains: [core, engineering]
+    decision: reference_only
+    active_registry_eligible: true
+    absorbs: [adversarial_prompt_tests, vulnerability_probe_taxonomy, failure_detection_patterns]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: langchain-ai/open-swe
+    license: MIT
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_13
+    domains: [engineering]
+    decision: reference_only
+    active_registry_eligible: true
+    absorbs: [issue_to_pr_workflow, isolated_repository_changes, review_feedback_loop, bounded_repo_context]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: nautechsystems/nautilus_trader
+    license: LGPL-3.0
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_13
+    domains: [trading]
+    decision: reference_only
+    active_registry_eligible: false
+    registry_block_reason: license_not_in_current_automatic_allowlist
+    absorbs: [event_driven_backtest_concepts, deterministic_simulation, execution_assumption_modeling, research_live_semantic_consistency]
+    code_reuse: false
+    permission_expansion: false
+    financial_execution: false
+
+  - repository: KhronosGroup/glTF-Validator
+    license: Apache-2.0
+    provenance: github_repository_metadata
+    maintenance_status: active_not_archived_2026_09_13
+    domains: [design_3d]
+    decision: reference_only
+    active_registry_eligible: true
+    absorbs: [gltf_schema_validation, export_integrity_checks, asset_error_taxonomy]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: mikedh/trimesh
+    license: MIT
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_02
+    domains: [design_3d]
+    decision: reference_only
+    active_registry_eligible: true
+    absorbs: [mesh_integrity_checks, manifold_geometry_checks, topology_validation_patterns]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: isl-org/Open3D
+    license: MIT
+    provenance: repository_LICENSE_file_SPDX_MIT
+    maintenance_status: active_2026_09_12
+    domains: [design_3d]
+    decision: reference_only
+    active_registry_eligible: true
+    metadata_note: github_license_classifier_reported_NOASSERTION_but_repository_LICENSE_is_MIT
+    absorbs: [geometry_validation, point_cloud_mesh_processing, reconstruction_validation_patterns]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: stanfordnlp/dspy
+    license: MIT
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_11
+    domains: [prompt_media, engineering]
+    decision: reference_only
+    active_registry_eligible: true
+    absorbs: [measured_prompt_optimization, objective_scoring, test_case_driven_prompt_revision, prompt_regression_patterns]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: figma/code-connect
+    license: MIT
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_10
+    domains: [design_2d, engineering]
+    decision: reference_only
+    active_registry_eligible: true
+    absorbs: [design_code_component_mapping, design_system_consistency, component_contract_validation]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: langfuse/langfuse
+    license: NOASSERTION_OR_MIXED
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_13
+    domains: [core, engineering]
+    decision: reference_only
+    active_registry_eligible: false
+    registry_block_reason: current_repository_license_not_machine_verified_as_allowed
+    absorbs: [observability_metadata, trace_evaluation_patterns, quality_measurement_patterns]
+    code_reuse: false
+    permission_expansion: false
