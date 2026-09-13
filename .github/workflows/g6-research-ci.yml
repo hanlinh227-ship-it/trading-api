@@ -6,6 +6,10 @@ on:
       - research/cloud-10coin-g6-setup-meta-20260913
   workflow_dispatch:
 
+concurrency:
+  group: g6-research-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,7 +25,140 @@ jobs:
           cache: pip
           cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
       - run: pip install -r requirements.txt
-      - name: G6 setup-meta RED/GREEN tests
+      - name: G6 setup-meta tests
         run: PYTHONPATH=. pytest tests/test_g6_setup_meta.py -q
       - name: Full regression suite
         run: PYTHONPATH=. pytest tests -q
+
+  smoke:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: research/cloud_10coin_backtest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: G6 BTC real-data smoke
+        shell: bash
+        run: |
+          set -o pipefail
+          PYTHONPATH=. python run.py \
+            --generation g6 \
+            --symbols BTCUSDT \
+            --start 2025-01-01 \
+            --end 2026-08-31 \
+            --smoke \
+            --results-dir results-smoke | tee g6-btc-smoke.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g6-btc-smoke
+          path: |
+            research/cloud_10coin_backtest/g6-btc-smoke.log
+            research/cloud_10coin_backtest/results-smoke
+          retention-days: 14
+
+  backtest:
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        symbol:
+          - BTCUSDT
+          - ETHUSDT
+          - BNBUSDT
+          - XRPUSDT
+          - SOLUSDT
+          - TRXUSDT
+          - DOGEUSDT
+          - LINKUSDT
+          - ADAUSDT
+          - XLMUSDT
+    defaults:
+      run:
+        working-directory: research/cloud_10coin_backtest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Backtest ${{ matrix.symbol }}
+        shell: bash
+        run: |
+          set -o pipefail
+          PYTHONPATH=. python run.py \
+            --generation g6 \
+            --symbols ${{ matrix.symbol }} \
+            --start 2024-01-01 \
+            --end 2026-08-31 \
+            --results-dir results-${{ matrix.symbol }} | tee g6-${{ matrix.symbol }}.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g6-${{ matrix.symbol }}
+          path: |
+            research/cloud_10coin_backtest/g6-${{ matrix.symbol }}.log
+            research/cloud_10coin_backtest/results-${{ matrix.symbol }}
+          retention-days: 14
+
+  aggregate:
+    needs: backtest
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: g6-*USDT
+          path: matrix-results
+          merge-multiple: false
+      - name: Aggregate hard gate
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          symbols = [
+              "BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "SOLUSDT",
+              "TRXUSDT", "DOGEUSDT", "LINKUSDT", "ADAUSDT", "XLMUSDT",
+          ]
+          rows = []
+          for symbol in symbols:
+              matches = list(Path("matrix-results").glob(f"g6-{symbol}/results-{symbol}/coin_results/{symbol}.json"))
+              if not matches:
+                  rows.append({"symbol": symbol, "status": "MISSING"})
+                  continue
+              data = json.loads(matches[0].read_text())
+              rows.append({
+                  "symbol": symbol,
+                  "status": data.get("status"),
+                  "completed_trades": data.get("evaluation", {}).get("completed_trades", 0),
+                  "rr2_wr": data.get("evaluation", {}).get("rr2_wr", 0.0),
+                  "expectancy_r": data.get("evaluation", {}).get("expectancy_r", 0.0),
+              })
+          summary = {
+              "generation": "g6",
+              "pass_count": sum(r.get("status") == "PASS" for r in rows),
+              "total": len(rows),
+              "all_pass": all(r.get("status") == "PASS" for r in rows),
+              "rows": rows,
+          }
+          Path("g6-aggregate.json").write_text(json.dumps(summary, indent=2, sort_keys=True))
+          print("G6_AGGREGATE=" + json.dumps(summary, sort_keys=True))
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g6-aggregate
+          path: g6-aggregate.json
+          retention-days: 30
