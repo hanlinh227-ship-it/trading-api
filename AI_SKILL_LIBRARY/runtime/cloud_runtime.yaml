@@ -13,6 +13,7 @@ capabilities_path: /capabilities
 mcp_path: /mcp
 service_root: crypto-research-gateway
 live_price_policy_path: AI_SKILL_LIBRARY/skills/registry/live_price_policy.yaml
+multi_coin_scanner_policy_path: AI_SKILL_LIBRARY/skills/registry/multi_coin_scanner_policy.yaml
 production_source:
   provider: github
   repository: hanlinh227-ship-it/trading-api
@@ -37,3 +38,5 @@ execution_boundary:
   shell_execution: false
   local_process_spawn: false
   credentialless_public_default: true
+  scanner_research_only: true
+  scanner_can_grant_execution: false
