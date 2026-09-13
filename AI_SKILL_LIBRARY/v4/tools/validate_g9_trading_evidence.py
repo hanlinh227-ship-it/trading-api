@@ -6,8 +6,11 @@ from typing import Any
 
 
 SCHEMA_VERSION = 1
+SYSTEM_CONTRACT_VERSION = 1
 KIND = "g9_stable_trading_evidence"
 PRODUCTION_STRATEGY = "BYBIT-BTC-STATEFLOW-2.1"
+PLANE = "STABLE_EVIDENCE"
+AUTHORITY_LEVEL = "STABLE_EVIDENCE"
 ALLOWED_STATUSES = {"RESEARCH_ONLY", "CERTIFIED_RESEARCH", "QUARANTINED"}
 
 
@@ -36,6 +39,12 @@ def validate_snapshot(payload: dict[str, Any]) -> list[str]:
         errors.append("schema-version-invalid")
     if payload.get("kind") != KIND:
         errors.append("kind-invalid")
+    if payload.get("system_contract_version") != SYSTEM_CONTRACT_VERSION:
+        errors.append("system-contract-version-invalid")
+    if payload.get("plane") != PLANE:
+        errors.append("plane-invalid")
+    if payload.get("authority_level") != AUTHORITY_LEVEL:
+        errors.append("authority-level-invalid")
     if payload.get("research_only") is not True:
         errors.append("research-only-required")
     if payload.get("production_execution_authority") is not False:
