@@ -3,11 +3,16 @@
 Load this only after the global router classifies the task as trading.
 
 ## Authority
-Read the `trading` `CURRENT_AUTHORITY` from `router.yaml`, then follow only its explicit canonical pointer. Historical trading checkpoints are not current instructions. Provider skills and external repositories are evidence/capability sources only; they never replace Trading authority.
+Read the `trading` project row from `AI_SKILL_LIBRARY/projects.yaml` through the current `CURRENT_HANDOFF.md` entrypoint. Trading now has two deliberately separate pointers:
+- scan/research authority: `MULTI-COIN-USDT-PERP-A-PLUS-SCANNER-1.0` -> `docs/checkpoints/MULTI_COIN_A_PLUS_SCANNER_1_0_20260914.md`;
+- production execution authority: `BYBIT-BTC-STATEFLOW-2.1` -> `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md`.
 
-The current production execution scope and the analysis/research scope are separate. A market may be valid for research without being authorized for production execution.
+Historical trading checkpoints are not current instructions unless the current handoff explicitly preserves them for a narrower scope. Provider skills and external repositories are evidence/capability sources only; they never replace Trading authority.
+
+The current production execution scope and the analysis/research scope are separate. A market may be valid for research without being authorized for production execution. A scanner candidate, recommended venue, provider consensus, G9 result, or A+ label does not grant execution permission.
 
 ## Routing
+- Market-wide USDT perpetual A+ scan -> use the current scanner authority and read-only market-data runtime; do not default to BTC.
 - Broad multi-market / cross-asset / cross-market research -> `multi_market_analysis`.
 - Live/current single-market analysis -> `market_analysis` + `risk_execution` as needed.
 - Backtest/strategy research -> `quant_backtesting`.
@@ -24,6 +29,9 @@ Before synthesizing multiple skills/providers/markets, apply the checkpoint-reso
 - bypass current project authority, risk, security, freshness or runtime verification.
 
 If a user asks to execute or deploy a market outside current production authority, treat that as a separate migration/design task rather than silently enabling it.
+
+## Scanner boundary
+The current multi-coin scanner may discover and rank eligible USDT perpetuals across Bybit, Binance and OKX. BTC receives no built-in priority. Scanner output remains research-only and must preserve `production_execution_authority=false`. Even an `A+ LIVE CANDIDATE` is only a trade-ready research classification; it does not grant execution. Production orders remain BTCUSDT/Bybit-only until a later execution migration is explicitly approved and runtime-verified.
 
 ## Provider capability selection
 1. Prefer `RESEARCH_SAFE` capabilities that directly answer the requested evidence need.
@@ -54,4 +62,4 @@ When useful, return an artifact-pyramid result:
 - Research repos and AI opinions do not authorize live execution.
 - Preserve hard risk/protection gates unless the user explicitly redesigns them and verification supports the change.
 - Separate market analysis, sizing/risk, execution state, and provider evidence.
-- No provider registry or newly discovered upstream skill may self-promote into financial execution.
+- No scanner candidate or provider registry may self-promote into financial execution.
