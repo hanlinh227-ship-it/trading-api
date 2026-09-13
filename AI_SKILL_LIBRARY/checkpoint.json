@@ -19,6 +19,8 @@
   "stable_harmonization_path": "AI_SKILL_LIBRARY/v4/stable/harmonization.yaml",
   "stable_capability_fusion_path": "AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml",
   "stable_creative_visual_fusion_path": "AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml",
+  "stable_presentation_path": "AI_SKILL_LIBRARY/v4/stable/presentation.yaml",
+  "stable_display_names_path": "AI_SKILL_LIBRARY/v4/stable/display_names.yaml",
   "stable_budgets_path": "AI_SKILL_LIBRARY/v4/stable/budgets.yaml",
   "stable_retrieval_path": "AI_SKILL_LIBRARY/v4/stable/retrieval.yaml",
   "retrieval_index_path": "AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml",
