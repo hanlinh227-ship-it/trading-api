@@ -1,18 +1,40 @@
 from datetime import datetime, timedelta, timezone
 
+from g9.data_contract import build_envelope
 from g9_runtime.worker import MinuteWorker
 
 
 class FakeProvider:
-    def __init__(self, fail=False):
+    def __init__(self, fail=False, invalid_contract=False):
         self.fail = fail
+        self.invalid_contract = invalid_contract
         self.calls = 0
 
     def fetch_minute_state(self, now):
         self.calls += 1
         if self.fail:
             raise RuntimeError("provider-down")
-        return {"event_time": now.isoformat(), "symbols": {"BTCUSDT": {"last": 77000.0}}}
+        payload = {
+            "schema_version": 1,
+            "kind": "g9_minute_intelligence",
+            "event_time": now.isoformat(),
+            "symbols": {"BTCUSDT": {"last": 77000.0}},
+            "research_only": True,
+            "production_execution_authority": False,
+        }
+        contract = build_envelope(
+            kind="g9_minute_intelligence",
+            source="fake-provider",
+            source_sha="provider-sha",
+            event_time=now,
+            ingest_time=now,
+            freshness="FRESH",
+            payload=payload,
+            provenance={"test": True},
+        )
+        if self.invalid_contract:
+            contract["payload_hash"] = "0" * 64
+        return {**payload, "data_contract": contract}
 
 
 class MemorySink:
@@ -48,6 +70,15 @@ def test_worker_ticks_monotonically_and_exposes_health():
     assert health["last_successful_tick"] == second["completed_at"]
     assert health["snapshot_age_seconds"] == 5.0
     assert health["production_execution_authority"] is False
+
+
+def test_worker_rejects_invalid_data_contract_before_persistence():
+    sink = MemorySink()
+    worker = MinuteWorker(provider=FakeProvider(invalid_contract=True), sink=sink, source_sha="abc123")
+    result = worker.run_tick(datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc))
+    assert result["status"] == "FAILED"
+    assert "minute-data-contract-invalid" in result["error"]
+    assert sink.rows == []
 
 
 def test_worker_skips_overlapping_tick():
@@ -102,4 +133,4 @@ def test_worker_logs_provider_failure_for_cloud_diagnostics(caplog):
     assert result["status"] == "FAILED"
     assert "g9-minute-provider-failure" in caplog.text
     assert "RuntimeError:provider-down" in caplog.text
-    assert "BTCUSDT" not in caplog.text  # no fabricated per-symbol attribution
+    assert "BTCUSDT" not in caplog.text
