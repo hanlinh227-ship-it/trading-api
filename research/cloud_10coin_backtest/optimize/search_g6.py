@@ -1,10 +1,25 @@
 from __future__ import annotations
 
+import hashlib
+import json
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 
 from engine.execution import OrderCandidate, simulate_trade
-from optimize.search_g4 import directional_feature_matrix
+from engine.metrics import summarize_outcomes
+from optimize.meta_model import select_oof_threshold
+from optimize.nonlinear_model import fit_nonlinear, predict_nonlinear_proba
+from optimize.search import (
+    CoinResearchResult,
+    _cost_bps,
+    _simulate_fast,
+    diagnose_bottleneck,
+    passes_g2_gate,
+)
+from optimize.search_g4 import _threshold_grid, directional_feature_matrix
+from optimize.stability import chronological_folds
 
 
 SETUP_FAMILIES = (
@@ -17,6 +32,22 @@ SETUP_FAMILIES = (
 RISK_ATR_GRID = (0.8, 1.2, 1.6)
 HOLD_GRID = (72, 144)
 MAX_COST_R = 0.20
+MODEL_GRID = (
+    {"n_estimators": 120, "max_depth": 4, "min_samples_leaf": 18, "max_features": 0.7, "random_state": 41},
+    {"n_estimators": 120, "max_depth": 6, "min_samples_leaf": 32, "max_features": 0.7, "random_state": 41},
+)
+
+
+@dataclass(frozen=True)
+class G6LockedProfile:
+    params: dict
+    profile_hash: str
+
+
+@dataclass
+class _RuntimeProfile:
+    spec: dict
+    model: object
 
 
 def _num(frame: pd.DataFrame, name: str, default=0.0) -> pd.Series:
@@ -123,12 +154,7 @@ def label_setup_candidates(
     *,
     roundtrip_cost_bps: float = 12.0,
 ):
-    """Label each setup independently inside the supplied causal segment.
-
-    Unfilled candidates are excluded. Using simulate_trade one candidate at a time
-    avoids training labels being suppressed by portfolio/no-overlap sequencing while
-    preserving the exact conservative fill/SL/TP/cost semantics of the engine.
-    """
+    """Label each setup independently inside the supplied causal segment."""
     f = features.reset_index(drop=True)
     candidates = list(candidates)
     kept = []
@@ -158,3 +184,201 @@ def label_setup_candidates(
     x = candidate_feature_matrix(f, kept)
     labels = pd.DataFrame(rows)
     return x, labels, kept
+
+
+def _fold_dataset(segment: pd.DataFrame, config):
+    local = segment.reset_index(drop=True)
+    candidates = build_setup_candidates(local, roundtrip_cost_bps=_cost_bps(config))
+    return label_setup_candidates(local, candidates, roundtrip_cost_bps=_cost_bps(config))
+
+
+def _fit_setup_profile(dev: pd.DataFrame, config):
+    folds = [dev.iloc[a:b].copy() for a, b in chronological_folds(len(dev), 5)]
+    fold_sets = [_fold_dataset(fold, config) for fold in folds]
+    best = None
+    rejected = []
+
+    for model_cfg in MODEL_GRID:
+        oof_parts = []
+        for j in range(1, len(fold_sets)):
+            train_x = [fold_sets[i][0] for i in range(j) if len(fold_sets[i][0])]
+            train_rows = [fold_sets[i][1] for i in range(j) if len(fold_sets[i][1])]
+            test_x, test_rows, _ = fold_sets[j]
+            if not train_x or len(test_x) == 0:
+                continue
+            x_train = np.vstack(train_x)
+            rows_train = pd.concat(train_rows, ignore_index=True)
+            y_train = rows_train["rr2_hit"].astype(int).to_numpy()
+            if len(y_train) < 120 or len(np.unique(y_train)) < 2:
+                continue
+            model = fit_nonlinear(x_train, y_train, **model_cfg)
+            probs = predict_nonlinear_proba(model, test_x)
+            part = test_rows.copy()
+            part["prob"] = probs
+            oof_parts.append(part)
+
+        if not oof_parts:
+            continue
+        oof = pd.concat(oof_parts, ignore_index=True)
+        min_trades = min(240, max(80, int(len(oof) * 0.10)))
+        choice = select_oof_threshold(
+            oof,
+            thresholds=_threshold_grid(oof["prob"].to_numpy(float)),
+            min_trades=min_trades,
+        )
+        row = {"model_config": dict(model_cfg), "oof": choice, "oof_total": int(len(oof))}
+        rejected.append(row)
+        if choice["threshold"] is None:
+            continue
+        key = (choice["score"], choice["rr2_wr"], choice["completed_trades"])
+        if best is None or key > best[0]:
+            best = (key, row)
+
+    if best is None:
+        return None, rejected
+
+    all_x, all_rows, _ = _fold_dataset(dev, config)
+    if len(all_x) < 120 or len(all_rows) != len(all_x):
+        return None, rejected
+    y_all = all_rows["rr2_hit"].astype(int).to_numpy()
+    if len(np.unique(y_all)) < 2:
+        return None, rejected
+
+    selected = best[1]
+    final_cfg = dict(selected["model_config"])
+    final_cfg["n_estimators"] = max(240, int(final_cfg["n_estimators"]))
+    model = fit_nonlinear(all_x, y_all, **final_cfg)
+    spec = {
+        "family": "setup_meta_g6_forest",
+        "setup_families": list(SETUP_FAMILIES),
+        "threshold": float(selected["oof"]["threshold"]),
+        "oof_completed_trades": int(selected["oof"]["completed_trades"]),
+        "oof_rr2_wr": float(selected["oof"]["rr2_wr"]),
+        "oof_expectancy_r": float(selected["oof"]["expectancy_r"]),
+        "model_config": final_cfg,
+        "feature_importances": [float(x) for x in getattr(model, "feature_importances_", np.zeros(all_x.shape[1]))],
+    }
+    return _RuntimeProfile(spec=spec, model=model), rejected
+
+
+def _selected_candidates(segment: pd.DataFrame, runtime: _RuntimeProfile, config):
+    local = segment.reset_index(drop=True)
+    candidates = build_setup_candidates(local, roundtrip_cost_bps=_cost_bps(config))
+    if not candidates:
+        return []
+    x = candidate_feature_matrix(local, candidates)
+    probs = predict_nonlinear_proba(runtime.model, x)
+    threshold = float(runtime.spec["threshold"])
+    selected = [
+        OrderCandidate(
+            c.signal_index,
+            c.side,
+            c.entry,
+            c.stop,
+            c.max_fill_bars,
+            c.max_hold_bars,
+            float(p),
+            c.family,
+        )
+        for c, p in zip(candidates, probs)
+        if float(p) >= threshold
+    ]
+
+    by_signal = {}
+    for c in selected:
+        key = int(c.signal_index)
+        prev = by_signal.get(key)
+        rank = (float(c.quality), c.family, c.side, -abs(c.entry - c.stop), -c.max_hold_bars)
+        prev_rank = None if prev is None else (
+            float(prev.quality), prev.family, prev.side, -abs(prev.entry - prev.stop), -prev.max_hold_bars
+        )
+        if prev is None or rank > prev_rank:
+            by_signal[key] = c
+    return sorted(by_signal.values(), key=lambda c: c.signal_index)
+
+
+def _evaluate(segment: pd.DataFrame, runtime: _RuntimeProfile, config):
+    candidates = _selected_candidates(segment, runtime, config)
+    trades = _simulate_fast(candidates, segment.reset_index(drop=True), config)
+    return summarize_outcomes(trades), trades
+
+
+def _lock(runtime: _RuntimeProfile):
+    params = dict(runtime.spec)
+    raw = json.dumps(params, sort_keys=True, separators=(",", ":"))
+    return G6LockedProfile(params=params, profile_hash=hashlib.sha256(raw.encode()).hexdigest())
+
+
+def search_coin_g6(symbol: str, features: pd.DataFrame, config) -> CoinResearchResult:
+    n = len(features)
+    a = int(n * config.development_fraction)
+    b = int(n * (config.development_fraction + config.validation_fraction))
+    dev = features.iloc[:a].copy()
+    val = features.iloc[a:b].copy()
+    hold = features.iloc[b:].copy()
+
+    runtime, search_rows = _fit_setup_profile(dev, config)
+    rejected = []
+    for row in search_rows:
+        choice = row["oof"]
+        rejected.append(
+            {
+                "family": "setup_meta_g6_forest",
+                "params": dict(row["model_config"]),
+                "metrics": {
+                    "completed_trades": int(choice["completed_trades"]),
+                    "rr2_wr": float(choice["rr2_wr"]),
+                    "expectancy_r": float(choice["expectancy_r"]),
+                },
+                "score": float(choice["score"]),
+            }
+        )
+
+    if runtime is None:
+        zero = summarize_outcomes([])
+        return CoinResearchResult(
+            symbol,
+            "FAIL",
+            None,
+            zero,
+            zero,
+            zero,
+            zero,
+            ["g6-no-stable-setup-profile"],
+            sorted(rejected, key=lambda r: r["score"], reverse=True)[:8],
+            [],
+        )
+
+    dev_metrics, _ = _evaluate(dev, runtime, config)
+    val_metrics, val_trades = _evaluate(val, runtime, config)
+    hold_metrics, hold_trades = _evaluate(hold, runtime, config)
+    evaluation_trades = val_trades + hold_trades
+    eval_metrics = summarize_outcomes(evaluation_trades)
+
+    passed = passes_g2_gate(
+        completed_trades=eval_metrics.completed_trades,
+        rr2_wr=eval_metrics.rr2_wr,
+        expectancy_r=eval_metrics.expectancy_r,
+        validation_trades=val_metrics.completed_trades,
+        validation_wr=val_metrics.rr2_wr,
+        holdout_trades=hold_metrics.completed_trades,
+        holdout_wr=hold_metrics.rr2_wr,
+        target_wr=config.target_wr,
+        min_trades=config.min_completed_trades,
+    )
+    bottlenecks = diagnose_bottleneck(dev_metrics, eval_metrics)
+    if runtime.spec["oof_rr2_wr"] >= 0.70 and eval_metrics.rr2_wr + 0.15 < runtime.spec["oof_rr2_wr"]:
+        bottlenecks.append("g6-setup-generalization-gap")
+
+    return CoinResearchResult(
+        symbol,
+        "PASS" if passed else "FAIL",
+        _lock(runtime),
+        dev_metrics,
+        val_metrics,
+        hold_metrics,
+        eval_metrics,
+        list(dict.fromkeys(bottlenecks)),
+        sorted(rejected, key=lambda r: r["score"], reverse=True)[:8],
+        evaluation_trades,
+    )
