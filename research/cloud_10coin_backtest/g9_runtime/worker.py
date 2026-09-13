@@ -3,7 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 import logging
 import threading
-from typing import Any, Protocol
+from typing import Any, Mapping, Protocol
+
+from g9.data_contract import validate_envelope
 
 
 logger = logging.getLogger(__name__)
@@ -50,6 +52,18 @@ class MinuteWorker:
         self._last_success_time: datetime | None = None
         self._last_error: str | None = None
 
+    @staticmethod
+    def _validate_payload_contract(payload: Mapping[str, Any]) -> None:
+        contract = payload.get("data_contract")
+        if not isinstance(contract, Mapping):
+            raise RuntimeError("minute-data-contract-missing")
+        errors = validate_envelope(contract)
+        if errors:
+            raise RuntimeError("minute-data-contract-invalid:" + ",".join(errors))
+        body = {key: value for key, value in payload.items() if key != "data_contract"}
+        if contract.get("payload") != body:
+            raise RuntimeError("minute-data-contract-payload-mismatch")
+
     def run_tick(self, now: datetime) -> dict[str, Any]:
         if now.tzinfo is None:
             raise ValueError("now must be timezone-aware")
@@ -82,6 +96,7 @@ class MinuteWorker:
             sequence = self._tick_sequence
             try:
                 payload = self.provider.fetch_minute_state(now)
+                self._validate_payload_contract(payload)
                 self.sink.write(payload)
             except Exception as exc:
                 self._consecutive_failures += 1
