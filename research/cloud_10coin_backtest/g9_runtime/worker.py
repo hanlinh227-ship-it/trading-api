@@ -13,6 +13,11 @@ class SnapshotSink(Protocol):
     def write(self, payload: dict[str, Any]) -> None: ...
 
 
+class Lease(Protocol):
+    def acquire(self) -> bool: ...
+    def release(self) -> None: ...
+
+
 class MinuteWorker:
     def __init__(
         self,
@@ -22,6 +27,7 @@ class MinuteWorker:
         source_sha: str,
         max_failures: int = 3,
         backoff_seconds: int = 60,
+        lease: Lease | None = None,
     ):
         if max_failures <= 0:
             raise ValueError("max_failures must be positive")
@@ -32,6 +38,7 @@ class MinuteWorker:
         self.source_sha = str(source_sha)
         self.max_failures = int(max_failures)
         self.backoff_seconds = int(backoff_seconds)
+        self.lease = lease
         self._tick_lock = threading.Lock()
         self._tick_sequence = 0
         self._consecutive_failures = 0
@@ -48,7 +55,17 @@ class MinuteWorker:
                 "tick_sequence": self._tick_sequence,
                 "production_execution_authority": False,
             }
+        lease_acquired = False
         try:
+            if self.lease is not None:
+                lease_acquired = self.lease.acquire()
+                if not lease_acquired:
+                    return {
+                        "status": "SKIPPED_LEASE",
+                        "tick_sequence": self._tick_sequence,
+                        "production_execution_authority": False,
+                    }
+
             if self._circuit_open_until is not None and now < self._circuit_open_until:
                 return {
                     "status": "CIRCUIT_OPEN",
@@ -86,6 +103,8 @@ class MinuteWorker:
                 "production_execution_authority": False,
             }
         finally:
+            if lease_acquired and self.lease is not None:
+                self.lease.release()
             self._tick_lock.release()
 
     def health(self, now: datetime) -> dict[str, Any]:
