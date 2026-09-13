@@ -12,6 +12,7 @@ from data.cache import load_history
 from engine.metrics import summarize_outcomes
 from features.state import build_features
 from optimize.search import CoinResearchResult, search_coin, search_coin_g2
+from optimize.search_g3 import search_coin_g3
 from reporting import build_manifest, write_report
 
 
@@ -38,7 +39,7 @@ def _default_end() -> str:
 
 
 def _source_sha() -> str:
-    return os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("DEPLOYMENT_SOURCE_SHA") or os.getenv("SOURCE_SHA") or "unknown"
+    return os.getenv("GITHUB_SHA") or os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("DEPLOYMENT_SOURCE_SHA") or os.getenv("SOURCE_SHA") or "unknown"
 
 
 def _empty_result(symbol: str, status: str, bottleneck: str) -> CoinResearchResult:
@@ -59,7 +60,12 @@ def run_batch(symbols: list[str], start: str, end: str, smoke: bool = False, res
     cfg = replace(DEFAULT_CONFIG, start=start, end=end, results_dir=results_dir or DEFAULT_CONFIG.results_dir)
     audits: dict[str, dict] = {}
     results: list[CoinResearchResult] = []
-    search_fn = search_coin_g2 if generation == "g2" else search_coin
+    if generation == "g3":
+        search_fn = search_coin_g3
+    elif generation == "g2":
+        search_fn = search_coin_g2
+    else:
+        search_fn = search_coin
 
     for symbol in symbols:
         print(f"COIN_START symbol={symbol} generation={generation} start={start} end={end}", flush=True)
@@ -102,7 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--start", default=DEFAULT_CONFIG.start)
     p.add_argument("--end", default=_default_end())
     p.add_argument("--smoke", action="store_true")
-    p.add_argument("--generation", choices=("g1", "g2"), default="g2")
+    p.add_argument("--generation", choices=("g1", "g2", "g3"), default="g2")
     p.add_argument("--results-dir", default=str(DEFAULT_CONFIG.results_dir))
     return p
 
