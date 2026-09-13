@@ -1,0 +1,124 @@
+name: Sign Curious Beyond Worker Job
+
+on:
+  push:
+    paths:
+      - "worker_jobs/requests/current.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: curious-worker-sign-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sign-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Validate and sign current worker job
+        env:
+          CURIOUS_WORKER_HMAC_KEY: ${{ secrets.CURIOUS_WORKER_HMAC_KEY }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import hmac
+          import json
+          import os
+          from pathlib import Path
+
+          secret = os.environ.get("CURIOUS_WORKER_HMAC_KEY", "")
+          if len(secret) < 32:
+              raise SystemExit("CURIOUS_WORKER_HMAC_KEY is missing or too short")
+
+          request_path = Path("worker_jobs/requests/current.json")
+          if not request_path.exists():
+              raise SystemExit("worker request file is missing")
+
+          payload = json.loads(request_path.read_text(encoding="utf-8"))
+          allowed = {
+              "IMAGE_RENDER",
+              "VIDEO_RENDER",
+              "VOICE_RENDER",
+              "FINAL_RENDER",
+              "MEDIA_PROBE",
+          }
+          forbidden = {
+              "command",
+              "cmd",
+              "shell",
+              "powershell",
+              "script",
+              "argv",
+              "executable",
+          }
+
+          if not isinstance(payload, dict):
+              raise SystemExit("worker request must be a JSON object")
+          if payload.get("job_type") not in allowed:
+              raise SystemExit("unsupported worker job type")
+          if not isinstance(payload.get("job_id"), str) or not payload["job_id"].strip():
+              raise SystemExit("job_id is required")
+          if not isinstance(payload.get("created_at"), str) or not payload["created_at"].strip():
+              raise SystemExit("created_at is required")
+          if not isinstance(payload.get("args", {}), dict):
+              raise SystemExit("args must be an object")
+
+          def reject_shell_fields(value):
+              if isinstance(value, dict):
+                  for key, child in value.items():
+                      if str(key).lower() in forbidden:
+                          raise SystemExit("arbitrary shell fields are forbidden")
+                      reject_shell_fields(child)
+              elif isinstance(value, list):
+                  for child in value:
+                      reject_shell_fields(child)
+
+          reject_shell_fields(payload.get("args", {}))
+          normalized = {
+              "job_id": payload["job_id"],
+              "job_type": payload["job_type"],
+              "created_at": payload["created_at"],
+              "args": payload.get("args", {}),
+          }
+          canonical = json.dumps(
+              normalized,
+              sort_keys=True,
+              separators=(",", ":"),
+              ensure_ascii=False,
+          ).encode("utf-8")
+          signature = hmac.new(
+              secret.encode("utf-8"),
+              canonical,
+              hashlib.sha256,
+          ).hexdigest()
+          envelope = {
+              "algorithm": "HMAC-SHA256",
+              "payload": normalized,
+              "signature": signature,
+          }
+          output = Path("worker_jobs/signed/current.json")
+          output.parent.mkdir(parents=True, exist_ok=True)
+          output.write_text(
+              json.dumps(envelope, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Commit signed envelope
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add worker_jobs/signed/current.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "worker: sign current Curious Beyond job"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
