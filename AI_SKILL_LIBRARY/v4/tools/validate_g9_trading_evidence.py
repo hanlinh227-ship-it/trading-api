@@ -86,3 +86,8 @@ def validate_snapshot(payload: dict[str, Any]) -> list[str]:
             if expected != compute_manifest_hash(payload):
                 errors.append("manifest-hash-mismatch")
     return errors
+
+
+def validate_manifest(payload: dict[str, Any]) -> list[str]:
+    """Semantic alias used by G9 aggregation workflows."""
+    return validate_snapshot(payload)
