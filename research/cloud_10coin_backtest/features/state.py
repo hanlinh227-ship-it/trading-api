@@ -37,6 +37,10 @@ def build_features(df5: pd.DataFrame) -> pd.DataFrame:
     f["prior_low_12"] = f["low"].shift(1).rolling(12, min_periods=1).min()
     f["prior_high_24"] = f["high"].shift(1).rolling(24, min_periods=3).max()
     f["prior_low_24"] = f["low"].shift(1).rolling(24, min_periods=3).min()
+    f["swing_high_6"] = f["high"].rolling(6, min_periods=1).max()
+    f["swing_low_6"] = f["low"].rolling(6, min_periods=1).min()
+    f["prior_swing_high_6"] = f["high"].shift(1).rolling(6, min_periods=1).max()
+    f["prior_swing_low_6"] = f["low"].shift(1).rolling(6, min_periods=1).min()
     candle_range = (f["high"] - f["low"]).replace(0, np.nan)
     f["body"] = (f["close"] - f["open"]).abs()
     f["body_atr"] = f["body"] / f["atr14"].replace(0, np.nan)
@@ -45,7 +49,16 @@ def build_features(df5: pd.DataFrame) -> pd.DataFrame:
     f["rel_trades"] = f["trade_count"] / f["trade_count"].shift(1).rolling(48, min_periods=12).mean().replace(0, np.nan)
     f["taker_buy_ratio"] = np.where(f["volume"] > 0, f["taker_buy_base"] / f["volume"], 0.5)
     f["flow_delta"] = 2.0 * f["taker_buy_ratio"] - 1.0
+    f["flow_ema12"] = f["flow_delta"].ewm(span=12, adjust=False, min_periods=1).mean()
+    price_impulse = f["close"] - f["close"].shift(3)
+    disagree = np.sign(price_impulse.fillna(0.0)) * np.sign(f["flow_ema12"].fillna(0.0)) < 0
+    f["flow_divergence"] = np.where(disagree, -np.sign(price_impulse.fillna(0.0)), 0.0)
     f["vol_regime"] = f["atr14"] / f["atr48"].replace(0, np.nan)
+    f["regime"] = np.select(
+        [f["vol_regime"] <= 0.80, f["vol_regime"] >= 1.20],
+        ["compression", "expansion"],
+        default="normal",
+    )
     f["ema20"] = f["close"].ewm(span=20, adjust=False).mean().shift(1)
     f["z_ema20"] = (f["close"] - f["ema20"]) / f["atr14"].replace(0, np.nan)
     f["sweep_low"] = (f["low"] < f["prior_low_12"]) & (f["close"] > f["prior_low_12"])
@@ -58,5 +71,7 @@ def build_features(df5: pd.DataFrame) -> pd.DataFrame:
         f[col] = h1[col].to_numpy()
     for col in h4.columns:
         f[col] = h4[col].to_numpy()
+    f["h1_trend"] = np.select([f["h1_ma20"] > f["h1_ma50"], f["h1_ma20"] < f["h1_ma50"]], [1, -1], default=0)
+    f["h4_trend"] = np.select([f["h4_ma20"] > f["h4_ma50"], f["h4_ma20"] < f["h4_ma50"]], [1, -1], default=0)
     f["trend_strength"] = (f["h1_ma20"] - f["h1_ma50"]).abs() / f["atr14"].replace(0, np.nan)
     return f

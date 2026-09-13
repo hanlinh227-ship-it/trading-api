@@ -13,6 +13,8 @@ class OrderCandidate:
     stop: float
     max_fill_bars: int = 12
     max_hold_bars: int = 144
+    quality: float = 0.0
+    family: str = ""
 
 
 @dataclass(frozen=True)
