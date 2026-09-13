@@ -9,6 +9,7 @@ $RepoRoot = Join-Path $Root "repo"
 $SecretFile = Join-Path $Root "worker_secret.txt"
 $PythonExe = Join-Path $Root "venv\Scripts\python.exe"
 $StartScript = Join-Path $Root "start_worker.ps1"
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 Write-Host "=== Curious Beyond Worker Setup ===" -ForegroundColor Cyan
 
@@ -52,7 +53,7 @@ if (-not (Test-Path $SecretFile)) {
         $rng.Dispose()
     }
     $secret = [Convert]::ToBase64String($bytes)
-    [System.IO.File]::WriteAllText($SecretFile, $secret, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($SecretFile, $secret, $Utf8NoBom)
     Write-Host "Created local pairing secret." -ForegroundColor Green
 } else {
     Write-Host "Existing local pairing secret kept unchanged." -ForegroundColor Green
@@ -63,7 +64,7 @@ $startContent = @"
 Set-Location "$RepoRoot"
 & "$PythonExe" -m money_ecosystem.worker.runner --repo-root "$RepoRoot" --secret-file "$SecretFile" --branch "$Branch" --poll-seconds 15
 "@
-[System.IO.File]::WriteAllText($StartScript, $startContent, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($StartScript, $startContent, $Utf8NoBom)
 
 Write-Host ""
 Write-Host "Setup complete." -ForegroundColor Green
