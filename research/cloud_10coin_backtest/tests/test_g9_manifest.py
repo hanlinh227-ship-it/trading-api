@@ -1,4 +1,5 @@
-from g9.manifest import build_evidence_manifest, compute_manifest_hash
+from g9.manifest import build_evidence_manifest, compute_manifest_hash, validate_evidence_manifest
+from g9.system_contract import SYSTEM_CONTRACT_VERSION
 
 
 def _g8_snapshot():
@@ -38,9 +39,24 @@ def test_manifest_is_deterministic_and_cannot_gain_execution_authority():
     assert payload["source_sha"] == "deadbeef"
     assert payload["parent_snapshot_hash"] == "a" * 64
     assert payload["symbols"]["SOLUSDT"]["profile_hash"] == "sol-profile"
+    assert payload["system_contract_version"] == SYSTEM_CONTRACT_VERSION
+    assert payload["plane"] == "STABLE_EVIDENCE"
+    assert payload["authority_level"] == "STABLE_EVIDENCE"
     assert payload["manifest_hash"] == compute_manifest_hash(payload)
+    assert validate_evidence_manifest(payload) == []
     assert payload == build_evidence_manifest(
         _g8_snapshot(),
         source_sha="deadbeef",
         evidence_epochs={"BTCUSDT": "epoch-17", "SOLUSDT": "epoch-8"},
     )
+
+
+def test_manifest_validator_rejects_contract_metadata_tampering():
+    payload = build_evidence_manifest(
+        _g8_snapshot(),
+        source_sha="deadbeef",
+        evidence_epochs={"BTCUSDT": "epoch-17", "SOLUSDT": "epoch-8"},
+    )
+    payload["plane"] = "LIVE_CONTEXT"
+    payload["manifest_hash"] = compute_manifest_hash(payload)
+    assert "plane-invalid" in validate_evidence_manifest(payload)
