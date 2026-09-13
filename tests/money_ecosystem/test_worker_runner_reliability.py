@@ -31,6 +31,7 @@ def test_sync_rebases_and_restarts_only_for_worker_code(monkeypatch, tmp_path):
             self.stdout = stdout
 
     calls = []
+
     def fake_git(repo_root, *args):
         calls.append(args)
         if args[:2] == ("diff", "--name-only"):
@@ -47,10 +48,16 @@ def test_sync_does_not_restart_for_job_only_commit(monkeypatch, tmp_path):
     monkeypatch.setattr(runner, "_head", lambda repo_root: next(heads))
 
     class Result:
-        returncode = 0
-        stdout = "worker_jobs/signed/current.json\n"
+        def __init__(self, stdout=""):
+            self.returncode = 0
+            self.stdout = stdout
 
-    monkeypatch.setattr(runner, "_git", lambda repo_root, *args: Result())
+    def fake_git(repo_root, *args):
+        if args[:2] == ("diff", "--name-only"):
+            return Result("worker_jobs/signed/current.json\n")
+        return Result("ok\n")
+
+    monkeypatch.setattr(runner, "_git", fake_git)
     assert runner.sync_from_remote(tmp_path, "ai-money-ecosystem-autopilot-v1") is False
 
 
