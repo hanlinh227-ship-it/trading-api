@@ -1,0 +1,18 @@
+{
+  "algorithm": "HMAC-SHA256",
+  "payload": {
+    "job_id": "media-probe-20260914-0245",
+    "job_type": "MEDIA_PROBE",
+    "created_at": "2026-09-14T02:45:00+07:00",
+    "args": {
+      "targets": [
+        "python",
+        "ffmpeg",
+        "whisper",
+        "kokoro",
+        "comfyui"
+      ]
+    }
+  },
+  "signature": "4dddabc049670c423887c2b76bec837a5340d9eeafa0c6aac9e69752666a72cc"
+}
