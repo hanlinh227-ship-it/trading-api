@@ -1,0 +1,46 @@
+name: Curious Beyond - Worker CI
+
+on:
+  push:
+    branches:
+      - ai-money-ecosystem-autopilot-v1
+    paths:
+      - 'money_ecosystem/worker/**'
+      - 'tests/money_ecosystem/test_worker_*.py'
+      - 'tests/money_ecosystem/test_comfyui_adapter.py'
+      - 'tests/money_ecosystem/test_image_*.py'
+      - '.github/workflows/curious-beyond-worker-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  worker-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check pytest pillow
+      - name: Run bounded worker tests
+        run: >-
+          python -m pytest -q
+          tests/money_ecosystem/test_worker_protocol.py
+          tests/money_ecosystem/test_worker_secret_encoding.py
+          tests/money_ecosystem/test_worker_setup.py
+          tests/money_ecosystem/test_worker_signer.py
+          tests/money_ecosystem/test_worker_runner_reliability.py
+          tests/money_ecosystem/test_comfyui_adapter.py
+          tests/money_ecosystem/test_image_package.py
+          tests/money_ecosystem/test_image_preflight.py
+          tests/money_ecosystem/test_image_qa.py
+          tests/money_ecosystem/test_image_reference_probe.py
+          tests/money_ecosystem/test_image_render_contract.py
+          tests/money_ecosystem/test_image_render_executor.py
+          tests/money_ecosystem/test_image_render_runtime.py
