@@ -1,3 +1,4 @@
+from g9.data_contract import validate_envelope
 from g9.manifest import build_evidence_manifest, compute_manifest_hash
 
 
@@ -39,6 +40,8 @@ def test_manifest_is_deterministic_and_cannot_gain_execution_authority():
     assert payload["parent_snapshot_hash"] == "a" * 64
     assert payload["symbols"]["SOLUSDT"]["profile_hash"] == "sol-profile"
     assert payload["manifest_hash"] == compute_manifest_hash(payload)
+    assert validate_envelope(payload["data_contract"]) == []
+    assert payload["data_contract"]["payload"] == {key: value for key, value in payload.items() if key != "data_contract"}
     assert payload == build_evidence_manifest(
         _g8_snapshot(),
         source_sha="deadbeef",
