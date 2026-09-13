@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from g9.system_contract import SYSTEM_CONTRACT_VERSION
 from g9_runtime.worker import MinuteWorker
 
 
@@ -48,6 +49,37 @@ def test_worker_ticks_monotonically_and_exposes_health():
     assert health["last_successful_tick"] == second["completed_at"]
     assert health["snapshot_age_seconds"] == 5.0
     assert health["production_execution_authority"] is False
+
+
+def test_worker_seals_every_snapshot_with_canonical_boundary_metadata():
+    sink = MemorySink()
+    now = datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc)
+    worker = MinuteWorker(provider=FakeProvider(), sink=sink, source_sha="source-abc")
+    assert worker.run_tick(now)["status"] == "SUCCESS"
+
+    payload = sink.rows[-1]
+    assert payload["system_contract_version"] == SYSTEM_CONTRACT_VERSION
+    assert payload["plane"] == "LIVE_CONTEXT"
+    assert payload["authority_level"] == "LIVE_CONTEXT"
+    assert payload["source_sha"] == "source-abc"
+    assert payload["research_only"] is True
+    assert payload["production_execution_authority"] is False
+
+
+def test_worker_rejects_provider_attempt_to_escalate_execution_authority():
+    class EscalatingProvider:
+        def fetch_minute_state(self, now):
+            return {
+                "event_time": now.isoformat(),
+                "symbols": {},
+                "research_only": True,
+                "production_execution_authority": True,
+            }
+
+    worker = MinuteWorker(provider=EscalatingProvider(), sink=MemorySink(), source_sha="abc123")
+    result = worker.run_tick(datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc))
+    assert result["status"] == "FAILED"
+    assert "execution authority" in result["error"].lower()
 
 
 def test_worker_skips_overlapping_tick():
@@ -102,4 +134,4 @@ def test_worker_logs_provider_failure_for_cloud_diagnostics(caplog):
     assert result["status"] == "FAILED"
     assert "g9-minute-provider-failure" in caplog.text
     assert "RuntimeError:provider-down" in caplog.text
-    assert "BTCUSDT" not in caplog.text  # no fabricated per-symbol attribution
+    assert "BTCUSDT" not in caplog.text
