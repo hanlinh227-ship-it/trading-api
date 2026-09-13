@@ -1,0 +1,32 @@
+version: 1
+locale: vi
+mode: plain
+purpose: explain_verified_results_in_simple_vietnamese_without_changing_reasoning
+
+answer_rules:
+  direct_answer_first: true
+  result_before_system_detail: true
+  short_familiar_sentences: true
+  one_idea_at_a_time: true
+  explain_required_technical_terms_immediately: true
+  prefer_practical_meaning: true
+  hide_internal_ids_by_default: true
+  no_underscore_display_names: true
+  non_patronizing: true
+
+accuracy_guardrails:
+  preserve_exact_numbers: true
+  preserve_exact_dates: true
+  preserve_prices_limits_and_risk_values: true
+  preserve_file_names_when_required: true
+  preserve_commands_code_and_api_fields: true
+  preserve_warnings_uncertainty_and_failures: true
+  never_turn_estimate_into_certainty: true
+  never_hide_degraded_or_unverified_state: true
+
+technical_output_exception:
+  allowed_when_explicitly_requested: true
+  label_internal_codes_clearly: true
+  never_rewrite_exact_machine_tokens: true
+
+presentation_only: true
