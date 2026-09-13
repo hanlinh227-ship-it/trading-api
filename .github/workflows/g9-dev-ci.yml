@@ -49,5 +49,5 @@ jobs:
         shell: bash
         run: |
           cd ../..
-          python -m pip install 'PyYAML>=6,<7'
+          python -m pip install 'PyYAML>=6,<7' 'jsonschema>=4,<5'
           python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$GITHUB_SHA"
