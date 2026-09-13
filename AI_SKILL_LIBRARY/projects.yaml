@@ -18,8 +18,10 @@ projects:
     status: CURRENT
     domains: [trading]
     authority: docs/checkpoints/CURRENT_HANDOFF.md
-    canonical_checkpoint: docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md
-    authority_token: BYBIT-BTC-STATEFLOW-2.1
+    canonical_checkpoint: docs/checkpoints/MULTI_COIN_A_PLUS_SCANNER_1_0_20260914.md
+    authority_token: MULTI-COIN-USDT-PERP-A-PLUS-SCANNER-1.0
+    execution_checkpoint: docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md
+    execution_authority_token: BYBIT-BTC-STATEFLOW-2.1
     routed_by: trading_router
     load_only_when: [trading, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, backtesting, mt5_mql5, trading_bot, live_data_validation, market_analysis, multi_market_analysis, risk_execution, quant_backtesting]
     retired_execution_authorities:
@@ -35,7 +37,7 @@ projects:
       - Cloudflare VPC/service binding
       - readonly health/control/deployment verification
       - existing BTC state KV key
-    execution_authority_never_from: [github_research, provider_consensus, legacy_memory, legacy_checkpoint, crypto_agent, multi_market_research, brain_upgrade, upstream_repository, plugin]
+    execution_authority_never_from: [github_research, provider_consensus, legacy_memory, legacy_checkpoint, crypto_agent, multi_market_research, brain_upgrade, upstream_repository, plugin, scanner_candidate, recommended_venue]
     research_is_analysis_only: true
     live_claim_requires:
       - successful worker validation/deploy
