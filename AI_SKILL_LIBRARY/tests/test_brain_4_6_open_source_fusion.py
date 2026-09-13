@@ -76,6 +76,10 @@ class Brain46OpenSourceFusionTests(unittest.TestCase):
                 "strengthen_existing_skill_first",
             }.issubset(required)
         )
+        bottlenecks = harmonization["bottleneck_prevention"]
+        self.assertTrue(bottlenecks["required_for_upgrade"])
+        self.assertTrue(bottlenecks["checks"]["fast_latency"]["preserve_zero_external_routing_calls"])
+        self.assertTrue(bottlenecks["promotion_blocked_on_unresolved_bottleneck"])
 
     def test_evals_cover_new_fusion_quality_dimensions(self):
         evals = load_yaml("AI_SKILL_LIBRARY/evals.yaml")
@@ -87,11 +91,65 @@ class Brain46OpenSourceFusionTests(unittest.TestCase):
                 "asset_validation_3d",
                 "design_system_validation",
                 "prompt_regression",
+                "game_runtime_validation",
                 "source_license_provenance",
                 "duplicate_capability_detection",
             }.issubset(classes)
         )
         self.assertEqual(evals["scoring"]["protected_dimensions"], ["correctness", "verification", "safety", "authority"])
+
+    def test_active_registry_keeps_new_sources_reference_only_and_within_budgets(self):
+        registry = load_yaml("AI_SKILL_LIBRARY/sources.yaml")
+        rows = registry["sources"]
+        by_repo = {row["repo"]: row for row in rows}
+        active_refs = {
+            "google/adk-python",
+            "openai/openai-agents-python",
+            "NVIDIA/garak",
+            "langchain-ai/open-swe",
+            "KhronosGroup/glTF-Validator",
+            "mikedh/trimesh",
+            "isl-org/Open3D",
+            "stanfordnlp/dspy",
+            "figma/code-connect",
+        }
+        for repo in active_refs:
+            with self.subTest(repository=repo):
+                row = by_repo[repo]
+                self.assertEqual(row["usage_tier"], "REFERENCE_ONLY")
+                self.assertFalse(row["rag"])
+                self.assertFalse(row["training"])
+                self.assertEqual(row["tier"], "COLD")
+        self.assertNotIn("nautechsystems/nautilus_trader", by_repo)
+        self.assertNotIn("langfuse/langfuse", by_repo)
+        policy = registry["policy"]
+        self.assertLessEqual(len(rows), policy["max_total_sources"])
+        categories = {}
+        for row in rows:
+            categories[row["category"]] = categories.get(row["category"], 0) + 1
+        for category, count in categories.items():
+            with self.subTest(category=category):
+                self.assertLessEqual(count, policy["max_sources_per_category"])
+
+    def test_domain_manifests_add_quality_without_widening_permissions(self):
+        engineering = load_yaml("AI_SKILL_LIBRARY/v4/skills/engineering/manifest.yaml")
+        trading = load_yaml("AI_SKILL_LIBRARY/v4/skills/trading/manifest.yaml")
+        design_2d = load_yaml("AI_SKILL_LIBRARY/v4/skills/design_2d/manifest.yaml")
+        design_3d = load_yaml("AI_SKILL_LIBRARY/v4/skills/design_3d/manifest.yaml")
+        prompt = load_yaml("AI_SKILL_LIBRARY/v4/skills/prompt_media/manifest.yaml")
+        game = load_yaml("AI_SKILL_LIBRARY/v4/skills/game/manifest.yaml")
+        self.assertEqual(engineering["permissions"], ["read_only", "reversible_write"])
+        self.assertEqual(trading["permissions"], ["read_only"])
+        self.assertEqual(design_2d["permissions"], ["read_only"])
+        self.assertEqual(design_3d["permissions"], ["read_only"])
+        self.assertEqual(prompt["permissions"], ["read_only"])
+        self.assertEqual(game["permissions"], ["read_only", "reversible_write"])
+        self.assertIn("repository_workflow", engineering["evals"])
+        self.assertIn("quant_realism", trading["evals"])
+        self.assertIn("design_system_validation", design_2d["evals"])
+        self.assertIn("asset_validation_3d", design_3d["evals"])
+        self.assertIn("prompt_regression", prompt["evals"])
+        self.assertIn("game_runtime_validation", game["evals"])
 
     def test_plain_language_policy_remains_active(self):
         presentation = load_yaml("AI_SKILL_LIBRARY/v4/stable/presentation.yaml")
