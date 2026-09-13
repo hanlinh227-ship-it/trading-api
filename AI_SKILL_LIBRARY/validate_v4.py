@@ -139,10 +139,19 @@ def validate_v4(root: Path = ROOT) -> tuple[list[str], list[str]]:
     if len(trading) != 1:
         errors.append("Trading must have exactly one current authority")
     else:
-        if trading[0].get("authority") != "docs/checkpoints/CURRENT_HANDOFF.md":
+        current = trading[0]
+        if current.get("authority") != "docs/checkpoints/CURRENT_HANDOFF.md":
             errors.append("Trading authority changed")
-        if trading[0].get("canonical_checkpoint") != "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md":
-            errors.append("Trading canonical checkpoint changed")
+        if current.get("canonical_checkpoint") != "docs/checkpoints/MULTI_COIN_A_PLUS_SCANNER_1_0_20260914.md":
+            errors.append("Trading scan checkpoint changed")
+        if current.get("authority_token") != "MULTI-COIN-USDT-PERP-A-PLUS-SCANNER-1.0":
+            errors.append("Trading scan authority token changed")
+        if current.get("execution_checkpoint") != "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md":
+            errors.append("Trading execution checkpoint changed")
+        if current.get("execution_authority_token") != "BYBIT-BTC-STATEFLOW-2.1":
+            errors.append("Trading execution authority token changed")
+        if current.get("canonical_checkpoint") == current.get("execution_checkpoint"):
+            errors.append("Trading scan and execution checkpoints must remain separate")
 
     for name in ("GITHUB_BRAIN_V1.md", "GITHUB_BRAIN_V2.md", "GITHUB_BRAIN_V3.md"):
         text = (lib / name).read_text(encoding="utf-8") if (lib / name).is_file() else ""
