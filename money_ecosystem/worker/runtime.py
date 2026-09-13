@@ -10,6 +10,8 @@ import urllib.request
 from typing import Any
 
 from .allowlist import validate_job_request
+from .comfyui_adapter import ComfyUIAdapter, ComfyUIError, DependencyMissing
+from .image_render_contract import ContractError, ImageRenderJob
 
 _COMFYUI_BASE = "http://127.0.0.1:8188"
 
@@ -111,6 +113,55 @@ def _probe_capabilities(targets: list[str]) -> dict[str, Any]:
     return capabilities
 
 
+def _execute_image_render_preflight(job: dict[str, Any], workspace_root: Path | str) -> dict[str, Any]:
+    try:
+        spec = ImageRenderJob.from_payload(job["args"], workspace_root)
+    except (ContractError, TypeError, ValueError, KeyError) as exc:
+        return {
+            "status": "BLOCKED",
+            "message": f"IMAGE_RENDER contract rejected: {exc}",
+            "artifact_manifest": {},
+        }
+
+    missing_refs = [str(ref.path) for ref in spec.references if not ref.path.is_file()]
+    if missing_refs:
+        return {
+            "status": "BLOCKED",
+            "message": "IMAGE_RENDER missing reference assets: " + ", ".join(missing_refs),
+            "artifact_manifest": {
+                "missing_references": missing_refs,
+                "zero_paid_services": True,
+                "cloud_fallback": False,
+            },
+        }
+
+    adapter = ComfyUIAdapter()
+    try:
+        preflight = adapter.preflight()
+    except DependencyMissing as exc:
+        return {
+            "status": "BLOCKED",
+            "message": f"IMAGE_RENDER dependency missing: {exc}",
+            "artifact_manifest": {"zero_paid_services": True, "cloud_fallback": False},
+        }
+    except ComfyUIError as exc:
+        return {
+            "status": "BLOCKED",
+            "message": f"IMAGE_RENDER ComfyUI unavailable: {exc}",
+            "artifact_manifest": {"zero_paid_services": True, "cloud_fallback": False},
+        }
+
+    return {
+        "status": "BLOCKED",
+        "message": "IMAGE_RENDER reference dependencies are ready; production workflow execution is the remaining gate",
+        "artifact_manifest": {
+            "reference_nodes": preflight.get("reference_nodes", []),
+            "zero_paid_services": True,
+            "cloud_fallback": False,
+        },
+    }
+
+
 def execute_job(job: dict[str, Any], workspace_root: Path | str) -> dict[str, Any]:
     job = validate_job_request(job)
     job_type = job["job_type"]
@@ -126,6 +177,9 @@ def execute_job(job: dict[str, Any], workspace_root: Path | str) -> dict[str, An
             "message": "Media capability probe completed",
             "artifact_manifest": {"capabilities": capabilities},
         }
+
+    if job_type == "IMAGE_RENDER":
+        return _execute_image_render_preflight(job, workspace_root)
 
     return {
         "status": "BLOCKED",
