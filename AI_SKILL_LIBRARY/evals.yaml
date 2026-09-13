@@ -24,6 +24,7 @@ failure_taxonomy:
   - asset_validation_regression
   - design_system_regression
   - prompt_regression
+  - game_runtime_regression
 
 benchmark_classes:
   - routing
@@ -39,6 +40,7 @@ benchmark_classes:
   - asset_validation_3d
   - design_system_validation
   - prompt_regression
+  - game_runtime_validation
   - source_license_provenance
   - duplicate_capability_detection
 
@@ -105,6 +107,13 @@ capability_fusion_evals:
     require_constraints_preserved: true
     require_test_case_comparison_when_iterating: true
     stochastic_result_cannot_be_guaranteed: true
+  game_runtime_validation:
+    require_engine_constraints: true
+    require_runtime_reproduction_when_possible: true
+    require_debugger_or_log_check_when_available: true
+    require_input_behavior_check_when_relevant: true
+    require_visual_state_validation_when_available: true
+    reversible_change_preferred: true
   source_license_provenance:
     active_registry_requires_verified_allowed_license: true
     provenance_required: true
