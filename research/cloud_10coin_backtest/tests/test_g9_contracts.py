@@ -71,3 +71,23 @@ def test_entry_context_preserves_unknown_optional_evidence():
     assert payload["taker_imbalance"] == "UNKNOWN"
     assert payload["live_quality_score"] != payload["historical_oos_win_rate"]
     assert payload["production_execution_authority"] is False
+
+
+def test_entry_context_does_not_invent_model_confidence():
+    ts = datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc)
+    ctx = EntryContextSnapshot(
+        symbol="BTCUSDT",
+        event_time=ts,
+        market_snapshot_id="mkt-1",
+        funding=0.0001,
+        open_interest_delta=0.01,
+        taker_imbalance=0.2,
+        cross_asset_score=0.5,
+        live_quality_score=0.8,
+        model_confidence=None,
+        historical_oos_win_rate=None,
+        uncertainty=0.2,
+    )
+    payload = ctx.to_dict()
+    assert payload["model_confidence"] == "UNKNOWN"
+    assert payload["historical_oos_win_rate"] == "UNKNOWN"
