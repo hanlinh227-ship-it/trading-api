@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from AI_SKILL_LIBRARY.v4.tools.validate_g9_trading_evidence import validate_manifest, validate_snapshot
 
 
@@ -42,3 +40,15 @@ def test_validator_rejects_tampered_manifest_hash():
     payload = _valid_payload()
     payload["symbols"]["BTCUSDT"]["profile_hash"] = "tampered"
     assert "manifest-hash-mismatch" in validate_snapshot(payload)
+
+
+def test_validator_rejects_tampered_canonical_data_contract():
+    payload = _valid_payload()
+    payload["data_contract"]["payload_hash"] = "0" * 64
+    assert "data-contract:payload-hash-mismatch" in validate_snapshot(payload)
+
+
+def test_validator_rejects_data_contract_authority_escalation():
+    payload = _valid_payload()
+    payload["data_contract"]["authority"]["execution"] = "trade"
+    assert "data-contract:execution-authority-forbidden" in validate_snapshot(payload)
