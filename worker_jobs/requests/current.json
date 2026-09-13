@@ -1,10 +1,11 @@
 {
-  "job_id": "image-render-preflight-20260914-01",
+  "job_id": "image-render-preflight-20260914-02",
   "job_type": "MEDIA_PROBE",
-  "created_at": "2026-09-14T03:30:00+07:00",
+  "created_at": "2026-09-14T03:45:00+07:00",
   "payload": {
     "checks": ["python", "ffmpeg", "whisper", "kokoro", "comfyui"],
     "comfyui_url": "http://127.0.0.1:8188/system_stats",
-    "purpose": "IMAGE_RENDER_REFERENCE_LOCK_PREFLIGHT"
+    "purpose": "IMAGE_RENDER_REFERENCE_LOCK_PREFLIGHT_V2",
+    "next_required_check": "IPAdapter reference-conditioning nodes via ComfyUI object_info"
   }
 }
