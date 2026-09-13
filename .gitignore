@@ -8,6 +8,9 @@ node_modules/
 # AI loop local run artifacts (run state lives in the PR, never in git)
 .ai-loop/
 
+# Curious Beyond local worker state
+.worker_state/
+
 # Generated Skill-Mandatory Fast Gateway artifacts
 AI_SKILL_LIBRARY/v4/runtime/generated/
 cloudflare-worker/generated/skill-gateway-snapshot.js
