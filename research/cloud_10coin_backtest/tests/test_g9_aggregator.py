@@ -70,6 +70,24 @@ def test_merge_lane_registries_updates_successes_and_preserves_missing_previous(
     assert statuses["SOLUSDT"] == "EMPTY"
 
 
+def test_successful_lane_without_new_champion_preserves_incumbent():
+    previous = ChampionRegistry.empty(["BTCUSDT"])
+    incumbent = record("BTCUSDT", 1, "TREND_UP", "setup_trend", "LONG")
+    promote_champion(previous, "BTCUSDT", incumbent)
+    empty_current = ChampionRegistry.empty(["BTCUSDT"])
+    empty_current.generation = 2
+
+    merged, statuses = merge_lane_registries(
+        ["BTCUSDT"],
+        {"BTCUSDT": empty_current},
+        previous=previous,
+    )
+
+    assert merged.symbols["BTCUSDT"]["research_champion_id"] == incumbent.trial_id
+    assert statuses["BTCUSDT"] == "PRESERVED_NO_NEW_CHAMPION"
+    assert merged.generation == 2
+
+
 def test_registry_promotions_are_projected_into_route_specific_champion_pool():
     rec = record("SOLUSDT", 3, "COMPRESSION", "setup_breakout", "LONG")
     registry = one_symbol_registry("SOLUSDT", rec)
