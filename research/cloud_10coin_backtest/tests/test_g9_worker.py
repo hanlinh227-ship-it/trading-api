@@ -89,3 +89,17 @@ def test_worker_opens_circuit_after_bounded_provider_failures():
     blocked = worker.run_tick(now + timedelta(seconds=2))
     assert blocked["status"] == "CIRCUIT_OPEN"
     assert provider.calls == calls_after_failures
+
+
+def test_worker_logs_provider_failure_for_cloud_diagnostics(caplog):
+    provider = FakeProvider(fail=True)
+    worker = MinuteWorker(provider=provider, sink=MemorySink(), source_sha="abc123")
+    now = datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc)
+
+    with caplog.at_level("WARNING"):
+        result = worker.run_tick(now)
+
+    assert result["status"] == "FAILED"
+    assert "g9-minute-provider-failure" in caplog.text
+    assert "RuntimeError:provider-down" in caplog.text
+    assert "BTCUSDT" not in caplog.text  # no fabricated per-symbol attribution
