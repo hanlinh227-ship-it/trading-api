@@ -23,6 +23,14 @@ class MemorySink:
         self.rows.append(payload)
 
 
+class BusyLease:
+    def acquire(self):
+        return False
+
+    def release(self):
+        raise AssertionError("busy lease must not be released by non-owner")
+
+
 def test_worker_ticks_monotonically_and_exposes_health():
     provider = FakeProvider()
     sink = MemorySink()
@@ -50,6 +58,19 @@ def test_worker_skips_overlapping_tick():
     finally:
         worker._tick_lock.release()
     assert result["status"] == "SKIPPED_OVERLAP"
+
+
+def test_worker_skips_tick_when_cross_process_lease_is_busy():
+    provider = FakeProvider()
+    worker = MinuteWorker(
+        provider=provider,
+        sink=MemorySink(),
+        source_sha="abc123",
+        lease=BusyLease(),
+    )
+    result = worker.run_tick(datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc))
+    assert result["status"] == "SKIPPED_LEASE"
+    assert provider.calls == 0
 
 
 def test_worker_opens_circuit_after_bounded_provider_failures():
