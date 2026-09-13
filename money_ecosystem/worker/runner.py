@@ -58,7 +58,12 @@ def _worker_code_changed(repo_root: Path, before: str, after: str) -> bool:
     )
     if result.returncode != 0:
         raise RuntimeError(f"git diff failed: {result.stdout.strip()}")
-    return bool(result.stdout.strip())
+    changed_paths = [
+        line.strip().replace("\\", "/")
+        for line in result.stdout.splitlines()
+        if line.strip()
+    ]
+    return any(path.startswith("money_ecosystem/worker/") for path in changed_paths)
 
 
 def sync_from_remote(repo_root: Path, branch: str) -> bool:
