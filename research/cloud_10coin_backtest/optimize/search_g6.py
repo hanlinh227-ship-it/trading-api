@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from engine.execution import OrderCandidate
+from engine.execution import OrderCandidate, simulate_trade
 from optimize.search_g4 import directional_feature_matrix
 
 
@@ -115,3 +115,46 @@ def candidate_feature_matrix(features: pd.DataFrame, candidates) -> np.ndarray:
         hold_norm = float(c.max_hold_bars) / 144.0
         rows.append(np.concatenate([base, onehot, [side_flag, risk_atr, hold_norm]]))
     return np.clip(np.nan_to_num(np.vstack(rows), nan=0.0, posinf=5.0, neginf=-5.0), -5.0, 5.0)
+
+
+def label_setup_candidates(
+    features: pd.DataFrame,
+    candidates,
+    *,
+    roundtrip_cost_bps: float = 12.0,
+):
+    """Label each setup independently inside the supplied causal segment.
+
+    Unfilled candidates are excluded. Using simulate_trade one candidate at a time
+    avoids training labels being suppressed by portfolio/no-overlap sequencing while
+    preserving the exact conservative fill/SL/TP/cost semantics of the engine.
+    """
+    f = features.reset_index(drop=True)
+    candidates = list(candidates)
+    kept = []
+    rows = []
+    for candidate in candidates:
+        result = simulate_trade(
+            candidate,
+            f,
+            rr=(1.0, 2.0),
+            roundtrip_cost_bps=float(roundtrip_cost_bps),
+        )
+        if result is None:
+            continue
+        kept.append(candidate)
+        rows.append(
+            {
+                "signal_index": int(result.signal_index),
+                "fill_index": int(result.fill_index),
+                "exit_index": int(result.exit_index),
+                "rr1_hit": bool(result.rr1_hit),
+                "rr2_hit": bool(result.rr2_hit),
+                "gross_r": float(result.gross_r),
+                "net_r": float(result.net_r),
+                "exit_reason": result.exit_reason,
+            }
+        )
+    x = candidate_feature_matrix(f, kept)
+    labels = pd.DataFrame(rows)
+    return x, labels, kept
