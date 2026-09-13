@@ -41,6 +41,7 @@ sources:
   - {<<: *rag_only, category: ux_ui, repo: mantinedev/mantine, license: MIT, focus: "React components, hooks and UX patterns"}
   - {<<: *rag_only, category: ux_ui, repo: microsoft/fluentui, license: MIT, focus: "Fluent design, accessibility and enterprise UI", exclude: "fonts/icons unless separately licensed"}
   - {<<: *rag_only, category: ux_ui, repo: carbon-design-system/carbon, license: Apache-2.0, focus: "IBM Carbon design system and component architecture"}
+  - {<<: *reference_only, category: ux_ui, repo: figma/code-connect, license: MIT, focus: "design-system component mapping, design-to-code contracts and consistency checks", note: "Brain 4.6 reference only; no runtime dependency"}
 
   # PROMPT ENGINEERING
   - {<<: *rag_only, category: prompt, repo: dair-ai/Prompt-Engineering-Guide, license: MIT, focus: "prompt methods, examples and research-oriented guidance"}
@@ -49,6 +50,7 @@ sources:
   - {<<: *rag_only, category: prompt, repo: microsoft/generative-ai-for-beginners, license: MIT, focus: "generative AI curriculum and prompt/app patterns"}
   - {<<: *rag_only, category: prompt, repo: openai/openai-cookbook, license: MIT, focus: "AI application examples, evals, retrieval and prompting"}
   - {<<: *rag_only, category: prompt, repo: f/awesome-chatgpt-prompts, license: CC0-1.0, focus: "community prompt patterns"}
+  - {<<: *reference_only, category: prompt, repo: stanfordnlp/dspy, license: MIT, focus: "measured prompt optimization, objective scoring and prompt regression patterns", note: "Brain 4.6 reference only; native contracts remain authoritative"}
 
   # CREATIVE VISUAL / IMAGE GENERATION / EDITING
   - {<<: *rag_only, category: prompt, repo: lllyasviel/ControlNet, license: Apache-2.0, focus: "pose, depth, edge and structural composition conditioning patterns for visual generation; reference methodology only"}
@@ -64,12 +66,17 @@ sources:
   - {<<: *rag_only, category: script, repo: mattdaly/Fountain.js, license: MIT, focus: "screenplay tokenization and structure"}
   - {<<: *manual_review, category: script, repo: GITenberg, license: PER_ITEM, focus: "public-domain literary corpus", note: "enable only individual works whose repository/license confirms usable rights in the relevant jurisdiction"}
 
-  # CODING / SOFTWARE AGENTS
+  # CODING / SOFTWARE AGENTS / VALIDATION TOOLS
   - {<<: *rag_only, category: code, repo: OpenHands/OpenHands, license: MIT, focus: "agentic software development workflows"}
   - {<<: *rag_only, category: code, repo: OpenHands/software-agent-sdk, license: MIT, focus: "SDK patterns for coding agents"}
   - {<<: *rag_only, category: code, repo: Aider-AI/aider, license: Apache-2.0, focus: "Git-aware code editing and repo maps"}
   - {<<: *rag_only, category: code, repo: cline/cline, license: Apache-2.0, focus: "autonomous IDE/CLI coding agent patterns"}
   - {<<: *reference_only, category: code, repo: continuedev/continue, license: Apache-2.0, status: archived, focus: "coding agent/IDE architecture; historical reference"}
+  - {<<: *reference_only, category: code, repo: NVIDIA/garak, license: Apache-2.0, focus: "LLM vulnerability probing and adversarial evaluation patterns", note: "defensive evaluation reference only"}
+  - {<<: *reference_only, category: code, repo: langchain-ai/open-swe, license: MIT, focus: "issue-to-repository-change-to-test-to-review workflow patterns", note: "Brain 4.6 reference only; Superpowers/TDD remains implementation authority"}
+  - {<<: *reference_only, category: code, repo: KhronosGroup/glTF-Validator, license: Apache-2.0, focus: "glTF schema, export integrity and 3D asset validation patterns"}
+  - {<<: *reference_only, category: code, repo: mikedh/trimesh, license: MIT, focus: "mesh integrity, manifold and geometry validation patterns"}
+  - {<<: *reference_only, category: code, repo: isl-org/Open3D, license: MIT, focus: "3D geometry, point-cloud and reconstruction validation patterns", note: "license verified from repository LICENSE SPDX MIT because GitHub metadata reports NOASSERTION"}
 
   # TRADING: FOREX / CRYPTO / FUTURES / INDEX / QUANT
   - {<<: *rag_only, category: trading, repo: QuantConnect/Lean, license: Apache-2.0, focus: "multi-asset event-driven engine: forex, futures, options, equities, crypto"}
@@ -103,3 +110,5 @@ sources:
   - {<<: *rag_only, category: software, repo: promptfoo/promptfoo, license: MIT, focus: "LLM/agent eval matrices, CI regression testing and red-team patterns"}
   - {<<: *reference_only, category: software, repo: sgl-project/sglang, license: Apache-2.0, focus: "optional self-hosted inference patterns: prefix caching, batching and high-performance serving"}
   - {<<: *reference_only, category: software, repo: zilliztech/GPTCache, license: MIT, focus: "semantic cache similarity thresholds, cache safety and miss fallback patterns"}
+  - {<<: *reference_only, category: software, repo: google/adk-python, license: Apache-2.0, focus: "bounded agent handoffs, explicit state, typed tools and agent evaluation patterns", note: "Brain 4.6 reference only; no mandatory runtime dependency"}
+  - {<<: *reference_only, category: software, repo: openai/openai-agents-python, license: MIT, focus: "bounded handoffs, guardrail patterns, tracing metadata and human-review boundaries", note: "Brain 4.6 reference only; no parallel reasoning authority"}
