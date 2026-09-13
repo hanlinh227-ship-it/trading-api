@@ -35,8 +35,17 @@ def merge_lane_registries(
             continue
         if set(lane_registry.symbols) != {symbol}:
             raise ValueError(f"lane registry must contain only {symbol}")
-        merged.symbols[symbol] = dict(lane_registry.symbols[symbol])
+
         generation = max(generation, int(lane_registry.generation))
+        incoming = dict(lane_registry.symbols[symbol])
+        if not incoming.get("research_champion_id"):
+            if merged.symbols[symbol].get("research_champion_id"):
+                statuses[symbol] = "PRESERVED_NO_NEW_CHAMPION"
+            else:
+                statuses[symbol] = "EMPTY"
+            continue
+
+        merged.symbols[symbol] = incoming
         statuses[symbol] = "UPDATED"
     merged.generation = generation
     return merged, statuses
