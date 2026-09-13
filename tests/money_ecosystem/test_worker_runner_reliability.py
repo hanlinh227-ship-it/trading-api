@@ -61,5 +61,21 @@ def test_sync_does_not_restart_for_job_only_commit(monkeypatch, tmp_path):
     assert runner.sync_from_remote(tmp_path, "ai-money-ecosystem-autopilot-v1") is False
 
 
-def test_pending_results_can_be_retried_without_new_job():
-    assert callable(runner.push_results)
+def test_pending_results_have_pre_sync_commit_recovery_hook():
+    assert callable(runner._commit_pending_results)
+
+
+def test_push_results_can_signal_code_reload_after_rebase(monkeypatch, tmp_path):
+    (tmp_path / "worker_jobs" / "results").mkdir(parents=True)
+    heads = iter(["before", "after"])
+    monkeypatch.setattr(runner, "_head", lambda repo_root: next(heads))
+    monkeypatch.setattr(runner, "_commit_pending_results", lambda repo_root: None)
+    monkeypatch.setattr(runner, "_worker_code_changed", lambda repo_root, before, after: True)
+
+    class Result:
+        def __init__(self, stdout="0\n"):
+            self.returncode = 0
+            self.stdout = stdout
+
+    monkeypatch.setattr(runner, "_git", lambda repo_root, *args: Result())
+    assert runner.push_results(tmp_path, "ai-money-ecosystem-autopilot-v1") is True
