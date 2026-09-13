@@ -87,11 +87,15 @@ class V4ContractTests(unittest.TestCase):
         self.assertIs(policy["permission_expansion_by_learning"], False)
         self.assertEqual(policy["default_promotion"], "deny")
 
-    def test_trading_authority_is_unchanged(self):
+    def test_trading_authority_separates_scanner_from_execution(self):
         projects = yaml.safe_load((LIB / "projects.yaml").read_text(encoding="utf-8"))
         trading = next(row for row in projects["projects"] if row["id"] == "trading")
         self.assertEqual(trading["authority"], "docs/checkpoints/CURRENT_HANDOFF.md")
-        self.assertEqual(trading["canonical_checkpoint"], "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md")
+        self.assertEqual(trading["canonical_checkpoint"], "docs/checkpoints/MULTI_COIN_A_PLUS_SCANNER_1_0_20260914.md")
+        self.assertEqual(trading["authority_token"], "MULTI-COIN-USDT-PERP-A-PLUS-SCANNER-1.0")
+        self.assertEqual(trading["execution_checkpoint"], "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md")
+        self.assertEqual(trading["execution_authority_token"], "BYBIT-BTC-STATEFLOW-2.1")
+        self.assertNotEqual(trading["canonical_checkpoint"], trading["execution_checkpoint"])
 
 
 if __name__ == "__main__":

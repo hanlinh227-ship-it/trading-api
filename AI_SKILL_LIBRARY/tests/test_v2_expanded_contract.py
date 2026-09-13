@@ -66,7 +66,10 @@ class ExpandedCompatibilityContractTests(unittest.TestCase):
         self.assertEqual(len(trading), 1)
         project = trading[0]
         self.assertEqual(project["authority"], "docs/checkpoints/CURRENT_HANDOFF.md")
-        self.assertEqual(project["canonical_checkpoint"], "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md")
+        self.assertEqual(project["canonical_checkpoint"], "docs/checkpoints/MULTI_COIN_A_PLUS_SCANNER_1_0_20260914.md")
+        self.assertEqual(project["authority_token"], "MULTI-COIN-USDT-PERP-A-PLUS-SCANNER-1.0")
+        self.assertEqual(project["execution_checkpoint"], "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md")
+        self.assertEqual(project["execution_authority_token"], "BYBIT-BTC-STATEFLOW-2.1")
         self.assertEqual(project["status"], "CURRENT")
 
     def test_plugin_mapping_contains_required_providers(self):

@@ -57,6 +57,7 @@ WARM_STATIC: tuple[tuple[str, str, str, list[str]], ...] = (
     ("AI_SKILL_LIBRARY/skills/registry/conflict_policy.yaml", "conflict_policy", "supporting", ["conflict", "provider"]),
     ("AI_SKILL_LIBRARY/skills/registry/runtime_policy.yaml", "runtime_policy", "supporting", ["cloud_runtime"]),
     ("AI_SKILL_LIBRARY/skills/registry/live_price_policy.yaml", "live_price_policy", "supporting", ["live_price", "trading"]),
+    ("AI_SKILL_LIBRARY/skills/registry/multi_coin_scanner_policy.yaml", "scanner_policy", "supporting", ["scanner", "trading", "multi_coin"]),
     ("AI_SKILL_LIBRARY/skills/providers/crypto_agents.yaml", "provider_registry", "reference", ["provider", "crypto"]),
     ("AI_SKILL_LIBRARY/sources/crypto_agent_official.yaml", "provider_registry", "reference", ["provider", "crypto", "sources"]),
     ("AI_SKILL_LIBRARY/plugins.yaml", "plugin_registry", "reference", ["plugins", "tools"]),

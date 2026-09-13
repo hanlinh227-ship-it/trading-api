@@ -85,4 +85,4 @@ routes:
 
 authorities:
   - {scope: ai_brain, status: CURRENT_AUTHORITY, path: AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md}
-  - {scope: trading, status: CURRENT_AUTHORITY, path: docs/checkpoints/CURRENT_HANDOFF.md, follows: docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md}
+  - {scope: trading, status: CURRENT_AUTHORITY, path: docs/checkpoints/CURRENT_HANDOFF.md, follows: docs/checkpoints/MULTI_COIN_A_PLUS_SCANNER_1_0_20260914.md, execution_follows: docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md}

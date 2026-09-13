@@ -1,0 +1,49 @@
+version: 1
+authority_token: MULTI-COIN-USDT-PERP-A-PLUS-SCANNER-1.0
+research_only: true
+production_execution_authority: false
+venues: [bybit, binance, okx]
+instrument: perpetual
+quote_currency: USDT
+live_price_policy_path: AI_SKILL_LIBRARY/skills/registry/live_price_policy.yaml
+
+eligibility:
+  min_venue_coverage: 2
+  active_contract_required: true
+  usdt_margin_required: true
+  source_timestamp_required: true
+  unresolved_price_divergence_blocks_candidate: true
+  insufficient_history_blocks_candidate: true
+  newly_listed_requires_history_gate: true
+
+thresholds:
+  broad_candidate_limit: 30
+  deep_candidate_limit: 8
+  min_quote_volume_usd: 10000000
+  max_spread_bps: 8
+  min_near_touch_depth_usd: 100000
+  min_candle_history: 120
+  min_reward_risk: 2.0
+  tie_tolerance_score: 1.5
+
+weights:
+  structure: 24
+  trigger_quality: 14
+  executed_flow: 12
+  l2_microprice: 8
+  open_interest: 8
+  funding_crowding: 6
+  liquidation_context: 4
+  cross_venue_consistency: 8
+  liquidity_execution_quality: 8
+  reward_risk: 5
+  freshness_completeness: 3
+
+safety:
+  fail_closed: true
+  allow_scan_to_execution_promotion: false
+  allow_provider_consensus_as_authority: false
+  allow_single_signal_authorization: false
+  allow_forced_trade_when_no_setup: false
+  require_structural_invalidation: true
+  preserve_btc_execution_authority: true

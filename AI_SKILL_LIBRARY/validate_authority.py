@@ -16,6 +16,12 @@ CHECKPOINT_PATH = HERE / "checkpoint.json"
 PROJECT_SCHEMA = HERE / "schemas" / "project.schema.json"
 CURRENT_STATUSES = {"CURRENT", "ACTIVE", "CURRENT_AUTHORITY"}
 
+TRADING_AUTHORITY = "docs/checkpoints/CURRENT_HANDOFF.md"
+TRADING_SCAN_CHECKPOINT = "docs/checkpoints/MULTI_COIN_A_PLUS_SCANNER_1_0_20260914.md"
+TRADING_SCAN_TOKEN = "MULTI-COIN-USDT-PERP-A-PLUS-SCANNER-1.0"
+TRADING_EXECUTION_CHECKPOINT = "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md"
+TRADING_EXECUTION_TOKEN = "BYBIT-BTC-STATEFLOW-2.1"
+
 
 def _inside(root: Path, rel: object) -> Path | None:
     if not isinstance(rel, str) or not rel.strip():
@@ -108,16 +114,35 @@ def validate_authority_data(projects: dict, checkpoint: dict, *, root: Path = RO
     trading_rows = [row for row in rows if row.get("id") == "trading" and row.get("status") in CURRENT_STATUSES]
     if len(trading_rows) == 1:
         trading = trading_rows[0]
-        if trading.get("authority") != "docs/checkpoints/CURRENT_HANDOFF.md":
-            errors.append("trading authority must be docs/checkpoints/CURRENT_HANDOFF.md")
-        if trading.get("canonical_checkpoint") != "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md":
-            errors.append("trading canonical checkpoint must be BYBIT_BTC_STATEFLOW_2_1_20260904.md")
+        if trading.get("authority") != TRADING_AUTHORITY:
+            errors.append(f"trading authority must be {TRADING_AUTHORITY}")
+        if trading.get("canonical_checkpoint") != TRADING_SCAN_CHECKPOINT:
+            errors.append(f"trading canonical checkpoint must be {TRADING_SCAN_CHECKPOINT}")
+        if trading.get("authority_token") != TRADING_SCAN_TOKEN:
+            errors.append(f"trading scan authority token must be {TRADING_SCAN_TOKEN}")
+        if trading.get("execution_checkpoint") != TRADING_EXECUTION_CHECKPOINT:
+            errors.append(f"trading execution checkpoint must be {TRADING_EXECUTION_CHECKPOINT}")
+        if trading.get("execution_authority_token") != TRADING_EXECUTION_TOKEN:
+            errors.append(f"trading execution authority token must be {TRADING_EXECUTION_TOKEN}")
+
+        if trading.get("canonical_checkpoint") == trading.get("execution_checkpoint"):
+            errors.append("trading scan checkpoint and execution checkpoint must remain separate")
+        if trading.get("authority_token") == trading.get("execution_authority_token"):
+            errors.append("trading scan authority and execution authority must remain separate")
+
+        execution_path = _inside(root, trading.get("execution_checkpoint"))
+        if execution_path is None or not execution_path.is_file():
+            errors.append(f"trading execution checkpoint missing: {trading.get('execution_checkpoint')!r}")
+
         authority = _inside(root, trading.get("authority"))
         if authority and authority.is_file():
             text = authority.read_text(encoding="utf-8", errors="replace")
-            if "BYBIT-BTC-STATEFLOW-2.1" not in text:
-                errors.append("trading authority is stale: missing BYBIT-BTC-STATEFLOW-2.1")
-            for retired in ("multi-coin", "Forex", "Meme", "Signal V10/V11"):
+            for required in (TRADING_SCAN_TOKEN, TRADING_EXECUTION_TOKEN, TRADING_SCAN_CHECKPOINT, TRADING_EXECUTION_CHECKPOINT):
+                if required not in text:
+                    errors.append(f"trading authority is stale: missing {required}")
+            if "scan/research authority does not grant execution authority" not in text.lower():
+                errors.append("trading authority must explicitly forbid scan/research authority from granting execution authority")
+            for retired in ("multi-coin Bybit execution", "Forex execution", "Meme execution", "Signal V10/V11 execution"):
                 if retired not in text:
                     warnings.append(f"trading authority does not explicitly mention retired family {retired!r}")
 
