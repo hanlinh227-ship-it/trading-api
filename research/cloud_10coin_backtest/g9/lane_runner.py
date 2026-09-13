@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from g8.candidate import CandidateSpec, candidate_hash, seed_baseline_candidates
+from g8.loop import run_generation
 from .hypothesis import FailureMemory, generate_hypotheses
 from .supervisor import allocate_research_budget
 
@@ -142,3 +145,68 @@ class AdaptiveProposalController:
             self.candidate_to_hypothesis,
             self.failure_memory,
         )
+
+
+def _read_trial_records(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    records: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        payload = json.loads(line)
+        if isinstance(payload, dict):
+            records.append(payload)
+    return records
+
+
+def execute_adaptive_lane(
+    symbol: str,
+    start: str,
+    end: str,
+    state_dir: str | Path,
+    results_dir: str | Path,
+    *,
+    candidate_budget: int,
+    source_sha: str,
+    feature_provider=None,
+    evaluator_fn=None,
+    max_adaptive_trials: int = 200,
+) -> dict[str, Any]:
+    symbol = str(symbol).upper()
+    state_dir = Path(state_dir)
+    results_dir = Path(results_dir)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    failure_memory = FailureMemory(state_dir / "failure_memory.jsonl")
+    controller = AdaptiveProposalController(failure_memory)
+
+    result = run_generation(
+        [symbol],
+        str(start),
+        str(end),
+        state_dir,
+        results_dir,
+        candidate_budget=int(candidate_budget),
+        source_sha=str(source_sha),
+        feature_provider=feature_provider,
+        evaluator_fn=evaluator_fn,
+        proposal_provider=controller.proposals,
+        max_adaptive_trials=int(max_adaptive_trials),
+    )
+    records = _read_trial_records(state_dir / "trials.jsonl")
+    feedback_written = controller.feedback(records)
+    return {
+        "status": "SUCCESS" if symbol not in result.errors else "DEGRADED",
+        "symbol": symbol,
+        "generation": result.generation,
+        "evidence_epoch_id": result.evidence_epoch_id,
+        "snapshot_hash": result.snapshot_hash,
+        "trials_attempted": result.trials_attempted.get(symbol, 0),
+        "promotions": list(result.promotions.get(symbol, [])),
+        "errors": dict(result.errors),
+        "allocation": dict(controller.last_allocation),
+        "failure_feedback_written": int(feedback_written),
+        "summary_path": result.summary_path,
+        "research_only": True,
+        "production_execution_authority": False,
+    }
