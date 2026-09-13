@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from g9.research_lanes import aggregate_lane_payloads, build_lane_plan
 
 
@@ -52,3 +54,14 @@ def test_lane_outputs_are_single_writer_inputs_not_shared_state_writes():
         "g9-lane-ETHUSDT",
     ]
     assert all(row.state_write_authority is False for row in plan)
+
+
+def test_cloud_workflow_publishes_stable_evidence_only_from_canonical_pool():
+    root = Path(__file__).resolve().parents[3]
+    text = (root / ".github/workflows/g9-continuous-research.yml").read_text(encoding="utf-8")
+    assert "build_evidence_manifest_from_pool" in text
+    assert "expected_source_sha=expected_sha_by_symbol" in text
+    assert "expected_sha_by_symbol" in text
+    assert "build_brain_snapshot(" not in text
+    assert "cancel-in-progress: false" in text
+    assert "research/g9-continuous-state" in text

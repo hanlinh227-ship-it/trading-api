@@ -9,7 +9,8 @@ from typing import Mapping
 
 from .app import create_http_server, seconds_until_next_minute
 from .provider_binance import BinancePublicMinuteProvider
-from .provider_gateway import GatewayMinuteProvider
+from .provider_bybit import BybitPublicMinuteProvider
+from .provider_chain import FailoverMinuteProvider
 from .storage import FileLease, JsonSnapshotSink
 from .worker import MinuteWorker
 
@@ -26,7 +27,6 @@ DEFAULT_SYMBOLS = (
     "ADAUSDT",
     "XLMUSDT",
 )
-DEFAULT_GATEWAY_URL = "https://crypto-research-gateway-prod-production.up.railway.app"
 
 
 @dataclass
@@ -75,18 +75,26 @@ def _symbols_from_env(value: str | None) -> tuple[str, ...]:
     return symbols
 
 
-def _provider_from_env(env: Mapping[str, str], *, symbols: tuple[str, ...], source_sha: str):
-    mode = str(env.get("G9_PROVIDER_MODE", "gateway")).strip().lower()
-    if mode == "gateway":
-        return GatewayMinuteProvider(
-            symbols=symbols,
-            source_sha=source_sha,
-            base_url=env.get("G9_RESEARCH_GATEWAY_URL", DEFAULT_GATEWAY_URL),
-            timeout_seconds=float(env.get("G9_PROVIDER_TIMEOUT_SECONDS", "8")),
-        )
-    if mode == "binance_direct":
-        return BinancePublicMinuteProvider(symbols=symbols, source_sha=source_sha)
-    raise ValueError("G9_PROVIDER_MODE must be gateway or binance_direct")
+def _default_provider(symbols: tuple[str, ...], env: Mapping[str, str]):
+    order = tuple(
+        part.strip().lower()
+        for part in env.get("G9_PROVIDER_ORDER", "bybit,binance").split(",")
+        if part.strip()
+    )
+    if not order or len(set(order)) != len(order):
+        raise ValueError("G9_PROVIDER_ORDER must contain unique provider names")
+    factories = {
+        "bybit": lambda: BybitPublicMinuteProvider(symbols=symbols),
+        "binance": lambda: BinancePublicMinuteProvider(symbols=symbols),
+    }
+    providers = []
+    for name in order:
+        factory = factories.get(name)
+        if factory is None:
+            raise ValueError(f"unsupported G9 minute provider: {name}")
+        label = "BYBIT_PUBLIC_LINEAR" if name == "bybit" else "BINANCE_PUBLIC_USD_M"
+        providers.append((label, factory()))
+    return FailoverMinuteProvider(providers)
 
 
 def build_runtime(env: Mapping[str, str], *, provider=None) -> G9Runtime:
@@ -95,7 +103,7 @@ def build_runtime(env: Mapping[str, str], *, provider=None) -> G9Runtime:
     source_sha = (
         env.get("DEPLOYMENT_SOURCE_SHA")
         or env.get("RAILWAY_GIT_COMMIT_SHA")
-        or "UNKNOWN"
+        or "unknown"
     )
     host = env.get("HOST", "0.0.0.0")
     port = int(env.get("PORT", "8080"))
@@ -103,7 +111,7 @@ def build_runtime(env: Mapping[str, str], *, provider=None) -> G9Runtime:
 
     sink = JsonSnapshotSink(data_dir)
     lease = FileLease(data_dir / "minute.lock")
-    provider = provider or _provider_from_env(env, symbols=symbols, source_sha=source_sha)
+    provider = provider or _default_provider(symbols, env)
     worker = MinuteWorker(
         provider=provider,
         sink=sink,

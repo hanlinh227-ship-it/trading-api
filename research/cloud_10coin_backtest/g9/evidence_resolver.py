@@ -4,11 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from .data_contract import validate_envelope
-from .manifest import KIND, PRODUCTION_STRATEGY, SCHEMA_VERSION, compute_manifest_hash
+from .manifest import validate_evidence_manifest
 
 
-_VALID_STATUSES = {"RESEARCH_ONLY", "CERTIFIED_RESEARCH", "QUARANTINED"}
 _LIVE_FRESHNESS = {"FRESH", "DEGRADED"}
 
 
@@ -20,69 +18,6 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"invalid evidence manifest: {path}")
     return payload
-
-
-def _embedded_contract_errors(payload: Mapping[str, Any], *, field: str) -> list[str]:
-    contract = payload.get(field)
-    if not isinstance(contract, Mapping):
-        return [f"{field.upper()}_MISSING"]
-    errors = [f"{field.upper()}:{item}" for item in validate_envelope(contract)]
-    body = {key: value for key, value in payload.items() if key != field}
-    if contract.get("payload") != body:
-        errors.append(f"{field.upper()}:PAYLOAD_MISMATCH")
-    return errors
-
-
-def _manifest_errors(payload: Mapping[str, Any]) -> list[str]:
-    errors: list[str] = []
-    if payload.get("schema_version") != SCHEMA_VERSION:
-        errors.append("SCHEMA_VERSION_INVALID")
-    if payload.get("kind") != KIND:
-        errors.append("KIND_INVALID")
-    if payload.get("research_only") is not True:
-        errors.append("RESEARCH_ONLY_REQUIRED")
-    if payload.get("production_execution_authority") is not False:
-        errors.append("EXECUTION_AUTHORITY_FORBIDDEN")
-
-    authority = payload.get("authority")
-    if not isinstance(authority, Mapping):
-        errors.append("AUTHORITY_INVALID")
-    else:
-        if authority.get("execution") != "none":
-            errors.append("EXECUTION_AUTHORITY_FORBIDDEN")
-        if authority.get("production_strategy") != PRODUCTION_STRATEGY:
-            errors.append("PRODUCTION_STRATEGY_MISMATCH")
-
-    source_sha = payload.get("source_sha")
-    if not isinstance(source_sha, str) or not source_sha:
-        errors.append("SOURCE_SHA_REQUIRED")
-
-    symbols = payload.get("symbols")
-    if not isinstance(symbols, Mapping) or not symbols:
-        errors.append("SYMBOLS_REQUIRED")
-    else:
-        for symbol, raw_row in symbols.items():
-            if not isinstance(raw_row, Mapping):
-                errors.append(f"{symbol}:ROW_INVALID")
-                continue
-            if raw_row.get("status") not in _VALID_STATUSES:
-                errors.append(f"{symbol}:STATUS_INVALID")
-            if raw_row.get("production_execution_authority") is not False:
-                errors.append(f"{symbol}:EXECUTION_AUTHORITY_FORBIDDEN")
-
-    expected = payload.get("manifest_hash")
-    if not isinstance(expected, str) or len(expected) != 64:
-        errors.append("MANIFEST_HASH_INVALID")
-    else:
-        try:
-            int(expected, 16)
-        except ValueError:
-            errors.append("MANIFEST_HASH_INVALID")
-        else:
-            if expected != compute_manifest_hash(payload):
-                errors.append("MANIFEST_HASH_MISMATCH")
-    errors.extend(_embedded_contract_errors(payload, field="data_contract"))
-    return errors
 
 
 def _metric(metrics: Mapping[str, Any], *names: str) -> float | None:
@@ -97,17 +32,12 @@ def _metric(metrics: Mapping[str, Any], *names: str) -> float | None:
     return None
 
 
-def _validate_minute_snapshot(minute_snapshot: Mapping[str, Any]) -> None:
-    errors = _embedded_contract_errors(minute_snapshot, field="data_contract")
-    if errors:
-        raise ValueError("invalid minute data contract: " + ",".join(errors))
-
-
 class EvidenceResolver:
-    """Resolve immutable research evidence plus the latest minute context.
+    """Resolve immutable stable evidence plus the latest minute context.
 
-    This adapter is deliberately read-only. It never grants execution authority and
-    never aliases historical OOS performance to model confidence or live quality.
+    Manifest validation is delegated to the canonical G9 manifest validator. This
+    adapter is read-only and never converts OOS performance into model confidence
+    or live quality, nor can it grant production execution authority.
     """
 
     def __init__(self, primary_path: str | Path, fallback_path: str | Path | None = None):
@@ -126,14 +56,13 @@ class EvidenceResolver:
             except ValueError:
                 last_errors = ["MANIFEST_READ_FAILED"]
                 continue
-            errors = _manifest_errors(payload)
+            errors = validate_evidence_manifest(payload)
             if not errors:
                 return payload, used_fallback
-            last_errors = errors
+            last_errors = [str(item).upper().replace("-", "_") for item in errors]
         raise ValueError("no verified G9 evidence manifest: " + ",".join(last_errors))
 
     def resolve_symbol(self, symbol: str, minute_snapshot: Mapping[str, Any]) -> dict[str, Any]:
-        _validate_minute_snapshot(minute_snapshot)
         manifest, used_fallback = self._load_verified()
         symbol = str(symbol).upper()
         symbols = manifest.get("symbols") or {}
@@ -151,6 +80,7 @@ class EvidenceResolver:
             entry = {}
 
         freshness = str(market.get("freshness") or "UNKNOWN").upper()
+        live_regime = str(market.get("regime") or "").upper()
         oof_metrics = evidence.get("oof_metrics")
         if not isinstance(oof_metrics, Mapping):
             oof_metrics = {}
@@ -164,12 +94,45 @@ class EvidenceResolver:
         if evidence.get("status") == "QUARANTINED":
             reason_codes.append("EVIDENCE_QUARANTINED")
 
+        routes = evidence.get("routes")
+        route_resolution_required = isinstance(routes, Mapping)
+        matching_routes: list[dict[str, Any]] = []
+        selected_route: dict[str, Any] | None = None
+        if route_resolution_required:
+            for route_id, route_value in sorted(routes.items()):
+                if not isinstance(route_value, Mapping):
+                    continue
+                route_regime = str(route_value.get("regime") or "").upper()
+                if live_regime and route_regime == live_regime:
+                    route = dict(route_value)
+                    route["route_id"] = str(route_id)
+                    matching_routes.append(route)
+
+            if not live_regime:
+                reason_codes.append("MARKET_REGIME_UNKNOWN")
+            elif not matching_routes:
+                reason_codes.append("NO_MATCHING_RESEARCH_ROUTE")
+            elif len(matching_routes) == 1:
+                selected_route = matching_routes[0]
+            else:
+                reason_codes.append("MULTIPLE_MATCHING_ROUTES")
+
         model_confidence = entry.get("model_confidence")
         live_quality = entry.get("live_quality_score")
         historical_oos = _metric(oof_metrics, "win_rate", "rr2_win_rate", "oof_win_rate")
 
+        usable_for_live_claim = freshness in _LIVE_FRESHNESS and evidence.get("status") != "QUARANTINED"
+        if route_resolution_required:
+            usable_for_live_claim = usable_for_live_claim and selected_route is not None
+            if selected_route is not None and selected_route.get("status") == "QUARANTINED":
+                usable_for_live_claim = False
+                reason_codes.append("ROUTE_EVIDENCE_QUARANTINED")
+
         return {
             "symbol": symbol,
+            "system_contract_version": manifest.get("system_contract_version"),
+            "stable_plane": manifest.get("plane"),
+            "stable_authority_level": manifest.get("authority_level"),
             "source_sha": manifest.get("source_sha"),
             "manifest_hash": manifest.get("manifest_hash"),
             "profile_hash": evidence.get("profile_hash"),
@@ -181,8 +144,11 @@ class EvidenceResolver:
             "model_confidence": model_confidence,
             "live_quality_score": live_quality,
             "market_freshness": freshness,
+            "live_regime": live_regime or None,
+            "matching_routes": matching_routes,
+            "selected_route": selected_route,
             "used_fallback": used_fallback,
-            "usable_for_live_claim": freshness in _LIVE_FRESHNESS and evidence.get("status") != "QUARANTINED",
+            "usable_for_live_claim": usable_for_live_claim,
             "reason_codes": reason_codes,
             "research_only": True,
             "production_execution_authority": False,
