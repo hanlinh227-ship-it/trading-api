@@ -10,6 +10,8 @@ from g8.ledger import TrialRecord
 
 
 SCHEMA_VERSION = 1
+BRAIN_KIND = "g8_trading_research_evidence"
+PRODUCTION_STRATEGY = "BYBIT-BTC-STATEFLOW-2.1"
 
 
 @dataclass
@@ -130,3 +132,69 @@ def load_registry(path: str | Path) -> ChampionRegistry:
         return registry
     except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
         raise ValueError(f"invalid G8 champion snapshot: {path}") from exc
+
+
+def _brain_hash(payload: dict) -> str:
+    clean = dict(payload)
+    clean.pop("snapshot_hash", None)
+    raw = json.dumps(clean, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _compact_record(record_payload: dict | None) -> tuple[dict | None, dict]:
+    if not record_payload:
+        return None, {}
+    record = TrialRecord.from_dict(record_payload)
+    return dict(record.metrics), dict(record.candidate_spec)
+
+
+def build_brain_snapshot(registry: ChampionRegistry, *, source_sha: str, data_cutoff: str) -> dict:
+    source_sha = str(source_sha)
+    data_cutoff = str(data_cutoff)
+    if not source_sha or not data_cutoff:
+        raise ValueError("source_sha and data_cutoff are required")
+
+    symbols: dict[str, dict] = {}
+    for symbol, row in sorted(registry.symbols.items()):
+        research_metrics, spec = _compact_record(row.get("research_champion"))
+        certification_metrics, _ = _compact_record(row.get("certified_champion"))
+        feature_pack = spec.get("feature_pack") or []
+        if isinstance(feature_pack, str):
+            feature_pack = [feature_pack]
+        regime = spec.get("regime")
+        family = spec.get("family")
+        side = spec.get("side")
+        calibration = spec.get("calibration")
+        generation = int(row.get("research_champion", {}).get("generation", registry.generation)) if row.get("research_champion") else int(registry.generation)
+        symbols[str(symbol).upper()] = {
+            "research_champion_id": row.get("research_champion_id"),
+            "certified_champion_id": row.get("certified_champion_id"),
+            "generation": generation,
+            "profile_hash": row.get("profile_hash"),
+            "source_sha": source_sha,
+            "data_cutoff": data_cutoff,
+            "oof_metrics": research_metrics,
+            "certification_metrics": certification_metrics,
+            "required_feature_packs": [str(x) for x in feature_pack],
+            "supported_regimes": [] if regime is None else [str(regime)],
+            "setup_families": [] if family is None else [str(family)],
+            "sides": [] if side is None else [str(side)],
+            "calibration": None if calibration is None else str(calibration),
+            "status": row.get("status", "QUARANTINED"),
+            "production_execution_authority": False,
+        }
+
+    payload = {
+        "schema_version": 1,
+        "kind": BRAIN_KIND,
+        "research_only": True,
+        "authority": {
+            "execution": "none",
+            "production_strategy": PRODUCTION_STRATEGY,
+        },
+        "source_sha": source_sha,
+        "data_cutoff": data_cutoff,
+        "symbols": symbols,
+    }
+    payload["snapshot_hash"] = _brain_hash(payload)
+    return payload
