@@ -1,0 +1,27 @@
+{
+  "job_id": "media-probe-20260914-0245",
+  "status": "SUCCESS",
+  "message": "Media capability probe completed",
+  "artifact_manifest": {
+    "capabilities": {
+      "python": {
+        "available": true,
+        "version": "3.11.9"
+      },
+      "ffmpeg": {
+        "available": true
+      },
+      "whisper": {
+        "available": true
+      },
+      "kokoro": {
+        "available": true
+      },
+      "comfyui": {
+        "available": true,
+        "endpoint": "http://127.0.0.1:8188/system_stats"
+      }
+    }
+  },
+  "completed_at": "2026-09-13T19:52:36.519533+00:00"
+}
