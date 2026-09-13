@@ -3,6 +3,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 from urllib.request import urlopen
 
+from g9.data_contract import build_envelope
 from g9_runtime.app import create_http_server, seconds_until_next_minute
 from g9_runtime.storage import JsonSnapshotSink
 from g9_runtime.worker import MinuteWorker
@@ -10,13 +11,26 @@ from g9_runtime.worker import MinuteWorker
 
 class OneShotProvider:
     def fetch_minute_state(self, now):
-        return {
+        payload = {
             "schema_version": 1,
             "kind": "g9_minute_intelligence",
             "event_time": now.isoformat(),
             "symbols": {"BTCUSDT": {"market": {"last": 77000.0}}},
             "research_only": True,
             "production_execution_authority": False,
+        }
+        return {
+            **payload,
+            "data_contract": build_envelope(
+                kind="g9_minute_intelligence",
+                source="test-one-shot-provider",
+                source_sha="test-sha",
+                event_time=now,
+                ingest_time=now,
+                freshness="FRESH",
+                payload=payload,
+                provenance={"test": True},
+            ),
         }
 
 
@@ -55,6 +69,7 @@ def test_http_runtime_exposes_health_ready_and_latest(tmp_path):
         assert ready["ready"] is True
         assert latest["event_time"] == tick_time.isoformat()
         assert latest["production_execution_authority"] is False
+        assert latest["data_contract"]["authority"]["execution"] == "none"
     finally:
         server.shutdown()
         server.server_close()
