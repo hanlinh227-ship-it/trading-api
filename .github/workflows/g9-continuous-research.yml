@@ -1,0 +1,351 @@
+name: G9 Continuous Parallel Research
+
+on:
+  schedule:
+    - cron: '37 * * * *'
+  workflow_dispatch:
+    inputs:
+      candidate_budget:
+        description: Bounded adaptive challengers per coin
+        required: false
+        default: '4'
+  push:
+    branches:
+      - research/g9-continuous-trading-intelligence-20260913
+    paths:
+      - '.github/workflows/g9-continuous-research.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: g9-continuous-parallel-research
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: '3.13'
+  G9_STATE_BRANCH: research/g9-continuous-state
+  G9_START: '2024-01-01'
+  G9_SYMBOLS: BTCUSDT,ETHUSDT,BNBUSDT,XRPUSDT,SOLUSDT,TRXUSDT,DOGEUSDT,LINKUSDT,ADAUSDT,XLMUSDT
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - run: pip install -r research/cloud_10coin_backtest/requirements.txt 'PyYAML>=6,<7'
+      - name: G9 targeted contracts
+        working-directory: research/cloud_10coin_backtest
+        run: PYTHONPATH=. pytest tests/test_g9_*.py -q
+      - name: Full research regression
+        working-directory: research/cloud_10coin_backtest
+        run: PYTHONPATH=. pytest tests -q
+      - name: Brain V4 validation
+        run: python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$GITHUB_SHA"
+
+  lane:
+    name: research ${{ matrix.symbol }}
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol:
+          - BTCUSDT
+          - ETHUSDT
+          - BNBUSDT
+          - XRPUSDT
+          - SOLUSDT
+          - TRXUSDT
+          - DOGEUSDT
+          - LINKUSDT
+          - ADAUSDT
+          - XLMUSDT
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - run: pip install -r research/cloud_10coin_backtest/requirements.txt
+      - name: Restore this coin lane only
+        shell: bash
+        env:
+          SYMBOL: ${{ matrix.symbol }}
+        run: |
+          set -euo pipefail
+          lane="research/cloud_10coin_backtest/g9_state/lanes/$SYMBOL"
+          mkdir -p "$lane"
+          if git fetch origin "$G9_STATE_BRANCH:refs/remotes/origin/$G9_STATE_BRANCH" 2>/dev/null; then
+            mapfile -t files < <(git ls-tree -r --name-only "origin/$G9_STATE_BRANCH" -- "$lane" || true)
+            for path in "${files[@]}"; do
+              mkdir -p "$(dirname "$path")"
+              git show "origin/$G9_STATE_BRANCH:$path" > "$path"
+            done
+          fi
+      - name: Resolve causal cutoff
+        id: window
+        shell: bash
+        run: |
+          END_DATE="$(date -u -d 'yesterday' +%F)"
+          echo "end_date=$END_DATE" >> "$GITHUB_OUTPUT"
+      - name: Run isolated adaptive lane
+        id: lane_run
+        shell: bash
+        env:
+          SYMBOL: ${{ matrix.symbol }}
+          END_DATE: ${{ steps.window.outputs.end_date }}
+          CANDIDATE_BUDGET: ${{ inputs.candidate_budget || '4' }}
+        run: |
+          set +e
+          cd research/cloud_10coin_backtest
+          mkdir -p "g9_state/lanes/$SYMBOL" "g9_results/$SYMBOL"
+          output="$(PYTHONPATH=. python run_g9_lane.py \
+            --symbol "$SYMBOL" \
+            --start "$G9_START" \
+            --end "$END_DATE" \
+            --state-dir "g9_state/lanes/$SYMBOL" \
+            --results-dir "g9_results/$SYMBOL" \
+            --candidate-budget "$CANDIDATE_BUDGET" \
+            --source-sha "$GITHUB_SHA" 2>&1)"
+          status=$?
+          printf '%s\n' "$output"
+          mkdir -p "g9_lane_status/$SYMBOL"
+          if [ "$status" -eq 0 ]; then
+            json="$(printf '%s\n' "$output" | sed -n 's/^G9_LANE_JSON=//p' | tail -1)"
+            if [ -z "$json" ]; then
+              json="{\"status\":\"FAILED\",\"symbol\":\"$SYMBOL\",\"error\":\"missing-lane-json\"}"
+            fi
+          else
+            escaped="$(printf '%s' "$output" | tail -20 | python -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
+            json="{\"status\":\"FAILED\",\"symbol\":\"$SYMBOL\",\"error\":$escaped}"
+          fi
+          printf '%s\n' "$json" > "g9_lane_status/$SYMBOL/lane.json"
+          exit 0
+      - name: Stage isolated artifact
+        shell: bash
+        env:
+          SYMBOL: ${{ matrix.symbol }}
+        run: |
+          set -euo pipefail
+          mkdir -p "g9-artifact/research/cloud_10coin_backtest/g9_state/lanes/$SYMBOL"
+          mkdir -p "g9-artifact/research/cloud_10coin_backtest/g9_results/$SYMBOL"
+          mkdir -p "g9-artifact/research/cloud_10coin_backtest/g9_lane_status/$SYMBOL"
+          cp -a "research/cloud_10coin_backtest/g9_state/lanes/$SYMBOL/." \
+            "g9-artifact/research/cloud_10coin_backtest/g9_state/lanes/$SYMBOL/" || true
+          cp -a "research/cloud_10coin_backtest/g9_results/$SYMBOL/." \
+            "g9-artifact/research/cloud_10coin_backtest/g9_results/$SYMBOL/" || true
+          cp "research/cloud_10coin_backtest/g9_lane_status/$SYMBOL/lane.json" \
+            "g9-artifact/research/cloud_10coin_backtest/g9_lane_status/$SYMBOL/lane.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g9-lane-${{ matrix.symbol }}
+          path: g9-artifact/
+          if-no-files-found: error
+          retention-days: 7
+
+  aggregate:
+    name: single-writer aggregate
+    needs: lane
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      end_date: ${{ steps.window.outputs.end_date }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -r research/cloud_10coin_backtest/requirements.txt 'PyYAML>=6,<7'
+      - name: Restore prior aggregate state as fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p generated
+          if git fetch origin "$G9_STATE_BRANCH:refs/remotes/origin/$G9_STATE_BRANCH" 2>/dev/null; then
+            for prefix in research/cloud_10coin_backtest/g9_state research/cloud_10coin_backtest/g9_results AI_SKILL_LIBRARY/v4/evergreen/candidate_state; do
+              mapfile -t files < <(git ls-tree -r --name-only "origin/$G9_STATE_BRANCH" -- "$prefix" || true)
+              for path in "${files[@]}"; do
+                mkdir -p "generated/$(dirname "$path")"
+                git show "origin/$G9_STATE_BRANCH:$path" > "generated/$path"
+              done
+            done
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: g9-lane-*
+          path: generated
+          merge-multiple: true
+      - name: Resolve aggregate cutoff
+        id: window
+        shell: bash
+        run: |
+          END_DATE="$(date -u -d 'yesterday' +%F)"
+          echo "end_date=$END_DATE" >> "$GITHUB_OUTPUT"
+      - name: Merge registries, champion pool, and stable evidence
+        shell: bash
+        env:
+          END_DATE: ${{ steps.window.outputs.end_date }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="research/cloud_10coin_backtest:." python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from g8.registry import ChampionRegistry, build_brain_snapshot, load_registry, publish_snapshot
+          from g9.aggregator import merge_lane_registries, update_champion_pool_from_registry
+          from g9.champion_pool import ChampionPool, load_pool, publish_pool
+          from g9.manifest import build_evidence_manifest
+          from AI_SKILL_LIBRARY.v4.tools.validate_g9_trading_evidence import validate_manifest
+
+          root = Path('generated')
+          symbols = os.environ['G9_SYMBOLS'].split(',')
+          state_root = root / 'research/cloud_10coin_backtest/g9_state'
+          state_root.mkdir(parents=True, exist_ok=True)
+
+          previous_path = state_root / 'combined_champions.json'
+          previous = load_registry(previous_path) if previous_path.exists() else None
+          lane_registries = {}
+          for symbol in symbols:
+              path = state_root / 'lanes' / symbol / 'champions.json'
+              status_path = root / 'research/cloud_10coin_backtest/g9_lane_status' / symbol / 'lane.json'
+              lane_ok = False
+              if status_path.exists():
+                  try:
+                      lane_ok = json.loads(status_path.read_text()).get('status') in {'SUCCESS', 'DEGRADED'}
+                  except Exception:
+                      lane_ok = False
+              if lane_ok and path.exists():
+                  try:
+                      lane_registries[symbol] = load_registry(path)
+                  except ValueError:
+                      pass
+
+          merged, statuses = merge_lane_registries(symbols, lane_registries, previous=previous)
+          publish_snapshot(previous_path, merged)
+
+          pool_path = state_root / 'champion_pool.json'
+          pool = load_pool(pool_path) if pool_path.exists() else ChampionPool.empty()
+          pool_promotions = update_champion_pool_from_registry(pool, merged)
+          publish_pool(pool_path, pool)
+
+          snapshot = build_brain_snapshot(
+              merged,
+              source_sha=os.environ['GITHUB_SHA'],
+              data_cutoff=os.environ['END_DATE'],
+          )
+          epochs = {}
+          for symbol, row in merged.symbols.items():
+              record = row.get('research_champion') or {}
+              ids = record.get('evidence_window_ids') or []
+              epochs[symbol] = ids[0] if ids else None
+          manifest = build_evidence_manifest(
+              snapshot,
+              source_sha=os.environ['GITHUB_SHA'],
+              evidence_epochs=epochs,
+          )
+          errors = validate_manifest(manifest)
+          if errors:
+              raise SystemExit('invalid G9 evidence manifest: ' + ','.join(errors))
+          evidence_path = root / 'AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json'
+          evidence_path.parent.mkdir(parents=True, exist_ok=True)
+          evidence_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+
+          aggregate_path = state_root / 'aggregate_status.json'
+          aggregate_path.write_text(json.dumps({
+              'source_sha': os.environ['GITHUB_SHA'],
+              'data_cutoff': os.environ['END_DATE'],
+              'lane_status': statuses,
+              'updated_lanes': sum(v == 'UPDATED' for v in statuses.values()),
+              'pool_promotions': pool_promotions,
+              'research_only': True,
+              'production_execution_authority': False,
+          }, indent=2, sort_keys=True) + '\n')
+          PY
+      - name: Validate generated evidence
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          import json
+          from pathlib import Path
+          from AI_SKILL_LIBRARY.v4.tools.validate_g9_trading_evidence import validate_manifest
+          p = Path('generated/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json')
+          errors = validate_manifest(json.loads(p.read_text()))
+          if errors:
+              raise SystemExit(','.join(errors))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g9-aggregate-${{ github.run_id }}
+          path: generated/
+          if-no-files-found: error
+          retention-days: 7
+
+  persist-state:
+    name: persist G9 research state
+    needs: aggregate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: g9-aggregate-${{ github.run_id }}
+          path: generated
+      - uses: actions/checkout@v4
+        with:
+          ref: research/g9-continuous-state
+          path: state-branch
+          fetch-depth: 1
+      - name: Commit only generated G9 research evidence/state
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p state-branch/research/cloud_10coin_backtest/g9_state
+          mkdir -p state-branch/research/cloud_10coin_backtest/g9_results
+          mkdir -p state-branch/AI_SKILL_LIBRARY/v4/evergreen/candidate_state
+          cp -a generated/research/cloud_10coin_backtest/g9_state/. state-branch/research/cloud_10coin_backtest/g9_state/
+          cp -a generated/research/cloud_10coin_backtest/g9_results/. state-branch/research/cloud_10coin_backtest/g9_results/ || true
+          cp generated/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json \
+             state-branch/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json
+          cd state-branch
+          git config user.name 'g9-brainloop[bot]'
+          git config user.email 'g9-brainloop[bot]@users.noreply.github.com'
+          git add research/cloud_10coin_backtest/g9_state \
+                  research/cloud_10coin_backtest/g9_results \
+                  AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json
+          if git diff --cached --quiet; then
+            echo 'No G9 state changes to persist.'
+            exit 0
+          fi
+          git commit -m "chore: persist G9 parallel research $GITHUB_RUN_ID"
+          git push origin HEAD:research/g9-continuous-state
+
+  summary:
+    needs: [aggregate, persist-state]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish research summary
+        run: |
+          {
+            echo '## G9 Continuous Parallel Research'
+            echo
+            echo '- Ten coin lanes run independently with fail-fast disabled.'
+            echo '- Only the aggregate job owns shared champion/evidence writes.'
+            echo '- Failed/missing lanes preserve prior state.'
+            echo '- Production execution authority: **NONE**.'
+            echo '- Minute market intelligence remains a separate Railway plane.'
+          } >> "$GITHUB_STEP_SUMMARY"
