@@ -23,6 +23,8 @@ RELEASE_FILES: tuple[tuple[str, str], ...] = (
     ("AI_SKILL_LIBRARY/v4/stable/harmonization.yaml", "harmonization"),
     ("AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml", "capability_fusion"),
     ("AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml", "creative_visual_fusion"),
+    ("AI_SKILL_LIBRARY/v4/stable/presentation.yaml", "presentation"),
+    ("AI_SKILL_LIBRARY/v4/stable/display_names.yaml", "display_names"),
     ("AI_SKILL_LIBRARY/v4/mesh/graph.yaml", "mesh"),
     ("AI_SKILL_LIBRARY/v4/mesh/bridges.yaml", "bridges"),
     ("AI_SKILL_LIBRARY/v4/runtime/routing_aliases.yaml", "routing_aliases"),
@@ -249,7 +251,6 @@ def build_release(root: Path, version: str, *, source: str, validated: bool, kno
     manifest_path = inside(root, f"AI_SKILL_LIBRARY/v4/releases/{version}/manifest.yaml")
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(_dump_manifest(manifest), encoding="utf-8")
-    # Verify the written manifest BEFORE the pointer/history are touched so a failure leaves them intact.
     errors, _ = verify_release(root, version)
     if errors:
         raise ValueError("release build produced an invalid manifest: " + "; ".join(errors))
