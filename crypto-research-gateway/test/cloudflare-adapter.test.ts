@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createResearchGatewayHandler } from '../../cloudflare-worker/research-gateway.js';
+import { buildDataEnvelope, validateDataEnvelope } from '../src/normalization/data-contract.js';
 
 function fakeRuntime() {
   return {
@@ -31,6 +32,39 @@ function degradedRuntime() {
     probeAll: async () => ({}),
     runMarket: async () => ({ ok: false, degraded: true, error: 'provider_bridge_fetch_failed' }),
   };
+}
+
+function withRailwayContract(raw: Record<string, unknown>) {
+  const dataContract = buildDataEnvelope({
+    kind: 'crypto_market_research',
+    source: 'crypto-research-gateway',
+    sourceSha: 'railway-sha',
+    eventTime: '2026-09-13T17:30:00.000Z',
+    ingestTime: '2026-09-13T17:30:00.100Z',
+    freshness: raw.degraded === true ? 'DEGRADED' : 'FRESH',
+    payload: raw,
+    provenance: { providers: ['bybit'] },
+  });
+  return { ...raw, dataContract };
+}
+
+function goodFallbackQuote(overrides: Record<string, unknown> = {}) {
+  return withRailwayContract({
+    ok: true,
+    degraded: false,
+    executionQuote: {
+      executionVerified: true,
+      status: 'OK',
+      venue: 'bybit',
+      instrumentType: 'perpetual',
+      side: 'LONG',
+      bid: 100,
+      ask: 101,
+      executablePrice: 101,
+      quoteAgeMs: 25,
+      ...overrides,
+    },
+  });
 }
 
 describe('Cloudflare research gateway adapter', () => {
@@ -68,7 +102,7 @@ describe('Cloudflare research gateway adapter', () => {
     expect(response?.status).toBe(400);
   });
 
-  it('normalizes and forwards a valid venue-bound execution quote request', async () => {
+  it('normalizes and forwards a valid request with a verified edge contract', async () => {
     const handle = createResearchGatewayHandler({ runtime: fakeRuntime() as never, now: () => 2_000 });
     const response = await handle(new Request('https://worker.test/research/market', {
       method: 'POST',
@@ -76,13 +110,15 @@ describe('Cloudflare research gateway adapter', () => {
       body: JSON.stringify({ action: 'execution_quote', symbol: 'btcusdt', instrument: 'perpetual', side: 'LONG', executionVenue: 'bybit' }),
     }), { RUNTIME_REVISION: 'sha-1' });
     expect(response?.status).toBe(200);
-    const body = await response?.json() as { echo: Record<string, unknown> };
+    const body = await response?.json() as Record<string, any>;
     expect(body.echo.symbol).toBe('BTCUSDT');
     expect(body.echo.side).toBe('LONG');
     expect(body.echo.executionVenue).toBe('bybit');
+    expect(validateDataEnvelope(body.dataContract)).toEqual([]);
+    expect(body.dataContract.production_execution_authority).toBe(false);
   });
 
-  it('fails over only a degraded Bybit-bound request through the Railway safety path using the canonical quote schema', async () => {
+  it('fails over a degraded Bybit request only when Railway supplies a valid contract', async () => {
     let fallbackCalls = 0;
     const fallbackFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       fallbackCalls += 1;
@@ -90,41 +126,25 @@ describe('Cloudflare research gateway adapter', () => {
       expect(init?.method).toBe('POST');
       const requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
       expect(requestBody.executionVenue).toBe('bybit');
-      return new Response(JSON.stringify({
-        ok: true,
-        degraded: false,
-        executionQuote: {
-          executionVerified: true,
-          status: 'OK',
-          venue: 'bybit',
-          instrumentType: 'perpetual',
-          side: 'LONG',
-          bid: 100,
-          ask: 101,
-          executablePrice: 101,
-          quoteAgeMs: 25,
-        },
-      }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify(goodFallbackQuote()), { status: 200, headers: { 'content-type': 'application/json' } });
     };
-    const handle = createResearchGatewayHandler({
-      runtime: degradedRuntime() as never,
-      now: () => 2_000,
-      fallbackFetch,
-    });
+    const handle = createResearchGatewayHandler({ runtime: degradedRuntime() as never, now: () => 2_000, fallbackFetch });
     const response = await handle(new Request('https://worker.test/research/market', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ action: 'execution_quote', symbol: 'BTCUSDT', instrument: 'perpetual', side: 'LONG', executionVenue: 'bybit' }),
     }), { RUNTIME_REVISION: 'sha-1' });
     expect(response?.status).toBe(200);
-    const body = await response?.json() as Record<string, unknown>;
+    const body = await response?.json() as Record<string, any>;
     expect(body.ok).toBe(true);
     expect(body.edgeRuntimeProvider).toBe('cloudflare-workers');
     expect(body.upstreamFallback).toBe('railway');
+    expect(body.upstreamDataContract.payload_hash).toBeTruthy();
+    expect(validateDataEnvelope(body.dataContract)).toEqual([]);
     expect(fallbackCalls).toBe(1);
   });
 
-  it('rejects a fallback quote whose instrumentType does not match the request', async () => {
+  it('rejects a Railway fallback response with no data contract', async () => {
     const handle = createResearchGatewayHandler({
       runtime: degradedRuntime() as never,
       now: () => 2_000,
@@ -135,7 +155,7 @@ describe('Cloudflare research gateway adapter', () => {
           executionVerified: true,
           status: 'OK',
           venue: 'bybit',
-          instrumentType: 'spot',
+          instrumentType: 'perpetual',
           side: 'LONG',
           bid: 100,
           ask: 101,
@@ -152,25 +172,25 @@ describe('Cloudflare research gateway adapter', () => {
     expect(response?.status).toBe(503);
   });
 
+  it('rejects a fallback quote whose instrumentType does not match the request', async () => {
+    const handle = createResearchGatewayHandler({
+      runtime: degradedRuntime() as never,
+      now: () => 2_000,
+      fallbackFetch: async () => new Response(JSON.stringify(goodFallbackQuote({ instrumentType: 'spot' })), { status: 200, headers: { 'content-type': 'application/json' } }),
+    });
+    const response = await handle(new Request('https://worker.test/research/market', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'execution_quote', symbol: 'BTCUSDT', instrument: 'perpetual', side: 'LONG', executionVenue: 'bybit' }),
+    }), { RUNTIME_REVISION: 'sha-1' });
+    expect(response?.status).toBe(503);
+  });
+
   it('rejects a stale Railway safety quote and preserves the degraded response', async () => {
     const handle = createResearchGatewayHandler({
       runtime: degradedRuntime() as never,
       now: () => 2_000,
-      fallbackFetch: async () => new Response(JSON.stringify({
-        ok: true,
-        degraded: false,
-        executionQuote: {
-          executionVerified: true,
-          status: 'OK',
-          venue: 'bybit',
-          instrumentType: 'perpetual',
-          side: 'LONG',
-          bid: 100,
-          ask: 101,
-          executablePrice: 101,
-          quoteAgeMs: 5_001,
-        },
-      }), { status: 200, headers: { 'content-type': 'application/json' } }),
+      fallbackFetch: async () => new Response(JSON.stringify(goodFallbackQuote({ quoteAgeMs: 5_001 })), { status: 200, headers: { 'content-type': 'application/json' } }),
     });
     const response = await handle(new Request('https://worker.test/research/market', {
       method: 'POST',
