@@ -80,6 +80,7 @@ class EvidenceResolver:
             entry = {}
 
         freshness = str(market.get("freshness") or "UNKNOWN").upper()
+        live_regime = str(market.get("regime") or "").upper()
         oof_metrics = evidence.get("oof_metrics")
         if not isinstance(oof_metrics, Mapping):
             oof_metrics = {}
@@ -93,9 +94,39 @@ class EvidenceResolver:
         if evidence.get("status") == "QUARANTINED":
             reason_codes.append("EVIDENCE_QUARANTINED")
 
+        routes = evidence.get("routes")
+        route_resolution_required = isinstance(routes, Mapping)
+        matching_routes: list[dict[str, Any]] = []
+        selected_route: dict[str, Any] | None = None
+        if route_resolution_required:
+            for route_id, route_value in sorted(routes.items()):
+                if not isinstance(route_value, Mapping):
+                    continue
+                route_regime = str(route_value.get("regime") or "").upper()
+                if live_regime and route_regime == live_regime:
+                    route = dict(route_value)
+                    route["route_id"] = str(route_id)
+                    matching_routes.append(route)
+
+            if not live_regime:
+                reason_codes.append("MARKET_REGIME_UNKNOWN")
+            elif not matching_routes:
+                reason_codes.append("NO_MATCHING_RESEARCH_ROUTE")
+            elif len(matching_routes) == 1:
+                selected_route = matching_routes[0]
+            else:
+                reason_codes.append("MULTIPLE_MATCHING_ROUTES")
+
         model_confidence = entry.get("model_confidence")
         live_quality = entry.get("live_quality_score")
         historical_oos = _metric(oof_metrics, "win_rate", "rr2_win_rate", "oof_win_rate")
+
+        usable_for_live_claim = freshness in _LIVE_FRESHNESS and evidence.get("status") != "QUARANTINED"
+        if route_resolution_required:
+            usable_for_live_claim = usable_for_live_claim and selected_route is not None
+            if selected_route is not None and selected_route.get("status") == "QUARANTINED":
+                usable_for_live_claim = False
+                reason_codes.append("ROUTE_EVIDENCE_QUARANTINED")
 
         return {
             "symbol": symbol,
@@ -113,8 +144,11 @@ class EvidenceResolver:
             "model_confidence": model_confidence,
             "live_quality_score": live_quality,
             "market_freshness": freshness,
+            "live_regime": live_regime or None,
+            "matching_routes": matching_routes,
+            "selected_route": selected_route,
             "used_fallback": used_fallback,
-            "usable_for_live_claim": freshness in _LIVE_FRESHNESS and evidence.get("status") != "QUARANTINED",
+            "usable_for_live_claim": usable_for_live_claim,
             "reason_codes": reason_codes,
             "research_only": True,
             "production_execution_authority": False,
