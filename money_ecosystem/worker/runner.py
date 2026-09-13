@@ -44,13 +44,30 @@ def _head(repo_root: Path) -> str:
     return result.stdout.strip()
 
 
+def _worker_code_changed(repo_root: Path, before: str, after: str) -> bool:
+    if before == after:
+        return False
+    result = _git(
+        repo_root,
+        "diff",
+        "--name-only",
+        before,
+        after,
+        "--",
+        "money_ecosystem/worker",
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"git diff failed: {result.stdout.strip()}")
+    return bool(result.stdout.strip())
+
+
 def sync_from_remote(repo_root: Path, branch: str) -> bool:
     before = _head(repo_root)
     result = _git(repo_root, "pull", "--rebase", "origin", branch)
     if result.returncode != 0:
         raise RuntimeError(f"git pull --rebase failed: {result.stdout.strip()}")
     after = _head(repo_root)
-    return before != after
+    return _worker_code_changed(repo_root, before, after)
 
 
 def _restart_self() -> None:
@@ -78,9 +95,6 @@ def push_results(repo_root: Path, branch: str) -> None:
         if commit.returncode != 0:
             raise RuntimeError(f"git commit failed: {commit.stdout.strip()}")
 
-    # A signer/request commit may land while the worker is rendering. Rebase the
-    # local result commit onto the newest remote head before pushing. This also
-    # recovers a result commit stranded by a previous non-fast-forward push.
     rebase = _git(repo_root, "pull", "--rebase", "origin", branch)
     if rebase.returncode != 0:
         raise RuntimeError(f"git pull --rebase before push failed: {rebase.stdout.strip()}")
@@ -129,8 +143,6 @@ def main() -> int:
             if sync_from_remote(repo_root, args.branch):
                 _restart_self()
             run_once(queue, repo_root)
-            # Always retry publication. A previous push may have failed after the
-            # result was marked seen, so result delivery cannot depend on a new job.
             push_results(repo_root, args.branch)
         except Exception as exc:
             print(f"Worker cycle error: {exc}")
