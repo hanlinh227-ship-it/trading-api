@@ -15,17 +15,26 @@ candidate_intake:
   require:
     - provenance
     - license_or_usage_status
+    - maintenance_status
     - declared_domain
     - declared_capabilities
     - risk_class
+    - permission_ceiling
     - overlap_scan
     - conflict_scan
+    - performance_impact
+    - authority_impact
     - eval_impact
+    - strengthen_existing_skill_first
   reject_if:
     - hidden_permission_expansion
     - credential_or_secret_material
     - unverifiable_runtime_claim
     - duplicate_authority_without_adapter_need
+    - unresolved_license_for_active_registry
+    - archived_source_presented_as_current_without_explicit_historical_scope
+    - fast_path_external_call_expansion
+    - unbounded_context_or_execution_growth
 
 normalization:
   before_comparison: true
@@ -34,13 +43,19 @@ normalization:
     - task_intent
     - authority_level
     - risk_class
+    - permission_ceiling
     - input_contract
     - output_contract
     - tools
     - sources
+    - provenance
+    - license_or_usage_status
+    - maintenance_status
     - freshness_semantics
     - units_and_scale
     - runtime_requirements
+    - context_cost
+    - latency_cost
 
 skill_deduplication:
   canonical_skill_first: true
@@ -48,6 +63,10 @@ skill_deduplication:
   prefer_alias_or_adapter_over_duplicate_reasoning_skill: true
   allow_new_primary_skill_only_when_distinct_capability_is_material: true
   never_stack_equivalent_skills_as_votes: true
+  new_skill_requires_unique_input_output_contract: true
+  new_skill_requires_no_trigger_owner_conflict: true
+  new_skill_requires_measured_eval_gain: true
+  default_skill_count_growth: deny
 
 conflict_resolution:
   use_registry_conflict_policy: true
@@ -55,6 +74,35 @@ conflict_resolution:
   silent_averaging: false
   unresolved_material_conflict: disclose_and_block_dependent_high_consequence_conclusion
   security_or_permission_conflict: fail_closed
+
+bottleneck_prevention:
+  required_for_upgrade: true
+  checks:
+    context_cost:
+      bounded: true
+      reject_unbounded_preload: true
+    fast_latency:
+      preserve_zero_extra_revision: true
+      preserve_zero_external_routing_calls: true
+      no_synchronous_upstream_refresh: true
+      no_new_mandatory_semantic_stage: true
+    duplicate_capability:
+      strengthen_existing_skill_first: true
+      reject_parallel_reasoning_authority: true
+    trigger_ownership:
+      one_trigger_owner: true
+      alias_instead_of_competing_primary: true
+    authority_overlap:
+      current_project_authority_wins: true
+      stable_security_wins: true
+    permission_ceiling:
+      widening_requires_separate_explicit_design: true
+      unknown_write_capability: fail_closed
+    source_health:
+      maintenance_status_required: true
+      license_status_required: true
+      stale_or_archived_requires_explicit_scope: true
+  promotion_blocked_on_unresolved_bottleneck: true
 
 cognitive_execution:
   budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
@@ -94,6 +142,8 @@ promotion:
   require_security_check: true
   require_eval_check: true
   require_validator_check: true
+  require_bottleneck_check: true
+  require_license_and_maintenance_check: true
   financial_or_credential_permission_expansion_never_auto_promotes: true
 
 future_upgrade_contract:
@@ -107,3 +157,6 @@ future_upgrade_contract:
   checkpoint_resolved_policy_required: true
   do_not_create_parallel_brain: true
   do_not_replace_project_authority_silently: true
+  active_source_requires_verified_license_and_maintenance: true
+  reference_only_source_cannot_gain_routing_authority: true
+  preserve_zero_local_normal_operation: true
