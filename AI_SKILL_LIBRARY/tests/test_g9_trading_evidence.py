@@ -42,3 +42,23 @@ def test_validator_rejects_tampered_manifest_hash():
     payload = _valid_payload()
     payload["symbols"]["BTCUSDT"]["profile_hash"] = "tampered"
     assert "manifest-hash-mismatch" in validate_snapshot(payload)
+
+
+def test_validator_rejects_wrong_system_plane_even_with_rehashed_manifest():
+    from research.cloud_10coin_backtest.g9.manifest import compute_manifest_hash
+
+    payload = _valid_payload()
+    payload["plane"] = "LIVE_CONTEXT"
+    payload["manifest_hash"] = compute_manifest_hash(payload)
+    errors = validate_snapshot(payload)
+    assert "plane-invalid" in errors
+
+
+def test_validator_rejects_wrong_system_authority_level():
+    from research.cloud_10coin_backtest.g9.manifest import compute_manifest_hash
+
+    payload = _valid_payload()
+    payload["authority_level"] = "LIVE_CONTEXT"
+    payload["manifest_hash"] = compute_manifest_hash(payload)
+    errors = validate_snapshot(payload)
+    assert "authority-level-invalid" in errors
