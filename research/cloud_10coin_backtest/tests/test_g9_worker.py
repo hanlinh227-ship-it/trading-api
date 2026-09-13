@@ -1,0 +1,70 @@
+from datetime import datetime, timedelta, timezone
+
+from g9_runtime.worker import MinuteWorker
+
+
+class FakeProvider:
+    def __init__(self, fail=False):
+        self.fail = fail
+        self.calls = 0
+
+    def fetch_minute_state(self, now):
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("provider-down")
+        return {"event_time": now.isoformat(), "symbols": {"BTCUSDT": {"last": 77000.0}}}
+
+
+class MemorySink:
+    def __init__(self):
+        self.rows = []
+
+    def write(self, payload):
+        self.rows.append(payload)
+
+
+def test_worker_ticks_monotonically_and_exposes_health():
+    provider = FakeProvider()
+    sink = MemorySink()
+    now = datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc)
+    worker = MinuteWorker(provider=provider, sink=sink, source_sha="abc123", max_failures=3)
+
+    first = worker.run_tick(now)
+    second = worker.run_tick(now + timedelta(minutes=1))
+
+    assert first["status"] == "SUCCESS"
+    assert second["tick_sequence"] == first["tick_sequence"] + 1
+    assert len(sink.rows) == 2
+    health = worker.health(now + timedelta(minutes=1, seconds=5))
+    assert health["source_sha"] == "abc123"
+    assert health["last_successful_tick"] == second["completed_at"]
+    assert health["snapshot_age_seconds"] == 5.0
+    assert health["production_execution_authority"] is False
+
+
+def test_worker_skips_overlapping_tick():
+    worker = MinuteWorker(provider=FakeProvider(), sink=MemorySink(), source_sha="abc123")
+    assert worker._tick_lock.acquire(blocking=False)
+    try:
+        result = worker.run_tick(datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc))
+    finally:
+        worker._tick_lock.release()
+    assert result["status"] == "SKIPPED_OVERLAP"
+
+
+def test_worker_opens_circuit_after_bounded_provider_failures():
+    provider = FakeProvider(fail=True)
+    now = datetime(2026, 9, 13, 15, 0, tzinfo=timezone.utc)
+    worker = MinuteWorker(
+        provider=provider,
+        sink=MemorySink(),
+        source_sha="abc123",
+        max_failures=2,
+        backoff_seconds=60,
+    )
+    assert worker.run_tick(now)["status"] == "FAILED"
+    assert worker.run_tick(now + timedelta(seconds=1))["status"] == "FAILED"
+    calls_after_failures = provider.calls
+    blocked = worker.run_tick(now + timedelta(seconds=2))
+    assert blocked["status"] == "CIRCUIT_OPEN"
+    assert provider.calls == calls_after_failures
