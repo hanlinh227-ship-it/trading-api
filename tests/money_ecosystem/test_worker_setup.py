@@ -15,3 +15,9 @@ def test_windows_start_script_has_watchdog_restart_loop():
     assert "Worker exited unexpectedly" in script
     assert "Start-Sleep -Seconds 3" in script
     assert "-1073741510" in script
+
+
+def test_windows_setup_configures_repo_local_git_identity():
+    script = Path("money_ecosystem/worker/setup_windows.ps1").read_text(encoding="utf-8")
+    assert 'git config user.name "Curious Beyond Worker"' in script
+    assert 'git config user.email "curious-beyond-worker@users.noreply.github.com"' in script
