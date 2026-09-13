@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -35,10 +37,25 @@ def _git(repo_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def sync_from_remote(repo_root: Path, branch: str) -> None:
+def _head(repo_root: Path) -> str:
+    result = _git(repo_root, "rev-parse", "HEAD")
+    if result.returncode != 0:
+        raise RuntimeError(f"git rev-parse failed: {result.stdout.strip()}")
+    return result.stdout.strip()
+
+
+def sync_from_remote(repo_root: Path, branch: str) -> bool:
+    before = _head(repo_root)
     result = _git(repo_root, "pull", "--ff-only", "origin", branch)
     if result.returncode != 0:
         raise RuntimeError(f"git pull failed: {result.stdout.strip()}")
+    after = _head(repo_root)
+    return before != after
+
+
+def _restart_self() -> None:
+    print("Worker code updated; restarting to load new code...")
+    os.execv(sys.executable, [sys.executable, *sys.argv])
 
 
 def push_results(repo_root: Path, branch: str) -> None:
@@ -58,8 +75,6 @@ def push_results(repo_root: Path, branch: str) -> None:
 
 
 def _load_secret(secret_file: Path) -> bytes:
-    # Windows PowerShell 5 may create UTF-8 files with a BOM. utf-8-sig
-    # consumes that marker so the local HMAC key matches the GitHub secret.
     secret = secret_file.read_text(encoding="utf-8-sig").strip()
     if len(secret) < 32:
         raise ValueError("Worker secret must be at least 32 characters")
@@ -84,7 +99,8 @@ def main() -> int:
 
     while True:
         try:
-            sync_from_remote(repo_root, args.branch)
+            if sync_from_remote(repo_root, args.branch):
+                _restart_self()
             if run_once(queue, repo_root):
                 push_results(repo_root, args.branch)
         except Exception as exc:
