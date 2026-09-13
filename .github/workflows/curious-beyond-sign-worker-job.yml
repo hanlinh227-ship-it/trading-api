@@ -1,0 +1,53 @@
+name: Curious Beyond - Sign Worker Job
+
+on:
+  push:
+    branches:
+      - ai-money-ecosystem-autopilot-v1
+    paths:
+      - worker_jobs/requests/current.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: curious-beyond-worker-signer
+  cancel-in-progress: false
+
+jobs:
+  sign-worker-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: ai-money-ecosystem-autopilot-v1
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Sign current request
+        env:
+          CURIOUS_WORKER_HMAC_KEY: ${{ secrets.CURIOUS_WORKER_HMAC_KEY }}
+        run: >-
+          python -m money_ecosystem.worker.signer
+          --request worker_jobs/requests/current.json
+          --output worker_jobs/signed/current.json
+          --secret-env CURIOUS_WORKER_HMAC_KEY
+
+      - name: Commit signed envelope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "curious-beyond-worker-bot"
+          git config user.email "curious-beyond-worker-bot@users.noreply.github.com"
+          git add worker_jobs/signed/current.json
+          if git diff --cached --quiet; then
+            echo "Signed envelope already current."
+            exit 0
+          fi
+          git commit -m "worker: sign approved request"
+          git push origin HEAD:ai-money-ecosystem-autopilot-v1
