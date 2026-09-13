@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import logging
 import threading
 from typing import Any, Protocol
+
+
+logger = logging.getLogger(__name__)
 
 
 class MinuteProvider(Protocol):
@@ -82,6 +86,7 @@ class MinuteWorker:
             except Exception as exc:
                 self._consecutive_failures += 1
                 self._last_error = f"{type(exc).__name__}:{exc}"
+                logger.warning("g9-minute-provider-failure %s", self._last_error)
                 if self._consecutive_failures >= self.max_failures:
                     self._circuit_open_until = now + timedelta(seconds=self.backoff_seconds)
                 return {
