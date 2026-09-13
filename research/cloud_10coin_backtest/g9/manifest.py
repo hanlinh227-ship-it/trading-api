@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import hashlib
 import json
 from typing import Any, Mapping
+
+from .data_contract import build_envelope
 
 
 SCHEMA_VERSION = 1
@@ -13,6 +16,7 @@ PRODUCTION_STRATEGY = "BYBIT-BTC-STATEFLOW-2.1"
 def _canonical_without_hash(payload: Mapping[str, Any]) -> dict[str, Any]:
     clean = dict(payload)
     clean.pop("manifest_hash", None)
+    clean.pop("data_contract", None)
     return clean
 
 
@@ -24,6 +28,21 @@ def compute_manifest_hash(payload: Mapping[str, Any]) -> str:
         allow_nan=False,
     )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _cutoff_time(value: Any) -> datetime:
+    text = str(value or "")
+    if not text:
+        raise ValueError("data_cutoff is required")
+    try:
+        if len(text) == 10:
+            return datetime.fromisoformat(text + "T00:00:00+00:00")
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("data_cutoff must be ISO-8601 compatible") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def build_evidence_manifest(
@@ -79,4 +98,15 @@ def build_evidence_manifest(
         "symbols": symbols,
     }
     payload["manifest_hash"] = compute_manifest_hash(payload)
+    cutoff = _cutoff_time(payload["data_cutoff"])
+    payload["data_contract"] = build_envelope(
+        kind=KIND,
+        source="g9-research-aggregator",
+        source_sha=source_sha,
+        event_time=cutoff,
+        ingest_time=cutoff,
+        freshness="UNKNOWN",
+        payload={key: value for key, value in payload.items() if key != "data_contract"},
+        provenance={"parent_snapshot_hash": parent_hash},
+    )
     return payload
