@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from .data_contract import validate_envelope
 from .manifest import KIND, PRODUCTION_STRATEGY, SCHEMA_VERSION, compute_manifest_hash
 
 
@@ -84,6 +85,18 @@ def _metric(metrics: Mapping[str, Any], *names: str) -> float | None:
     return None
 
 
+def _validate_minute_snapshot(minute_snapshot: Mapping[str, Any]) -> None:
+    contract = minute_snapshot.get("data_contract")
+    if not isinstance(contract, Mapping):
+        raise ValueError("invalid minute data contract: missing")
+    errors = validate_envelope(contract)
+    if errors:
+        raise ValueError("invalid minute data contract: " + ",".join(errors))
+    body = {key: value for key, value in minute_snapshot.items() if key != "data_contract"}
+    if contract.get("payload") != body:
+        raise ValueError("invalid minute data contract: payload-mismatch")
+
+
 class EvidenceResolver:
     """Resolve immutable research evidence plus the latest minute context.
 
@@ -114,6 +127,7 @@ class EvidenceResolver:
         raise ValueError("no verified G9 evidence manifest: " + ",".join(last_errors))
 
     def resolve_symbol(self, symbol: str, minute_snapshot: Mapping[str, Any]) -> dict[str, Any]:
+        _validate_minute_snapshot(minute_snapshot)
         manifest, used_fallback = self._load_verified()
         symbol = str(symbol).upper()
         symbols = manifest.get("symbols") or {}
