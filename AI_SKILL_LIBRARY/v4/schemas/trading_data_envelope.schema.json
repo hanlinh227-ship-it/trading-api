@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hanlinh227-ship-it/trading-api/AI_SKILL_LIBRARY/v4/schemas/trading_data_envelope.schema.json",
+  "title": "Trading Data Envelope",
+  "description": "Canonical research-evidence boundary contract shared by Railway, Cloudflare, G9 research and Brain V4. It never grants production execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "kind",
+    "source",
+    "source_sha",
+    "event_time",
+    "ingest_time",
+    "freshness",
+    "authority",
+    "research_only",
+    "production_execution_authority",
+    "provenance",
+    "payload",
+    "payload_hash"
+  ],
+  "properties": {
+    "contract_version": {"const": 1},
+    "kind": {"type": "string", "minLength": 1},
+    "source": {"type": "string", "minLength": 1},
+    "source_sha": {"type": "string", "minLength": 1},
+    "event_time": {"type": "string", "format": "date-time"},
+    "ingest_time": {"type": "string", "format": "date-time"},
+    "freshness": {"enum": ["FRESH", "DEGRADED", "STALE", "UNKNOWN"]},
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "execution"],
+      "properties": {
+        "scope": {"const": "research_evidence"},
+        "execution": {"const": "none"}
+      }
+    },
+    "research_only": {"const": true},
+    "production_execution_authority": {"const": false},
+    "provenance": {"type": "object"},
+    "payload": {},
+    "payload_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

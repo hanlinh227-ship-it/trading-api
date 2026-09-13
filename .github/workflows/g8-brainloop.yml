@@ -1,0 +1,231 @@
+name: G8 Continuous BrainLoop
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      candidate_budget:
+        description: Bounded challengers per coin
+        required: false
+        default: '4'
+  push:
+    branches:
+      - research/cloud-10coin-g8-brainloop-20260913
+    paths:
+      - '.github/workflows/g8-brainloop.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: g8-brainloop-research
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: '3.13'
+  G8_STATE_BRANCH: research/g8-brainloop-state
+  G8_SYMBOLS: BTCUSDT,ETHUSDT,BNBUSDT,XRPUSDT,SOLUSDT,TRXUSDT,DOGEUSDT,LINKUSDT,ADAUSDT,XLMUSDT
+  G8_START: '2024-01-01'
+
+jobs:
+  test:
+    name: verify research contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - name: Install research and Brain validation requirements
+        run: pip install -r research/cloud_10coin_backtest/requirements.txt 'PyYAML>=6,<7'
+      - name: G8 targeted tests
+        working-directory: research/cloud_10coin_backtest
+        run: PYTHONPATH=. pytest tests/test_g8_*.py -q
+      - name: Full research regression
+        working-directory: research/cloud_10coin_backtest
+        run: PYTHONPATH=. pytest tests -q
+      - name: Brain snapshot contract
+        run: PYTHONPATH=. pytest AI_SKILL_LIBRARY/tests/test_g8_champion_snapshot.py -q
+      - name: Skill-library canonical validation
+        run: python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$GITHUB_SHA"
+
+  loop:
+    name: run one bounded generation
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    outputs:
+      end_date: ${{ steps.window.outputs.end_date }}
+      generation_json: ${{ steps.run_loop.outputs.generation_json }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - name: Install research requirements
+        run: pip install -r research/cloud_10coin_backtest/requirements.txt
+      - name: Restore prior G8 state only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$G8_STATE_BRANCH:refs/remotes/origin/$G8_STATE_BRANCH"
+          prefix='research/cloud_10coin_backtest/g8_state/'
+          mapfile -t files < <(git ls-tree -r --name-only "origin/$G8_STATE_BRANCH" -- research/cloud_10coin_backtest/g8_state || true)
+          for path in "${files[@]}"; do
+            [[ "$path" == "$prefix"* ]] || continue
+            mkdir -p "$(dirname "$path")"
+            git show "origin/$G8_STATE_BRANCH:$path" > "$path"
+          done
+          echo "Restored ${#files[@]} state files from $G8_STATE_BRANCH"
+      - name: Resolve causal data cutoff
+        id: window
+        shell: bash
+        run: |
+          set -euo pipefail
+          END_DATE="$(date -u -d 'yesterday' +%F)"
+          echo "end_date=$END_DATE" >> "$GITHUB_OUTPUT"
+          echo "G8 causal cutoff: $END_DATE"
+      - name: Run bounded ten-coin G8 generation
+        id: run_loop
+        shell: bash
+        env:
+          CANDIDATE_BUDGET: ${{ inputs.candidate_budget || '4' }}
+          END_DATE: ${{ steps.window.outputs.end_date }}
+        run: |
+          set -euo pipefail
+          cd research/cloud_10coin_backtest
+          output="$(PYTHONPATH=. python run_g8_loop.py \
+            --symbols "$G8_SYMBOLS" \
+            --start "$G8_START" \
+            --end "$END_DATE" \
+            --candidate-budget "$CANDIDATE_BUDGET" \
+            --state-dir g8_state \
+            --results-dir g8_results \
+            --source-sha "$GITHUB_SHA")"
+          echo "$output"
+          json="$(printf '%s\n' "$output" | sed -n 's/^G8_GENERATION_JSON=//p' | tail -1)"
+          test -n "$json"
+          echo "generation_json=$json" >> "$GITHUB_OUTPUT"
+      - name: Build and validate compact Brain evidence snapshot
+        shell: bash
+        env:
+          END_DATE: ${{ steps.window.outputs.end_date }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH="research/cloud_10coin_backtest:." python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from g8.registry import build_brain_snapshot, load_registry
+          from AI_SKILL_LIBRARY.v4.tools.validate_g8_champion_snapshot import validate_snapshot
+
+          registry = load_registry(Path('research/cloud_10coin_backtest/g8_state/champions.json'))
+          payload = build_brain_snapshot(
+              registry,
+              source_sha=os.environ['GITHUB_SHA'],
+              data_cutoff=os.environ['END_DATE'],
+          )
+          errors = validate_snapshot(payload)
+          if errors:
+              raise SystemExit('invalid G8 Brain snapshot: ' + ','.join(errors))
+          path = Path('AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g8_trading_champions.json')
+          path.parent.mkdir(parents=True, exist_ok=True)
+          tmp = path.with_name(path.name + '.tmp')
+          tmp.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          tmp.replace(path)
+          print('G8_BRAIN_SNAPSHOT=' + str(path))
+          PY
+      - name: Stage generated research state for persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf g8-persist
+          mkdir -p g8-persist/research/cloud_10coin_backtest/g8_state
+          mkdir -p g8-persist/research/cloud_10coin_backtest/g8_results
+          mkdir -p g8-persist/AI_SKILL_LIBRARY/v4/evergreen/candidate_state
+          cp -a research/cloud_10coin_backtest/g8_state/. g8-persist/research/cloud_10coin_backtest/g8_state/
+          cp -a research/cloud_10coin_backtest/g8_results/. g8-persist/research/cloud_10coin_backtest/g8_results/
+          cp AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g8_trading_champions.json \
+            g8-persist/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g8_trading_champions.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g8-state-${{ github.run_id }}
+          path: g8-persist/
+          if-no-files-found: error
+          retention-days: 7
+
+  persist-state:
+    name: persist research state branch
+    needs: loop
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: g8-state-${{ github.run_id }}
+          path: generated
+      - uses: actions/checkout@v4
+        with:
+          ref: research/g8-brainloop-state
+          path: state-branch
+          fetch-depth: 1
+      - name: Commit generated state only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p state-branch/research/cloud_10coin_backtest/g8_state
+          mkdir -p state-branch/research/cloud_10coin_backtest/g8_results
+          mkdir -p state-branch/AI_SKILL_LIBRARY/v4/evergreen/candidate_state
+          cp -a generated/research/cloud_10coin_backtest/g8_state/. state-branch/research/cloud_10coin_backtest/g8_state/
+          cp -a generated/research/cloud_10coin_backtest/g8_results/. state-branch/research/cloud_10coin_backtest/g8_results/
+          cp generated/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g8_trading_champions.json \
+            state-branch/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g8_trading_champions.json
+          cd state-branch
+          git config user.name 'g8-brainloop[bot]'
+          git config user.email 'g8-brainloop[bot]@users.noreply.github.com'
+          git add research/cloud_10coin_backtest/g8_state \
+            research/cloud_10coin_backtest/g8_results \
+            AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g8_trading_champions.json
+          if git diff --cached --quiet; then
+            echo 'No G8 state changes to persist.'
+            exit 0
+          fi
+          git commit -m "chore: persist G8 generation $GITHUB_RUN_ID"
+          git push origin HEAD:research/g8-brainloop-state
+
+  summary:
+    name: publish generation summary
+    needs: [loop, persist-state]
+    if: always() && needs.loop.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write run summary
+        shell: bash
+        env:
+          GENERATION_JSON: ${{ needs.loop.outputs.generation_json }}
+          END_DATE: ${{ needs.loop.outputs.end_date }}
+          PERSIST_RESULT: ${{ needs.persist-state.result }}
+        run: |
+          {
+            echo '## G8 Continuous BrainLoop'
+            echo
+            echo "- Causal data cutoff: $END_DATE"
+            echo "- State persistence: $PERSIST_RESULT"
+            echo '- Production execution authority: **NONE**'
+            echo '- Research-only champion evidence is updated only after validation.'
+            echo
+            echo '```json'
+            echo "$GENERATION_JSON"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

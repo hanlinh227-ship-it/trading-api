@@ -1,6 +1,7 @@
 import {ResearchRuntime} from '../crypto-research-gateway/src/research.ts';
 import {PROVIDERS} from '../crypto-research-gateway/src/providers/index.ts';
 import {BybitProvider} from '../crypto-research-gateway/src/providers/bybit.ts';
+import {buildDataEnvelope,computePayloadHash,validateDataEnvelope} from '../crypto-research-gateway/src/normalization/data-contract.ts';
 import {createBybitBridgeFetchJson} from './research-bybit-transport.js';
 
 const SERVICE_NAME='crypto-research-gateway';
@@ -74,6 +75,45 @@ async function parseJsonBody(request){
   return JSON.parse(text);
 }
 
+function freshnessForResult(result){
+  if(result?.ok!==true)return 'UNKNOWN';
+  return result?.degraded===true?'DEGRADED':'FRESH';
+}
+
+function resultEventTime(result,nowMs){
+  const observations=Array.isArray(result?.observations)?result.observations:[];
+  const timestamps=observations
+    .map(item=>Number(item?.sourceTimestampMs))
+    .filter(value=>Number.isFinite(value)&&value>=0);
+  return new Date(timestamps.length?Math.max(...timestamps):nowMs).toISOString();
+}
+
+function withEdgeDataContract(result,env,nowMs,provenance={}){
+  const body={...result};
+  delete body.dataContract;
+  const dataContract=buildDataEnvelope({
+    kind:'crypto_market_research_edge',
+    source:'cloudflare-research-gateway',
+    sourceSha:String(env.RUNTIME_REVISION||'UNKNOWN'),
+    eventTime:resultEventTime(body,nowMs),
+    ingestTime:new Date(nowMs).toISOString(),
+    freshness:freshnessForResult(body),
+    payload:body,
+    provenance,
+  });
+  return {...body,dataContract};
+}
+
+function validUpstreamDataContract(payload){
+  if(!payload||typeof payload!=='object'||Array.isArray(payload))return false;
+  const contract=payload.dataContract;
+  if(!contract||typeof contract!=='object'||Array.isArray(contract))return false;
+  if(validateDataEnvelope(contract).length>0)return false;
+  const body={...payload};
+  delete body.dataContract;
+  return computePayloadHash(body)===contract.payload_hash;
+}
+
 function shouldUseBybitSafetyFallback(input,result){
   if(!result||result.ok!==false||result.degraded!==true)return false;
   if(input.action!=='execution_quote')return false;
@@ -111,10 +151,15 @@ async function runBybitSafetyFallback(input,result,{fallbackFetch,fallbackGatewa
     if(encoder.encode(text).byteLength>MAX_BODY_BYTES)return null;
     const payload=JSON.parse(text);
     if(!payload||typeof payload!=='object'||payload.ok!==true)return null;
+    if(!validUpstreamDataContract(payload))return null;
     const quote=payload.executionQuote;
     if(!isValidFallbackExecutionQuote(input,quote))return null;
+    const upstreamDataContract=payload.dataContract;
+    const body={...payload};
+    delete body.dataContract;
     return {
-      ...payload,
+      ...body,
+      upstreamDataContract,
       edgeRuntimeProvider:'cloudflare-workers',
       upstreamFallback:'railway',
       fallbackReason:String(result.error||result.reason||'cloudflare_bybit_degraded').slice(0,160),
@@ -185,9 +230,13 @@ export function createResearchGatewayHandler({
     if(!input)return json({ok:false,degraded:false,error:'invalid_research_request'},400);
     await ensureHealth();
     const result=await runtime.runMarket(input);
+    const nowMs=now();
     const fallback=await runBybitSafetyFallback(input,result,{fallbackFetch,fallbackGatewayUrl});
-    if(fallback)return json(fallback,200);
-    return json(result,result?.degraded===true&&result?.ok===false?503:200);
+    if(fallback){
+      return json(withEdgeDataContract(fallback,env,nowMs,{upstream:'railway',upstreamPayloadHash:fallback.upstreamDataContract?.payload_hash??null}),200);
+    }
+    const finalResult=withEdgeDataContract(result,env,nowMs,{runtime:'cloudflare-workers'});
+    return json(finalResult,result?.degraded===true&&result?.ok===false?503:200);
   };
 }
 

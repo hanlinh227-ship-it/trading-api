@@ -1,0 +1,204 @@
+name: G7 Research CI
+
+on:
+  push:
+    branches:
+      - research/cloud-10coin-g7-regime-router-20260913
+  workflow_dispatch:
+
+concurrency:
+  group: g7-research-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: research/cloud_10coin_backtest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: G7 targeted tests
+        run: PYTHONPATH=. pytest tests/test_g7_*.py -q
+      - name: Full regression suite
+        run: PYTHONPATH=. pytest tests -q
+
+  smoke:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: research/cloud_10coin_backtest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: G7 BTC real-data smoke
+        shell: bash
+        run: |
+          set -o pipefail
+          PYTHONPATH=. python run.py \
+            --generation g7 \
+            --symbols BTCUSDT \
+            --start 2025-01-01 \
+            --end 2026-08-31 \
+            --smoke \
+            --results-dir results-smoke | tee g7-btc-smoke.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g7-btc-smoke
+          path: |
+            research/cloud_10coin_backtest/g7-btc-smoke.log
+            research/cloud_10coin_backtest/results-smoke
+          retention-days: 14
+
+  backtest:
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        symbol:
+          - BTCUSDT
+          - ETHUSDT
+          - BNBUSDT
+          - XRPUSDT
+          - SOLUSDT
+          - TRXUSDT
+          - DOGEUSDT
+          - LINKUSDT
+          - ADAUSDT
+          - XLMUSDT
+    defaults:
+      run:
+        working-directory: research/cloud_10coin_backtest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Backtest ${{ matrix.symbol }}
+        shell: bash
+        run: |
+          set -o pipefail
+          PYTHONPATH=. python run.py \
+            --generation g7 \
+            --symbols ${{ matrix.symbol }} \
+            --start 2024-01-01 \
+            --end 2026-08-31 \
+            --results-dir results-${{ matrix.symbol }} | tee g7-${{ matrix.symbol }}.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g7-${{ matrix.symbol }}
+          path: |
+            research/cloud_10coin_backtest/g7-${{ matrix.symbol }}.log
+            research/cloud_10coin_backtest/results-${{ matrix.symbol }}
+          retention-days: 14
+
+  aggregate:
+    needs: backtest
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: g7-*USDT
+          path: matrix-results
+          merge-multiple: false
+      - name: Aggregate G7 hard gate
+        shell: python
+        run: |
+          import csv
+          import json
+          from pathlib import Path
+
+          symbols = [
+              "BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "SOLUSDT",
+              "TRXUSDT", "DOGEUSDT", "LINKUSDT", "ADAUSDT", "XLMUSDT",
+          ]
+          target_wr = 0.80
+          min_trades = 100
+          rows = []
+
+          for symbol in symbols:
+              base = Path("matrix-results") / f"g7-{symbol}" / f"results-{symbol}"
+              summary_path = base / "coin_summary.csv"
+              profile_path = base / "profiles.json"
+              if not summary_path.exists():
+                  rows.append({"symbol": symbol, "status": "MISSING", "hard_pass": False})
+                  continue
+
+              with summary_path.open(newline="") as handle:
+                  data = next(csv.DictReader(handle), None)
+              if not data:
+                  rows.append({"symbol": symbol, "status": "MISSING", "hard_pass": False})
+                  continue
+
+              completed = int(float(data.get("completed_trades") or 0))
+              rr2_wr = float(data.get("rr2_wr") or 0.0)
+              expectancy = float(data.get("expectancy_r") or 0.0)
+              status = data.get("status") or "UNKNOWN"
+              qualified_routes = 0
+              total_routes = 0
+              if profile_path.exists():
+                  profiles = json.loads(profile_path.read_text())
+                  profile = profiles.get(symbol) or {}
+                  params = profile.get("params") or {}
+                  routes = params.get("routes") or []
+                  total_routes = len(routes)
+                  qualified_routes = sum(bool(route.get("qualified")) for route in routes)
+
+              hard_pass = (
+                  status == "PASS"
+                  and completed >= min_trades
+                  and rr2_wr >= target_wr
+                  and expectancy > 0.0
+              )
+              rows.append({
+                  "symbol": symbol,
+                  "status": status,
+                  "completed_trades": completed,
+                  "rr2_wr": rr2_wr,
+                  "expectancy_r": expectancy,
+                  "qualified_routes": qualified_routes,
+                  "total_routes": total_routes,
+                  "bottlenecks": data.get("bottlenecks") or "",
+                  "hard_pass": hard_pass,
+              })
+
+          pass_count = sum(bool(row.get("hard_pass")) for row in rows)
+          summary = {
+              "generation": "g7",
+              "target_wr": target_wr,
+              "min_completed_trades": min_trades,
+              "pass_count": pass_count,
+              "total": len(rows),
+              "all_pass": len(rows) == len(symbols) and pass_count == len(symbols),
+              "rows": rows,
+          }
+          Path("g7-aggregate.json").write_text(json.dumps(summary, indent=2, sort_keys=True))
+          print("G7_AGGREGATE=" + json.dumps(summary, sort_keys=True))
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g7-aggregate
+          path: g7-aggregate.json
+          retention-days: 30
