@@ -42,8 +42,8 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
-      - name: Install research requirements
-        run: pip install -r research/cloud_10coin_backtest/requirements.txt
+      - name: Install research and Brain validation requirements
+        run: pip install -r research/cloud_10coin_backtest/requirements.txt 'PyYAML>=6,<7'
       - name: G8 targeted tests
         working-directory: research/cloud_10coin_backtest
         run: PYTHONPATH=. pytest tests/test_g8_*.py -q
