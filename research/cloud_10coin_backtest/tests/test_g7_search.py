@@ -63,7 +63,7 @@ def test_filter_locked_geometry_keeps_only_exact_route_geometry():
     kept = filter_locked_geometry(candidates, f, risk_atr=1.2, hold_bars=144)
     assert len(kept) == 1
     assert kept[0].max_hold_bars == 144
-    assert abs(kept[0].entry - kept[0].stop) == 1.2
+    assert abs(kept[0].entry - kept[0].stop) == pytest.approx(1.2)
 
 
 def test_dedupe_scored_candidates_keeps_highest_quality_per_signal():
