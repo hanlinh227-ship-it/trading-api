@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - research/g9-continuous-trading-intelligence-20260913
+      - research/g9-system-harmonization-20260913
   workflow_dispatch:
 
 permissions:
