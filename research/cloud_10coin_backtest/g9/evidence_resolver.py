@@ -22,6 +22,17 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _embedded_contract_errors(payload: Mapping[str, Any], *, field: str) -> list[str]:
+    contract = payload.get(field)
+    if not isinstance(contract, Mapping):
+        return [f"{field.upper()}_MISSING"]
+    errors = [f"{field.upper()}:{item}" for item in validate_envelope(contract)]
+    body = {key: value for key, value in payload.items() if key != field}
+    if contract.get("payload") != body:
+        errors.append(f"{field.upper()}:PAYLOAD_MISMATCH")
+    return errors
+
+
 def _manifest_errors(payload: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
     if payload.get("schema_version") != SCHEMA_VERSION:
@@ -70,6 +81,7 @@ def _manifest_errors(payload: Mapping[str, Any]) -> list[str]:
         else:
             if expected != compute_manifest_hash(payload):
                 errors.append("MANIFEST_HASH_MISMATCH")
+    errors.extend(_embedded_contract_errors(payload, field="data_contract"))
     return errors
 
 
@@ -86,15 +98,9 @@ def _metric(metrics: Mapping[str, Any], *names: str) -> float | None:
 
 
 def _validate_minute_snapshot(minute_snapshot: Mapping[str, Any]) -> None:
-    contract = minute_snapshot.get("data_contract")
-    if not isinstance(contract, Mapping):
-        raise ValueError("invalid minute data contract: missing")
-    errors = validate_envelope(contract)
+    errors = _embedded_contract_errors(minute_snapshot, field="data_contract")
     if errors:
         raise ValueError("invalid minute data contract: " + ",".join(errors))
-    body = {key: value for key, value in minute_snapshot.items() if key != "data_contract"}
-    if contract.get("payload") != body:
-        raise ValueError("invalid minute data contract: payload-mismatch")
 
 
 class EvidenceResolver:
