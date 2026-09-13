@@ -13,6 +13,7 @@ from engine.metrics import summarize_outcomes
 from features.state import build_features
 from optimize.search import CoinResearchResult, search_coin, search_coin_g2
 from optimize.search_g3 import search_coin_g3
+from optimize.search_g4 import search_coin_g4
 from reporting import build_manifest, write_report
 
 
@@ -60,7 +61,9 @@ def run_batch(symbols: list[str], start: str, end: str, smoke: bool = False, res
     cfg = replace(DEFAULT_CONFIG, start=start, end=end, results_dir=results_dir or DEFAULT_CONFIG.results_dir)
     audits: dict[str, dict] = {}
     results: list[CoinResearchResult] = []
-    if generation == "g3":
+    if generation == "g4":
+        search_fn = search_coin_g4
+    elif generation == "g3":
         search_fn = search_coin_g3
     elif generation == "g2":
         search_fn = search_coin_g2
@@ -108,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--start", default=DEFAULT_CONFIG.start)
     p.add_argument("--end", default=_default_end())
     p.add_argument("--smoke", action="store_true")
-    p.add_argument("--generation", choices=("g1", "g2", "g3"), default="g2")
+    p.add_argument("--generation", choices=("g1", "g2", "g3", "g4"), default="g2")
     p.add_argument("--results-dir", default=str(DEFAULT_CONFIG.results_dir))
     return p
 
