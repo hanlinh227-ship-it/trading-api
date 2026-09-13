@@ -6,4 +6,11 @@ skills: [game_development, game_design, godot, unity, game_ai, game_2d, game_3d]
 legacy_aliases: [game_dev]
 permissions: [read_only, reversible_write]
 risk_ceiling: reversible_write
-evals: [game_design, engine_constraints]
+evals: [game_design, engine_constraints, game_runtime_validation]
+quality_requirements:
+  engine_constraints_preserved: true
+  runtime_reproduction_when_possible: true
+  debugger_or_log_check_when_available: true
+  input_behavior_check_when_relevant: true
+  visual_state_validation_when_available: true
+  reversible_change_preferred: true

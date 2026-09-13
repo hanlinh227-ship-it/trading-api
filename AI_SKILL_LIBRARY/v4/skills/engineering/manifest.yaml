@@ -6,4 +6,11 @@ skills: [coding, debugging, tdd, software_architecture, github, api, database, s
 legacy_aliases: [software_engineering, debugging_tdd, platform_engineering]
 permissions: [read_only, reversible_write]
 risk_ceiling: destructive_with_explicit_approval
-evals: [engineering_correctness, engineering_tdd, engineering_security, skill_contract_integrity, capability_eval_quality]
+evals: [engineering_correctness, engineering_tdd, engineering_security, skill_contract_integrity, capability_eval_quality, repository_workflow, adversarial_prompt_resistance, source_license_provenance]
+quality_requirements:
+  repository_grounding: true
+  isolate_changes_before_merge: true
+  verification_before_completion: true
+  review_feedback_loop_when_material: true
+  bounded_context: true
+  upstream_reference_is_not_authority: true

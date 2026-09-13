@@ -6,4 +6,13 @@ skills: [design_3d, modeling, topology, uv, materials, lighting, rigging, animat
 legacy_aliases: [design_3d_blender]
 permissions: [read_only]
 risk_ceiling: read_only
-evals: [geometry, topology, rendering, asset_export_validation]
+evals: [geometry, topology, rendering, asset_export_validation, asset_validation_3d]
+quality_requirements:
+  file_schema_integrity_when_applicable: true
+  geometry_integrity: true
+  transform_scale_normals: true
+  topology_manifold_when_relevant: true
+  material_uv_animation_when_relevant: true
+  multi_view_validation_when_available: true
+  export_reimport_integrity_when_relevant: true
+  no_silent_asset_mutation: true

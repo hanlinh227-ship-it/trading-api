@@ -6,4 +6,11 @@ skills: [prompt_engineering, image_prompt, video_prompt, negative_constraints, p
 legacy_aliases: [image_video_generation, generative_media]
 permissions: [read_only]
 risk_ceiling: read_only
-evals: [constraint_preservation, character_consistency, scene_continuity, camera_direction]
+evals: [constraint_preservation, character_consistency, scene_continuity, camera_direction, prompt_regression]
+quality_requirements:
+  explicit_objective: true
+  measurable_success_criteria_when_iterating: true
+  preserve_unaffected_constraints: true
+  isolate_failure_cause_before_revision: true
+  no_false_generation_guarantee: true
+  identity_and_count_constraints_when_material: true
