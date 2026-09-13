@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import datetime, timedelta
 import logging
 import threading
 from typing import Any, Protocol
+
+from g9.system_contract import SYSTEM_CONTRACT_VERSION
 
 
 logger = logging.getLogger(__name__)
@@ -20,6 +23,32 @@ class SnapshotSink(Protocol):
 class Lease(Protocol):
     def acquire(self) -> bool: ...
     def release(self) -> None: ...
+
+
+def _seal_live_snapshot(payload: dict[str, Any], *, source_sha: str, now: datetime) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("minute provider payload must be object")
+    if payload.get("production_execution_authority") is not False:
+        raise ValueError("provider execution authority escalation forbidden")
+    if "research_only" in payload and payload.get("research_only") is not True:
+        raise ValueError("minute provider must remain research-only")
+
+    expected = {
+        "system_contract_version": SYSTEM_CONTRACT_VERSION,
+        "plane": "LIVE_CONTEXT",
+        "authority_level": "LIVE_CONTEXT",
+        "source_sha": str(source_sha),
+    }
+    for key, value in expected.items():
+        if key in payload and payload.get(key) != value:
+            raise ValueError(f"provider boundary metadata conflict: {key}")
+
+    sealed = deepcopy(payload)
+    sealed.update(expected)
+    sealed["ingest_time"] = now.isoformat()
+    sealed["research_only"] = True
+    sealed["production_execution_authority"] = False
+    return sealed
 
 
 class MinuteWorker:
@@ -81,7 +110,8 @@ class MinuteWorker:
             self._tick_sequence += 1
             sequence = self._tick_sequence
             try:
-                payload = self.provider.fetch_minute_state(now)
+                raw_payload = self.provider.fetch_minute_state(now)
+                payload = _seal_live_snapshot(raw_payload, source_sha=self.source_sha, now=now)
                 self.sink.write(payload)
             except Exception as exc:
                 self._consecutive_failures += 1
@@ -120,6 +150,9 @@ class MinuteWorker:
             age = max(0.0, (now - self._last_success_time).total_seconds())
         return {
             "status": "ok" if self._last_success_time is not None else "starting",
+            "system_contract_version": SYSTEM_CONTRACT_VERSION,
+            "plane": "LIVE_CONTEXT",
+            "authority_level": "LIVE_CONTEXT",
             "source_sha": self.source_sha,
             "tick_sequence": self._tick_sequence,
             "last_successful_tick": None if self._last_success_time is None else self._last_success_time.isoformat(),
