@@ -40,3 +40,8 @@ jobs:
           fi
       - name: Research regression
         run: PYTHONPATH=. pytest tests -q
+      - name: G8 Brain snapshot contract
+        shell: bash
+        run: |
+          cd ../..
+          PYTHONPATH=. pytest AI_SKILL_LIBRARY/tests/test_g8_champion_snapshot.py -q
