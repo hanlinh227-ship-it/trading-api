@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { listenPort, RUNTIME_MODE, SERVICE_NAME, SERVICE_VERSION } from './config.js';
 import { READ_ONLY_TOOL_NAMES, registerMcpRoute } from './mcp/server.js';
+import { buildDataEnvelope, type DataFreshness } from './normalization/data-contract.js';
 import { ResearchRuntime } from './research.js';
 
 export type BuildAppOptions = {
@@ -28,6 +29,39 @@ const marketRequestSchema = z.object({
     });
   }
 });
+
+function responseEventTime(result: Record<string, unknown>, fallback: Date): string {
+  const observations = Array.isArray(result.observations) ? result.observations : [];
+  const timestamps = observations
+    .map((item) => item && typeof item === 'object' ? Number((item as Record<string, unknown>).sourceTimestampMs) : Number.NaN)
+    .filter((value) => Number.isFinite(value) && value >= 0);
+  if (timestamps.length === 0) return fallback.toISOString();
+  return new Date(Math.max(...timestamps)).toISOString();
+}
+
+function attachDataContract(result: Record<string, unknown>): Record<string, unknown> {
+  const now = new Date();
+  const degraded = result.degraded === true;
+  const ok = result.ok === true;
+  const freshness: DataFreshness = !ok ? 'UNKNOWN' : degraded ? 'DEGRADED' : 'FRESH';
+  const sourceSha = process.env.DEPLOYMENT_SOURCE_SHA ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? 'UNKNOWN';
+  const provenance: Record<string, unknown> = {
+    providers: Array.isArray(result.providers) ? result.providers : [],
+    failures: Array.isArray(result.failures) ? result.failures : [],
+    capability: result.capability ?? null,
+  };
+  const dataContract = buildDataEnvelope({
+    kind: 'crypto_market_research',
+    source: SERVICE_NAME,
+    sourceSha,
+    eventTime: responseEventTime(result, now),
+    ingestTime: now.toISOString(),
+    freshness,
+    payload: result,
+    provenance,
+  });
+  return { ...result, dataContract };
+}
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: 256_000 });
@@ -74,7 +108,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     if (!parsed.success) {
       return reply.code(400).send({ ok: false, degraded: false, error: 'invalid_research_request' });
     }
-    const result = await runtime.runMarket(parsed.data);
+    const result = attachDataContract(await runtime.runMarket(parsed.data));
     if (result.degraded === true && result.ok === false) {
       return reply.code(503).send(result);
     }
