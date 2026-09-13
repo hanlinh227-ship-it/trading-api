@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from optimize.search_g6 import build_setup_candidates, candidate_feature_matrix
+from engine.execution import OrderCandidate
+from optimize.search_g6 import build_setup_candidates, candidate_feature_matrix, label_setup_candidates
 
 
 def _frame(n=90):
@@ -71,5 +72,19 @@ def test_candidate_features_include_setup_identity_and_geometry_without_future_r
     assert x.shape[0] == len(hits)
     assert x.shape[1] > 20
     assert np.isfinite(x).all()
-    # Geometry variants must remain distinguishable to the model.
     assert len(np.unique(x[:, -2])) >= 2
+
+
+def test_independent_labeling_keeps_only_filled_candidates_and_aligns_features():
+    f = _frame(120)
+    i = 20
+    entry = float(f.loc[i, "close"])
+    good = OrderCandidate(i, "LONG", entry, entry - 0.8, 1, 72, 0.0, "setup_breakout")
+    never_fills = OrderCandidate(i, "LONG", 999.0, 998.2, 1, 72, 0.0, "setup_breakout")
+    x, labels, kept = label_setup_candidates(f, [good, never_fills], roundtrip_cost_bps=12.0)
+    assert len(kept) == 1
+    assert kept[0] == good
+    assert x.shape[0] == len(labels) == 1
+    assert set(labels.columns) >= {"rr2_hit", "net_r", "signal_index"}
+    assert int(labels.iloc[0]["signal_index"]) == i
+    assert bool(labels.iloc[0]["rr2_hit"]) is True
