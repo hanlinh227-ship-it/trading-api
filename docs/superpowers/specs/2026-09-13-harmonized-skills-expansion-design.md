@@ -1,7 +1,7 @@
 # Harmonized Skills Expansion — Design
 
 Date: 2026-09-13
-Status: Approved design, implementation not started
+Status: Design approved in chat; written spec awaiting review; implementation not started
 Canonical repository: `hanlinh227-ship-it/trading-api`
 Canonical branch: `main`
 
@@ -290,7 +290,7 @@ Representative expected routes:
 | Benchmark two versions of this skill | `eval_engineering` |
 | Backtest this strategy across 10 coins | `quant_backtesting` |
 | Audit this 100-trade backtest for leakage and overfit | `quant_validation` |
-| Model this prop in Blender | `modeling` or `blender` according to current router semantics |
+| Model this prop in Blender | `blender` |
 | Check whether this Blender asset is export-safe | `asset_validation_3d` |
 | GitHub Actions is failing | `debugging` |
 | Threat-model this repository | `security` |
