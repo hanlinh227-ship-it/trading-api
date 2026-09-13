@@ -1,4 +1,4 @@
-from research.cloud_10coin_backtest.config import DEFAULT_CONFIG, SYMBOLS
+from config import DEFAULT_CONFIG, SYMBOLS
 
 
 def test_universe_is_exactly_ten_symbols():
