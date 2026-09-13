@@ -48,6 +48,16 @@ def validate_snapshot(snapshot: dict, root: Path = ROOT) -> list[str]:
     capsules = snapshot.get("capsules", {}) if isinstance(snapshot.get("capsules"), dict) else {}
     aliases = snapshot.get("routing_aliases", {}) if isinstance(snapshot.get("routing_aliases"), dict) else {}
     fallback = snapshot.get("fallback_primary_skill")
+    presentation = snapshot.get("presentation", {}) if isinstance(snapshot.get("presentation"), dict) else {}
+
+    if presentation.get("locale") != "vi":
+        errors.append("presentation locale must be vi")
+    if presentation.get("mode") != "plain":
+        errors.append("presentation mode must be plain")
+    if presentation.get("hide_internal_ids") is not True:
+        errors.append("presentation must hide internal ids by default")
+    if presentation.get("no_underscore_display_names") is not True:
+        errors.append("presentation must forbid underscores in display names")
 
     if fallback != "core_reasoning":
         errors.append("fallback primary skill must be core_reasoning")
@@ -63,11 +73,19 @@ def validate_snapshot(snapshot: dict, root: Path = ROOT) -> list[str]:
         if sid not in skills:
             errors.append(f"capsule references unknown skill: {sid}")
     for sid, meta in skills.items():
+        if not isinstance(meta, dict):
+            errors.append(f"invalid skill metadata: {sid}")
+            continue
+        display_name = meta.get("display_name")
+        if not isinstance(display_name, str) or not display_name.strip():
+            errors.append(f"skill display name missing: {sid}")
+        elif "_" in display_name:
+            errors.append(f"skill display name contains underscore: {sid}")
         if sid == "task_router":
             continue
         if sid not in capsules:
             errors.append(f"skill missing execution capsule: {sid}")
-        if isinstance(meta, dict) and meta.get("primary_selectable") is True:
+        if meta.get("primary_selectable") is True:
             domain = meta.get("domain")
             domains = snapshot.get("domains", {})
             if not isinstance(domains, dict) or sid not in domains.get(domain, []):
