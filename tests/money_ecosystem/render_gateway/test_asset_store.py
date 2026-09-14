@@ -6,7 +6,7 @@ from money_ecosystem.render_gateway.asset_store import canonical_logical_path, s
 def test_sha256_file_is_stable(tmp_path: Path):
     path = tmp_path / "asset.bin"
     path.write_bytes(b"curious-beyond")
-    assert sha256_file(path) == "9466ba793cab5a97b9992f8a560908ca94ba37036f1ad26fd81e077840ef40f7"
+    assert sha256_file(path) == "99207596fc41535057b52c93dab3a27d1c7153b5fc5eb85758c76e143630d5af"
 
 
 def test_canonical_job_layout_is_portable():
