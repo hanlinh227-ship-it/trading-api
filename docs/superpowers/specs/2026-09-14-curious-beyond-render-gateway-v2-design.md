@@ -1,7 +1,7 @@
 # Curious Beyond Render Gateway V2 — Multi-Device, Multi-Engine, Flow-Grade Quality
 
 Date: 2026-09-14
-Status: DESIGN APPROVED IN CHAT — SPEC REVIEW PENDING
+Status: SPEC READY FOR USER REVIEW
 Repository: `hanlinh227-ship-it/trading-api`
 Target branch: `ai-money-ecosystem-autopilot-v1`
 
