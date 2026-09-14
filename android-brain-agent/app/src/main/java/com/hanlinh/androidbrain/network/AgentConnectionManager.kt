@@ -7,11 +7,15 @@ import com.hanlinh.androidbrain.agent.TaskProgress
 import com.hanlinh.androidbrain.agent.TaskSessionEngine
 import com.hanlinh.androidbrain.agent.TaskStepOutcome
 import com.hanlinh.androidbrain.agent.TaskStepResult
+import com.hanlinh.androidbrain.local.ContactsResolver
+import com.hanlinh.androidbrain.perception.AccessibilitySnapshot
 import com.hanlinh.androidbrain.perception.ScreenshotCapture
 import com.hanlinh.androidbrain.policy.RiskClass
 import com.hanlinh.androidbrain.protocol.CommandEnvelope
 import com.hanlinh.androidbrain.service.AgentForegroundService
 import com.hanlinh.androidbrain.service.BrainAccessibilityService
+import com.hanlinh.androidbrain.skills.core.UnknownNumberConversationClassifier
+import com.hanlinh.androidbrain.skills.core.UnknownNumberConversationSelector
 import java.util.Base64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -37,6 +41,11 @@ class AgentConnectionManager(
     @Volatile private var socket: WebSocket? = null
     private val dispatcher = CommandDispatcher(appContext, pairing)
     private val taskEngines = mutableMapOf<String, TaskSessionEngine>()
+    private val unknownConversationSelector by lazy {
+        UnknownNumberConversationSelector(
+            UnknownNumberConversationClassifier(ContactsResolver(appContext))
+        )
+    }
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
@@ -156,6 +165,28 @@ class AgentConnectionManager(
         val service = BrainAccessibilityService.current ?: return
         val snapshot = service.snapshot() ?: return
 
+        val localGrounding = localGrounding(command, snapshot, result)
+        if (localGrounding.failureCode != null) {
+            try {
+                client.postTaskStep(
+                    deviceId = pairing.deviceId,
+                    token = pairing.deviceToken,
+                    taskId = taskId,
+                    observation = snapshot,
+                    previousResult = GatewayClient.TaskResult(
+                        command.commandId,
+                        "FAILED",
+                        localGrounding.failureCode,
+                    ),
+                    imageDataUrl = null,
+                    localFacts = emptyList(),
+                )
+            } finally {
+                taskEngines.remove(taskId)
+            }
+            return
+        }
+
         val confirmedClassC = command.riskClass == RiskClass.C &&
             "ui.destructive.confirmed" in command.capabilityScope
         val existing = taskEngines[taskId]
@@ -195,6 +226,7 @@ class AgentConnectionManager(
                     observation = snapshot,
                     previousResult = GatewayClient.TaskResult(command.commandId, "FAILED", decision.code),
                     imageDataUrl = null,
+                    localFacts = localGrounding.facts,
                 )
             } finally {
                 taskEngines.remove(taskId)
@@ -210,10 +242,45 @@ class AgentConnectionManager(
             observation = snapshot,
             previousResult = result,
             imageDataUrl = imageDataUrl,
+            localFacts = localGrounding.facts,
         )
         if (response.status in TERMINAL_TASK_STATUSES || decision is TaskLoopDecision.Completed) {
             taskEngines.remove(taskId)
         }
+    }
+
+    private fun localGrounding(
+        command: CommandEnvelope,
+        snapshot: AccessibilitySnapshot,
+        result: GatewayClient.TaskResult,
+    ): LocalGrounding {
+        if (result.status.uppercase() != "COMPLETED") return LocalGrounding()
+        if ("contacts.read" !in command.capabilityScope) return LocalGrounding()
+        if (!isMessagingPackage(snapshot.packageName)) return LocalGrounding()
+
+        val selection = unknownConversationSelector.select(snapshot)
+        if (selection.permissionUnavailable) {
+            return LocalGrounding(failureCode = "CONTACTS_PERMISSION_UNAVAILABLE")
+        }
+        return LocalGrounding(
+            facts = selection.targets.map { target ->
+                GatewayClient.LocalObservationFact(
+                    kind = "UNKNOWN_NUMBER_CONFIRMED",
+                    nodeId = target.actionableNodeId,
+                    relatedNodeId = target.senderNodeId,
+                )
+            },
+        )
+    }
+
+    private fun isMessagingPackage(packageName: String): Boolean {
+        val value = packageName.lowercase()
+        return value == "com.google.android.apps.messaging" ||
+            value == "com.samsung.android.messaging" ||
+            value == "com.android.messaging" ||
+            value == "com.android.mms" ||
+            value.endsWith(".messages") ||
+            value.contains(".messaging")
     }
 
     private fun capturePlannerScreenshot(service: BrainAccessibilityService): String? {
@@ -240,6 +307,11 @@ class AgentConnectionManager(
         }
         else -> TaskStepResult(TaskStepOutcome.FATAL_FAILURE, "UNKNOWN_RESULT_STATUS")
     }
+
+    private data class LocalGrounding(
+        val facts: List<GatewayClient.LocalObservationFact> = emptyList(),
+        val failureCode: String? = null,
+    )
 
     private companion object {
         const val SCREENSHOT_TIMEOUT_MS = 1_500L
