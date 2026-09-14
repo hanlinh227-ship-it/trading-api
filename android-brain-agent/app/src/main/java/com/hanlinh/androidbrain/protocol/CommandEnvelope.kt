@@ -67,17 +67,48 @@ class CommandEnvelopeVerifier(
         if (envelope.signature.isBlank()) return VerificationResult(false, RejectReason.INVALID_SIGNATURE)
 
         return try {
+            val decoded = Base64.getDecoder().decode(envelope.signature)
+            val normalized = if (decoded.size == 64) p1363ToDer(decoded) else decoded
             val signatureVerifier = Signature.getInstance("SHA256withECDSA")
             signatureVerifier.initVerify(gatewayPublicKey)
             signatureVerifier.update(envelope.canonicalSigningBytes())
-            val signatureBytes = Base64.getDecoder().decode(envelope.signature)
-            if (signatureVerifier.verify(signatureBytes)) {
+            if (signatureVerifier.verify(normalized)) {
                 VerificationResult(true)
             } else {
                 VerificationResult(false, RejectReason.INVALID_SIGNATURE)
             }
         } catch (_: Exception) {
             VerificationResult(false, RejectReason.INVALID_SIGNATURE)
+        }
+    }
+
+    private fun p1363ToDer(raw: ByteArray): ByteArray {
+        require(raw.size == 64) { "P-256 signature must be 64 bytes" }
+        val r = normalizeInteger(raw.copyOfRange(0, 32))
+        val s = normalizeInteger(raw.copyOfRange(32, 64))
+        val payloadLength = 2 + r.size + 2 + s.size
+        require(payloadLength < 128) { "Unexpected DER signature length" }
+        return ByteArray(2 + payloadLength).also { out ->
+            var p = 0
+            out[p++] = 0x30
+            out[p++] = payloadLength.toByte()
+            out[p++] = 0x02
+            out[p++] = r.size.toByte()
+            r.copyInto(out, p); p += r.size
+            out[p++] = 0x02
+            out[p++] = s.size.toByte()
+            s.copyInto(out, p)
+        }
+    }
+
+    private fun normalizeInteger(input: ByteArray): ByteArray {
+        var first = 0
+        while (first < input.lastIndex && input[first] == 0.toByte()) first++
+        val stripped = input.copyOfRange(first, input.size)
+        return if ((stripped[0].toInt() and 0x80) != 0) {
+            byteArrayOf(0) + stripped
+        } else {
+            stripped
         }
     }
 }

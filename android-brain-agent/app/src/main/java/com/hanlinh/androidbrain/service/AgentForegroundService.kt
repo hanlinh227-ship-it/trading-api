@@ -9,6 +9,8 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.hanlinh.androidbrain.MainActivity
+import com.hanlinh.androidbrain.network.AgentConnectionManager
+import com.hanlinh.androidbrain.network.PairingRepository
 
 class AgentForegroundService : Service() {
     companion object {
@@ -17,9 +19,10 @@ class AgentForegroundService : Service() {
         const val ACTION_STOP = "com.hanlinh.androidbrain.STOP_AGENT"
         @Volatile var killSwitchActive: Boolean = false
             private set
-
         fun resetKillSwitch() { killSwitchActive = false }
     }
+
+    private var connectionManager: AgentConnectionManager? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -29,21 +32,33 @@ class AgentForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             killSwitchActive = true
+            connectionManager?.stop()
+            connectionManager = null
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
         if (killSwitchActive) return START_NOT_STICKY
         startForeground(NOTIFICATION_ID, buildNotification())
+        if (connectionManager == null) {
+            PairingRepository(this).load()?.let { pairing ->
+                connectionManager = AgentConnectionManager(this, pairing).also { it.start() }
+            }
+        }
         return START_STICKY
+    }
+
+    override fun onDestroy() {
+        connectionManager?.stop()
+        connectionManager = null
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "Android Brain Agent", NotificationManager.IMPORTANCE_LOW)
             )
         }
@@ -61,7 +76,7 @@ class AgentForegroundService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_manage)
             .setContentTitle("Android Brain Agent đang hoạt động")
-            .setContentText("Nhấn Dừng để khóa thực thi tự động")
+            .setContentText("Kết nối gateway theo chế độ foreground. Nhấn Dừng để khóa thực thi.")
             .setContentIntent(openIntent)
             .setOngoing(true)
             .addAction(0, "Dừng", stopIntent)

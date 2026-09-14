@@ -1,6 +1,9 @@
 package com.hanlinh.androidbrain
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -22,14 +25,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.hanlinh.androidbrain.action.ShizukuActions
+import com.hanlinh.androidbrain.network.PairingRepository
 import com.hanlinh.androidbrain.service.AgentForegroundService
 import com.hanlinh.androidbrain.service.BrainAccessibilityService
 
 class MainActivity : ComponentActivity() {
     private var refreshTick by mutableStateOf(0)
+    private var pairingStatus by mutableStateOf("Chưa ghép với gateway")
+    private var pairingBusy by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pairingStatus = PairingRepository(this).load()?.let { "Đã ghép: ${it.deviceId.take(12)}…" } ?: "Chưa ghép với gateway"
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
+        }
         setContent {
             refreshTick
             MaterialTheme {
@@ -39,39 +49,59 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text("Android Brain Agent", style = MaterialTheme.typography.headlineMedium)
-                        Text("Gateway: ${BuildConfig.GATEWAY_BASE_URL}")
+                        Text(pairingStatus)
                         Text("Accessibility: ${if (BrainAccessibilityService.current != null) "BẬT" else "CHƯA BẬT"}")
-                        Text("Shizuku: ${if (ShizukuActions().available()) "PHÁT HIỆN" else "KHÔNG CÓ / CHƯA BẬT"}")
+                        Text("Shizuku: ${if (ShizukuActions().available()) "PHÁT HIỆN" else "TÙY CHỌN / CHƯA BẬT"}")
                         Text("Kill switch: ${if (AgentForegroundService.killSwitchActive) "ĐANG KHÓA" else "SẴN SÀNG"}")
 
                         Button(onClick = { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
-                            Text("Bật Accessibility")
+                            Text("1. Bật Accessibility")
                         }
                         Button(onClick = { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }) {
-                            Text("Bật Notification Access")
+                            Text("2. Bật Notification Access")
                         }
-                        Button(onClick = {
-                            AgentForegroundService.resetKillSwitch()
-                            ContextCompat.startForegroundService(
-                                this@MainActivity,
-                                Intent(this@MainActivity, AgentForegroundService::class.java)
-                            )
-                            refreshTick++
-                        }) {
-                            Text("Khởi động Agent")
+                        Button(enabled = !pairingBusy, onClick = { pairGateway() }) {
+                            Text(if (pairingBusy) "Đang ghép…" else "3. Pair với Brain Gateway")
                         }
-                        Button(onClick = {
-                            startService(Intent(this@MainActivity, AgentForegroundService::class.java).setAction(AgentForegroundService.ACTION_STOP))
-                            refreshTick++
-                        }) {
-                            Text("Dừng / Kill switch")
-                        }
+                        Button(onClick = { startAgent() }) { Text("4. Khởi động Agent") }
+                        Button(onClick = { stopAgent() }) { Text("Dừng / Kill switch") }
                         Spacer(Modifier.height(8.dp))
-                        Text("V1 không root. Screen Vision chỉ hoạt động sau khi bạn cấp consent cho từng phiên.")
+                        Text("V1 không root. Agent chỉ thực thi command đã ký; Class D bị chặn. Vision cần consent riêng khi được dùng.")
                     }
                 }
             }
         }
+    }
+
+    private fun pairGateway() {
+        pairingBusy = true
+        pairingStatus = "Đang kết nối gateway…"
+        Thread {
+            try {
+                val paired = PairingRepository(this).pair()
+                runOnUiThread {
+                    pairingStatus = "Đã ghép: ${paired.deviceId.take(12)}…"
+                    pairingBusy = false
+                    startAgent()
+                }
+            } catch (error: Throwable) {
+                runOnUiThread {
+                    pairingStatus = "Pair thất bại: ${error.message?.take(120) ?: error.javaClass.simpleName}"
+                    pairingBusy = false
+                }
+            }
+        }.start()
+    }
+
+    private fun startAgent() {
+        AgentForegroundService.resetKillSwitch()
+        ContextCompat.startForegroundService(this, Intent(this, AgentForegroundService::class.java))
+        refreshTick++
+    }
+
+    private fun stopAgent() {
+        startService(Intent(this, AgentForegroundService::class.java).setAction(AgentForegroundService.ACTION_STOP))
+        refreshTick++
     }
 
     override fun onResume() {

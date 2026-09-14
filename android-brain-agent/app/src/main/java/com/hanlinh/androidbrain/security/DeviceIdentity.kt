@@ -2,9 +2,11 @@ package com.hanlinh.androidbrain.security
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Base64
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.MessageDigest
 import java.security.spec.ECGenParameterSpec
 
 object DeviceIdentity {
@@ -30,4 +32,12 @@ object DeviceIdentity {
         generator.initialize(spec)
         return generator.generateKeyPair()
     }
+
+    fun deviceId(): String {
+        val publicBytes = getOrCreateKeyPair().public.encoded
+        val digest = MessageDigest.getInstance("SHA-256").digest(publicBytes)
+        return digest.take(16).joinToString("") { "%02x".format(it) }
+    }
+
+    fun publicKeyBase64(): String = Base64.encodeToString(getOrCreateKeyPair().public.encoded, Base64.NO_WRAP)
 }
