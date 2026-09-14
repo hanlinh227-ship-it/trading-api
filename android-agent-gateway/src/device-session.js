@@ -19,6 +19,20 @@ function bearer(request) {
   return h.startsWith('Bearer ') ? h.slice(7) : null
 }
 
+export function isDeviceOnline(lastSeenAt, now = new Date(), maxAgeMs = 15_000) {
+  if (!lastSeenAt) return false
+  const seen = new Date(lastSeenAt).getTime()
+  return Number.isFinite(seen) && now.getTime() - seen <= maxAgeMs && seen <= now.getTime() + 5_000
+}
+
+export function pruneExpiredCommands(queue, now = new Date()) {
+  const nowMs = now.getTime()
+  return (Array.isArray(queue) ? queue : []).filter(command => {
+    const expiry = new Date(command?.expiresAt).getTime()
+    return Number.isFinite(expiry) && expiry > nowMs
+  })
+}
+
 export async function generateSigningMaterial() {
   const pair = await crypto.subtle.generateKey(
     { name: 'ECDSA', namedCurve: 'P-256' },
@@ -72,6 +86,12 @@ export class DeviceSession {
       await this.state.storage.put('signingMaterial', material)
     }
     return material
+  }
+
+  async markDeviceSeen() {
+    const lastSeenAt = new Date().toISOString()
+    await this.state.storage.put('lastSeenAt', lastSeenAt)
+    return lastSeenAt
   }
 
   async pairStart(request) {
@@ -142,9 +162,19 @@ export class DeviceSession {
 
   async status(request) {
     const pairing = await this.state.storage.get('pairing')
-    const queue = (await this.state.storage.get('queue')) ?? []
+    const rawQueue = (await this.state.storage.get('queue')) ?? []
+    const queue = pruneExpiredCommands(rawQueue)
+    if (queue.length !== rawQueue.length) await this.state.storage.put('queue', queue)
     const lastResult = await this.state.storage.get('lastResult')
-    return json({ paired: Boolean(pairing?.paired), deviceId: pairing?.deviceId ?? null, queued: queue.length, lastResult: lastResult ?? null })
+    const lastSeenAt = await this.state.storage.get('lastSeenAt')
+    return json({
+      paired: Boolean(pairing?.paired),
+      deviceId: pairing?.deviceId ?? null,
+      online: isDeviceOnline(lastSeenAt),
+      lastSeenAt: lastSeenAt ?? null,
+      queued: queue.length,
+      lastResult: lastResult ?? null,
+    })
   }
 
   async enqueue(request) {
@@ -166,7 +196,7 @@ export class DeviceSession {
   async enqueueCommand(command) {
     const pairing = await this.state.storage.get('pairing')
     if (!pairing?.paired || pairing.deviceId !== command.deviceId) return json({ error: 'device_not_paired' }, 409)
-    const queue = (await this.state.storage.get('queue')) ?? []
+    const queue = pruneExpiredCommands((await this.state.storage.get('queue')) ?? [])
     if (queue.some(x => x.nonce === command.nonce || x.commandId === command.commandId)) return json({ error: 'replay' }, 409)
     queue.push(command)
     while (queue.length > 50) queue.shift()
@@ -180,8 +210,8 @@ export class DeviceSession {
   async next(request) {
     const pairing = await this.authorizedDevice(request)
     if (!pairing) return json({ error: 'unauthorized_device' }, 401)
-    const queue = (await this.state.storage.get('queue')) ?? []
-    while (queue.length && new Date(queue[0].expiresAt).getTime() <= Date.now()) queue.shift()
+    await this.markDeviceSeen()
+    const queue = pruneExpiredCommands((await this.state.storage.get('queue')) ?? [])
     const command = queue.shift() ?? null
     await this.state.storage.put('queue', queue)
     return json({ command })
@@ -190,6 +220,7 @@ export class DeviceSession {
   async result(request) {
     const pairing = await this.authorizedDevice(request)
     if (!pairing) return json({ error: 'unauthorized_device' }, 401)
+    await this.markDeviceSeen()
     const body = await request.json()
     await this.state.storage.put('lastResult', { ...body, receivedAt: new Date().toISOString() })
     return json({ accepted: true })
@@ -198,6 +229,7 @@ export class DeviceSession {
   async socket(request) {
     const pairing = await this.authorizedDevice(request)
     if (!pairing) return new Response('unauthorized', { status: 401 })
+    await this.markDeviceSeen()
     const pair = new WebSocketPair()
     const client = pair[0]
     const server = pair[1]
@@ -207,6 +239,9 @@ export class DeviceSession {
   }
 
   async webSocketMessage(ws, message) {
-    if (message === 'ping') ws.send('pong')
+    if (message === 'ping') {
+      await this.markDeviceSeen()
+      ws.send('pong')
+    }
   }
 }
