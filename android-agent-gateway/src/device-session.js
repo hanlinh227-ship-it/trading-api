@@ -1,4 +1,6 @@
+import { validateTypedAction } from './action-schema.js'
 import { importPrivateJwk, signCommand, verifyPairingProof } from './crypto.js'
+import { createTaskState, publicTaskState } from './task-policy.js'
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -50,11 +52,16 @@ export async function signWithMaterial(command, material) {
 }
 
 export function validateCommandForQueue(command, now = new Date()) {
-  if (!command || command.schema !== 1) throw new Error('invalid schema')
-  for (const key of ['commandId', 'deviceId', 'issuedAt', 'expiresAt', 'nonce', 'goal', 'riskClass', 'signature']) {
+  if (!command || (command.schema !== 1 && command.schema !== 2)) throw new Error('invalid schema')
+  for (const key of ['commandId', 'deviceId', 'issuedAt', 'expiresAt', 'nonce', 'riskClass', 'signature']) {
     if (!command[key]) throw new Error(`missing ${key}`)
   }
   if (!Array.isArray(command.capabilityScope)) throw new Error('invalid capabilityScope')
+  if (command.schema === 1 && !command.goal) throw new Error('missing goal')
+  if (command.schema === 2) {
+    if (!command.taskId) throw new Error('missing taskId')
+    command.action = validateTypedAction(command.action)
+  }
   const expiry = new Date(command.expiresAt)
   if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= now.getTime()) throw new Error('expired command')
   return command
@@ -75,6 +82,8 @@ export class DeviceSession {
     if (url.pathname === '/status' && request.method === 'GET') return this.status(request)
     if (url.pathname === '/command' && request.method === 'POST') return this.enqueue(request)
     if (url.pathname === '/command-sign' && request.method === 'POST') return this.signAndEnqueue(request)
+    if (url.pathname === '/task' && request.method === 'POST') return this.createTask(request)
+    if (url.pathname.startsWith('/task/') && request.method === 'GET') return this.getTask(url.pathname.slice('/task/'.length))
     if (url.pathname === '/next' && request.method === 'GET') return this.next(request)
     if (url.pathname === '/result' && request.method === 'POST') return this.result(request)
     if (url.pathname === '/socket' && request.headers.get('upgrade')?.toLowerCase() === 'websocket') return this.socket(request)
@@ -192,14 +201,38 @@ export class DeviceSession {
     })
   }
 
+  async createTask(request) {
+    let task
+    try {
+      task = createTaskState(await request.json())
+    } catch (error) {
+      return json({ error: error.message }, 400)
+    }
+    const key = `task:${task.taskId}`
+    if (await this.state.storage.get(key)) return json({ error: 'task_exists' }, 409)
+    await this.state.storage.put(key, task)
+    return json(publicTaskState(task), 201)
+  }
+
+  async getTask(taskId) {
+    const task = await this.state.storage.get(`task:${decodeURIComponent(taskId)}`)
+    if (!task) return json({ error: 'task_not_found' }, 404)
+    return json(publicTaskState(task))
+  }
+
   async enqueue(request) {
     return this.enqueueCommand(validateCommandForQueue(await request.json()))
   }
 
   async signAndEnqueue(request) {
     const command = await request.json()
-    if (!command || command.schema !== 1 || !command.deviceId || !command.commandId) {
+    if (!command || (command.schema !== 1 && command.schema !== 2) || !command.deviceId || !command.commandId) {
       return json({ error: 'invalid_unsigned_command' }, 400)
+    }
+    if (command.schema === 1 && !command.goal) return json({ error: 'invalid_unsigned_command' }, 400)
+    if (command.schema === 2) {
+      if (!command.taskId || !command.action) return json({ error: 'invalid_unsigned_command' }, 400)
+      try { command.action = validateTypedAction(command.action) } catch (error) { return json({ error: error.message }, 400) }
     }
     const pairing = await this.state.storage.get('pairing')
     if (!pairing?.paired || pairing.deviceId !== command.deviceId) return json({ error: 'device_not_paired' }, 409)
