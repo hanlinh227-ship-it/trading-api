@@ -1,0 +1,44 @@
+{
+  "job_id": "image-render-reference-preflight-20260914-17",
+  "status": "DEGRADED",
+  "message": "Media capability probe completed",
+  "artifact_manifest": {
+    "capabilities": {
+      "python": {
+        "available": true,
+        "version": "3.11.9"
+      },
+      "ffmpeg": {
+        "available": true
+      },
+      "whisper": {
+        "available": true
+      },
+      "kokoro": {
+        "available": true
+      },
+      "comfyui": {
+        "available": true,
+        "endpoint": "http://127.0.0.1:8188/system_stats"
+      },
+      "comfyui_reference": {
+        "available": false,
+        "endpoint": "http://127.0.0.1:8188/object_info",
+        "missing": [
+          "IPAdapter"
+        ],
+        "checkpoints": [
+          "v1-5-pruned-emaonly.safetensors"
+        ],
+        "reference_nodes": [],
+        "reference_options": {}
+      }
+    },
+    "_worker": {
+      "runner_build": "worker-reliability-v4",
+      "runtime_build": "image-setup-v1",
+      "pid": 25996
+    }
+  },
+  "completed_at": "2026-09-14T12:26:54.901574+00:00"
+}
