@@ -31,7 +31,7 @@ jobs:
           python AI_SKILL_LIBRARY/v4/tools/release.py build --version 4.8.1 --source hourly_continuous_intelligence --class feature --validated --known-good --root .
           python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --root . --write
           python AI_SKILL_LIBRARY/v4/tools/release.py check --root .
-          python -m unittest AI_SKILL_LIBRARY.tests.test_brain_4_8_continuous_intelligence -v
+          python -m unittest AI_SKILL_LIBRARY.tests.test_brain_4_8_continuous_intelligence AI_SKILL_LIBRARY.tests.test_brain_4_8_source_refresh -v
           SOURCE_SHA="$(git rev-parse HEAD)"
           python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA"
       - name: Commit generated artifacts and self-delete workflow
