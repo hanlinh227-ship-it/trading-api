@@ -52,7 +52,7 @@ class AgentConnectionManager(
         if (!running.compareAndSet(false, true)) return
         maintenanceTask = executor.scheduleWithFixedDelay(
             { maintainConnection() },
-            0,
+            ConnectionCadence.INITIAL_MAINTENANCE_DELAY_MS,
             ConnectionCadence.MAINTENANCE_TICK_MS,
             TimeUnit.MILLISECONDS,
         )
@@ -115,7 +115,7 @@ class AgentConnectionManager(
 
     private fun maintainConnection() {
         if (!running.get()) return
-        when (ConnectionMaintenancePolicy.action(socketConnected)) {
+        when (ConnectionMaintenancePolicy.action(socketConnected, socket != null)) {
             ConnectionMaintenanceAction.HEARTBEAT -> {
                 val activeSocket = socket
                 if (activeSocket == null || !activeSocket.send("ping")) {
@@ -126,6 +126,7 @@ class AgentConnectionManager(
                     scheduleReconnect()
                 }
             }
+            ConnectionMaintenanceAction.WAIT_CONNECTING -> Unit
             ConnectionMaintenanceAction.FALLBACK_POLL -> {
                 pollOnce()
                 scheduleReconnect()
