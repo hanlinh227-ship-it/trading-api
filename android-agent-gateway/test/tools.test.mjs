@@ -15,3 +15,13 @@ test('normal goal validates and defaults to class A', () => {
 test('financial credential goals are class D blocked', () => {
   assert.equal(classifyGoal('read my OTP and transfer money'), 'D')
 })
+
+test('destructive goal remains class C and can carry explicit confirmation', () => {
+  const input = validateRunGoal({
+    deviceId: 'd1',
+    goal: 'Xóa những tin nhắn rác trong phần tin nhắn',
+    confirmedRiskClassC: true,
+  })
+  assert.equal(classifyGoal(input.goal), 'C')
+  assert.equal(input.confirmedRiskClassC, true)
+})
