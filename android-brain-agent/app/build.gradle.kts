@@ -9,11 +9,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.hanlinh.androidbrain"
+        applicationId = "com.hanlinh.androidbrain.v2"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.1.3-alpha"
+        versionCode = 5
+        versionName = "0.2.0-alpha"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GATEWAY_BASE_URL", "\"https://android-brain-agent-gateway.hanlinh227.workers.dev\"")
     }
