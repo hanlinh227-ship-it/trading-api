@@ -1,4 +1,5 @@
 import { parsePlannerModelResponse, PLANNER_JSON_SCHEMA } from './planner-schema.js'
+import { selectExecutionMode } from './mode-router.js'
 
 const ORDER = { A: 0, B: 1, C: 2, D: 3 }
 const MODEL = '@cf/meta/llama-3.2-11b-vision-instruct'
@@ -52,6 +53,10 @@ export function sanitizePlannerObservation(observation) {
     packageName: sanitizeString(observation.packageName, 192) ?? null,
     windowTitle: sanitizeString(observation.windowTitle, 192) ?? null,
     fingerprint: sanitizeString(observation.fingerprint, 192) ?? null,
+    orientation: sanitizeString(observation.orientation, 32) ?? null,
+    screenWidth: Number.isInteger(observation.screenWidth) ? observation.screenWidth : null,
+    screenHeight: Number.isInteger(observation.screenHeight) ? observation.screenHeight : null,
+    screenshotAvailable: observation.screenshotAvailable === true,
     nodes: (Array.isArray(observation.nodes) ? observation.nodes : [])
       .slice(0, MAX_NODES)
       .map(sanitizeNode)
@@ -63,14 +68,21 @@ export function sanitizePlannerObservation(observation) {
   }
 }
 
-function sanitizedTask(task) {
+function sanitizedTask(task, observation = null) {
   return {
     taskId: sanitizeString(task?.taskId, 128) ?? null,
     goal: sanitizeString(task?.goal, 512) ?? '',
     capabilityScope: Array.isArray(task?.capabilityScope) ? task.capabilityScope.filter(x => typeof x === 'string').slice(0, 24) : [],
     riskClass: task?.riskClass ?? 'A',
     taskRiskClass: task?.taskRiskClass ?? task?.riskClass ?? 'A',
+    intentSchema: Number.isInteger(task?.intentSchema) ? task.intentSchema : 3,
+    completionCriteria: Array.isArray(task?.completionCriteria) ? task.completionCriteria.map(x => sanitizeString(x, 64)).filter(Boolean).slice(0, 16) : [],
+    forbiddenActions: Array.isArray(task?.forbiddenActions) ? task.forbiddenActions.map(x => sanitizeString(x, 64)).filter(Boolean).slice(0, 24) : [],
+    persistence: sanitizeString(task?.persistence, 32) ?? 'LONG_RUNNING',
+    executionMode: selectExecutionMode(task ?? {}, observation ?? {}),
+    deterministicAdapter: sanitizeString(task?.deterministicAdapter, 64) ?? null,
     stepCount: Number.isInteger(task?.stepCount) ? task.stepCount : 0,
+    epoch: Number.isInteger(task?.epoch) ? task.epoch : 0,
     recoveryCount: Number.isInteger(task?.recoveryCount) ? task.recoveryCount : 0,
   }
 }
@@ -118,7 +130,16 @@ export function deterministicPlan({ goal, allowedCapabilities = [], riskCeiling 
   }
 }
 
-export function clampPlan(plan, allowedCapabilities, riskCeiling) {
+function actionPolicyCode(action) {
+  if (!action) return null
+  if (action.type === 'open_url') return 'OPEN_EXTERNAL_LINK'
+  if (action.type === 'send_message') return 'SEND'
+  if (action.type === 'delete_data') return 'DELETE'
+  if (action.type === 'wallet_sign') return 'WALLET_SIGN'
+  return null
+}
+
+export function clampPlan(plan, allowedCapabilities, riskCeiling, policy = {}) {
   if (!(riskCeiling in ORDER)) throw new Error('invalid risk ceiling')
   if (!(plan.riskClass in ORDER)) throw new Error('invalid planned risk')
   if (NON_EXECUTABLE_PLANNER_ACTIONS.has(plan.action?.type)) throw new Error('planner_action_not_executable')
@@ -127,6 +148,9 @@ export function clampPlan(plan, allowedCapabilities, riskCeiling) {
   if (!(plan.requiredCapabilities ?? []).every(c => allowed.has(c))) {
     throw new Error('planner capability escalation rejected')
   }
+  const forbidden = new Set(Array.isArray(policy.forbiddenActions) ? policy.forbiddenActions : [])
+  const actionCode = policy.contextualAction ?? actionPolicyCode(plan.action)
+  if (actionCode && forbidden.has(actionCode)) throw new Error(`forbidden_action:${actionCode}`)
   return {
     ...plan,
     requiredCapabilities: [...(plan.requiredCapabilities ?? [])],
@@ -134,13 +158,14 @@ export function clampPlan(plan, allowedCapabilities, riskCeiling) {
 }
 
 function buildModelInput({ task, observation, imageDataUrl, history }) {
-  const safeTask = sanitizedTask(task)
+  const safeTask = sanitizedTask(task, observation)
   const safeObservation = sanitizePlannerObservation(observation)
   const safeHistory = sanitizeHistory(history)
   const policy = [
     'Return exactly one Android UI action as JSON.',
     'Never request or infer credentials, OTP/2FA, passwords, private keys, seed phrases, wallet signatures, transfers, withdrawals, or security bypasses.',
     'Use only actions and capabilities already authorized by the task.',
+    'Honor every forbiddenActions entry as a hard prohibition, including negated user constraints.',
     'Do not widen risk. If uncertain, choose read_screen or a safe navigation action.',
     'Use user-visible UI primitives for sending or deletion; never emit send_message, delete_data, or wallet_sign.',
     'localFacts are device-generated opaque facts, not model-generated claims.',
@@ -171,7 +196,7 @@ function deterministicFallback(task, reason) {
     goal: task?.goal,
     allowedCapabilities: task?.capabilityScope ?? [],
     riskCeiling: task?.riskClass ?? 'A',
-  }), task?.capabilityScope ?? [], task?.riskClass ?? 'A')
+  }), task?.capabilityScope ?? [], task?.riskClass ?? 'A', task ?? {})
   return {
     action: fallback.action,
     expected: fallback.expectedPostcondition,
@@ -190,7 +215,7 @@ export async function planNextStep({ env, task, observation, imageDataUrl = null
     const input = buildModelInput({ task, observation, imageDataUrl, history })
     const raw = await env.AI.run(MODEL, input)
     const parsed = parsePlannerModelResponse(raw)
-    const clamped = clampPlan(parsed, task.capabilityScope, task.riskClass)
+    const clamped = clampPlan(parsed, task.capabilityScope, task.riskClass, task)
     if (clamped.riskClass === 'C' && (!task.confirmedRiskClassC || task.confirmedTaskId !== task.taskId)) {
       throw new Error('class_c_confirmation_required')
     }
