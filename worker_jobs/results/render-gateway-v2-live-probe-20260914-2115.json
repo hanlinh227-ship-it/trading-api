@@ -1,0 +1,28 @@
+{
+  "job_id": "render-gateway-v2-live-probe-20260914-2115",
+  "status": "BLOCKED",
+  "message": "QUALITY_TARGET_UNAVAILABLE for FLOW_GRADE: google_flow_image: No authenticated supported Flow image connector/API is available; google_flow_video: No authenticated supported Flow video connector/API is available; runway: Runway connector is not authorized for autonomous execution",
+  "artifact_manifest": {
+    "render_gateway": {
+      "state": "BLOCKED_AUTH",
+      "message": "QUALITY_TARGET_UNAVAILABLE for FLOW_GRADE: google_flow_image: No authenticated supported Flow image connector/API is available; google_flow_video: No authenticated supported Flow video connector/API is available; runway: Runway connector is not authorized for autonomous execution",
+      "state_history": [
+        "RECEIVED",
+        "ASSETS_STAGED",
+        "VALIDATED",
+        "BLOCKED_AUTH"
+      ],
+      "route": null,
+      "return_manifest": null
+    },
+    "quality_tier": "FLOW_GRADE",
+    "auto_purchase": false,
+    "silent_quality_downgrade": false,
+    "_worker": {
+      "runner_build": "worker-reliability-v4",
+      "runtime_build": "render-gateway-v2+image-render-v1",
+      "pid": 40684
+    }
+  },
+  "completed_at": "2026-09-14T14:42:24.934853+00:00"
+}
