@@ -10,6 +10,7 @@ _ALLOWED_JOB_TYPES = {
     "VOICE_RENDER",
     "FINAL_RENDER",
     "MEDIA_PROBE",
+    "RENDER_GATEWAY",
 }
 _FORBIDDEN_KEYS = {
     "command",
@@ -43,6 +44,19 @@ def _reject_shell_fields(value: Any) -> None:
             _reject_shell_fields(child)
 
 
+def _validate_gateway_args(args: dict[str, Any]) -> None:
+    render_job = args.get("render_job")
+    if not isinstance(render_job, dict):
+        raise ValueError("RENDER_GATEWAY requires args.render_job object")
+    for key in ("job_id", "attempt_id", "project_id", "job_type", "quality_tier"):
+        if not isinstance(render_job.get(key), str) or not render_job[key].strip():
+            raise ValueError(f"RENDER_GATEWAY render_job.{key} is required")
+    if render_job["job_type"] not in {"IMAGE_RENDER", "VIDEO_RENDER", "FINAL_RENDER"}:
+        raise ValueError("RENDER_GATEWAY render_job.job_type is unsupported")
+    if render_job["quality_tier"] not in {"FLOW_GRADE", "HIGH", "DRAFT_LOCAL"}:
+        raise ValueError("RENDER_GATEWAY render_job.quality_tier is unsupported")
+
+
 def validate_job_request(payload: dict[str, Any]) -> dict[str, Any]:
     job_id = payload.get("job_id")
     job_type = payload.get("job_type")
@@ -58,6 +72,8 @@ def validate_job_request(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(args, dict):
         raise ValueError("args must be an object")
     _reject_shell_fields(args)
+    if job_type == "RENDER_GATEWAY":
+        _validate_gateway_args(args)
 
     return {
         "job_id": job_id,
