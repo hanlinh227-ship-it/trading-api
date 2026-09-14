@@ -49,6 +49,7 @@ jobs:
               "VOICE_RENDER",
               "FINAL_RENDER",
               "MEDIA_PROBE",
+              "RENDER_GATEWAY",
           }
           forbidden = {
               "command",
