@@ -6,9 +6,13 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import BinaryIO
 
 from .client import WorkerQueue
+from . import runtime as runtime_module
 from .runtime import execute_job
+
+RUNNER_BUILD = "worker-reliability-v4"
 
 
 def run_once(queue: WorkerQueue, workspace_root: Path | str) -> bool:
@@ -16,10 +20,16 @@ def run_once(queue: WorkerQueue, workspace_root: Path | str) -> bool:
     if job is None:
         return False
     result = execute_job(job, workspace_root)
+    manifest = dict(result.get("artifact_manifest", {}))
+    manifest["_worker"] = {
+        "runner_build": RUNNER_BUILD,
+        "runtime_build": getattr(runtime_module, "RUNTIME_BUILD", "legacy"),
+        "pid": os.getpid(),
+    }
     queue.write_result(
         job["job_id"],
         result["status"],
-        result.get("artifact_manifest", {}),
+        manifest,
         result.get("message", ""),
     )
     queue.mark_seen(job["job_id"])
@@ -64,6 +74,11 @@ def _worker_code_changed(repo_root: Path, before: str, after: str) -> bool:
         if line.strip()
     ]
     return any(path.startswith("money_ecosystem/worker/") for path in changed_paths)
+
+
+def _code_changed_since_loaded(repo_root: Path, loaded_head: str) -> bool:
+    current_head = _head(repo_root)
+    return _worker_code_changed(repo_root, loaded_head, current_head)
 
 
 def _commit_pending_results(repo_root: Path) -> None:
@@ -132,6 +147,45 @@ def push_results(repo_root: Path, branch: str) -> bool:
     return code_changed
 
 
+def _try_acquire_instance_lock(repo_root: Path) -> BinaryIO | None:
+    state_dir = repo_root / ".worker_state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    path = state_dir / "active_worker.lock"
+    handle = path.open("a+b")
+    if path.stat().st_size == 0:
+        handle.write(b"0")
+        handle.flush()
+    handle.seek(0)
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (OSError, IOError):
+        handle.close()
+        return None
+    return handle
+
+
+def _release_instance_lock(handle: BinaryIO) -> None:
+    try:
+        handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    finally:
+        handle.close()
+
+
 def _load_secret(secret_file: Path) -> bytes:
     secret = secret_file.read_text(encoding="utf-8-sig").strip()
     if len(secret) < 32:
@@ -149,24 +203,44 @@ def main() -> int:
 
     repo_root = Path(args.repo_root).resolve()
     secret = _load_secret(Path(args.secret_file).resolve())
+
+    instance_lock = _try_acquire_instance_lock(repo_root)
+    while instance_lock is None:
+        print("Another Curious Beyond Worker is active; waiting for the local worker lock...", flush=True)
+        time.sleep(5)
+        instance_lock = _try_acquire_instance_lock(repo_root)
+
     queue = WorkerQueue(repo_root, secret)
+    loaded_head = _head(repo_root)
 
     print("Curious Beyond Worker ONLINE")
     print(f"Repo: {repo_root}")
     print(f"Branch: {args.branch}")
+    print(f"Runner build: {RUNNER_BUILD}")
+    print(f"Runtime build: {getattr(runtime_module, 'RUNTIME_BUILD', 'legacy')}")
 
-    while True:
-        try:
-            # Recover an uncommitted result left by a crash before pulling.
-            _commit_pending_results(repo_root)
-            if sync_from_remote(repo_root, args.branch):
-                _restart_self()
-            run_once(queue, repo_root)
-            if push_results(repo_root, args.branch):
-                _restart_self()
-        except Exception as exc:
-            print(f"Worker cycle error: {exc}")
-        time.sleep(max(5, args.poll_seconds))
+    try:
+        while True:
+            try:
+                # Detect code that reached disk through any path, including a rebase
+                # performed by an older runner while publishing a result.
+                if _code_changed_since_loaded(repo_root, loaded_head):
+                    _restart_self()
+                _commit_pending_results(repo_root)
+                if sync_from_remote(repo_root, args.branch):
+                    _restart_self()
+                if _code_changed_since_loaded(repo_root, loaded_head):
+                    _restart_self()
+                run_once(queue, repo_root)
+                if push_results(repo_root, args.branch):
+                    _restart_self()
+                if _code_changed_since_loaded(repo_root, loaded_head):
+                    _restart_self()
+            except Exception as exc:
+                print(f"Worker cycle error: {exc}", flush=True)
+            time.sleep(max(5, args.poll_seconds))
+    finally:
+        _release_instance_lock(instance_lock)
 
 
 if __name__ == "__main__":
