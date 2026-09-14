@@ -6,7 +6,7 @@ export function isAllowedFlowUrl(value) {
     const url = new URL(value);
     if (url.protocol !== 'https:') return false;
     if (url.hostname === 'flow.google.com') return true;
-    return url.hostname === 'labs.google' && url.pathname.startsWith('/fx/tools/flow');
+    return url.hostname === 'labs.google' && (url.pathname === '/fx/tools/flow' || url.pathname.startsWith('/fx/tools/flow/'));
   } catch {
     return false;
   }
