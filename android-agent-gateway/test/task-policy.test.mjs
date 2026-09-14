@@ -96,10 +96,12 @@ test('class C action requires confirmation bound to the same task', () => {
   assert.throws(() => clampTaskStep({ task: wrongBinding, action: { type: 'delete_data', itemCount: 1 } }), /confirmation/i)
 })
 
-test('bounded task progress enforces 40 steps and 5 recoveries', () => {
+test('bounded task progress uses 50-action epochs and preserves five-recovery limit', () => {
   let task = createTaskState({ taskId: 't2', goal: 'safe nav', capabilityScope: ['ui.navigate'], riskClass: 'A', taskRiskClass: 'A' })
-  for (let i = 0; i < 40; i += 1) task = recordTaskProgress(task, { kind: 'step' })
-  assert.throws(() => recordTaskProgress(task, { kind: 'step' }), /max_steps/i)
+  for (let i = 0; i < 50; i += 1) task = recordTaskProgress(task, { kind: 'step', progressMarker: `p-${i}` })
+  assert.equal(task.epoch, 1)
+  assert.equal(task.epochStepCount, 0)
+  assert.equal(task.checkpointCount, 1)
 
   let recovering = createTaskState({ taskId: 't3', goal: 'safe nav', capabilityScope: ['ui.navigate'], riskClass: 'A', taskRiskClass: 'A' })
   for (let i = 0; i < 5; i += 1) recovering = recordTaskProgress(recovering, { kind: 'recovery' })
