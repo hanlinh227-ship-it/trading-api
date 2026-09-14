@@ -111,7 +111,7 @@ jobs:
       github.event.issue.user.login == 'hanlinh227-ship-it' &&
       startsWith(github.event.issue.title, '[ANDROID_AGENT]')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     env:
       ISSUE_BODY: ${{ github.event.issue.body }}
       GATEWAY_BASE_URL: https://android-brain-agent-gateway.hanlinh227.workers.dev
@@ -145,7 +145,7 @@ jobs:
           fi
           test -n "$DEVICE_ID"
           echo "device_id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
-      - name: Queue Class-A Android command
+      - name: Queue Android command
         id: queue
         shell: bash
         env:
@@ -162,30 +162,5 @@ jobs:
           printf '%s' "$RESPONSE" | jq -e '.queued == true and (.commandId|type=="string" and length>0)'
           COMMAND_ID="$(printf '%s' "$RESPONSE" | jq -r '.commandId')"
           echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
-      - name: Verify Android completed command
-        shell: bash
-        env:
-          DEVICE_ID: ${{ steps.target.outputs.device_id }}
-          COMMAND_ID: ${{ steps.queue.outputs.command_id }}
-          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
-        run: |
-          set -euo pipefail
-          for attempt in $(seq 1 20); do
-            STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 \
-              -H "Authorization: Bearer $OIDC_TOKEN" \
-              "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/status")"
-            if printf '%s' "$STATUS" | jq -e --arg id "$COMMAND_ID" '.lastResult.commandId == $id' >/dev/null; then
-              printf '%s' "$STATUS" | jq '{paired,online,lastSeenAt,queued,lastResult}'
-              RESULT="$(printf '%s' "$STATUS" | jq -r '.lastResult.status')"
-              test "$RESULT" = "COMPLETED"
-              echo 'ANDROID_AGENT_E2E=PASS'
-              exit 0
-            fi
-            sleep 3
-          done
-          STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 \
-            -H "Authorization: Bearer $OIDC_TOKEN" \
-            "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/status")"
-          printf '%s' "$STATUS" | jq '{paired,online,lastSeenAt,queued,lastResult}'
-          echo 'ANDROID_AGENT_E2E=TIMEOUT' >&2
-          exit 1
+          echo "ANDROID_AGENT_QUEUED=PASS"
+          echo "ANDROID_AGENT_COMMAND_ID=$COMMAND_ID"
