@@ -252,7 +252,17 @@ def _default_search_roots() -> list[Path]:
 
 
 def find_comfyui_root(candidates: Iterable[Path] | None = None) -> Path | None:
-    for candidate in list(candidates) if candidates is not None else _default_candidates():
+    items = list(candidates) if candidates is not None else _default_candidates()
+    # Prefer a complete root first so an incidental models-only directory cannot shadow it.
+    for candidate in items:
+        try:
+            root = Path(candidate).expanduser().resolve()
+        except OSError:
+            continue
+        if _is_comfyui_root(root):
+            return root
+    # Desktop data roots can legitimately start with models/ only; custom_nodes is created during bootstrap.
+    for candidate in items:
         root = _nearest_data_root(Path(candidate))
         if root is not None:
             return root
@@ -271,6 +281,7 @@ def discover_comfyui_root(
         "windows", "winsxs", "packages", "npm-cache", "pip", "torch_extensions",
     }
     examined = 0
+    fallback: Path | None = None
     for search_root in roots:
         base = Path(search_root).expanduser()
         if not base.is_dir():
@@ -295,11 +306,13 @@ def discover_comfyui_root(
             if examined > max_entries:
                 break
             try:
-                if _is_comfyui_data_root(current_path):
+                if _is_comfyui_root(current_path):
                     return current_path.resolve()
+                if fallback is None and _is_comfyui_data_root(current_path):
+                    fallback = current_path.resolve()
             except OSError:
                 continue
-    return None
+    return fallback
 
 
 def build_bootstrap_plan(comfyui_root: Path) -> dict:
