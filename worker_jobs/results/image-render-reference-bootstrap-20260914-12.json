@@ -1,0 +1,15 @@
+{
+  "job_id": "image-render-reference-bootstrap-20260914-12",
+  "status": "BLOCKED",
+  "message": "IMAGE_SETUP failed: ComfyUI data root not found after bounded discovery; searched roots: C:\\Users\\Linh\\Documents, C:\\AI, C:\\Users\\Linh\\AppData\\Roaming, C:\\Users\\Linh\\AppData\\Local, C:\\ProgramData",
+  "artifact_manifest": {
+    "zero_paid_services": true,
+    "cloud_fallback": false,
+    "_worker": {
+      "runner_build": "worker-reliability-v4",
+      "runtime_build": "image-setup-v1",
+      "pid": 10720
+    }
+  },
+  "completed_at": "2026-09-14T00:21:36.636042+00:00"
+}
