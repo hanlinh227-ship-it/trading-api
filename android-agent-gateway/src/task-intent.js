@@ -8,10 +8,6 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))]
 }
 
-function has(pattern, text) {
-  return pattern.test(text)
-}
-
 function negatedTerm(text, termPattern) {
   return new RegExp(`${NEGATION}[^.!?;]{0,180}(?:${termPattern})`, 'iu').test(text)
 }
@@ -24,7 +20,7 @@ function extractForbiddenActions(text) {
   if (negatedTerm(text, String.raw`ad(?:s|vertisement)?|quảng\s*cáo`)) out.push('OPEN_AD')
   if (negatedTerm(text, String.raw`external\s+(?:link|url)|link\s+outside|liên\s+kết\s+ngoài`)) out.push('OPEN_EXTERNAL_LINK')
   if (negatedTerm(text, String.raw`password|passcode|otp|2fa|mfa|private\s+key|seed\s+phrase|recovery\s+phrase|mật\s*khẩu|mã\s*otp|khóa\s*riêng|khoá\s*riêng|cụm\s*từ\s*khôi\s*phục`)) out.push('CREDENTIAL_ACCESS')
-  if (negatedTerm(text, String.raw`wallet\s*(?:sign|signature)|sign\s+(?:any\s+)?wallet|sign\s+(?:a\s+)?transaction|ký\s*ví`)) out.push('WALLET_SIGN')
+  if (negatedTerm(text, String.raw`wallet\s*(?:sign|signature)|sign\s+(?:(?:any|a)\s+)?wallet|sign\s+(?:a\s+)?transaction|ký\s*ví`)) out.push('WALLET_SIGN')
   return unique(out)
 }
 
