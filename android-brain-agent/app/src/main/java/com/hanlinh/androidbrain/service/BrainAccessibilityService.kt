@@ -4,16 +4,20 @@ import android.accessibilityservice.AccessibilityService
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.hanlinh.androidbrain.perception.AccessibilityScreenshotProvider
 import com.hanlinh.androidbrain.perception.AccessibilitySnapshot
 import com.hanlinh.androidbrain.perception.AccessibilitySnapshotMapper
 import com.hanlinh.androidbrain.perception.NodeBounds
 import com.hanlinh.androidbrain.perception.RawAccessibilityNode
+import com.hanlinh.androidbrain.perception.ScreenshotCapture
 
 class BrainAccessibilityService : AccessibilityService() {
     companion object {
         @Volatile var current: BrainAccessibilityService? = null
             private set
     }
+
+    private val screenshotProvider by lazy { AccessibilityScreenshotProvider(this) }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -35,6 +39,10 @@ class BrainAccessibilityService : AccessibilityService() {
         val packageName = root.packageName?.toString().orEmpty()
         val title = root.window?.title?.toString()
         return AccessibilitySnapshotMapper().from(packageName, title, raw)
+    }
+
+    fun captureScreenshot(callback: (ScreenshotCapture) -> Unit) {
+        screenshotProvider.captureScreenshot(callback)
     }
 
     private fun collect(
