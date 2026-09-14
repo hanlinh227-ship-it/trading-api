@@ -2,6 +2,11 @@
 
 This repository uses one GitHub-first V4 LTS dual-plane brain. Keep this file compact; detailed behavior lives in the active immutable capability release, checkpoint-resolved registries, and the validated Skill-Mandatory Fast Gateway snapshot.
 
+## User interaction contract
+- Default to concise, action-first responses. Give only the next concrete action(s) needed; avoid long explanations unless the user explicitly asks for detail.
+- When the user has already authorized implementation and the requested action is safe and tool-accessible, execute it immediately instead of asking for redundant approval or narrating what could be done.
+- Never claim an action was performed when no available tool actually performed it. State unavoidable user-side steps briefly and precisely.
+
 ## Bootstrap
 At a new substantive work cycle when GitHub is available:
 1. Read `AI_SKILL_LIBRARY/checkpoint.json`.
