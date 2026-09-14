@@ -125,8 +125,16 @@ export default {
         if (input.deviceId !== deviceId) return json({ error: 'device_mismatch' }, 400)
         const riskClass = classifyGoal(input.goal)
         if (riskClass === 'D') return json({ error: 'class_d_blocked' }, 403)
-        if (riskClass === 'C') return json({ error: 'confirmation_required', riskClass }, 409)
+        if (riskClass === 'C' && !input.confirmedRiskClassC) {
+          return json({ error: 'confirmation_required', riskClass }, 409)
+        }
+        if (riskClass === 'C' && auth.mode !== 'github-oidc') {
+          return json({ error: 'class_c_requires_github_oidc', riskClass }, 403)
+        }
         if (riskClass === 'B') return json({ error: 'class_b_not_enabled_in_v1_gateway', riskClass }, 409)
+
+        const capabilityScope = [...new Set(input.capabilityScope)]
+        if (riskClass === 'C') capabilityScope.push('ui.destructive.confirmed')
 
         const now = new Date()
         const command = {
@@ -137,7 +145,7 @@ export default {
           expiresAt: new Date(now.getTime() + 60_000).toISOString(),
           nonce: crypto.randomUUID(),
           goal: input.goal,
-          capabilityScope: input.capabilityScope,
+          capabilityScope: [...new Set(capabilityScope)],
           riskClass,
         }
         return stub.fetch(new Request('https://device.internal/command-sign', {
