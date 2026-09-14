@@ -6,6 +6,7 @@ const MAX_NODES = 80
 const MAX_HISTORY = 6
 const MAX_LOCAL_FACTS = 40
 const LOCAL_FACT_KINDS = new Set(['UNKNOWN_NUMBER_CONFIRMED'])
+const NON_EXECUTABLE_PLANNER_ACTIONS = new Set(['send_message', 'delete_data', 'wallet_sign'])
 const SENSITIVE = /(password|passcode|\bpin\b|otp|2fa|one[- ]?time|verification\s*code|private\s*key|seed\s*phrase|recovery\s*(phrase|code)|secret)/i
 
 function sanitizeString(value, max = 256) {
@@ -17,7 +18,7 @@ function sanitizeString(value, max = 256) {
 function sanitizeNode(node) {
   if (!node || typeof node !== 'object') return null
   const out = {}
-  for (const key of ['nodeId', 'className', 'packageName', 'viewIdResourceName']) {
+  for (const key of ['nodeId', 'className', 'packageName', 'viewIdResourceName', 'resourceId']) {
     const value = sanitizeString(node[key], 192)
     if (value !== undefined) out[key] = value
   }
@@ -120,6 +121,7 @@ export function deterministicPlan({ goal, allowedCapabilities = [], riskCeiling 
 export function clampPlan(plan, allowedCapabilities, riskCeiling) {
   if (!(riskCeiling in ORDER)) throw new Error('invalid risk ceiling')
   if (!(plan.riskClass in ORDER)) throw new Error('invalid planned risk')
+  if (NON_EXECUTABLE_PLANNER_ACTIONS.has(plan.action?.type)) throw new Error('planner_action_not_executable')
   if (ORDER[plan.riskClass] > ORDER[riskCeiling]) throw new Error('planner risk escalation rejected')
   const allowed = new Set(allowedCapabilities)
   if (!(plan.requiredCapabilities ?? []).every(c => allowed.has(c))) {
@@ -140,6 +142,7 @@ function buildModelInput({ task, observation, imageDataUrl, history }) {
     'Never request or infer credentials, OTP/2FA, passwords, private keys, seed phrases, wallet signatures, transfers, withdrawals, or security bypasses.',
     'Use only actions and capabilities already authorized by the task.',
     'Do not widen risk. If uncertain, choose read_screen or a safe navigation action.',
+    'Use user-visible UI primitives for sending or deletion; never emit send_message, delete_data, or wallet_sign.',
     'localFacts are device-generated opaque facts, not model-generated claims.',
     'For unknown-number cleanup, select or delete a conversation only when its actionable nodeId has UNKNOWN_NUMBER_CONFIRMED; otherwise only navigate, scroll, or read.',
     'No prose rationale; rationaleCode is a short machine code only.',
