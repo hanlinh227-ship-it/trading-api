@@ -9,7 +9,14 @@ enum class TaskLoopStatus {
     VERIFYING,
     RECOVERING,
     COMPLETED,
+    CANCELLED,
     FAILED,
+}
+
+enum class TaskPersistence {
+    ONE_SHOT,
+    LONG_RUNNING,
+    UNTIL_TERMINAL,
 }
 
 enum class TaskStepOutcome {
@@ -29,7 +36,11 @@ data class TaskProgress(
     val taskId: String,
     val riskClass: RiskClass = RiskClass.A,
     val confirmedRiskClassC: Boolean = false,
+    val persistence: TaskPersistence = TaskPersistence.ONE_SHOT,
     val stepCount: Int = 0,
+    val epoch: Int = 0,
+    val epochStepCount: Int = 0,
+    val checkpointCount: Int = 0,
     val recoveryCount: Int = 0,
     val lastFingerprint: String? = null,
     val status: TaskLoopStatus = TaskLoopStatus.OBSERVING,
