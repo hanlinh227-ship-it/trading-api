@@ -14,6 +14,24 @@ def test_find_comfyui_root_prefers_candidate_with_models_and_custom_nodes(tmp_pa
     assert found == good.resolve()
 
 
+def test_find_comfyui_root_from_desktop_json_basepath(tmp_path):
+    root = tmp_path / "D" / "ComfyData"
+    (root / "models").mkdir(parents=True)
+    config = tmp_path / "config.json"
+    config.write_text('{"basePath": "' + str(root).replace('\\', '\\\\') + '"}', encoding="utf-8")
+    found = image_setup.find_comfyui_root_from_desktop_config([config])
+    assert found == root.resolve()
+
+
+def test_find_comfyui_root_from_desktop_yaml_basepath(tmp_path):
+    root = tmp_path / "ComfyData"
+    (root / "models").mkdir(parents=True)
+    config = tmp_path / "extra_models_config.yaml"
+    config.write_text(f"comfyui_desktop:\n  base_path: '{root}'\n  custom_nodes: custom_nodes/\n", encoding="utf-8")
+    found = image_setup.find_comfyui_root_from_desktop_config([config])
+    assert found == root.resolve()
+
+
 def test_discover_comfyui_root_finds_nested_desktop_data_directory(tmp_path):
     root = tmp_path / "AppData" / "Roaming" / "ComfyUI" / "app" / "ComfyUI"
     (root / "models").mkdir(parents=True)
