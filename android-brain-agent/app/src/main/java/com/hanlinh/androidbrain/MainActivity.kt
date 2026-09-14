@@ -1,6 +1,9 @@
 package com.hanlinh.androidbrain
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -26,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.hanlinh.androidbrain.action.ShizukuActions
 import com.hanlinh.androidbrain.network.PairingRepository
+import com.hanlinh.androidbrain.security.DeviceIdentity
 import com.hanlinh.androidbrain.service.AgentForegroundService
 import com.hanlinh.androidbrain.service.BrainAccessibilityService
 
@@ -33,10 +37,11 @@ class MainActivity : ComponentActivity() {
     private var refreshTick by mutableStateOf(0)
     private var pairingStatus by mutableStateOf("Chưa ghép với gateway")
     private var pairingBusy by mutableStateOf(false)
+    private val deviceId: String by lazy { DeviceIdentity.deviceId() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        pairingStatus = PairingRepository(this).load()?.let { "Đã ghép: ${it.deviceId.take(12)}…" } ?: "Chưa ghép với gateway"
+        pairingStatus = PairingRepository(this).load()?.let { "Đã ghép với Brain Gateway" } ?: "Chưa ghép với gateway"
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
@@ -50,6 +55,8 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Text("Android Brain Agent", style = MaterialTheme.typography.headlineMedium)
                         Text(pairingStatus)
+                        Text("Device ID: $deviceId")
+                        Button(onClick = { copyDeviceId() }) { Text("Sao chép Device ID cho GPT") }
                         Text("Accessibility: ${if (BrainAccessibilityService.current != null) "BẬT" else "CHƯA BẬT"}")
                         Text("Shizuku: ${if (ShizukuActions().available()) "PHÁT HIỆN" else "TÙY CHỌN / CHƯA BẬT"}")
                         Text("Kill switch: ${if (AgentForegroundService.killSwitchActive) "ĐANG KHÓA" else "SẴN SÀNG"}")
@@ -66,6 +73,7 @@ class MainActivity : ComponentActivity() {
                         Button(onClick = { startAgent() }) { Text("4. Khởi động Agent") }
                         Button(onClick = { stopAgent() }) { Text("Dừng / Kill switch") }
                         Spacer(Modifier.height(8.dp))
+                        Text("Sau khi Pair, sao chép Device ID và gửi một lần cho GPT để ra lệnh từ chat.")
                         Text("V1 không root. Agent chỉ thực thi command đã ký; Class D bị chặn. Vision cần consent riêng khi được dùng.")
                     }
                 }
@@ -73,14 +81,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun copyDeviceId() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Android Brain Agent Device ID", deviceId))
+    }
+
     private fun pairGateway() {
         pairingBusy = true
         pairingStatus = "Đang kết nối gateway…"
         Thread {
             try {
-                val paired = PairingRepository(this).pair()
+                PairingRepository(this).pair()
                 runOnUiThread {
-                    pairingStatus = "Đã ghép: ${paired.deviceId.take(12)}…"
+                    pairingStatus = "Đã ghép với Brain Gateway"
                     pairingBusy = false
                     startAgent()
                 }
