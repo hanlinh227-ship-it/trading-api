@@ -1,6 +1,7 @@
 package com.hanlinh.androidbrain.network
 
 import com.hanlinh.androidbrain.BuildConfig
+import com.hanlinh.androidbrain.perception.AccessibilitySnapshot
 import com.hanlinh.androidbrain.policy.RiskClass
 import com.hanlinh.androidbrain.protocol.CommandEnvelope
 import com.hanlinh.androidbrain.protocol.TypedActionCodec
@@ -27,6 +28,13 @@ class GatewayClient(
     data class PairStart(val challenge: String, val expiresAt: Long, val recovery: Boolean)
     data class PairComplete(val deviceToken: String, val gatewayPublicKeyJwk: String)
     data class TaskResult(val commandId: String, val status: String, val detail: String? = null)
+    data class TaskStepResponse(
+        val status: String,
+        val stepCount: Int,
+        val recoveryCount: Int,
+        val plannerMode: String? = null,
+        val commandId: String? = null,
+    )
 
     fun pairStart(deviceId: String, devicePublicKey: String): PairStart {
         val body = JSONObject().put("deviceId", deviceId).put("devicePublicKey", devicePublicKey)
@@ -80,6 +88,71 @@ class GatewayClient(
         post("/v1/device/${encodeSegment(deviceId)}/result", body, token)
     }
 
+    fun postTaskStep(
+        deviceId: String,
+        token: String,
+        taskId: String,
+        observation: AccessibilitySnapshot,
+        previousResult: TaskResult?,
+        imageDataUrl: String? = null,
+    ): TaskStepResponse {
+        val body = JSONObject()
+            .put("taskId", taskId)
+            .put("observation", observationJson(observation))
+        if (previousResult != null) {
+            body.put(
+                "previousResult",
+                JSONObject()
+                    .put("commandId", previousResult.commandId)
+                    .put("status", previousResult.status)
+                    .put("code", previousResult.detail),
+            )
+        }
+        if (!imageDataUrl.isNullOrBlank()) body.put("imageDataUrl", imageDataUrl)
+        val json = post("/v1/device/${encodeSegment(deviceId)}/task-step", body, token)
+        return TaskStepResponse(
+            status = json.optString("status", "UNKNOWN"),
+            stepCount = json.optInt("stepCount", 0),
+            recoveryCount = json.optInt("recoveryCount", 0),
+            plannerMode = json.optString("plannerMode").takeIf { it.isNotBlank() },
+            commandId = json.optString("commandId").takeIf { it.isNotBlank() },
+        )
+    }
+
+    internal fun observationJson(observation: AccessibilitySnapshot): JSONObject {
+        val nodes = JSONArray()
+        observation.nodes.take(MAX_OBSERVATION_NODES).forEach { node ->
+            val bounds = JSONObject()
+                .put("left", node.bounds.left)
+                .put("top", node.bounds.top)
+                .put("right", node.bounds.right)
+                .put("bottom", node.bounds.bottom)
+            val item = JSONObject()
+                .put("nodeId", node.nodeId)
+                .put("resourceId", node.resourceId)
+                .put("text", node.text)
+                .put("contentDescription", node.contentDescription)
+                .put("className", node.className)
+                .put("enabled", node.enabled)
+                .put("clickable", node.clickable)
+                .put("longClickable", node.longClickable)
+                .put("editable", node.editable)
+                .put("scrollable", node.scrollable)
+                .put("checkable", node.checkable)
+                .put("checked", node.checked)
+                .put("selected", node.selected)
+                .put("focused", node.focused)
+                .put("visibleToUser", node.visibleToUser)
+                .put("bounds", bounds)
+            nodes.put(item)
+        }
+        return JSONObject()
+            .put("packageName", observation.packageName)
+            .put("windowTitle", observation.windowTitle)
+            .put("fingerprint", observation.fingerprint())
+            .put("nodes", nodes)
+    }
+
     private fun post(path: String, body: JSONObject, token: String?): JSONObject {
         val builder = Request.Builder()
             .url("$baseUrl$path")
@@ -130,5 +203,6 @@ class GatewayClient(
 
     companion object {
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+        private const val MAX_OBSERVATION_NODES = 80
     }
 }
