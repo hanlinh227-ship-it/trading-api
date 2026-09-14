@@ -1,0 +1,25 @@
+{
+  "job_id": "image-render-reference-bootstrap-20260914-16",
+  "status": "SUCCESS",
+  "message": "IMAGE_SETUP reference stack installed; ComfyUI restart required",
+  "artifact_manifest": {
+    "status": "INSTALLED",
+    "comfyui_root": "C:\\Users\\Linh\\AppData\\Local\\CapCut\\Apps\\7.7.0.3143\\QtQml",
+    "zero_paid_services": true,
+    "cloud_fallback": false,
+    "node_action": "cloned",
+    "files": {
+      "v1-5-pruned-emaonly.safetensors": "downloaded",
+      "ip-adapter-plus_sd15.safetensors": "downloaded",
+      "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors": "downloaded"
+    },
+    "restart_required": true,
+    "note": "Restart ComfyUI so custom nodes and model indexes are reloaded.",
+    "_worker": {
+      "runner_build": "worker-reliability-v4",
+      "runtime_build": "image-setup-v1",
+      "pid": 12064
+    }
+  },
+  "completed_at": "2026-09-14T11:07:47.412400+00:00"
+}
