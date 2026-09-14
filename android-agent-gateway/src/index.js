@@ -9,6 +9,37 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
   headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
 })
 
+const RISK_ORDER = Object.freeze({ A: 0, B: 1, C: 2, D: 3 })
+const LOCAL_CONTACT_GOAL_TERMS = [
+  'unknown number', 'unknown numbers', 'unknown sender', 'unknown senders',
+  'not in contacts', 'not saved in contacts', 'unsaved number', 'unsaved numbers',
+  'số lạ', 'số không lưu', 'không lưu danh bạ', 'không có trong danh bạ', 'ngoài danh bạ',
+]
+
+export function healthPayload(env = {}) {
+  return {
+    ok: true,
+    schema: 1,
+    taskSchema: 2,
+    service: 'android-brain-agent-gateway',
+    sourceSha: env.DEPLOYMENT_SOURCE_SHA ?? 'development',
+    tradingAuthority: false,
+    rawShell: false,
+    commandAuth: 'github-oidc',
+    plannerMode: env.AI ? 'workers-ai-with-deterministic-fallback' : 'deterministic-fallback-only',
+    capabilities: {
+      typedActions: true,
+      ephemeralScreenshots: true,
+      localContacts: true,
+      boundedTaskSessions: true,
+      contextualRiskClamp: true,
+      securityBypass: false,
+      financialMutation: false,
+    },
+    tools: TOOL_CONTRACT,
+  }
+}
+
 function bearer(request) {
   const h = request.headers.get('authorization') ?? ''
   return h.startsWith('Bearer ') ? h.slice(7) : null
@@ -54,22 +85,76 @@ async function proxyJson(stub, path, request) {
   }))
 }
 
+function goalNeedsLocalContacts(goal) {
+  const text = String(goal ?? '').toLowerCase().replace(/\s+/g, ' ')
+  return LOCAL_CONTACT_GOAL_TERMS.some(term => text.includes(term))
+}
+
+export function normalizedTaskInput(body, authMode) {
+  if (!body || typeof body !== 'object') throw new Error('input_required')
+  if (typeof body.goal !== 'string' || !body.goal.trim()) throw new Error('goal_required')
+  const goal = body.goal.trim()
+  const goalRisk = classifyGoal(goal)
+  if (goalRisk === 'D') throw new Error('class_d_blocked')
+  const riskCeiling = body.riskCeiling ?? goalRisk
+  if (!(riskCeiling in RISK_ORDER) || riskCeiling === 'D') throw new Error('invalid_risk_ceiling')
+  if (RISK_ORDER[goalRisk] > RISK_ORDER[riskCeiling]) throw new Error('goal_exceeds_risk_ceiling')
+  if (goalRisk === 'C' && body.confirmedRiskClassC !== true) throw new Error('confirmation_required')
+  if (goalRisk === 'C' && authMode !== 'github-oidc') throw new Error('class_c_requires_github_oidc')
+
+  const taskId = typeof body.taskId === 'string' && body.taskId.trim() ? body.taskId.trim() : crypto.randomUUID()
+  const explicitScope = Array.isArray(body.capabilityScope) && body.capabilityScope.length > 0
+  const scope = explicitScope
+    ? [...new Set(body.capabilityScope.map(String))]
+    : ['apps.open', 'ui.navigate']
+  const needsContacts = goalNeedsLocalContacts(goal)
+
+  if (!scope.includes('ui.navigate')) throw new Error('ui_navigate_required')
+  if (!explicitScope && (goalRisk === 'B' || goalRisk === 'C') && !scope.includes('ui.write')) scope.push('ui.write')
+  if (goalRisk === 'C' && !scope.includes('ui.destructive.confirmed')) scope.push('ui.destructive.confirmed')
+  if (needsContacts) {
+    if (explicitScope && !scope.includes('contacts.read')) throw new Error('contacts_read_required')
+    if (!scope.includes('contacts.read')) scope.push('contacts.read')
+  }
+
+  return {
+    taskId,
+    goal,
+    capabilityScope: scope,
+    riskClass: riskCeiling,
+    taskRiskClass: goalRisk,
+    confirmedRiskClassC: goalRisk === 'C' && body.confirmedRiskClassC === true,
+    confirmedTaskId: goalRisk === 'C' && body.confirmedRiskClassC === true ? taskId : null,
+  }
+}
+
+async function bootstrapTask(stub, deviceId, task) {
+  const now = new Date()
+  const capabilityScope = ['ui.navigate']
+  if (task.capabilityScope.includes('contacts.read')) capabilityScope.push('contacts.read')
+  return stub.fetch(new Request('https://device.internal/command-sign', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      schema: 2,
+      commandId: crypto.randomUUID(),
+      deviceId,
+      issuedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+      nonce: crypto.randomUUID(),
+      taskId: task.taskId,
+      action: { type: 'read_screen' },
+      capabilityScope,
+      riskClass: 'A',
+    }),
+  }))
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
 
-    if (url.pathname === '/health') {
-      return json({
-        ok: true,
-        schema: 1,
-        service: 'android-brain-agent-gateway',
-        sourceSha: env.DEPLOYMENT_SOURCE_SHA ?? 'development',
-        tradingAuthority: false,
-        rawShell: false,
-        commandAuth: 'github-oidc',
-        tools: TOOL_CONTRACT,
-      })
-    }
+    if (url.pathname === '/health') return json(healthPayload(env))
 
     if (url.pathname === '/v1/device/latest' && request.method === 'GET') {
       const auth = await requireControl(request, env)
@@ -91,7 +176,44 @@ export default {
       return response
     }
 
-    const match = url.pathname.match(/^\/v1\/device\/([^/]+)\/(status|commands|next|result|socket)$/)
+    const taskMatch = url.pathname.match(/^\/v1\/device\/([^/]+)\/tasks(?:\/([^/]+))?$/)
+    if (taskMatch) {
+      const deviceId = decodeURIComponent(taskMatch[1])
+      const taskId = taskMatch[2] ? decodeURIComponent(taskMatch[2]) : null
+      const auth = await requireControl(request, env)
+      if (!auth.ok) return auth.response
+      const stub = sessionStub(env, deviceId)
+
+      if (request.method === 'POST' && taskId == null) {
+        const body = await request.json().catch(() => null)
+        let task
+        try { task = normalizedTaskInput(body, auth.mode) } catch (error) {
+          const status = error.message.includes('class_d') ? 403 : error.message.includes('confirmation') ? 409 : 400
+          return json({ error: error.message }, status)
+        }
+        const created = await stub.fetch(new Request('https://device.internal/task', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(task),
+        }))
+        if (!created.ok) return created
+        const createdBody = await created.json()
+        const bootstrap = await bootstrapTask(stub, deviceId, task)
+        if (!bootstrap.ok) {
+          const detail = await bootstrap.json().catch(() => ({ error: 'unknown' }))
+          return json({ error: 'task_bootstrap_failed', taskId: task.taskId, detail }, 409)
+        }
+        return json({ ...createdBody, bootstrapQueued: true }, 201)
+      }
+
+      if (request.method === 'GET' && taskId) {
+        return stub.fetch(new Request(`https://device.internal/task/${encodeURIComponent(taskId)}`))
+      }
+
+      return json({ error: 'method_not_allowed' }, 405)
+    }
+
+    const match = url.pathname.match(/^\/v1\/device\/([^/]+)\/(status|commands|next|result|task-step|socket)$/)
     if (match) {
       const deviceId = decodeURIComponent(match[1])
       const operation = match[2]
@@ -111,6 +233,13 @@ export default {
 
       if (operation === 'result') {
         const response = await proxyJson(stub, '/result', request)
+        if (response.ok) await touchLatestDevice(env, deviceId)
+        return response
+      }
+
+      if (operation === 'task-step') {
+        if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
+        const response = await proxyJson(stub, '/task-step', request)
         if (response.ok) await touchLatestDevice(env, deviceId)
         return response
       }

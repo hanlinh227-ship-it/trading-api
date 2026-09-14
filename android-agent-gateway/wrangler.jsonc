@@ -3,6 +3,9 @@
   "name": "android-brain-agent-gateway",
   "main": "src/index.js",
   "compatibility_date": "2026-09-14",
+  "ai": {
+    "binding": "AI"
+  },
   "durable_objects": {
     "bindings": [
       { "name": "DEVICE_SESSIONS", "class_name": "DeviceSession" }

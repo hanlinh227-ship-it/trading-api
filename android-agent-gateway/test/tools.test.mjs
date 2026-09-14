@@ -25,3 +25,10 @@ test('destructive goal remains class C and can carry explicit confirmation', () 
   assert.equal(classifyGoal(input.goal), 'C')
   assert.equal(input.confirmedRiskClassC, true)
 })
+
+test('typing and drafting are class B but sending is class C', () => {
+  assert.equal(classifyGoal('type hello into the message box'), 'B')
+  assert.equal(classifyGoal('soạn nháp lời chào nhưng chưa gửi'), 'B')
+  assert.equal(classifyGoal('send message to Linh'), 'C')
+  assert.equal(classifyGoal('gửi tin nhắn cho Linh'), 'C')
+})
