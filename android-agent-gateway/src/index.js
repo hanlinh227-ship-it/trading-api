@@ -27,6 +27,7 @@ export function healthPayload(env = {}) {
       ephemeralScreenshots: true,
       localContacts: true,
       boundedTaskSessions: true,
+      contextualRiskClamp: true,
       securityBypass: false,
       financialMutation: false,
     },
@@ -79,7 +80,7 @@ async function proxyJson(stub, path, request) {
   }))
 }
 
-function normalizedTaskInput(body, authMode) {
+export function normalizedTaskInput(body, authMode) {
   if (!body || typeof body !== 'object') throw new Error('input_required')
   if (typeof body.goal !== 'string' || !body.goal.trim()) throw new Error('goal_required')
   const goalRisk = classifyGoal(body.goal)
@@ -89,17 +90,23 @@ function normalizedTaskInput(body, authMode) {
   if (RISK_ORDER[goalRisk] > RISK_ORDER[riskCeiling]) throw new Error('goal_exceeds_risk_ceiling')
   if (goalRisk === 'C' && body.confirmedRiskClassC !== true) throw new Error('confirmation_required')
   if (goalRisk === 'C' && authMode !== 'github-oidc') throw new Error('class_c_requires_github_oidc')
+
   const taskId = typeof body.taskId === 'string' && body.taskId.trim() ? body.taskId.trim() : crypto.randomUUID()
-  const scope = Array.isArray(body.capabilityScope) && body.capabilityScope.length
+  const explicitScope = Array.isArray(body.capabilityScope) && body.capabilityScope.length > 0
+  const scope = explicitScope
     ? [...new Set(body.capabilityScope.map(String))]
     : ['apps.open', 'ui.navigate']
+
   if (!scope.includes('ui.navigate')) throw new Error('ui_navigate_required')
+  if (!explicitScope && (goalRisk === 'B' || goalRisk === 'C') && !scope.includes('ui.write')) scope.push('ui.write')
   if (goalRisk === 'C' && !scope.includes('ui.destructive.confirmed')) scope.push('ui.destructive.confirmed')
+
   return {
     taskId,
     goal: body.goal.trim(),
     capabilityScope: scope,
     riskClass: riskCeiling,
+    taskRiskClass: goalRisk,
     confirmedRiskClassC: goalRisk === 'C' && body.confirmedRiskClassC === true,
     confirmedTaskId: goalRisk === 'C' && body.confirmedRiskClassC === true ? taskId : null,
   }
