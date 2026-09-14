@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text("Android Brain Agent", style = MaterialTheme.typography.headlineMedium)
-                        Text("V1.0.1 onboarding repair")
+                        Text("V1.0.2 DNS fallback")
                         Text("Gateway: $gatewayStatus")
                         Text(pairingStatus)
                         Text("Device ID: $deviceId")
@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
                         Button(onClick = { startAgent() }) { Text("4. Khởi động Agent") }
                         Button(onClick = { stopAgent() }) { Text("Dừng / Kill switch") }
                         Spacer(Modifier.height(8.dp))
+                        Text("V1.0.2 tự thử DNS hệ thống, Google DNS-over-HTTPS và Cloudflare DNS-over-HTTPS khi kết nối Gateway.")
                         Text("Sau khi bật quyền, quay lại app. Trạng thái sẽ tự cập nhật. Nếu Pair từng dở dang, nút Pair có thể khôi phục phiên bằng chữ ký khóa riêng của chính điện thoại.")
                         Text("Sau khi Pair thành công, sao chép Device ID và gửi cho GPT để chạy acceptance test.")
                         Text("V1 không root. Agent chỉ thực thi command đã ký; Class D bị chặn. Vision cần consent riêng khi được dùng.")
