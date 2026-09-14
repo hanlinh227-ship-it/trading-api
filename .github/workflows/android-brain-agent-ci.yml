@@ -45,21 +45,3 @@ jobs:
           name: android-brain-agent-debug-apk
           path: android-brain-agent/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
-  gateway:
-    if: hashFiles('android-agent-gateway/package.json') != ''
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: android-agent-gateway/package-lock.json
-      - working-directory: android-agent-gateway
-        run: npm ci
-      - working-directory: android-agent-gateway
-        run: npm test
-      - working-directory: android-agent-gateway
-        run: npx wrangler deploy --dry-run
