@@ -119,7 +119,7 @@ data class OpenUrl(val url: String) : Action {
 
 data class SendMessage(val contact: String, val message: String) : Action {
     override val type = "send_message"
-    override val riskClass = RiskClass.B
+    override val riskClass = RiskClass.C
 }
 
 data class DeleteData(val itemCount: Int) : Action {
