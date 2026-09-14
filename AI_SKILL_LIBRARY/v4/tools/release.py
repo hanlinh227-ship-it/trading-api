@@ -21,6 +21,7 @@ RELEASE_FILES: tuple[tuple[str, str], ...] = (
     ("AI_SKILL_LIBRARY/v4/stable/memory.yaml", "memory"),
     ("AI_SKILL_LIBRARY/v4/stable/evidence.yaml", "evidence"),
     ("AI_SKILL_LIBRARY/v4/stable/harmonization.yaml", "harmonization"),
+    ("AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml", "continuous_intelligence"),
     ("AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml", "capability_fusion"),
     ("AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml", "creative_visual_fusion"),
     ("AI_SKILL_LIBRARY/v4/stable/presentation.yaml", "presentation"),
