@@ -97,7 +97,7 @@ jobs:
           set -euo pipefail
           for attempt in 1 2 3 4 5; do
             BODY="$(curl -fsS --connect-timeout 5 --max-time 15 https://android-brain-agent-gateway.hanlinh227.workers.dev/health || true)"
-            if printf '%s' "$BODY" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok===true&&x.service==='android-brain-agent-gateway'&&x.sourceSha===process.env.GITHUB_SHA&&x.commandAuth==='github-oidc')process.exit(0)}catch{}process.exit(1)})"; then
+            if printf '%s' "$BODY" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok===true&&x.service==='android-brain-agent-gateway'&&x.sourceSha===process.env.GITHUB_SHA&&x.commandAuth==='github-oidc'&&x.capabilities?.exactCommandReceipts===true)process.exit(0)}catch{}process.exit(1)})"; then
               echo 'ANDROID_AGENT_GATEWAY=PASS'
               exit 0
             fi
@@ -112,6 +112,9 @@ jobs:
       startsWith(github.event.issue.title, '[ANDROID_AGENT]')
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    concurrency:
+      group: android-agent-physical-command-bridge
+      cancel-in-progress: false
     env:
       ISSUE_BODY: ${{ github.event.issue.body }}
       GATEWAY_BASE_URL: https://android-brain-agent-gateway.hanlinh227.workers.dev
@@ -164,7 +167,7 @@ jobs:
           echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
           echo "ANDROID_AGENT_QUEUED=PASS"
           echo "ANDROID_AGENT_COMMAND_ID=$COMMAND_ID"
-      - name: Snapshot Android device status
+      - name: Wait for exact device result
         shell: bash
         env:
           DEVICE_ID: ${{ steps.target.outputs.device_id }}
@@ -172,21 +175,34 @@ jobs:
           COMMAND_ID: ${{ steps.queue.outputs.command_id }}
         run: |
           set -euo pipefail
-          sleep 1
           STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 \
             -H "Authorization: Bearer $OIDC_TOKEN" \
             "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/status")"
-          printf '%s' "$STATUS" | jq '{deviceId,paired,online,lastSeenAt,queued,lastResult}'
-          ONLINE="$(printf '%s' "$STATUS" | jq -r '.online // false')"
-          QUEUED="$(printf '%s' "$STATUS" | jq -r '.queued // -1')"
-          LAST_RESULT_ID="$(printf '%s' "$STATUS" | jq -r '.lastResult.commandId // empty')"
-          LAST_RESULT_STATUS="$(printf '%s' "$STATUS" | jq -r '.lastResult.status // empty')"
-          echo "ANDROID_AGENT_ONLINE=$ONLINE"
-          echo "ANDROID_AGENT_QUEUED_COUNT=$QUEUED"
-          echo "ANDROID_AGENT_LAST_RESULT_ID=$LAST_RESULT_ID"
-          echo "ANDROID_AGENT_LAST_RESULT_STATUS=$LAST_RESULT_STATUS"
-          if [ "$LAST_RESULT_ID" = "$COMMAND_ID" ]; then
-            echo "ANDROID_AGENT_COMMAND_OBSERVED=$LAST_RESULT_STATUS"
-          else
-            echo "ANDROID_AGENT_COMMAND_OBSERVED=PENDING"
-          fi
+          printf '%s' "$STATUS" | jq -e '.paired == true and .online == true' >/dev/null
+          echo 'ANDROID_AGENT_DEVICE_ONLINE=PASS'
+
+          for attempt in $(seq 1 30); do
+            HTTP_CODE="$(curl -sS --connect-timeout 5 --max-time 15 \
+              -o command-result.json -w '%{http_code}' \
+              -H "Authorization: Bearer $OIDC_TOKEN" \
+              "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/commands/$COMMAND_ID/result")"
+            if [ "$HTTP_CODE" = "404" ]; then
+              sleep 1
+              continue
+            fi
+            test "$HTTP_CODE" = "200"
+            cat command-result.json | jq '{commandId,status,code,receivedAt}'
+            RESULT_ID="$(jq -r '.commandId // empty' command-result.json)"
+            RESULT_STATUS="$(jq -r '.status // empty' command-result.json)"
+            RESULT_CODE="$(jq -r '.code // empty' command-result.json)"
+            test "$RESULT_ID" = "$COMMAND_ID"
+            if [ "$RESULT_STATUS" = "COMPLETED" ]; then
+              echo 'ANDROID_AGENT_DEVICE_EXECUTED=PASS'
+              exit 0
+            fi
+            echo "ANDROID_AGENT_DEVICE_EXECUTED=FAIL status=$RESULT_STATUS code=$RESULT_CODE"
+            exit 1
+          done
+
+          echo 'ANDROID_AGENT_DEVICE_EXECUTED=TIMEOUT'
+          exit 1

@@ -131,6 +131,9 @@ export class DeviceSession {
     if (url.pathname === '/pair/start' && request.method === 'POST') return this.pairStart(request)
     if (url.pathname === '/pair/complete' && request.method === 'POST') return this.pairComplete(request)
     if (url.pathname === '/status' && request.method === 'GET') return this.status(request)
+    if (url.pathname.startsWith('/command-result/') && request.method === 'GET') {
+      return this.commandResult(url.pathname.slice('/command-result/'.length))
+    }
     if (url.pathname === '/command' && request.method === 'POST') return this.enqueue(request)
     if (url.pathname === '/command-sign' && request.method === 'POST') return this.signAndEnqueue(request)
     if (url.pathname === '/task' && request.method === 'POST') return this.createTask(request)
@@ -251,6 +254,16 @@ export class DeviceSession {
       queued: queue.length,
       lastResult: lastResult ?? null,
     })
+  }
+
+  async commandResult(commandId) {
+    const wanted = decodeURIComponent(commandId).slice(0, 128)
+    const receipts = (await this.state.storage.get('resultReceipts')) ?? []
+    const result = Array.isArray(receipts)
+      ? receipts.find(receipt => receipt?.commandId === wanted)
+      : null
+    if (!result) return json({ error: 'command_result_not_found' }, 404)
+    return json(result)
   }
 
   async createTask(request) {
@@ -513,6 +526,24 @@ export class DeviceSession {
       receivedAt: new Date().toISOString(),
     }
     await this.state.storage.put('lastResult', safe)
+
+    if (safe.commandId) {
+      const receipt = {
+        commandId: safe.commandId,
+        status: safe.status,
+        code: safe.status === 'FAILED' || safe.status === 'NEEDS_CONFIRMATION'
+          ? safeResultCode(body)
+          : null,
+        receivedAt: safe.receivedAt,
+      }
+      const receipts = (await this.state.storage.get('resultReceipts')) ?? []
+      const bounded = (Array.isArray(receipts) ? receipts : [])
+        .filter(existing => existing?.commandId !== receipt.commandId)
+      bounded.push(receipt)
+      while (bounded.length > 64) bounded.shift()
+      await this.state.storage.put('resultReceipts', bounded)
+    }
+
     return json({ accepted: true })
   }
 
