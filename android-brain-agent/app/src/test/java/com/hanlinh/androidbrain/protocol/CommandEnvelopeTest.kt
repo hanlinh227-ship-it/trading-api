@@ -52,4 +52,26 @@ class CommandEnvelopeTest {
         val result = verifier.verify(signed(envelope()), keyPair.public, now, emptySet())
         assertTrue(result.accepted)
     }
+
+    @Test fun webcrypto_p1363_signature_is_accepted() {
+        val derSigned = signed(envelope())
+        val raw = derToP1363(Base64.getDecoder().decode(derSigned.signature))
+        val candidate = derSigned.copy(signature = Base64.getEncoder().encodeToString(raw))
+        assertTrue(verifier.verify(candidate, keyPair.public, now, emptySet()).accepted)
+    }
+
+    private fun derToP1363(der: ByteArray): ByteArray {
+        var p = 2
+        check(der[p++].toInt() == 0x02)
+        val rLen = der[p++].toInt() and 0xff
+        val r = der.copyOfRange(p, p + rLen); p += rLen
+        check(der[p++].toInt() == 0x02)
+        val sLen = der[p++].toInt() and 0xff
+        val s = der.copyOfRange(p, p + sLen)
+        fun fixed(v: ByteArray): ByteArray {
+            val stripped = if (v.size > 32) v.copyOfRange(v.size - 32, v.size) else v
+            return ByteArray(32).also { stripped.copyInto(it, 32 - stripped.size) }
+        }
+        return fixed(r) + fixed(s)
+    }
 }
