@@ -44,3 +44,4 @@ jobs:
           tests/money_ecosystem/test_image_render_contract.py
           tests/money_ecosystem/test_image_render_executor.py
           tests/money_ecosystem/test_image_render_runtime.py
+          tests/money_ecosystem/test_image_setup.py
