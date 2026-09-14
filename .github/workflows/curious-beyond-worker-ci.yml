@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - ai-money-ecosystem-autopilot-v1
+      - render-gateway-v2-impl
     paths:
       - 'money_ecosystem/worker/**'
+      - 'money_ecosystem/render_gateway/**'
       - 'tests/money_ecosystem/test_worker_*.py'
       - 'tests/money_ecosystem/test_comfyui_adapter.py'
       - 'tests/money_ecosystem/test_image_*.py'
       - 'tests/money_ecosystem/test_manual_image_setup.py'
       - 'tests/money_ecosystem/test_manual_scene1_render.py'
+      - 'tests/money_ecosystem/render_gateway/**'
       - '.github/workflows/curious-beyond-worker-ci.yml'
   workflow_dispatch:
 
@@ -30,7 +33,7 @@ jobs:
           python-version: '3.11'
       - name: Install test dependencies
         run: python -m pip install --disable-pip-version-check pytest pillow
-      - name: Run bounded worker tests
+      - name: Run bounded worker and render-gateway tests
         run: >-
           python -m pytest -q
           tests/money_ecosystem/test_worker_protocol.py
@@ -50,3 +53,4 @@ jobs:
           tests/money_ecosystem/test_image_workflow.py
           tests/money_ecosystem/test_manual_image_setup.py
           tests/money_ecosystem/test_manual_scene1_render.py
+          tests/money_ecosystem/render_gateway
