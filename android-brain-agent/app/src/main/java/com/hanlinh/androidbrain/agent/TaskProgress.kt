@@ -38,18 +38,23 @@ data class TaskProgress(
 
 sealed interface TaskLoopDecision {
     val progress: TaskProgress
+    val code: String?
 
-    data class PlanNext(override val progress: TaskProgress) : TaskLoopDecision
+    data class PlanNext(override val progress: TaskProgress) : TaskLoopDecision {
+        override val code: String? = null
+    }
 
     data class Recover(
         override val progress: TaskProgress,
-        val code: String,
+        override val code: String,
     ) : TaskLoopDecision
 
-    data class Completed(override val progress: TaskProgress) : TaskLoopDecision
+    data class Completed(override val progress: TaskProgress) : TaskLoopDecision {
+        override val code: String? = null
+    }
 
     data class Failed(
         override val progress: TaskProgress,
-        val code: String,
+        override val code: String,
     ) : TaskLoopDecision
 }
