@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isDeviceOnline, pruneExpiredCommands, validateCommandForQueue } from '../src/device-session.js'
+import { DeviceSession, isDeviceOnline, pruneExpiredCommands, validateCommandForQueue } from '../src/device-session.js'
 
 test('expired commands are rejected before queueing', () => {
   assert.throws(() => validateCommandForQueue({
@@ -28,4 +28,25 @@ test('status queue pruning removes every expired command, not just the head', ()
     { commandId: 'live-2', expiresAt: '2026-09-14T09:12:00Z' },
   ]
   assert.deepEqual(pruneExpiredCommands(queue, now).map(x => x.commandId), ['live-1', 'live-2'])
+})
+
+test('registry stores and returns the most recently active device', async () => {
+  const values = new Map()
+  const state = {
+    storage: {
+      get: async key => values.get(key),
+      put: async (key, value) => values.set(key, value),
+    },
+    getWebSockets: () => [],
+  }
+  const session = new DeviceSession(state, {})
+  const touch = await session.fetch(new Request('https://device.internal/registry/touch', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ deviceId: 'device-new' }),
+  }))
+  assert.equal(touch.status, 200)
+  const latest = await session.fetch(new Request('https://device.internal/registry/latest'))
+  assert.equal(latest.status, 200)
+  assert.equal((await latest.json()).deviceId, 'device-new')
 })
