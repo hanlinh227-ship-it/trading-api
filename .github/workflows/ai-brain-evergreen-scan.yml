@@ -2,7 +2,7 @@ name: AI Brain V4 Evergreen Scan
 
 on:
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '17 * * * *'
     - cron: '23 3 * * 0'
   workflow_dispatch:
 
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   scan-quarantine:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 */6 * * *'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 * * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
