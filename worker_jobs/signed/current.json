@@ -1,12 +1,12 @@
 {
   "algorithm": "HMAC-SHA256",
   "payload": {
-    "job_id": "image-render-reference-bootstrap-20260914-13",
+    "job_id": "image-render-reference-bootstrap-20260914-14",
     "job_type": "IMAGE_SETUP",
-    "created_at": "2026-09-14T07:27:00+07:00",
+    "created_at": "2026-09-14T07:36:00+07:00",
     "args": {
       "action": "bootstrap_reference_stack"
     }
   },
-  "signature": "565686f0cac6a14b38181bc659d093e9b0f9326fd2832b6ed7e05df1b98e89bd"
+  "signature": "413bde02dfb74c2844bde883a6be69e44d41593cdf8c5dfcf5d645506772c650"
 }
