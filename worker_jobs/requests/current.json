@@ -1,7 +1,7 @@
 {
-  "job_id": "image-render-reference-bootstrap-20260914-11",
+  "job_id": "image-render-reference-bootstrap-20260914-12",
   "job_type": "IMAGE_SETUP",
-  "created_at": "2026-09-14T07:24:00+07:00",
+  "created_at": "2026-09-14T07:30:00+07:00",
   "args": {
     "action": "bootstrap_reference_stack"
   }
