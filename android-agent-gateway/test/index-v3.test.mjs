@@ -10,6 +10,7 @@ test('health advertises schema-2 task capability without private data', () => {
   assert.equal(health.capabilities?.ephemeralScreenshots, true)
   assert.equal(health.capabilities?.localContacts, true)
   assert.equal(health.capabilities?.contextualRiskClamp, true)
+  assert.equal(health.capabilities?.exactCommandReceipts, true)
   assert.equal('observation' in health, false)
   assert.equal('screenshot' in health, false)
 })
