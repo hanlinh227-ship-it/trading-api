@@ -14,6 +14,14 @@ data class ClickNode(val selector: String) : Action {
     override val riskClass = RiskClass.A
 }
 
+data class LongClickNode(val selector: String) : Action {
+    override val riskClass = RiskClass.A
+}
+
+data object ReadScreen : Action {
+    override val riskClass = RiskClass.A
+}
+
 data class SetText(val selector: String, val value: String) : Action {
     override val riskClass = RiskClass.B
 }
