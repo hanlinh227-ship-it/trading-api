@@ -33,10 +33,10 @@ export function clampTaskStep({ task, action }) {
   const { action: normalized, riskClass: actionRisk, capability } = typedActionMetadata(action)
   const ceiling = assertRisk(task.riskClass)
   if (actionRisk === 'D') throw new Error('class_d_denied')
-  if (RISK_ORDER[actionRisk] > RISK_ORDER[ceiling]) throw new Error('risk_escalation_denied')
   if (!Array.isArray(task.capabilityScope) || !task.capabilityScope.includes(capability)) {
     throw new Error('capability_escalation_denied')
   }
+  if (RISK_ORDER[actionRisk] > RISK_ORDER[ceiling]) throw new Error('risk_escalation_denied')
   if (actionRisk === 'C') {
     if (!task.confirmedRiskClassC || task.confirmedTaskId !== task.taskId) {
       throw new Error('class_c_confirmation_required')
