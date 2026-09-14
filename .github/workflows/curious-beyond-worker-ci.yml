@@ -14,6 +14,7 @@ on:
       - 'tests/money_ecosystem/test_manual_image_setup.py'
       - 'tests/money_ecosystem/test_manual_scene1_render.py'
       - 'tests/money_ecosystem/render_gateway/**'
+      - 'docs/render_gateway/**'
       - '.github/workflows/curious-beyond-worker-ci.yml'
   workflow_dispatch:
 
@@ -36,6 +37,7 @@ jobs:
       - name: Run bounded worker and render-gateway tests
         run: >-
           python -m pytest -q
+          tests/money_ecosystem/render_gateway
           tests/money_ecosystem/test_worker_protocol.py
           tests/money_ecosystem/test_worker_secret_encoding.py
           tests/money_ecosystem/test_worker_setup.py
@@ -51,6 +53,6 @@ jobs:
           tests/money_ecosystem/test_image_render_runtime.py
           tests/money_ecosystem/test_image_setup.py
           tests/money_ecosystem/test_image_workflow.py
+          tests/money_ecosystem/test_image_workflow_v2.py
           tests/money_ecosystem/test_manual_image_setup.py
           tests/money_ecosystem/test_manual_scene1_render.py
-          tests/money_ecosystem/render_gateway
