@@ -15,6 +15,7 @@ class JobType(str, Enum):
     VOICE_RENDER = "VOICE_RENDER"
     FINAL_RENDER = "FINAL_RENDER"
     MEDIA_PROBE = "MEDIA_PROBE"
+    RENDER_GATEWAY = "RENDER_GATEWAY"
 
 
 @dataclass(frozen=True)
