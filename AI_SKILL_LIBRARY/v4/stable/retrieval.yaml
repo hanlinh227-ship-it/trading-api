@@ -86,6 +86,20 @@ profiles:
     max_index_hits: 24
     max_source_candidates: 12
 
+graph_retrieval:
+  enabled: optional
+  routing_authority: false
+  reasoning_authority: false
+  profiles: [STANDARD, DEEP]
+  fast_enabled: false
+  use_when: [entity_relationships_material, corpus_wide_synthesis_material]
+  require_source_traceability: true
+  authority_filter_before_expansion: true
+  freshness_filter_before_expansion: true
+  bounded_by_profile_budget: true
+  mandatory_graph_database: false
+  on_conflict: prefer_authoritative_verified_source
+
 exact_lookup_keys: [skill_id, alias, domain, path, checkpoint, release_version, project_scope]
 
 invariants:
@@ -94,3 +108,4 @@ invariants:
   - fast_never_touches_warm_or_cold
   - stale_index_fails_ci
   - trading_runtime_state_is_never_indexed
+  - graph_retrieval_never_bypasses_authority_or_freshness_filters
