@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import re
 import shutil
 import sys
 import urllib.error
@@ -11,11 +12,16 @@ from typing import Any
 
 from .allowlist import validate_job_request
 from .comfyui_adapter import ComfyUIAdapter, ComfyUIError, DependencyMissing
+from .image_package import package_batch
+from .image_qa import validate_image
 from .image_render_contract import ContractError, ImageRenderJob
+from .image_render_executor import SerialImageExecutor
 from .image_setup import ImageSetupError, bootstrap_reference_stack
+from .image_workflow import WorkflowError, build_sd15_reference_workflow, stage_references
 
-RUNTIME_BUILD = "image-setup-v1"
+RUNTIME_BUILD = "image-render-v1"
 _COMFYUI_BASE = "http://127.0.0.1:8188"
+_SUPPORTED_IMAGE_PROFILE = "sd15_reference_lowvram"
 
 
 def _fetch_json(url: str, timeout: float = 1.5) -> dict[str, Any]:
@@ -115,7 +121,12 @@ def _probe_capabilities(targets: list[str]) -> dict[str, Any]:
     return capabilities
 
 
-def _execute_image_render_preflight(job: dict[str, Any], workspace_root: Path | str) -> dict[str, Any]:
+def _safe_job_id(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value).strip()).strip("._")
+    return cleaned or "image-job"
+
+
+def _execute_image_render(job: dict[str, Any], workspace_root: Path | str) -> dict[str, Any]:
     try:
         spec = ImageRenderJob.from_payload(job["args"], workspace_root)
     except (ContractError, TypeError, ValueError, KeyError) as exc:
@@ -123,6 +134,13 @@ def _execute_image_render_preflight(job: dict[str, Any], workspace_root: Path | 
             "status": "BLOCKED",
             "message": f"IMAGE_RENDER contract rejected: {exc}",
             "artifact_manifest": {},
+        }
+
+    if spec.workflow_profile != _SUPPORTED_IMAGE_PROFILE:
+        return {
+            "status": "BLOCKED",
+            "message": f"IMAGE_RENDER unsupported workflow profile: {spec.workflow_profile}",
+            "artifact_manifest": {"zero_paid_services": True, "cloud_fallback": False},
         }
 
     missing_refs = [str(ref.path) for ref in spec.references if not ref.path.is_file()]
@@ -140,27 +158,117 @@ def _execute_image_render_preflight(job: dict[str, Any], workspace_root: Path | 
     adapter = ComfyUIAdapter()
     try:
         preflight = adapter.preflight()
-    except DependencyMissing as exc:
+        input_dir = adapter.input_directory()
+        staged = stage_references(
+            references=[(ref.id, ref.path) for ref in spec.references],
+            comfyui_input_dir=input_dir,
+            job_id=job["job_id"],
+        )
+    except (DependencyMissing, WorkflowError) as exc:
         return {
             "status": "BLOCKED",
-            "message": f"IMAGE_RENDER dependency missing: {exc}",
+            "message": f"IMAGE_RENDER dependency/staging blocked: {exc}",
             "artifact_manifest": {"zero_paid_services": True, "cloud_fallback": False},
         }
-    except ComfyUIError as exc:
+    except (ComfyUIError, OSError) as exc:
         return {
             "status": "BLOCKED",
             "message": f"IMAGE_RENDER ComfyUI unavailable: {exc}",
             "artifact_manifest": {"zero_paid_services": True, "cloud_fallback": False},
         }
 
+    safe_job = _safe_job_id(job["job_id"])
+    workspace = Path(workspace_root).resolve()
+    output_root = workspace.parent / "artifacts" / safe_job
+    executor = SerialImageExecutor(adapter, output_root)
+
+    def workflow_factory(job_spec, scene, seed):
+        names = [staged[reference_id] for reference_id in scene.reference_ids]
+        return build_sd15_reference_workflow(
+            prompt=scene.prompt,
+            reference_input_names=names,
+            seed=seed,
+            width=job_spec.width,
+            height=job_spec.height,
+            filename_prefix=f"curious_beyond/{safe_job}/scene_{scene.id:02d}",
+        )
+
+    def artifact_fetcher(artifact, target):
+        adapter.fetch_artifact(artifact, target)
+        qa = validate_image(target, spec.width, spec.height)
+        if not qa.accepted:
+            raise WorkflowError(f"rendered artifact failed QA: {qa.reason}")
+
+    scene_results = executor.execute(spec, workflow_factory, artifact_fetcher)
+    scene_by_id = {scene.id: scene for scene in spec.scenes}
+    seen_hashes: set[str] = set()
+    records: list[dict[str, Any]] = []
+
+    for result in scene_results:
+        scene = scene_by_id[result.scene_id]
+        record: dict[str, Any] = {
+            "scene_id": result.scene_id,
+            "status": result.status,
+            "attempts": result.attempts,
+            "seed": result.seed,
+            "artifact_path": result.artifact_path,
+            "error": result.error,
+            "prompt": scene.prompt,
+            "reference_ids": list(scene.reference_ids),
+            "workflow_profile": spec.workflow_profile,
+        }
+        if result.status == "ACCEPTED" and result.artifact_path:
+            qa = validate_image(
+                result.artifact_path,
+                spec.width,
+                spec.height,
+                seen_hashes=seen_hashes,
+                identity_evidence=None,
+            )
+            record["qa"] = {
+                "accepted": qa.accepted,
+                "sha256": qa.sha256,
+                "identity_status": qa.identity_status,
+                "reason": qa.reason,
+            }
+            if not qa.accepted:
+                record["status"] = "FAILED"
+                record["error"] = f"post-render QA failed: {qa.reason}"
+        else:
+            record["qa"] = {
+                "accepted": False,
+                "sha256": None,
+                "identity_status": "UNVERIFIED",
+                "reason": result.error,
+            }
+        records.append(record)
+
+    package = package_batch(
+        job["job_id"],
+        records,
+        output_root,
+        package_name=f"{_safe_job_id(spec.project_id)}_{safe_job}.zip",
+    )
+    package["scenes"] = records
+    package["workflow_profile"] = spec.workflow_profile
+    package["reference_nodes"] = preflight.get("reference_nodes", [])
+    package["checkpoints"] = preflight.get("checkpoints", [])
+    package["cloud_fallback"] = False
+
+    if package["accepted"] == len(records) and records:
+        status = "SUCCESS"
+        message = f"IMAGE_RENDER completed: {package['accepted']} scene(s) accepted"
+    elif package["accepted"] > 0:
+        status = "PARTIAL"
+        message = f"IMAGE_RENDER partial: {package['accepted']} accepted, {package['failed']} failed"
+    else:
+        status = "FAILED"
+        message = f"IMAGE_RENDER failed: {package['failed']} scene(s) failed"
+
     return {
-        "status": "BLOCKED",
-        "message": "IMAGE_RENDER reference dependencies are ready; production workflow execution is the remaining gate",
-        "artifact_manifest": {
-            "reference_nodes": preflight.get("reference_nodes", []),
-            "zero_paid_services": True,
-            "cloud_fallback": False,
-        },
+        "status": status,
+        "message": message,
+        "artifact_manifest": package,
     }
 
 
@@ -207,7 +315,7 @@ def execute_job(job: dict[str, Any], workspace_root: Path | str) -> dict[str, An
         return _execute_image_setup(job)
 
     if job_type == "IMAGE_RENDER":
-        return _execute_image_render_preflight(job, workspace_root)
+        return _execute_image_render(job, workspace_root)
 
     return {
         "status": "BLOCKED",
