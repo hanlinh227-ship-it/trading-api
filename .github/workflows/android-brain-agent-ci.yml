@@ -1,0 +1,65 @@
+name: Android Brain Agent CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [android-brain-agent-v1-impl]
+    paths:
+      - 'android-brain-agent/**'
+      - 'android-agent-gateway/**'
+      - 'AI_SKILL_LIBRARY/runtime/android_agent.yaml'
+      - 'AI_SKILL_LIBRARY/tests/test_android_agent_provider.py'
+      - '.github/workflows/android-brain-agent-ci.yml'
+  pull_request:
+    paths:
+      - 'android-brain-agent/**'
+      - 'android-agent-gateway/**'
+      - 'AI_SKILL_LIBRARY/runtime/android_agent.yaml'
+      - 'AI_SKILL_LIBRARY/tests/test_android_agent_provider.py'
+      - '.github/workflows/android-brain-agent-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Test and build debug APK
+        working-directory: android-brain-agent
+        run: gradle testDebugUnitTest lintDebug assembleDebug --stacktrace
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-brain-agent-debug-apk
+          path: android-brain-agent/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  gateway:
+    if: hashFiles('android-agent-gateway/package.json') != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: android-agent-gateway/package-lock.json
+      - working-directory: android-agent-gateway
+        run: npm ci
+      - working-directory: android-agent-gateway
+        run: npm test
+      - working-directory: android-agent-gateway
+        run: npx wrangler deploy --dry-run
