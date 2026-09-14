@@ -57,14 +57,22 @@ function taskStepRequest(body) {
   })
 }
 
+function nextRequest() {
+  return new Request('https://device.internal/next', {
+    headers: { authorization: 'Bearer device-token' },
+  })
+}
+
+const backPlan = () => ({
+  response: JSON.stringify({
+    action: { type: 'global_back' },
+    expected: { type: 'observation_changed' },
+    rationaleCode: 'BACK_ONE_SCREEN',
+  }),
+})
+
 test('authenticated observation plans one signed schema-2 command', async () => {
-  const { session } = await pairedSession(async () => ({
-    response: JSON.stringify({
-      action: { type: 'global_back' },
-      expected: { type: 'observation_changed' },
-      rationaleCode: 'BACK_ONE_SCREEN',
-    }),
-  }))
+  const { session } = await pairedSession(backPlan)
 
   const response = await session.fetch(taskStepRequest({
     taskId: 'task-1',
@@ -76,9 +84,7 @@ test('authenticated observation plans one signed schema-2 command', async () => 
   assert.equal(planned.status, 'ACTING')
   assert.equal(planned.plannerMode, 'workers-ai')
 
-  const next = await session.fetch(new Request('https://device.internal/next', {
-    headers: { authorization: 'Bearer device-token' },
-  }))
+  const next = await session.fetch(nextRequest())
   const command = (await next.json()).command
   assert.equal(command.schema, 2)
   assert.equal(command.taskId, 'task-1')
@@ -122,9 +128,7 @@ test('planner completion closes task without queueing another action', async () 
   assert.equal(response.status, 200)
   assert.equal((await response.json()).status, 'COMPLETED')
 
-  const next = await session.fetch(new Request('https://device.internal/next', {
-    headers: { authorization: 'Bearer device-token' },
-  }))
+  const next = await session.fetch(nextRequest())
   assert.equal((await next.json()).command, null)
 })
 
@@ -144,6 +148,67 @@ test('failed previous action increments bounded recovery before replanning', asy
   assert.equal(response.status, 202)
   const body = await response.json()
   assert.equal(body.recoveryCount, 1)
+})
+
+test('fatal previous action failure terminates instead of replanning', async () => {
+  let plannerCalls = 0
+  const { session } = await pairedSession(async () => {
+    plannerCalls += 1
+    return backPlan()
+  })
+  const initial = await session.fetch(taskStepRequest({
+    taskId: 'task-1',
+    observation: { packageName: 'com.example', fingerprint: 'fp-1', nodes: [] },
+    previousResult: null,
+  }))
+  assert.equal(initial.status, 202)
+  const command = (await (await session.fetch(nextRequest())).json()).command
+  assert.ok(command.commandId)
+
+  const fatal = await session.fetch(taskStepRequest({
+    taskId: 'task-1',
+    observation: { packageName: 'com.example', fingerprint: 'fp-1', nodes: [] },
+    previousResult: { commandId: command.commandId, status: 'FAILED', code: 'KILL_SWITCH' },
+  }))
+  assert.equal(fatal.status, 200)
+  const body = await fatal.json()
+  assert.equal(body.status, 'FAILED')
+  assert.equal(body.error, 'KILL_SWITCH')
+  assert.equal(plannerCalls, 1)
+})
+
+test('duplicate previous result is idempotent and does not consume another step', async () => {
+  const { session } = await pairedSession(backPlan)
+  const initial = await session.fetch(taskStepRequest({
+    taskId: 'task-1',
+    observation: { packageName: 'com.example', fingerprint: 'fp-a', nodes: [] },
+    previousResult: null,
+  }))
+  assert.equal(initial.status, 202)
+  const firstCommand = (await (await session.fetch(nextRequest())).json()).command
+
+  const completed = {
+    commandId: firstCommand.commandId,
+    status: 'COMPLETED',
+  }
+  const first = await session.fetch(taskStepRequest({
+    taskId: 'task-1',
+    observation: { packageName: 'com.example', fingerprint: 'fp-b', nodes: [] },
+    previousResult: completed,
+  }))
+  assert.equal(first.status, 202)
+  const firstBody = await first.json()
+  assert.equal(firstBody.stepCount, 1)
+
+  const duplicate = await session.fetch(taskStepRequest({
+    taskId: 'task-1',
+    observation: { packageName: 'com.example', fingerprint: 'fp-b', nodes: [] },
+    previousResult: completed,
+  }))
+  assert.equal(duplicate.status, 200)
+  const duplicateBody = await duplicate.json()
+  assert.equal(duplicateBody.stepCount, 1)
+  assert.equal(duplicateBody.duplicate, true)
 })
 
 test('task-step requires authenticated paired device', async () => {
