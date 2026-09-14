@@ -117,6 +117,50 @@ typed_capability_contracts:
   on_unknown_tool: fail_closed
   normalize_provider_output_before_use: true
 
+mcp_interoperability:
+  external_framework_required: false
+  routing_authority: false
+  reasoning_authority: false
+  discovery_separate_from_invocation: true
+  protocol_compatibility_required: true
+  typed_input_output_contracts: true
+  permission_ceiling_required: true
+  unknown_capability_action: fail_closed
+  incompatible_schema_action: fail_closed
+  permission_widening_action: fail_closed
+  credentials_are_external_restricted_state: true
+  local_server_mandatory: false
+
+document_intelligence:
+  external_framework_required: false
+  routing_authority: false
+  reasoning_authority: false
+  structured_extraction_before_ocr: true
+  preserve_hierarchy: true
+  preserve_page_section_provenance: true
+  preserve_table_structure_when_material: true
+  preserve_reading_order_when_material: true
+  distinguish_extraction_from_inference: true
+  ocr_is_degraded_fallback: true
+  unsupported_structure_must_be_disclosed: true
+
+oss_intake_firewall:
+  external_scanner_required_for_stable_requests: false
+  routing_authority: false
+  reasoning_authority: false
+  posture_is_evidence_not_authority: true
+  high_score_never_auto_promotes: true
+  unresolved_critical_risk_may_block_promotion: true
+  signals: [archived_or_disabled, maintenance, spdx_license, dependency_vulnerability, secret_scanning, sbom_or_inventory, release_provenance]
+
+browser_runtime_verification:
+  external_framework_required: false
+  routing_authority: false
+  reasoning_authority: false
+  prefer_runnable_flow_when_environment_exists: true
+  checks: [navigation, state_transition, visible_outcome, accessibility_state, network_failure_handling, cross_browser_when_material]
+  static_success_claim_rejected_on_runtime_failure: true
+
 memory_patterns:
   retrieve_before_write: true
   semantic_ranking_allowed: true
@@ -185,6 +229,32 @@ brain_4_6_selective_fusion:
     - authority_overlap
     - permission_ceiling
     - source_maintenance
+
+brain_4_7_selective_fusion:
+  baseline_release: 4.6.0
+  target_release: 4.7.0
+  canonical_skill_count_target: 109
+  strengthen_existing_skill_first: true
+  bulk_repository_import: false
+  code_reuse_by_default: false
+  fast_path_changes: false
+  routing_authority: false
+  reasoning_authority: false
+  permission_expansion: false
+  mandatory_runtime_dependency: false
+  zero_local_preserved: true
+  new_primary_skills: 0
+  active_source_count_added: 8
+  bottleneck_checks:
+    - context_cost
+    - fast_latency
+    - external_routing_calls
+    - duplicate_capability
+    - trigger_ownership
+    - authority_overlap
+    - permission_ceiling
+    - source_maintenance
+    - source_security_posture
 
 upstream_pattern_map:
   openai/skills:
@@ -322,3 +392,60 @@ upstream_pattern_map:
     mandatory_runtime_dependency: false
     code_reuse: false
     registry_promotion: blocked_until_license_scope_resolved
+
+  modelcontextprotocol/python-sdk:
+    status: approved_rag_reference
+    license: MIT
+    absorbs: [mcp_protocol_compatibility, typed_tool_resource_prompt_contracts, discovery_invocation_separation, permission_ceiling]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  docling-project/docling:
+    status: approved_rag_reference
+    license: MIT
+    absorbs: [structured_document_extraction, hierarchy_provenance, table_structure, reading_order, ocr_fallback]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  microsoft/graphrag:
+    status: approved_reference
+    license: MIT
+    absorbs: [entity_relationship_index, bounded_local_global_graph_retrieval, source_traceable_synthesis]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  UKGovernmentBEIS/inspect_ai:
+    status: approved_rag_reference
+    license: MIT
+    absorbs: [eval_task_dataset_solver_scorer_separation, reproducible_eval_units, protected_regression]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  ossf/scorecard:
+    status: approved_rag_reference
+    license: Apache-2.0
+    absorbs: [source_security_health, maintenance_posture, release_provenance_signals]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  aquasecurity/trivy:
+    status: approved_rag_reference
+    license: Apache-2.0
+    absorbs: [vulnerability_posture, secret_scan_semantics, misconfiguration_semantics, sbom_inventory]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  Arize-ai/openinference:
+    status: approved_rag_reference
+    license: Apache-2.0
+    absorbs: [ai_observability_semantics, model_tool_retriever_evaluator_roles, sanitized_trace_metadata]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  microsoft/playwright:
+    status: approved_rag_reference
+    license: Apache-2.0
+    absorbs: [browser_runtime_verification, e2e_state_validation, cross_browser_checks, network_failure_validation]
+    routing_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
