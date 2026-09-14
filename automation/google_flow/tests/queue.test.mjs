@@ -70,4 +70,5 @@ test('allows only canonical Google Flow origins', () => {
   assert.equal(isAllowedFlowUrl('https://labs.google/fx/tools/flow/project/123'), true);
   assert.equal(isAllowedFlowUrl('https://evil.example.com/flow'), false);
   assert.equal(isAllowedFlowUrl('https://google.com/'), false);
+  assert.equal(isAllowedFlowUrl('https://labs.google/fx/tools/flowevil/project'), false);
 });
