@@ -13,8 +13,6 @@ import com.hanlinh.androidbrain.policy.UserPolicy
 import com.hanlinh.androidbrain.protocol.Action
 import com.hanlinh.androidbrain.protocol.CommandEnvelope
 import com.hanlinh.androidbrain.protocol.CommandEnvelopeVerifier
-import com.hanlinh.androidbrain.protocol.GlobalBack
-import com.hanlinh.androidbrain.protocol.GlobalHome
 import com.hanlinh.androidbrain.protocol.LaunchApp
 import com.hanlinh.androidbrain.protocol.OpenUrl
 import com.hanlinh.androidbrain.service.AgentForegroundService
@@ -49,7 +47,8 @@ class CommandDispatcher(
         seenNonces += command.nonce
         if (seenNonces.size > 500) seenNonces.clear()
 
-        val action = actionForGoal(command.goal) ?: return failure(command, "UNSUPPORTED_GOAL")
+        val action = GoalParser.parse(command.goal) { appResolver.findPackageByLabel(it) }
+            ?: return failure(command, "UNSUPPORTED_GOAL")
         when (riskPolicy.authorize(action, UserPolicy.defaults())) {
             AuthorizationDecision.Allowed -> Unit
             is AuthorizationDecision.NeedsConfirmation -> return GatewayClient.TaskResult(command.commandId, "NEEDS_CONFIRMATION")
@@ -59,23 +58,6 @@ class CommandDispatcher(
         if (!dispatched) return failure(command, "ACTION_DISPATCH_FAILED")
         if (action is LaunchApp && !verifyForeground(action.packageName)) return failure(command, "POSTCONDITION_NOT_MET")
         return GatewayClient.TaskResult(command.commandId, "COMPLETED")
-    }
-
-    private fun actionForGoal(goal: String): Action? {
-        val raw = goal.trim()
-        val lower = raw.lowercase()
-        if (lower in setOf("open settings", "mở cài đặt", "mo cai dat")) return LaunchApp("com.android.settings")
-        if (lower in setOf("back", "go back", "quay lại")) return GlobalBack
-        if (lower in setOf("home", "go home", "về màn hình chính")) return GlobalHome
-        Regex("https?://\\S+", RegexOption.IGNORE_CASE).find(raw)?.value?.let { return OpenUrl(it) }
-
-        val appName = when {
-            lower.startsWith("open ") -> raw.substringAfter(' ').trim()
-            lower.startsWith("mở ") -> raw.substringAfter(' ').trim()
-            else -> null
-        }
-        if (!appName.isNullOrBlank()) appResolver.findPackageByLabel(appName)?.let { return LaunchApp(it) }
-        return null
     }
 
     private fun execute(action: Action): Boolean = when (action) {
