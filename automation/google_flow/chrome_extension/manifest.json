@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Google Flow Persistent Autopilot",
+  "version": "0.3.0",
+  "description": "Persistent, fail-closed Google Flow render automation using a GitHub command queue.",
+  "permissions": ["storage", "tabs", "alarms", "downloads"],
+  "host_permissions": [
+    "https://flow.google.com/*",
+    "https://labs.google/fx/tools/flow/*",
+    "https://raw.githubusercontent.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Google Flow Persistent Autopilot",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "https://labs.google/fx/tools/flow/*"
+      ],
+      "js": ["content.js"],
+      "css": ["panel.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/dom_adapter.js", "lib/executor.js"],
+      "matches": [
+        "https://flow.google.com/*",
+        "https://labs.google/fx/tools/flow/*"
+      ]
+    }
+  ]
+}
