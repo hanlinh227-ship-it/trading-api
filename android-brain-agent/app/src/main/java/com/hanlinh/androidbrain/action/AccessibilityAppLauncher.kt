@@ -92,7 +92,6 @@ class AccessibilityAppLauncher(
             val child = node.getChild(index) ?: continue
             val found = findExactLabel(child, wanted)
             if (found != null) return found
-            child.recycle()
         }
         return null
     }
@@ -103,7 +102,6 @@ class AccessibilityAppLauncher(
             val child = node.getChild(index) ?: continue
             val found = findEditableNode(child)
             if (found != null) return found
-            child.recycle()
         }
         return null
     }
