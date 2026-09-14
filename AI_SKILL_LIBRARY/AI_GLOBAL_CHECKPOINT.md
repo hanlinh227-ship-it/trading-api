@@ -13,7 +13,9 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Mandatory routing contract: exactly one primary skill + validated execution capsule for every GitHub Brain request
 - FAST routing: exact-SHA hot snapshot, zero GitHub/provider/network calls for route selection
 - Fallback primary skill: `core_reasoning`
-- Current capability release target: `4.7.0` selective open-source fusion, preserving `109` routed skills / `109` execution capsules
+- Current capability release target: `4.8.0` Continuous Intelligence & Autonomous Improvement, preserving `109` routed skills / `109` execution capsules
+- Continuous Intelligence rule: the Evergreen Update Plane may autonomously refresh sources, detect evidence-backed gaps, generate/test candidates, and prepare bounded improvements; Stable remains immutable during request execution and changes only through validated release promotion.
+- Autonomous promotion boundary: Class A/B may promote only after all required gates (and sandbox for B); Class C/D require explicit human authorization and cannot unattended-promote.
 - Open-source fusion rule: upstream repositories are reference/evidence only; strengthen existing canonical skills first; no parallel reasoning authority; no permission widening; no mandatory local runtime
 - Plain-language presentation: enabled; user-facing default locale `vi`, simple language; exact technical tokens remain available when needed
 - Live-price research runtime: Railway service `crypto-research-gateway-prod`, Southeast Asia / Singapore, one replica
@@ -41,9 +43,35 @@ Rules:
 - Provider and upstream capability remains evidence/execution metadata, not reasoning authority.
 - Routing traces may contain verifiable profile/domain/skill/capsule/source-SHA/latency metadata only; never hidden chain-of-thought, credentials, secrets or private provider payloads.
 
+## Brain 4.8 Continuous Intelligence contract
+
+Brain 4.8 extends the existing dual-plane Evergreen architecture so intelligence maintenance can continue without waiting for a user command.
+
+- Stable Runtime Plane and Evergreen Update Plane remain isolated. Evergreen failure must not take down Stable.
+- Stable request handling never waits for source discovery, gap research, candidate generation, or learning cycles.
+- The canonical Continuous Intelligence contract is checkpoint-resolved at `AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml` and is part of the immutable capability release.
+- Source/discovery refresh runs every 6 hours; candidate analysis runs daily; a deep read-only intelligence audit runs weekly; verified failure intake is event-driven when sanitized evidence is available.
+- Source lifecycle states are `active`, `stale`, `reverify`, `deprecated`, and `archived`.
+- Fast-changing official docs, approved GitHub maintenance metadata and plugin metadata default to 48-hour revalidation windows; scientific-discovery metadata defaults to 14 days.
+- Stale historical evidence may remain available for history/audit but cannot masquerade as current API/runtime truth.
+- Gap detection is evidence-led. A capability gap requires a domain, signal type, severity, evidence reference, recommended capability and timestamp. Unsupported inferred gaps do not become durable facts.
+- Verified failures may become candidate regression evidence only from sanitized observable fields. Hidden reasoning, secrets, credentials, raw private prompts and private tool payloads are forbidden from durable failure state.
+- Candidate comparisons require baseline evidence and candidate evidence. Protected dimensions (`correctness`, `authority`, `security`, `verification`, `project_isolation`) have zero regression tolerance.
+- Default candidate quality threshold is at least `0.01` primary-quality gain, with no more than `0.10` relative latency regression and `0.05` relative execution-cost regression unless a separately approved policy explicitly changes the release contract.
+- Class A declarative low-risk and Class B sandboxed non-privileged helpers may unattended-promote only after all required gates; Class B additionally requires sandbox evidence.
+- Class C kernel/router/security/authority changes may be autonomously researched, prepared, tested and proposed, but require explicit human authorization before Stable promotion.
+- Class D financial/credential/destructive/permission-expansion changes never auto-promote and require explicit authorization.
+- Continuous learning cannot relabel a high-risk capability into a lower class to bypass authority.
+- External code remains untrusted by default; discovery never grants execution permission.
+- Automatic Evergreen capability releases increment patch only within the active Brain V4 minor line, e.g. `4.8.0 -> 4.8.1`. Automatic minor-version bumps are forbidden.
+- Continuous Intelligence never grants trading execution, wallet, credential, destructive, production-write, secret-access or security-bypass authority.
+- The default canonical routed skill/capsule count remains `109/109`; a new primary skill remains exceptional and requires a distinct contract, trigger ownership, measurable eval gain and full admission gates.
+
+If sanitized production failure telemetry is unavailable, Brain may maintain the ingestion/eval machinery but must not claim that it learned from nonexistent production failures.
+
 ## Brain 4.7 selective open-source fusion contract
 
-Brain 4.7 improves capability quality without increasing the default canonical routed skill count.
+Brain 4.7 capability-fusion guarantees remain inherited by Brain 4.8.
 
 - Default canonical routed skills: `109`.
 - Default execution capsules: `109`.
@@ -64,7 +92,7 @@ Brain 4.7 improves capability quality without increasing the default canonical r
 - No unresolved bottleneck may be promoted to Stable.
 - No open-source reference may grant trading execution, wallet, credential, destructive or production-write authority.
 
-Quality upgrades retained from 4.6 include stronger repository workflow verification, adversarial/eval coverage, quantitative realism, 3D asset validation, design-system validation, prompt regression discipline, game runtime validation, source/license provenance checks and duplicate-capability detection. Brain 4.7 adds MCP contract integrity, document fidelity, graph-retrieval safety, OSS intake security, observability sanitization and browser-runtime verification.
+Quality upgrades retained from 4.6 include stronger repository workflow verification, adversarial/eval coverage, quantitative realism, 3D asset validation, design-system validation, prompt regression discipline, game runtime validation, source/license provenance checks and duplicate-capability detection. Brain 4.7 added MCP contract integrity, document fidelity, graph-retrieval safety, OSS intake security, observability sanitization and browser-runtime verification; Brain 4.8 adds continuous source aging, evidence-backed gap detection, sanitized failure-to-regression conversion, baseline/candidate comparison and stricter autonomous-promotion boundaries.
 
 ## Consolidation contract (release 4.3.0+)
 
@@ -159,6 +187,8 @@ Provider/upstream output is evidence only. It never becomes reasoning authority 
 For every new substantive work cycle using this repository:
 
 `AGENTS.md -> checkpoint.json -> AI_GLOBAL_CHECKPOINT.md -> current V4 release -> validated Skill Gateway snapshot contract -> task_router -> runtime profile -> exactly one primary skill + execution capsule -> lazy project authority/context/tools as needed -> response quality gate -> plain_language_presentation -> answer`
+
+For Brain maintenance, resolve `stable_continuous_intelligence_path` before changing Evergreen discovery/promotion behavior.
 
 Do not fetch the full skill catalog/provider registries on every FAST request. FAST route selection uses the already validated exact-SHA hot snapshot. STANDARD/DEEP perform lazy loads only after routing.
 
