@@ -79,3 +79,24 @@ def test_push_results_can_signal_code_reload_after_rebase(monkeypatch, tmp_path)
 
     monkeypatch.setattr(runner, "_git", lambda repo_root, *args: Result())
     assert runner.push_results(tmp_path, "ai-money-ecosystem-autopilot-v1") is True
+
+
+def test_loaded_head_guard_detects_worker_code_change(monkeypatch, tmp_path):
+    monkeypatch.setattr(runner, "_head", lambda repo_root: "new-head")
+    monkeypatch.setattr(
+        runner,
+        "_worker_code_changed",
+        lambda repo_root, before, after: (before, after) == ("loaded-head", "new-head"),
+    )
+    assert runner._code_changed_since_loaded(tmp_path, "loaded-head") is True
+
+
+def test_instance_lock_allows_only_one_active_worker(tmp_path):
+    first = runner._try_acquire_instance_lock(tmp_path)
+    assert first is not None
+    second = runner._try_acquire_instance_lock(tmp_path)
+    assert second is None
+    runner._release_instance_lock(first)
+    third = runner._try_acquire_instance_lock(tmp_path)
+    assert third is not None
+    runner._release_instance_lock(third)
