@@ -10,6 +10,11 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
 })
 
 const RISK_ORDER = Object.freeze({ A: 0, B: 1, C: 2, D: 3 })
+const LOCAL_CONTACT_GOAL_TERMS = [
+  'unknown number', 'unknown numbers', 'unknown sender', 'unknown senders',
+  'not in contacts', 'not saved in contacts', 'unsaved number', 'unsaved numbers',
+  'số lạ', 'số không lưu', 'không lưu danh bạ', 'không có trong danh bạ', 'ngoài danh bạ',
+]
 
 export function healthPayload(env = {}) {
   return {
@@ -80,10 +85,16 @@ async function proxyJson(stub, path, request) {
   }))
 }
 
+function goalNeedsLocalContacts(goal) {
+  const text = String(goal ?? '').toLowerCase().replace(/\s+/g, ' ')
+  return LOCAL_CONTACT_GOAL_TERMS.some(term => text.includes(term))
+}
+
 export function normalizedTaskInput(body, authMode) {
   if (!body || typeof body !== 'object') throw new Error('input_required')
   if (typeof body.goal !== 'string' || !body.goal.trim()) throw new Error('goal_required')
-  const goalRisk = classifyGoal(body.goal)
+  const goal = body.goal.trim()
+  const goalRisk = classifyGoal(goal)
   if (goalRisk === 'D') throw new Error('class_d_blocked')
   const riskCeiling = body.riskCeiling ?? goalRisk
   if (!(riskCeiling in RISK_ORDER) || riskCeiling === 'D') throw new Error('invalid_risk_ceiling')
@@ -96,14 +107,19 @@ export function normalizedTaskInput(body, authMode) {
   const scope = explicitScope
     ? [...new Set(body.capabilityScope.map(String))]
     : ['apps.open', 'ui.navigate']
+  const needsContacts = goalNeedsLocalContacts(goal)
 
   if (!scope.includes('ui.navigate')) throw new Error('ui_navigate_required')
   if (!explicitScope && (goalRisk === 'B' || goalRisk === 'C') && !scope.includes('ui.write')) scope.push('ui.write')
   if (goalRisk === 'C' && !scope.includes('ui.destructive.confirmed')) scope.push('ui.destructive.confirmed')
+  if (needsContacts) {
+    if (explicitScope && !scope.includes('contacts.read')) throw new Error('contacts_read_required')
+    if (!scope.includes('contacts.read')) scope.push('contacts.read')
+  }
 
   return {
     taskId,
-    goal: body.goal.trim(),
+    goal,
     capabilityScope: scope,
     riskClass: riskCeiling,
     taskRiskClass: goalRisk,
@@ -114,6 +130,8 @@ export function normalizedTaskInput(body, authMode) {
 
 async function bootstrapTask(stub, deviceId, task) {
   const now = new Date()
+  const capabilityScope = ['ui.navigate']
+  if (task.capabilityScope.includes('contacts.read')) capabilityScope.push('contacts.read')
   return stub.fetch(new Request('https://device.internal/command-sign', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -126,7 +144,7 @@ async function bootstrapTask(stub, deviceId, task) {
       nonce: crypto.randomUUID(),
       taskId: task.taskId,
       action: { type: 'read_screen' },
-      capabilityScope: ['ui.navigate'],
+      capabilityScope,
       riskClass: 'A',
     }),
   }))
