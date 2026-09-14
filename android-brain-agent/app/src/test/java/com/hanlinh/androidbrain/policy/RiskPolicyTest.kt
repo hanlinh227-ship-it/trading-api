@@ -20,6 +20,13 @@ class RiskPolicyTest {
         assertTrue(policy.authorize(DeleteData(200), defaults) is AuthorizationDecision.NeedsConfirmation)
     }
 
+    @Test fun class_c_runs_only_after_explicit_confirmation() {
+        assertEquals(
+            AuthorizationDecision.Allowed,
+            policy.authorize(DeleteData(200), defaults, confirmedClassC = true),
+        )
+    }
+
     @Test fun class_b_requires_explicit_enablement() {
         assertEquals(AuthorizationDecision.Denied, policy.authorize(SendMessage("contact", "hello"), defaults))
     }

@@ -20,10 +20,19 @@ sealed interface AuthorizationDecision {
 }
 
 class RiskPolicy {
-    fun authorize(action: Action, userPolicy: UserPolicy): AuthorizationDecision = when (action.riskClass) {
+    fun authorize(
+        action: Action,
+        userPolicy: UserPolicy,
+        confirmedClassC: Boolean = false,
+        effectiveRiskClass: RiskClass = action.riskClass,
+    ): AuthorizationDecision = when (effectiveRiskClass) {
         RiskClass.A -> AuthorizationDecision.Allowed
         RiskClass.B -> if (userPolicy.classBEnabled) AuthorizationDecision.Allowed else AuthorizationDecision.Denied
-        RiskClass.C -> if (userPolicy.classCConfirmationEnabled) AuthorizationDecision.NeedsConfirmation() else AuthorizationDecision.Denied
+        RiskClass.C -> when {
+            confirmedClassC -> AuthorizationDecision.Allowed
+            userPolicy.classCConfirmationEnabled -> AuthorizationDecision.NeedsConfirmation()
+            else -> AuthorizationDecision.Denied
+        }
         RiskClass.D -> AuthorizationDecision.Denied
     }
 }

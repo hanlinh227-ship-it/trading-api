@@ -8,6 +8,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.hanlinh.androidbrain.protocol.ClickNode
 import com.hanlinh.androidbrain.protocol.GlobalBack
 import com.hanlinh.androidbrain.protocol.GlobalHome
+import com.hanlinh.androidbrain.protocol.LongClickNode
 import com.hanlinh.androidbrain.protocol.SetText
 import com.hanlinh.androidbrain.protocol.Swipe
 import com.hanlinh.androidbrain.service.BrainAccessibilityService
@@ -20,6 +21,13 @@ class AccessibilityActions(
         val root = service.rootInActiveWindow ?: return false
         val node = findNode(root, action.selector) ?: return false
         return clickNodeOrParent(node)
+    }
+
+    fun longClick(action: LongClickNode): Boolean {
+        val service = serviceProvider() ?: return false
+        val root = service.rootInActiveWindow ?: return false
+        val node = findNode(root, action.selector) ?: return false
+        return longClickNodeOrParent(node)
     }
 
     fun setText(action: SetText): Boolean {
@@ -49,6 +57,7 @@ class AccessibilityActions(
 
     fun execute(action: Any): Boolean = when (action) {
         is ClickNode -> click(action)
+        is LongClickNode -> longClick(action)
         is SetText -> setText(action)
         is Swipe -> swipe(action)
         GlobalBack -> globalBack()
@@ -57,15 +66,23 @@ class AccessibilityActions(
     }
 
     private fun findNode(root: AccessibilityNodeInfo, selector: String): AccessibilityNodeInfo? {
-        if (root.viewIdResourceName == selector || root.text?.toString() == selector || root.contentDescription?.toString() == selector) {
-            return root
-        }
+        if (root.viewIdResourceName == selector) return root
+        val wanted = normalize(selector)
+        if (wanted.isBlank()) return null
+        if (matches(root.text?.toString(), wanted) || matches(root.contentDescription?.toString(), wanted)) return root
+
         if (selector.contains(":")) {
             try {
                 root.findAccessibilityNodeInfosByViewId(selector).firstOrNull()?.let { return it }
             } catch (_: Throwable) { }
         }
-        root.findAccessibilityNodeInfosByText(selector).firstOrNull()?.let { return it }
+
+        try {
+            root.findAccessibilityNodeInfosByText(selector).firstOrNull { node ->
+                matches(node.text?.toString(), wanted) || matches(node.contentDescription?.toString(), wanted)
+            }?.let { return it }
+        } catch (_: Throwable) { }
+
         for (i in 0 until root.childCount) {
             val child = root.getChild(i) ?: continue
             val found = findNode(child, selector)
@@ -75,11 +92,29 @@ class AccessibilityActions(
         return null
     }
 
+    private fun normalize(value: String): String = value.trim().lowercase().replace(Regex("\\s+"), " ")
+
+    private fun matches(value: String?, wanted: String): Boolean {
+        val candidate = value?.let(::normalize) ?: return false
+        if (candidate.isBlank() || wanted.isBlank()) return false
+        return candidate == wanted || candidate.contains(wanted) || wanted.contains(candidate)
+    }
+
     private fun clickNodeOrParent(start: AccessibilityNodeInfo): Boolean {
         var node: AccessibilityNodeInfo? = start
-        repeat(5) {
+        repeat(6) {
             val current = node ?: return false
             if (current.isClickable && current.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+            node = current.parent
+        }
+        return false
+    }
+
+    private fun longClickNodeOrParent(start: AccessibilityNodeInfo): Boolean {
+        var node: AccessibilityNodeInfo? = start
+        repeat(6) {
+            val current = node ?: return false
+            if (current.isLongClickable && current.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)) return true
             node = current.parent
         }
         return false
