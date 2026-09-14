@@ -1,9 +1,9 @@
 {
   "algorithm": "HMAC-SHA256",
   "payload": {
-    "job_id": "image-render-reference-preflight-20260914-17",
+    "job_id": "image-render-reference-preflight-20260914-18",
     "job_type": "MEDIA_PROBE",
-    "created_at": "2026-09-14T18:56:00+07:00",
+    "created_at": "2026-09-14T19:02:00+07:00",
     "args": {
       "targets": [
         "python",
@@ -15,5 +15,5 @@
       ]
     }
   },
-  "signature": "15871a059bafae7b4f429a25e9387aa2a7cd9607df17810590a6610dbc1b68a5"
+  "signature": "b100dc0e02f65d4d76ea492cf87f1da5b195fc24be673356f3fe4d949f8729f5"
 }
