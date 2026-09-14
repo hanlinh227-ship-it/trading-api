@@ -1,6 +1,6 @@
 import { DeviceSession } from './device-session.js'
-import { importPrivateJwk, publicJwkFromPrivate, signCommand } from './crypto.js'
 import { classifyGoal, validateRunGoal, TOOL_CONTRACT } from './tools.js'
+import { verifyGitHubOidcToken } from './github-oidc.js'
 
 export { DeviceSession }
 
@@ -14,10 +14,18 @@ function bearer(request) {
   return h.startsWith('Bearer ') ? h.slice(7) : null
 }
 
-function requireControl(request, env) {
-  if (!env.BRAIN_CONTROL_TOKEN) return { ok: false, response: json({ error: 'control_token_not_configured' }, 503) }
-  if (bearer(request) !== env.BRAIN_CONTROL_TOKEN) return { ok: false, response: json({ error: 'unauthorized' }, 401) }
-  return { ok: true }
+async function requireControl(request, env) {
+  const token = bearer(request)
+  if (!token) return { ok: false, response: json({ error: 'unauthorized' }, 401) }
+
+  if (env.BRAIN_CONTROL_TOKEN && token === env.BRAIN_CONTROL_TOKEN) return { ok: true, mode: 'legacy-control-token' }
+
+  try {
+    const claims = await verifyGitHubOidcToken(token)
+    return { ok: true, mode: 'github-oidc', claims }
+  } catch (error) {
+    return { ok: false, response: json({ error: 'unauthorized', detail: error.message }, 401) }
+  }
 }
 
 function sessionStub(env, deviceId) {
@@ -34,11 +42,6 @@ async function proxyJson(stub, path, request) {
   }))
 }
 
-async function signingPrivateKey(env) {
-  if (!env.GATEWAY_SIGNING_PRIVATE_JWK) throw new Error('gateway_signing_key_not_configured')
-  return importPrivateJwk(env.GATEWAY_SIGNING_PRIVATE_JWK)
-}
-
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
@@ -51,6 +54,7 @@ export default {
         sourceSha: env.DEPLOYMENT_SOURCE_SHA ?? 'development',
         tradingAuthority: false,
         rawShell: false,
+        commandAuth: 'github-oidc',
         tools: TOOL_CONTRACT,
       })
     }
@@ -64,12 +68,7 @@ export default {
     if (url.pathname === '/v1/pair/complete' && request.method === 'POST') {
       const body = await request.clone().json().catch(() => null)
       if (!body?.deviceId) return json({ error: 'deviceId_required' }, 400)
-      let privateKey
-      try { privateKey = await signingPrivateKey(env) } catch (error) { return json({ error: error.message }, 503) }
-      const response = await proxyJson(sessionStub(env, body.deviceId), '/pair/complete', request)
-      if (!response.ok) return response
-      const paired = await response.json()
-      return json({ ...paired, gatewayPublicKeyJwk: await publicJwkFromPrivate(privateKey) })
+      return proxyJson(sessionStub(env, body.deviceId), '/pair/complete', request)
     }
 
     const match = url.pathname.match(/^\/v1\/device\/([^/]+)\/(status|commands|next|result|socket)$/)
@@ -79,7 +78,7 @@ export default {
       const stub = sessionStub(env, deviceId)
 
       if (operation === 'status') {
-        const auth = requireControl(request, env)
+        const auth = await requireControl(request, env)
         if (!auth.ok) return auth.response
         return stub.fetch(new Request('https://device.internal/status'))
       }
@@ -89,7 +88,7 @@ export default {
       if (operation === 'socket') return stub.fetch(request)
 
       if (operation === 'commands' && request.method === 'POST') {
-        const auth = requireControl(request, env)
+        const auth = await requireControl(request, env)
         if (!auth.ok) return auth.response
         let input
         try { input = validateRunGoal(await request.json()) } catch (error) { return json({ error: error.message }, 400) }
@@ -99,10 +98,8 @@ export default {
         if (riskClass === 'C') return json({ error: 'confirmation_required', riskClass }, 409)
         if (riskClass === 'B') return json({ error: 'class_b_not_enabled_in_v1_gateway', riskClass }, 409)
 
-        let privateKey
-        try { privateKey = await signingPrivateKey(env) } catch (error) { return json({ error: error.message }, 503) }
         const now = new Date()
-        const command = await signCommand({
+        const command = {
           schema: 1,
           commandId: crypto.randomUUID(),
           deviceId,
@@ -112,8 +109,8 @@ export default {
           goal: input.goal,
           capabilityScope: input.capabilityScope,
           riskClass,
-        }, privateKey)
-        return stub.fetch(new Request('https://device.internal/command', {
+        }
+        return stub.fetch(new Request('https://device.internal/command-sign', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(command),

@@ -1,3 +1,5 @@
+import { importPrivateJwk, signCommand } from './crypto.js'
+
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -15,6 +17,22 @@ async function sha256Base64(value) {
 function bearer(request) {
   const h = request.headers.get('authorization') ?? ''
   return h.startsWith('Bearer ') ? h.slice(7) : null
+}
+
+export async function generateSigningMaterial() {
+  const pair = await crypto.subtle.generateKey(
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['sign', 'verify'],
+  )
+  const privateJwk = await crypto.subtle.exportKey('jwk', pair.privateKey)
+  const publicJwk = await crypto.subtle.exportKey('jwk', pair.publicKey)
+  return { privateJwk, publicJwk }
+}
+
+export async function signWithMaterial(command, material) {
+  const privateKey = await importPrivateJwk(material.privateJwk)
+  return signCommand(command, privateKey)
 }
 
 export function validateCommandForQueue(command, now = new Date()) {
@@ -40,13 +58,26 @@ export class DeviceSession {
     if (url.pathname === '/pair/complete' && request.method === 'POST') return this.pairComplete(request)
     if (url.pathname === '/status' && request.method === 'GET') return this.status(request)
     if (url.pathname === '/command' && request.method === 'POST') return this.enqueue(request)
+    if (url.pathname === '/command-sign' && request.method === 'POST') return this.signAndEnqueue(request)
     if (url.pathname === '/next' && request.method === 'GET') return this.next(request)
     if (url.pathname === '/result' && request.method === 'POST') return this.result(request)
     if (url.pathname === '/socket' && request.headers.get('upgrade')?.toLowerCase() === 'websocket') return this.socket(request)
     return json({ error: 'not_found' }, 404)
   }
 
+  async ensureSigningMaterial() {
+    let material = await this.state.storage.get('signingMaterial')
+    if (!material) {
+      material = await generateSigningMaterial()
+      await this.state.storage.put('signingMaterial', material)
+    }
+    return material
+  }
+
   async pairStart(request) {
+    const existing = await this.state.storage.get('pairing')
+    if (existing?.paired) return json({ error: 'device_already_paired' }, 409)
+
     const body = await request.json()
     if (!body.deviceId || !body.devicePublicKey) return json({ error: 'deviceId_and_public_key_required' }, 400)
     const bytes = new Uint32Array(1)
@@ -78,7 +109,13 @@ export class DeviceSession {
     pairing.codeHash = null
     pairing.deviceTokenHash = await sha256Base64(token)
     await this.state.storage.put('pairing', pairing)
-    return json({ paired: true, deviceId: pairing.deviceId, deviceToken: token })
+    const material = await this.ensureSigningMaterial()
+    return json({
+      paired: true,
+      deviceId: pairing.deviceId,
+      deviceToken: token,
+      gatewayPublicKeyJwk: material.publicJwk,
+    })
   }
 
   async authorizedDevice(request) {
@@ -96,7 +133,22 @@ export class DeviceSession {
   }
 
   async enqueue(request) {
-    const command = validateCommandForQueue(await request.json())
+    return this.enqueueCommand(validateCommandForQueue(await request.json()))
+  }
+
+  async signAndEnqueue(request) {
+    const command = await request.json()
+    if (!command || command.schema !== 1 || !command.deviceId || !command.commandId) {
+      return json({ error: 'invalid_unsigned_command' }, 400)
+    }
+    const pairing = await this.state.storage.get('pairing')
+    if (!pairing?.paired || pairing.deviceId !== command.deviceId) return json({ error: 'device_not_paired' }, 409)
+    const material = await this.ensureSigningMaterial()
+    const signed = await signWithMaterial(command, material)
+    return this.enqueueCommand(validateCommandForQueue(signed))
+  }
+
+  async enqueueCommand(command) {
     const pairing = await this.state.storage.get('pairing')
     if (!pairing?.paired || pairing.deviceId !== command.deviceId) return json({ error: 'device_not_paired' }, 409)
     const queue = (await this.state.storage.get('queue')) ?? []
