@@ -28,6 +28,11 @@ class GatewayClient(
     data class PairStart(val challenge: String, val expiresAt: Long, val recovery: Boolean)
     data class PairComplete(val deviceToken: String, val gatewayPublicKeyJwk: String)
     data class TaskResult(val commandId: String, val status: String, val detail: String? = null)
+    data class LocalObservationFact(
+        val kind: String,
+        val nodeId: String,
+        val relatedNodeId: String? = null,
+    )
     data class TaskStepResponse(
         val status: String,
         val stepCount: Int,
@@ -95,10 +100,11 @@ class GatewayClient(
         observation: AccessibilitySnapshot,
         previousResult: TaskResult?,
         imageDataUrl: String? = null,
+        localFacts: List<LocalObservationFact> = emptyList(),
     ): TaskStepResponse {
         val body = JSONObject()
             .put("taskId", taskId)
-            .put("observation", observationJson(observation))
+            .put("observation", observationJson(observation, localFacts))
         if (previousResult != null) {
             body.put(
                 "previousResult",
@@ -119,7 +125,10 @@ class GatewayClient(
         )
     }
 
-    internal fun observationJson(observation: AccessibilitySnapshot): JSONObject {
+    internal fun observationJson(
+        observation: AccessibilitySnapshot,
+        localFacts: List<LocalObservationFact> = emptyList(),
+    ): JSONObject {
         val nodes = JSONArray()
         observation.nodes.take(MAX_OBSERVATION_NODES).forEach { node ->
             val bounds = JSONObject()
@@ -146,11 +155,22 @@ class GatewayClient(
                 .put("bounds", bounds)
             nodes.put(item)
         }
+        val facts = JSONArray()
+        localFacts.take(MAX_LOCAL_FACTS).forEach { fact ->
+            if (fact.kind !in ALLOWED_LOCAL_FACT_KINDS || !fact.nodeId.startsWith("n:")) return@forEach
+            facts.put(
+                JSONObject()
+                    .put("kind", fact.kind)
+                    .put("nodeId", fact.nodeId)
+                    .put("relatedNodeId", fact.relatedNodeId),
+            )
+        }
         return JSONObject()
             .put("packageName", observation.packageName)
             .put("windowTitle", observation.windowTitle)
             .put("fingerprint", observation.fingerprint())
             .put("nodes", nodes)
+            .put("localFacts", facts)
     }
 
     private fun post(path: String, body: JSONObject, token: String?): JSONObject {
@@ -204,5 +224,7 @@ class GatewayClient(
     companion object {
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
         private const val MAX_OBSERVATION_NODES = 80
+        private const val MAX_LOCAL_FACTS = 40
+        private val ALLOWED_LOCAL_FACT_KINDS = setOf("UNKNOWN_NUMBER_CONFIRMED")
     }
 }
