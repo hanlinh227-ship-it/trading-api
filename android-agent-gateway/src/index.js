@@ -93,6 +93,8 @@ function normalizedTaskInput(body, authMode) {
   const scope = Array.isArray(body.capabilityScope) && body.capabilityScope.length
     ? [...new Set(body.capabilityScope.map(String))]
     : ['apps.open', 'ui.navigate']
+  if (!scope.includes('ui.navigate')) throw new Error('ui_navigate_required')
+  if (goalRisk === 'C' && !scope.includes('ui.destructive.confirmed')) scope.push('ui.destructive.confirmed')
   return {
     taskId,
     goal: body.goal.trim(),
@@ -101,6 +103,26 @@ function normalizedTaskInput(body, authMode) {
     confirmedRiskClassC: goalRisk === 'C' && body.confirmedRiskClassC === true,
     confirmedTaskId: goalRisk === 'C' && body.confirmedRiskClassC === true ? taskId : null,
   }
+}
+
+async function bootstrapTask(stub, deviceId, task) {
+  const now = new Date()
+  return stub.fetch(new Request('https://device.internal/command-sign', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      schema: 2,
+      commandId: crypto.randomUUID(),
+      deviceId,
+      issuedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+      nonce: crypto.randomUUID(),
+      taskId: task.taskId,
+      action: { type: 'read_screen' },
+      capabilityScope: ['ui.navigate'],
+      riskClass: 'A',
+    }),
+  }))
 }
 
 export default {
@@ -144,11 +166,19 @@ export default {
           const status = error.message.includes('class_d') ? 403 : error.message.includes('confirmation') ? 409 : 400
           return json({ error: error.message }, status)
         }
-        return stub.fetch(new Request('https://device.internal/task', {
+        const created = await stub.fetch(new Request('https://device.internal/task', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(task),
         }))
+        if (!created.ok) return created
+        const createdBody = await created.json()
+        const bootstrap = await bootstrapTask(stub, deviceId, task)
+        if (!bootstrap.ok) {
+          const detail = await bootstrap.json().catch(() => ({ error: 'unknown' }))
+          return json({ error: 'task_bootstrap_failed', taskId: task.taskId, detail }, 409)
+        }
+        return json({ ...createdBody, bootstrapQueued: true }, 201)
       }
 
       if (request.method === 'GET' && taskId) {
@@ -158,7 +188,7 @@ export default {
       return json({ error: 'method_not_allowed' }, 405)
     }
 
-    const match = url.pathname.match(/^\/v1\/device\/([^/]+)\/(status|commands|next|result|socket)$/)
+    const match = url.pathname.match(/^\/v1\/device\/([^/]+)\/(status|commands|next|result|task-step|socket)$/)
     if (match) {
       const deviceId = decodeURIComponent(match[1])
       const operation = match[2]
@@ -178,6 +208,13 @@ export default {
 
       if (operation === 'result') {
         const response = await proxyJson(stub, '/result', request)
+        if (response.ok) await touchLatestDevice(env, deviceId)
+        return response
+      }
+
+      if (operation === 'task-step') {
+        if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
+        const response = await proxyJson(stub, '/task-step', request)
         if (response.ok) await touchLatestDevice(env, deviceId)
         return response
       }
