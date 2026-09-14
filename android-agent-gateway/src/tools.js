@@ -3,7 +3,10 @@ const RISK_D = [
   'wallet sign', 'ký ví', 'transfer money', 'chuyển tiền', 'withdraw', 'rút tiền',
   'banking', 'ngân hàng', 'disable security', 'tắt bảo mật'
 ]
-const RISK_C = ['delete', 'xóa', 'uninstall', 'gỡ ứng dụng', 'purchase', 'buy ', 'mua ', 'publish', 'đăng công khai']
+const RISK_C = [
+  'delete', 'xóa', 'uninstall', 'gỡ ứng dụng', 'purchase', 'buy ', 'mua ', 'publish', 'đăng công khai',
+  'move to trash', 'trash', 'chuyển vào thùng rác', 'thùng rác'
+]
 const RISK_B = ['send message', 'gửi tin', 'upload', 'tải lên', 'change setting', 'đổi cài đặt']
 
 export function classifyGoal(goal) {
@@ -16,17 +19,21 @@ export function classifyGoal(goal) {
 
 export function validateRunGoal(input) {
   if (!input || typeof input !== 'object') throw new Error('input required')
-  const allowedKeys = new Set(['deviceId', 'goal', 'capabilityScope', 'riskCeiling'])
+  const allowedKeys = new Set(['deviceId', 'goal', 'capabilityScope', 'riskCeiling', 'confirmedRiskClassC'])
   for (const key of Object.keys(input)) {
     if (!allowedKeys.has(key)) throw new Error(`unsupported field: ${key}`)
   }
   if (typeof input.deviceId !== 'string' || !input.deviceId.trim()) throw new Error('deviceId required')
   if (typeof input.goal !== 'string' || !input.goal.trim()) throw new Error('goal required')
+  if (input.confirmedRiskClassC != null && typeof input.confirmedRiskClassC !== 'boolean') {
+    throw new Error('confirmedRiskClassC must be boolean')
+  }
   return {
     deviceId: input.deviceId.trim(),
     goal: input.goal.trim(),
     capabilityScope: Array.isArray(input.capabilityScope) ? input.capabilityScope : ['apps.open', 'ui.navigate'],
     riskCeiling: input.riskCeiling ?? 'C',
+    confirmedRiskClassC: input.confirmedRiskClassC === true,
   }
 }
 
