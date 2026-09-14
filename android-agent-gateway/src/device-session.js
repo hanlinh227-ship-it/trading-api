@@ -389,7 +389,7 @@ export class DeviceSession {
 
     let step
     try {
-      step = clampTaskStep({ task, action: planned.action })
+      step = clampTaskStep({ task, action: planned.action, observation: body.observation })
     } catch (error) {
       task = {
         ...task,
@@ -419,6 +419,8 @@ export class DeviceSession {
     }
 
     const now = new Date()
+    const commandScope = [step.capability]
+    if (step.riskClass === 'C') commandScope.push('ui.destructive.confirmed')
     const command = {
       schema: 2,
       commandId: crypto.randomUUID(),
@@ -428,7 +430,7 @@ export class DeviceSession {
       nonce: crypto.randomUUID(),
       taskId: task.taskId,
       action: step.action,
-      capabilityScope: [step.capability],
+      capabilityScope: [...new Set(commandScope)],
       riskClass: step.riskClass,
     }
     const material = await this.ensureSigningMaterial()
