@@ -1,6 +1,7 @@
 package com.hanlinh.androidbrain.service
 
 import android.accessibilityservice.AccessibilityService
+import android.content.res.Configuration
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -38,7 +39,20 @@ class BrainAccessibilityService : AccessibilityService() {
         collect(root, "0", raw)
         val packageName = root.packageName?.toString().orEmpty()
         val title = root.window?.title?.toString()
-        return AccessibilitySnapshotMapper().from(packageName, title, raw)
+        val metrics = resources.displayMetrics
+        val orientation = when (resources.configuration.orientation) {
+            Configuration.ORIENTATION_PORTRAIT -> "PORTRAIT"
+            Configuration.ORIENTATION_LANDSCAPE -> "LANDSCAPE"
+            else -> "UNDEFINED"
+        }
+        return AccessibilitySnapshotMapper().from(
+            packageName = packageName,
+            windowTitle = title,
+            rawNodes = raw,
+            screenWidth = metrics.widthPixels,
+            screenHeight = metrics.heightPixels,
+            orientation = orientation,
+        )
     }
 
     fun captureScreenshot(callback: (ScreenshotCapture) -> Unit) {
