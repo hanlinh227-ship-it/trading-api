@@ -29,7 +29,7 @@ class Brain48ContinuousIntelligenceTests(unittest.TestCase):
         rel = checkpoint.get("stable_continuous_intelligence_path")
         self.assertEqual(rel, "AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml")
         contract = self._yaml(rel)
-        self.assertEqual(contract.get("version"), "4.8.0")
+        self.assertEqual(contract.get("version"), "4.8.1")
         self.assertEqual(contract.get("plane"), "evergreen_update_only")
         self.assertFalse(contract.get("stable_request_dependency"))
         self.assertEqual(contract.get("canonical_skill_count_target"), 109)
@@ -158,7 +158,11 @@ class Brain48ContinuousIntelligenceTests(unittest.TestCase):
         del missing["quality"]
         self.assertEqual(compare_candidate(baseline, missing, policy), "hold")
 
-    def test_workflows_are_scheduled_and_never_direct_push_main(self):
+    def test_hourly_continuous_intelligence_schedule(self):
+        contract = self._yaml("AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml")
+        self.assertEqual(contract["schedules"]["source_refresh_hours"], 1)
+        self.assertEqual(contract["schedules"]["candidate_cycle"], "hourly")
+
         scan = ROOT / ".github/workflows/ai-brain-evergreen-scan.yml"
         candidate = ROOT / ".github/workflows/ai-brain-evergreen-candidate.yml"
         for path in (scan, candidate):
@@ -166,21 +170,26 @@ class Brain48ContinuousIntelligenceTests(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
             self.assertIn("schedule:", text)
             self.assertNotIn("git push origin main", text)
+
         scan_text = scan.read_text(encoding="utf-8")
-        self.assertIn("17 */6 * * *", scan_text)
+        candidate_text = candidate.read_text(encoding="utf-8")
+        self.assertIn("17 * * * *", scan_text)
+        self.assertNotIn("17 */6 * * *", scan_text)
+        self.assertIn("41 * * * *", candidate_text)
+        self.assertNotIn("41 2 * * *", candidate_text)
         self.assertIn("23 3 * * 0", scan_text)
         self.assertIn("weekly-intelligence-audit", scan_text)
         self.assertIn("ci_validate.py", scan_text)
-        self.assertIn("ci_validate.py", candidate.read_text(encoding="utf-8"))
+        self.assertIn("ci_validate.py", candidate_text)
 
     def test_release_tool_includes_continuous_intelligence_contract(self):
         release_text = (ROOT / "AI_SKILL_LIBRARY/v4/tools/release.py").read_text(encoding="utf-8")
         self.assertIn("AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml", release_text)
         self.assertIn('"continuous_intelligence"', release_text)
 
-    def test_release_target_is_4_8_0(self):
+    def test_release_target_is_4_8_1(self):
         pointer = json.loads((ROOT / "AI_SKILL_LIBRARY/v4/releases/current.json").read_text(encoding="utf-8"))
-        self.assertEqual(pointer.get("version"), "4.8.0")
+        self.assertEqual(pointer.get("version"), "4.8.1")
 
 
 if __name__ == "__main__":
