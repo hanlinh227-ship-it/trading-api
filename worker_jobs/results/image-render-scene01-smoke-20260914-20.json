@@ -1,0 +1,82 @@
+{
+  "job_id": "image-render-scene01-smoke-20260914-20",
+  "status": "FAILED",
+  "message": "IMAGE_RENDER failed: 1 scene(s) failed",
+  "artifact_manifest": {
+    "zip_path": "C:\\AI\\CuriousBeyond\\artifacts\\image-render-scene01-smoke-20260914-20\\max-bus_image-render-scene01-smoke-20260914-20.zip",
+    "manifest_path": "C:\\AI\\CuriousBeyond\\artifacts\\image-render-scene01-smoke-20260914-20\\manifest.json",
+    "accepted": 0,
+    "failed": 1,
+    "zero_paid_services": true,
+    "scenes": [
+      {
+        "scene_id": 1,
+        "status": "FAILED",
+        "attempts": 2,
+        "seed": 101001,
+        "artifact_path": null,
+        "error": "WorkflowError: rendered artifact failed QA: decode failed: No module named 'PIL'",
+        "prompt": "3D preschool animation, soft rounded shapes, bright pastel colors, clean child-friendly lighting. Medium-wide low three-quarter front view at a pastel neighborhood bus stop. A fixed yellow city bus with light-blue lower body, cream roof and large rounded windows approaches along the road. Max is a cute red monkey child exactly matching the Max reference, wearing a yellow T-shirt, denim shorts and blue-white shoes, standing naturally on the sidewalk and happily waving toward the arriving bus. Dad Max exactly matching the Dad Max reference is visible once in the driver seat through the windshield, wearing a navy suit, white shirt and black tie, both hands naturally controlling the bus. Exactly two visible characters: Max and Dad Max. No extra people, no duplicate characters, no extra vehicles, no text, no logo, no watermark, no malformed anatomy, no extra or missing limbs, no identity drift. Cinematic 16:9 composition, physically plausible bus position and wheels on road.",
+        "reference_ids": [
+          "max",
+          "dad_max"
+        ],
+        "workflow_profile": "sd15_reference_lowvram",
+        "qa": {
+          "accepted": false,
+          "sha256": null,
+          "identity_status": "UNVERIFIED",
+          "reason": "WorkflowError: rendered artifact failed QA: decode failed: No module named 'PIL'"
+        }
+      }
+    ],
+    "workflow_profile": "sd15_reference_lowvram",
+    "reference_nodes": [
+      "IPAdapter",
+      "IPAdapterAdvanced",
+      "IPAdapterBatch",
+      "IPAdapterClipVisionEnhancer",
+      "IPAdapterClipVisionEnhancerBatch",
+      "IPAdapterCombineEmbeds",
+      "IPAdapterCombineParams",
+      "IPAdapterCombineWeights",
+      "IPAdapterEmbeds",
+      "IPAdapterEmbedsBatch",
+      "IPAdapterEncoder",
+      "IPAdapterFaceID",
+      "IPAdapterFaceIDKolors",
+      "IPAdapterFromParams",
+      "IPAdapterInsightFaceLoader",
+      "IPAdapterLoadEmbeds",
+      "IPAdapterMS",
+      "IPAdapterModelLoader",
+      "IPAdapterNoise",
+      "IPAdapterPreciseComposition",
+      "IPAdapterPreciseCompositionBatch",
+      "IPAdapterPreciseStyleTransfer",
+      "IPAdapterPreciseStyleTransferBatch",
+      "IPAdapterPromptScheduleFromWeightsStrategy",
+      "IPAdapterRegionalConditioning",
+      "IPAdapterSaveEmbeds",
+      "IPAdapterStyleComposition",
+      "IPAdapterStyleCompositionBatch",
+      "IPAdapterTiled",
+      "IPAdapterTiledBatch",
+      "IPAdapterUnifiedLoader",
+      "IPAdapterUnifiedLoaderCommunity",
+      "IPAdapterUnifiedLoaderFaceID",
+      "IPAdapterWeights",
+      "IPAdapterWeightsFromStrategy"
+    ],
+    "checkpoints": [
+      "v1-5-pruned-emaonly.safetensors"
+    ],
+    "cloud_fallback": false,
+    "_worker": {
+      "runner_build": "worker-reliability-v4",
+      "runtime_build": "image-render-v1",
+      "pid": 42144
+    }
+  },
+  "completed_at": "2026-09-14T13:15:34.008657+00:00"
+}
