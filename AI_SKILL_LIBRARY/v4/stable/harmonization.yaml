@@ -26,6 +26,12 @@ candidate_intake:
     - authority_impact
     - eval_impact
     - strengthen_existing_skill_first
+  security_posture:
+    optional_when_unavailable: true
+    advisory_evidence_only: true
+    never_grants_authority: true
+    external_scanner_mandatory_on_stable_request_path: false
+    unresolved_critical_risk_may_block_promotion: true
   reject_if:
     - hidden_permission_expansion
     - credential_or_secret_material
@@ -51,6 +57,7 @@ normalization:
     - provenance
     - license_or_usage_status
     - maintenance_status
+    - security_posture
     - freshness_semantics
     - units_and_scale
     - runtime_requirements
@@ -102,6 +109,8 @@ bottleneck_prevention:
       maintenance_status_required: true
       license_status_required: true
       stale_or_archived_requires_explicit_scope: true
+      security_posture_is_advisory: true
+      unresolved_critical_security_risk_may_block_promotion: true
   promotion_blocked_on_unresolved_bottleneck: true
 
 cognitive_execution:
