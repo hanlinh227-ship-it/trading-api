@@ -23,6 +23,7 @@ export function createTaskState(input) {
     stepCount: Number.isInteger(input.stepCount) ? input.stepCount : 0,
     recoveryCount: Number.isInteger(input.recoveryCount) ? input.recoveryCount : 0,
     lastFingerprint: input.lastFingerprint ?? null,
+    failureCode: input.failureCode ?? null,
     createdAt: input.createdAt ?? new Date().toISOString(),
     updatedAt: input.updatedAt ?? new Date().toISOString(),
   }
@@ -73,6 +74,7 @@ export function publicTaskState(task) {
     stepCount: task.stepCount,
     recoveryCount: task.recoveryCount,
     lastFingerprint: task.lastFingerprint ?? null,
+    failureCode: typeof task.failureCode === 'string' ? task.failureCode.slice(0, 96) : null,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
   }
