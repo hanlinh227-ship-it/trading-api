@@ -5,6 +5,7 @@ from typing import Any
 
 _ALLOWED_JOB_TYPES = {
     "IMAGE_RENDER",
+    "IMAGE_SETUP",
     "VIDEO_RENDER",
     "VOICE_RENDER",
     "FINAL_RENDER",
