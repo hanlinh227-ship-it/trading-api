@@ -1,8 +1,8 @@
 {
-  "job_id": "image-render-reference-bootstrap-20260914-16",
-  "job_type": "IMAGE_SETUP",
-  "created_at": "2026-09-14T17:58:00+07:00",
+  "job_id": "image-render-reference-preflight-20260914-17",
+  "job_type": "MEDIA_PROBE",
+  "created_at": "2026-09-14T18:56:00+07:00",
   "args": {
-    "action": "bootstrap_reference_stack"
+    "targets": ["python", "ffmpeg", "whisper", "kokoro", "comfyui", "comfyui_reference"]
   }
 }
