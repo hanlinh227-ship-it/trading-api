@@ -18,19 +18,36 @@ data class CommandEnvelope(
     val capabilityScope: Set<String>,
     val riskClass: RiskClass,
     val signature: String,
+    val taskId: String? = null,
+    val action: Action? = null,
 ) {
     fun canonicalSigningBytes(): ByteArray {
-        val canonical = listOf(
-            schema.toString(),
-            commandId,
-            deviceId,
-            issuedAt.toString(),
-            expiresAt.toString(),
-            nonce,
-            goal,
-            capabilityScope.toList().sorted().joinToString(","),
-            riskClass.name,
-        ).joinToString("\n")
+        val canonical = when (schema) {
+            1 -> listOf(
+                schema.toString(),
+                commandId,
+                deviceId,
+                issuedAt.toString(),
+                expiresAt.toString(),
+                nonce,
+                goal,
+                capabilityScope.toList().sorted().joinToString(","),
+                riskClass.name,
+            )
+            2 -> listOf(
+                schema.toString(),
+                commandId,
+                deviceId,
+                issuedAt.toString(),
+                expiresAt.toString(),
+                nonce,
+                taskId.orEmpty(),
+                action?.let(TypedActionCodec::encode).orEmpty(),
+                capabilityScope.toList().sorted().joinToString(","),
+                riskClass.name,
+            )
+            else -> listOf(schema.toString())
+        }.joinToString("\n")
         return canonical.toByteArray(StandardCharsets.UTF_8)
     }
 }
@@ -42,6 +59,7 @@ enum class RejectReason {
     REPLAY,
     INVALID_SCOPE,
     INVALID_SIGNATURE,
+    INVALID_TYPED_ACTION,
 }
 
 data class VerificationResult(
@@ -59,11 +77,21 @@ class CommandEnvelopeVerifier(
         now: Instant,
         seenNonces: Set<String>,
     ): VerificationResult {
-        if (envelope.schema != 1) return VerificationResult(false, RejectReason.INVALID_SCHEMA)
+        if (envelope.schema != 1 && envelope.schema != 2) {
+            return VerificationResult(false, RejectReason.INVALID_SCHEMA)
+        }
         if (envelope.deviceId != expectedDeviceId) return VerificationResult(false, RejectReason.WRONG_DEVICE)
         if (!now.isBefore(envelope.expiresAt)) return VerificationResult(false, RejectReason.EXPIRED)
         if (envelope.nonce in seenNonces) return VerificationResult(false, RejectReason.REPLAY)
-        if (!allowedCapabilities.containsAll(envelope.capabilityScope)) return VerificationResult(false, RejectReason.INVALID_SCOPE)
+        if (!allowedCapabilities.containsAll(envelope.capabilityScope)) {
+            return VerificationResult(false, RejectReason.INVALID_SCOPE)
+        }
+        if (envelope.schema == 1 && envelope.goal.isBlank()) {
+            return VerificationResult(false, RejectReason.INVALID_TYPED_ACTION)
+        }
+        if (envelope.schema == 2 && (envelope.taskId.isNullOrBlank() || envelope.action == null)) {
+            return VerificationResult(false, RejectReason.INVALID_TYPED_ACTION)
+        }
         if (envelope.signature.isBlank()) return VerificationResult(false, RejectReason.INVALID_SIGNATURE)
 
         return try {
@@ -105,10 +133,6 @@ class CommandEnvelopeVerifier(
         var first = 0
         while (first < input.lastIndex && input[first] == 0.toByte()) first++
         val stripped = input.copyOfRange(first, input.size)
-        return if ((stripped[0].toInt() and 0x80) != 0) {
-            byteArrayOf(0) + stripped
-        } else {
-            stripped
-        }
+        return if ((stripped[0].toInt() and 0x80) != 0) byteArrayOf(0) + stripped else stripped
     }
 }
