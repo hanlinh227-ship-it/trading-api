@@ -15,6 +15,7 @@ import org.json.JSONObject
 class GatewayClient(
     private val baseUrl: String = BuildConfig.GATEWAY_BASE_URL.trimEnd('/'),
     private val http: OkHttpClient = OkHttpClient.Builder()
+        .dns(GatewayDns.resilient())
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .build(),
