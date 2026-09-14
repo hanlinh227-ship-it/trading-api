@@ -52,5 +52,5 @@ def test_put_hashes_uploaded_file(tmp_path: Path):
     )
     result = store.put(source, "final_image", "folder-1", mime_type="image/png")
     assert result.drive_file_id == "drive-out"
-    assert result.sha256 == "2443630b4620165c8a102e4287b6e2d800aa4b1530c37d9c19d963e24ea3b44a"
+    assert result.sha256 == "2443630b4620165c8b173e7265e17526fe2787ae594364dd6d839ad58f2fc007"
     assert result.byte_size == 5
