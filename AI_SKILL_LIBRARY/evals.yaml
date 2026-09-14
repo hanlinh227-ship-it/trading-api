@@ -31,6 +31,13 @@ failure_taxonomy:
   - oss_intake_security_regression
   - observability_sanitization_regression
   - browser_runtime_verification_regression
+  - source_aging_regression
+  - unsupported_gap_evidence
+  - failure_intake_sanitization_regression
+  - candidate_baseline_comparison_regression
+  - protected_dimension_regression
+  - autonomous_promotion_boundary_regression
+  - evergreen_version_increment_regression
 
 benchmark_classes:
   - routing
@@ -55,6 +62,12 @@ benchmark_classes:
   - oss_intake_security
   - observability_sanitization
   - browser_runtime_verification
+  - continuous_source_aging
+  - gap_evidence_integrity
+  - failure_regression_sanitization
+  - baseline_candidate_comparison
+  - autonomous_promotion_boundary
+  - evergreen_versioning
 
 learning_loop:
   verified_failure_to_candidate_eval: true
@@ -64,6 +77,8 @@ learning_loop:
   candidate_eval_before_policy_patch: true
   compare_against_baseline: true
   preserve_failure_evidence: true
+  unsupported_failure_evidence_must_not_persist_as_fact: true
+  stable_plane_independent_from_learning_loop: true
 
 capability_fusion_evals:
   retrieval:
@@ -176,6 +191,44 @@ selective_fusion_47_evals:
     accessibility_state_when_material: true
     cross_browser_when_material: true
 
+continuous_intelligence_48_evals:
+  source_aging:
+    explicit_last_verified_required: true
+    future_timestamp_rejected: true
+    stale_source_cannot_masquerade_as_current_runtime_truth: true
+    popularity_never_overrides_freshness_or_authority: true
+  gap_evidence_integrity:
+    evidence_reference_required: true
+    unsupported_gap_is_rejected: true
+    deterministic_priority_required: true
+    security_and_authority_gaps_outrank_convenience: true
+  failure_regression_sanitization:
+    verified_failure_fields_required: true
+    hidden_reasoning_forbidden: true
+    secrets_credentials_private_payloads_forbidden: true
+    observed_failure_separated_from_hypothesized_root_cause: true
+  baseline_candidate_comparison:
+    baseline_evidence_required: true
+    candidate_evidence_required: true
+    minimum_quality_gain_required: 0.01
+    max_relative_latency_regression: 0.10
+    max_relative_cost_regression: 0.05
+    protected_regression_tolerance: 0.0
+  autonomous_promotion_boundary:
+    class_a_allowed_after_all_gates: true
+    class_b_allowed_only_after_sandbox_and_all_gates: true
+    class_c_requires_explicit_authorization: true
+    class_d_requires_explicit_authorization: true
+    relabeling_cannot_bypass_permission_class: true
+  evergreen_versioning:
+    active_minor_patch_increment_only: true
+    automatic_minor_bump_forbidden: true
+    non_v4_automatic_release_forbidden: true
+  plane_isolation:
+    stable_request_path_must_not_depend_on_evergreen: true
+    update_failure_keeps_last_known_good_stable: true
+    in_flight_stable_mutation_forbidden: true
+
 scoring:
   dimensions:
     routing: 0.15
@@ -198,6 +251,8 @@ promotion:
   require_source_license_provenance_for_new_upstream: true
   require_duplicate_capability_check: true
   require_latency_bottleneck_check: true
+  unattended_classes: [A, B]
+  explicit_authorization_classes: [C, D]
 
 profiles:
   FAST:

@@ -1,0 +1,76 @@
+version: 4.8.0
+mode: continuous_intelligence
+plane: evergreen_update_only
+stable_request_dependency: false
+canonical_skill_count_target: 109
+schedules:
+  source_refresh_hours: 6
+  candidate_cycle: daily
+  deep_audit: weekly
+  failure_intake: event_driven
+source_aging:
+  official_docs_hours: 48
+  approved_github_hours: 48
+  plugin_metadata_hours: 48
+  scientific_primary_hours: 336
+states:
+  - active
+  - stale
+  - reverify
+  - deprecated
+  - archived
+gap_detection:
+  required_fields:
+    - gap_id
+    - domain
+    - signal_type
+    - severity
+    - evidence_refs
+    - recommended_capability
+    - created_at
+  require_verified_evidence: true
+failure_intake:
+  required_fields:
+    - failure_id
+    - domain
+    - failure_class
+    - observable_symptom
+    - expected_outcome
+    - evidence_ref
+    - timestamp
+  forbidden_fields:
+    - chain_of_thought
+    - hidden_reasoning
+    - secrets
+    - credentials
+    - private_tool_payload
+    - raw_private_prompt
+candidate_comparison:
+  min_primary_quality_gain: 0.01
+  max_relative_latency_regression: 0.10
+  max_relative_cost_regression: 0.05
+  protected_regression_tolerance: 0.0
+  protected_dimensions:
+    - correctness
+    - authority
+    - security
+    - verification
+    - project_isolation
+autonomous_promotion:
+  A: true
+  B: true
+  C: false
+  D: false
+permission_ceiling:
+  widen_permissions: false
+  financial_execution: false
+  credential_access: false
+  wallet_signing: false
+  destructive_production_action: false
+  production_write_expansion: false
+privacy:
+  persist_hidden_reasoning: false
+  sanitized_telemetry_only: true
+fallback:
+  update_plane_failure: continue_last_known_good_stable
+  protected_regression: rollback_without_waiting_for_root_cause
