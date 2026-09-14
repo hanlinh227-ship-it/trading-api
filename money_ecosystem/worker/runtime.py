@@ -12,6 +12,7 @@ from typing import Any
 from .allowlist import validate_job_request
 from .comfyui_adapter import ComfyUIAdapter, ComfyUIError, DependencyMissing
 from .image_render_contract import ContractError, ImageRenderJob
+from .image_setup import ImageSetupError, bootstrap_reference_stack
 
 _COMFYUI_BASE = "http://127.0.0.1:8188"
 
@@ -162,6 +163,29 @@ def _execute_image_render_preflight(job: dict[str, Any], workspace_root: Path | 
     }
 
 
+def _execute_image_setup(job: dict[str, Any]) -> dict[str, Any]:
+    action = job["args"].get("action")
+    if action != "bootstrap_reference_stack":
+        return {
+            "status": "BLOCKED",
+            "message": "IMAGE_SETUP only permits bootstrap_reference_stack",
+            "artifact_manifest": {"zero_paid_services": True, "cloud_fallback": False},
+        }
+    try:
+        manifest = bootstrap_reference_stack()
+    except ImageSetupError as exc:
+        return {
+            "status": "BLOCKED",
+            "message": f"IMAGE_SETUP failed: {exc}",
+            "artifact_manifest": {"zero_paid_services": True, "cloud_fallback": False},
+        }
+    return {
+        "status": "SUCCESS",
+        "message": "IMAGE_SETUP reference stack installed; ComfyUI restart required",
+        "artifact_manifest": manifest,
+    }
+
+
 def execute_job(job: dict[str, Any], workspace_root: Path | str) -> dict[str, Any]:
     job = validate_job_request(job)
     job_type = job["job_type"]
@@ -177,6 +201,9 @@ def execute_job(job: dict[str, Any], workspace_root: Path | str) -> dict[str, An
             "message": "Media capability probe completed",
             "artifact_manifest": {"capabilities": capabilities},
         }
+
+    if job_type == "IMAGE_SETUP":
+        return _execute_image_setup(job)
 
     if job_type == "IMAGE_RENDER":
         return _execute_image_render_preflight(job, workspace_root)
