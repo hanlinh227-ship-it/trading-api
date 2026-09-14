@@ -1,0 +1,55 @@
+name: TEMP Brain 4.8 Generate Release
+
+on:
+  push:
+    branches:
+      - brain-v4-continuous-intelligence-4-8
+    paths:
+      - '.github/workflows/tmp-brain-4-8-generate.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: brain-v4-continuous-intelligence-4-8
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+      - name: Generate immutable Brain 4.8.0 release
+        run: python AI_SKILL_LIBRARY/v4/tools/release.py build --version 4.8.0 --source continuous_intelligence_4_8 --class feature --validated --known-good --root .
+      - name: Rebuild canonical retrieval index
+        shell: bash
+        run: |
+          set -euo pipefail
+          if python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --help | grep -q -- '--root'; then
+            python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --root .
+          else
+            python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py
+          fi
+      - name: Verify generated release
+        run: |
+          python AI_SKILL_LIBRARY/v4/tools/release.py verify --root .
+          python AI_SKILL_LIBRARY/v4/tools/release.py check --root .
+          python -m unittest AI_SKILL_LIBRARY.tests.test_brain_4_8_continuous_intelligence -v
+      - name: Commit generated artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add AI_SKILL_LIBRARY/v4/releases AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml
+          if git diff --cached --quiet; then
+            echo "No generated diff"
+            exit 0
+          fi
+          git commit -m "release: generate Brain 4.8.0"
+          git push origin HEAD:brain-v4-continuous-intelligence-4-8
