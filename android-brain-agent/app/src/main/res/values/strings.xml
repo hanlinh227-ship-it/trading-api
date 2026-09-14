@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Android Brain Agent</string>
-    <string name="accessibility_service_description">Cho phép Android Brain Agent quan sát giao diện và thực hiện thao tác bạn đã ủy quyền.</string>
+    <string name="app_name">Android Brain Agent V2</string>
+    <string name="accessibility_service_description">Cho phép Android Brain Agent V2 quan sát giao diện và thực hiện thao tác bạn đã ủy quyền.</string>
 </resources>
