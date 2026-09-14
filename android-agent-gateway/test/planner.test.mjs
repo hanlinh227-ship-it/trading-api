@@ -84,6 +84,30 @@ test('invalid or escalating model action never reaches the device', async () => 
   assert.notEqual(result.action.type, 'wallet_sign')
 })
 
+test('synthetic destructive actions that Android cannot execute never reach the device', async () => {
+  const env = {
+    AI: {
+      run: async () => ({ response: JSON.stringify({
+        action: { type: 'delete_data', itemCount: 1 },
+        expected: { type: 'observation_changed' },
+        rationaleCode: 'DELETE_DIRECT',
+      }) }),
+    },
+  }
+  const task = {
+    taskId: 'task-delete',
+    goal: 'Delete the selected conversation',
+    capabilityScope: ['ui.navigate', 'ui.destructive.confirmed'],
+    riskClass: 'C',
+    taskRiskClass: 'C',
+    confirmedRiskClassC: true,
+    confirmedTaskId: 'task-delete',
+  }
+  const result = await planNextStep({ env, task, observation: { packageName: 'com.example', nodes: [] } })
+  assert.equal(result.mode, 'deterministic-degraded')
+  assert.notEqual(result.action.type, 'delete_data')
+})
+
 test('workers AI failure yields explicit deterministic degraded fallback', async () => {
   const env = { AI: { run: async () => { throw new Error('model unavailable') } } }
   const task = { taskId: 'task-fallback', goal: 'Open Settings', capabilityScope: ['apps.open'], riskClass: 'A' }
