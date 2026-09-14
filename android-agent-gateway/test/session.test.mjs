@@ -2,6 +2,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { DeviceSession, isDeviceOnline, pruneExpiredCommands, validateCommandForQueue } from '../src/device-session.js'
 
+async function sha256Base64(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
+  let binary = ''
+  for (const b of new Uint8Array(digest)) binary += String.fromCharCode(b)
+  return btoa(binary)
+}
+
 test('expired commands are rejected before queueing', () => {
   assert.throws(() => validateCommandForQueue({
     schema: 1,
@@ -49,4 +56,50 @@ test('registry stores and returns the most recently active device', async () => 
   const latest = await session.fetch(new Request('https://device.internal/registry/latest'))
   assert.equal(latest.status, 200)
   assert.equal((await latest.json()).deviceId, 'device-new')
+})
+
+test('exact command result remains queryable after a later result overwrites lastResult', async () => {
+  const token = 'device-token'
+  const values = new Map([
+    ['pairing', {
+      paired: true,
+      deviceId: 'device-1',
+      deviceTokenHash: await sha256Base64(token),
+    }],
+  ])
+  const state = {
+    storage: {
+      get: async key => values.get(key),
+      put: async (key, value) => values.set(key, value),
+    },
+    getWebSockets: () => [],
+  }
+  const session = new DeviceSession(state, {})
+  const headers = {
+    authorization: `Bearer ${token}`,
+    'content-type': 'application/json',
+  }
+
+  for (const result of [
+    { commandId: 'command-1', status: 'FAILED', detail: 'POSTCONDITION_NOT_MET' },
+    { commandId: 'command-2', status: 'COMPLETED', detail: '{"private":"must-not-leak"}' },
+  ]) {
+    const response = await session.fetch(new Request('https://device.internal/result', {
+      method: 'POST', headers, body: JSON.stringify(result),
+    }))
+    assert.equal(response.status, 200)
+  }
+
+  const exact = await session.fetch(new Request('https://device.internal/command-result/command-1', {
+    method: 'GET', headers: { authorization: `Bearer ${token}` },
+  }))
+  assert.equal(exact.status, 200)
+  const body = await exact.json()
+  assert.deepEqual(body, {
+    commandId: 'command-1',
+    status: 'FAILED',
+    code: 'POSTCONDITION_NOT_MET',
+    receivedAt: body.receivedAt,
+  })
+  assert.equal('detail' in body, false)
 })
