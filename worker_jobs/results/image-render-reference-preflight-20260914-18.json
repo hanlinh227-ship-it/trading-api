@@ -1,0 +1,399 @@
+{
+  "job_id": "image-render-reference-preflight-20260914-18",
+  "status": "SUCCESS",
+  "message": "Media capability probe completed",
+  "artifact_manifest": {
+    "capabilities": {
+      "python": {
+        "available": true,
+        "version": "3.11.9"
+      },
+      "ffmpeg": {
+        "available": true
+      },
+      "whisper": {
+        "available": true
+      },
+      "kokoro": {
+        "available": true
+      },
+      "comfyui": {
+        "available": true,
+        "endpoint": "http://127.0.0.1:8188/system_stats"
+      },
+      "comfyui_reference": {
+        "available": true,
+        "endpoint": "http://127.0.0.1:8188/object_info",
+        "missing": [],
+        "checkpoints": [
+          "v1-5-pruned-emaonly.safetensors"
+        ],
+        "reference_nodes": [
+          "IPAdapter",
+          "IPAdapterAdvanced",
+          "IPAdapterBatch",
+          "IPAdapterClipVisionEnhancer",
+          "IPAdapterClipVisionEnhancerBatch",
+          "IPAdapterCombineEmbeds",
+          "IPAdapterCombineParams",
+          "IPAdapterCombineWeights",
+          "IPAdapterEmbeds",
+          "IPAdapterEmbedsBatch",
+          "IPAdapterEncoder",
+          "IPAdapterFaceID",
+          "IPAdapterFaceIDKolors",
+          "IPAdapterFromParams",
+          "IPAdapterInsightFaceLoader",
+          "IPAdapterLoadEmbeds",
+          "IPAdapterMS",
+          "IPAdapterModelLoader",
+          "IPAdapterNoise",
+          "IPAdapterPreciseComposition"
+        ],
+        "reference_options": {
+          "IPAdapter": {
+            "weight_type": [
+              "standard",
+              "prompt is more important",
+              "style transfer"
+            ]
+          },
+          "IPAdapterAdvanced": {
+            "weight_type": [
+              "linear",
+              "ease in",
+              "ease out",
+              "ease in-out",
+              "reverse in-out",
+              "weak input",
+              "weak output",
+              "weak middle",
+              "strong middle",
+              "style transfer",
+              "composition",
+              "strong style transfer",
+              "style and composition",
+              "style transfer precise",
+              "composition precise"
+            ],
+            "combine_embeds": [
+              "concat",
+              "add",
+              "subtract",
+              "average",
+              "norm average"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          },
+          "IPAdapterBatch": {
+            "weight_type": [
+              "linear",
+              "ease in",
+              "ease out",
+              "ease in-out",
+              "reverse in-out",
+              "weak input",
+              "weak output",
+              "weak middle",
+              "strong middle",
+              "style transfer",
+              "composition",
+              "strong style transfer",
+              "style and composition",
+              "style transfer precise",
+              "composition precise"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          },
+          "IPAdapterClipVisionEnhancer": {
+            "weight_type": [
+              "linear",
+              "ease in",
+              "ease out",
+              "ease in-out",
+              "reverse in-out",
+              "weak input",
+              "weak output",
+              "weak middle",
+              "strong middle",
+              "style transfer",
+              "composition",
+              "strong style transfer",
+              "style and composition",
+              "style transfer precise",
+              "composition precise"
+            ],
+            "combine_embeds": [
+              "concat",
+              "add",
+              "subtract",
+              "average",
+              "norm average"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          },
+          "IPAdapterClipVisionEnhancerBatch": {
+            "weight_type": [
+              "linear",
+              "ease in",
+              "ease out",
+              "ease in-out",
+              "reverse in-out",
+              "weak input",
+              "weak output",
+              "weak middle",
+              "strong middle",
+              "style transfer",
+              "composition",
+              "strong style transfer",
+              "style and composition",
+              "style transfer precise",
+              "composition precise"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          },
+          "IPAdapterCombineEmbeds": {
+            "method": [
+              "concat",
+              "add",
+              "subtract",
+              "average",
+              "norm average",
+              "max",
+              "min"
+            ]
+          },
+          "IPAdapterEmbeds": {
+            "weight_type": [
+              "linear",
+              "ease in",
+              "ease out",
+              "ease in-out",
+              "reverse in-out",
+              "weak input",
+              "weak output",
+              "weak middle",
+              "strong middle",
+              "style transfer",
+              "composition",
+              "strong style transfer",
+              "style and composition",
+              "style transfer precise",
+              "composition precise"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          },
+          "IPAdapterEmbedsBatch": {
+            "weight_type": [
+              "linear",
+              "ease in",
+              "ease out",
+              "ease in-out",
+              "reverse in-out",
+              "weak input",
+              "weak output",
+              "weak middle",
+              "strong middle",
+              "style transfer",
+              "composition",
+              "strong style transfer",
+              "style and composition",
+              "style transfer precise",
+              "composition precise"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          },
+          "IPAdapterFaceID": {
+            "weight_type": [
+              "linear",
+              "ease in",
+              "ease out",
+              "ease in-out",
+              "reverse in-out",
+              "weak input",
+              "weak output",
+              "weak middle",
+              "strong middle",
+              "style transfer",
+              "composition",
+              "strong style transfer",
+              "style and composition",
+              "style transfer precise",
+              "composition precise"
+            ],
+            "combine_embeds": [
+              "concat",
+              "add",
+              "subtract",
+              "average",
+              "norm average"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          },
+          "IPAdapterFaceIDKolors": {
+            "weight_type": [
+              "linear",
+              "ease in",
+              "ease out",
+              "ease in-out",
+              "reverse in-out",
+              "weak input",
+              "weak output",
+              "weak middle",
+              "strong middle",
+              "style transfer",
+              "composition",
+              "strong style transfer",
+              "style and composition",
+              "style transfer precise",
+              "composition precise"
+            ],
+            "combine_embeds": [
+              "concat",
+              "add",
+              "subtract",
+              "average",
+              "norm average"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          },
+          "IPAdapterFromParams": {
+            "combine_embeds": [
+              "concat",
+              "add",
+              "subtract",
+              "average",
+              "norm average"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          },
+          "IPAdapterInsightFaceLoader": {
+            "provider": [
+              "CPU",
+              "CUDA",
+              "ROCM"
+            ],
+            "model_name": [
+              "buffalo_l",
+              "antelopev2"
+            ]
+          },
+          "IPAdapterLoadEmbeds": {
+            "embeds": []
+          },
+          "IPAdapterMS": {
+            "weight_type": [
+              "linear",
+              "ease in",
+              "ease out",
+              "ease in-out",
+              "reverse in-out",
+              "weak input",
+              "weak output",
+              "weak middle",
+              "strong middle",
+              "style transfer",
+              "composition",
+              "strong style transfer",
+              "style and composition",
+              "style transfer precise",
+              "composition precise"
+            ],
+            "combine_embeds": [
+              "concat",
+              "add",
+              "subtract",
+              "average",
+              "norm average"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          },
+          "IPAdapterModelLoader": {
+            "ipadapter_file": [
+              "ip-adapter-plus_sd15.safetensors"
+            ]
+          },
+          "IPAdapterNoise": {
+            "type": [
+              "fade",
+              "dissolve",
+              "gaussian",
+              "shuffle"
+            ]
+          },
+          "IPAdapterPreciseComposition": {
+            "combine_embeds": [
+              "concat",
+              "add",
+              "subtract",
+              "average",
+              "norm average"
+            ],
+            "embeds_scaling": [
+              "V only",
+              "K+V",
+              "K+V w/ C penalty",
+              "K+mean(V) w/ C penalty"
+            ]
+          }
+        }
+      }
+    },
+    "_worker": {
+      "runner_build": "worker-reliability-v4",
+      "runtime_build": "image-setup-v1",
+      "pid": 25996
+    }
+  },
+  "completed_at": "2026-09-14T12:35:25.325435+00:00"
+}
