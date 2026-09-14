@@ -1,5 +1,7 @@
+from pathlib import Path
+
 import pytest
-from money_ecosystem.worker.comfyui_adapter import ComfyUIAdapter, DependencyMissing
+from money_ecosystem.worker.comfyui_adapter import ComfyUIAdapter, DependencyMissing, RenderArtifact
 
 
 def test_adapter_rejects_nonlocal_endpoint():
@@ -53,3 +55,37 @@ def test_preflight_returns_checkpoint_and_reference_nodes(monkeypatch):
     result = a.preflight()
     assert result["checkpoints"] == ["model.safetensors"]
     assert "IPAdapterUnifiedLoader" in result["reference_nodes"]
+
+
+def test_discovers_active_input_directory_from_system_stats(monkeypatch):
+    a = ComfyUIAdapter()
+    stats = {
+        "system": {
+            "argv": [
+                "main.py",
+                "--input-directory",
+                r"D:\\Comfy-Desktop\\ComfyUI-Shared\\input",
+                "--output-directory",
+                r"D:\\Comfy-Desktop\\ComfyUI-Shared\\output",
+            ]
+        }
+    }
+    monkeypatch.setattr(a, "_json", lambda path, method="GET", body=None: stats)
+    assert str(a.input_directory()).replace("\\", "/").endswith("ComfyUI-Shared/input")
+
+
+def test_fetch_artifact_writes_exact_bytes(monkeypatch, tmp_path):
+    a = ComfyUIAdapter()
+    seen = {}
+
+    def fake_bytes(path):
+        seen["path"] = path
+        return b"png-data"
+
+    monkeypatch.setattr(a, "_bytes", fake_bytes)
+    target = tmp_path / "scene_01.png"
+    result = a.fetch_artifact(RenderArtifact("image 01.png", "batch/a", "output"), target)
+    assert result == target
+    assert target.read_bytes() == b"png-data"
+    assert seen["path"].startswith("/view?")
+    assert "image+01.png" in seen["path"] or "image%2001.png" in seen["path"]
