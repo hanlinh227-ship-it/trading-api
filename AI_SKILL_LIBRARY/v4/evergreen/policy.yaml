@@ -1,5 +1,5 @@
 version: 4
-mode: autonomous_candidate_research
+mode: continuous_intelligence_candidate_research
 quarantine_required: true
 stable_secret_access: false
 financial_execution: false
@@ -19,14 +19,26 @@ autonomy:
   normalize: true
   quarantine: true
   classify: true
+  detect_gaps: true
+  age_sources: true
   generate_candidate: true
   generate_evals: true
   benchmark: true
   canary: true
   promote_class_a: true
   promote_class_b_after_sandbox: true
-  promote_class_c_only_with_strict_policy: true
+  promote_class_c_only_with_strict_policy: false
+  promote_class_c: false
   promote_class_d: false
+continuous_intelligence:
+  release: 4.8.0
+  gap_led_discovery: true
+  failure_to_regression: true
+  baseline_candidate_comparison: true
+  automatic_minor_version_bump: false
+  automatic_patch_version_bump: true
+  current_minor_only: true
+  stable_plane_independent: true
 safety:
   fail_closed: true
   missing_evidence_blocks: true
@@ -34,3 +46,5 @@ safety:
   unresolved_conflict_blocks: true
   ambiguous_permissions_block: true
   external_code_untrusted_by_default: true
+  class_c_requires_explicit_authorization: true
+  class_d_requires_explicit_authorization: true
