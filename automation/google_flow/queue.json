@@ -1,5 +1,28 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-14T05:14:48Z",
-  "commands": []
+  "updated_at": "2026-09-14T06:43:30Z",
+  "commands": [
+    {
+      "command_id": "flow-20260914-scene24-0643z-001",
+      "created_at": "2026-09-14T06:43:30Z",
+      "not_before": null,
+      "expires_at": "2026-09-15T06:43:30Z",
+      "action": "render",
+      "project_url": "https://flow.google.com/project/627d3496-793d-4d1d-a1f4-422645847751",
+      "scene": 24,
+      "prompt": "Use the provided start image as the exact first frame. Create a short 8-second premium 3D preschool cartoon animation. Show exactly three characters only: Max in the center, Pinky on one side, and the pink elephant on the other side. Preserve their design exactly as in the start image: same body proportions, same colors, same facial features, same clothes, same accessories. Preserve the clean playground background and the same friendly bright daylight. Animation should be gentle, stable, and cute. Max turns slightly toward Pinky with a cheerful smile and gives a small friendly hand gesture toward the center. Pinky smiles warmly, gives a tiny nod, and slightly lifts one hand in a teamwork gesture. The pink elephant looks happily toward the other two friends, softly raises one hand, and gently sways a little. All three share a warm friendship moment, subtly leaning in toward one another as if celebrating teamwork. Keep movements small and natural only: soft blinking, slight head turns, tiny arm movement, tiny body sway. Do not make them walk away, jump, spin, or change position dramatically. Do not let any character look directly into the camera. No extra characters, no duplicate limbs, no fused hands, no body distortion, no changing clothes, no changing background layout, no litter, no text, no watermark, no logo. The result should feel like a calm, happy friendship payoff moment in the clean playground.",
+      "duration_seconds": 8,
+      "aspect_ratio": "16:9",
+      "start_image": {
+        "mode": "current"
+      },
+      "end_image": {
+        "mode": "none"
+      },
+      "output_filename": "Scene_24.mp4",
+      "retry": {
+        "max_attempts": 1
+      }
+    }
+  ]
 }
