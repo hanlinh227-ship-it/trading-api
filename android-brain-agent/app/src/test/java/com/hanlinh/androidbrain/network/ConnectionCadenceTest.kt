@@ -17,6 +17,12 @@ class ConnectionCadenceTest {
     }
 
     @Test
+    fun startup_allows_primary_websocket_connect_before_maintenance_fallback() {
+        assertTrue(ConnectionCadence.INITIAL_MAINTENANCE_DELAY_MS > 0L)
+        assertTrue(ConnectionCadence.INITIAL_MAINTENANCE_DELAY_MS >= ConnectionCadence.RECONNECT_MIN_MS)
+    }
+
+    @Test
     fun connected_socket_uses_heartbeat_and_disconnected_socket_uses_polling() {
         assertEquals(
             ConnectionMaintenanceAction.HEARTBEAT,
