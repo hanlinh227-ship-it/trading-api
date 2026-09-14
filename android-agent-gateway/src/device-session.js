@@ -420,6 +420,7 @@ export class DeviceSession {
 
     const now = new Date()
     const commandScope = [step.capability]
+    if (task.capabilityScope.includes('contacts.read')) commandScope.push('contacts.read')
     if (step.riskClass === 'C') commandScope.push('ui.destructive.confirmed')
     const command = {
       schema: 2,
