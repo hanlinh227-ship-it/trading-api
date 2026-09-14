@@ -47,6 +47,10 @@ test('workers AI planner receives sanitized minimal observation and returns one 
       { nodeId: 'n:0.2', text: 'password: swordfish', editable: true },
       { nodeId: 'n:0.3', contentDescription: 'OTP 123456', editable: true },
     ],
+    localFacts: [
+      { kind: 'UNKNOWN_NUMBER_CONFIRMED', nodeId: 'n:0.4', relatedNodeId: 'n:0.4.0', rawContactName: 'PRIVATE_NAME' },
+      { kind: 'UNTRUSTED_FACT', nodeId: 'n:9', relatedNodeId: 'n:9.0' },
+    ],
   }
 
   const result = await planNextStep({ env, task, observation, imageDataUrl: null })
@@ -57,6 +61,9 @@ test('workers AI planner receives sanitized minimal observation and returns one 
   const promptText = JSON.stringify(captured.input)
   assert.equal(promptText.includes('swordfish'), false)
   assert.equal(promptText.includes('123456'), false)
+  assert.equal(promptText.includes('PRIVATE_NAME'), false)
+  assert.equal(promptText.includes('UNTRUSTED_FACT'), false)
+  assert.equal(promptText.includes('UNKNOWN_NUMBER_CONFIRMED'), true)
   assert.equal(promptText.includes('Settings'), true)
 })
 
