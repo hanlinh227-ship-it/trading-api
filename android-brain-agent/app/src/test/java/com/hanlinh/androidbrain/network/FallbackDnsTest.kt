@@ -9,8 +9,12 @@ import org.junit.Test
 class FallbackDnsTest {
     @Test
     fun usesFallbackWhenPrimaryCannotResolve() {
-        val primary = Dns { throw UnknownHostException("blocked") }
-        val fallback = Dns { listOf(InetAddress.getByName("203.0.113.7")) }
+        val primary = object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> = throw UnknownHostException("blocked")
+        }
+        val fallback = object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> = listOf(InetAddress.getByName("203.0.113.7"))
+        }
         val dns = FallbackDns(primary, fallback)
 
         val result = dns.lookup("android-brain-agent-gateway.hanlinh227.workers.dev")
@@ -20,8 +24,12 @@ class FallbackDnsTest {
 
     @Test
     fun keepsPrimaryWhenSystemDnsWorks() {
-        val primary = Dns { listOf(InetAddress.getByName("198.51.100.9")) }
-        val fallback = Dns { throw AssertionError("fallback should not be used") }
+        val primary = object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> = listOf(InetAddress.getByName("198.51.100.9"))
+        }
+        val fallback = object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> = throw AssertionError("fallback should not be used")
+        }
         val dns = FallbackDns(primary, fallback)
 
         val result = dns.lookup("example.test")
