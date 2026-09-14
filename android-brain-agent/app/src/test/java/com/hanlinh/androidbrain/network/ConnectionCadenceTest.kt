@@ -1,12 +1,31 @@
 package com.hanlinh.androidbrain.network
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConnectionCadenceTest {
     @Test
-    fun fallback_poll_stays_below_half_second() {
-        assertTrue(ConnectionCadence.FALLBACK_POLL_MS <= 500L)
+    fun fallback_poll_is_bounded_without_high_frequency_http_churn() {
+        assertTrue(ConnectionCadence.FALLBACK_POLL_MS >= 3_000L)
+        assertTrue(ConnectionCadence.FALLBACK_POLL_MS <= 10_000L)
+    }
+
+    @Test
+    fun websocket_heartbeat_keeps_gateway_online_freshness_alive() {
+        assertTrue(ConnectionCadence.HEARTBEAT_MS in 5_000L..12_000L)
+    }
+
+    @Test
+    fun connected_socket_uses_heartbeat_and_disconnected_socket_uses_polling() {
+        assertEquals(
+            ConnectionMaintenanceAction.HEARTBEAT,
+            ConnectionMaintenancePolicy.action(socketConnected = true),
+        )
+        assertEquals(
+            ConnectionMaintenanceAction.FALLBACK_POLL,
+            ConnectionMaintenancePolicy.action(socketConnected = false),
+        )
     }
 
     @Test
