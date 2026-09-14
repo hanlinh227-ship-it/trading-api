@@ -37,6 +37,7 @@ class TypedActionTest {
     }
 
     @Test fun destructive_or_security_actions_are_never_downgraded() {
+        assertEquals(RiskClass.C, SendMessage("contact", "hello").riskClass)
         assertEquals(RiskClass.C, DeleteData(1).riskClass)
         assertEquals(RiskClass.D, WalletSign("payload").riskClass)
     }
