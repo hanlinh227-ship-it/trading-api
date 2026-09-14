@@ -43,7 +43,7 @@ This is documentation/source authority only. It does not contain live credential
 
 Use branch:
 
-`automation/google-flow-command-bus`
+`google-flow-command-bus`
 
 Canonical queue path on that branch:
 
@@ -51,9 +51,9 @@ Canonical queue path on that branch:
 
 Raw URL consumed by the extension:
 
-`https://raw.githubusercontent.com/hanlinh227-ship-it/trading-api/automation/google-flow-command-bus/automation/google_flow/queue.json`
+`https://raw.githubusercontent.com/hanlinh227-ship-it/trading-api/google-flow-command-bus/automation/google_flow/queue.json`
 
-The command-bus branch is intentionally never merged for routine commands. This prevents every render request from mutating `main` or triggering production deployment workflows.
+The command-bus branch name intentionally contains no `/` so the raw GitHub URL is unambiguous. The branch is never merged for routine commands. This prevents every render request from mutating `main` or triggering normal `main` deployment workflows.
 
 Later ChatGPT conversations may read the current queue, append a new job with a unique `command_id`, and update only this dedicated branch.
 
@@ -199,7 +199,7 @@ Manifest permissions are limited to what the feature needs:
 - `alarms`
 - optionally `notifications` for local attention-required alerts
 
-Host permissions are limited to the Google Flow origins and the exact GitHub raw content origin required for the command bus. No `<all_urls>` in the final manifest.
+Host permissions are limited to the Google Flow origins and `https://raw.githubusercontent.com/*`. The extension itself additionally validates that the configured command URL exactly targets `hanlinh227-ship-it/trading-api`, branch `google-flow-command-bus`, path `automation/google_flow/queue.json` unless the local user explicitly changes the command source. No `<all_urls>` in the final manifest.
 
 ### Command-channel trust
 
@@ -270,7 +270,7 @@ After v0.3 is installed and Autopilot is ON:
 
 1. User asks in a later ChatGPT conversation: `render Scene 24 trên Flow`.
 2. ChatGPT refreshes current repository context, reads `automation/google_flow/CURRENT_HANDOFF.md`, and routes the request to `engineering -> automation`.
-3. ChatGPT reads the command-bus queue on branch `automation/google-flow-command-bus`.
+3. ChatGPT reads the command-bus queue on branch `google-flow-command-bus`.
 4. ChatGPT appends a validated, non-secret render command with a new `command_id`.
 5. Local extension polls the queue and executes the command when Chrome is running and Flow is usable.
 6. If execution is blocked, the extension shows a local attention-required state. ChatGPT does not invent completion status.
