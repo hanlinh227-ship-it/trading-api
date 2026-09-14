@@ -1,0 +1,7 @@
+{
+  "job_id": "image-render-reference-bootstrap-20260914-10",
+  "status": "BLOCKED",
+  "message": "IMAGE_SETUP is not enabled until its dedicated renderer adapter passes verification",
+  "artifact_manifest": {},
+  "completed_at": "2026-09-14T00:11:13.412952+00:00"
+}
