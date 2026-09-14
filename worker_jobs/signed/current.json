@@ -1,38 +1,35 @@
 {
   "algorithm": "HMAC-SHA256",
   "payload": {
-    "job_id": "image-render-scene01-smoke-20260914-20",
-    "job_type": "IMAGE_RENDER",
-    "created_at": "2026-09-14T20:00:00+07:00",
+    "job_id": "render-gateway-v2-live-probe-20260914-2115",
+    "job_type": "RENDER_GATEWAY",
+    "created_at": "2026-09-14T21:15:00+07:00",
     "args": {
-      "project_id": "max-bus",
-      "width": 1024,
-      "height": 576,
-      "max_attempts": 2,
-      "workflow_profile": "sd15_reference_lowvram",
-      "references": [
-        {
-          "id": "max",
-          "path": "assets/max-bus/max.png",
-          "character": "Max"
-        },
-        {
-          "id": "dad_max",
-          "path": "assets/max-bus/dad_max.png",
-          "character": "Dad Max"
-        }
-      ],
-      "scenes": [
-        {
-          "id": 1,
-          "prompt": "3D preschool animation, soft rounded shapes, bright pastel colors, clean child-friendly lighting. Medium-wide low three-quarter front view at a pastel neighborhood bus stop. A fixed yellow city bus with light-blue lower body, cream roof and large rounded windows approaches along the road. Max is a cute red monkey child exactly matching the Max reference, wearing a yellow T-shirt, denim shorts and blue-white shoes, standing naturally on the sidewalk and happily waving toward the arriving bus. Dad Max exactly matching the Dad Max reference is visible once in the driver seat through the windshield, wearing a navy suit, white shirt and black tie, both hands naturally controlling the bus. Exactly two visible characters: Max and Dad Max. No extra people, no duplicate characters, no extra vehicles, no text, no logo, no watermark, no malformed anatomy, no extra or missing limbs, no identity drift. Cinematic 16:9 composition, physically plausible bus position and wheels on road.",
-          "reference_ids": [
-            "max",
-            "dad_max"
+      "render_job": {
+        "job_id": "render-gateway-v2-live-probe-20260914-2115",
+        "attempt_id": "a1",
+        "project_id": "max-bus",
+        "job_type": "IMAGE_RENDER",
+        "quality_tier": "FLOW_GRADE",
+        "cost_policy": "USE_EXISTING_ENTITLEMENTS",
+        "aspect_ratio": "16:9",
+        "output_resolution": "1920x1080",
+        "prompt": "Render Gateway V2 deployment probe. Do not silently downgrade quality.",
+        "negative_constraints": [
+          "no silent downgrade",
+          "no unverified FLOW_GRADE claim"
+        ],
+        "assets": [],
+        "scene_contract": {
+          "required_entities": [
+            "character.max",
+            "vehicle.bus"
           ]
-        }
-      ]
+        },
+        "max_attempts": 1,
+        "return_mode": "CHAT_ATTACHMENT_PREFERRED"
+      }
     }
   },
-  "signature": "093e6017cee595a3c4d4717a508866d883df37b71b418347e86bffd30720711e"
+  "signature": "7ab19964df1200433fbc27bfe09618a343e0f347c004a9615cd5f7077742383b"
 }
