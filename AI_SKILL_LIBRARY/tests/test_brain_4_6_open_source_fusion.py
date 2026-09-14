@@ -156,6 +156,65 @@ class Brain46OpenSourceFusionTests(unittest.TestCase):
         self.assertEqual(presentation["locale"], "vi")
         self.assertEqual(presentation["mode"], "plain")
 
+    def test_47_selective_sources_are_vetted_without_new_authority(self):
+        registry = load_yaml("AI_SKILL_LIBRARY/sources.yaml")
+        fusion = load_yaml("AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml")
+        by_repo = {row["repo"]: row for row in registry["sources"]}
+        expected = {
+            "modelcontextprotocol/python-sdk": "RAG_ONLY",
+            "docling-project/docling": "RAG_ONLY",
+            "microsoft/graphrag": "REFERENCE_ONLY",
+            "UKGovernmentBEIS/inspect_ai": "RAG_ONLY",
+            "ossf/scorecard": "RAG_ONLY",
+            "aquasecurity/trivy": "RAG_ONLY",
+            "Arize-ai/openinference": "RAG_ONLY",
+            "microsoft/playwright": "RAG_ONLY",
+        }
+        for repo, tier in expected.items():
+            with self.subTest(repository=repo):
+                self.assertIn(repo, by_repo)
+                self.assertEqual(by_repo[repo]["usage_tier"], tier)
+                self.assertIn(repo, fusion["upstream_pattern_map"])
+                row = fusion["upstream_pattern_map"][repo]
+                self.assertFalse(row.get("routing_authority", False))
+                self.assertFalse(row.get("mandatory_runtime_dependency", False))
+                self.assertFalse(row.get("code_reuse", False))
+
+    def test_47_contracts_cover_mcp_documents_graph_eval_intake_observability_browser(self):
+        fusion = load_yaml("AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml")
+        retrieval = load_yaml("AI_SKILL_LIBRARY/v4/stable/retrieval.yaml")
+        observability = load_yaml("AI_SKILL_LIBRARY/v4/stable/observability.yaml")
+        evals = load_yaml("AI_SKILL_LIBRARY/evals.yaml")
+        self.assertIn("mcp_interoperability", fusion)
+        self.assertTrue(fusion["mcp_interoperability"]["permission_ceiling_required"])
+        self.assertIn("document_intelligence", fusion)
+        self.assertTrue(fusion["document_intelligence"]["structured_extraction_before_ocr"])
+        self.assertIn("graph_retrieval", retrieval)
+        self.assertFalse(retrieval["graph_retrieval"]["routing_authority"])
+        self.assertEqual(retrieval["graph_retrieval"]["profiles"], ["STANDARD", "DEEP"])
+        self.assertIn("ai_semantics", observability)
+        self.assertTrue(observability["ai_semantics"]["sensitive_payloads_forbidden"])
+        required = {
+            "mcp_contract_integrity",
+            "document_fidelity",
+            "graph_retrieval_safety",
+            "oss_intake_security",
+            "observability_sanitization",
+            "browser_runtime_verification",
+        }
+        self.assertTrue(required.issubset(set(evals["benchmark_classes"])))
+
+    def test_47_keeps_skill_count_fast_and_trading_invariants(self):
+        snapshot = compile_snapshot(ROOT, SHA, generated_at="2026-09-14T00:00:00Z")
+        budgets = load_yaml("AI_SKILL_LIBRARY/v4/stable/budgets.yaml")
+        trading = load_yaml("AI_SKILL_LIBRARY/v4/skills/trading/manifest.yaml")
+        self.assertEqual(len(snapshot["skills"]), 109)
+        self.assertEqual(len(snapshot["capsules"]), 109)
+        self.assertEqual(budgets["profiles"]["FAST"]["max_external_routing_calls"], 0)
+        self.assertEqual(budgets["profiles"]["FAST"]["max_source_candidates"], 0)
+        self.assertEqual(trading["permissions"], ["read_only"])
+        self.assertFalse(trading["research_may_grant_execution"])
+
 
 if __name__ == "__main__":
     unittest.main()
