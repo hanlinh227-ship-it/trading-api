@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text("Android Brain Agent", style = MaterialTheme.typography.headlineMedium)
-                        Text("V2 Persistent Agent")
+                        Text("Persistent Agent ${BuildConfig.VERSION_NAME}")
                         Text("Gateway: $gatewayStatus")
                         Text(pairingStatus)
                         Text("Device ID: $deviceId")
