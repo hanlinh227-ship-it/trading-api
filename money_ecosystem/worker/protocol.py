@@ -10,6 +10,7 @@ from typing import Any, Mapping
 
 class JobType(str, Enum):
     IMAGE_RENDER = "IMAGE_RENDER"
+    IMAGE_SETUP = "IMAGE_SETUP"
     VIDEO_RENDER = "VIDEO_RENDER"
     VOICE_RENDER = "VOICE_RENDER"
     FINAL_RENDER = "FINAL_RENDER"
