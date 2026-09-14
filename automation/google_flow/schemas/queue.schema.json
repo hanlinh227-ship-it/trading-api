@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hanlinh227-ship-it.github.io/trading-api/automation/google_flow/queue.schema.json",
+  "title": "Google Flow Render Queue",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "commands"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "command_id", "created_at", "expires_at", "action", "project_url",
+          "scene", "prompt", "duration_seconds", "aspect_ratio", "start_image",
+          "end_image", "output_filename", "retry"
+        ],
+        "properties": {
+          "command_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+          "created_at": { "type": "string", "format": "date-time" },
+          "not_before": { "type": ["string", "null"], "format": "date-time" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "action": { "const": "render" },
+          "project_url": { "type": "string", "format": "uri" },
+          "scene": { "type": "integer", "minimum": 1 },
+          "prompt": { "type": "string", "minLength": 1, "maxLength": 20000 },
+          "duration_seconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 30 },
+          "aspect_ratio": { "enum": ["16:9", "9:16", "1:1"] },
+          "start_image": { "$ref": "#/$defs/asset" },
+          "end_image": { "$ref": "#/$defs/asset" },
+          "output_filename": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "retry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["max_attempts"],
+            "properties": { "max_attempts": { "const": 1 } }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["current", "none", "local_file", "remote_url"] }
+      }
+    }
+  }
+}
