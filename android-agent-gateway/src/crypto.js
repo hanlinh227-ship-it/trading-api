@@ -1,3 +1,5 @@
+import { validateTypedAction } from './action-schema.js'
+
 const enc = new TextEncoder()
 
 function bytesToBase64(bytes) {
@@ -15,17 +17,35 @@ function base64ToBytes(value) {
 
 export function canonicalCommand(command) {
   const scope = [...(command.capabilityScope ?? [])].sort().join(',')
-  return [
-    String(command.schema),
-    command.commandId,
-    command.deviceId,
-    command.issuedAt,
-    command.expiresAt,
-    command.nonce,
-    command.goal,
-    scope,
-    command.riskClass,
-  ].join('\n')
+  if (command.schema === 1) {
+    return [
+      String(command.schema),
+      command.commandId,
+      command.deviceId,
+      command.issuedAt,
+      command.expiresAt,
+      command.nonce,
+      command.goal,
+      scope,
+      command.riskClass,
+    ].join('\n')
+  }
+  if (command.schema === 2) {
+    const actionJson = JSON.stringify(validateTypedAction(command.action))
+    return [
+      String(command.schema),
+      command.commandId,
+      command.deviceId,
+      command.issuedAt,
+      command.expiresAt,
+      command.nonce,
+      command.taskId,
+      actionJson,
+      scope,
+      command.riskClass,
+    ].join('\n')
+  }
+  throw new Error('invalid schema')
 }
 
 export function pairingProofPayload(deviceId, challenge) {
