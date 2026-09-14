@@ -2,13 +2,19 @@ package com.hanlinh.androidbrain.action
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.graphics.Path
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import com.hanlinh.androidbrain.protocol.Action
 import com.hanlinh.androidbrain.protocol.ClearText
 import com.hanlinh.androidbrain.protocol.ClickNode
+import com.hanlinh.androidbrain.protocol.ClipboardPaste
+import com.hanlinh.androidbrain.protocol.ClipboardSet
 import com.hanlinh.androidbrain.protocol.DoubleTapPoint
+import com.hanlinh.androidbrain.protocol.Drag
 import com.hanlinh.androidbrain.protocol.GlobalBack
 import com.hanlinh.androidbrain.protocol.GlobalHome
 import com.hanlinh.androidbrain.protocol.GlobalNotifications
@@ -16,8 +22,11 @@ import com.hanlinh.androidbrain.protocol.GlobalQuickSettings
 import com.hanlinh.androidbrain.protocol.GlobalRecents
 import com.hanlinh.androidbrain.protocol.LongClickNode
 import com.hanlinh.androidbrain.protocol.LongPressPoint
+import com.hanlinh.androidbrain.protocol.MultiStrokeGesture
+import com.hanlinh.androidbrain.protocol.ReplaceText
 import com.hanlinh.androidbrain.protocol.ScrollDirection
 import com.hanlinh.androidbrain.protocol.ScrollNode
+import com.hanlinh.androidbrain.protocol.SelectText
 import com.hanlinh.androidbrain.protocol.SetText
 import com.hanlinh.androidbrain.protocol.Swipe
 import com.hanlinh.androidbrain.protocol.TapPoint
@@ -43,11 +52,14 @@ class AccessibilityActions(
         return longClickNodeOrParent(node)
     }
 
-    fun setText(action: SetText): Boolean {
+    fun setText(action: SetText): Boolean = setText(action.selector, action.value)
+    fun replaceText(action: ReplaceText): Boolean = setText(action.selector, action.value)
+
+    private fun setText(selector: String, value: String): Boolean {
         val service = serviceProvider() ?: return false
         val root = service.rootInActiveWindow ?: return false
-        val node = findNode(root, action.selector) ?: return false
-        return replaceText(node, action.value)
+        val node = findNode(root, selector) ?: return false
+        return replaceText(node, value)
     }
 
     fun clearText(action: ClearText): Boolean {
@@ -57,48 +69,70 @@ class AccessibilityActions(
         return replaceText(node, "")
     }
 
-    fun globalBack(): Boolean =
-        serviceProvider()?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK) == true
-
-    fun globalHome(): Boolean =
-        serviceProvider()?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME) == true
-
-    fun globalRecents(): Boolean =
-        serviceProvider()?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS) == true
-
-    fun globalNotifications(): Boolean =
-        serviceProvider()?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS) == true
-
-    fun globalQuickSettings(): Boolean =
-        serviceProvider()?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS) == true
-
-    fun swipe(action: Swipe): Boolean {
+    fun clipboardSet(action: ClipboardSet): Boolean {
         val service = serviceProvider() ?: return false
-        val path = Path().apply {
-            moveTo(action.startX.toFloat(), action.startY.toFloat())
-            lineTo(action.endX.toFloat(), action.endY.toFloat())
-        }
-        val gesture = GestureDescription.Builder()
-            .addStroke(
-                GestureDescription.StrokeDescription(
-                    path,
-                    0,
-                    action.durationMs.coerceIn(MIN_GESTURE_MS, MAX_GESTURE_MS),
-                )
-            )
-            .build()
-        return service.dispatchGesture(gesture, null, null)
+        val clipboard = service.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return false
+        clipboard.setPrimaryClip(ClipData.newPlainText("Android Brain Agent", action.value))
+        return true
     }
 
-    fun tapPoint(action: TapPoint): Boolean =
-        dispatchPointGesture(action.x, action.y, TAP_DURATION_MS)
+    fun clipboardPaste(action: ClipboardPaste): Boolean {
+        val service = serviceProvider() ?: return false
+        val root = service.rootInActiveWindow ?: return false
+        val node = findNode(root, action.selector) ?: return false
+        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        return node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+    }
+
+    fun selectText(action: SelectText): Boolean {
+        if (action.start < 0 || action.end < action.start) return false
+        val service = serviceProvider() ?: return false
+        val root = service.rootInActiveWindow ?: return false
+        val node = findNode(root, action.selector) ?: return false
+        val args = Bundle().apply {
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, action.start)
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, action.end)
+        }
+        return node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, args)
+    }
+
+    fun globalBack(): Boolean = serviceProvider()?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK) == true
+    fun globalHome(): Boolean = serviceProvider()?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME) == true
+    fun globalRecents(): Boolean = serviceProvider()?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS) == true
+    fun globalNotifications(): Boolean = serviceProvider()?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS) == true
+    fun globalQuickSettings(): Boolean = serviceProvider()?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS) == true
+
+    fun swipe(action: Swipe): Boolean = dispatchLineGesture(
+        action.startX, action.startY, action.endX, action.endY,
+        action.durationMs.coerceIn(MIN_GESTURE_MS, MAX_GESTURE_MS),
+    )
+
+    fun drag(action: Drag): Boolean = dispatchLineGesture(
+        action.startX, action.startY, action.endX, action.endY,
+        action.durationMs.coerceIn(MIN_GESTURE_MS, MAX_GESTURE_MS),
+    )
+
+    fun multiStroke(action: MultiStrokeGesture): Boolean {
+        if (action.strokes.isEmpty() || action.strokes.size > MAX_STROKES) return false
+        val service = serviceProvider() ?: return false
+        val builder = GestureDescription.Builder()
+        for (stroke in action.strokes) {
+            if (stroke.startX < 0 || stroke.startY < 0 || stroke.endX < 0 || stroke.endY < 0) return false
+            val path = Path().apply {
+                moveTo(stroke.startX.toFloat(), stroke.startY.toFloat())
+                lineTo(stroke.endX.toFloat(), stroke.endY.toFloat())
+            }
+            builder.addStroke(
+                GestureDescription.StrokeDescription(path, 0, stroke.durationMs.coerceIn(MIN_GESTURE_MS, MAX_GESTURE_MS))
+            )
+        }
+        return service.dispatchGesture(builder.build(), null, null)
+    }
+
+    fun tapPoint(action: TapPoint): Boolean = dispatchPointGesture(action.x, action.y, TAP_DURATION_MS)
 
     fun longPressPoint(action: LongPressPoint): Boolean =
-        dispatchPointGesture(
-            action.x,
-            action.y,
-            action.durationMs.coerceIn(MIN_LONG_PRESS_MS, MAX_GESTURE_MS),
-        )
+        dispatchPointGesture(action.x, action.y, action.durationMs.coerceIn(MIN_LONG_PRESS_MS, MAX_GESTURE_MS))
 
     fun doubleTapPoint(action: DoubleTapPoint): Boolean {
         if (action.x < 0 || action.y < 0) return false
@@ -107,13 +141,7 @@ class AccessibilityActions(
         val second = pointPath(action.x, action.y)
         val gesture = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(first, 0, TAP_DURATION_MS))
-            .addStroke(
-                GestureDescription.StrokeDescription(
-                    second,
-                    DOUBLE_TAP_INTERVAL_MS,
-                    TAP_DURATION_MS,
-                )
-            )
+            .addStroke(GestureDescription.StrokeDescription(second, DOUBLE_TAP_INTERVAL_MS, TAP_DURATION_MS))
             .build()
         return service.dispatchGesture(gesture, null, null)
     }
@@ -144,8 +172,14 @@ class AccessibilityActions(
         is ClickNode -> click(action)
         is LongClickNode -> longClick(action)
         is SetText -> setText(action)
+        is ReplaceText -> replaceText(action)
         is ClearText -> clearText(action)
+        is ClipboardSet -> clipboardSet(action)
+        is ClipboardPaste -> clipboardPaste(action)
+        is SelectText -> selectText(action)
         is Swipe -> swipe(action)
+        is Drag -> drag(action)
+        is MultiStrokeGesture -> multiStroke(action)
         is TapPoint -> tapPoint(action)
         is LongPressPoint -> longPressPoint(action)
         is DoubleTapPoint -> doubleTapPoint(action)
@@ -159,6 +193,19 @@ class AccessibilityActions(
         else -> false
     }
 
+    private fun dispatchLineGesture(startX: Int, startY: Int, endX: Int, endY: Int, durationMs: Long): Boolean {
+        if (startX < 0 || startY < 0 || endX < 0 || endY < 0) return false
+        val service = serviceProvider() ?: return false
+        val path = Path().apply {
+            moveTo(startX.toFloat(), startY.toFloat())
+            lineTo(endX.toFloat(), endY.toFloat())
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
+            .build()
+        return service.dispatchGesture(gesture, null, null)
+    }
+
     private fun dispatchPointGesture(x: Int, y: Int, durationMs: Long): Boolean {
         if (x < 0 || y < 0) return false
         val service = serviceProvider() ?: return false
@@ -168,9 +215,7 @@ class AccessibilityActions(
         return service.dispatchGesture(gesture, null, null)
     }
 
-    private fun pointPath(x: Int, y: Int): Path = Path().apply {
-        moveTo(x.toFloat(), y.toFloat())
-    }
+    private fun pointPath(x: Int, y: Int): Path = Path().apply { moveTo(x.toFloat(), y.toFloat()) }
 
     private fun replaceText(node: AccessibilityNodeInfo, value: String): Boolean {
         val args = Bundle().apply {
@@ -180,34 +225,19 @@ class AccessibilityActions(
     }
 
     private fun findNode(root: AccessibilityNodeInfo, selector: String): AccessibilityNodeInfo? {
-        // V3 ephemeral IDs always use exact traversal. Never degrade a stale
-        // node ID into fuzzy label matching because that could target a sibling.
         if (selector.startsWith("n:")) return nodeLocator.locate(root, selector)
-
         if (root.viewIdResourceName == selector) return root
         val wanted = normalize(selector)
         if (wanted.isBlank()) return null
-        if (matches(root.text?.toString(), wanted) || matches(root.contentDescription?.toString(), wanted)) {
-            return root
-        }
-
+        if (matches(root.text?.toString(), wanted) || matches(root.contentDescription?.toString(), wanted)) return root
         if (selector.contains(":")) {
-            try {
-                root.findAccessibilityNodeInfosByViewId(selector).firstOrNull()?.let { return it }
-            } catch (_: Throwable) {
-                // Some OEM accessibility implementations throw on unsupported IDs.
-            }
+            try { root.findAccessibilityNodeInfosByViewId(selector).firstOrNull()?.let { return it } } catch (_: Throwable) { }
         }
-
         try {
             root.findAccessibilityNodeInfosByText(selector).firstOrNull { node ->
-                matches(node.text?.toString(), wanted) ||
-                    matches(node.contentDescription?.toString(), wanted)
+                matches(node.text?.toString(), wanted) || matches(node.contentDescription?.toString(), wanted)
             }?.let { return it }
-        } catch (_: Throwable) {
-            // Fall back to deterministic tree traversal below.
-        }
-
+        } catch (_: Throwable) { }
         for (i in 0 until root.childCount) {
             val child = root.getChild(i) ?: continue
             val found = findNode(child, selector)
@@ -217,9 +247,7 @@ class AccessibilityActions(
         return null
     }
 
-    private fun normalize(value: String): String =
-        value.trim().lowercase().replace(Regex("\\s+"), " ")
-
+    private fun normalize(value: String): String = value.trim().lowercase().replace(Regex("\\s+"), " ")
     private fun matches(value: String?, wanted: String): Boolean {
         val candidate = value?.let(::normalize) ?: return false
         if (candidate.isBlank() || wanted.isBlank()) return false
@@ -227,10 +255,9 @@ class AccessibilityActions(
     }
 
     private fun clickNodeOrParent(start: AccessibilityNodeInfo): Boolean =
-        performNodeActionOrParent(start, AccessibilityNodeInfo.ACTION_CLICK) { node -> node.isClickable }
-
+        performNodeActionOrParent(start, AccessibilityNodeInfo.ACTION_CLICK) { it.isClickable }
     private fun longClickNodeOrParent(start: AccessibilityNodeInfo): Boolean =
-        performNodeActionOrParent(start, AccessibilityNodeInfo.ACTION_LONG_CLICK) { node -> node.isLongClickable }
+        performNodeActionOrParent(start, AccessibilityNodeInfo.ACTION_LONG_CLICK) { it.isLongClickable }
 
     private fun performNodeActionOrParent(
         start: AccessibilityNodeInfo,
@@ -249,7 +276,8 @@ class AccessibilityActions(
     private companion object {
         const val MAX_PARENT_HOPS = 6
         const val MIN_GESTURE_MS = 50L
-        const val MAX_GESTURE_MS = 3_000L
+        const val MAX_GESTURE_MS = 5_000L
+        const val MAX_STROKES = 8
         const val TAP_DURATION_MS = 60L
         const val MIN_LONG_PRESS_MS = 500L
         const val DOUBLE_TAP_INTERVAL_MS = 140L
