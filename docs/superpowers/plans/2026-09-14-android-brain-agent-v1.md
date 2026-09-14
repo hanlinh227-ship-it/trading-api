@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-14-android-brain-agent-v1-design.md`
 
+**Design approval:** User approved the V1 design on 2026-09-14.
+
 ## Global Constraints
 
 - Base Brain is `GITHUB_BRAIN_V4`, capability release `4.8.1`.
