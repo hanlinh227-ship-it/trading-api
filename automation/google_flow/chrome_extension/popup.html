@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flow Persistent Autopilot</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Flow Persistent Autopilot</h1>
+        <p>v0.3 · GitHub command bus · fail-closed</p>
+      </div>
+      <label class="switchline">
+        <span>Autopilot</span>
+        <input id="autopilotToggle" type="checkbox" />
+      </label>
+    </header>
+
+    <section class="status-card">
+      <strong>Trạng thái</strong>
+      <div id="status">Đang đọc trạng thái…</div>
+      <div id="lastCommand" class="muted"></div>
+    </section>
+
+    <section>
+      <h2>Command bus</h2>
+      <label>URL JSON
+        <input id="commandBusUrl" type="url" spellcheck="false" />
+      </label>
+      <label>Chu kỳ background (phút)
+        <input id="pollMinutes" type="number" min="1" step="1" value="1" />
+      </label>
+      <div class="buttons">
+        <button id="pollNow">Poll ngay</button>
+        <button id="saveConfig">Lưu cấu hình</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Calibration Flow</h2>
+      <p class="muted">Remote chỉ chạy khi mỗi selector tìm đúng 1 control hiển thị.</p>
+      <label>Prompt selector
+        <input id="promptSelector" type="text" placeholder="textarea[aria-label='Prompt']" />
+      </label>
+      <label>Generate selector
+        <input id="generateSelector" type="text" placeholder="button[aria-label='Generate']" />
+      </label>
+      <label>Download selector <span class="muted">(không bắt buộc)</span>
+        <input id="downloadSelector" type="text" placeholder="button[aria-label='Download']" />
+      </label>
+      <button id="runPreflight">Run preflight trên tab Flow hiện tại</button>
+      <div id="preflightResult" class="muted"></div>
+    </section>
+
+    <section>
+      <h2>Điều khiển</h2>
+      <div class="buttons three">
+        <button id="pauseBtn" class="warn">Pause</button>
+        <button id="resumeBtn">Resume</button>
+        <button id="stopBtn" class="danger">Stop</button>
+      </div>
+      <div class="buttons">
+        <button id="clearInflight" class="secondary">Clear in-flight lock</button>
+        <button id="exportLog" class="secondary">Export local log</button>
+      </div>
+    </section>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
