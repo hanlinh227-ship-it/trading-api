@@ -19,7 +19,7 @@ from .image_render_executor import SerialImageExecutor
 from .image_setup import ImageSetupError, bootstrap_reference_stack
 from .image_workflow import WorkflowError, build_sd15_reference_workflow, stage_references
 
-RUNTIME_BUILD = "image-render-v1"
+RUNTIME_BUILD = "render-gateway-v2+image-render-v1"
 _COMFYUI_BASE = "http://127.0.0.1:8188"
 _SUPPORTED_IMAGE_PROFILE = "sd15_reference_lowvram"
 
@@ -295,6 +295,100 @@ def _execute_image_setup(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _build_render_gateway_orchestrator(workspace_root: Path | str):
+    """Build a truthful V2 orchestrator for the Windows worker.
+
+    Cloud providers stay unavailable here until a real authenticated execution
+    connector is bound. This is deliberate: the worker must fail closed rather
+    than claim Flow-grade capability it cannot execute. Legacy local IMAGE_RENDER
+    remains available separately as an explicit DRAFT_LOCAL compatibility path.
+    """
+    from ..render_gateway.orchestrator import RenderOrchestrator
+    from ..render_gateway.providers.google_flow_image import GoogleFlowImageProvider
+    from ..render_gateway.providers.google_flow_video import GoogleFlowVideoProvider
+    from ..render_gateway.providers.runway import RunwayProvider
+
+    providers = [
+        GoogleFlowImageProvider(authenticated=False, connector_available=False),
+        GoogleFlowVideoProvider(authenticated=False, connector_available=False),
+        RunwayProvider(authorized=False, connector_available=False),
+    ]
+
+    def truthful_unverified_qa(_job, _files):
+        return {
+            "terminal_status": "HUMAN_REVIEW",
+            "semantic_verified": False,
+            "reason": "No worker-side semantic verifier has been bound yet",
+        }
+
+    return RenderOrchestrator(
+        providers=providers,
+        asset_store=None,
+        qa_evaluator=truthful_unverified_qa,
+        workspace_root=workspace_root,
+        chat_attachment_available=False,
+    )
+
+
+def _execute_render_gateway(job: dict[str, Any], workspace_root: Path | str) -> dict[str, Any]:
+    from ..render_gateway.contract import RenderJob
+    from ..render_gateway.state import JobState
+
+    try:
+        render_job = RenderJob.from_dict(job["args"]["render_job"])
+    except (KeyError, TypeError, ValueError) as exc:
+        return {
+            "status": "BLOCKED",
+            "message": f"RENDER_GATEWAY contract rejected: {exc}",
+            "artifact_manifest": {},
+        }
+
+    if render_job.job_id != job["job_id"]:
+        return {
+            "status": "BLOCKED",
+            "message": "RENDER_GATEWAY outer job_id must match render_job.job_id",
+            "artifact_manifest": {},
+        }
+
+    try:
+        orchestrator = _build_render_gateway_orchestrator(workspace_root)
+        result = orchestrator.run(render_job)
+    except Exception as exc:
+        return {
+            "status": "FAILED",
+            "message": f"RENDER_GATEWAY orchestration failed: {exc}",
+            "artifact_manifest": {
+                "quality_tier": render_job.quality_tier.value,
+                "auto_purchase": False,
+                "silent_quality_downgrade": False,
+            },
+        }
+
+    if result.state is JobState.COMPLETE:
+        status = "SUCCESS"
+    elif result.state in {
+        JobState.BLOCKED_ASSET,
+        JobState.BLOCKED_AUTH,
+        JobState.QUALITY_TARGET_UNAVAILABLE,
+        JobState.PROVIDER_QUOTA,
+        JobState.WORKER_OFFLINE,
+    }:
+        status = "BLOCKED"
+    else:
+        status = "FAILED"
+
+    return {
+        "status": status,
+        "message": result.message,
+        "artifact_manifest": {
+            "render_gateway": result.to_dict(),
+            "quality_tier": render_job.quality_tier.value,
+            "auto_purchase": False,
+            "silent_quality_downgrade": False,
+        },
+    }
+
+
 def execute_job(job: dict[str, Any], workspace_root: Path | str) -> dict[str, Any]:
     job = validate_job_request(job)
     job_type = job["job_type"]
@@ -316,6 +410,9 @@ def execute_job(job: dict[str, Any], workspace_root: Path | str) -> dict[str, An
 
     if job_type == "IMAGE_RENDER":
         return _execute_image_render(job, workspace_root)
+
+    if job_type == "RENDER_GATEWAY":
+        return _execute_render_gateway(job, workspace_root)
 
     return {
         "status": "BLOCKED",
