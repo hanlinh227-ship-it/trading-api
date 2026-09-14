@@ -3,6 +3,7 @@ package com.hanlinh.androidbrain.agent
 import android.content.Context
 import android.util.Base64
 import com.hanlinh.androidbrain.action.AccessibilityActions
+import com.hanlinh.androidbrain.action.AccessibilityAppLauncher
 import com.hanlinh.androidbrain.action.AppResolver
 import com.hanlinh.androidbrain.action.NativeActions
 import com.hanlinh.androidbrain.network.GatewayClient
@@ -14,6 +15,11 @@ import com.hanlinh.androidbrain.policy.UserPolicy
 import com.hanlinh.androidbrain.protocol.Action
 import com.hanlinh.androidbrain.protocol.CommandEnvelope
 import com.hanlinh.androidbrain.protocol.CommandEnvelopeVerifier
+import com.hanlinh.androidbrain.protocol.GlobalBack
+import com.hanlinh.androidbrain.protocol.GlobalHome
+import com.hanlinh.androidbrain.protocol.GlobalNotifications
+import com.hanlinh.androidbrain.protocol.GlobalQuickSettings
+import com.hanlinh.androidbrain.protocol.GlobalRecents
 import com.hanlinh.androidbrain.protocol.LaunchApp
 import com.hanlinh.androidbrain.protocol.OpenUrl
 import com.hanlinh.androidbrain.protocol.ReadScreen
@@ -36,6 +42,12 @@ class CommandDispatcher(
     private val native = NativeActions(context)
     private val accessibility = AccessibilityActions()
     private val appResolver = AppResolver(context)
+    private val accessibilityLauncher = AccessibilityAppLauncher(appResolver::labelForPackage)
+    private val launchCoordinator = AppLaunchCoordinator(
+        directLaunch = native::launch,
+        verifyForeground = ::verifyForeground,
+        accessibilityFallback = accessibilityLauncher::launch,
+    )
     private val gatewayKey: PublicKey = KeyFactory.getInstance("EC").generatePublic(
         X509EncodedKeySpec(Base64.decode(pairing.gatewayPublicKeyBase64, Base64.NO_WRAP))
     )
@@ -91,9 +103,34 @@ class CommandDispatcher(
             return if (command.schema == 2) observationMetadata(command) else safeScreenResult(command)
         }
 
+        if (action is LaunchApp) {
+            val result = launchCoordinator.launch(action)
+            if (result == AppLaunchResult.FAILED_POSTCONDITION) {
+                return failure(command, "POSTCONDITION_NOT_MET")
+            }
+            return if (command.schema == 2) observationMetadata(command)
+            else GatewayClient.TaskResult(command.commandId, "COMPLETED")
+        }
+
+        val beforeSnapshot = BrainAccessibilityService.current?.snapshot()
         val dispatched = execute(action)
         if (!dispatched) return failure(command, "ACTION_DISPATCH_FAILED")
-        if (action is LaunchApp && !verifyForeground(action.packageName)) return failure(command, "POSTCONDITION_NOT_MET")
+
+        when (action) {
+            GlobalHome -> {
+                val homePackage = appResolver.findHomePackage()
+                    ?: return failure(command, "HOME_PACKAGE_UNRESOLVED")
+                if (!verifyForeground(homePackage)) return failure(command, "POSTCONDITION_NOT_MET")
+            }
+            GlobalBack, GlobalRecents, GlobalNotifications, GlobalQuickSettings -> {
+                if (beforeSnapshot == null) return failure(command, "SCREEN_UNAVAILABLE")
+                if (!verifyObservationChanged(beforeSnapshot.fingerprint(), beforeSnapshot.packageName)) {
+                    return failure(command, "POSTCONDITION_NOT_MET")
+                }
+            }
+            else -> Unit
+        }
+
         return if (command.schema == 2) observationMetadata(command) else GatewayClient.TaskResult(command.commandId, "COMPLETED")
     }
 
@@ -160,10 +197,23 @@ class CommandDispatcher(
     private fun maxRisk(a: RiskClass, b: RiskClass): RiskClass = if (a.ordinal >= b.ordinal) a else b
 
     private fun verifyForeground(packageName: String): Boolean {
-        repeat(8) {
+        repeat(10) {
             val snapshot = BrainAccessibilityService.current?.snapshot()
             if (snapshot?.packageName == packageName) return true
             Thread.sleep(250)
+        }
+        return false
+    }
+
+    private fun verifyObservationChanged(previousFingerprint: String, previousPackage: String): Boolean {
+        repeat(10) {
+            val snapshot = BrainAccessibilityService.current?.snapshot()
+            if (snapshot != null && (
+                    snapshot.packageName != previousPackage ||
+                        snapshot.fingerprint() != previousFingerprint
+                )
+            ) return true
+            Thread.sleep(200)
         }
         return false
     }
