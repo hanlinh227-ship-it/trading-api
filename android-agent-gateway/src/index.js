@@ -9,6 +9,31 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
   headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
 })
 
+const RISK_ORDER = Object.freeze({ A: 0, B: 1, C: 2, D: 3 })
+
+export function healthPayload(env = {}) {
+  return {
+    ok: true,
+    schema: 1,
+    taskSchema: 2,
+    service: 'android-brain-agent-gateway',
+    sourceSha: env.DEPLOYMENT_SOURCE_SHA ?? 'development',
+    tradingAuthority: false,
+    rawShell: false,
+    commandAuth: 'github-oidc',
+    plannerMode: env.AI ? 'workers-ai-with-deterministic-fallback' : 'deterministic-fallback-only',
+    capabilities: {
+      typedActions: true,
+      ephemeralScreenshots: true,
+      localContacts: true,
+      boundedTaskSessions: true,
+      securityBypass: false,
+      financialMutation: false,
+    },
+    tools: TOOL_CONTRACT,
+  }
+}
+
 function bearer(request) {
   const h = request.headers.get('authorization') ?? ''
   return h.startsWith('Bearer ') ? h.slice(7) : null
@@ -54,22 +79,35 @@ async function proxyJson(stub, path, request) {
   }))
 }
 
+function normalizedTaskInput(body, authMode) {
+  if (!body || typeof body !== 'object') throw new Error('input_required')
+  if (typeof body.goal !== 'string' || !body.goal.trim()) throw new Error('goal_required')
+  const goalRisk = classifyGoal(body.goal)
+  if (goalRisk === 'D') throw new Error('class_d_blocked')
+  const riskCeiling = body.riskCeiling ?? goalRisk
+  if (!(riskCeiling in RISK_ORDER) || riskCeiling === 'D') throw new Error('invalid_risk_ceiling')
+  if (RISK_ORDER[goalRisk] > RISK_ORDER[riskCeiling]) throw new Error('goal_exceeds_risk_ceiling')
+  if (goalRisk === 'C' && body.confirmedRiskClassC !== true) throw new Error('confirmation_required')
+  if (goalRisk === 'C' && authMode !== 'github-oidc') throw new Error('class_c_requires_github_oidc')
+  const taskId = typeof body.taskId === 'string' && body.taskId.trim() ? body.taskId.trim() : crypto.randomUUID()
+  const scope = Array.isArray(body.capabilityScope) && body.capabilityScope.length
+    ? [...new Set(body.capabilityScope.map(String))]
+    : ['apps.open', 'ui.navigate']
+  return {
+    taskId,
+    goal: body.goal.trim(),
+    capabilityScope: scope,
+    riskClass: riskCeiling,
+    confirmedRiskClassC: goalRisk === 'C' && body.confirmedRiskClassC === true,
+    confirmedTaskId: goalRisk === 'C' && body.confirmedRiskClassC === true ? taskId : null,
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
 
-    if (url.pathname === '/health') {
-      return json({
-        ok: true,
-        schema: 1,
-        service: 'android-brain-agent-gateway',
-        sourceSha: env.DEPLOYMENT_SOURCE_SHA ?? 'development',
-        tradingAuthority: false,
-        rawShell: false,
-        commandAuth: 'github-oidc',
-        tools: TOOL_CONTRACT,
-      })
-    }
+    if (url.pathname === '/health') return json(healthPayload(env))
 
     if (url.pathname === '/v1/device/latest' && request.method === 'GET') {
       const auth = await requireControl(request, env)
@@ -89,6 +127,35 @@ export default {
       const response = await proxyJson(sessionStub(env, body.deviceId), '/pair/complete', request)
       if (response.ok) await touchLatestDevice(env, body.deviceId)
       return response
+    }
+
+    const taskMatch = url.pathname.match(/^\/v1\/device\/([^/]+)\/tasks(?:\/([^/]+))?$/)
+    if (taskMatch) {
+      const deviceId = decodeURIComponent(taskMatch[1])
+      const taskId = taskMatch[2] ? decodeURIComponent(taskMatch[2]) : null
+      const auth = await requireControl(request, env)
+      if (!auth.ok) return auth.response
+      const stub = sessionStub(env, deviceId)
+
+      if (request.method === 'POST' && taskId == null) {
+        const body = await request.json().catch(() => null)
+        let task
+        try { task = normalizedTaskInput(body, auth.mode) } catch (error) {
+          const status = error.message.includes('class_d') ? 403 : error.message.includes('confirmation') ? 409 : 400
+          return json({ error: error.message }, status)
+        }
+        return stub.fetch(new Request('https://device.internal/task', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(task),
+        }))
+      }
+
+      if (request.method === 'GET' && taskId) {
+        return stub.fetch(new Request(`https://device.internal/task/${encodeURIComponent(taskId)}`))
+      }
+
+      return json({ error: 'method_not_allowed' }, 405)
     }
 
     const match = url.pathname.match(/^\/v1\/device\/([^/]+)\/(status|commands|next|result|socket)$/)
