@@ -39,15 +39,41 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Test and build debug APK
+      - name: Test and build APKs
         working-directory: android-brain-agent
-        run: gradle testDebugUnitTest lintDebug assembleDebug --stacktrace
+        run: gradle testDebugUnitTest lintDebug assembleDebug assembleRelease --stacktrace
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: android-brain-agent-debug-apk
           path: android-brain-agent/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Upload unsigned release APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-brain-agent-release-unsigned-apk
+          path: android-brain-agent/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+      - name: Stage Android APK signer tooling
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          test -x "$BUILD_TOOLS/apksigner"
+          test -f "$BUILD_TOOLS/lib/apksigner.jar"
+          mkdir -p "$RUNNER_TEMP/apksigner-tool/lib"
+          cp "$BUILD_TOOLS/apksigner" "$RUNNER_TEMP/apksigner-tool/apksigner"
+          cp "$BUILD_TOOLS/lib/apksigner.jar" "$RUNNER_TEMP/apksigner-tool/lib/apksigner.jar"
+          chmod +x "$RUNNER_TEMP/apksigner-tool/apksigner"
+      - name: Upload APK signer tooling
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apksigner-tool
+          path: ${{ runner.temp }}/apksigner-tool
           if-no-files-found: error
 
   gateway:
