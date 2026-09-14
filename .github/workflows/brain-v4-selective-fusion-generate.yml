@@ -1,9 +1,8 @@
 name: Brain V4 Selective Fusion Generator
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [main]
+  push:
+    branches: [brain-v4-selective-fusion-20260914]
     paths:
       - 'AI_SKILL_LIBRARY/**'
       - '.github/workflows/brain-v4-selective-fusion-generate.yml'
@@ -13,18 +12,17 @@ permissions:
   contents: write
 
 concurrency:
-  group: brain-v4-selective-fusion-generator-${{ github.event.pull_request.number }}
+  group: brain-v4-selective-fusion-generator
   cancel-in-progress: true
 
 jobs:
   generate:
-    if: github.event.pull_request.head.ref == 'brain-v4-selective-fusion-20260914'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: brain-v4-selective-fusion-20260914
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -63,8 +61,6 @@ jobs:
           python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py /tmp/skill-gateway-snapshot.json
           python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA"
       - name: Commit generated artifacts to isolated branch
-        env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         shell: bash
         run: |
           set -euo pipefail
@@ -80,4 +76,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "release: build Brain 4.7 selective fusion candidate"
-          git push origin "HEAD:${HEAD_REF}"
+          git push origin "HEAD:brain-v4-selective-fusion-20260914"
