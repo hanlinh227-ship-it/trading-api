@@ -1,6 +1,7 @@
 import { validateTypedAction } from './action-schema.js'
 import { importPrivateJwk, signCommand, verifyPairingProof } from './crypto.js'
-import { createTaskState, publicTaskState } from './task-policy.js'
+import { planNextStep } from './planner.js'
+import { clampTaskStep, createTaskState, publicTaskState, recordTaskProgress } from './task-policy.js'
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -19,6 +20,51 @@ async function sha256Base64(value) {
 function bearer(request) {
   const h = request.headers.get('authorization') ?? ''
   return h.startsWith('Bearer ') ? h.slice(7) : null
+}
+
+function terminalStatus(status) {
+  return ['COMPLETED', 'FAILED', 'CANCELLED'].includes(status)
+}
+
+function safeResultCode(result) {
+  const code = result?.code ?? result?.detail ?? null
+  if (code == null) return null
+  return String(code).replace(/[^A-Za-z0-9_.:-]/g, '_').slice(0, 96)
+}
+
+function observationFingerprint(observation) {
+  return typeof observation?.fingerprint === 'string' ? observation.fingerprint.slice(0, 192) : null
+}
+
+function observationText(observation) {
+  return (Array.isArray(observation?.nodes) ? observation.nodes : [])
+    .flatMap(node => [node?.text, node?.contentDescription])
+    .filter(value => typeof value === 'string')
+    .join('\n')
+    .slice(0, 16_384)
+}
+
+function expectedSatisfied(expected, observation, previousFingerprint) {
+  if (!expected) return true
+  switch (expected.type) {
+    case 'observation_returned': return Boolean(observation && typeof observation === 'object')
+    case 'observation_changed': {
+      const next = observationFingerprint(observation)
+      return Boolean(next && previousFingerprint && next !== previousFingerprint)
+    }
+    case 'foreground_package': return observation?.packageName === expected.packageName
+    case 'node_visible': return (observation?.nodes ?? []).some(node => node?.nodeId === expected.nodeId)
+    case 'node_missing': return !(observation?.nodes ?? []).some(node => node?.nodeId === expected.nodeId)
+    case 'text_present': return expected.text ? observationText(observation).includes(expected.text) : false
+    case 'text_missing': return expected.text ? !observationText(observation).includes(expected.text) : false
+    case 'task_complete': return true
+    default: return false
+  }
+}
+
+function appendSafeHistory(task, entry) {
+  const history = [...(Array.isArray(task.history) ? task.history : []), entry]
+  return history.slice(-6)
 }
 
 export function isDeviceOnline(lastSeenAt, now = new Date(), maxAgeMs = 15_000) {
@@ -84,6 +130,7 @@ export class DeviceSession {
     if (url.pathname === '/command-sign' && request.method === 'POST') return this.signAndEnqueue(request)
     if (url.pathname === '/task' && request.method === 'POST') return this.createTask(request)
     if (url.pathname.startsWith('/task/') && request.method === 'GET') return this.getTask(url.pathname.slice('/task/'.length))
+    if (url.pathname === '/task-step' && request.method === 'POST') return this.taskStep(request)
     if (url.pathname === '/next' && request.method === 'GET') return this.next(request)
     if (url.pathname === '/result' && request.method === 'POST') return this.result(request)
     if (url.pathname === '/socket' && request.headers.get('upgrade')?.toLowerCase() === 'websocket') return this.socket(request)
@@ -210,7 +257,7 @@ export class DeviceSession {
     }
     const key = `task:${task.taskId}`
     if (await this.state.storage.get(key)) return json({ error: 'task_exists' }, 409)
-    await this.state.storage.put(key, task)
+    await this.state.storage.put(key, { ...task, history: [], pendingExpected: null, pendingActionType: null })
     return json(publicTaskState(task), 201)
   }
 
@@ -218,6 +265,123 @@ export class DeviceSession {
     const task = await this.state.storage.get(`task:${decodeURIComponent(taskId)}`)
     if (!task) return json({ error: 'task_not_found' }, 404)
     return json(publicTaskState(task))
+  }
+
+  async taskStep(request) {
+    const pairing = await this.authorizedDevice(request)
+    if (!pairing) return json({ error: 'unauthorized_device' }, 401)
+    await this.markDeviceSeen()
+
+    const body = await request.json().catch(() => null)
+    if (!body?.taskId || typeof body.taskId !== 'string') return json({ error: 'task_id_required' }, 400)
+    if (!body.observation || typeof body.observation !== 'object') return json({ error: 'observation_required' }, 400)
+    const key = `task:${body.taskId}`
+    let task = await this.state.storage.get(key)
+    if (!task) return json({ error: 'task_not_found' }, 404)
+    if (terminalStatus(task.status)) return json({ error: 'task_terminal', status: task.status }, 409)
+
+    const currentFingerprint = observationFingerprint(body.observation)
+    const previousResult = body.previousResult && typeof body.previousResult === 'object' ? body.previousResult : null
+
+    try {
+      if (previousResult) {
+        task = recordTaskProgress(task, { kind: 'step', status: 'VERIFYING' })
+        const resultStatus = String(previousResult.status ?? '').toUpperCase()
+        const resultCode = safeResultCode(previousResult)
+        const verificationOk = resultStatus === 'COMPLETED' && expectedSatisfied(task.pendingExpected, body.observation, task.lastFingerprint)
+        const explicitFailure = ['FAILED', 'NEEDS_CONFIRMATION'].includes(resultStatus)
+        const noOp = resultStatus === 'COMPLETED' && task.pendingExpected?.type === 'observation_changed' && !verificationOk
+
+        task.history = appendSafeHistory(task, {
+          actionType: task.pendingActionType ?? null,
+          result: explicitFailure ? (resultCode ?? resultStatus) : (verificationOk ? 'VERIFIED' : (noOp ? 'NO_OP' : resultStatus)),
+          fingerprint: currentFingerprint,
+        })
+
+        if (explicitFailure || noOp || !verificationOk) {
+          task = recordTaskProgress(task, { kind: 'recovery', fingerprint: currentFingerprint, status: 'RECOVERING' })
+        } else {
+          task = { ...task, recoveryCount: 0, lastFingerprint: currentFingerprint, status: 'PLANNING', updatedAt: new Date().toISOString() }
+        }
+      } else {
+        task = { ...task, lastFingerprint: currentFingerprint, status: 'PLANNING', updatedAt: new Date().toISOString() }
+      }
+    } catch (error) {
+      const code = error.message === 'max_steps_exceeded' ? 'STEP_LIMIT' : error.message === 'max_recoveries_exceeded' ? 'RECOVERY_LIMIT' : 'TASK_PROGRESS_ERROR'
+      task = { ...task, status: 'FAILED', failureCode: code, updatedAt: new Date().toISOString() }
+      await this.state.storage.put(key, task)
+      return json({ ...publicTaskState(task), error: code }, 409)
+    }
+
+    let planned
+    try {
+      planned = await planNextStep({
+        env: this.env,
+        task,
+        observation: body.observation,
+        imageDataUrl: typeof body.imageDataUrl === 'string' ? body.imageDataUrl : null,
+        history: task.history,
+      })
+    } catch {
+      task = { ...task, status: 'FAILED', failureCode: 'PLANNER_FAILED', updatedAt: new Date().toISOString() }
+      await this.state.storage.put(key, task)
+      return json({ ...publicTaskState(task), error: 'PLANNER_FAILED' }, 500)
+    }
+
+    let step
+    try {
+      step = clampTaskStep({ task, action: planned.action })
+    } catch (error) {
+      task = { ...task, status: 'FAILED', failureCode: error.message, updatedAt: new Date().toISOString() }
+      await this.state.storage.put(key, task)
+      return json({ ...publicTaskState(task), error: error.message }, 403)
+    }
+
+    if (planned.expected?.type === 'task_complete') {
+      task = {
+        ...task,
+        status: 'COMPLETED',
+        pendingExpected: null,
+        pendingActionType: null,
+        lastFingerprint: currentFingerprint,
+        updatedAt: new Date().toISOString(),
+      }
+      await this.state.storage.put(key, task)
+      return json({ ...publicTaskState(task), plannerMode: planned.mode })
+    }
+
+    const now = new Date()
+    const command = {
+      schema: 2,
+      commandId: crypto.randomUUID(),
+      deviceId: pairing.deviceId,
+      issuedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+      nonce: crypto.randomUUID(),
+      taskId: task.taskId,
+      action: step.action,
+      capabilityScope: [step.capability],
+      riskClass: step.riskClass,
+    }
+    const material = await this.ensureSigningMaterial()
+    const signed = validateCommandForQueue(await signWithMaterial(command, material))
+    const queued = await this.enqueueCommand(signed)
+    if (!queued.ok) return queued
+
+    task = {
+      ...task,
+      status: 'ACTING',
+      lastFingerprint: currentFingerprint,
+      pendingExpected: planned.expected,
+      pendingActionType: step.action.type,
+      updatedAt: new Date().toISOString(),
+    }
+    await this.state.storage.put(key, task)
+    return json({
+      ...publicTaskState(task),
+      plannerMode: planned.mode,
+      commandId: command.commandId,
+    }, 202)
   }
 
   async enqueue(request) {
@@ -270,7 +434,13 @@ export class DeviceSession {
     if (!pairing) return json({ error: 'unauthorized_device' }, 401)
     await this.markDeviceSeen()
     const body = await request.json()
-    await this.state.storage.put('lastResult', { ...body, receivedAt: new Date().toISOString() })
+    const safe = {
+      commandId: typeof body?.commandId === 'string' ? body.commandId.slice(0, 128) : null,
+      status: typeof body?.status === 'string' ? body.status.slice(0, 64) : null,
+      detail: typeof body?.detail === 'string' ? body.detail.slice(0, 512) : null,
+      receivedAt: new Date().toISOString(),
+    }
+    await this.state.storage.put('lastResult', safe)
     return json({ accepted: true })
   }
 
