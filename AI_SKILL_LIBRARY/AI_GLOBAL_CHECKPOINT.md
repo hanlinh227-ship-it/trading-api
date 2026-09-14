@@ -13,7 +13,7 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Mandatory routing contract: exactly one primary skill + validated execution capsule for every GitHub Brain request
 - FAST routing: exact-SHA hot snapshot, zero GitHub/provider/network calls for route selection
 - Fallback primary skill: `core_reasoning`
-- Current capability release target: `4.8.0` Continuous Intelligence & Autonomous Improvement, preserving `109` routed skills / `109` execution capsules
+- Current capability release target: `4.8.1` Continuous Intelligence & Autonomous Improvement, preserving `109` routed skills / `109` execution capsules
 - Continuous Intelligence rule: the Evergreen Update Plane may autonomously refresh sources, detect evidence-backed gaps, generate/test candidates, and prepare bounded improvements; Stable remains immutable during request execution and changes only through validated release promotion.
 - Autonomous promotion boundary: Class A/B may promote only after all required gates (and sandbox for B); Class C/D require explicit human authorization and cannot unattended-promote.
 - Open-source fusion rule: upstream repositories are reference/evidence only; strengthen existing canonical skills first; no parallel reasoning authority; no permission widening; no mandatory local runtime
@@ -50,7 +50,7 @@ Brain 4.8 extends the existing dual-plane Evergreen architecture so intelligence
 - Stable Runtime Plane and Evergreen Update Plane remain isolated. Evergreen failure must not take down Stable.
 - Stable request handling never waits for source discovery, gap research, candidate generation, or learning cycles.
 - The canonical Continuous Intelligence contract is checkpoint-resolved at `AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml` and is part of the immutable capability release.
-- Source/discovery refresh runs every 6 hours; candidate analysis runs daily; a deep read-only intelligence audit runs weekly; verified failure intake is event-driven when sanitized evidence is available.
+- Source/discovery refresh runs every hour; candidate analysis and bounded upgrade preparation also run every hour; a deep read-only intelligence audit runs weekly; verified failure intake is event-driven when sanitized evidence is available.
 - Source lifecycle states are `active`, `stale`, `reverify`, `deprecated`, and `archived`.
 - Fast-changing official docs, approved GitHub maintenance metadata and plugin metadata default to 48-hour revalidation windows; scientific-discovery metadata defaults to 14 days.
 - Stale historical evidence may remain available for history/audit but cannot masquerade as current API/runtime truth.
