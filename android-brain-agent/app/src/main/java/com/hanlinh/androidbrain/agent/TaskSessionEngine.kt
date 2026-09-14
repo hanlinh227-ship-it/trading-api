@@ -16,6 +16,19 @@ class TaskSessionEngine(
     fun currentProgress(): TaskProgress = progress
 
     @Synchronized
+    fun resume(checkpoint: TaskProgressCheckpoint): TaskProgress {
+        if (checkpoint.stepCount < progress.stepCount) return progress
+        progress = progress.copy(
+            stepCount = checkpoint.stepCount,
+            epoch = checkpoint.epoch.coerceAtMost(maxEpochs),
+            epochStepCount = checkpoint.epochStepCount.coerceIn(0, epochActionLimit - 1),
+            checkpointCount = checkpoint.checkpointCount,
+            recoveryCount = checkpoint.recoveryCount.coerceAtMost(maxRecoveries),
+        )
+        return progress
+    }
+
+    @Synchronized
     fun cancel(): TaskProgress {
         progress = progress.copy(cancelled = true, status = TaskLoopStatus.CANCELLED)
         return progress
