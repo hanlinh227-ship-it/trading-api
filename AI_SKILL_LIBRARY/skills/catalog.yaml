@@ -18,17 +18,17 @@ _templates:
   prompt: &prompt {domain: prompt, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [video_generation], sources: [prompt], output_contract: "Return a render-ready prompt/workflow with an explicit objective, preserved positive/negative constraints, measurable revision criteria when iterating, and no false guarantee for stochastic generation."}
   writing: &writing {domain: writing, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [], sources: [script], output_contract: "Return task-appropriate writing while preserving audience, tone, continuity, and factual boundaries."}
   academic: &academic {domain: academic, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [scientific_evidence], sources: [], output_contract: "Return evidence-grounded academic work with methodology, citation, and uncertainty checks."}
-  data_docs: &data_docs {domain: data_docs, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [], sources: [], output_contract: "Return a correct data/document artifact or workflow with format-specific validation."}
+  data_docs: &data_docs {domain: data_docs, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [], sources: [], output_contract: "Return a correct data/document artifact or workflow with structured extraction before OCR when reading source documents, explicit provenance, and format-specific validation."}
   business: &business {domain: business, triggers: [], excludes: [], requires: [task_router], conflicts_with: [], priority: 80, tools: [product_design], sources: [], output_contract: "Return a decision-oriented business/marketing result with assumptions, trade-offs, and measurable next steps."}
 skills:
   - {<<: *core, id: task_router, triggers: [route task, new chat, classify intent], requires: [], priority: 100}
   - {<<: *core, id: core_reasoning, triggers: [reason, explain, solve]}
   - {<<: *core, id: critical_thinking, triggers: [critique, phản biện, challenge assumption], priority: 95}
   - {<<: *core, id: fact_checking, triggers: [fact check, verify claim], tools: [scientific_evidence]}
-  - {<<: *core, id: research, triggers: [research, sources, evidence], tools: [scientific_evidence]}
+  - {<<: *core, id: research, triggers: [research, sources, evidence], tools: [scientific_evidence], output_contract: "Return source-grounded research with authority and freshness filters; when entity/relationship or corpus-wide graph synthesis is materially useful, keep every synthesized claim traceable to source evidence and never let graph expansion override exact authoritative evidence."}
   - {<<: *core, id: planning, triggers: [plan, roadmap, implementation plan], output_contract: "Return a bounded plan with dependencies, sequencing, bottleneck/risk checks, verification gates, rollback path, and no unnecessary subsystem growth."}
-  - {<<: *core, id: verification, triggers: [verify, validate, final check], priority: 95, output_contract: "Return an evidence-based verification result that distinguishes checked facts from assumptions, confirms protected constraints, and refuses success claims when required proof is missing."}
-  - {<<: *core, id: troubleshooting, triggers: [troubleshoot, error, broken], output_contract: "Return a root-cause-oriented troubleshooting result: reproduce or characterize the failure, isolate the cause, propose the smallest safe fix, and verify against regression."}
+  - {<<: *core, id: verification, triggers: [verify, validate, final check], priority: 95, output_contract: "Return an evidence-based verification result that distinguishes checked facts from assumptions, confirms protected constraints, refuses success claims when required proof is missing, and requires runnable-flow evidence for browser-facing behavior when an executable environment exists."}
+  - {<<: *core, id: troubleshooting, triggers: [troubleshoot, error, broken], output_contract: "Return a root-cause-oriented troubleshooting result: reproduce or characterize the failure, isolate the cause, propose the smallest safe fix, and verify against regression; for browser-facing behavior prefer an executable reproduction when available."}
   - {<<: *core, id: comparison, triggers: [compare, versus]}
   - {<<: *core, id: recommendation, triggers: [recommend, choose]}
   - {<<: *core, id: learning, triggers: [learn, teach, tutorial]}
@@ -37,19 +37,19 @@ skills:
   - {<<: *core, id: general_problem_solving, triggers: [general question, how to]}
   - {<<: *core, id: error_recovery, triggers: [recover, rollback, conflict]}
   - {<<: *engineering, id: coding, triggers: [code, implement], output_contract: "Return a repository-grounded implementation using the smallest coherent change, explicit interfaces/dependencies, tests or executable verification, and no unverified completion claim."}
-  - {<<: *engineering, id: debugging, triggers: [bug, debug, unexpected behavior, github actions failure], output_contract: "Return a reproduce-to-root-cause-to-regression-test debugging result; fix the causal defect rather than symptoms and verify the final behavior."}
+  - {<<: *engineering, id: debugging, triggers: [bug, debug, unexpected behavior, github actions failure], output_contract: "Return a reproduce-to-root-cause-to-regression-test debugging result; fix the causal defect rather than symptoms, use browser/E2E reproduction for browser-facing failures when available, and verify the final behavior."}
   - {<<: *engineering, id: tdd, triggers: [tdd, test driven], output_contract: "Return a strict RED -> minimum GREEN -> refactor/cleanup workflow with the failing behavior demonstrated before implementation and regression proof afterward."}
   - {<<: *engineering, id: software_architecture, triggers: [architecture, system design]}
   - {<<: *engineering, id: github, triggers: [github, repository, pull request], output_contract: "Return a GitHub workflow grounded in the exact repository/ref with isolated branch changes, CI evidence, review handling, and expected-head protection for merge-sensitive work."}
-  - {<<: *engineering, id: api, triggers: [api, endpoint, contract]}
+  - {<<: *engineering, id: api, triggers: [api, endpoint, contract], output_contract: "Return an API/capability contract with explicit protocol compatibility, typed input/output schemas, discovery separate from invocation when material, declared permission ceiling, and fail-closed handling for incompatible schema or permission widening."}
   - {<<: *engineering, id: database, triggers: [database, sql, schema]}
   - {<<: *engineering, id: security, triggers: [security, threat model, repository threat model], excludes: [unauthorized exploitation]}
   - {<<: *engineering, id: android, triggers: [android, apk, widget]}
-  - {<<: *engineering, id: web_app, triggers: [web app, frontend, backend]}
+  - {<<: *engineering, id: web_app, triggers: [web app, frontend, backend], output_contract: "Return a web-app implementation/design with explicit component/API state contracts and, when an executable browser environment exists, verify navigation, state transitions, visible outcomes, accessibility-relevant states and material network-failure behavior rather than relying on static-code confidence alone."}
   - {<<: *engineering, id: deployment, triggers: [deploy, production, ci cd], output_contract: "Return a deploy plan/result with immutable source identity, preflight checks, rollback target, runtime-switch preservation, and post-deploy production verification."}
-  - {<<: *engineering, id: automation, triggers: [automation, workflow], output_contract: "Return a bounded, idempotent automation design with explicit triggers, permissions, failure handling, observability, and no silent permission widening."}
-  - {<<: *engineering, id: skill_engineering, triggers: [create a skill, design a skill, update a skill, skill manifest, skill contract, skill registry design, normalize a skill], priority: 94, output_contract: "Return a canonical skill design or revision with strengthen-existing-skill-first overlap decision, typed contract, permission ceiling, provenance/license/maintenance status, context/performance impact, eval requirements, and promotion path."}
-  - {<<: *engineering, id: eval_engineering, triggers: [evaluate this skill, benchmark this skill, regression test this skill, compare skill versions, build an eval suite, canary this capability], priority: 93, output_contract: "Return an evidence-based capability evaluation with baseline, representative and adversarial cases, protected-regression checks, source/license validity, context/latency cost, and promote/revise/reject recommendation without self-promotion."}
+  - {<<: *engineering, id: automation, triggers: [automation, workflow], output_contract: "Return a bounded, idempotent automation design with explicit triggers, discovery separated from invocation for external capabilities, typed permissions/permission ceiling, failure handling, observability, and fail-closed behavior on unknown capability or silent permission widening."}
+  - {<<: *engineering, id: skill_engineering, triggers: [create a skill, design a skill, update a skill, skill manifest, skill contract, skill registry design, normalize a skill], priority: 94, output_contract: "Return a canonical skill design or revision with strengthen-existing-skill-first overlap decision, typed/MCP-compatible capability contract when material, permission ceiling, provenance/license/maintenance and advisory security-posture evidence, context/performance impact, eval requirements, and promotion path."}
+  - {<<: *engineering, id: eval_engineering, triggers: [evaluate this skill, benchmark this skill, regression test this skill, compare skill versions, build an eval suite, canary this capability], priority: 93, output_contract: "Return an evidence-based capability evaluation that separates task, case set/dataset, solver or agent under test, scorer/assertion, baseline, candidate, sandbox/tool boundary and protected-regression result; include representative/adversarial cases, source/license validity, context/latency cost, and a promote/revise/reject recommendation without self-promotion."}
   - {<<: *engineering, id: software_engineering, triggers: [software engineering, coding], alias_of: coding, role: alias}
   - {<<: *engineering, id: debugging_tdd, triggers: [bugfix, regression test], alias_of: debugging, role: alias}
   - {<<: *engineering, id: platform_engineering, triggers: [platform, cloudflare, deployment], alias_of: deployment, role: alias}
@@ -79,8 +79,8 @@ skills:
   - {<<: *game, id: game_2d, triggers: [2d game]}
   - {<<: *game, id: game_3d, triggers: [3d game]}
   - {<<: *game, id: game_dev, triggers: [game, gameplay, level], alias_of: game_development, role: alias}
-  - {<<: *design, id: ux_ui, triggers: [ux, ui, interface, design system], tools: [ux_ui_design, product_design], output_contract: "Return UX/UI decisions with user goal, accessibility, design-token consistency, reusable component/state behavior, responsive constraints, and validation against the intended flow."}
-  - {<<: *design, id: product_design, triggers: [product design, user flow, design to code], tools: [ux_ui_design, product_design], output_contract: "Return product-design guidance with user-flow rationale, component/token contracts, accessibility, edge states, and design-to-code validation when implementation is part of the task."}
+  - {<<: *design, id: ux_ui, triggers: [ux, ui, interface, design system], tools: [ux_ui_design, product_design], output_contract: "Return UX/UI decisions with user goal, accessibility, design-token consistency, reusable component/state behavior, responsive constraints, and when implementation exists runnable-flow validation of material states rather than static design confidence alone."}
+  - {<<: *design, id: product_design, triggers: [product design, user flow, design to code], tools: [ux_ui_design, product_design], output_contract: "Return product-design guidance with user-flow rationale, component/token contracts, accessibility, edge states, design-to-code validation, and executable flow/state verification when implementation is part of the task and a runnable environment exists."}
   - {<<: *design, id: graphic_design, triggers: [graphic design]}
   - {<<: *design, id: branding, triggers: [branding, identity]}
   - {<<: *design, id: typography, triggers: [typography, font hierarchy]}
@@ -132,13 +132,13 @@ skills:
   - {<<: *academic, id: quantitative_analysis, triggers: [quantitative analysis, statistics]}
   - {<<: *academic, id: interdisciplinary_research, triggers: [interdisciplinary research]}
   - {<<: *academic, id: citation_review, triggers: [citation review, evidence check]}
-  - {<<: *data_docs, id: data_analysis, triggers: [data analysis]}
-  - {<<: *data_docs, id: spreadsheet, triggers: [spreadsheet, excel, sheets]}
+  - {<<: *data_docs, id: data_analysis, triggers: [data analysis], output_contract: "Return data analysis that preserves source provenance and structure; when source documents are involved, use structured/native extraction before OCR and distinguish extracted values from inference."}
+  - {<<: *data_docs, id: spreadsheet, triggers: [spreadsheet, excel, sheets], output_contract: "Return a spreadsheet workflow/artifact with table/cell structure preserved, source provenance retained, formulas/types validated, and OCR used only as a disclosed degraded fallback for image-only inputs."}
   - {<<: *data_docs, id: chart, triggers: [chart, graph]}
-  - {<<: *data_docs, id: report, triggers: [report]}
-  - {<<: *data_docs, id: docx, triggers: [docx, word]}
-  - {<<: *data_docs, id: pdf, triggers: [pdf]}
-  - {<<: *data_docs, id: slides, triggers: [slides, pptx]}
+  - {<<: *data_docs, id: report, triggers: [report], output_contract: "Return a report grounded in traceable source sections/pages/tables when applicable, preserving document hierarchy and clearly separating extracted content, analysis and inference."}
+  - {<<: *data_docs, id: docx, triggers: [docx, word], output_contract: "Return a DOCX workflow/artifact that preserves heading hierarchy, tables and section provenance when extracting source content, prefers native structure over OCR, and validates the generated document format."}
+  - {<<: *data_docs, id: pdf, triggers: [pdf], output_contract: "Return a PDF workflow grounded in page/section provenance, reading order and table/layout structure when material; prefer native/structured extraction before OCR and disclose unsupported or inferred structure."}
+  - {<<: *data_docs, id: slides, triggers: [slides, pptx], output_contract: "Return a slides workflow/artifact preserving slide hierarchy, speaker/content structure and source provenance when extracting material; prefer native presentation structure before OCR and validate the final deck format."}
   - {<<: *data_docs, id: presentation, triggers: [presentation, pitch deck], alias_of: slides, role: alias}
   - {<<: *data_docs, id: data_documents, triggers: [document, data artifact], alias_of: report, role: alias}
   - {<<: *business, id: business, triggers: [business, strategy]}
