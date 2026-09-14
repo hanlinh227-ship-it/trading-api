@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import urllib.request
@@ -44,6 +46,10 @@ def _is_comfyui_root(root: Path) -> bool:
     return (root / "models").is_dir() and (root / "custom_nodes").is_dir()
 
 
+def _is_comfyui_data_root(root: Path) -> bool:
+    return root.is_dir() and (root / "models").is_dir()
+
+
 def _default_candidates() -> list[Path]:
     home = Path.home()
     out = [
@@ -73,6 +79,78 @@ def _default_candidates() -> list[Path]:
             seen.add(key)
             unique.append(candidate)
     return unique
+
+
+def _desktop_config_candidates() -> list[Path]:
+    out: list[Path] = []
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        base = Path(appdata)
+        for app_name in ("ComfyUI", "Comfy Desktop", "comfyui-desktop-2"):
+            out.extend(
+                [
+                    base / app_name / "config.json",
+                    base / app_name / "extra_models_config.yaml",
+                    base / app_name / "extra_model_paths.yaml",
+                ]
+            )
+    return out
+
+
+def _normalize_config_path(value: str) -> Path:
+    expanded = os.path.expandvars(value.strip().strip('"\''))
+    return Path(expanded).expanduser()
+
+
+def _paths_from_json_config(path: Path) -> list[Path]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return []
+    found: list[Path] = []
+
+    def walk(value):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in {"basePath", "base_path", "installPath"} and isinstance(child, str) and child.strip():
+                    found.append(_normalize_config_path(child))
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+
+    walk(data)
+    return found
+
+
+def _paths_from_yaml_config(path: Path) -> list[Path]:
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except OSError:
+        return []
+    found: list[Path] = []
+    for match in re.finditer(r"(?mi)^\s*base_path\s*:\s*(.+?)\s*$", text):
+        raw = match.group(1).split("#", 1)[0].strip()
+        if raw:
+            found.append(_normalize_config_path(raw))
+    return found
+
+
+def find_comfyui_root_from_desktop_config(config_files: Iterable[Path] | None = None) -> Path | None:
+    files = list(config_files) if config_files is not None else _desktop_config_candidates()
+    for config_file in files:
+        path = Path(config_file)
+        if not path.is_file():
+            continue
+        candidates = _paths_from_json_config(path) if path.suffix.lower() == ".json" else _paths_from_yaml_config(path)
+        for candidate in candidates:
+            try:
+                root = candidate.resolve()
+            except OSError:
+                continue
+            if _is_comfyui_data_root(root):
+                return root
+    return None
 
 
 def _default_search_roots() -> list[Path]:
@@ -136,11 +214,7 @@ def discover_comfyui_root(
             if depth > max_depth:
                 dirs[:] = []
                 continue
-            dirs[:] = [
-                name
-                for name in dirs
-                if name.lower() not in skipped_names
-            ]
+            dirs[:] = [name for name in dirs if name.lower() not in skipped_names]
             examined += 1
             if examined > max_entries:
                 return None
@@ -195,9 +269,7 @@ def _download_verified(url: str, target: Path, expected_sha256: str) -> str:
     actual = _sha256(part)
     if actual != expected_sha256:
         part.unlink(missing_ok=True)
-        raise ImageSetupError(
-            f"SHA256 mismatch for {target.name}: expected {expected_sha256}, got {actual}"
-        )
+        raise ImageSetupError(f"SHA256 mismatch for {target.name}: expected {expected_sha256}, got {actual}")
     part.replace(target)
     return "downloaded"
 
@@ -220,9 +292,7 @@ def _ensure_ipadapter_node(root: Path) -> str:
     custom_nodes.mkdir(parents=True, exist_ok=True)
     node_dir = custom_nodes / "ComfyUI_IPAdapter_plus"
     if node_dir.exists() and not (node_dir / ".git").is_dir():
-        raise ImageSetupError(
-            "ComfyUI_IPAdapter_plus exists but is not a git checkout; refusing to overwrite"
-        )
+        raise ImageSetupError("ComfyUI_IPAdapter_plus exists but is not a git checkout; refusing to overwrite")
     if not node_dir.exists():
         _run_git(["clone", "--no-tags", IPADAPTER_REPO_URL, str(node_dir)])
         action = "cloned"
@@ -234,27 +304,26 @@ def _ensure_ipadapter_node(root: Path) -> str:
 
 
 def bootstrap_reference_stack() -> dict:
-    root = find_comfyui_root() or discover_comfyui_root()
+    root = find_comfyui_root_from_desktop_config() or find_comfyui_root() or discover_comfyui_root()
     if root is None:
         searched = [str(path) for path in _default_search_roots()]
+        configs = [str(path) for path in _desktop_config_candidates()]
         raise ImageSetupError(
-            "ComfyUI data root not found after bounded discovery; searched roots: "
+            "ComfyUI data root not found after Desktop config lookup and bounded discovery; config candidates: "
+            + ", ".join(configs)
+            + "; searched roots: "
             + ", ".join(searched)
         )
     usage = shutil.disk_usage(root)
     if usage.free < MIN_FREE_BYTES:
-        raise ImageSetupError(
-            f"insufficient free disk space for reference stack: need at least {MIN_FREE_BYTES} bytes"
-        )
+        raise ImageSetupError(f"insufficient free disk space for reference stack: need at least {MIN_FREE_BYTES} bytes")
 
     plan = build_bootstrap_plan(root)
     node_action = _ensure_ipadapter_node(root)
     file_actions: dict[str, str] = {}
     for item in plan["files"]:
         target = root / item["relative_path"]
-        file_actions[item["name"]] = _download_verified(
-            item["url"], target, item["sha256"]
-        )
+        file_actions[item["name"]] = _download_verified(item["url"], target, item["sha256"])
 
     return {
         "status": "INSTALLED",
