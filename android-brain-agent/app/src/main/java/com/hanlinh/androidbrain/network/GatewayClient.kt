@@ -9,6 +9,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -18,6 +20,7 @@ class GatewayClient(
         .dns(GatewayDns.resilient())
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
+        .pingInterval(20, TimeUnit.SECONDS)
         .build(),
 ) {
     data class PairStart(val challenge: String, val expiresAt: Long, val recovery: Boolean)
@@ -58,6 +61,14 @@ class GatewayClient(
         val json = executeJson(request)
         if (json.isNull("command")) return null
         return parseCommand(json.getJSONObject("command"))
+    }
+
+    fun openCommandSocket(deviceId: String, token: String, listener: WebSocketListener): WebSocket {
+        val request = Request.Builder()
+            .url(CommandSocketProtocol.socketUrl(baseUrl, deviceId))
+            .header("Authorization", "Bearer $token")
+            .build()
+        return http.newWebSocket(request, listener)
     }
 
     fun postResult(deviceId: String, token: String, result: TaskResult) {
