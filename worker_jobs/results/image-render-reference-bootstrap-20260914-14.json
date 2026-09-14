@@ -1,0 +1,10 @@
+{
+  "job_id": "image-render-reference-bootstrap-20260914-14",
+  "status": "BLOCKED",
+  "message": "IMAGE_SETUP failed: ComfyUI data root not found in supported locations; expected a directory containing models/ and custom_nodes/",
+  "artifact_manifest": {
+    "zero_paid_services": true,
+    "cloud_fallback": false
+  },
+  "completed_at": "2026-09-14T00:36:13.620103+00:00"
+}
