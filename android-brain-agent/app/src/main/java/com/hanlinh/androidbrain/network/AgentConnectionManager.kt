@@ -35,10 +35,11 @@ class AgentConnectionManager(
     private val appContext = context.applicationContext
     private val executor = Executors.newSingleThreadScheduledExecutor()
     private val running = AtomicBoolean(false)
-    private var fallbackTask: ScheduledFuture<*>? = null
+    private var maintenanceTask: ScheduledFuture<*>? = null
     private var reconnectTask: ScheduledFuture<*>? = null
     private var reconnectAttempt = 0
     @Volatile private var socket: WebSocket? = null
+    @Volatile private var socketConnected: Boolean = false
     private val dispatcher = CommandDispatcher(appContext, pairing)
     private val taskEngines = mutableMapOf<String, TaskSessionEngine>()
     private val unknownConversationSelector by lazy {
@@ -49,10 +50,10 @@ class AgentConnectionManager(
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
-        fallbackTask = executor.scheduleWithFixedDelay(
-            { pollOnce() },
+        maintenanceTask = executor.scheduleWithFixedDelay(
+            { maintainConnection() },
             0,
-            ConnectionCadence.FALLBACK_POLL_MS,
+            ConnectionCadence.MAINTENANCE_TICK_MS,
             TimeUnit.MILLISECONDS,
         )
         submit { connectSocket() }
@@ -60,10 +61,11 @@ class AgentConnectionManager(
 
     fun stop() {
         if (!running.compareAndSet(true, false)) return
-        fallbackTask?.cancel(true)
+        maintenanceTask?.cancel(true)
         reconnectTask?.cancel(true)
-        fallbackTask = null
+        maintenanceTask = null
         reconnectTask = null
+        socketConnected = false
         val activeSocket = socket
         socket = null
         activeSocket?.close(1000, "service_stop")
@@ -74,11 +76,13 @@ class AgentConnectionManager(
     private fun connectSocket() {
         if (!running.get()) return
         try {
+            socketConnected = false
             socket?.cancel()
             val listener = object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     submit {
                         if (socket === webSocket) {
+                            socketConnected = true
                             reconnectAttempt = 0
                             reconnectTask?.cancel(false)
                             reconnectTask = null
@@ -103,13 +107,35 @@ class AgentConnectionManager(
             }
             socket = client.openCommandSocket(pairing.deviceId, pairing.deviceToken, listener)
         } catch (_: Throwable) {
+            socketConnected = false
             socket = null
             scheduleReconnect()
         }
     }
 
+    private fun maintainConnection() {
+        if (!running.get()) return
+        when (ConnectionMaintenancePolicy.action(socketConnected)) {
+            ConnectionMaintenanceAction.HEARTBEAT -> {
+                val activeSocket = socket
+                if (activeSocket == null || !activeSocket.send("ping")) {
+                    socketConnected = false
+                    activeSocket?.cancel()
+                    socket = null
+                    pollOnce()
+                    scheduleReconnect()
+                }
+            }
+            ConnectionMaintenanceAction.FALLBACK_POLL -> {
+                pollOnce()
+                scheduleReconnect()
+            }
+        }
+    }
+
     private fun handleSocketUnavailable(failedSocket: WebSocket) {
         if (socket !== failedSocket) return
+        socketConnected = false
         socket = null
         scheduleReconnect()
     }
@@ -156,7 +182,7 @@ class AgentConnectionManager(
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         } catch (_: Throwable) {
-            // Fast fallback polling remains active if push is unavailable.
+            // Push-first connection maintenance retries without high-frequency HTTP churn.
         }
     }
 
