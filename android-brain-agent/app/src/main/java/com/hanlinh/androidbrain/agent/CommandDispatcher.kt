@@ -44,8 +44,10 @@ class CommandDispatcher(
         allowedCapabilities = setOf(
             "apps.open",
             "ui.navigate",
+            "ui.write",
             "ui.destructive.confirmed",
             "notifications.read",
+            "contacts.read",
             "files.read",
         ),
     )
@@ -57,8 +59,15 @@ class CommandDispatcher(
         seenNonces += command.nonce
         if (seenNonces.size > 500) seenNonces.clear()
 
-        val action = GoalParser.parse(command.goal) { appResolver.findPackageByLabel(it) }
-            ?: return failure(command, "UNSUPPORTED_GOAL")
+        val action = when (command.schema) {
+            1 -> GoalParser.parse(command.goal) { appResolver.findPackageByLabel(it) }
+                ?: return failure(command, "UNSUPPORTED_GOAL")
+            2 -> command.action ?: return failure(command, "MISSING_TYPED_ACTION")
+            else -> return failure(command, "UNSUPPORTED_SCHEMA")
+        }
+
+        if (!scopeAllows(command, action)) return failure(command, "CAPABILITY_SCOPE_DENIED")
+
         val effectiveRisk = maxRisk(action.riskClass, command.riskClass)
         val confirmedClassC = effectiveRisk == RiskClass.C &&
             command.riskClass == RiskClass.C &&
@@ -76,19 +85,47 @@ class CommandDispatcher(
         }
 
         if (action === ReadScreen) {
-            return safeScreenResult(command)
+            return if (command.schema == 2) observationMetadata(command) else safeScreenResult(command)
         }
 
         val dispatched = execute(action)
         if (!dispatched) return failure(command, "ACTION_DISPATCH_FAILED")
         if (action is LaunchApp && !verifyForeground(action.packageName)) return failure(command, "POSTCONDITION_NOT_MET")
-        return GatewayClient.TaskResult(command.commandId, "COMPLETED")
+        return if (command.schema == 2) observationMetadata(command) else GatewayClient.TaskResult(command.commandId, "COMPLETED")
+    }
+
+    private fun scopeAllows(command: CommandEnvelope, action: Action): Boolean {
+        if (command.schema == 1) return true
+        val required = when (action) {
+            is LaunchApp -> "apps.open"
+            is OpenUrl -> "apps.open"
+            ReadScreen -> "ui.navigate"
+            else -> when (action.riskClass) {
+                RiskClass.A -> "ui.navigate"
+                RiskClass.B -> "ui.write"
+                RiskClass.C -> "ui.destructive.confirmed"
+                RiskClass.D -> return false
+            }
+        }
+        return required in command.capabilityScope
     }
 
     private fun execute(action: Action): Boolean = when (action) {
         is LaunchApp -> native.launch(action)
         is OpenUrl -> native.openUrl(action)
         else -> accessibility.execute(action)
+    }
+
+    private fun observationMetadata(command: CommandEnvelope): GatewayClient.TaskResult {
+        val snapshot = BrainAccessibilityService.current?.snapshot()
+            ?: return failure(command, "SCREEN_UNAVAILABLE")
+        val detail = JSONObject()
+            .put("taskId", command.taskId ?: JSONObject.NULL)
+            .put("packageName", snapshot.packageName)
+            .put("fingerprint", snapshot.fingerprint())
+            .put("nodeCount", snapshot.nodes.size)
+            .toString()
+        return GatewayClient.TaskResult(command.commandId, "COMPLETED", detail)
     }
 
     private fun safeScreenResult(command: CommandEnvelope): GatewayClient.TaskResult {
@@ -132,35 +169,11 @@ class CommandDispatcher(
 
     companion object {
         private val SAFE_CONTROL_TOKENS = listOf(
-            "spam & blocked",
-            "spam and blocked",
-            "thư rác và bị chặn",
-            "tin nhắn rác và bị chặn",
-            "more options",
-            "tùy chọn khác",
-            "account menu",
-            "menu tài khoản",
-            "profile",
-            "hồ sơ",
-            "select all",
-            "chọn tất cả",
-            "move to trash",
-            "chuyển vào thùng rác",
-            "trash",
-            "thùng rác",
-            "delete",
-            "xóa",
-            "block",
-            "chặn",
-            "messages",
-            "tin nhắn",
-            "back",
-            "quay lại",
-            "done",
-            "xong",
-            "cancel",
-            "hủy",
-            "ok",
+            "spam & blocked", "spam and blocked", "thư rác và bị chặn", "tin nhắn rác và bị chặn",
+            "more options", "tùy chọn khác", "account menu", "menu tài khoản", "profile", "hồ sơ",
+            "select all", "chọn tất cả", "move to trash", "chuyển vào thùng rác", "trash", "thùng rác",
+            "delete", "xóa", "block", "chặn", "messages", "tin nhắn", "back", "quay lại",
+            "done", "xong", "cancel", "hủy", "ok",
         )
     }
 }
