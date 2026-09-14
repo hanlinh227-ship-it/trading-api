@@ -78,6 +78,16 @@ sources:
   - {<<: *reference_only, category: code, repo: mikedh/trimesh, license: MIT, focus: "mesh integrity, manifold and geometry validation patterns"}
   - {<<: *reference_only, category: code, repo: isl-org/Open3D, license: MIT, focus: "3D geometry, point-cloud and reconstruction validation patterns", note: "license verified from repository LICENSE SPDX MIT because GitHub metadata reports NOASSERTION"}
 
+  # BRAIN 4.7 SELECTIVE FUSION / INTEROPERABILITY / VALIDATION
+  - {<<: *rag_only, category: code, repo: modelcontextprotocol/python-sdk, license: MIT, focus: "official MCP client/server contracts, protocol negotiation and typed tool/resource/prompt interoperability"}
+  - {<<: *rag_only, category: code, repo: docling-project/docling, license: MIT, focus: "structure-aware document parsing, hierarchy, layout and table extraction patterns"}
+  - {<<: *reference_only, category: code, repo: microsoft/graphrag, license: MIT, focus: "bounded entity/relationship extraction and local/global graph-retrieval patterns; no mandatory graph runtime"}
+  - {<<: *rag_only, category: code, repo: UKGovernmentBEIS/inspect_ai, license: MIT, focus: "reproducible LLM/agent evaluation task, dataset, solver and scorer separation"}
+  - {<<: *rag_only, category: code, repo: ossf/scorecard, license: Apache-2.0, focus: "open-source security-health and maintenance posture signals for candidate intake"}
+  - {<<: *rag_only, category: code, repo: aquasecurity/trivy, license: Apache-2.0, focus: "vulnerability, secret, misconfiguration, SBOM and dependency-risk scan semantics"}
+  - {<<: *rag_only, category: code, repo: Arize-ai/openinference, license: Apache-2.0, focus: "OpenTelemetry-aligned AI observability semantic conventions with sanitized tracing"}
+  - {<<: *rag_only, category: code, repo: microsoft/playwright, license: Apache-2.0, focus: "browser and end-to-end runtime verification patterns across Chromium, Firefox and WebKit"}
+
   # TRADING: FOREX / CRYPTO / FUTURES / INDEX / QUANT
   - {<<: *rag_only, category: trading, repo: QuantConnect/Lean, license: Apache-2.0, focus: "multi-asset event-driven engine: forex, futures, options, equities, crypto"}
   - {<<: *rag_only, category: trading, repo: ccxt/ccxt, license: MIT, focus: "crypto exchange APIs, market data and execution abstractions"}
