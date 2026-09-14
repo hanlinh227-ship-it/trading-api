@@ -5,6 +5,7 @@ Status: APPROVED BY USER — 2026-09-14
 Base Brain: GITHUB_BRAIN_V4 / capability release 4.8.1
 Repository: hanlinh227-ship-it/trading-api
 Base main SHA: d14f9a34b6fc06ed1387d5bf170cd733b8a269ac
+Implementation plan: `docs/superpowers/plans/2026-09-14-android-brain-agent-v1.md`
 
 ## 1. Goal
 
