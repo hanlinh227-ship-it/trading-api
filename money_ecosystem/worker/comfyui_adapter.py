@@ -1,7 +1,9 @@
 import json
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.error import URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
@@ -33,6 +35,19 @@ def _enum_options(node_info):
     return out
 
 
+def _argv_flag(argv, flag):
+    if not isinstance(argv, list):
+        return None
+    for index, raw in enumerate(argv):
+        value = str(raw)
+        if value == flag and index + 1 < len(argv):
+            return str(argv[index + 1])
+        prefix = flag + "="
+        if value.startswith(prefix):
+            return value[len(prefix):]
+    return None
+
+
 class ComfyUIAdapter:
     def __init__(self, base_url="http://127.0.0.1:8188", timeout=10, max_polls=120, poll_seconds=1):
         if base_url != "http://127.0.0.1:8188":
@@ -55,6 +70,31 @@ class ComfyUIAdapter:
                 return json.loads(response.read().decode())
         except (URLError, OSError, ValueError) as exc:
             raise ComfyUIError(str(exc)) from exc
+
+    def _bytes(self, path):
+        req = Request(self.base_url + path, method="GET")
+        try:
+            with urlopen(req, timeout=self.timeout) as response:
+                return response.read()
+        except (URLError, OSError) as exc:
+            raise ComfyUIError(str(exc)) from exc
+
+    def input_directory(self):
+        stats = self._json("/system_stats")
+        argv = stats.get("system", {}).get("argv", []) if isinstance(stats, dict) else []
+        raw = _argv_flag(argv, "--input-directory")
+        if raw:
+            # PowerShell/JSON diagnostics may contain escaped duplicate backslashes.
+            return Path(raw.replace("\\\\", "\\")).expanduser()
+
+        output = _argv_flag(argv, "--output-directory")
+        if output:
+            output_path = Path(output.replace("\\\\", "\\")).expanduser()
+            candidate = output_path.parent / "input"
+            if candidate.is_dir():
+                return candidate
+
+        raise DependencyMissing("active ComfyUI input directory could not be resolved from /system_stats")
 
     def preflight(self):
         stats = self._json("/system_stats")
@@ -117,3 +157,19 @@ class ComfyUIAdapter:
                         )
             time.sleep(self.poll_seconds)
         raise ComfyUIError("ComfyUI render timed out")
+
+    def fetch_artifact(self, artifact, target):
+        query = urlencode(
+            {
+                "filename": artifact.filename,
+                "subfolder": artifact.subfolder,
+                "type": artifact.type,
+            }
+        )
+        data = self._bytes("/view?" + query)
+        target_path = Path(target)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        part = target_path.with_name(target_path.name + ".part")
+        part.write_bytes(data)
+        part.replace(target_path)
+        return target_path
