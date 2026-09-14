@@ -172,7 +172,7 @@ class AgentConnectionManager(
         val engine = if (
             existing == null ||
             desiredProgress.riskClass != existingProgress?.riskClass ||
-            desiredProgress.confirmedRiskClassC != existingProgress.confirmedRiskClassC
+            desiredProgress.confirmedRiskClassC != existingProgress?.confirmedRiskClassC
         ) {
             TaskSessionEngine(desiredProgress).also { taskEngines[taskId] = it }
         } else {
