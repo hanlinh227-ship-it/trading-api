@@ -32,6 +32,22 @@ data class TaskStepResult(
     val code: String? = null,
 )
 
+data class TaskProgressCheckpoint(
+    val stepCount: Int,
+    val epoch: Int,
+    val epochStepCount: Int,
+    val checkpointCount: Int,
+    val recoveryCount: Int,
+) {
+    init {
+        require(stepCount >= 0)
+        require(epoch >= 0)
+        require(epochStepCount >= 0)
+        require(checkpointCount >= 0)
+        require(recoveryCount >= 0)
+    }
+}
+
 data class TaskProgress(
     val taskId: String,
     val riskClass: RiskClass = RiskClass.A,
