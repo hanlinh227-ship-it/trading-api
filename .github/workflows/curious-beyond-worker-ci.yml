@@ -10,6 +10,7 @@ on:
       - 'tests/money_ecosystem/test_comfyui_adapter.py'
       - 'tests/money_ecosystem/test_image_*.py'
       - 'tests/money_ecosystem/test_manual_image_setup.py'
+      - 'tests/money_ecosystem/test_manual_scene1_render.py'
       - '.github/workflows/curious-beyond-worker-ci.yml'
   workflow_dispatch:
 
@@ -48,3 +49,4 @@ jobs:
           tests/money_ecosystem/test_image_setup.py
           tests/money_ecosystem/test_image_workflow.py
           tests/money_ecosystem/test_manual_image_setup.py
+          tests/money_ecosystem/test_manual_scene1_render.py
