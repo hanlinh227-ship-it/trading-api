@@ -26,6 +26,11 @@ function terminalStatus(status) {
   return ['COMPLETED', 'FAILED', 'CANCELLED'].includes(status)
 }
 
+const RECOVERABLE_RESULT_CODES = new Set([
+  'ACTION_DISPATCH_FAILED',
+  'POSTCONDITION_NOT_MET',
+])
+
 function safeResultCode(result) {
   const code = result?.code ?? result?.detail ?? null
   if (code == null) return null
@@ -257,7 +262,14 @@ export class DeviceSession {
     }
     const key = `task:${task.taskId}`
     if (await this.state.storage.get(key)) return json({ error: 'task_exists' }, 409)
-    await this.state.storage.put(key, { ...task, history: [], pendingExpected: null, pendingActionType: null })
+    await this.state.storage.put(key, {
+      ...task,
+      history: [],
+      pendingExpected: null,
+      pendingActionType: null,
+      pendingCommandId: null,
+      lastProcessedCommandId: null,
+    })
     return json(publicTaskState(task), 201)
   }
 
@@ -278,10 +290,18 @@ export class DeviceSession {
     const key = `task:${body.taskId}`
     let task = await this.state.storage.get(key)
     if (!task) return json({ error: 'task_not_found' }, 404)
-    if (terminalStatus(task.status)) return json({ error: 'task_terminal', status: task.status }, 409)
 
     const currentFingerprint = observationFingerprint(body.observation)
     const previousResult = body.previousResult && typeof body.previousResult === 'object' ? body.previousResult : null
+    const previousCommandId = typeof previousResult?.commandId === 'string' ? previousResult.commandId : null
+
+    if (previousCommandId && previousCommandId === task.lastProcessedCommandId) {
+      return json({ ...publicTaskState(task), duplicate: true })
+    }
+    if (terminalStatus(task.status)) return json({ error: 'task_terminal', status: task.status }, 409)
+    if (previousResult && task.pendingCommandId && previousCommandId !== task.pendingCommandId) {
+      return json({ error: 'stale_or_unknown_result' }, 409)
+    }
 
     try {
       if (previousResult) {
@@ -289,16 +309,39 @@ export class DeviceSession {
         const resultStatus = String(previousResult.status ?? '').toUpperCase()
         const resultCode = safeResultCode(previousResult)
         const verificationOk = resultStatus === 'COMPLETED' && expectedSatisfied(task.pendingExpected, body.observation, task.lastFingerprint)
-        const explicitFailure = ['FAILED', 'NEEDS_CONFIRMATION'].includes(resultStatus)
+        const recoverableFailure = resultStatus === 'FAILED' && RECOVERABLE_RESULT_CODES.has(resultCode)
+        const fatalFailure = resultStatus === 'NEEDS_CONFIRMATION' || (resultStatus === 'FAILED' && !recoverableFailure)
         const noOp = resultStatus === 'COMPLETED' && task.pendingExpected?.type === 'observation_changed' && !verificationOk
 
         task.history = appendSafeHistory(task, {
           actionType: task.pendingActionType ?? null,
-          result: explicitFailure ? (resultCode ?? resultStatus) : (verificationOk ? 'VERIFIED' : (noOp ? 'NO_OP' : resultStatus)),
+          result: resultStatus === 'FAILED' || resultStatus === 'NEEDS_CONFIRMATION'
+            ? (resultCode ?? resultStatus)
+            : (verificationOk ? 'VERIFIED' : (noOp ? 'NO_OP' : resultStatus)),
           fingerprint: currentFingerprint,
         })
+        task = {
+          ...task,
+          lastProcessedCommandId: previousCommandId ?? task.pendingCommandId ?? null,
+          pendingCommandId: null,
+        }
 
-        if (explicitFailure || noOp || !verificationOk) {
+        if (fatalFailure) {
+          const code = resultCode ?? (resultStatus === 'NEEDS_CONFIRMATION' ? 'CLASS_C_CONFIRMATION_REQUIRED' : 'FAILED')
+          task = {
+            ...task,
+            status: 'FAILED',
+            failureCode: code,
+            lastFingerprint: currentFingerprint,
+            pendingExpected: null,
+            pendingActionType: null,
+            updatedAt: new Date().toISOString(),
+          }
+          await this.state.storage.put(key, task)
+          return json({ ...publicTaskState(task), error: code })
+        }
+
+        if (recoverableFailure || noOp || !verificationOk) {
           task = recordTaskProgress(task, { kind: 'recovery', fingerprint: currentFingerprint, status: 'RECOVERING' })
         } else {
           task = { ...task, recoveryCount: 0, lastFingerprint: currentFingerprint, status: 'PLANNING', updatedAt: new Date().toISOString() }
@@ -308,7 +351,15 @@ export class DeviceSession {
       }
     } catch (error) {
       const code = error.message === 'max_steps_exceeded' ? 'STEP_LIMIT' : error.message === 'max_recoveries_exceeded' ? 'RECOVERY_LIMIT' : 'TASK_PROGRESS_ERROR'
-      task = { ...task, status: 'FAILED', failureCode: code, updatedAt: new Date().toISOString() }
+      task = {
+        ...task,
+        status: 'FAILED',
+        failureCode: code,
+        pendingCommandId: null,
+        pendingExpected: null,
+        pendingActionType: null,
+        updatedAt: new Date().toISOString(),
+      }
       await this.state.storage.put(key, task)
       return json({ ...publicTaskState(task), error: code }, 409)
     }
@@ -323,7 +374,15 @@ export class DeviceSession {
         history: task.history,
       })
     } catch {
-      task = { ...task, status: 'FAILED', failureCode: 'PLANNER_FAILED', updatedAt: new Date().toISOString() }
+      task = {
+        ...task,
+        status: 'FAILED',
+        failureCode: 'PLANNER_FAILED',
+        pendingCommandId: null,
+        pendingExpected: null,
+        pendingActionType: null,
+        updatedAt: new Date().toISOString(),
+      }
       await this.state.storage.put(key, task)
       return json({ ...publicTaskState(task), error: 'PLANNER_FAILED' }, 500)
     }
@@ -332,7 +391,15 @@ export class DeviceSession {
     try {
       step = clampTaskStep({ task, action: planned.action })
     } catch (error) {
-      task = { ...task, status: 'FAILED', failureCode: error.message, updatedAt: new Date().toISOString() }
+      task = {
+        ...task,
+        status: 'FAILED',
+        failureCode: error.message,
+        pendingCommandId: null,
+        pendingExpected: null,
+        pendingActionType: null,
+        updatedAt: new Date().toISOString(),
+      }
       await this.state.storage.put(key, task)
       return json({ ...publicTaskState(task), error: error.message }, 403)
     }
@@ -343,6 +410,7 @@ export class DeviceSession {
         status: 'COMPLETED',
         pendingExpected: null,
         pendingActionType: null,
+        pendingCommandId: null,
         lastFingerprint: currentFingerprint,
         updatedAt: new Date().toISOString(),
       }
@@ -374,6 +442,7 @@ export class DeviceSession {
       lastFingerprint: currentFingerprint,
       pendingExpected: planned.expected,
       pendingActionType: step.action.type,
+      pendingCommandId: command.commandId,
       updatedAt: new Date().toISOString(),
     }
     await this.state.storage.put(key, task)
