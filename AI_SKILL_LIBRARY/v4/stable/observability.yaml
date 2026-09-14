@@ -13,6 +13,15 @@ telemetry:
   sanitized_for_evergreen: true
   fields: [route, profile, domain, skills, tools, latency_ms, context_tokens, retries, verification, correction, failure_category]
   forbidden: [raw_private_chat, secrets, credentials, authentication_tokens, private_keys, account_data, hidden_chain_of_thought]
+ai_semantics:
+  open_telemetry_aligned: true
+  optional_fields: [operation_class, role, model_provider_id, duration_ms, status, verification_outcome]
+  roles: [model, tool, retriever, evaluator, guardrail]
+  sensitive_payloads_forbidden: true
+  raw_prompts_forbidden: true
+  raw_private_tool_payloads_forbidden: true
+  hidden_reasoning_forbidden: true
+  diagnostic_not_authority: true
 profiles:
   FAST: {persistence: none, sampling_rate: 0.0}
   STANDARD: {persistence: on_error_or_correction, sampling_rate: 0.1}

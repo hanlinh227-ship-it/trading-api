@@ -6,4 +6,10 @@ skills: [data_analysis, spreadsheet, chart, report, docx, pdf, slides]
 legacy_aliases: [data_documents, presentation]
 permissions: [read_only, reversible_write]
 risk_ceiling: reversible_write
-evals: [artifact_validation, data_correctness]
+evals: [artifact_validation, data_correctness, document_fidelity]
+quality_requirements:
+  structured_extraction_before_ocr: true
+  preserve_hierarchy_and_provenance: true
+  preserve_table_structure_when_material: true
+  distinguish_extraction_from_inference: true
+  format_specific_validation: true

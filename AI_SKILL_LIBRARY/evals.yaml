@@ -25,6 +25,12 @@ failure_taxonomy:
   - design_system_regression
   - prompt_regression
   - game_runtime_regression
+  - mcp_contract_regression
+  - document_fidelity_regression
+  - graph_retrieval_regression
+  - oss_intake_security_regression
+  - observability_sanitization_regression
+  - browser_runtime_verification_regression
 
 benchmark_classes:
   - routing
@@ -43,6 +49,12 @@ benchmark_classes:
   - game_runtime_validation
   - source_license_provenance
   - duplicate_capability_detection
+  - mcp_contract_integrity
+  - document_fidelity
+  - graph_retrieval_safety
+  - oss_intake_security
+  - observability_sanitization
+  - browser_runtime_verification
 
 learning_loop:
   verified_failure_to_candidate_eval: true
@@ -124,6 +136,45 @@ capability_fusion_evals:
     no_parallel_reasoning_authority: true
     no_competing_trigger_owner: true
     new_skill_requires_distinct_contract_and_measured_gain: true
+
+selective_fusion_47_evals:
+  mcp_contract_integrity:
+    schema_compatibility_required: true
+    permission_widening_fails_closed: true
+    discovery_does_not_grant_invocation: true
+    read_only_does_not_grant_write: true
+    credentials_never_enter_repository_or_trace: true
+  document_fidelity:
+    structured_extraction_preferred: true
+    hierarchy_provenance_required: true
+    page_section_provenance_required: true
+    table_structure_required_when_material: true
+    unsupported_structure_must_be_disclosed: true
+    extraction_must_be_distinguished_from_inference: true
+  graph_retrieval_safety:
+    exact_authoritative_evidence_wins: true
+    source_traceability_required: true
+    authority_filter_before_expansion: true
+    freshness_filter_before_expansion: true
+    cross_domain_contamination_rejected: true
+    fast_graph_retrieval_forbidden: true
+  oss_intake_security:
+    high_score_never_auto_promotes: true
+    archived_or_license_unresolved_blocks_active_promotion: true
+    secret_bearing_candidate_blocks_promotion: true
+    unresolved_critical_risk_blocks_promotion: true
+    posture_is_evidence_not_authority: true
+  observability_sanitization:
+    hidden_reasoning_forbidden: true
+    secrets_credentials_private_payloads_forbidden: true
+    raw_prompts_forbidden: true
+    trace_metadata_is_not_authority: true
+  browser_runtime_verification:
+    executable_flow_required_when_material_and_available: true
+    static_success_claim_rejected_on_runtime_failure: true
+    network_failure_handling_when_material: true
+    accessibility_state_when_material: true
+    cross_browser_when_material: true
 
 scoring:
   dimensions:

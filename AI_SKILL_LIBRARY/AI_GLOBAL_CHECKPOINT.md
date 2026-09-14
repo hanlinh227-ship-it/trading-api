@@ -13,7 +13,7 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Mandatory routing contract: exactly one primary skill + validated execution capsule for every GitHub Brain request
 - FAST routing: exact-SHA hot snapshot, zero GitHub/provider/network calls for route selection
 - Fallback primary skill: `core_reasoning`
-- Current capability release target: `4.6.0` selective open-source fusion, preserving `109` routed skills / `109` execution capsules
+- Current capability release target: `4.7.0` selective open-source fusion, preserving `109` routed skills / `109` execution capsules
 - Open-source fusion rule: upstream repositories are reference/evidence only; strengthen existing canonical skills first; no parallel reasoning authority; no permission widening; no mandatory local runtime
 - Plain-language presentation: enabled; user-facing default locale `vi`, simple language; exact technical tokens remain available when needed
 - Live-price research runtime: Railway service `crypto-research-gateway-prod`, Southeast Asia / Singapore, one replica
@@ -41,9 +41,9 @@ Rules:
 - Provider and upstream capability remains evidence/execution metadata, not reasoning authority.
 - Routing traces may contain verifiable profile/domain/skill/capsule/source-SHA/latency metadata only; never hidden chain-of-thought, credentials, secrets or private provider payloads.
 
-## Brain 4.6 selective open-source fusion contract
+## Brain 4.7 selective open-source fusion contract
 
-Brain 4.6 improves capability quality without increasing the default canonical routed skill count.
+Brain 4.7 improves capability quality without increasing the default canonical routed skill count.
 
 - Default canonical routed skills: `109`.
 - Default execution capsules: `109`.
@@ -53,11 +53,18 @@ Brain 4.6 improves capability quality without increasing the default canonical r
 - A new primary skill requires a distinct task intent, unique input/output contract, no trigger ownership conflict, measurable eval gain, valid capsule, and security/authority approval.
 - External code is untrusted by default. Reference patterns do not imply code reuse.
 - License-unresolved or non-allowlisted sources remain design/reference-only and cannot auto-promote into active registry/RAG.
-- Upgrade bottleneck checks cover context growth, FAST latency, external routing calls, duplicate capabilities, trigger ownership, authority overlap, permission ceilings, license status and source maintenance.
+- Upgrade bottleneck checks cover context growth, FAST latency, external routing calls, duplicate capabilities, trigger ownership, authority overlap, permission ceilings, license status, source maintenance and source security posture.
+- MCP interoperability uses typed capability contracts, explicit protocol compatibility, discovery/invocation separation and fail-closed permission ceilings; no local MCP server is mandatory.
+- Document intelligence prefers structured/native extraction before OCR and preserves hierarchy, page/section provenance and table structure when material.
+- Graph retrieval is optional, bounded to STANDARD/DEEP, source-traceable and subordinate to authority/freshness filters; no graph database is mandatory.
+- Eval engineering explicitly separates task, case set, solver/agent, scorer, baseline/candidate and protected-regression evidence.
+- Open-source intake may use security-health, vulnerability, secret, SBOM and provenance signals as advisory evidence; a high score never grants authority or auto-promotion.
+- AI observability follows sanitized OpenTelemetry-aligned semantics while forbidding raw prompts, private tool payloads, secrets and hidden reasoning.
+- Browser-facing verification prefers runnable end-to-end evidence when an executable environment exists.
 - No unresolved bottleneck may be promoted to Stable.
 - No open-source reference may grant trading execution, wallet, credential, destructive or production-write authority.
 
-Quality upgrades in 4.6 include stronger repository workflow verification, adversarial/eval coverage, quantitative realism, 3D asset validation, design-system validation, prompt regression discipline, game runtime validation, source/license provenance checks and duplicate-capability detection.
+Quality upgrades retained from 4.6 include stronger repository workflow verification, adversarial/eval coverage, quantitative realism, 3D asset validation, design-system validation, prompt regression discipline, game runtime validation, source/license provenance checks and duplicate-capability detection. Brain 4.7 adds MCP contract integrity, document fidelity, graph-retrieval safety, OSS intake security, observability sanitization and browser-runtime verification.
 
 ## Consolidation contract (release 4.3.0+)
 

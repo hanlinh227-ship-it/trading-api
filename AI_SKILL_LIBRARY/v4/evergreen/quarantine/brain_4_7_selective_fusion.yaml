@@ -1,0 +1,129 @@
+version: 1
+candidate_set: brain_4_7_selective_fusion
+baseline_release: 4.6.0
+target_release: 4.7.0
+routing_authority: false
+reasoning_authority: false
+permission_expansion: false
+mandatory_runtime_dependency: false
+zero_local_preserved: true
+external_code_untrusted_by_default: true
+bulk_code_import: false
+canonical_skill_count_target: 109
+promotion_mode: strengthen_existing_skills_first
+
+verification_policy:
+  repository_identity_required: true
+  license_required_for_active_registry: true
+  maintenance_status_required: true
+  archived_source_active_registry_allowed: false
+  popularity_is_not_trust: true
+  code_reuse_default: false
+  financial_execution_from_reference: false
+  security_posture_is_advisory_evidence: true
+  security_score_never_auto_promotes: true
+
+candidates:
+  - repository: modelcontextprotocol/python-sdk
+    license: MIT
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_14
+    domains: [engineering]
+    decision: rag_only
+    active_registry_eligible: true
+    absorbs: [mcp_protocol_compatibility, typed_capability_contracts, discovery_invocation_separation, permission_ceiling]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: docling-project/docling
+    license: MIT
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_14
+    domains: [data_docs, core]
+    decision: rag_only
+    active_registry_eligible: true
+    absorbs: [structured_document_extraction, hierarchy_provenance, table_structure, ocr_fallback]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: microsoft/graphrag
+    license: MIT
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_14
+    domains: [core]
+    decision: reference_only
+    active_registry_eligible: true
+    absorbs: [entity_relationship_index, bounded_graph_retrieval, source_traceable_synthesis]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: UKGovernmentBEIS/inspect_ai
+    license: MIT
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_14
+    domains: [engineering, core]
+    decision: rag_only
+    active_registry_eligible: true
+    absorbs: [eval_task_dataset_solver_scorer_separation, reproducible_eval_units, protected_regression]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: ossf/scorecard
+    license: Apache-2.0
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_14
+    domains: [engineering]
+    decision: rag_only
+    active_registry_eligible: true
+    absorbs: [source_security_health, maintenance_posture, provenance_signals]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: aquasecurity/trivy
+    license: Apache-2.0
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_14
+    domains: [engineering]
+    decision: rag_only
+    active_registry_eligible: true
+    absorbs: [vulnerability_posture, secret_scan_semantics, misconfiguration_semantics, sbom_inventory]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: Arize-ai/openinference
+    license: Apache-2.0
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_14
+    domains: [engineering, core]
+    decision: rag_only
+    active_registry_eligible: true
+    absorbs: [ai_observability_semantics, tool_retriever_evaluator_roles, sanitized_trace_metadata]
+    code_reuse: false
+    permission_expansion: false
+
+  - repository: microsoft/playwright
+    license: Apache-2.0
+    provenance: github_repository_metadata
+    maintenance_status: active_2026_09_14
+    domains: [engineering, design_2d]
+    decision: rag_only
+    active_registry_eligible: true
+    absorbs: [browser_runtime_verification, e2e_state_validation, cross_browser_checks]
+    code_reuse: false
+    permission_expansion: false
+
+deferred:
+  - repository: microsoft/agent-framework
+    reason: overlaps_existing_langgraph_openai_agents_google_adk_reference_patterns
+  - repository: getzep/graphiti
+    reason: overlaps_existing_scoped_memory_and_adds_runtime_dependency_pressure
+  - repository: microsoft/PyRIT
+    reason: adversarial_eval_patterns_already_covered_by_garak_and_promptfoo
+  - repository: anchore/syft
+    reason: sbom_semantics_covered_by_trivy_for_this_cycle
+  - repository: storybookjs/storybook
+    reason: defer_until_design_system_eval_shows_material_gap
+  - repository: GoogleChrome/lighthouse
+    reason: defer_until_browser_runtime_eval_shows_material_gap
+  - repository: nautechsystems/nautilus_trader
+    reason: already_present_as_design_reference_only_and_license_blocked_from_active_registry
