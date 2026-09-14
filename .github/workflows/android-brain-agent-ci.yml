@@ -104,7 +104,7 @@ jobs:
           set -euo pipefail
           for attempt in 1 2 3 4 5; do
             BODY="$(curl -fsS --connect-timeout 5 --max-time 15 https://android-brain-agent-gateway.hanlinh227.workers.dev/health || true)"
-            if printf '%s' "$BODY" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok===true&&x.service==='android-brain-agent-gateway'&&x.sourceSha===process.env.GITHUB_SHA&&x.commandAuth==='github-oidc'&&x.capabilities?.exactCommandReceipts===true&&x.capabilities?.taskFirstRouting===true)process.exit(0)}catch{}process.exit(1)})"; then
+            if printf '%s' "$BODY" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok===true&&x.service==='android-brain-agent-gateway'&&x.sourceSha===process.env.GITHUB_SHA&&x.commandAuth==='github-oidc'&&x.capabilities?.exactCommandReceipts===true&&x.capabilities?.taskFirstBridge===true)process.exit(0)}catch{}process.exit(1)})"; then
               echo 'ANDROID_AGENT_GATEWAY=PASS'
               exit 0
             fi
