@@ -93,7 +93,9 @@ class AccessibilityScreenshotProvider(
     private val policy: ScreenshotPolicy = ScreenshotPolicy(),
 ) {
     fun captureScreenshot(callback: (ScreenshotCapture) -> Unit) {
-        if (!policy.isApiSupported(Build.VERSION.SDK_INT)) {
+        // Keep this SDK check direct at the API boundary so Android Lint can
+        // prove captureApi30() is unreachable on minSdk 26-29 devices.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             callback(ScreenshotCapture.Unsupported)
             return
         }
