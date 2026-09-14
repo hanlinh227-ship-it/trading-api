@@ -38,6 +38,7 @@ jobs:
         run: >-
           python -m pytest -q
           tests/money_ecosystem/render_gateway
+          tests/money_ecosystem/test_worker_render_gateway_runtime.py
           tests/money_ecosystem/test_worker_protocol.py
           tests/money_ecosystem/test_worker_secret_encoding.py
           tests/money_ecosystem/test_worker_setup.py
