@@ -54,6 +54,13 @@ try {
     Pop-Location
 }
 
+$DriveRequirements = Join-Path $RepoRoot "money_ecosystem\render_gateway\requirements-drive.txt"
+if (Test-Path $DriveRequirements) {
+    Write-Host "Installing/updating free Render Gateway Drive dependencies..." -ForegroundColor Yellow
+    & $PythonExe -m pip install --disable-pip-version-check -r $DriveRequirements
+    if ($LASTEXITCODE -ne 0) { throw "Render Gateway Drive dependency install failed" }
+}
+
 if (-not (Test-Path $SecretFile)) {
     $bytes = New-Object byte[] 48
     $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
@@ -73,7 +80,7 @@ $startContent = @"
 `$ErrorActionPreference = "Continue"
 Set-Location "$RepoRoot"
 while (`$true) {
-    & "$PythonExe" -m money_ecosystem.worker.runner --repo-root "$RepoRoot" --secret-file "$SecretFile" --branch "$Branch" --poll-seconds 15
+    & "$PythonExe" -m money_ecosystem.worker.runner_v2 --repo-root "$RepoRoot" --secret-file "$SecretFile" --branch "$Branch" --poll-seconds 15
     `$exitCode = `$LASTEXITCODE
     if (`$exitCode -eq -1073741510 -or `$exitCode -eq 130) {
         Write-Host "Worker stopped by user." -ForegroundColor Yellow
@@ -87,7 +94,9 @@ while (`$true) {
 
 Write-Host ""
 Write-Host "Setup complete." -ForegroundColor Green
+Write-Host "Runtime: Render Gateway V2"
 Write-Host "Local secret file: $SecretFile"
 Write-Host "Start command: powershell -ExecutionPolicy Bypass -File `"$StartScript`""
 Write-Host ""
 Write-Host "Existing pairing secret is preserved. Do not paste it into ChatGPT or commit it to GitHub." -ForegroundColor Yellow
+Write-Host "FLOW_GRADE remains fail-closed until an authenticated quality-provider connector is bound." -ForegroundColor Yellow
