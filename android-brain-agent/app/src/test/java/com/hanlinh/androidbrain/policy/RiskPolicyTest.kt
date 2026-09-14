@@ -3,6 +3,7 @@ package com.hanlinh.androidbrain.policy
 import com.hanlinh.androidbrain.protocol.DeleteData
 import com.hanlinh.androidbrain.protocol.LaunchApp
 import com.hanlinh.androidbrain.protocol.SendMessage
+import com.hanlinh.androidbrain.protocol.SetText
 import com.hanlinh.androidbrain.protocol.WalletSign
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -20,6 +21,10 @@ class RiskPolicyTest {
         assertTrue(policy.authorize(DeleteData(200), defaults) is AuthorizationDecision.NeedsConfirmation)
     }
 
+    @Test fun class_c_send_stops_for_confirmation() {
+        assertTrue(policy.authorize(SendMessage("contact", "hello"), defaults) is AuthorizationDecision.NeedsConfirmation)
+    }
+
     @Test fun class_c_runs_only_after_explicit_confirmation() {
         assertEquals(
             AuthorizationDecision.Allowed,
@@ -28,7 +33,14 @@ class RiskPolicyTest {
     }
 
     @Test fun class_b_requires_explicit_enablement() {
-        assertEquals(AuthorizationDecision.Denied, policy.authorize(SendMessage("contact", "hello"), defaults))
+        assertEquals(
+            AuthorizationDecision.Denied,
+            policy.authorize(SetText("field", "hello"), defaults),
+        )
+        assertEquals(
+            AuthorizationDecision.Allowed,
+            policy.authorize(SetText("field", "hello"), UserPolicy(classBEnabled = true)),
+        )
     }
 
     @Test fun class_a_is_autonomous() {
