@@ -33,6 +33,7 @@ export function healthPayload(env = {}) {
       localContacts: true,
       boundedTaskSessions: true,
       contextualRiskClamp: true,
+      exactCommandReceipts: true,
       securityBypass: false,
       financialMutation: false,
     },
@@ -174,6 +175,18 @@ export default {
       const response = await proxyJson(sessionStub(env, body.deviceId), '/pair/complete', request)
       if (response.ok) await touchLatestDevice(env, body.deviceId)
       return response
+    }
+
+    const commandResultMatch = url.pathname.match(/^\/v1\/device\/([^/]+)\/commands\/([^/]+)\/result$/)
+    if (commandResultMatch) {
+      if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405)
+      const auth = await requireControl(request, env)
+      if (!auth.ok) return auth.response
+      const deviceId = decodeURIComponent(commandResultMatch[1])
+      const commandId = decodeURIComponent(commandResultMatch[2])
+      return sessionStub(env, deviceId).fetch(
+        new Request(`https://device.internal/command-result/${encodeURIComponent(commandId)}`),
+      )
     }
 
     const taskMatch = url.pathname.match(/^\/v1\/device\/([^/]+)\/tasks(?:\/([^/]+))?$/)
