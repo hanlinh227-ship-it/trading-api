@@ -1,0 +1,15 @@
+{
+  "job_id": "image-render-reference-bootstrap-20260914-15",
+  "status": "BLOCKED",
+  "message": "IMAGE_SETUP failed: ComfyUI data root not found after Desktop config lookup and bounded discovery; config candidates: C:\\Users\\Linh\\AppData\\Roaming\\ComfyUI\\config.json, C:\\Users\\Linh\\AppData\\Roaming\\ComfyUI\\extra_models_config.yaml, C:\\Users\\Linh\\AppData\\Roaming\\ComfyUI\\extra_model_paths.yaml, C:\\Users\\Linh\\AppData\\Roaming\\Comfy Desktop\\config.json, C:\\Users\\Linh\\AppData\\Roaming\\Comfy Desktop\\extra_models_config.yaml, C:\\Users\\Linh\\AppData\\Roaming\\Comfy Desktop\\extra_model_paths.yaml, C:\\Users\\Linh\\AppData\\Roaming\\comfyui-desktop-2\\config.json, C:\\Users\\Linh\\AppData\\Roaming\\comfyui-desktop-2\\extra_models_config.yaml, C:\\Users\\Linh\\AppData\\Roaming\\comfyui-desktop-2\\extra_model_paths.yaml; searched roots: C:\\Users\\Linh\\Documents, C:\\AI, C:\\Users\\Linh\\AppData\\Roaming, C:\\Users\\Linh\\AppData\\Local, C:\\ProgramData",
+  "artifact_manifest": {
+    "zero_paid_services": true,
+    "cloud_fallback": false,
+    "_worker": {
+      "runner_build": "worker-reliability-v4",
+      "runtime_build": "image-setup-v1",
+      "pid": 3172
+    }
+  },
+  "completed_at": "2026-09-14T10:49:36.940436+00:00"
+}
