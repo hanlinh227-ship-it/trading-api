@@ -32,6 +32,24 @@ def test_find_comfyui_root_from_desktop_yaml_basepath(tmp_path):
     assert found == root.resolve()
 
 
+def test_process_command_line_discovers_base_directory(tmp_path):
+    root = tmp_path / "ComfyData"
+    (root / "models").mkdir(parents=True)
+    line = f'python.exe main.py --base-directory "{root}" --port 8188'
+    found = image_setup.find_comfyui_root_from_command_lines([line])
+    assert found == root.resolve()
+
+
+def test_process_command_line_discovers_user_directory_parent(tmp_path):
+    root = tmp_path / "ComfyData"
+    (root / "models").mkdir(parents=True)
+    user_dir = root / "user" / "default"
+    user_dir.mkdir(parents=True)
+    line = f'python.exe main.py --user-directory "{user_dir}" --listen 127.0.0.1 --port 8188'
+    found = image_setup.find_comfyui_root_from_command_lines([line])
+    assert found == root.resolve()
+
+
 def test_discover_comfyui_root_finds_nested_desktop_data_directory(tmp_path):
     root = tmp_path / "AppData" / "Roaming" / "ComfyUI" / "app" / "ComfyUI"
     (root / "models").mkdir(parents=True)
