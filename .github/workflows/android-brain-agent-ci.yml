@@ -117,13 +117,10 @@ jobs:
       GATEWAY_BASE_URL: https://android-brain-agent-gateway.hanlinh227.workers.dev
     steps:
       - name: Validate command payload
-        id: payload
         shell: bash
         run: |
           set -euo pipefail
-          printf '%s' "$ISSUE_BODY" | jq -e 'type=="object" and (.deviceId|type=="string" and length>0) and (.goal|type=="string" and length>0) and (.capabilityScope|type=="array")' >/dev/null
-          DEVICE_ID="$(printf '%s' "$ISSUE_BODY" | jq -r '.deviceId')"
-          echo "device_id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
+          printf '%s' "$ISSUE_BODY" | jq -e 'type=="object" and (.goal|type=="string" and length>0) and (.capabilityScope|type=="array") and ((.deviceId == null) or (.deviceId|type=="string"))' >/dev/null
       - name: Obtain repository-bound GitHub OIDC token
         id: oidc
         shell: bash
@@ -132,18 +129,35 @@ jobs:
           TOKEN="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=android-brain-agent-gateway" | jq -r '.value')"
           test -n "$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+      - name: Resolve active Android device
+        id: target
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          DEVICE_ID="$(printf '%s' "$ISSUE_BODY" | jq -r '.deviceId // empty')"
+          if [ -z "$DEVICE_ID" ]; then
+            LATEST="$(curl -fsS --connect-timeout 5 --max-time 15 \
+              -H "Authorization: Bearer $OIDC_TOKEN" \
+              "$GATEWAY_BASE_URL/v1/device/latest")"
+            DEVICE_ID="$(printf '%s' "$LATEST" | jq -r '.deviceId // empty')"
+          fi
+          test -n "$DEVICE_ID"
+          echo "device_id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
       - name: Queue Class-A Android command
         id: queue
         shell: bash
         env:
-          DEVICE_ID: ${{ steps.payload.outputs.device_id }}
+          DEVICE_ID: ${{ steps.target.outputs.device_id }}
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
+          PAYLOAD="$(printf '%s' "$ISSUE_BODY" | jq --arg deviceId "$DEVICE_ID" '.deviceId = $deviceId')"
           RESPONSE="$(curl -fsS --connect-timeout 5 --max-time 20 \
             -H "Authorization: Bearer $OIDC_TOKEN" \
             -H 'content-type: application/json' \
-            -d "$ISSUE_BODY" \
+            -d "$PAYLOAD" \
             "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/commands")"
           printf '%s' "$RESPONSE" | jq -e '.queued == true and (.commandId|type=="string" and length>0)'
           COMMAND_ID="$(printf '%s' "$RESPONSE" | jq -r '.commandId')"
@@ -151,7 +165,7 @@ jobs:
       - name: Verify Android completed command
         shell: bash
         env:
-          DEVICE_ID: ${{ steps.payload.outputs.device_id }}
+          DEVICE_ID: ${{ steps.target.outputs.device_id }}
           COMMAND_ID: ${{ steps.queue.outputs.command_id }}
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
@@ -161,7 +175,7 @@ jobs:
               -H "Authorization: Bearer $OIDC_TOKEN" \
               "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/status")"
             if printf '%s' "$STATUS" | jq -e --arg id "$COMMAND_ID" '.lastResult.commandId == $id' >/dev/null; then
-              printf '%s' "$STATUS" | jq '{paired,queued,lastResult}'
+              printf '%s' "$STATUS" | jq '{paired,online,lastSeenAt,queued,lastResult}'
               RESULT="$(printf '%s' "$STATUS" | jq -r '.lastResult.status')"
               test "$RESULT" = "COMPLETED"
               echo 'ANDROID_AGENT_E2E=PASS'
@@ -172,6 +186,6 @@ jobs:
           STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 \
             -H "Authorization: Bearer $OIDC_TOKEN" \
             "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/status")"
-          printf '%s' "$STATUS" | jq '{paired,queued,lastResult}'
+          printf '%s' "$STATUS" | jq '{paired,online,lastSeenAt,queued,lastResult}'
           echo 'ANDROID_AGENT_E2E=TIMEOUT' >&2
           exit 1
