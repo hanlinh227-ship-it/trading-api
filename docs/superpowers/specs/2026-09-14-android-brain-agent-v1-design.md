@@ -1,7 +1,7 @@
 # ANDROID_BRAIN_AGENT V1 — Design Specification
 
 Date: 2026-09-14
-Status: DESIGN FOR USER REVIEW
+Status: APPROVED BY USER — 2026-09-14
 Base Brain: GITHUB_BRAIN_V4 / capability release 4.8.1
 Repository: hanlinh227-ship-it/trading-api
 Base main SHA: d14f9a34b6fc06ed1387d5bf170cd733b8a269ac
@@ -418,286 +418,132 @@ Do not rely on unsupported permanent hidden background execution.
 
 ## 17. Cloud gateway
 
-Preferred V1 deployment:
+The gateway is a separate Android execution service and must not be merged into the trading/live-price runtime.
 
-- Cloudflare Worker for authenticated command ingress/routing when compatible with existing Brain runtime;
-- state kept minimal and encrypted/opaque where possible;
-- WebSocket or bounded polling/FCM-style wake strategy selected during implementation based on Android background reliability;
-- no phone-side inbound public TCP port;
-- no requirement for the user's PC.
+Responsibilities:
 
-Gateway responsibilities:
+- pair devices using one-time short-lived codes;
+- store only public device identity plus sanitized routing metadata;
+- deliver signed, scoped, expiring commands;
+- reject replay and expired commands;
+- track device online/offline/degraded state;
+- receive signed result/evidence metadata;
+- enforce server-side risk ceilings in addition to on-device policy;
+- expose typed mobile-automation tools to approved Brain/GPT integrations.
 
-- device registration/pairing;
-- command authorization metadata;
-- short-lived queue;
-- replay protection;
-- device heartbeat/presence;
-- result transport;
-- remote kill switch;
-- audit metadata.
+A device session owns its command queue and live connection. Commands have bounded TTL and queue length.
 
-Gateway must not become a second reasoning authority.
+## 18. Planner/model boundary
 
-## 18. GPT/Brain integration contract
+The APK does not bundle a user API key or assume that a ChatGPT subscription provides API credentials.
 
-The Brain exposes a typed provider capability, conceptually:
+Two execution paths are supported:
 
-```text
-android.list_devices()
-android.get_capabilities(device_id)
-android.execute_goal(device_id, goal, requested_scope)
-android.get_task(task_id)
-android.cancel_task(task_id)
-```
+1. deterministic skills/state machines for known tasks that do not require model inference;
+2. a pluggable cloud planner provider for arbitrary natural-language replanning.
 
-Normal chat flow:
+Planner credentials, when configured, remain in approved cloud secret storage. Planner output is treated as untrusted structured input and must pass action schema and risk-policy validation before device execution.
 
-```text
-User: "Kiểm tra điện thoại xem có thông báo quan trọng nào."
-Brain:
-  classify -> mobile_automation
-  risk -> A
-  request android notifications capability
-Gateway:
-  signed command -> phone
-Phone:
-  read approved notification state
-  summarize structured evidence
-Brain:
-  verify result -> answer user
-```
+The planner may reduce scope but can never widen the command envelope's capability scope or risk ceiling.
 
-GPT does not receive unrestricted shell or unrestricted Android RPC by default.
+## 19. Typed GPT/connector surface
 
-## 19. Open-source reference strategy
+The gateway exposes typed operations rather than unrestricted shell/control:
 
-Reference candidates:
+- `android_device_status`
+- `android_run_goal`
+- `android_get_task`
+- `android_confirm_action`
+- `android_cancel_task`
 
-- ClawDroid / KarakuriAgent: embedded Android agent backend, agent loop, skills, memory, cron, accessibility control.
-- Ophoner: native Android AI agent patterns, OpenAI-compatible provider support, SAF-scoped file tools, Shizuku integration.
-- Shizuku: optional elevated Android API/shell broker.
+`android_run_goal` accepts a high-level goal plus a paired device identity. It does not accept raw shell commands.
 
-Rules:
+The connector layer is transport/integration only; it does not become reasoning authority.
 
-- verify exact license and commit before reuse;
-- prefer architecture/reference extraction over wholesale copying;
-- quarantine imported code first;
-- dependency/security scan before admission;
-- no imported capability can widen Brain authority or Android risk ceiling automatically.
+## 20. Observability and audit
 
-## 20. Reliability targets
+Record:
 
-V1 design targets:
+- task id;
+- device id (opaque);
+- command schema/version;
+- requested and allowed capability scopes;
+- risk class and policy decision;
+- timestamps/latency;
+- action type and verification result;
+- retry/replan counts;
+- final status/error code.
 
-- deterministic semantic action before coordinate action;
-- bounded action loop;
-- every material action has a verification condition;
-- task state survives app process recreation where feasible;
-- rejected/expired commands cannot execute later;
-- temporary gateway outage does not corrupt local state;
-- permission loss produces a clear degraded-capability result;
-- no fabricated task success.
+Do not persist hidden reasoning, raw credentials, OTPs, unrestricted screen recordings or unrelated private app content.
 
-## 21. Test strategy
+## 21. Kill switch and degraded mode
 
-### Unit tests
+The APK exposes a local kill switch that immediately stops queued/new actions and disconnects the command channel.
 
-- command signature and expiry;
-- nonce replay rejection;
-- risk classification enforcement;
-- selector ranking;
+Degraded states are explicit:
+
+- Accessibility unavailable;
+- notification access unavailable;
+- Shizuku unavailable;
+- vision consent absent/revoked;
+- gateway offline;
+- planner unavailable.
+
+Unavailable optional capabilities must degrade cleanly rather than crash or silently widen permissions.
+
+## 22. Testing strategy
+
+Required test classes:
+
+- protocol signing/canonicalization/expiry/replay;
+- Android policy A/B/C/D;
+- semantic selector mapping;
+- postcondition verification;
 - bounded retry/replan;
-- permission/capability checks;
-- sanitization of logs.
+- prompt-injection boundary from screen/app content;
+- Shizuku absence/degradation;
+- MediaProjection consent/revocation;
+- game-profile online-default restriction;
+- gateway pairing/session/queue/TTL;
+- planner risk clamp;
+- Brain-provider reasoning-authority separation;
+- end-to-end low-risk physical-device acceptance.
 
-### Android instrumentation tests
+No completion claim until APK build, gateway tests/dry-run, Brain canonical validation and one physical device low-risk acceptance test pass.
 
-- launch app via intent;
-- inspect accessibility tree;
-- click semantic nodes;
-- gesture fallback;
-- notification flow;
-- SAF file flow;
-- service lifecycle;
-- permission revoked while task is active.
+## 23. Delivery and integration
 
-### Emulator/device E2E
+V1 delivery artifacts:
 
-- Brain/gateway -> phone -> verified result;
-- airplane-mode interruption and recovery;
-- app UI changed / selector failure;
-- screen rotation;
-- process kill/restart;
-- command cancellation;
-- kill switch.
+- Android APK produced by CI;
+- separate Android Agent Gateway deployment;
+- typed connector/tool contract;
+- installation/pairing/security documentation;
+- test evidence tied to an exact source SHA.
 
-### Security tests
+User onboarding sequence:
 
-- invalid signature;
-- replayed command;
-- expired command;
-- scope escalation attempt;
-- Class C without approval;
-- Class D execution request;
-- hostile prompt embedded in notification/web/app UI;
-- tool output attempting to change policy.
+1. install the APK;
+2. pair with gateway using one-time code;
+3. enable Accessibility;
+4. optionally enable notification access;
+5. grant only chosen SAF folders;
+6. optionally activate/grant Shizuku;
+7. start vision consent only for tasks that require it;
+8. verify CONNECTED/degraded capability state;
+9. connect the typed GPT/remote-tool integration;
+10. run low-risk acceptance commands before enabling any Class B capability.
 
-### Game tests
+## 24. Acceptance criteria
 
-Use only controlled/offline test targets for automated E2E. Validate frame-to-action timing, state recognition and bounded recovery without anti-cheat evasion.
+V1 is accepted when:
 
-## 22. Proposed repository layout
-
-```text
-android_brain_agent/
-  README.md
-  authority/
-    android_authority.yaml
-    risk_policy.yaml
-    capability_contract.yaml
-  gateway/
-    schema/
-    worker/
-  android/
-    app/
-    core/
-    perception/
-    actions/
-    agent/
-    skills/
-    game/
-    security/
-  tests/
-    contract/
-    android/
-    security/
-    e2e/
-
-docs/
-  android-agent/
-    pairing.md
-    permissions.md
-    integration.md
-    troubleshooting.md
-```
-
-Existing Brain router/checkpoint remains canonical. Android files do not replace the current V4 authority chain.
-
-## 23. Integration runbook for the user
-
-This is the intended V1 installation experience after implementation.
-
-### Step 1 — install the APK
-
-Install the signed `ANDROID_BRAIN_AGENT` release APK from the project's verified release artifact.
-
-Do not install arbitrary debug builds for daily use.
-
-### Step 2 — pair the phone
-
-Open the agent and select `Pair with Brain`.
-
-The app generates its device keypair locally and displays a one-time pairing QR/code. The cloud gateway registers the public device identity and returns a short-lived pairing confirmation.
-
-No permanent raw API secret should be manually pasted into chat.
-
-### Step 3 — enable core Android permissions
-
-The setup wizard asks only for capabilities selected by the user:
-
-1. Accessibility service;
-2. notification access if desired;
-3. folder/file access through Android's folder picker;
-4. overlay only if the floating assistant is enabled;
-5. microphone/camera only if voice/photo features are enabled.
-
-### Step 4 — optional Shizuku
-
-For enhanced system control:
-
-1. install Shizuku from an official trusted distribution;
-2. activate it using the Android-supported Shizuku setup path for the device;
-3. explicitly grant ANDROID_BRAIN_AGENT access;
-4. return to the agent and run `Capability Test`.
-
-The agent must show exactly which extra capabilities became available.
-
-### Step 5 — run read-only diagnostic
-
-Before enabling writes, run:
-
-`Kiểm tra điện thoại và báo các capability hiện có, không thay đổi gì.`
-
-Expected output includes granted/missing capabilities and Android/API constraints.
-
-### Step 6 — run safe action test
-
-Example:
-
-`Mở Chrome, vào một trang thử nghiệm, sau đó quay về màn hình chính.`
-
-The agent must provide a verified completion result.
-
-### Step 7 — enable selected Class B actions
-
-The user chooses which write actions may execute without per-action confirmation. Default is disabled.
-
-### Step 8 — connect GPT/Brain
-
-Once the Android capability provider is deployed, ChatGPT/GitHub Brain routes mobile goals through the typed Android adapter. The user then issues natural-language commands in the normal chat rather than opening a second automation console.
-
-## 24. V1 acceptance criteria
-
-V1 is not complete until all of the following are demonstrated on a real supported Android device:
-
-1. APK installs and runs without PC dependency.
-2. Phone pairs cryptographically with the cloud gateway.
-3. Brain can query device capability state.
-4. Brain can request a Class A task.
-5. Agent opens a target app and performs semantic UI actions.
-6. Agent verifies the result rather than merely reporting dispatch success.
-7. Notification workflow functions when permission is granted.
-8. SAF-scoped file workflow functions.
-9. Vision fallback works after explicit screen-capture authorization.
-10. Optional Shizuku path works when explicitly configured, but V1 remains usable without it.
-11. Expired/replayed/invalid commands are rejected.
-12. Class C requires confirmation.
-13. Class D has no unattended path.
-14. Remote kill switch stops new tasks.
-15. Logs contain sanitized action/evidence metadata and no secret material.
-16. GAME_AGENT can operate a controlled offline test game/profile without detection-evasion features.
-17. Exact-source build, tests and release artifact are reproducible/traceable.
-
-## 25. Deferred items
-
-Not required for V1:
-
-- root/system-app build;
-- Device Owner edition;
-- unrestricted shell from GPT;
-- full offline LLM inference on low-end phones;
-- cross-device mesh orchestration;
-- arbitrary automatic app-skill generation;
-- banking/payment automation;
-- anti-detection or anti-cheat evasion.
-
-## 26. Design decision summary
-
-Recommended implementation direction:
-
-- native Android APK;
-- non-root first;
-- Accessibility/native API first;
-- vision fallback;
-- optional Shizuku;
-- signed cloud command protocol;
-- Android authority isolated from Brain reasoning;
-- user-scoped permissions;
-- risk classes with hard protected boundary;
-- per-app/per-game skill contracts;
-- verification after every material action;
-- no PC dependency;
-- no automation concealment.
-
-This design intentionally maximizes useful Android autonomy while preserving Android/platform security boundaries and the existing GITHUB_BRAIN_V4 authority model.
+- no PC is required to remain online;
+- signed GPT/Brain-originated Class A goals can reach a paired Android phone;
+- the APK can observe, act and verify a low-risk multi-step UI task;
+- replay/expiry/signature failures are rejected;
+- Class C stops for confirmation and Class D has no unattended path;
+- optional permission loss degrades safely;
+- GAME_AGENT is profile-bounded and online automation defaults disabled;
+- no automation-concealment or security-bypass mechanism exists;
+- exact-main CI/deployment evidence and one physical-device acceptance run are available.
