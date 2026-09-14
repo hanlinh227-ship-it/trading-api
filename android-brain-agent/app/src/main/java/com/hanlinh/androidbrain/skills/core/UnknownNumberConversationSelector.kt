@@ -30,12 +30,15 @@ class UnknownNumberConversationSelector(
             .asSequence()
             .filter { it.visibleToUser }
             .forEach { node ->
-                val sender = sequenceOf(node.text, node.contentDescription)
+                val classified = sequenceOf(node.text, node.contentDescription)
                     .filterNotNull()
-                    .firstOrNull { classifier.classify(it) != ConversationClassification.NotPhoneNumber }
+                    .map { value -> value to classifier.classify(value) }
+                    .firstOrNull { (_, classification) ->
+                        classification != ConversationClassification.NotPhoneNumber
+                    }
                     ?: return@forEach
 
-                when (classifier.classify(sender)) {
+                when (classified.second) {
                     ConversationClassification.UnknownConfirmed -> {
                         val actionable = nearestActionable(node, byId) ?: return@forEach
                         targets.putIfAbsent(
