@@ -4,6 +4,8 @@ const ORDER = { A: 0, B: 1, C: 2, D: 3 }
 const MODEL = '@cf/meta/llama-3.2-11b-vision-instruct'
 const MAX_NODES = 80
 const MAX_HISTORY = 6
+const MAX_LOCAL_FACTS = 40
+const LOCAL_FACT_KINDS = new Set(['UNKNOWN_NUMBER_CONFIRMED'])
 const SENSITIVE = /(password|passcode|\bpin\b|otp|2fa|one[- ]?time|verification\s*code|private\s*key|seed\s*phrase|recovery\s*(phrase|code)|secret)/i
 
 function sanitizeString(value, max = 256) {
@@ -33,8 +35,18 @@ function sanitizeNode(node) {
   return out
 }
 
+function sanitizeLocalFact(fact) {
+  if (!fact || typeof fact !== 'object' || !LOCAL_FACT_KINDS.has(fact.kind)) return null
+  const nodeId = sanitizeString(fact.nodeId, 192)
+  if (!nodeId?.startsWith('n:')) return null
+  const relatedNodeId = sanitizeString(fact.relatedNodeId, 192)
+  const out = { kind: fact.kind, nodeId }
+  if (relatedNodeId?.startsWith('n:')) out.relatedNodeId = relatedNodeId
+  return out
+}
+
 export function sanitizePlannerObservation(observation) {
-  if (!observation || typeof observation !== 'object') return { packageName: null, fingerprint: null, nodes: [] }
+  if (!observation || typeof observation !== 'object') return { packageName: null, fingerprint: null, nodes: [], localFacts: [] }
   return {
     packageName: sanitizeString(observation.packageName, 192) ?? null,
     windowTitle: sanitizeString(observation.windowTitle, 192) ?? null,
@@ -42,6 +54,10 @@ export function sanitizePlannerObservation(observation) {
     nodes: (Array.isArray(observation.nodes) ? observation.nodes : [])
       .slice(0, MAX_NODES)
       .map(sanitizeNode)
+      .filter(Boolean),
+    localFacts: (Array.isArray(observation.localFacts) ? observation.localFacts : [])
+      .slice(0, MAX_LOCAL_FACTS)
+      .map(sanitizeLocalFact)
       .filter(Boolean),
   }
 }
@@ -52,6 +68,7 @@ function sanitizedTask(task) {
     goal: sanitizeString(task?.goal, 512) ?? '',
     capabilityScope: Array.isArray(task?.capabilityScope) ? task.capabilityScope.filter(x => typeof x === 'string').slice(0, 24) : [],
     riskClass: task?.riskClass ?? 'A',
+    taskRiskClass: task?.taskRiskClass ?? task?.riskClass ?? 'A',
     stepCount: Number.isInteger(task?.stepCount) ? task.stepCount : 0,
     recoveryCount: Number.isInteger(task?.recoveryCount) ? task.recoveryCount : 0,
   }
@@ -123,6 +140,8 @@ function buildModelInput({ task, observation, imageDataUrl, history }) {
     'Never request or infer credentials, OTP/2FA, passwords, private keys, seed phrases, wallet signatures, transfers, withdrawals, or security bypasses.',
     'Use only actions and capabilities already authorized by the task.',
     'Do not widen risk. If uncertain, choose read_screen or a safe navigation action.',
+    'localFacts are device-generated opaque facts, not model-generated claims.',
+    'For unknown-number cleanup, select or delete a conversation only when its actionable nodeId has UNKNOWN_NUMBER_CONFIRMED; otherwise only navigate, scroll, or read.',
     'No prose rationale; rationaleCode is a short machine code only.',
   ].join(' ')
   const text = JSON.stringify({ policy, task: safeTask, observation: safeObservation, recentHistory: safeHistory })
