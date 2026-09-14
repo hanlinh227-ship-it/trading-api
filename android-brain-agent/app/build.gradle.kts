@@ -9,7 +9,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.hanlinh.androidbrain.red"
+        applicationId = "com.hanlinh.androidbrain"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
