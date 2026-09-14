@@ -133,15 +133,45 @@ jobs:
           test -n "$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
       - name: Queue Class-A Android command
+        id: queue
         shell: bash
         env:
           DEVICE_ID: ${{ steps.payload.outputs.device_id }}
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           set -euo pipefail
-          curl -fsS --connect-timeout 5 --max-time 20 \
+          RESPONSE="$(curl -fsS --connect-timeout 5 --max-time 20 \
             -H "Authorization: Bearer $OIDC_TOKEN" \
             -H 'content-type: application/json' \
             -d "$ISSUE_BODY" \
-            "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/commands" \
-            | jq -e '.queued == true'
+            "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/commands")"
+          printf '%s' "$RESPONSE" | jq -e '.queued == true and (.commandId|type=="string" and length>0)'
+          COMMAND_ID="$(printf '%s' "$RESPONSE" | jq -r '.commandId')"
+          echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
+      - name: Verify Android completed command
+        shell: bash
+        env:
+          DEVICE_ID: ${{ steps.payload.outputs.device_id }}
+          COMMAND_ID: ${{ steps.queue.outputs.command_id }}
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 20); do
+            STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 \
+              -H "Authorization: Bearer $OIDC_TOKEN" \
+              "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/status")"
+            if printf '%s' "$STATUS" | jq -e --arg id "$COMMAND_ID" '.lastResult.commandId == $id' >/dev/null; then
+              printf '%s' "$STATUS" | jq '{paired,queued,lastResult}'
+              RESULT="$(printf '%s' "$STATUS" | jq -r '.lastResult.status')"
+              test "$RESULT" = "COMPLETED"
+              echo 'ANDROID_AGENT_E2E=PASS'
+              exit 0
+            fi
+            sleep 3
+          done
+          STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
+            "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/status")"
+          printf '%s' "$STATUS" | jq '{paired,queued,lastResult}'
+          echo 'ANDROID_AGENT_E2E=TIMEOUT' >&2
+          exit 1
