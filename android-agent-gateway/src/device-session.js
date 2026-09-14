@@ -68,6 +68,8 @@ export class DeviceSession {
 
   async fetch(request) {
     const url = new URL(request.url)
+    if (url.pathname === '/registry/touch' && request.method === 'POST') return this.registryTouch(request)
+    if (url.pathname === '/registry/latest' && request.method === 'GET') return this.registryLatest()
     if (url.pathname === '/pair/start' && request.method === 'POST') return this.pairStart(request)
     if (url.pathname === '/pair/complete' && request.method === 'POST') return this.pairComplete(request)
     if (url.pathname === '/status' && request.method === 'GET') return this.status(request)
@@ -77,6 +79,19 @@ export class DeviceSession {
     if (url.pathname === '/result' && request.method === 'POST') return this.result(request)
     if (url.pathname === '/socket' && request.headers.get('upgrade')?.toLowerCase() === 'websocket') return this.socket(request)
     return json({ error: 'not_found' }, 404)
+  }
+
+  async registryTouch(request) {
+    const body = await request.json().catch(() => null)
+    if (!body?.deviceId || typeof body.deviceId !== 'string') return json({ error: 'deviceId_required' }, 400)
+    const latest = { deviceId: body.deviceId, lastSeenAt: new Date().toISOString() }
+    await this.state.storage.put('latestDevice', latest)
+    return json(latest)
+  }
+
+  async registryLatest() {
+    const latest = await this.state.storage.get('latestDevice')
+    return json(latest ?? { deviceId: null, lastSeenAt: null })
   }
 
   async ensureSigningMaterial() {
