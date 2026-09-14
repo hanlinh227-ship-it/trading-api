@@ -33,6 +33,18 @@ function sessionStub(env, deviceId) {
   return env.DEVICE_SESSIONS.get(id)
 }
 
+function registryStub(env) {
+  return sessionStub(env, '__latest_device_registry__')
+}
+
+async function touchLatestDevice(env, deviceId) {
+  await registryStub(env).fetch(new Request('https://device.internal/registry/touch', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ deviceId }),
+  }))
+}
+
 async function proxyJson(stub, path, request) {
   const body = request.method === 'GET' ? undefined : await request.text()
   return stub.fetch(new Request(`https://device.internal${path}`, {
@@ -59,6 +71,12 @@ export default {
       })
     }
 
+    if (url.pathname === '/v1/device/latest' && request.method === 'GET') {
+      const auth = await requireControl(request, env)
+      if (!auth.ok) return auth.response
+      return registryStub(env).fetch(new Request('https://device.internal/registry/latest'))
+    }
+
     if (url.pathname === '/v1/pair/start' && request.method === 'POST') {
       const body = await request.clone().json().catch(() => null)
       if (!body?.deviceId) return json({ error: 'deviceId_required' }, 400)
@@ -68,7 +86,9 @@ export default {
     if (url.pathname === '/v1/pair/complete' && request.method === 'POST') {
       const body = await request.clone().json().catch(() => null)
       if (!body?.deviceId) return json({ error: 'deviceId_required' }, 400)
-      return proxyJson(sessionStub(env, body.deviceId), '/pair/complete', request)
+      const response = await proxyJson(sessionStub(env, body.deviceId), '/pair/complete', request)
+      if (response.ok) await touchLatestDevice(env, body.deviceId)
+      return response
     }
 
     const match = url.pathname.match(/^\/v1\/device\/([^/]+)\/(status|commands|next|result|socket)$/)
@@ -83,8 +103,18 @@ export default {
         return stub.fetch(new Request('https://device.internal/status'))
       }
 
-      if (operation === 'next') return proxyJson(stub, '/next', request)
-      if (operation === 'result') return proxyJson(stub, '/result', request)
+      if (operation === 'next') {
+        const response = await proxyJson(stub, '/next', request)
+        if (response.ok) await touchLatestDevice(env, deviceId)
+        return response
+      }
+
+      if (operation === 'result') {
+        const response = await proxyJson(stub, '/result', request)
+        if (response.ok) await touchLatestDevice(env, deviceId)
+        return response
+      }
+
       if (operation === 'socket') return stub.fetch(request)
 
       if (operation === 'commands' && request.method === 'POST') {
