@@ -59,6 +59,7 @@ class AgentConnectionManager(
                             reconnectAttempt = 0
                             reconnectTask?.cancel(false)
                             reconnectTask = null
+                            pollOnce()
                         }
                     }
                 }
@@ -121,13 +122,15 @@ class AgentConnectionManager(
     private fun pollOnce() {
         if (!running.get()) return
         try {
-            val command = client.nextCommand(pairing.deviceId, pairing.deviceToken) ?: return
-            val result = dispatcher.handle(command)
-            client.postResult(pairing.deviceId, pairing.deviceToken, result)
+            while (running.get()) {
+                val command = client.nextCommand(pairing.deviceId, pairing.deviceToken) ?: return
+                val result = dispatcher.handle(command)
+                client.postResult(pairing.deviceId, pairing.deviceToken, result)
+            }
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         } catch (_: Throwable) {
-            // HTTP polling remains a one-second safety net if push is unavailable.
+            // Fast fallback polling remains active if push is unavailable.
         }
     }
 }
