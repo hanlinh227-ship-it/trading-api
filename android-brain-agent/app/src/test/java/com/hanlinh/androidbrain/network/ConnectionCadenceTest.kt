@@ -23,14 +23,22 @@ class ConnectionCadenceTest {
     }
 
     @Test
+    fun maintenance_does_not_restart_an_in_flight_websocket_handshake() {
+        assertEquals(
+            ConnectionMaintenanceAction.WAIT_CONNECTING,
+            ConnectionMaintenancePolicy.action(socketConnected = false, socketPresent = true),
+        )
+    }
+
+    @Test
     fun connected_socket_uses_heartbeat_and_disconnected_socket_uses_polling() {
         assertEquals(
             ConnectionMaintenanceAction.HEARTBEAT,
-            ConnectionMaintenancePolicy.action(socketConnected = true),
+            ConnectionMaintenancePolicy.action(socketConnected = true, socketPresent = true),
         )
         assertEquals(
             ConnectionMaintenanceAction.FALLBACK_POLL,
-            ConnectionMaintenancePolicy.action(socketConnected = false),
+            ConnectionMaintenancePolicy.action(socketConnected = false, socketPresent = false),
         )
     }
 
