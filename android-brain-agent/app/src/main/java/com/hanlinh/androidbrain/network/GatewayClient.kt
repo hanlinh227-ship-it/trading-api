@@ -37,8 +37,13 @@ class GatewayClient(
         val status: String,
         val stepCount: Int,
         val recoveryCount: Int,
+        val epoch: Int = 0,
+        val epochStepCount: Int = 0,
+        val checkpointCount: Int = 0,
+        val persistence: String? = null,
         val plannerMode: String? = null,
         val commandId: String? = null,
+        val failureCode: String? = null,
     )
 
     fun pairStart(deviceId: String, devicePublicKey: String): PairStart {
@@ -120,8 +125,13 @@ class GatewayClient(
             status = json.optString("status", "UNKNOWN"),
             stepCount = json.optInt("stepCount", 0),
             recoveryCount = json.optInt("recoveryCount", 0),
+            epoch = json.optInt("epoch", 0),
+            epochStepCount = json.optInt("epochStepCount", 0),
+            checkpointCount = json.optInt("checkpointCount", 0),
+            persistence = json.optString("persistence").takeIf { it.isNotBlank() },
             plannerMode = json.optString("plannerMode").takeIf { it.isNotBlank() },
             commandId = json.optString("commandId").takeIf { it.isNotBlank() },
+            failureCode = json.optString("failureCode").takeIf { it.isNotBlank() },
         )
     }
 
@@ -165,10 +175,20 @@ class GatewayClient(
                     .put("relatedNodeId", fact.relatedNodeId),
             )
         }
+        val regions = JSONObject()
+        observation.regionHashes.toSortedMap().forEach { (name, hash) ->
+            regions.put(name.take(64), hash.take(192))
+        }
         return JSONObject()
             .put("packageName", observation.packageName)
             .put("windowTitle", observation.windowTitle)
             .put("fingerprint", observation.fingerprint())
+            .put("screenWidth", observation.screenWidth ?: JSONObject.NULL)
+            .put("screenHeight", observation.screenHeight ?: JSONObject.NULL)
+            .put("orientation", observation.orientation ?: JSONObject.NULL)
+            .put("screenshotAvailable", !observation.screenshotHash.isNullOrBlank())
+            .put("screenshotHash", observation.screenshotHash ?: JSONObject.NULL)
+            .put("regionHashes", regions)
             .put("nodes", nodes)
             .put("localFacts", facts)
     }
