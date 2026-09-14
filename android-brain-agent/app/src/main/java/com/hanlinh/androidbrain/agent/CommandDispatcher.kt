@@ -74,8 +74,7 @@ class CommandDispatcher(
             "ui.destructive.confirmed" in command.capabilityScope
         val scopedClassB = command.schema == 2 &&
             effectiveRisk == RiskClass.B &&
-            command.riskClass == RiskClass.B &&
-            "ui.write" in command.capabilityScope
+            command.riskClass == RiskClass.B
 
         when (riskPolicy.authorize(
             action = action,
