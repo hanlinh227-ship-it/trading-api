@@ -6,10 +6,11 @@ skills: [ux_ui, product_design, graphic_design, branding, typography, layout, de
 legacy_aliases: [design_2d_ux]
 permissions: [read_only]
 risk_ceiling: read_only
-evals: [ux_consistency, accessibility, layout, design_system_validation]
+evals: [ux_consistency, accessibility, layout, design_system_validation, browser_runtime_verification]
 quality_requirements:
   accessibility_when_material: true
   design_token_consistency: true
   component_state_consistency: true
   responsive_constraints: true
   design_to_code_mapping_when_requested: true
+  runnable_flow_verification_when_implementation_exists: true
