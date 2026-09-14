@@ -7,13 +7,23 @@ policy:
   repository_source_allowlist_required_for_code: true
   financial_capability_default: class_d_quarantine
   provider_discovery_never_expands_permissions: true
+  gap_led_priority: true
+  unsupported_gap_evidence: reject
 source_classes:
-  official_docs: {cadence: daily, executable: false}
-  approved_github: {cadence: daily, executable: possible}
-  plugin_metadata: {cadence: daily, executable: false}
-  scientific_primary: {cadence: weekly, executable: false}
+  official_docs: {cadence: daily, executable: false, stale_after_hours: 48}
+  approved_github: {cadence: daily, executable: possible, stale_after_hours: 48}
+  plugin_metadata: {cadence: daily, executable: false, stale_after_hours: 48}
+  scientific_primary: {cadence: weekly, executable: false, stale_after_hours: 336}
   user_failure_patterns: {cadence: event_driven, executable: false}
   stable_telemetry: {cadence: event_driven, executable: false}
+continuous_intelligence:
+  source_refresh_hours: 6
+  candidate_cycle: daily
+  deep_audit: weekly
+  failure_intake: event_driven
+  gap_led_discovery: true
+  source_lifecycle_states: [active, stale, reverify, deprecated, archived]
+  require_evidence_ref_for_gap: true
 github_queries:
   - {domain: engineering, query: "agent skill manifest yaml stars:>20"}
   - {domain: trading, query: "crypto exchange agent skills SKILL.md market data"}
