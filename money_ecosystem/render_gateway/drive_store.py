@@ -26,10 +26,12 @@ class DriveAssetStore:
         drive_service: Any | None = None,
         downloader: Downloader | None = None,
         uploader: Uploader | None = None,
+        artifact_parent_id: str | None = None,
     ) -> None:
         self._drive_service = drive_service
         self._downloader = downloader
         self._uploader = uploader
+        self.artifact_parent_id = str(artifact_parent_id or "").strip()
         if drive_service is None and (downloader is None or uploader is None):
             raise ValueError("DriveAssetStore requires drive_service or downloader+uploader")
 
