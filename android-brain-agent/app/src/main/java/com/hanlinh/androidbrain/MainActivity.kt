@@ -32,27 +32,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.hanlinh.androidbrain.action.ShizukuActions
 import com.hanlinh.androidbrain.network.GatewayClient
 import com.hanlinh.androidbrain.network.PairingRepository
 import com.hanlinh.androidbrain.security.DeviceIdentity
 import com.hanlinh.androidbrain.service.AgentForegroundService
+import com.hanlinh.androidbrain.service.AgentRunPreference
+import com.hanlinh.androidbrain.service.AgentStartupPolicy
 import com.hanlinh.androidbrain.service.BrainAccessibilityService
 import com.hanlinh.androidbrain.service.BrainNotificationService
 
 class MainActivity : ComponentActivity() {
     private var refreshTick by mutableStateOf(0)
-    private var pairingStatus by mutableStateOf("Chưa ghép với gateway")
+    private var pairingStatus by mutableStateOf("Đang kiểm tra ghép nối…")
     private var gatewayStatus by mutableStateOf("Chưa kiểm tra")
     private var pairingBusy by mutableStateOf(false)
     private val deviceId: String by lazy { DeviceIdentity.deviceId() }
+    private val pairingRepository: PairingRepository by lazy { PairingRepository(this) }
+    private val runPreference: AgentRunPreference by lazy { AgentRunPreference(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        pairingStatus = PairingRepository(this).load()?.let { "Đã ghép với Brain Gateway" } ?: "Chưa ghép với gateway"
+        val pairing = pairingRepository.load()
+        pairingStatus = if (pairing != null) "Đã ghép với Brain Gateway" else "Chưa ghép với gateway"
+
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
+
         setContent {
             refreshTick
             MaterialTheme {
@@ -64,43 +70,40 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text("Android Brain Agent", style = MaterialTheme.typography.headlineMedium)
-                        Text("V1.0.2 DNS fallback")
+                        Text("V2 Persistent Agent")
                         Text("Gateway: $gatewayStatus")
                         Text(pairingStatus)
                         Text("Device ID: $deviceId")
-                        Button(onClick = { copyDeviceId() }) { Text("Sao chép Device ID cho GPT") }
+                        Button(onClick = { copyDeviceId() }) { Text("Sao chép Device ID") }
 
                         Text("Accessibility: ${if (isAccessibilityEnabled()) "BẬT" else "CHƯA BẬT"}")
                         Text("Notification Access: ${if (isNotificationAccessEnabled()) "BẬT" else "CHƯA BẬT"}")
-                        Text("Shizuku: ${if (ShizukuActions().available()) "PHÁT HIỆN" else "TÙY CHỌN / CHƯA BẬT"}")
-                        Text("Kill switch: ${if (AgentForegroundService.killSwitchActive) "ĐANG KHÓA" else "SẴN SÀNG"}")
+                        Text("Agent: ${if (runPreference.isEnabled()) "TỰ ĐỘNG / SẴN SÀNG" else "ĐANG DỪNG"}")
 
-                        Text("0. Nếu APK được cài ngoài Play Store trên Android 13+: mở App info → menu ⋮ → Cho phép cài đặt hạn chế / Allow restricted settings. Android có thể chặn Accessibility và Notification Access cho đến khi bước này được cho phép.")
-                        Button(onClick = { openAppInfo() }) { Text("0. Mở App info / Restricted Settings") }
-
-                        Button(onClick = { openAccessibilitySettings() }) {
-                            Text("1. Bật Accessibility")
-                        }
-                        Button(onClick = { openNotificationAccessSettings() }) {
-                            Text("2. Bật Notification Access")
-                        }
-                        Button(onClick = { checkGateway() }) {
-                            Text("Kiểm tra Brain Gateway")
-                        }
+                        Text("Nếu Android chặn quyền trợ năng do APK cài ngoài Store: mở App info → menu ⋮ → Cho phép cài đặt hạn chế.")
+                        Button(onClick = { openAppInfo() }) { Text("Mở App info / Restricted Settings") }
+                        Button(onClick = { openAccessibilitySettings() }) { Text("Bật Accessibility") }
+                        Button(onClick = { openNotificationAccessSettings() }) { Text("Bật Notification Access") }
+                        Button(onClick = { checkGateway() }) { Text("Kiểm tra Brain Gateway") }
                         Button(enabled = !pairingBusy, onClick = { pairGateway() }) {
-                            Text(if (pairingBusy) "Đang ghép…" else "3. Pair / Khôi phục Pair với Brain Gateway")
+                            Text(if (pairingBusy) "Đang ghép…" else "Ghép lại Brain Gateway")
                         }
-                        Button(onClick = { startAgent() }) { Text("4. Khởi động Agent") }
+                        Button(onClick = { startAgent() }) { Text("Khởi động / Bật lại Agent") }
                         Button(onClick = { stopAgent() }) { Text("Dừng / Kill switch") }
                         Spacer(Modifier.height(8.dp))
-                        Text("V1.0.2 tự thử DNS hệ thống, Google DNS-over-HTTPS và Cloudflare DNS-over-HTTPS khi kết nối Gateway.")
-                        Text("Sau khi bật quyền, quay lại app. Trạng thái sẽ tự cập nhật. Nếu Pair từng dở dang, nút Pair có thể khôi phục phiên bằng chữ ký khóa riêng của chính điện thoại.")
-                        Text("Sau khi Pair thành công, sao chép Device ID và gửi cho GPT để chạy acceptance test.")
-                        Text("V1 không root. Agent chỉ thực thi command đã ký; Class D bị chặn. Vision cần consent riêng khi được dùng.")
+                        Text("Sau khi đã ghép, Agent tự khởi động khi mở app và sau khi máy khởi động lại.")
+                        Text("Agent chỉ thực thi lệnh đã ký và vẫn tuân theo giới hạn bảo mật Android.")
                     }
                 }
             }
         }
+
+        if (pairing != null) {
+            maybeStartAgent()
+        } else {
+            pairGateway()
+        }
+        checkGateway()
     }
 
     private fun copyDeviceId() {
@@ -153,11 +156,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun pairGateway() {
+        if (pairingBusy) return
         pairingBusy = true
         pairingStatus = "Đang kết nối gateway…"
         Thread {
             try {
-                PairingRepository(this).pair()
+                pairingRepository.pair()
                 runOnUiThread {
                     pairingStatus = "Đã ghép với Brain Gateway"
                     pairingBusy = false
@@ -176,13 +180,22 @@ class MainActivity : ComponentActivity() {
         }.start()
     }
 
+    private fun maybeStartAgent() {
+        val hasPairing = pairingRepository.load() != null
+        val killSwitch = !runPreference.isEnabled()
+        if (AgentStartupPolicy.shouldStart(hasPairing, killSwitch)) {
+            ContextCompat.startForegroundService(this, Intent(this, AgentForegroundService::class.java))
+        }
+    }
+
     private fun startAgent() {
-        AgentForegroundService.resetKillSwitch()
+        AgentForegroundService.resetKillSwitch(this)
         ContextCompat.startForegroundService(this, Intent(this, AgentForegroundService::class.java))
         refreshTick++
     }
 
     private fun stopAgent() {
+        runPreference.setEnabled(false)
         startService(Intent(this, AgentForegroundService::class.java).setAction(AgentForegroundService.ACTION_STOP))
         refreshTick++
     }
@@ -190,5 +203,6 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshTick++
+        maybeStartAgent()
     }
 }
