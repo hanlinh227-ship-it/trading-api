@@ -9,6 +9,7 @@ test('health advertises schema-2 task capability without private data', () => {
   assert.equal(health.plannerMode, 'workers-ai-with-deterministic-fallback')
   assert.equal(health.capabilities?.ephemeralScreenshots, true)
   assert.equal(health.capabilities?.localContacts, true)
+  assert.equal(health.capabilities?.contextualRiskClamp, true)
   assert.equal('observation' in health, false)
   assert.equal('screenshot' in health, false)
 })
@@ -28,6 +29,24 @@ test('class C task confirmation is task-bound and default scope includes destruc
   assert.equal(task.riskClass, 'C')
   assert.equal(task.confirmedTaskId, task.taskId)
   assert.ok(task.capabilityScope.includes('ui.destructive.confirmed'))
+})
+
+test('unknown-number cleanup automatically requires local contacts grounding', () => {
+  const task = normalizedTaskInput({
+    goal: 'Delete messages from unknown numbers not saved in contacts',
+    confirmedRiskClassC: true,
+  }, 'github-oidc')
+  assert.equal(task.taskRiskClass, 'C')
+  assert.ok(task.capabilityScope.includes('contacts.read'))
+  assert.ok(task.capabilityScope.includes('ui.destructive.confirmed'))
+})
+
+test('explicit scope cannot omit contacts for unknown-number cleanup', () => {
+  assert.throws(() => normalizedTaskInput({
+    goal: 'Xóa tin nhắn từ số lạ không lưu trong danh bạ',
+    confirmedRiskClassC: true,
+    capabilityScope: ['ui.navigate', 'ui.destructive.confirmed'],
+  }, 'github-oidc'), /contacts_read_required/)
 })
 
 test('class D task stays blocked even with a higher requested ceiling', () => {
