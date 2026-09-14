@@ -25,6 +25,10 @@ jobs:
         run: |
           python AI_SKILL_LIBRARY/v4/tools/release.py check --root .
           python AI_SKILL_LIBRARY/validate_v4.py
+      - name: Revalidate registered upstream sources
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python AI_SKILL_LIBRARY/validate_registry.py --check-remote | tee /tmp/v4-source-registry-audit.txt
       - name: Scan public GitHub for machine-readable V4 skill candidates
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -38,6 +42,7 @@ jobs:
         with:
           name: v4-evergreen-source-refresh
           path: |
+            /tmp/v4-source-registry-audit.txt
             /tmp/v4-quarantine-scan.json
             /tmp/v4-intelligence-audit.json
           retention-days: 7
