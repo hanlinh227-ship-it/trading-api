@@ -1,11 +1,11 @@
-version: 4.8.0
+version: 4.8.1
 mode: continuous_intelligence
 plane: evergreen_update_only
 stable_request_dependency: false
 canonical_skill_count_target: 109
 schedules:
-  source_refresh_hours: 6
-  candidate_cycle: daily
+  source_refresh_hours: 1
+  candidate_cycle: hourly
   deep_audit: weekly
   failure_intake: event_driven
 source_aging:
