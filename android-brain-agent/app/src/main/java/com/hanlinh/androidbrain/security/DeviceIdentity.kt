@@ -7,6 +7,7 @@ import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.MessageDigest
+import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 
 object DeviceIdentity {
@@ -40,4 +41,12 @@ object DeviceIdentity {
     }
 
     fun publicKeyBase64(): String = Base64.encodeToString(getOrCreateKeyPair().public.encoded, Base64.NO_WRAP)
+
+    fun signPairingChallenge(deviceId: String, challenge: String): String {
+        val signer = Signature.getInstance("SHA256withECDSA")
+        signer.initSign(getOrCreateKeyPair().private)
+        signer.update(PairingProof.payload(deviceId, challenge))
+        val p1363 = PairingProof.derToP1363(signer.sign())
+        return Base64.encodeToString(p1363, Base64.NO_WRAP)
+    }
 }

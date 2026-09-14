@@ -19,20 +19,33 @@ class GatewayClient(
         .readTimeout(15, TimeUnit.SECONDS)
         .build(),
 ) {
-    data class PairStart(val code: String, val expiresAt: Long)
+    data class PairStart(val challenge: String, val expiresAt: Long, val recovery: Boolean)
     data class PairComplete(val deviceToken: String, val gatewayPublicKeyJwk: String)
     data class TaskResult(val commandId: String, val status: String, val detail: String? = null)
 
     fun pairStart(deviceId: String, devicePublicKey: String): PairStart {
         val body = JSONObject().put("deviceId", deviceId).put("devicePublicKey", devicePublicKey)
         val json = post("/v1/pair/start", body, null)
-        return PairStart(json.getString("code"), json.getLong("expiresAt"))
+        return PairStart(
+            challenge = json.getString("challenge"),
+            expiresAt = json.getLong("expiresAt"),
+            recovery = json.optBoolean("recovery", false),
+        )
     }
 
-    fun pairComplete(deviceId: String, code: String): PairComplete {
-        val body = JSONObject().put("deviceId", deviceId).put("code", code)
+    fun pairComplete(deviceId: String, challenge: String, signature: String, recovery: Boolean): PairComplete {
+        val body = JSONObject()
+            .put("deviceId", deviceId)
+            .put("challenge", challenge)
+            .put("signature", signature)
+            .put("recovery", recovery)
         val json = post("/v1/pair/complete", body, null)
         return PairComplete(json.getString("deviceToken"), json.getJSONObject("gatewayPublicKeyJwk").toString())
+    }
+
+    fun health(): JSONObject {
+        val request = Request.Builder().url("$baseUrl/health").get().build()
+        return executeJson(request)
     }
 
     fun nextCommand(deviceId: String, token: String): CommandEnvelope? {

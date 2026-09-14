@@ -1,4 +1,4 @@
-import { importPrivateJwk, signCommand } from './crypto.js'
+import { importPrivateJwk, signCommand, verifyPairingProof } from './crypto.js'
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -75,23 +75,26 @@ export class DeviceSession {
   }
 
   async pairStart(request) {
-    const existing = await this.state.storage.get('pairing')
-    if (existing?.paired) return json({ error: 'device_already_paired' }, 409)
-
     const body = await request.json()
     if (!body.deviceId || !body.devicePublicKey) return json({ error: 'deviceId_and_public_key_required' }, 400)
-    const bytes = new Uint32Array(1)
-    crypto.getRandomValues(bytes)
-    const code = String(bytes[0] % 1000000).padStart(6, '0')
+
+    const existing = await this.state.storage.get('pairing')
+    if (existing?.paired && existing.devicePublicKey !== body.devicePublicKey) {
+      return json({ error: 'device_already_paired_with_different_key' }, 409)
+    }
+
+    const challenge = `${crypto.randomUUID()}-${crypto.randomUUID()}`
     const expiresAt = Date.now() + 5 * 60 * 1000
-    await this.state.storage.put('pairing', {
+    const pairing = {
+      ...(existing ?? {}),
       deviceId: body.deviceId,
       devicePublicKey: body.devicePublicKey,
-      codeHash: await sha256Base64(code),
+      challengeHash: await sha256Base64(challenge),
       expiresAt,
-      paired: false,
-    })
-    return json({ deviceId: body.deviceId, code, expiresAt })
+      paired: Boolean(existing?.paired),
+    }
+    await this.state.storage.put('pairing', pairing)
+    return json({ deviceId: body.deviceId, challenge, expiresAt, recovery: Boolean(existing?.paired) })
   }
 
   async pairComplete(request) {
@@ -100,18 +103,30 @@ export class DeviceSession {
     if (!pairing || pairing.deviceId !== body.deviceId || Date.now() >= pairing.expiresAt) {
       return json({ error: 'pairing_expired_or_missing' }, 401)
     }
-    if (await sha256Base64(String(body.code ?? '')) !== pairing.codeHash) return json({ error: 'invalid_pairing_code' }, 401)
+    if (!body.challenge || !body.signature) return json({ error: 'pairing_proof_required' }, 400)
+    if (await sha256Base64(String(body.challenge)) !== pairing.challengeHash) {
+      return json({ error: 'invalid_pairing_challenge' }, 401)
+    }
+    const proofOk = await verifyPairingProof({
+      deviceId: pairing.deviceId,
+      challenge: body.challenge,
+      publicKeyBase64: pairing.devicePublicKey,
+      signatureBase64: body.signature,
+    })
+    if (!proofOk) return json({ error: 'invalid_pairing_proof' }, 401)
+
     const raw = new Uint8Array(32)
     crypto.getRandomValues(raw)
     let token = ''
     for (const b of raw) token += b.toString(16).padStart(2, '0')
     pairing.paired = true
-    pairing.codeHash = null
+    pairing.challengeHash = null
     pairing.deviceTokenHash = await sha256Base64(token)
     await this.state.storage.put('pairing', pairing)
     const material = await this.ensureSigningMaterial()
     return json({
       paired: true,
+      recovered: Boolean(body.recovery),
       deviceId: pairing.deviceId,
       deviceToken: token,
       gatewayPublicKeyJwk: material.publicJwk,

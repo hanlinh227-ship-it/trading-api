@@ -23,7 +23,8 @@ class PairingRepository(
     fun pair(): PairingData {
         val deviceId = DeviceIdentity.deviceId()
         val start = client.pairStart(deviceId, DeviceIdentity.publicKeyBase64())
-        val complete = client.pairComplete(deviceId, start.code)
+        val signature = DeviceIdentity.signPairingChallenge(deviceId, start.challenge)
+        val complete = client.pairComplete(deviceId, start.challenge, signature, start.recovery)
         val gatewayKey = EcJwk.publicKeyFromJwk(complete.gatewayPublicKeyJwk)
         val data = PairingData(
             deviceId = deviceId,

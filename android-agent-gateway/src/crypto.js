@@ -28,6 +28,38 @@ export function canonicalCommand(command) {
   ].join('\n')
 }
 
+export function pairingProofPayload(deviceId, challenge) {
+  return `android-brain-pair-v2\n${deviceId}\n${challenge}`
+}
+
+export async function deviceIdFromPublicKeySpki(publicKeyBase64) {
+  const spki = base64ToBytes(publicKeyBase64)
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', spki))
+  return [...digest.slice(0, 16)].map(x => x.toString(16).padStart(2, '0')).join('')
+}
+
+export async function verifyPairingProof({ deviceId, challenge, publicKeyBase64, signatureBase64 }) {
+  try {
+    if (!deviceId || !challenge || !publicKeyBase64 || !signatureBase64) return false
+    if (await deviceIdFromPublicKeySpki(publicKeyBase64) !== deviceId) return false
+    const publicKey = await crypto.subtle.importKey(
+      'spki',
+      base64ToBytes(publicKeyBase64),
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      true,
+      ['verify'],
+    )
+    return await crypto.subtle.verify(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      publicKey,
+      base64ToBytes(signatureBase64),
+      enc.encode(pairingProofPayload(deviceId, challenge)),
+    )
+  } catch {
+    return false
+  }
+}
+
 export async function generateTestKeyPair() {
   return crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])
 }
