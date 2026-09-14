@@ -161,15 +161,17 @@ class Brain48ContinuousIntelligenceTests(unittest.TestCase):
     def test_workflows_are_scheduled_and_never_direct_push_main(self):
         scan = ROOT / ".github/workflows/ai-brain-evergreen-scan.yml"
         candidate = ROOT / ".github/workflows/ai-brain-evergreen-candidate.yml"
-        audit = ROOT / ".github/workflows/ai-brain-continuous-intelligence-audit.yml"
-        for path in (scan, candidate, audit):
+        for path in (scan, candidate):
             self.assertTrue(path.is_file(), str(path))
             text = path.read_text(encoding="utf-8")
             self.assertIn("schedule:", text)
             self.assertNotIn("git push origin main", text)
-        self.assertIn("17 */6 * * *", scan.read_text(encoding="utf-8"))
+        scan_text = scan.read_text(encoding="utf-8")
+        self.assertIn("17 */6 * * *", scan_text)
+        self.assertIn("23 3 * * 0", scan_text)
+        self.assertIn("weekly-intelligence-audit", scan_text)
+        self.assertIn("ci_validate.py", scan_text)
         self.assertIn("ci_validate.py", candidate.read_text(encoding="utf-8"))
-        self.assertIn("23 3 * * 0", audit.read_text(encoding="utf-8"))
 
     def test_release_tool_includes_continuous_intelligence_contract(self):
         release_text = (ROOT / "AI_SKILL_LIBRARY/v4/tools/release.py").read_text(encoding="utf-8")
