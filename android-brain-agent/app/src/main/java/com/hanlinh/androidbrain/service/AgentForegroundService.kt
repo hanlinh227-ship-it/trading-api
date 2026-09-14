@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.hanlinh.androidbrain.MainActivity
 import com.hanlinh.androidbrain.network.AgentConnectionManager
+import com.hanlinh.androidbrain.network.PairingData
 import com.hanlinh.androidbrain.network.PairingRepository
 
 class AgentForegroundService : Service() {
@@ -31,6 +32,7 @@ class AgentForegroundService : Service() {
     }
 
     private var connectionManager: AgentConnectionManager? = null
+    private var connectionPairing: PairingData? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -42,8 +44,7 @@ class AgentForegroundService : Service() {
         if (intent?.action == ACTION_STOP) {
             AgentRunPreference(this).setEnabled(false)
             killSwitchActive = true
-            connectionManager?.stop()
-            connectionManager = null
+            stopConnection()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -51,23 +52,36 @@ class AgentForegroundService : Service() {
 
         if (!AgentRunPreference(this).isEnabled()) {
             killSwitchActive = true
+            stopConnection()
             stopSelf()
             return START_NOT_STICKY
         }
 
         killSwitchActive = false
         startAsForeground()
-        if (connectionManager == null) {
-            PairingRepository(this).load()?.let { pairing ->
-                connectionManager = AgentConnectionManager(this, pairing).also { it.start() }
-            }
-        }
+        refreshConnectionIfNeeded()
         return START_STICKY
     }
 
-    override fun onDestroy() {
+    private fun refreshConnectionIfNeeded() {
+        val latestPairing = PairingRepository(this).load()
+        if (!AgentConnectionRefreshPolicy.shouldRefresh(connectionPairing, latestPairing)) return
+
+        stopConnection()
+        connectionPairing = latestPairing
+        latestPairing?.let { pairing ->
+            connectionManager = AgentConnectionManager(this, pairing).also { it.start() }
+        }
+    }
+
+    private fun stopConnection() {
         connectionManager?.stop()
         connectionManager = null
+        connectionPairing = null
+    }
+
+    override fun onDestroy() {
+        stopConnection()
         super.onDestroy()
     }
 
@@ -100,7 +114,7 @@ class AgentForegroundService : Service() {
         val stopIntent = PendingIntent.getService(
             this,
             1,
-            Intent(this, AgentForegroundService::class.java).setAction(ACTION_STOP),
+            Intent(this, AgentForegroundService::class.java).setAction(AgentForegroundService.ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
