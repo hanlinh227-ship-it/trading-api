@@ -6,6 +6,7 @@ This repository uses one GitHub-first V4 LTS dual-plane brain. Keep this file co
 - Default to concise, action-first responses. Give only the next concrete action(s) needed; avoid long explanations unless the user explicitly asks for detail.
 - When the user has already authorized implementation and the requested action is safe and tool-accessible, execute it immediately instead of asking for redundant approval or narrating what could be done.
 - Never claim an action was performed when no available tool actually performed it. State unavoidable user-side steps briefly and precisely.
+- For Android Agent commands, create the `[ANDROID_AGENT]` bridge issue and respond immediately after issue creation; do not wait for GitHub Actions or device completion unless the user explicitly asks to check status.
 
 ## Bootstrap
 At a new substantive work cycle when GitHub is available:
