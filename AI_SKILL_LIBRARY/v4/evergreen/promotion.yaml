@@ -2,6 +2,13 @@ version: 4
 required_gates: [provenance, license, schema, conflict, security, authority, domain_evals, global_regression, context_cost, canary]
 protected_dimensions: [correctness, authority, security, verification, project_isolation]
 protected_regression_tolerance: 0.0
+candidate_comparison:
+  min_primary_quality_gain: 0.01
+  max_relative_latency_regression: 0.10
+  max_relative_cost_regression: 0.05
+  missing_baseline_evidence: hold
+  missing_candidate_evidence: hold
+  permission_expansion: manual_authorization_required
 classes:
   A:
     description: declarative_low_risk
@@ -13,9 +20,11 @@ classes:
     automatic_promotion: true
     canaries_required: 1
     sandbox_required: true
+    permission_expansion_allowed: false
   C:
     description: kernel_router_security_authority
-    automatic_promotion: bounded
+    automatic_promotion: false
+    explicit_authorization_required: true
     canaries_required: 2
     sandbox_required: true
     exact_compatibility_proof: true
@@ -30,3 +39,5 @@ promotion:
   observe_health_after_swap: true
   rollback_on_protected_regression: true
   rollback_does_not_require_root_cause: true
+  automatic_minor_version_bump: false
+  automatic_patch_version_bump: true
