@@ -14,6 +14,23 @@ def test_find_comfyui_root_prefers_candidate_with_models_and_custom_nodes(tmp_pa
     assert found == good.resolve()
 
 
+def test_discover_comfyui_root_finds_nested_desktop_data_directory(tmp_path):
+    root = tmp_path / "AppData" / "Roaming" / "ComfyUI" / "app" / "ComfyUI"
+    (root / "models").mkdir(parents=True)
+    (root / "custom_nodes").mkdir()
+
+    found = image_setup.discover_comfyui_root([tmp_path], max_depth=6)
+    assert found == root.resolve()
+
+
+def test_discover_comfyui_root_respects_depth_bound(tmp_path):
+    root = tmp_path / "a" / "b" / "c" / "d" / "e" / "ComfyUI"
+    (root / "models").mkdir(parents=True)
+    (root / "custom_nodes").mkdir()
+
+    assert image_setup.discover_comfyui_root([tmp_path], max_depth=2) is None
+
+
 def test_bootstrap_plan_is_fixed_zero_cost_and_hash_pinned(tmp_path):
     root = tmp_path / "ComfyUI"
     (root / "models").mkdir(parents=True)
