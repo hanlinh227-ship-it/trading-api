@@ -14,6 +14,7 @@ from .comfyui_adapter import ComfyUIAdapter, ComfyUIError, DependencyMissing
 from .image_render_contract import ContractError, ImageRenderJob
 from .image_setup import ImageSetupError, bootstrap_reference_stack
 
+RUNTIME_BUILD = "image-setup-v1"
 _COMFYUI_BASE = "http://127.0.0.1:8188"
 
 
