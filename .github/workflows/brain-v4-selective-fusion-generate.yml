@@ -42,9 +42,6 @@ jobs:
             echo "Unexpected release pointer before generator: $current" >&2
             exit 1
           fi
-          # The release tool's rollback invariant requires every current pointer
-          # to be present in known-good history. This marks the branch candidate
-          # rollback-eligible; production deployment verification remains separate.
           python AI_SKILL_LIBRARY/v4/tools/release.py build \
             --version 4.7.0 \
             --source brain_4_7_selective_open_source_fusion \
@@ -59,16 +56,14 @@ jobs:
             --source-sha "$SOURCE_SHA" \
             --output /tmp/skill-gateway-snapshot.json
           python AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py /tmp/skill-gateway-snapshot.json
-          # Remove this one-shot generator from the candidate before CI so the
-          # consolidation workflow-count invariant is evaluated on mergeable state.
           git rm .github/workflows/brain-v4-selective-fusion-generate.yml
           python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA"
       - name: Commit generated artifacts and remove one-shot generator
         shell: bash
         run: |
           set -euo pipefail
-          git add -A \
-            .github/workflows/brain-v4-selective-fusion-generate.yml \
+          # The workflow deletion is already staged by git rm above.
+          git add \
             AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml \
             AI_SKILL_LIBRARY/v4/releases/4.7.0/manifest.yaml \
             AI_SKILL_LIBRARY/v4/releases/current.json \
