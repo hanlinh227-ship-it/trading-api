@@ -1,0 +1,147 @@
+name: Android Brain Agent CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, android-brain-agent-v1-impl]
+    paths:
+      - 'android-brain-agent/**'
+      - 'android-agent-gateway/**'
+      - 'AI_SKILL_LIBRARY/runtime/android_agent.yaml'
+      - 'AI_SKILL_LIBRARY/tests/test_android_agent_provider.py'
+      - '.github/workflows/android-brain-agent-ci.yml'
+  pull_request:
+    paths:
+      - 'android-brain-agent/**'
+      - 'android-agent-gateway/**'
+      - 'AI_SKILL_LIBRARY/runtime/android_agent.yaml'
+      - 'AI_SKILL_LIBRARY/tests/test_android_agent_provider.py'
+      - '.github/workflows/android-brain-agent-ci.yml'
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  android:
+    if: github.event_name != 'issues'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Test and build debug APK
+        working-directory: android-brain-agent
+        run: gradle testDebugUnitTest lintDebug assembleDebug --stacktrace
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-brain-agent-debug-apk
+          path: android-brain-agent/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  gateway:
+    if: github.event_name != 'issues'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install gateway dependencies
+        working-directory: android-agent-gateway
+        run: npm install --no-package-lock --ignore-scripts
+      - name: Gateway tests
+        working-directory: android-agent-gateway
+        run: npm test
+      - name: Wrangler dry-run
+        working-directory: android-agent-gateway
+        run: npx wrangler deploy --dry-run
+
+  deploy-gateway:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: gateway
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate deployment credentials
+        run: |
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+      - name: Install gateway dependencies
+        working-directory: android-agent-gateway
+        run: npm install --no-package-lock --ignore-scripts
+      - name: Deploy exact-main Android Agent Gateway
+        working-directory: android-agent-gateway
+        run: npx wrangler deploy --var DEPLOYMENT_SOURCE_SHA:$GITHUB_SHA
+      - name: Verify production gateway
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            BODY="$(curl -fsS --connect-timeout 5 --max-time 15 https://android-brain-agent-gateway.hanlinh227.workers.dev/health || true)"
+            if printf '%s' "$BODY" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok===true&&x.service==='android-brain-agent-gateway'&&x.sourceSha===process.env.GITHUB_SHA&&x.commandAuth==='github-oidc')process.exit(0)}catch{}process.exit(1)})"; then
+              echo 'ANDROID_AGENT_GATEWAY=PASS'
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
+
+  github-command:
+    if: >-
+      github.event_name == 'issues' &&
+      github.event.issue.user.login == 'hanlinh227-ship-it' &&
+      startsWith(github.event.issue.title, '[ANDROID_AGENT]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ISSUE_BODY: ${{ github.event.issue.body }}
+      GATEWAY_BASE_URL: https://android-brain-agent-gateway.hanlinh227.workers.dev
+    steps:
+      - name: Validate command payload
+        id: payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$ISSUE_BODY" | jq -e 'type=="object" and (.deviceId|type=="string" and length>0) and (.goal|type=="string" and length>0) and (.capabilityScope|type=="array")' >/dev/null
+          DEVICE_ID="$(printf '%s' "$ISSUE_BODY" | jq -r '.deviceId')"
+          echo "device_id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
+      - name: Obtain repository-bound GitHub OIDC token
+        id: oidc
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=android-brain-agent-gateway" | jq -r '.value')"
+          test -n "$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+      - name: Queue Class-A Android command
+        shell: bash
+        env:
+          DEVICE_ID: ${{ steps.payload.outputs.device_id }}
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          curl -fsS --connect-timeout 5 --max-time 20 \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
+            -H 'content-type: application/json' \
+            -d "$ISSUE_BODY" \
+            "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/commands" \
+            | jq -e '.queued == true'

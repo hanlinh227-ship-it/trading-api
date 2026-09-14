@@ -1,0 +1,99 @@
+package com.hanlinh.androidbrain.network
+
+import com.hanlinh.androidbrain.BuildConfig
+import com.hanlinh.androidbrain.policy.RiskClass
+import com.hanlinh.androidbrain.protocol.CommandEnvelope
+import java.time.Instant
+import java.util.concurrent.TimeUnit
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+
+class GatewayClient(
+    private val baseUrl: String = BuildConfig.GATEWAY_BASE_URL.trimEnd('/'),
+    private val http: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .build(),
+) {
+    data class PairStart(val code: String, val expiresAt: Long)
+    data class PairComplete(val deviceToken: String, val gatewayPublicKeyJwk: String)
+    data class TaskResult(val commandId: String, val status: String, val detail: String? = null)
+
+    fun pairStart(deviceId: String, devicePublicKey: String): PairStart {
+        val body = JSONObject().put("deviceId", deviceId).put("devicePublicKey", devicePublicKey)
+        val json = post("/v1/pair/start", body, null)
+        return PairStart(json.getString("code"), json.getLong("expiresAt"))
+    }
+
+    fun pairComplete(deviceId: String, code: String): PairComplete {
+        val body = JSONObject().put("deviceId", deviceId).put("code", code)
+        val json = post("/v1/pair/complete", body, null)
+        return PairComplete(json.getString("deviceToken"), json.getJSONObject("gatewayPublicKeyJwk").toString())
+    }
+
+    fun nextCommand(deviceId: String, token: String): CommandEnvelope? {
+        val request = Request.Builder()
+            .url("$baseUrl/v1/device/${encodeSegment(deviceId)}/next")
+            .header("Authorization", "Bearer $token")
+            .get()
+            .build()
+        val json = executeJson(request)
+        if (json.isNull("command")) return null
+        return parseCommand(json.getJSONObject("command"))
+    }
+
+    fun postResult(deviceId: String, token: String, result: TaskResult) {
+        val body = JSONObject()
+            .put("commandId", result.commandId)
+            .put("status", result.status)
+            .put("detail", result.detail)
+        post("/v1/device/${encodeSegment(deviceId)}/result", body, token)
+    }
+
+    private fun post(path: String, body: JSONObject, token: String?): JSONObject {
+        val builder = Request.Builder()
+            .url("$baseUrl$path")
+            .post(body.toString().toRequestBody(JSON_MEDIA_TYPE))
+        if (token != null) builder.header("Authorization", "Bearer $token")
+        return executeJson(builder.build())
+    }
+
+    private fun executeJson(request: Request): JSONObject {
+        http.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw GatewayException(response.code, text.take(1000))
+            return if (text.isBlank()) JSONObject() else JSONObject(text)
+        }
+    }
+
+    private fun parseCommand(json: JSONObject): CommandEnvelope {
+        val scopeJson = json.optJSONArray("capabilityScope") ?: JSONArray()
+        val scope = buildSet {
+            for (i in 0 until scopeJson.length()) add(scopeJson.getString(i))
+        }
+        return CommandEnvelope(
+            schema = json.getInt("schema"),
+            commandId = json.getString("commandId"),
+            deviceId = json.getString("deviceId"),
+            issuedAt = Instant.parse(json.getString("issuedAt")),
+            expiresAt = Instant.parse(json.getString("expiresAt")),
+            nonce = json.getString("nonce"),
+            goal = json.getString("goal"),
+            capabilityScope = scope,
+            riskClass = RiskClass.valueOf(json.getString("riskClass")),
+            signature = json.getString("signature"),
+        )
+    }
+
+    private fun encodeSegment(value: String): String = java.net.URLEncoder.encode(value, Charsets.UTF_8.name())
+
+    class GatewayException(val statusCode: Int, message: String) : RuntimeException(message)
+
+    companion object {
+        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+    }
+}
