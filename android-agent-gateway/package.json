@@ -1,0 +1,12 @@
+{
+  "name": "android-brain-agent-gateway",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "dry-run": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "4.124.0"
+  }
+}

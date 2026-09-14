@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "android-brain-agent-gateway",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-14",
+  "durable_objects": {
+    "bindings": [
+      { "name": "DEVICE_SESSIONS", "class_name": "DeviceSession" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["DeviceSession"] }
+  ]
+}

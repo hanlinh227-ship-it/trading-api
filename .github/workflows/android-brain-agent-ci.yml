@@ -45,3 +45,21 @@ jobs:
           name: android-brain-agent-debug-apk
           path: android-brain-agent/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+  gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install gateway dependencies
+        working-directory: android-agent-gateway
+        run: npm install --no-package-lock --ignore-scripts
+      - name: Gateway tests
+        working-directory: android-agent-gateway
+        run: npm test
+      - name: Wrangler dry-run
+        working-directory: android-agent-gateway
+        run: npx wrangler deploy --dry-run
