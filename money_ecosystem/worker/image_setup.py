@@ -14,7 +14,7 @@ from typing import Iterable
 IPADAPTER_REPO_URL = "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git"
 IPADAPTER_REPO_COMMIT = "a0f451a5113cf9becb0847b92884cb10cbdec0ef"
 MIN_FREE_BYTES = 9 * 1024**3
-MAX_DISCOVERY_ENTRIES = 25000
+MAX_DISCOVERY_ENTRIES = 100000
 
 _FILES = (
     {
@@ -50,13 +50,32 @@ def _is_comfyui_data_root(root: Path) -> bool:
     return root.is_dir() and (root / "models").is_dir()
 
 
+def _nearest_data_root(path: Path, max_up: int = 5) -> Path | None:
+    try:
+        current = path.expanduser().resolve()
+    except OSError:
+        return None
+    if current.is_file():
+        current = current.parent
+    for _ in range(max_up + 1):
+        if _is_comfyui_data_root(current):
+            return current
+        if current.parent == current:
+            break
+        current = current.parent
+    return None
+
+
 def _default_candidates() -> list[Path]:
     home = Path.home()
     out = [
         home / "Documents" / "ComfyUI",
+        home / "Desktop" / "ComfyUI",
         home / "ComfyUI",
+        home / "ComfyUI_windows_portable" / "ComfyUI",
         Path("C:/ComfyUI"),
         Path("C:/AI/ComfyUI"),
+        Path("C:/AI/ComfyUI_windows_portable/ComfyUI"),
     ]
     for env_name in ("APPDATA", "LOCALAPPDATA"):
         value = os.environ.get(env_name)
@@ -66,6 +85,7 @@ def _default_candidates() -> list[Path]:
                 [
                     base / "ComfyUI",
                     base / "Programs" / "ComfyUI",
+                    base / "Programs" / "ComfyUI" / "resources" / "ComfyUI",
                     base / "comfyui-electron" / "ComfyUI",
                     base / "ComfyUI" / "app" / "ComfyUI",
                     base / "ComfyUI" / "resources" / "ComfyUI",
@@ -83,10 +103,12 @@ def _default_candidates() -> list[Path]:
 
 def _desktop_config_candidates() -> list[Path]:
     out: list[Path] = []
-    appdata = os.environ.get("APPDATA")
-    if appdata:
-        base = Path(appdata)
-        for app_name in ("ComfyUI", "Comfy Desktop", "comfyui-desktop-2"):
+    for env_name in ("APPDATA", "LOCALAPPDATA"):
+        value = os.environ.get(env_name)
+        if not value:
+            continue
+        base = Path(value)
+        for app_name in ("ComfyUI", "Comfy Desktop", "comfyui-desktop", "comfyui-desktop-2"):
             out.extend(
                 [
                     base / app_name / "config.json",
@@ -112,7 +134,7 @@ def _paths_from_json_config(path: Path) -> list[Path]:
     def walk(value):
         if isinstance(value, dict):
             for key, child in value.items():
-                if key in {"basePath", "base_path", "installPath"} and isinstance(child, str) and child.strip():
+                if key in {"basePath", "base_path", "installPath", "modelPath", "modelsPath"} and isinstance(child, str) and child.strip():
                     found.append(_normalize_config_path(child))
                 walk(child)
         elif isinstance(value, list):
@@ -144,17 +166,77 @@ def find_comfyui_root_from_desktop_config(config_files: Iterable[Path] | None = 
             continue
         candidates = _paths_from_json_config(path) if path.suffix.lower() == ".json" else _paths_from_yaml_config(path)
         for candidate in candidates:
-            try:
-                root = candidate.resolve()
-            except OSError:
-                continue
-            if _is_comfyui_data_root(root):
+            root = _nearest_data_root(candidate)
+            if root is not None:
                 return root
     return None
 
 
+def _extract_flag_path(command_line: str, flag: str) -> Path | None:
+    pattern = rf"(?:^|\s){re.escape(flag)}(?:=|\s+)(?:\"([^\"]+)\"|'([^']+)'|(\S+))"
+    match = re.search(pattern, command_line, flags=re.IGNORECASE)
+    if not match:
+        return None
+    value = next((g for g in match.groups() if g), None)
+    return _normalize_config_path(value) if value else None
+
+
+def find_comfyui_root_from_command_lines(command_lines: Iterable[str]) -> Path | None:
+    for raw in command_lines:
+        line = str(raw or "")
+        if "comfy" not in line.lower() and "main.py" not in line.lower():
+            continue
+        base = _extract_flag_path(line, "--base-directory")
+        if base:
+            root = _nearest_data_root(base)
+            if root is not None:
+                return root
+        user_dir = _extract_flag_path(line, "--user-directory")
+        if user_dir:
+            root = _nearest_data_root(user_dir)
+            if root is not None:
+                return root
+        for match in re.finditer(r"(?:\"([^\"]*main\.py)\"|'([^']*main\.py)'|(\S*main\.py))", line, re.IGNORECASE):
+            value = next((g for g in match.groups() if g), None)
+            if value:
+                root = _nearest_data_root(Path(value).parent)
+                if root is not None:
+                    return root
+    return None
+
+
+def _running_comfyui_command_lines() -> list[str]:
+    if os.name != "nt":
+        return []
+    ps = (
+        "$ErrorActionPreference='SilentlyContinue'; "
+        "Get-CimInstance Win32_Process | "
+        "Where-Object { $_.CommandLine -and ($_.CommandLine -match 'ComfyUI|main.py|8188') } | "
+        "ForEach-Object { $_.CommandLine }"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if result.returncode != 0:
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def find_comfyui_root_from_running_process() -> Path | None:
+    return find_comfyui_root_from_command_lines(_running_comfyui_command_lines())
+
+
 def _default_search_roots() -> list[Path]:
-    roots = [Path.home() / "Documents", Path("C:/AI")]
+    home = Path.home()
+    roots = [home, home / "Documents", home / "Desktop", Path("C:/AI")]
     for env_name in ("APPDATA", "LOCALAPPDATA", "PROGRAMDATA"):
         value = os.environ.get(env_name)
         if value:
@@ -171,8 +253,8 @@ def _default_search_roots() -> list[Path]:
 
 def find_comfyui_root(candidates: Iterable[Path] | None = None) -> Path | None:
     for candidate in list(candidates) if candidates is not None else _default_candidates():
-        root = Path(candidate).expanduser().resolve()
-        if _is_comfyui_root(root):
+        root = _nearest_data_root(Path(candidate))
+        if root is not None:
             return root
     return None
 
@@ -180,19 +262,13 @@ def find_comfyui_root(candidates: Iterable[Path] | None = None) -> Path | None:
 def discover_comfyui_root(
     search_roots: Iterable[Path] | None = None,
     *,
-    max_depth: int = 6,
+    max_depth: int = 9,
     max_entries: int = MAX_DISCOVERY_ENTRIES,
 ) -> Path | None:
     roots = list(search_roots) if search_roots is not None else _default_search_roots()
     skipped_names = {
-        ".git",
-        "node_modules",
-        "cache",
-        "code cache",
-        "gpucache",
-        "temp",
-        "tmp",
-        "$recycle.bin",
+        ".git", "node_modules", "cache", "code cache", "gpucache", "temp", "tmp", "$recycle.bin",
+        "windows", "winsxs", "packages", "npm-cache", "pip", "torch_extensions",
     }
     examined = 0
     for search_root in roots:
@@ -217,9 +293,9 @@ def discover_comfyui_root(
             dirs[:] = [name for name in dirs if name.lower() not in skipped_names]
             examined += 1
             if examined > max_entries:
-                return None
+                break
             try:
-                if _is_comfyui_root(current_path):
+                if _is_comfyui_data_root(current_path):
                     return current_path.resolve()
             except OSError:
                 continue
@@ -259,7 +335,7 @@ def _download_verified(url: str, target: Path, expected_sha256: str) -> str:
         part.unlink()
     request = urllib.request.Request(url, headers={"User-Agent": "CuriousBeyondWorker/1.0"})
     try:
-        with urllib.request.urlopen(request, timeout=60) as response, part.open("wb") as out:
+        with urllib.request.urlopen(request, timeout=120) as response, part.open("wb") as out:
             shutil.copyfileobj(response, out, length=8 * 1024 * 1024)
     except Exception as exc:
         if part.exists():
@@ -304,15 +380,18 @@ def _ensure_ipadapter_node(root: Path) -> str:
 
 
 def bootstrap_reference_stack() -> dict:
-    root = find_comfyui_root_from_desktop_config() or find_comfyui_root() or discover_comfyui_root()
+    root = (
+        find_comfyui_root_from_running_process()
+        or find_comfyui_root_from_desktop_config()
+        or find_comfyui_root()
+        or discover_comfyui_root()
+    )
     if root is None:
         searched = [str(path) for path in _default_search_roots()]
         configs = [str(path) for path in _desktop_config_candidates()]
         raise ImageSetupError(
-            "ComfyUI data root not found after Desktop config lookup and bounded discovery; config candidates: "
-            + ", ".join(configs)
-            + "; searched roots: "
-            + ", ".join(searched)
+            "ComfyUI data root not found after running-process lookup, Desktop config lookup and bounded discovery; "
+            "config candidates: " + ", ".join(configs) + "; searched roots: " + ", ".join(searched)
         )
     usage = shutil.disk_usage(root)
     if usage.free < MIN_FREE_BYTES:
