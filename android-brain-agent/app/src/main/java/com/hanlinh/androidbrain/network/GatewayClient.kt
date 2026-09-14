@@ -3,6 +3,7 @@ package com.hanlinh.androidbrain.network
 import com.hanlinh.androidbrain.BuildConfig
 import com.hanlinh.androidbrain.policy.RiskClass
 import com.hanlinh.androidbrain.protocol.CommandEnvelope
+import com.hanlinh.androidbrain.protocol.TypedActionCodec
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import okhttp3.MediaType.Companion.toMediaType
@@ -95,22 +96,31 @@ class GatewayClient(
         }
     }
 
-    private fun parseCommand(json: JSONObject): CommandEnvelope {
+    internal fun parseCommand(json: JSONObject): CommandEnvelope {
+        val schema = json.getInt("schema")
+        require(schema == 1 || schema == 2) { "Unsupported command schema" }
         val scopeJson = json.optJSONArray("capabilityScope") ?: JSONArray()
         val scope = buildSet {
             for (i in 0 until scopeJson.length()) add(scopeJson.getString(i))
         }
+        val typedAction = if (schema == 2) {
+            val actionObject = json.optJSONObject("action")
+                ?: throw IllegalArgumentException("Schema-2 command requires action")
+            TypedActionCodec.decode(actionObject.toString())
+        } else null
         return CommandEnvelope(
-            schema = json.getInt("schema"),
+            schema = schema,
             commandId = json.getString("commandId"),
             deviceId = json.getString("deviceId"),
             issuedAt = Instant.parse(json.getString("issuedAt")),
             expiresAt = Instant.parse(json.getString("expiresAt")),
             nonce = json.getString("nonce"),
-            goal = json.getString("goal"),
+            goal = if (schema == 1) json.getString("goal") else json.optString("goal", ""),
             capabilityScope = scope,
             riskClass = RiskClass.valueOf(json.getString("riskClass")),
             signature = json.getString("signature"),
+            taskId = if (schema == 2) json.getString("taskId") else null,
+            action = typedAction,
         )
     }
 
