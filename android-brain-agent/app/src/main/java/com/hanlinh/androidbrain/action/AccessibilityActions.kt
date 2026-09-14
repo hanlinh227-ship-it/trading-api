@@ -68,6 +68,7 @@ class AccessibilityActions(
     private fun findNode(root: AccessibilityNodeInfo, selector: String): AccessibilityNodeInfo? {
         if (root.viewIdResourceName == selector) return root
         val wanted = normalize(selector)
+        if (wanted.isBlank()) return null
         if (matches(root.text?.toString(), wanted) || matches(root.contentDescription?.toString(), wanted)) return root
 
         if (selector.contains(":")) {
@@ -95,6 +96,7 @@ class AccessibilityActions(
 
     private fun matches(value: String?, wanted: String): Boolean {
         val candidate = value?.let(::normalize) ?: return false
+        if (candidate.isBlank() || wanted.isBlank()) return false
         return candidate == wanted || candidate.contains(wanted) || wanted.contains(candidate)
     }
 
