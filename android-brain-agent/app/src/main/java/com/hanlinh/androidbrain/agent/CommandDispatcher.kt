@@ -134,6 +134,39 @@ class CommandDispatcher(
         return if (command.schema == 2) observationMetadata(command) else GatewayClient.TaskResult(command.commandId, "COMPLETED")
     }
 
+    /**
+     * Executes a typed V5 action only inside already-authorized task authority.
+     * This is a second clamp behind UnifiedOperatorEngine; it never permits Class C/D locally.
+     */
+    fun executeAuthorizedLocal(action: Action, session: PersistentOperatorSession): Boolean {
+        if (AgentForegroundService.killSwitchActive || session.terminal) return false
+        if (action.riskClass.ordinal >= RiskClass.C.ordinal) return false
+        if (action.riskClass.ordinal > session.riskCeiling.ordinal) return false
+
+        val requiredCapability = when (action) {
+            is LaunchApp, is OpenUrl -> "apps.open"
+            else -> if (action.riskClass == RiskClass.B) "ui.write" else "ui.navigate"
+        }
+        if (requiredCapability !in session.capabilityScope) return false
+        if (action is LaunchApp && session.allowedPackages.isNotEmpty() && action.packageName !in session.allowedPackages) {
+            return false
+        }
+        if (action is OpenUrl && session.allowedPackages.isNotEmpty()) return false
+
+        when (riskPolicy.authorize(
+            action = action,
+            userPolicy = UserPolicy(classBEnabled = action.riskClass == RiskClass.B),
+            confirmedClassC = false,
+            effectiveRiskClass = action.riskClass,
+        )) {
+            AuthorizationDecision.Allowed -> Unit
+            else -> return false
+        }
+
+        if (action === ReadScreen) return BrainAccessibilityService.current?.snapshot() != null
+        return execute(action)
+    }
+
     private fun scopeAllows(command: CommandEnvelope, action: Action): Boolean {
         if (command.schema == 1) return true
         val required = when (action) {
