@@ -10,8 +10,8 @@
 ## START HERE — SUCCESSOR
 
 1. **Repository:** `hanlinh227-ship-it/trading-api`, canonical branch `main`.
-2. **Current `main`:** `99359b1720a28614749d53615fe2b740044de40e`
-3. **Production runtime revision:** `99359b1720a28614749d53615fe2b740044de40e` — full parity with `main`.
+2. **Production-verified baseline:** `99359b1720a28614749d53615fe2b740044de40e` — the revision at which the full production contract was verified (run 34987419682).
+3. **`main` and production advance together** on every merge through the gated deploy. Documentation-only merges after the baseline advance `main` without changing runtime behaviour, so `main` may legitimately be ahead of the SHA above. **Always re-verify current parity per §12.7 — trust the repository, not this number.**
 4. **Release:** `4.9.1`, `KNOWN_GOOD = YES` (`AI_SKILL_LIBRARY/v4/releases/history.yaml`).
 5. **Worker:** `trading-v77-scanner` on Cloudflare Workers.
 6. **Model Mesh state:** PRODUCTION VERIFIED. FREE_ONLY, 5 eligible providers, **3 ACTIVE**. STANDARD→2 workers, DEEP→3.
@@ -58,8 +58,9 @@ Verification vocabulary used throughout this document:
 |---|---|---|
 | Repository | `hanlinh227-ship-it/trading-api` | SOURCE VERIFIED |
 | Canonical branch | `main` | SOURCE VERIFIED |
-| Current `main` SHA | `99359b1720a28614749d53615fe2b740044de40e` | SOURCE VERIFIED |
-| Production exact SHA | `99359b1720a28614749d53615fe2b740044de40e` | PRODUCTION VERIFIED |
+| Production-verified baseline SHA | `99359b1720a28614749d53615fe2b740044de40e` | PRODUCTION VERIFIED |
+| `main` when this document was written | `99359b1720a28614749d53615fe2b740044de40e` | SOURCE VERIFIED |
+| `main` after this document was merged | advances by the handoff merge commit — documentation only, no runtime change | SOURCE VERIFIED |
 | Release / version | `4.9.1` | SOURCE VERIFIED |
 | `KNOWN_GOOD` | **YES** | PRODUCTION VERIFIED |
 | Cloudflare Worker | `trading-v77-scanner` | SOURCE VERIFIED |
@@ -629,3 +630,4 @@ opinion, or performance argument.
 - Production could not be queried directly from the authoring session (the sandbox egress proxy denies `workers.dev`). **Every production figure here is quoted from GitHub Actions run logs**, which are the authoritative deployment gate, not from an independent live query.
 - Provider health is time-varying by nature. §5 is a snapshot from run 34987419682. Re-probe before treating it as current.
 - §6.1 and §6.2 are explicitly **unresolved**. Do not record them as fixed without production evidence.
+- The SHAs here are a point-in-time baseline. Merging this document itself advances `main` by one commit, and any later documentation merge advances it further, each redeployed through the same gated pipeline. A `main` SHA ahead of the baseline is expected and is **not** evidence of drift or regression; only a failed gate or a `runtime_revision` that does not match `main` is. Verify per §12.7.
