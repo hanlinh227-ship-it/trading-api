@@ -55,7 +55,8 @@ export function createBrainEvidenceHandler({routeSkill,fetchImpl=fetch}={}){
     const recorded=await recordTinyFishGuard(env.TINYFISH_CIRCUIT,result);
 
     const secretValues=collectSecretValues(env,PROVIDER_SECRET_NAMES);
-    const evidence=(result.evidence||[]).map(row=>({...row,title:redactCredentials(row.title,{secretValues}),snippet:redactCredentials(row.snippet,{secretValues})}));
+    const redactRow=value=>value==null?value:redactCredentials(value,{secretValues});
+    const evidence=(result.evidence||[]).map(row=>({...row,title:redactRow(row.title),snippet:redactRow(row.snippet),url:redactRow(row.url),finalUrl:redactRow(row.finalUrl)}));
 
     return json({
       ok:result.ok,provider:'tinyfish',mode:'FREE_ONLY',operation,
