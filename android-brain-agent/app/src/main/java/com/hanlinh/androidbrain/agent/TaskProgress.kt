@@ -59,6 +59,7 @@ data class TaskProgress(
     val riskClass: RiskClass = RiskClass.A,
     val confirmedRiskClassC: Boolean = false,
     val persistence: TaskPersistence = TaskPersistence.ONE_SHOT,
+    val persistencePolicies: Set<PersistencePolicy> = persistence.toV5Policies(),
     val stepCount: Int = 0,
     val epoch: Int = 0,
     val epochStepCount: Int = 0,
