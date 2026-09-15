@@ -1,5 +1,6 @@
 import {buildModelMeshPlan} from './model-mesh-runtime.js';
 import {sanitizeDataClass} from './model-mesh/contracts.js';
+import {providerConfigurationStatus} from './model-mesh/provider-client.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 
@@ -10,7 +11,22 @@ export function createModelMeshHandler({skillSnapshot,modelSnapshot,routeSkill,e
     if(!url.pathname.startsWith('/brain/mesh/'))return null;
     if(url.pathname==='/brain/mesh/health'){
       if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
-      return json({ok:true,mode:'FREE_ONLY',sourceSha:modelSnapshot.source_sha,routingAuthority:false,reasoningAuthority:false,maxParallelStandard:2,maxParallelDeep:4,executionEnabled:String(env.MODEL_MESH_EXECUTION_ENABLED||'0')==='1'});
+      const providers=providerConfigurationStatus(modelSnapshot,env);
+      return json({
+        ok:true,
+        mode:'FREE_ONLY',
+        sourceSha:modelSnapshot.source_sha,
+        routingAuthority:false,
+        reasoningAuthority:false,
+        maxParallelStandard:2,
+        maxParallelDeep:4,
+        executionEnabled:String(env.MODEL_MESH_EXECUTION_ENABLED||'0')==='1',
+        executionTokenConfigured:Boolean(env.MODEL_MESH_EXECUTION_TOKEN),
+        eligibleModelCount:Array.isArray(modelSnapshot.models)?modelSnapshot.models.length:0,
+        configuredProviderCount:providers.filter(row=>row.configured).length,
+        activeProviderCount:providers.filter(row=>row.active).length,
+        providers,
+      });
     }
     if(url.pathname==='/brain/mesh/plan'){
       if(request.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
