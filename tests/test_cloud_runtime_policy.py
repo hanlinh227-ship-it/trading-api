@@ -55,6 +55,20 @@ class ZeroLocalCloudRuntimePolicyTests(unittest.TestCase):
                 self.assertEqual(row["mode"], "RESEARCH_SAFE", row["id"])
                 self.assertEqual(row.get("runtime_target"), "cloud_gateway", row["id"])
 
+    def test_zero_local_observer_cannot_block_sole_gated_worker_deploy(self):
+        zero_local = yaml.safe_load((ROOT / ".github/workflows/deploy-cloudflare-worker.yml").read_text(encoding="utf-8"))
+        gated = yaml.safe_load((ROOT / ".github/workflows/deploy-skill-mandatory-fast-gateway.yml").read_text(encoding="utf-8"))
+        zero_group = zero_local.get("concurrency", {}).get("group")
+        gated_group = gated.get("concurrency", {}).get("group")
+        self.assertEqual(gated_group, "cloudflare-zero-local-runtime-production")
+        self.assertIsInstance(zero_group, str)
+        self.assertTrue(zero_group)
+        self.assertNotEqual(
+            zero_group,
+            gated_group,
+            "the non-mutating Zero-Local Worker observer must not hold the sole production deploy lock while waiting for that deploy",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
