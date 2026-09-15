@@ -411,11 +411,14 @@ class CiAndDeploymentTests(unittest.TestCase):
             self.assertNotIn("python AI_SKILL_LIBRARY/validate_router.py", text, name)
             self.assertNotIn("python AI_SKILL_LIBRARY/validate_authority.py", text, name)
 
-    def test_production_deploy_workflows_do_not_cancel_each_other(self):
-        for name in ("deploy-skill-mandatory-fast-gateway.yml", "deploy-cloudflare-worker.yml"):
-            data = yaml.safe_load((WORKFLOWS / name).read_text(encoding="utf-8"))
-            self.assertEqual(data["concurrency"]["group"], "cloudflare-zero-local-runtime-production", name)
-            self.assertIs(data["concurrency"]["cancel-in-progress"], False, name)
+    def test_production_deploy_and_zero_local_observer_use_isolated_locks(self):
+        production = yaml.safe_load((WORKFLOWS / "deploy-skill-mandatory-fast-gateway.yml").read_text(encoding="utf-8"))
+        observer = yaml.safe_load((WORKFLOWS / "deploy-cloudflare-worker.yml").read_text(encoding="utf-8"))
+        self.assertEqual(production["concurrency"]["group"], "cloudflare-zero-local-runtime-production")
+        self.assertIs(production["concurrency"]["cancel-in-progress"], False)
+        self.assertNotEqual(observer["concurrency"]["group"], production["concurrency"]["group"])
+        self.assertEqual(observer["concurrency"]["group"], "cloudflare-zero-local-runtime-observer")
+        self.assertIs(observer["concurrency"]["cancel-in-progress"], False)
 
     def test_retired_one_shot_workflows_are_archived(self):
         active = [p.name for p in WORKFLOWS.glob("*.yml")]
