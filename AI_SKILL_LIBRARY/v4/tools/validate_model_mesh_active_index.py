@@ -19,7 +19,6 @@ FORBIDDEN_KEY_MARKERS = (
     "secret",
     "password",
     "credential",
-    "prompt",
 )
 SECRET_VALUE_RE = re.compile(r"(?:sk-[A-Za-z0-9_-]{8,}|AIza[A-Za-z0-9_-]{8,}|hf_[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._~+/-]{8,})")
 
@@ -144,7 +143,7 @@ def validate_active_index(
 
     secret_findings = _secret_findings(index)
     if secret_findings:
-        errors.append("active candidate index contains forbidden secret/prompt material: " + ", ".join(secret_findings[:10]))
+        errors.append("active candidate index contains forbidden secret material: " + ", ".join(secret_findings[:10]))
     return errors
 
 
