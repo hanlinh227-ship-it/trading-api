@@ -115,6 +115,6 @@ files:
 compatibility:
   min_architecture: 4.0.0
 promotion:
-  class: stabilization
-  validated: false
-  source: model_mesh_live_health_tinyfish_stabilization
+  class: feature
+  validated: true
+  source: release_build
