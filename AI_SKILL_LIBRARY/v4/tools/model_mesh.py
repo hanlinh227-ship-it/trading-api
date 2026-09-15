@@ -5,11 +5,13 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+import yaml
 from jsonschema import Draft202012Validator
 
 
 V4_ROOT = Path(__file__).resolve().parents[1]
 PROVIDER_SCHEMA_PATH = V4_ROOT / "schemas/model_mesh_provider.schema.json"
+DOMAIN_CAPABILITIES_PATH = V4_ROOT / "model_mesh/domain_capabilities.yaml"
 
 _FREE_STATUSES = {
     "recurring",
@@ -28,12 +30,21 @@ _RESET_SEMANTICS = {"rolling", "minute", "hour", "daily", "monthly", "none", "un
 _PRIVACY_CLASSES = {"public_safe", "restricted", "confidential_safe", "unknown"}
 _USAGE_TERMS = {"prototyping", "evaluation", "production_allowed", "unknown"}
 _HEALTH_STATES = {"healthy", "degraded", "cooldown", "unavailable"}
+_ALLOWED_ROLES = {"maker", "researcher", "specialist", "critic", "checker", "grader", "summarizer"}
+_PROFILE_WORKER_CAPS = {"FAST": 0, "STANDARD": 2, "DEEP": 4}
 
 
 def _schema_validator() -> Draft202012Validator:
     schema = json.loads(PROVIDER_SCHEMA_PATH.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
+
+
+def _load_domain_capabilities() -> dict:
+    data = yaml.safe_load(DOMAIN_CAPABILITIES_PATH.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("domain capability map must be a mapping")
+    return data
 
 
 def _clean_string(value: object, *, default: str = "") -> str:
@@ -55,6 +66,13 @@ def _nullable_number(value: object) -> float | None:
         if number == number and number not in {float("inf"), float("-inf")}:
             return number
     return None
+
+
+def _bounded_score(value: object, *, default: float = 0.0) -> float:
+    number = _nullable_number(value)
+    if number is None:
+        return default
+    return max(0.0, min(1.0, number))
 
 
 def _quality_scores(value: object) -> dict[str, float]:
@@ -229,3 +247,192 @@ def eligible_free_candidate(candidate: dict, *, data_class: str) -> bool:
     if classification == "PUBLIC":
         return privacy in {"public_safe", "restricted", "confidential_safe"}
     return privacy == "confidential_safe"
+
+
+def required_capabilities(domain: str, primary_skill: str, *, has_image: bool = False) -> dict[str, float]:
+    """Resolve execution capability weights after canonical domain/skill routing."""
+    config = _load_domain_capabilities()
+    domains = config.get("domains", {})
+    if domain not in domains:
+        raise ValueError(f"unknown model-mesh domain: {domain}")
+    row = domains[domain]
+    capabilities = row.get("capabilities", {}) if isinstance(row, dict) else {}
+    if not isinstance(capabilities, dict) or not capabilities:
+        raise ValueError(f"domain has no model-mesh capability contract: {domain}")
+    result = {str(key): _bounded_score(value) for key, value in capabilities.items()}
+    dimensions = set(config.get("dimensions", []))
+    unknown = set(result) - dimensions
+    if unknown:
+        raise ValueError(f"unknown capability dimensions for {domain}: {sorted(unknown)}")
+    if has_image:
+        minimum = _bounded_score(config.get("policy", {}).get("image_input_min_vision_weight"), default=0.8)
+        result["vision"] = max(result.get("vision", 0.0), minimum)
+    return result
+
+
+def _capability_fit(candidate: dict, requirements: dict[str, float]) -> float:
+    capabilities = candidate.get("capabilities", {}) if isinstance(candidate, dict) else {}
+    weighted = 0.0
+    total = 0.0
+    for name, weight_raw in requirements.items():
+        weight = _bounded_score(weight_raw)
+        if weight <= 0:
+            continue
+        row = capabilities.get(name, {}) if isinstance(capabilities, dict) else {}
+        supported = row.get("supported") is True if isinstance(row, dict) else False
+        score = _bounded_score(row.get("score") if isinstance(row, dict) else 0.0)
+        weighted += weight * (score if supported else 0.0)
+        total += weight
+    return weighted / total if total > 0 else 0.0
+
+
+def _measured_quality(candidate: dict) -> float:
+    scores = candidate.get("quality_scores", {}) if isinstance(candidate, dict) else {}
+    values = [_bounded_score(value) for value in scores.values()] if isinstance(scores, dict) else []
+    if values:
+        return sum(values) / len(values)
+    return _bounded_score(candidate.get("success_rate_ema"), default=0.0)
+
+
+def score_candidate(
+    candidate: dict,
+    requirements: dict[str, float],
+    *,
+    quota_headroom: float,
+    reputation: float,
+) -> float:
+    """Score only candidates that already passed policy gates; quality dominates quota."""
+    config = _load_domain_capabilities()
+    weights = config.get("scoring", {})
+    capability_fit = _capability_fit(candidate, requirements)
+    measured_quality = _measured_quality(candidate)
+    reliability = _bounded_score(candidate.get("success_rate_ema"), default=0.0)
+    quota = _bounded_score(quota_headroom)
+    rep = _bounded_score(reputation, default=0.5)
+    latency = _nullable_number(candidate.get("latency_ema_ms"))
+    latency_efficiency = 0.0 if latency is None else 1.0 / (1.0 + max(0.0, latency) / 1000.0)
+    components = {
+        "capability_fit": capability_fit,
+        "measured_quality": measured_quality,
+        "reputation": (rep + reliability) / 2.0,
+        "quota_headroom": quota,
+        "latency_efficiency": latency_efficiency,
+    }
+    total_weight = sum(_bounded_score(value) for value in weights.values())
+    if total_weight <= 0:
+        return 0.0
+    score = sum(_bounded_score(weights.get(name)) * value for name, value in components.items()) / total_weight
+    return round(_bounded_score(score), 6)
+
+
+def _passes_capability_floor(candidate: dict, requirements: dict[str, float], config: dict) -> bool:
+    policy = config.get("policy", {})
+    weight_threshold = _bounded_score(policy.get("hard_capability_weight_threshold"), default=0.7)
+    min_score = _bounded_score(policy.get("hard_capability_min_score"), default=0.35)
+    capabilities = candidate.get("capabilities", {}) if isinstance(candidate, dict) else {}
+    for name, weight_raw in requirements.items():
+        weight = _bounded_score(weight_raw)
+        if weight < weight_threshold:
+            continue
+        row = capabilities.get(name, {}) if isinstance(capabilities, dict) else {}
+        if not isinstance(row, dict) or row.get("supported") is not True:
+            return False
+        if _bounded_score(row.get("score")) < min_score:
+            return False
+    return True
+
+
+def _candidate_key(candidate: dict) -> str:
+    return f"{candidate.get('provider_id', '')}:{candidate.get('model_id', '')}"
+
+
+def select_workers(task: dict, candidates: list[dict], *, max_workers: int) -> list[dict]:
+    """Filter before score, preserve model-family diversity, and return bounded execution workers."""
+    if not isinstance(task, dict):
+        raise TypeError("task must be a mapping")
+    profile = _clean_string(task.get("profile")).upper()
+    if profile not in _PROFILE_WORKER_CAPS:
+        raise ValueError(f"unknown model-mesh profile: {profile}")
+    if profile == "FAST":
+        return []
+    try:
+        requested_max = max(0, int(max_workers))
+    except (TypeError, ValueError):
+        requested_max = 0
+    cap = min(requested_max, _PROFILE_WORKER_CAPS[profile])
+    if cap <= 0:
+        return []
+
+    domain = _clean_string(task.get("domain"))
+    primary_skill = _clean_string(task.get("primary_skill"))
+    data_class = _clean_string(task.get("data_class"), default="PUBLIC").upper()
+    has_image = bool(task.get("has_image", False))
+    requirements = required_capabilities(domain, primary_skill, has_image=has_image)
+    config = _load_domain_capabilities()
+    domains = config.get("domains", {})
+    research_only = bool(domains.get(domain, {}).get("research_only", False))
+
+    role = _clean_string(task.get("role"), default="specialist").lower()
+    if role not in _ALLOWED_ROLES:
+        role = "specialist"
+
+    permission_allowed = task.get("permission_allowed", {})
+    quota_headroom = task.get("quota_headroom", {})
+    reputation = task.get("reputation", {})
+    if not isinstance(permission_allowed, dict) or not isinstance(quota_headroom, dict) or not isinstance(reputation, dict):
+        return []
+    context_tokens_raw = task.get("context_tokens", 0)
+    context_tokens = context_tokens_raw if isinstance(context_tokens_raw, int) and not isinstance(context_tokens_raw, bool) and context_tokens_raw > 0 else 0
+
+    qualified: list[tuple[float, dict]] = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        key = _candidate_key(candidate)
+        # Permission is explicit and fail-closed. The mesh never widens the canonical capsule.
+        if permission_allowed.get(key) is not True:
+            continue
+        if not eligible_free_candidate(candidate, data_class=data_class):
+            continue
+        headroom = _nullable_number(quota_headroom.get(key))
+        if headroom is None or headroom <= 0:
+            continue
+        if context_tokens:
+            window = candidate.get("context_window")
+            if not isinstance(window, int) or isinstance(window, bool) or window < context_tokens:
+                continue
+        if not _passes_capability_floor(candidate, requirements, config):
+            continue
+        rep = _bounded_score(reputation.get(key), default=0.5)
+        score = score_candidate(candidate, requirements, quota_headroom=headroom, reputation=rep)
+        qualified.append((score, candidate))
+
+    qualified.sort(key=lambda item: (-item[0], _candidate_key(item[1])))
+    by_family: dict[str, list[tuple[float, dict]]] = defaultdict(list)
+    family_order: list[str] = []
+    for item in qualified:
+        family = model_family_key(item[1])
+        if family not in by_family:
+            family_order.append(family)
+        by_family[family].append(item)
+
+    family_primaries: list[tuple[float, str, dict, list[dict]]] = []
+    for family in family_order:
+        rows = by_family[family]
+        primary_score, primary = rows[0]
+        fallbacks = [
+            {"provider_id": candidate["provider_id"], "model_id": candidate["model_id"]}
+            for _, candidate in rows[1:]
+        ]
+        family_primaries.append((primary_score, family, primary, fallbacks))
+    family_primaries.sort(key=lambda item: (-item[0], _candidate_key(item[2])))
+
+    selected: list[dict] = []
+    for selection_score, _, candidate, fallbacks in family_primaries[:cap]:
+        worker = dict(candidate)
+        worker["selection_score"] = selection_score
+        worker["worker_role"] = role
+        worker["fallback_provider_paths"] = fallbacks
+        worker["research_only"] = research_only
+        selected.append(worker)
+    return selected
