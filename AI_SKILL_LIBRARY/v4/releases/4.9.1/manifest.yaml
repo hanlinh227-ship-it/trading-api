@@ -58,11 +58,14 @@ files:
 - path: AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml
   sha256: eeac6815afc2276777b2234da8fac440467f2ab4775e1cc60c64b00d4e63e52b
   role: model_mesh_policy
+- path: AI_SKILL_LIBRARY/v4/model_mesh/free_only_policy.json
+  sha256: 47ad2ffa9a5e84eeae06dcb5745a686cf0dfdb02c448e5486e5451ee740c6812
+  role: model_mesh_free_only_policy
 - path: AI_SKILL_LIBRARY/v4/model_mesh/providers.yaml
   sha256: 6e70300c5263aa689084650b00cfa31e31cabb6ce2f9269e19e442d1ad6dcc72
   role: model_mesh_providers
 - path: AI_SKILL_LIBRARY/v4/model_mesh/active.json
-  sha256: 244c83f15b9aff2de69ed9d5056f514d2a4f279ce304bcc80bffde55cb7a88f8
+  sha256: bbfe9a3790309999aeb042dc0119a1c63176e8f0b8ffee4acbf3bda94f050517
   role: model_mesh_active
 - path: AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json
   sha256: 4efe477a98f6e9cdde2fce72ad8c65a91242c09cce3417f98648b070789bb5d7
@@ -112,6 +115,6 @@ files:
 compatibility:
   min_architecture: 4.0.0
 promotion:
-  class: C
-  validated: true
-  source: model_mesh_runtime_bindings
+  class: stabilization
+  validated: false
+  source: model_mesh_live_health_tinyfish_stabilization
