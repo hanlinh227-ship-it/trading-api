@@ -29,6 +29,7 @@ RELEASE_FILES: tuple[tuple[str, str], ...] = (
     ("AI_SKILL_LIBRARY/v4/mesh/graph.yaml", "mesh"),
     ("AI_SKILL_LIBRARY/v4/mesh/bridges.yaml", "bridges"),
     ("AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml", "model_mesh_policy"),
+    ("AI_SKILL_LIBRARY/v4/model_mesh/free_only_policy.json", "model_mesh_free_only_policy"),
     ("AI_SKILL_LIBRARY/v4/model_mesh/providers.yaml", "model_mesh_providers"),
     ("AI_SKILL_LIBRARY/v4/model_mesh/active.json", "model_mesh_active"),
     ("AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json", "model_mesh_runtime_bindings"),
