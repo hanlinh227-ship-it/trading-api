@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {spawnSync} from 'node:child_process';
+import {canonicalPreparationEnv} from './workers-build-contract.mjs';
 const workflow=fs.readFileSync('../.github/workflows/deploy-skill-mandatory-fast-gateway.yml','utf8');
 const wranglerPrep=fs.readFileSync('prepare-wrangler.mjs','utf8');
 const workersBuildPrep=fs.readFileSync('prepare-workers-build.mjs','utf8');
@@ -35,4 +36,9 @@ assert.match(workersBuildPrep,/prepare-wrangler\.mjs/);
 const mismatch=spawnSync(process.execPath,['prepare-workers-build.mjs'],{cwd:process.cwd(),env:{...process.env,WORKERS_CI:'1',WORKERS_CI_COMMIT_SHA:'0'.repeat(40)},encoding:'utf8'});
 assert.notEqual(mismatch.status,0);
 assert.match(`${mismatch.stdout}${mismatch.stderr}`,/checked-out HEAD does not match WORKERS_CI_COMMIT_SHA/);
+const injected=canonicalPreparationEnv({SKILL_GATEWAY_SNAPSHOT_PATH:'attacker-skill.json',MODEL_MESH_SNAPSHOT_PATH:'attacker-model.json',MODEL_MESH_BINDINGS_PATH:'attacker-bindings.json',MODEL_MESH_FREE_POLICY_PATH:'attacker-policy.json'},'C:\\canonical-root','f'.repeat(40));
+assert.equal(injected.SKILL_GATEWAY_SNAPSHOT_PATH,'C:\\canonical-root\\AI_SKILL_LIBRARY\\v4\\runtime\\generated\\skill-gateway-snapshot.json');
+assert.equal(injected.MODEL_MESH_SNAPSHOT_PATH,'C:\\canonical-root\\AI_SKILL_LIBRARY\\v4\\runtime\\generated\\model-mesh-snapshot.json');
+assert.equal(injected.MODEL_MESH_BINDINGS_PATH,'C:\\canonical-root\\AI_SKILL_LIBRARY\\v4\\model_mesh\\runtime_bindings.json');
+assert.equal(injected.MODEL_MESH_FREE_POLICY_PATH,'C:\\canonical-root\\AI_SKILL_LIBRARY\\v4\\model_mesh\\free_only_policy.json');
 console.log('deployment secret and live-canary contracts ok');

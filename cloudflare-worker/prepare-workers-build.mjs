@@ -1,6 +1,7 @@
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {canonicalPreparationEnv} from './workers-build-contract.mjs';
 
 if(process.env.WORKERS_CI==='1'){
   const here=path.dirname(fileURLToPath(import.meta.url)),root=path.resolve(here,'..');
@@ -23,7 +24,7 @@ if(process.env.WORKERS_CI==='1'){
   if(!python)throw new Error('Python is required to compile exact-SHA Brain snapshots in Workers Builds');
   command(python,['-m','pip','install','--disable-pip-version-check','-r',path.join(root,'AI_SKILL_LIBRARY','requirements.txt')]);
   command(python,[path.join(root,'AI_SKILL_LIBRARY','v4','tools','ci_validate.py'),'--source-sha',sourceSha,'--skip-tests']);
-  const exactEnv={...process.env,GITHUB_SHA:sourceSha,RUNTIME_REVISION:sourceSha};
+  const exactEnv=canonicalPreparationEnv(process.env,root,sourceSha);
   for(const script of ['prepare-skill-gateway.mjs','prepare-model-mesh.mjs','prepare-wrangler.mjs'])command(process.execPath,[path.join(here,script)],{cwd:here,env:exactEnv});
   console.log(`WORKERS_BUILD_EXACT_SNAPSHOT=PASS source_sha=${sourceSha}`);
 }
