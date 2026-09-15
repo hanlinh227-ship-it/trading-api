@@ -1,8 +1,11 @@
 package com.hanlinh.androidbrain.network
 
 import com.hanlinh.androidbrain.BuildConfig
+import com.hanlinh.androidbrain.agent.PersistencePolicy
+import com.hanlinh.androidbrain.agent.PersistentOperatorSession
 import com.hanlinh.androidbrain.perception.AccessibilitySnapshot
 import com.hanlinh.androidbrain.policy.RiskClass
+import com.hanlinh.androidbrain.protocol.Action
 import com.hanlinh.androidbrain.protocol.CommandEnvelope
 import com.hanlinh.androidbrain.protocol.TypedActionCodec
 import java.time.Instant
@@ -58,7 +61,27 @@ class GatewayClient(
         val plannerMode: String? = null,
         val commandId: String? = null,
         val failureCode: String? = null,
-    )
+        val goal: String? = null,
+        val persistencePolicy: Set<PersistencePolicy> = emptySet(),
+        val allowedPackages: Set<String> = emptySet(),
+        val capabilityScope: Set<String> = emptySet(),
+        val riskClass: RiskClass = RiskClass.A,
+        val localActions: List<Action> = emptyList(),
+        val localBatchId: String? = null,
+    ) {
+        fun persistentSessionOrNull(taskId: String): PersistentOperatorSession? {
+            val authoritativeGoal = goal?.takeIf { it.isNotBlank() } ?: return null
+            return PersistentOperatorSession(
+                taskId = taskId,
+                goal = authoritativeGoal,
+                allowedPackages = allowedPackages,
+                persistence = persistencePolicy.ifEmpty { setOf(PersistencePolicy.UNTIL_GOAL_COMPLETE) },
+                capabilityScope = capabilityScope,
+                riskCeiling = riskClass,
+                terminal = status in TERMINAL_TASK_STATUSES,
+            )
+        }
+    }
 
     fun pairStart(deviceId: String, devicePublicKey: String): PairStart {
         val body = JSONObject().put("deviceId", deviceId).put("devicePublicKey", devicePublicKey)
@@ -180,6 +203,8 @@ class GatewayClient(
         previousResult: TaskResult?,
         imageDataUrl: String? = null,
         localFacts: List<LocalObservationFact> = emptyList(),
+        localOperator: Boolean = false,
+        maxActions: Int = 8,
     ): TaskStepResponse {
         val body = JSONObject()
             .put("taskId", taskId)
@@ -194,7 +219,26 @@ class GatewayClient(
             )
         }
         if (!imageDataUrl.isNullOrBlank()) body.put("imageDataUrl", imageDataUrl)
+        if (localOperator) {
+            body.put("localOperator", true)
+            body.put("maxActions", maxActions.coerceIn(1, 8))
+        }
         val json = post("/v1/device/${encodeSegment(deviceId)}/task-step", body, token)
+        return parseTaskStepResponse(json)
+    }
+
+    internal fun parseTaskStepResponse(json: JSONObject): TaskStepResponse {
+        val actions = buildList {
+            val array = json.optJSONArray("localActions") ?: JSONArray()
+            require(array.length() <= 8) { "local action batch exceeds bound" }
+            for (index in 0 until array.length()) {
+                add(TypedActionCodec.decode(array.getJSONObject(index).toString()))
+            }
+        }
+        val policies = enumSet<PersistencePolicy>(json.optJSONArray("persistencePolicy"))
+        val risk = runCatching {
+            RiskClass.valueOf(json.optString("riskClass", "A"))
+        }.getOrElse { throw IllegalArgumentException("invalid task risk class") }
         return TaskStepResponse(
             status = json.optString("status", "UNKNOWN"),
             stepCount = json.optInt("stepCount", 0),
@@ -206,6 +250,13 @@ class GatewayClient(
             plannerMode = json.optString("plannerMode").takeIf { it.isNotBlank() },
             commandId = json.optString("commandId").takeIf { it.isNotBlank() },
             failureCode = json.optString("failureCode").takeIf { it.isNotBlank() },
+            goal = json.optString("goal").takeIf { it.isNotBlank() },
+            persistencePolicy = policies,
+            allowedPackages = stringSet(json.optJSONArray("allowedPackages")),
+            capabilityScope = stringSet(json.optJSONArray("capabilityScope")),
+            riskClass = risk,
+            localActions = actions,
+            localBatchId = json.optString("localBatchId").takeIf { it.isNotBlank() },
         )
     }
 
@@ -317,6 +368,20 @@ class GatewayClient(
         )
     }
 
+    private fun stringSet(array: JSONArray?): Set<String> = buildSet {
+        val source = array ?: return@buildSet
+        for (index in 0 until source.length()) {
+            val value = source.getString(index)
+            require(value.isNotBlank()) { "blank task authority value" }
+            add(value)
+        }
+    }
+
+    private inline fun <reified T : Enum<T>> enumSet(array: JSONArray?): Set<T> = buildSet {
+        val source = array ?: return@buildSet
+        for (index in 0 until source.length()) add(enumValueOf<T>(source.getString(index)))
+    }
+
     private fun encodeSegment(value: String): String = java.net.URLEncoder.encode(value, Charsets.UTF_8.name())
 
     class GatewayException(val statusCode: Int, message: String) : RuntimeException(message)
@@ -326,5 +391,6 @@ class GatewayClient(
         private const val MAX_OBSERVATION_NODES = 80
         private const val MAX_LOCAL_FACTS = 40
         private val ALLOWED_LOCAL_FACT_KINDS = setOf("UNKNOWN_NUMBER_CONFIRMED")
+        private val TERMINAL_TASK_STATUSES = setOf("COMPLETED", "FAILED", "CANCELLED")
     }
 }
