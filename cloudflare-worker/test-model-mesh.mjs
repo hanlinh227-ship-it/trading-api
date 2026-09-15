@@ -26,4 +26,16 @@ assert.ok(standard.workers.length<=2);
 assert.equal(externalFetchCount,0);
 assert.equal(standard.routingAuthority,false);
 assert.equal(standard.reasoningAuthority,false);
+
+// Canonical Skill Gateway returns Object.freeze(route). Production must be able
+// to pass that immutable route through the mesh planner even with zero active models.
+const frozenRoute=Object.freeze({profile:'STANDARD',primarySkill:'core_reasoning',externalRoutingCalls:0,sourceSha:'a'.repeat(40)});
+const emptySnapshot={...modelSnapshot,models:[]};
+const frozenPlan=await buildModelMeshPlan({text:'debug api',dataClass:'PUBLIC',hasImage:false,route:frozenRoute}, {skillSnapshot,modelSnapshot:emptySnapshot,fetchImpl:noFetch});
+assert.equal(frozenPlan.ok,true);
+assert.equal(frozenPlan.route.externalRoutingCalls,0);
+assert.equal(frozenPlan.route.sourceSha,'a'.repeat(40));
+assert.equal(frozenPlan.workers.length,0);
+assert.equal(externalFetchCount,0);
+
 console.log('model mesh planner contracts ok');
