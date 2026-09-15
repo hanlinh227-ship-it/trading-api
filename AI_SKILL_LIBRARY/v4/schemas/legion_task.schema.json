@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Legion Task Node",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["task_id", "role", "depends_on", "read_set", "write_set", "permission_ceiling", "risk_class", "required_capabilities", "verification"],
+  "properties": {
+    "task_id": {"type": "string", "minLength": 1},
+    "role": {"type": "string", "minLength": 1},
+    "depends_on": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "read_set": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "write_set": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "permission_ceiling": {"enum": ["read_only", "bounded_write", "sandbox_execute"]},
+    "risk_class": {"enum": ["A", "B", "C", "D"]},
+    "required_capabilities": {"type": "array", "items": {"type": "string"}},
+    "verification": {"type": "string", "minLength": 1},
+    "domain": {"type": "string"},
+    "assigned_agent": {"type": "string"}
+  }
+}
