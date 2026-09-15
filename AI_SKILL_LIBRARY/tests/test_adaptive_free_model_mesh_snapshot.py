@@ -67,6 +67,11 @@ class AdaptiveFreeModelMeshSnapshotTests(unittest.TestCase):
             "model_mesh_snapshot_schema_path": "AI_SKILL_LIBRARY/v4/schemas/model_mesh_snapshot.schema.json",
             "model_mesh_snapshot_compiler_path": "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_snapshot.py",
             "model_mesh_snapshot_validator_path": "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_snapshot.py",
+            "model_mesh_capability_evidence_path": "AI_SKILL_LIBRARY/v4/model_mesh/capability_evidence.json",
+            "model_mesh_capability_evidence_schema_path": "AI_SKILL_LIBRARY/v4/schemas/capability_evidence_ledger.schema.json",
+            "model_mesh_active_index_schema_path": "AI_SKILL_LIBRARY/v4/schemas/model_mesh_active_candidate_index.schema.json",
+            "model_mesh_active_index_compiler_path": "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_active_index.py",
+            "model_mesh_active_index_validator_path": "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_active_index.py",
         }
         for key, value in expected.items():
             self.assertEqual(checkpoint.get(key), value)
@@ -74,9 +79,14 @@ class AdaptiveFreeModelMeshSnapshotTests(unittest.TestCase):
 
     def test_ci_and_release_integrate_model_mesh_contracts(self):
         ci_text = (ROOT / "AI_SKILL_LIBRARY/v4/tools/ci_validate.py").read_text(encoding="utf-8")
-        self.assertIn('"AI_SKILL_LIBRARY/v4/tools/validate_model_mesh.py"', ci_text)
-        self.assertIn("compile_model_mesh_snapshot.py", ci_text)
-        self.assertIn("validate_model_mesh_snapshot.py", ci_text)
+        for required in (
+            '"AI_SKILL_LIBRARY/v4/tools/validate_model_mesh.py"',
+            "compile_model_mesh_snapshot.py",
+            "validate_model_mesh_snapshot.py",
+            "compile_model_mesh_active_index.py",
+            "validate_model_mesh_active_index.py",
+        ):
+            self.assertIn(required, ci_text)
 
         release_text = (ROOT / "AI_SKILL_LIBRARY/v4/tools/release.py").read_text(encoding="utf-8")
         required_release_files = (
@@ -86,6 +96,12 @@ class AdaptiveFreeModelMeshSnapshotTests(unittest.TestCase):
             "AI_SKILL_LIBRARY/v4/model_mesh/providers.yaml",
             "AI_SKILL_LIBRARY/v4/model_mesh/discovery.yaml",
             "AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml",
+            "AI_SKILL_LIBRARY/v4/model_mesh/capability_evidence.json",
+            "AI_SKILL_LIBRARY/v4/schemas/capability_evidence_ledger.schema.json",
+            "AI_SKILL_LIBRARY/v4/schemas/model_mesh_active_candidate_index.schema.json",
+            "AI_SKILL_LIBRARY/v4/tools/capability_evidence.py",
+            "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_active_index.py",
+            "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_active_index.py",
             "AI_SKILL_LIBRARY/v4/model_mesh/upstreams.yaml",
         )
         for rel in required_release_files:
@@ -99,7 +115,6 @@ class AdaptiveFreeModelMeshSnapshotTests(unittest.TestCase):
         quarantined = self._candidate("provider-q", "model-q", "family-q", provider_class="Q")
         no_benchmark = self._candidate("provider-n", "model-n", "family-n", benchmarked=False)
 
-        # Simulate hostile/untrusted discovery payload fields. Compiler must whitelist normalized fields.
         eligible_b["api_key"] = "SECRET_DO_NOT_COPY"
         eligible_b["authorization"] = "Bearer SECRET_DO_NOT_COPY"
         report = {
