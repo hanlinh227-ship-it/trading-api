@@ -20,6 +20,7 @@ async function fixture() {
     taskRiskClass: 'A',
     persistence: 'LONG_RUNNING',
     persistencePolicy: ['UNTIL_GOAL_COMPLETE'],
+    allowedPackages: ['com.example'],
   })
   const values = new Map([
     ['pairing', { paired: true, deviceId: 'device-v5', deviceTokenHash: await sha256Base64(token) }],
@@ -84,6 +85,10 @@ test('micro-plan returns bounded typed actions without widening task scope', asy
   assert.ok(Array.isArray(body.actions))
   assert.ok(body.actions.length <= 8)
   assert.deepEqual(body.actions, [{ type: 'read_screen' }])
+  assert.deepEqual(body.task.persistencePolicy, ['UNTIL_GOAL_COMPLETE'])
+  assert.deepEqual(body.task.allowedPackages, ['com.example'])
+  assert.deepEqual(body.task.capabilityScope, ['ui.navigate'])
+  assert.equal(body.task.riskClass, 'A')
 })
 
 test('recovery endpoint is bounded and records only sanitized recovery reason', async () => {
