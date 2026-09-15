@@ -21,10 +21,11 @@ import yaml
 
 REQUIRED_PROFILES = ("FAST", "STANDARD", "DEEP")
 DEFAULT_POLICY = "AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml"
+DEFAULT_DOMAIN_CAPABILITIES = "AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml"
 DEFAULT_OUTPUT = "AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-policy.json"
 
 
-def compile_policy(root: Path, *, policy_path: Path, output: Path) -> dict:
+def compile_policy(root: Path, *, policy_path: Path, capabilities_path: Path, output: Path) -> dict:
     if not policy_path.is_absolute():
         policy_path = root / policy_path
     policy = yaml.safe_load(policy_path.read_text(encoding="utf-8")) or {}
@@ -65,6 +66,28 @@ def compile_policy(root: Path, *, policy_path: Path, output: Path) -> dict:
 
     quota = policy.get("quota") or {}
 
+    # domain_capabilities.yaml declares weights_are_selection_metadata_only, so
+    # it is compiled in as RANKING authority: it decides which capability
+    # dimensions matter for a routed domain and how much. It is not a hard gate
+    # -- the active registry does not yet declare every dimension for every
+    # model, and treating a missing declaration as disqualifying would zero out
+    # whole domains (no admitted model currently declares math_quant or
+    # data_analysis, which the trading domain weights most heavily).
+    if not capabilities_path.is_absolute():
+        capabilities_path = root / capabilities_path
+    capabilities_doc = yaml.safe_load(capabilities_path.read_text(encoding="utf-8")) or {}
+    if capabilities_doc.get("policy", {}).get("routing_authority") is not False:
+        errors.append("domain_capabilities routing_authority must be false")
+    if capabilities_doc.get("policy", {}).get("weights_are_selection_metadata_only") is not True:
+        errors.append("domain_capabilities must remain selection metadata, not a routing authority")
+    domain_weights = {
+        str(name): {str(dim): float(weight) for dim, weight in (row.get("capabilities") or {}).items()}
+        for name, row in (capabilities_doc.get("domains") or {}).items()
+    }
+    if not domain_weights:
+        errors.append("domain_capabilities declares no domains")
+    scoring = capabilities_doc.get("scoring") or {}
+
     if errors:
         raise SystemExit("MODEL_MESH_POLICY_COMPILE=FAIL " + "; ".join(errors))
 
@@ -85,6 +108,11 @@ def compile_policy(root: Path, *, policy_path: Path, output: Path) -> dict:
             "use_runtime_headers_first": bool(quota.get("use_runtime_headers_first", False)),
             "cooldown_on_exhaustion": bool(quota.get("cooldown_on_exhaustion", False)),
         },
+        "domain_capabilities": domain_weights,
+        "scoring": {
+            "capability_fit": float(scoring.get("capability_fit", 0.5)),
+            "measured_quality": float(scoring.get("measured_quality", 0.25)),
+        },
     }
 
     if not output.is_absolute():
@@ -98,13 +126,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Compile the canonical Model Mesh policy into a runtime contract")
     parser.add_argument("--root", default=".")
     parser.add_argument("--policy", default=DEFAULT_POLICY)
+    parser.add_argument("--domain-capabilities", default=DEFAULT_DOMAIN_CAPABILITIES)
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
     args = parser.parse_args(argv)
-    contract = compile_policy(Path(args.root).resolve(), policy_path=Path(args.policy), output=Path(args.output))
+    contract = compile_policy(Path(args.root).resolve(), policy_path=Path(args.policy), capabilities_path=Path(args.domain_capabilities), output=Path(args.output))
     print(
         "MODEL_MESH_POLICY_COMPILE=PASS "
         f"max_parallel={json.dumps(contract['max_parallel'], sort_keys=True)} "
-        f"filters={len(contract['selection_filters'])}"
+        f"filters={len(contract['selection_filters'])} "
+        f"domains={len(contract['domain_capabilities'])}"
     )
     return 0
 

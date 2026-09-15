@@ -211,4 +211,30 @@ const modelSnapshot={source_sha:SHA,models:[baseModel]};
   assert.equal(scheduleSelfHeal({env:{},ctx:{},probeProviders:async()=>{},modelSnapshot}).scheduled,false);
 }
 
+// ===========================================================================
+// 12. domain_capabilities.yaml is real ranking authority, not documentation
+// ===========================================================================
+{
+  // Previously ranking read quality_scores[domain], which is {} for every model
+  // in the active registry, so the routed domain changed nothing.
+  const coder={...baseModel,provider_id:'groq',model_id:'coder',model_family:'coder-family',
+    capabilities:{text_reasoning:{supported:true,score:0.7},coding:{supported:true,score:0.95}},quality_scores:{}};
+  const scholar={...baseModel,provider_id:'gemini_developer_api',model_id:'scholar',model_family:'scholar-family',
+    capabilities:{text_reasoning:{supported:true,score:0.7},long_context:{supported:true,score:0.95},research_synthesis:{supported:true,score:0.95}},quality_scores:{}};
+  const pool=[coder,scholar];
+
+  const engineering=selectModelWorkers({profile:'DEEP',domain:'engineering',models:pool});
+  assert.equal(engineering[0].model_family,'coder-family','engineering must prefer the coding model');
+  const academic=selectModelWorkers({profile:'DEEP',domain:'academic',models:pool});
+  assert.equal(academic[0].model_family,'scholar-family','academic must prefer the long-context research model');
+
+  // Ranking must never become gating: a model that declares none of the
+  // domain's dimensions is ranked last, not excluded.
+  const sparse={...baseModel,provider_id:'mistral',model_id:'sparse',model_family:'sparse-family',
+    capabilities:{text_reasoning:{supported:true,score:0.5}},quality_scores:{}};
+  const withSparse=selectModelWorkers({profile:'DEEP',domain:'engineering',models:[...pool,sparse]});
+  assert.equal(withSparse.length,3,'incomplete capability coverage ranks low but never disqualifies');
+  assert.equal(withSparse.at(-1).model_family,'sparse-family');
+}
+
 console.log('model mesh resilience, quota and recovery contracts ok');
