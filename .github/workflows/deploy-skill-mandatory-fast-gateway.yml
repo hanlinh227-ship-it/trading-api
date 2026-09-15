@@ -303,7 +303,7 @@ jobs:
           # externally triggered probe, were refreshed by the Worker's own cron.
           # Probing first would overwrite exactly the evidence we want to read.
           pre="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
-          printf '%s\n' "$pre" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{let x={};try{x=JSON.parse(s)}catch{console.log('PRE_PROBE_HEALTH=unavailable');return}const p=Array.isArray(x.providers)?x.providers:[];const live=p.filter(r=>r.liveHealthyModelCount>0).map(r=>r.providerId);console.log('PRE_PROBE_HEALTH observed_at='+new Date().toISOString()+' live_healthy='+live.length+' providers='+JSON.stringify(live))})"
+          printf '%s\n' "$pre" | node cloudflare-worker/report-mesh-health.mjs
           result="$(curl -fsS --connect-timeout 5 --max-time 90 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
           printf '%s\n' "$result" | node cloudflare-worker/validate-model-mesh-probe.mjs --require-healthy
           for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
@@ -509,7 +509,7 @@ jobs:
           # externally triggered probe, were refreshed by the Worker's own cron.
           # Probing first would overwrite exactly the evidence we want to read.
           pre="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
-          printf '%s\n' "$pre" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{let x={};try{x=JSON.parse(s)}catch{console.log('PRE_PROBE_HEALTH=unavailable');return}const p=Array.isArray(x.providers)?x.providers:[];const live=p.filter(r=>r.liveHealthyModelCount>0).map(r=>r.providerId);console.log('PRE_PROBE_HEALTH observed_at='+new Date().toISOString()+' live_healthy='+live.length+' providers='+JSON.stringify(live))})"
+          printf '%s\n' "$pre" | node cloudflare-worker/report-mesh-health.mjs
           result="$(curl -fsS --connect-timeout 5 --max-time 90 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
           printf '%s\n' "$result" | node cloudflare-worker/validate-model-mesh-probe.mjs
       # Advisory, read-only. Never gates the refresh: a provider diagnosis
