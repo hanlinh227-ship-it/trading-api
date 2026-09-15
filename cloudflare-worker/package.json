@@ -10,7 +10,8 @@
     "prepare:model-mesh": "node prepare-model-mesh.mjs",
     "prepare:wrangler": "node prepare-wrangler.mjs",
     "deploy": "npm run prepare:skill-gateway && npm run prepare:model-mesh && npm run check && npm run prepare:wrangler && wrangler deploy --dry-run",
-    "preview": "npm run prepare:skill-gateway && npm run prepare:model-mesh && npm run check && npm run prepare:wrangler && wrangler versions upload"
+    "preview": "npm run prepare:skill-gateway && npm run prepare:model-mesh && npm run check && npm run prepare:wrangler && wrangler versions upload",
+    "prepare:all": "python3 ../AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha \"$(git rev-parse HEAD)\" --skip-tests && GITHUB_SHA=\"$(git rev-parse HEAD)\" npm run prepare:skill-gateway && GITHUB_SHA=\"$(git rev-parse HEAD)\" npm run prepare:model-mesh"
   },
   "devDependencies": {
     "wrangler": "4.124.0"
