@@ -4,7 +4,8 @@ import worker from '../src/index.js'
 
 function fixture() {
   const seen = []
-  const stub = {
+  const registrySeen = []
+  const deviceStub = {
     async fetch(request) {
       seen.push({
         url: request.url,
@@ -18,13 +19,22 @@ function fixture() {
       })
     },
   }
+  const registryStub = {
+    async fetch(request) {
+      registrySeen.push(request.url)
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    },
+  }
   const env = {
     DEVICE_SESSIONS: {
       idFromName(name) { return name },
-      get() { return stub },
+      get(id) { return id === 'device:__latest_device_registry__' ? registryStub : deviceStub },
     },
   }
-  return { env, seen }
+  return { env, seen, registrySeen }
 }
 
 for (const [publicOp, internalOp] of [
@@ -33,7 +43,7 @@ for (const [publicOp, internalOp] of [
   ['recovery', 'task-recovery'],
 ]) {
   test(`V5 ${publicOp} route preserves device authentication and proxies to durable object`, async () => {
-    const { env, seen } = fixture()
+    const { env, seen, registrySeen } = fixture()
     const response = await worker.fetch(new Request(
       `https://gateway.example/v1/device/device%20one/tasks/task%2Fone/${publicOp}`,
       {
@@ -51,15 +61,17 @@ for (const [publicOp, internalOp] of [
     assert.equal(new URL(seen[0].url).pathname, `/${internalOp}/task%2Fone`)
     assert.equal(seen[0].method, 'POST')
     assert.equal(seen[0].authorization, 'Bearer device-token')
+    assert.equal(registrySeen.length, 1)
   })
 }
 
 test('V5 device task operation routes reject non-POST methods before proxying', async () => {
-  const { env, seen } = fixture()
+  const { env, seen, registrySeen } = fixture()
   const response = await worker.fetch(new Request(
     'https://gateway.example/v1/device/device-1/tasks/task-1/checkpoint',
     { method: 'GET', headers: { authorization: 'Bearer device-token' } },
   ), env)
   assert.equal(response.status, 405)
   assert.equal(seen.length, 0)
+  assert.equal(registrySeen.length, 0)
 })
