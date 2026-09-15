@@ -28,6 +28,20 @@ class GatewayClient(
     data class PairStart(val challenge: String, val expiresAt: Long, val recovery: Boolean)
     data class PairComplete(val deviceToken: String, val gatewayPublicKeyJwk: String)
     data class TaskResult(val commandId: String, val status: String, val detail: String? = null)
+    data class V5Checkpoint(
+        val stepCount: Int,
+        val epoch: Int,
+        val checkpointCount: Int,
+        val screenSignature: String? = null,
+        val selectedSkillId: String? = null,
+        val metrics: Map<String, Double> = emptyMap(),
+    ) {
+        init {
+            require(stepCount >= 0)
+            require(epoch >= 0)
+            require(checkpointCount >= 0)
+        }
+    }
     data class LocalObservationFact(
         val kind: String,
         val nodeId: String,
@@ -97,6 +111,66 @@ class GatewayClient(
             .put("detail", result.detail)
         post("/v1/device/${encodeSegment(deviceId)}/result", body, token)
     }
+
+    fun taskStatus(deviceId: String, authorizationToken: String, taskId: String): JSONObject =
+        get(
+            "/v1/device/${encodeSegment(deviceId)}/tasks/${encodeSegment(taskId)}",
+            authorizationToken,
+        )
+
+    fun cancelTask(deviceId: String, authorizationToken: String, taskId: String): JSONObject =
+        post(
+            "/v1/device/${encodeSegment(deviceId)}/tasks/${encodeSegment(taskId)}/cancel",
+            JSONObject(),
+            authorizationToken,
+        )
+
+    fun postCheckpoint(
+        deviceId: String,
+        token: String,
+        taskId: String,
+        checkpoint: V5Checkpoint,
+    ): JSONObject {
+        val metrics = JSONObject()
+        checkpoint.metrics.forEach { (key, value) -> metrics.put(key, value) }
+        val body = JSONObject()
+            .put("stepCount", checkpoint.stepCount)
+            .put("epoch", checkpoint.epoch)
+            .put("checkpointCount", checkpoint.checkpointCount)
+            .put("screenSignature", checkpoint.screenSignature ?: JSONObject.NULL)
+            .put("selectedSkillId", checkpoint.selectedSkillId ?: JSONObject.NULL)
+            .put("metrics", metrics)
+        return post(
+            "/v1/device/${encodeSegment(deviceId)}/tasks/${encodeSegment(taskId)}/checkpoint",
+            body,
+            token,
+        )
+    }
+
+    fun requestMicroPlan(
+        deviceId: String,
+        token: String,
+        taskId: String,
+        observation: JSONObject,
+    ): JSONObject = post(
+        "/v1/device/${encodeSegment(deviceId)}/tasks/${encodeSegment(taskId)}/micro-plan",
+        JSONObject().put("observation", observation),
+        token,
+    )
+
+    fun requestRecovery(
+        deviceId: String,
+        token: String,
+        taskId: String,
+        observation: JSONObject,
+        reason: String,
+    ): JSONObject = post(
+        "/v1/device/${encodeSegment(deviceId)}/tasks/${encodeSegment(taskId)}/recovery",
+        JSONObject()
+            .put("observation", observation)
+            .put("reason", reason.take(96)),
+        token,
+    )
 
     fun postTaskStep(
         deviceId: String,
@@ -191,6 +265,12 @@ class GatewayClient(
             .put("regionHashes", regions)
             .put("nodes", nodes)
             .put("localFacts", facts)
+    }
+
+    private fun get(path: String, token: String?): JSONObject {
+        val builder = Request.Builder().url("$baseUrl$path").get()
+        if (token != null) builder.header("Authorization", "Bearer $token")
+        return executeJson(builder.build())
     }
 
     private fun post(path: String, body: JSONObject, token: String?): JSONObject {
