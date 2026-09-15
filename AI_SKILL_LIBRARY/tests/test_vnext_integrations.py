@@ -44,6 +44,20 @@ class VNextIntegrationContracts(unittest.TestCase):
         self.assertEqual(policy["existing_subsystems_reused"]["legion_task_graph"], expected["legion_runtime_tool_path"])
         self.assertEqual(policy["existing_subsystems_reused"]["free_model_discovery"], expected["free_model_discovery_tool_path"])
 
+    def test_stable_release_packages_all_vnext_runtime_dependencies(self):
+        release = load_tool("release")
+        packaged = {path for path, _role in release.RELEASE_FILES}
+        expected = {
+            "AI_SKILL_LIBRARY/v4/integrations/policy.yaml",
+            "AI_SKILL_LIBRARY/v4/tools/agent_skill_compat.py",
+            "AI_SKILL_LIBRARY/v4/tools/integration_adapters.py",
+            "AI_SKILL_LIBRARY/v4/tools/adaptive_execution.py",
+            "AI_SKILL_LIBRARY/v4/tools/discover_free_models.py",
+            "AI_SKILL_LIBRARY/v4/tools/legion.py",
+            "AI_SKILL_LIBRARY/v4/tools/admission.py",
+        }
+        self.assertTrue(expected.issubset(packaged), sorted(expected - packaged))
+
     def test_agent_skill_compatibility_is_quarantine_only(self):
         compat = load_tool("agent_skill_compat")
         text = """---\nname: api-debug-helper\ndescription: Helps inspect API failures safely.\n---\nUse logs and tests to diagnose the issue.\n"""
