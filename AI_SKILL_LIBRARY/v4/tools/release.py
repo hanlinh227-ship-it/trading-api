@@ -54,6 +54,11 @@ CANDIDATE_EXTENSION_FILES: tuple[tuple[str, str], ...] = (
     ("AI_SKILL_LIBRARY/v4/learning/idle.yaml", "idle_learning"),
 )
 
+# AFMM component gates are verified before Brain 4.9 packaging. The Peer Tri-Layer
+# AI Legion contracts therefore join the immutable 4.9 stable release set while
+# remaining listed as candidate extensions for pre-promotion audit tooling.
+RELEASE_FILES = RELEASE_FILES + CANDIDATE_EXTENSION_FILES
+
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -176,14 +181,17 @@ def rollback_release(root: Path) -> str:
     current = pointer.get("version")
     history_path = root / RELEASE_ROOT / "history.yaml"
     data = yaml.safe_load(history_path.read_text(encoding="utf-8")) if history_path.is_file() else {}
-    rows = data.get("releases", []) if isinstance(data, dict) else []
-    known_good = [row.get("version") for row in rows if isinstance(row, dict) and row.get("known_good") is True]
-    if current not in known_good:
-        raise ValueError("current release is not present in known-good history")
-    index = known_good.index(current)
-    if index == 0:
+    rows = [row for row in (data.get("releases", []) if isinstance(data, dict) else []) if isinstance(row, dict)]
+    versions = [row.get("version") for row in rows]
+    if current not in versions:
+        raise ValueError("current release is not present in release history")
+    current_index = versions.index(current)
+    eligible = [row for row in rows[:current_index] if row.get("known_good") is True]
+    if not eligible:
         raise ValueError("no previous known-good release available")
-    target = known_good[index - 1]
+    target = eligible[-1].get("version")
+    if not isinstance(target, str) or not target:
+        raise ValueError("previous known-good version is invalid")
     manifest_path = root / RELEASE_ROOT / target / "manifest.yaml"
     if not manifest_path.is_file():
         raise ValueError("previous known-good manifest missing")

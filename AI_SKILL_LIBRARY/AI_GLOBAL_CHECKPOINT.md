@@ -13,7 +13,7 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Mandatory routing contract: exactly one primary skill + validated execution capsule for every GitHub Brain request
 - FAST routing: exact-SHA hot snapshot, zero GitHub/provider/network calls for route selection
 - Fallback primary skill: `core_reasoning`
-- Current capability release target: `4.8.1` Continuous Intelligence & Autonomous Improvement, preserving `109` routed skills / `109` execution capsules
+- Current capability release target: `4.9.0` Adaptive Free Model Mesh + Peer Tri-Layer AI Legion; remains not-known-good until exact-SHA production verification, preserving the canonical routed skill/capsule authority chain
 - Continuous Intelligence rule: the Evergreen Update Plane may autonomously refresh sources, detect evidence-backed gaps, generate/test candidates, and prepare bounded improvements; Stable remains immutable during request execution and changes only through validated release promotion.
 - Autonomous promotion boundary: Class A/B may promote only after all required gates (and sandbox for B); Class C/D require explicit human authorization and cannot unattended-promote.
 - Open-source fusion rule: upstream repositories are reference/evidence only; strengthen existing canonical skills first; no parallel reasoning authority; no permission widening; no mandatory local runtime
@@ -219,3 +219,16 @@ For Brain maintenance, resolve `stable_continuous_intelligence_path` before chan
 Do not fetch the full skill catalog/provider registries on every FAST request. FAST route selection uses the already validated exact-SHA hot snapshot. STANDARD/DEEP perform lazy loads only after routing.
 
 Do not reconstruct current runtime state from old conversation memory when GitHub/runtime evidence is available. Refresh the checkpoint and current production evidence at the start of a substantive work cycle. If refresh fails, use only the last verified stable release/snapshot where policy permits and disclose `fresh_git_context=false` when material.
+
+
+## Brain 4.9 Adaptive Free Model Mesh + Peer Tri-Layer AI Legion contract
+
+- `task_router` and project authority remain the sole routing/reasoning authority; model providers, OpenCode workers, specialist agents, RAG/MCP patterns and learning engines are subordinate execution/evidence resources.
+- FAST remains provider-free with `externalRoutingCalls=0`; STANDARD and DEEP may use bounded independent workers only, capped at 2 and 4 respectively.
+- Model Mesh mode is `FREE_ONLY`; catalog presence is not free-entitlement proof, and paid/unknown/quarantined models are not execution eligible.
+- Provider execution is disabled by default and requires runtime configuration, current free entitlement, privacy compatibility and health evidence. Integrated providers without those gates are `INTEGRATED_NOT_ACTIVE`, never reported LIVE.
+- Learning planes Experience, Curated and Exploration are peers for hypothesis/challenge/candidate creation. No plane has a fixed truth weight and majority vote is forbidden.
+- AutoSkill/SkillEvo patterns are absorbed as Brain-native skill mining/evolution with replay, protected regression checks, sandbox/canary and promotion gates; they cannot self-elevate permissions or authority.
+- Idle learning may create bounded low-risk background jobs but yields immediately to active user work and cannot execute live financial actions, access secrets outside scope, or widen permissions.
+- Trading specialists remain research/backtest/evidence workers only; real order execution is outside this release authority.
+- Brain 4.9 is not known-good until canonical CI, Worker checks, Wrangler dry-run, exact-SHA deployment, `/brain/health`, `/brain/mesh/health`, route/planner smoke and post-deploy verification all pass.
