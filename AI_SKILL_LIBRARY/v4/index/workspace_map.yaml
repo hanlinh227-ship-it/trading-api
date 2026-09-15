@@ -12,6 +12,8 @@ groups:
   core: [AGENTS.md, CLAUDE.md, AI_SKILL_LIBRARY/checkpoint.json, AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md, AI_SKILL_LIBRARY/GITHUB_BRAIN_V4.md, AI_SKILL_LIBRARY/README.md]
   v4: [AI_SKILL_LIBRARY/v4/stable, AI_SKILL_LIBRARY/v4/mesh, AI_SKILL_LIBRARY/v4/model_mesh, AI_SKILL_LIBRARY/v4/evergreen, AI_SKILL_LIBRARY/v4/releases, AI_SKILL_LIBRARY/v4/schemas, AI_SKILL_LIBRARY/v4/runtime]
   model_mesh: [AI_SKILL_LIBRARY/v4/model_mesh]
+  legion: [AI_SKILL_LIBRARY/v4/legion]
+  learning: [AI_SKILL_LIBRARY/v4/learning]
   skills: [AI_SKILL_LIBRARY/skills/catalog.yaml, AI_SKILL_LIBRARY/v4/skills, AI_SKILL_LIBRARY/skills, AI_SKILL_LIBRARY/skills/registry, AI_SKILL_LIBRARY/skills/providers]
   projects: [AI_SKILL_LIBRARY/projects.yaml]
   sources: [AI_SKILL_LIBRARY/sources.yaml, AI_SKILL_LIBRARY/sources, AI_SKILL_LIBRARY/plugins.yaml, AI_SKILL_LIBRARY/LICENSE_POLICY.md]
@@ -41,6 +43,8 @@ tiers:
       - AI_SKILL_LIBRARY/v4/stable
       - AI_SKILL_LIBRARY/v4/mesh
       - AI_SKILL_LIBRARY/v4/model_mesh
+      - AI_SKILL_LIBRARY/v4/legion
+      - AI_SKILL_LIBRARY/v4/learning
       - AI_SKILL_LIBRARY/v4/skills
       - AI_SKILL_LIBRARY/skills
       - AI_SKILL_LIBRARY/sources.yaml
