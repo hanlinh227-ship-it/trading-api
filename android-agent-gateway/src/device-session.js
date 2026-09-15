@@ -394,7 +394,12 @@ export class DeviceSession {
       const clamped = clampTaskStep({ task, action: candidate, observation: body.observation })
       actions.push(clamped.action)
     }
-    return json({ taskId: decoded, actions: actions.slice(0, 8), mode: planned.mode ?? 'cloud' })
+    return json({
+      taskId: decoded,
+      task: publicTaskState(task),
+      actions: actions.slice(0, 8),
+      mode: planned.mode ?? 'cloud',
+    })
   }
 
   async taskRecovery(request, taskId) {
