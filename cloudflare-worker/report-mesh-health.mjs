@@ -26,25 +26,32 @@ process.stdin.on('end', () => {
     return names[0] || 'UNKNOWN';
   };
 
-  const rows = providers.map((row) => ({
-    provider: row.providerId,
-    status: classify(row),
-    bindingEnabled: row.bindingEnabled === true,
-    credentialPresent: row.configured === true,
-    eligibleModels: row.eligibleModelCount || 0,
-    liveHealthyModels: row.liveHealthyModelCount || 0,
-  }));
+  const rows = providers.map((row) => {
+    const states = Array.isArray(row.states) ? row.states : [];
+    return {
+      provider: row.providerId,
+      status: classify(row),
+      bindingEnabled: row.bindingEnabled === true,
+      // configured is carried by admitted models. With no admitted model there
+      // is nothing to carry it, so it defaults false - reporting that as
+      // "absent" would wrongly blame a missing key for an empty registry.
+      credential: states.length === 0 ? 'unknown' : (row.configured === true ? 'present' : 'absent'),
+      eligibleModels: row.eligibleModelCount || 0,
+      liveHealthyModels: row.liveHealthyModelCount || 0,
+    };
+  });
 
   const tally = rows.reduce((acc, r) => {acc[r.status] = (acc[r.status] || 0) + 1; return acc;}, {});
   console.log(`MESH_HEALTH_REPORT observed_at=${new Date().toISOString()} bindings=${rows.length} tally=${JSON.stringify(tally)}`);
   for (const r of rows) {
     console.log(
       `  ${r.provider.padEnd(34)}${r.status.padEnd(26)}`
-      + `credential=${r.credentialPresent ? 'present' : 'absent '} `
+      + `credential=${r.credential.padEnd(7)} `
       + `eligible=${r.eligibleModels} live=${r.liveHealthyModels}`,
     );
   }
   const live = rows.filter((r) => r.status === 'LIVE_HEALTHY').length;
   const blocked = rows.filter((r) => r.status === 'USER_CREDENTIAL_BLOCKED').length;
-  console.log(`MESH_HEALTH_SUMMARY live_healthy=${live} user_credential_blocked=${blocked}`);
+  const noModel = rows.filter((r) => r.status === 'NO_ADMITTED_MODEL').length;
+  console.log(`MESH_HEALTH_SUMMARY live_healthy=${live} user_credential_blocked=${blocked} no_admitted_model=${noModel}`);
 });
