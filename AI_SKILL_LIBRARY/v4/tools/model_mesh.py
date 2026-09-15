@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +34,7 @@ _USAGE_TERMS = {"prototyping", "evaluation", "production_allowed", "unknown"}
 _HEALTH_STATES = {"healthy", "degraded", "cooldown", "unavailable"}
 _ALLOWED_ROLES = {"maker", "researcher", "specialist", "critic", "checker", "grader", "summarizer"}
 _PROFILE_WORKER_CAPS = {"FAST": 0, "STANDARD": 2, "DEEP": 4}
+_PROVIDER_AVAILABLE_STATES = {"AVAILABLE", "LOW_HEADROOM", "DEGRADED"}
 
 
 def _schema_validator() -> Draft202012Validator:
@@ -389,7 +392,6 @@ def select_workers(task: dict, candidates: list[dict], *, max_workers: int) -> l
         if not isinstance(candidate, dict):
             continue
         key = _candidate_key(candidate)
-        # Permission is explicit and fail-closed. The mesh never widens the canonical capsule.
         if permission_allowed.get(key) is not True:
             continue
         if not eligible_free_candidate(candidate, data_class=data_class):
@@ -436,3 +438,157 @@ def select_workers(task: dict, candidates: list[dict], *, max_workers: int) -> l
         worker["research_only"] = research_only
         selected.append(worker)
     return selected
+
+
+def _parse_timestamp(value: object) -> datetime | None:
+    text = _clean_string(value)
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _format_timestamp(value: datetime) -> str:
+    return value.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _future_timestamp(now: datetime, seconds: object, *, default_seconds: int = 60) -> str:
+    number = _nullable_number(seconds)
+    bounded = default_seconds if number is None else max(1, min(int(number), 86400))
+    return _format_timestamp(now + timedelta(seconds=bounded))
+
+
+def _preferred_probe_time(event: dict, now: datetime, *, default_seconds: int = 60) -> str:
+    explicit = _parse_timestamp(event.get("reset_at"))
+    if explicit is not None and explicit >= now:
+        return _format_timestamp(explicit)
+    return _future_timestamp(now, event.get("retry_after_seconds"), default_seconds=default_seconds)
+
+
+def next_probe_at(state: dict) -> str | None:
+    if not isinstance(state, dict) or state.get("retry_allowed") is False:
+        return None
+    status = state.get("status")
+    if status in {"COOLDOWN_QUOTA", "PROBE_READY"}:
+        return _clean_string(state.get("reset_at")) or None
+    if status in {"CIRCUIT_OPEN", "HALF_OPEN"}:
+        return _clean_string(state.get("probe_at")) or None
+    return None
+
+
+def provider_available(state: dict, *, now: str) -> bool:
+    if not isinstance(state, dict) or state.get("retry_allowed") is False:
+        return False
+    if _parse_timestamp(now) is None:
+        return False
+    return state.get("status") in _PROVIDER_AVAILABLE_STATES
+
+
+def apply_quota_event(state: dict, event: dict, *, now: str) -> dict:
+    """Apply a sanitized immutable provider quota/health state transition.
+
+    The state machine never emits account/key/IP/proxy/region rotation or other quota-circumvention actions.
+    """
+    if not isinstance(state, dict) or not isinstance(event, dict):
+        raise TypeError("state and event must be mappings")
+    now_dt = _parse_timestamp(now)
+    if now_dt is None:
+        raise ValueError("now must be an ISO-8601 timestamp")
+
+    result = deepcopy(state)
+    result.setdefault("status", "AVAILABLE")
+    result.setdefault("consecutive_failures", 0)
+    result.setdefault("quota_headroom", 1.0)
+    result.setdefault("reset_at", None)
+    result.setdefault("probe_at", None)
+    result.setdefault("retry_allowed", True)
+    result.setdefault("last_failure_class", None)
+    result["updated_at"] = _format_timestamp(now_dt)
+
+    kind = _clean_string(event.get("type")).lower()
+
+    if kind == "quota":
+        remaining = _bounded_score(event.get("remaining_ratio"), default=0.0)
+        result["quota_headroom"] = remaining
+        if remaining <= 0.0:
+            result["status"] = "COOLDOWN_QUOTA"
+            reset = _preferred_probe_time(event, now_dt)
+            result["reset_at"] = reset
+            result["probe_at"] = reset
+            result["last_failure_class"] = "quota_exhausted"
+        elif remaining <= 0.15:
+            result["status"] = "LOW_HEADROOM"
+        elif result.get("status") in {"LOW_HEADROOM", "DEGRADED"}:
+            result["status"] = "AVAILABLE"
+        return result
+
+    if kind == "http_error" and int(event.get("status_code") or 0) == 429:
+        reset = _preferred_probe_time(event, now_dt)
+        result["status"] = "COOLDOWN_QUOTA"
+        result["quota_headroom"] = 0.0
+        result["reset_at"] = reset
+        result["probe_at"] = reset
+        result["last_failure_class"] = "rate_limit"
+        result["retry_allowed"] = True
+        return result
+
+    if kind == "invalid_credentials":
+        result["status"] = "UNAVAILABLE"
+        result["retry_allowed"] = False
+        result["reset_at"] = None
+        result["probe_at"] = None
+        result["last_failure_class"] = "invalid_credentials"
+        return result
+
+    if kind == "transient_failure":
+        failures = max(0, int(result.get("consecutive_failures") or 0)) + 1
+        result["consecutive_failures"] = failures
+        result["last_failure_class"] = "transient"
+        if failures >= 3:
+            result["status"] = "CIRCUIT_OPEN"
+            result["probe_at"] = _preferred_probe_time(event, now_dt)
+        else:
+            result["status"] = "DEGRADED"
+        return result
+
+    if kind == "tick":
+        if result.get("status") == "COOLDOWN_QUOTA":
+            reset = _parse_timestamp(result.get("reset_at"))
+            if reset is not None and now_dt >= reset:
+                result["status"] = "PROBE_READY"
+            return result
+        if result.get("status") == "CIRCUIT_OPEN":
+            probe = _parse_timestamp(result.get("probe_at"))
+            if probe is not None and now_dt >= probe:
+                result["status"] = "HALF_OPEN"
+            return result
+        return result
+
+    if kind in {"probe_success", "success"}:
+        result["status"] = "AVAILABLE"
+        result["consecutive_failures"] = 0
+        result["quota_headroom"] = max(_bounded_score(result.get("quota_headroom")), 0.5)
+        result["reset_at"] = None
+        result["probe_at"] = None
+        result["retry_allowed"] = True
+        result["last_failure_class"] = None
+        return result
+
+    if kind == "probe_failure":
+        result["consecutive_failures"] = max(1, int(result.get("consecutive_failures") or 0) + 1)
+        result["last_failure_class"] = "probe_failure"
+        probe = _preferred_probe_time(event, now_dt)
+        if result.get("status") == "PROBE_READY":
+            result["status"] = "COOLDOWN_QUOTA"
+            result["reset_at"] = probe
+        else:
+            result["status"] = "CIRCUIT_OPEN"
+            result["probe_at"] = probe
+        return result
+
+    return result
