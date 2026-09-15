@@ -1,9 +1,9 @@
 """Single validation entrypoint for GITHUB_BRAIN_V4 (local and CI).
 
 Runs every validator exactly once, in a fixed order, and reports one summary:
-  legacy validators -> V4 validators -> Skill Gateway snapshot compile/validate ->
-  Model Mesh contract + snapshot compile/validate -> release + retrieval-index
-  freshness -> consolidation invariants -> unit tests (optional)
+  legacy validators -> V4 validators -> Model Mesh + Legion safety validators ->
+  Skill Gateway snapshot compile/validate -> Model Mesh snapshot compile/validate ->
+  release + retrieval-index freshness -> consolidation invariants -> unit tests (optional)
 
 Usage:
   python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$(git rev-parse HEAD)" [--skip-tests]
@@ -30,6 +30,7 @@ VALIDATORS = (
     "AI_SKILL_LIBRARY/validate_skill_registry.py",
     "AI_SKILL_LIBRARY/validate_skill_gateway.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh.py",
+    "AI_SKILL_LIBRARY/v4/tools/validate_legion.py",
 )
 
 
@@ -60,8 +61,12 @@ def run_validators(
     root = Path(root).resolve()
     failures: list[str] = []
     py = sys.executable
+    rooted = {"validate_model_mesh.py", "validate_legion.py"}
     for rel in VALIDATORS:
-        code, out = _run([py, rel, "--root", str(root)] if rel.endswith("validate_model_mesh.py") else [py, rel], root)
+        cmd = [py, rel]
+        if Path(rel).name in rooted:
+            cmd.extend(["--root", str(root)])
+        code, out = _run(cmd, root)
         tail = out.splitlines()[-1] if out else ""
         print(f"{'PASS' if code == 0 else 'FAIL'} {rel}: {tail}")
         if code != 0:
