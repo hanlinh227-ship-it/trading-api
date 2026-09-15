@@ -19,6 +19,8 @@ on:
       - 'AI_SKILL_LIBRARY/v4/schemas/skill_candidate.schema.json'
       - 'AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml'
       - 'AI_SKILL_LIBRARY/v4/index/workspace_map.yaml'
+      - 'AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml'
+      - 'cloudflare-worker/skill-gateway-handler.js'
       - 'AI_SKILL_LIBRARY/tests/test_peer_tri_layer_policy.py'
       - 'AI_SKILL_LIBRARY/tests/test_legion_*.py'
       - 'AI_SKILL_LIBRARY/tests/test_intelligence_bus.py'
