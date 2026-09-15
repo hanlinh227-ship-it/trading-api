@@ -16,13 +16,44 @@
       "free_verified_at": "2026-09-15T09:40:00Z",
       "observed_at": "2026-09-15T09:40:00Z",
       "quota_scope": "account",
-      "quota_dimensions": ["rpm", "tpm"],
+      "quota_dimensions": [
+        "rpm",
+        "tpm"
+      ],
       "reset_semantics": "rolling",
       "capabilities": {
-        "text_reasoning": {"supported": true, "score": 0.85, "evidence": ["https://console.groq.com/docs/models"], "verified_at": "2026-09-15T09:40:00Z"},
-        "coding": {"supported": true, "score": 0.8, "evidence": ["https://console.groq.com/docs/models"], "verified_at": "2026-09-15T09:40:00Z"},
-        "structured_output": {"supported": true, "score": 0.7, "evidence": ["https://console.groq.com/docs/openai"], "verified_at": "2026-09-15T09:40:00Z"},
-        "low_latency": {"supported": true, "score": 0.9, "evidence": ["https://console.groq.com/docs/rate-limits"], "verified_at": "2026-09-15T09:40:00Z"}
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.85,
+          "evidence": [
+            "https://console.groq.com/docs/models"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.8,
+          "evidence": [
+            "https://console.groq.com/docs/models"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "structured_output": {
+          "supported": true,
+          "score": 0.7,
+          "evidence": [
+            "https://console.groq.com/docs/openai"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "low_latency": {
+          "supported": true,
+          "score": 0.9,
+          "evidence": [
+            "https://console.groq.com/docs/rate-limits"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        }
       },
       "context_window": 131072,
       "privacy_class": "public_safe",
@@ -34,26 +65,62 @@
       "success_rate_ema": null,
       "quality_scores": {},
       "last_benchmark_at": null,
-      "source_evidence": ["https://console.groq.com/docs/models", "https://console.groq.com/docs/rate-limits", "https://console.groq.com/docs/your-data"]
+      "source_evidence": [
+        "https://console.groq.com/docs/models",
+        "https://console.groq.com/docs/rate-limits",
+        "https://console.groq.com/docs/your-data"
+      ]
     },
     {
       "provider_id": "gemini_developer_api",
       "provider_class": "F1",
-      "model_id": "gemini-2.5-flash",
-      "model_family": "gemini-2.5-flash",
+      "model_id": "gemini-flash-latest",
+      "model_family": "gemini-flash",
       "model_variant": "developer-api",
       "endpoint_family": "native",
       "free_status": "recurring",
-      "free_verified_at": "2026-09-15T09:40:00Z",
-      "observed_at": "2026-09-15T09:40:00Z",
+      "free_verified_at": "2026-09-15T23:48:11Z",
+      "observed_at": "2026-09-15T23:48:11Z",
       "quota_scope": "project",
-      "quota_dimensions": ["rpm", "tpm", "rpd"],
+      "quota_dimensions": [
+        "rpm",
+        "tpm",
+        "rpd"
+      ],
       "reset_semantics": "daily",
       "capabilities": {
-        "text_reasoning": {"supported": true, "score": 0.85, "evidence": ["https://ai.google.dev/gemini-api/docs/models"], "verified_at": "2026-09-15T09:40:00Z"},
-        "long_context": {"supported": true, "score": 0.95, "evidence": ["https://ai.google.dev/gemini-api/docs/models"], "verified_at": "2026-09-15T09:40:00Z"},
-        "vision": {"supported": true, "score": 0.9, "evidence": ["https://ai.google.dev/gemini-api/docs/models"], "verified_at": "2026-09-15T09:40:00Z"},
-        "multilingual": {"supported": true, "score": 0.9, "evidence": ["https://ai.google.dev/gemini-api/docs/models"], "verified_at": "2026-09-15T09:40:00Z"}
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.85,
+          "evidence": [
+            "https://ai.google.dev/gemini-api/docs/models"
+          ],
+          "verified_at": "2026-09-15T23:48:11Z"
+        },
+        "long_context": {
+          "supported": true,
+          "score": 0.95,
+          "evidence": [
+            "https://ai.google.dev/gemini-api/docs/models"
+          ],
+          "verified_at": "2026-09-15T23:48:11Z"
+        },
+        "vision": {
+          "supported": true,
+          "score": 0.9,
+          "evidence": [
+            "https://ai.google.dev/gemini-api/docs/models"
+          ],
+          "verified_at": "2026-09-15T23:48:11Z"
+        },
+        "multilingual": {
+          "supported": true,
+          "score": 0.9,
+          "evidence": [
+            "https://ai.google.dev/gemini-api/docs/models"
+          ],
+          "verified_at": "2026-09-15T23:48:11Z"
+        }
       },
       "context_window": 1048576,
       "privacy_class": "restricted",
@@ -65,7 +132,10 @@
       "success_rate_ema": null,
       "quality_scores": {},
       "last_benchmark_at": null,
-      "source_evidence": ["https://ai.google.dev/gemini-api/docs/pricing", "https://ai.google.dev/gemini-api/docs/rate-limits", "https://ai.google.dev/gemini-api/docs/models"]
+      "source_evidence": [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "live generateContent probe 2026-09-15 (run 35037248325): gemini-flash-latest=200, gemini-2.5-flash=404 NOT_FOUND"
+      ]
     },
     {
       "provider_id": "cloudflare_workers_ai",
@@ -78,12 +148,35 @@
       "free_verified_at": "2026-09-15T09:40:00Z",
       "observed_at": "2026-09-15T09:40:00Z",
       "quota_scope": "account",
-      "quota_dimensions": ["neurons_per_day"],
+      "quota_dimensions": [
+        "neurons_per_day"
+      ],
       "reset_semantics": "daily",
       "capabilities": {
-        "text_reasoning": {"supported": true, "score": 0.75, "evidence": ["https://developers.cloudflare.com/workers-ai/models/"], "verified_at": "2026-09-15T09:40:00Z"},
-        "coding": {"supported": true, "score": 0.72, "evidence": ["https://developers.cloudflare.com/workers-ai/models/"], "verified_at": "2026-09-15T09:40:00Z"},
-        "low_latency": {"supported": true, "score": 0.8, "evidence": ["https://developers.cloudflare.com/workers-ai/"], "verified_at": "2026-09-15T09:40:00Z"}
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.75,
+          "evidence": [
+            "https://developers.cloudflare.com/workers-ai/models/"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.72,
+          "evidence": [
+            "https://developers.cloudflare.com/workers-ai/models/"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "low_latency": {
+          "supported": true,
+          "score": 0.8,
+          "evidence": [
+            "https://developers.cloudflare.com/workers-ai/"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        }
       },
       "context_window": 131072,
       "privacy_class": "public_safe",
@@ -95,7 +188,10 @@
       "success_rate_ema": null,
       "quality_scores": {},
       "last_benchmark_at": null,
-      "source_evidence": ["https://developers.cloudflare.com/workers-ai/platform/pricing/", "https://developers.cloudflare.com/workers-ai/models/"]
+      "source_evidence": [
+        "https://developers.cloudflare.com/workers-ai/platform/pricing/",
+        "https://developers.cloudflare.com/workers-ai/models/"
+      ]
     },
     {
       "provider_id": "openrouter",
@@ -108,12 +204,36 @@
       "free_verified_at": "2026-09-15T09:40:00Z",
       "observed_at": "2026-09-15T09:40:00Z",
       "quota_scope": "account",
-      "quota_dimensions": ["requests_per_day", "rpm"],
+      "quota_dimensions": [
+        "requests_per_day",
+        "rpm"
+      ],
       "reset_semantics": "daily",
       "capabilities": {
-        "text_reasoning": {"supported": true, "score": 0.7, "evidence": ["https://openrouter.ai/openrouter/free"], "verified_at": "2026-09-15T09:40:00Z"},
-        "coding": {"supported": true, "score": 0.65, "evidence": ["https://openrouter.ai/openrouter/free"], "verified_at": "2026-09-15T09:40:00Z"},
-        "long_context": {"supported": true, "score": 0.75, "evidence": ["https://openrouter.ai/openrouter/free"], "verified_at": "2026-09-15T09:40:00Z"}
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.7,
+          "evidence": [
+            "https://openrouter.ai/openrouter/free"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.65,
+          "evidence": [
+            "https://openrouter.ai/openrouter/free"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "long_context": {
+          "supported": true,
+          "score": 0.75,
+          "evidence": [
+            "https://openrouter.ai/openrouter/free"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        }
       },
       "context_window": 200000,
       "privacy_class": "restricted",
@@ -125,7 +245,11 @@
       "success_rate_ema": null,
       "quality_scores": {},
       "last_benchmark_at": null,
-      "source_evidence": ["https://openrouter.ai/openrouter/free", "https://openrouter.ai/collections/free-models", "https://openrouter.ai/pricing"]
+      "source_evidence": [
+        "https://openrouter.ai/openrouter/free",
+        "https://openrouter.ai/collections/free-models",
+        "https://openrouter.ai/pricing"
+      ]
     },
     {
       "provider_id": "mistral",
@@ -138,12 +262,36 @@
       "free_verified_at": "2026-09-15T09:40:00Z",
       "observed_at": "2026-09-15T09:40:00Z",
       "quota_scope": "account",
-      "quota_dimensions": ["rpm", "monthly_usage"],
+      "quota_dimensions": [
+        "rpm",
+        "monthly_usage"
+      ],
       "reset_semantics": "monthly",
       "capabilities": {
-        "text_reasoning": {"supported": true, "score": 0.78, "evidence": ["https://docs.mistral.ai/getting-started/models/models_overview/"], "verified_at": "2026-09-15T09:40:00Z"},
-        "coding": {"supported": true, "score": 0.75, "evidence": ["https://docs.mistral.ai/getting-started/models/models_overview/"], "verified_at": "2026-09-15T09:40:00Z"},
-        "multilingual": {"supported": true, "score": 0.8, "evidence": ["https://docs.mistral.ai/getting-started/models/models_overview/"], "verified_at": "2026-09-15T09:40:00Z"}
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.78,
+          "evidence": [
+            "https://docs.mistral.ai/getting-started/models/models_overview/"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.75,
+          "evidence": [
+            "https://docs.mistral.ai/getting-started/models/models_overview/"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "multilingual": {
+          "supported": true,
+          "score": 0.8,
+          "evidence": [
+            "https://docs.mistral.ai/getting-started/models/models_overview/"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        }
       },
       "context_window": 262144,
       "privacy_class": "public_safe",
@@ -155,7 +303,10 @@
       "success_rate_ema": null,
       "quality_scores": {},
       "last_benchmark_at": null,
-      "source_evidence": ["https://docs.mistral.ai/admin/billing-usage/usage-limits", "https://docs.mistral.ai/getting-started/quickstart/"]
+      "source_evidence": [
+        "https://docs.mistral.ai/admin/billing-usage/usage-limits",
+        "https://docs.mistral.ai/getting-started/quickstart/"
+      ]
     },
     {
       "provider_id": "cohere",
@@ -169,11 +320,28 @@
       "free_verified_at": "2026-09-15T09:40:00Z",
       "observed_at": "2026-09-15T09:40:00Z",
       "quota_scope": "account",
-      "quota_dimensions": ["monthly_calls", "rpm"],
+      "quota_dimensions": [
+        "monthly_calls",
+        "rpm"
+      ],
       "reset_semantics": "monthly",
       "capabilities": {
-        "text_reasoning": {"supported": true, "score": 0.78, "evidence": ["https://docs.cohere.com/docs/models"], "verified_at": "2026-09-15T09:40:00Z"},
-        "research_synthesis": {"supported": true, "score": 0.75, "evidence": ["https://docs.cohere.com/docs/models"], "verified_at": "2026-09-15T09:40:00Z"}
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.78,
+          "evidence": [
+            "https://docs.cohere.com/docs/models"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "research_synthesis": {
+          "supported": true,
+          "score": 0.75,
+          "evidence": [
+            "https://docs.cohere.com/docs/models"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        }
       },
       "context_window": 256000,
       "privacy_class": "restricted",
@@ -185,7 +353,10 @@
       "success_rate_ema": null,
       "quality_scores": {},
       "last_benchmark_at": null,
-      "source_evidence": ["https://docs.cohere.com/docs/rate-limits", "https://docs.cohere.com/docs/compatibility-api"]
+      "source_evidence": [
+        "https://docs.cohere.com/docs/rate-limits",
+        "https://docs.cohere.com/docs/compatibility-api"
+      ]
     },
     {
       "provider_id": "huggingface_inference_providers",
@@ -199,11 +370,27 @@
       "free_verified_at": "2026-09-15T09:40:00Z",
       "observed_at": "2026-09-15T09:40:00Z",
       "quota_scope": "account",
-      "quota_dimensions": ["monthly_credit"],
+      "quota_dimensions": [
+        "monthly_credit"
+      ],
       "reset_semantics": "monthly",
       "capabilities": {
-        "text_reasoning": {"supported": true, "score": 0.82, "evidence": ["https://huggingface.co/docs/inference-providers/guides/usage"], "verified_at": "2026-09-15T09:40:00Z"},
-        "coding": {"supported": true, "score": 0.78, "evidence": ["https://huggingface.co/docs/inference-providers/guides/usage"], "verified_at": "2026-09-15T09:40:00Z"}
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.82,
+          "evidence": [
+            "https://huggingface.co/docs/inference-providers/guides/usage"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.78,
+          "evidence": [
+            "https://huggingface.co/docs/inference-providers/guides/usage"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        }
       },
       "context_window": 131072,
       "privacy_class": "restricted",
@@ -215,7 +402,10 @@
       "success_rate_ema": null,
       "quality_scores": {},
       "last_benchmark_at": null,
-      "source_evidence": ["https://huggingface.co/docs/inference-providers/pricing", "https://huggingface.co/docs/inference-providers/guides/usage"]
+      "source_evidence": [
+        "https://huggingface.co/docs/inference-providers/pricing",
+        "https://huggingface.co/docs/inference-providers/guides/usage"
+      ]
     },
     {
       "provider_id": "alibaba_model_studio",
@@ -229,12 +419,36 @@
       "free_verified_at": "2026-09-15T09:40:00Z",
       "observed_at": "2026-09-15T09:40:00Z",
       "quota_scope": "account",
-      "quota_dimensions": ["free_tokens", "expiry"],
+      "quota_dimensions": [
+        "free_tokens",
+        "expiry"
+      ],
       "reset_semantics": "none",
       "capabilities": {
-        "text_reasoning": {"supported": true, "score": 0.78, "evidence": ["https://www.alibabacloud.com/help/en/model-studio/models"], "verified_at": "2026-09-15T09:40:00Z"},
-        "multilingual": {"supported": true, "score": 0.85, "evidence": ["https://www.alibabacloud.com/help/en/model-studio/models"], "verified_at": "2026-09-15T09:40:00Z"},
-        "low_latency": {"supported": true, "score": 0.8, "evidence": ["https://www.alibabacloud.com/help/en/model-studio/models"], "verified_at": "2026-09-15T09:40:00Z"}
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.78,
+          "evidence": [
+            "https://www.alibabacloud.com/help/en/model-studio/models"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "multilingual": {
+          "supported": true,
+          "score": 0.85,
+          "evidence": [
+            "https://www.alibabacloud.com/help/en/model-studio/models"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "low_latency": {
+          "supported": true,
+          "score": 0.8,
+          "evidence": [
+            "https://www.alibabacloud.com/help/en/model-studio/models"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        }
       },
       "context_window": 131072,
       "privacy_class": "restricted",
@@ -246,7 +460,10 @@
       "success_rate_ema": null,
       "quality_scores": {},
       "last_benchmark_at": null,
-      "source_evidence": ["https://www.alibabacloud.com/help/en/model-studio/new-free-quota", "https://www.alibabacloud.com/help/en/model-studio/get-api-key"]
+      "source_evidence": [
+        "https://www.alibabacloud.com/help/en/model-studio/new-free-quota",
+        "https://www.alibabacloud.com/help/en/model-studio/get-api-key"
+      ]
     },
     {
       "provider_id": "opencode_zen",
@@ -259,11 +476,28 @@
       "free_verified_at": "2026-09-15T09:40:00Z",
       "observed_at": "2026-09-15T09:40:00Z",
       "quota_scope": "account",
-      "quota_dimensions": ["requests", "provider_dynamic_limit"],
+      "quota_dimensions": [
+        "requests",
+        "provider_dynamic_limit"
+      ],
       "reset_semantics": "unknown",
       "capabilities": {
-        "text_reasoning": {"supported": true, "score": 0.72, "evidence": ["https://opencode.ai/docs/zen"], "verified_at": "2026-09-15T09:40:00Z"},
-        "coding": {"supported": true, "score": 0.8, "evidence": ["https://opencode.ai/docs/zen"], "verified_at": "2026-09-15T09:40:00Z"}
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.72,
+          "evidence": [
+            "https://opencode.ai/docs/zen"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.8,
+          "evidence": [
+            "https://opencode.ai/docs/zen"
+          ],
+          "verified_at": "2026-09-15T09:40:00Z"
+        }
       },
       "context_window": 131072,
       "privacy_class": "restricted",
@@ -275,7 +509,10 @@
       "success_rate_ema": null,
       "quality_scores": {},
       "last_benchmark_at": null,
-      "source_evidence": ["https://opencode.ai/docs/zen", "https://opencode.ai/zen/v1/models"]
+      "source_evidence": [
+        "https://opencode.ai/docs/zen",
+        "https://opencode.ai/zen/v1/models"
+      ]
     }
   ]
 }
