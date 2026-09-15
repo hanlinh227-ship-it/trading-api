@@ -30,8 +30,9 @@ class LegionRuntimeContractTests(unittest.TestCase):
             "/brain/learning/status",
         ):
             self.assertIn(route, text)
-        self.assertIn("routing_authority:false", text.replace(" ", ""))
-        self.assertIn("reasoning_authority:false", text.replace(" ", ""))
+        compact = text.replace(" ", "")
+        self.assertIn("routingAuthority:false", compact)
+        self.assertIn("reasoningAuthority:false", compact)
 
     def test_route_remains_provider_free_and_status_is_sanitized(self):
         text = HANDLER.read_text(encoding="utf-8")
