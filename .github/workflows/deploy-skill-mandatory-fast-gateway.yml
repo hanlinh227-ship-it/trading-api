@@ -2,8 +2,21 @@ name: Deploy Skill-Mandatory Fast Gateway
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'deploy = gated production deploy (default); refresh-health = non-mutating provider health refresh only'
+        type: choice
+        options:
+          - deploy
+          - refresh-health
+        default: deploy
+  # Fixed-minute entries, not '*/10'. GitHub sheds high-frequency '*/N'
+  # schedules under load and this repository never received a single '*/10'
+  # firing; every schedule here that does fire uses fixed minutes. A 20-minute
+  # cadence stays inside model-mesh LIVE_TTL_MS (30 min) with margin for the
+  # delay GitHub applies to scheduled events.
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '3,23,43 * * * *'
   push:
     branches: [main]
     paths:
@@ -29,7 +42,7 @@ env:
 
 jobs:
   deploy-exact-main:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'refresh-health')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -466,7 +479,7 @@ jobs:
           fi
 
   refresh-model-mesh-health:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'refresh-health')
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -487,3 +500,22 @@ jobs:
           echo "MODEL_MESH_REFRESH_REVISION=PASS deployed=$deployed"
           result="$(curl -fsS --connect-timeout 5 --max-time 90 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
           printf '%s\n' "$result" | node cloudflare-worker/validate-model-mesh-probe.mjs
+      # Advisory, read-only. Never gates the refresh: a provider diagnosis
+      # failing must not turn a good health refresh into a failed run.
+      - name: Gemini generateContent capability diagnosis (advisory)
+        if: always()
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          # This job checks out main on purpose, so it runs the diagnosis that
+          # ships with the deployed revision. Skip cleanly when that revision
+          # predates the tool instead of failing the refresh.
+          if [ ! -f cloudflare-worker/diagnose-gemini.mjs ]; then
+            echo "GEMINI_DIAGNOSIS=SKIPPED reason=tool_not_in_deployed_revision"
+            exit 0
+          fi
+          CONFIGURED="$(node -e "const s=require('./AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json');const m=(s.models||[]).find(x=>x.provider_id==='gemini_developer_api');process.stdout.write(m?m.model_id:'')" 2>/dev/null || true)" \
+            node cloudflare-worker/diagnose-gemini.mjs
