@@ -9,7 +9,11 @@ on:
       - 'AI_SKILL_LIBRARY/v4/tools/discover_free_models.py'
       - 'AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_snapshot.py'
       - 'AI_SKILL_LIBRARY/v4/tools/validate_model_mesh*.py'
+      - 'AI_SKILL_LIBRARY/v4/tools/evaluate_model_mesh.py'
       - 'AI_SKILL_LIBRARY/v4/schemas/model_mesh_*.json'
+      - 'AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml'
+      - 'AI_SKILL_LIBRARY/v4/evergreen/discovery.yaml'
+      - '.github/workflows/ai-brain-evergreen-scan.yml'
       - 'AI_SKILL_LIBRARY/tests/test_adaptive_free_model_mesh*.py'
       - '.github/workflows/afmm-tdd.yml'
   workflow_dispatch:
