@@ -1,0 +1,45 @@
+version: 1
+candidate_set: animation_prompt_reference_fusion
+state: evaluated_reference_only
+routing_authority: false
+reasoning_authority: false
+permission_expansion: false
+mandatory_runtime_dependency: false
+zero_local_preserved: true
+promotion_target: strengthen_video_prompt_only
+candidates:
+  - repository: guoyww/AnimateDiff
+    provenance: github_public_official_implementation
+    license: Apache-2.0
+    maintenance_status: active_repository_reference_checked_2026-09-15
+    decision: reference_only
+    absorbs: [motion_priors, motion_pattern_control, sparse_structural_control]
+    code_reuse: false
+    permission_expansion: false
+  - repository: Lightricks/LTX-Video
+    provenance: github_public_official_repository
+    license: Apache-2.0
+    maintenance_status: active_repository_reference_checked_2026-09-15
+    decision: reference_only
+    absorbs: [chronological_motion_prompting, literal_temporal_action_order]
+    code_reuse: false
+    permission_expansion: false
+  - repository: Wan-Video/Wan2.2
+    provenance: github_public_official_repository
+    license: Apache-2.0
+    maintenance_status: active_repository_reference_checked_2026-09-15
+    decision: reference_only
+    absorbs: [complex_video_motion_reference, image_to_video_reference]
+    code_reuse: false
+    permission_expansion: false
+reference_guidance:
+  provider_docs_are_evidence_only: true
+  classical_animation_principles_are_reference_only: true
+  no_external_framework_as_authority: true
+  no_runtime_dependency_from_reference_sources: true
+conflict_resolution:
+  canonical_skill_first: true
+  strengthen_existing_video_prompt: true
+  generic_animation_trigger_stays_with_design_3d: true
+  duplicate_reasoning_authority: reject
+  permission_widening: reject
