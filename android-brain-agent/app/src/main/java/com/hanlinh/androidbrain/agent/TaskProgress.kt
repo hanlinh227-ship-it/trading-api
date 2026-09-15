@@ -19,6 +19,12 @@ enum class TaskPersistence {
     UNTIL_TERMINAL,
 }
 
+fun TaskPersistence.toV5Policies(): Set<PersistencePolicy> = when (this) {
+    TaskPersistence.ONE_SHOT -> setOf(PersistencePolicy.UNTIL_GOAL_COMPLETE)
+    TaskPersistence.LONG_RUNNING -> setOf(PersistencePolicy.UNTIL_GOAL_COMPLETE)
+    TaskPersistence.UNTIL_TERMINAL -> setOf(PersistencePolicy.UNTIL_GOAL_COMPLETE)
+}
+
 enum class TaskStepOutcome {
     EXECUTED,
     RECOVERABLE_FAILURE,
