@@ -1,5 +1,8 @@
 package com.hanlinh.androidbrain.network
 
+import com.hanlinh.androidbrain.agent.PersistencePolicy
+import com.hanlinh.androidbrain.policy.RiskClass
+import com.hanlinh.androidbrain.protocol.ReadScreen
 import java.util.concurrent.CopyOnWriteArrayList
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -7,6 +10,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -66,5 +70,32 @@ class V5GatewayClientContractTest {
         val path = seen.single().second
         assertTrue(path.contains("device+one") || path.contains("device%20one"))
         assertTrue(path.contains("task%2Fone"))
+    }
+
+    @Test fun localOperatorResponse_preservesAuthoritativeTaskScopeAndBoundedActions() {
+        val client = GatewayClient(baseUrl = "https://gateway.example", http = http)
+        val response = client.parseTaskStepResponse(
+            JSONObject()
+                .put("status", "ACTING")
+                .put("goal", "keep navigating")
+                .put("riskClass", "B")
+                .put("capabilityScope", JSONArray().put("ui.navigate").put("ui.write"))
+                .put("allowedPackages", JSONArray().put("com.example"))
+                .put("persistencePolicy", JSONArray().put("UNTIL_USER_STOP").put("UNTIL_APP_SCOPE_EXIT"))
+                .put("localBatchId", "batch-1")
+                .put("localActions", JSONArray().put(JSONObject().put("type", "read_screen"))),
+        )
+
+        val session = requireNotNull(response.persistentSessionOrNull("task-1"))
+        assertEquals("task-1", session.taskId)
+        assertEquals(RiskClass.B, session.riskCeiling)
+        assertEquals(setOf("ui.navigate", "ui.write"), session.capabilityScope)
+        assertEquals(setOf("com.example"), session.allowedPackages)
+        assertEquals(
+            setOf(PersistencePolicy.UNTIL_USER_STOP, PersistencePolicy.UNTIL_APP_SCOPE_EXIT),
+            session.persistence,
+        )
+        assertEquals(listOf(ReadScreen), response.localActions)
+        assertEquals("batch-1", response.localBatchId)
     }
 }
