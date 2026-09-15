@@ -5,6 +5,8 @@ import com.hanlinh.androidbrain.execution.AdaptiveActionScheduler
 import com.hanlinh.androidbrain.perception.UnifiedObservation
 import com.hanlinh.androidbrain.policy.RiskClass
 import com.hanlinh.androidbrain.protocol.Action
+import com.hanlinh.androidbrain.protocol.LaunchApp
+import com.hanlinh.androidbrain.protocol.OpenUrl
 import com.hanlinh.androidbrain.recovery.RecoveryEngine
 import com.hanlinh.androidbrain.verification.UnifiedVerifier
 
@@ -111,8 +113,8 @@ class UnifiedOperatorEngine(
                         return LocalLoopResult(executedThisRun, cloudRequestCount, terminalCode ?: "CANCELLED")
                     }
                 }
-                if (rawAction.riskClass.ordinal >= RiskClass.C.ordinal) {
-                    return escalate(executedThisRun, "CONSEQUENTIAL_ACTION_REQUIRES_CLOUD")
+                if (!isLocalActionAuthorized(rawAction)) {
+                    return escalate(executedThisRun, "LOCAL_POLICY_DENIED")
                 }
                 val profile = timingProfileProvider(before.packageName, before.screenSignature)
                 val timing = scheduler.timingFor(before.packageName, before.screenSignature, rawAction, profile)
@@ -147,6 +149,27 @@ class UnifiedOperatorEngine(
     @Synchronized
     fun recordVerifiedLocalAction() {
         if (!terminal) verifiedLocalActionCount += 1
+    }
+
+    private fun isLocalActionAuthorized(action: Action): Boolean {
+        if (action.riskClass == RiskClass.D || action.riskClass == RiskClass.C) return false
+        if (action.riskClass.ordinal > session.riskCeiling.ordinal) return false
+
+        val requiredCapability = when (action) {
+            is LaunchApp, is OpenUrl -> "apps.open"
+            else -> if (action.riskClass == RiskClass.B) "ui.write" else "ui.navigate"
+        }
+        if (requiredCapability !in session.capabilityScope) return false
+
+        if (action is LaunchApp && session.allowedPackages.isNotEmpty() && action.packageName !in session.allowedPackages) {
+            return false
+        }
+        if (action is OpenUrl && session.allowedPackages.isNotEmpty()) {
+            // A URL may hand control to a browser or another app. Re-ground through cloud
+            // rather than silently widening the authorized package scope.
+            return false
+        }
+        return true
     }
 
     @Synchronized
