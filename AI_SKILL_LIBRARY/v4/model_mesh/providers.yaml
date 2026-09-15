@@ -1,0 +1,73 @@
+version: 1
+purpose: first_party_evidence_registry_for_free_model_mesh_provider_discovery
+policy:
+  evidence_is_not_entitlement: true
+  runtime_account_state_outranks_docs: true
+  unknown_free_status: exclude
+  secrets_in_registry: forbidden
+providers:
+  groq:
+    provider_class_hint: F1
+    evidence:
+      rate_limits: https://console.groq.com/docs/rate-limits
+      data_policy: https://console.groq.com/docs/your-data
+  gemini_developer_api:
+    provider_class_hint: F1
+    evidence:
+      rate_limits: https://ai.google.dev/gemini-api/docs/rate-limits
+      pricing_privacy: https://ai.google.dev/gemini-api/docs/pricing
+  cloudflare_workers_ai:
+    provider_class_hint: F1
+    evidence:
+      pricing: https://developers.cloudflare.com/workers-ai/platform/pricing/
+  openrouter:
+    provider_class_hint: F1
+    evidence:
+      free_models: https://openrouter.ai/collections/free-models
+      pricing_limits: https://openrouter.ai/pricing
+  mistral:
+    provider_class_hint: F1
+    evidence:
+      usage_limits: https://docs.mistral.ai/admin/billing-usage/usage-limits
+  cohere:
+    provider_class_hint: F1
+    evidence:
+      trial_rate_limits: https://docs.cohere.com/v1/docs/rate-limits
+  huggingface_inference_providers:
+    provider_class_hint: F1
+    evidence:
+      pricing: https://huggingface.co/docs/inference-providers/pricing
+  nvidia_nim:
+    provider_class_hint: F1
+    evidence:
+      developer_access: https://docs.api.nvidia.com/nim/docs/product
+  cerebras:
+    provider_class_hint: F3
+    evidence:
+      rate_limits: https://inference-docs.cerebras.ai/support/rate-limits
+      pricing: https://www.cerebras.ai/pricing
+  sambanova:
+    provider_class_hint: Q
+    evidence:
+      rate_limits: https://docs.sambanova.ai/docs/en/models/rate-limits
+  alibaba_model_studio:
+    provider_class_hint: F3
+    evidence:
+      free_quota: https://help.aliyun.com/en/model-studio/new-free-quota
+  opencode_zen:
+    provider_class_hint: F2
+    evidence:
+      models: https://opencode.ai/zen/v1/models
+      docs: https://opencode.ai/docs/zen
+catalog_sources:
+  models_dev:
+    url: https://models.dev/api.json
+    authority: discovery_metadata_only
+  portkey_models:
+    url: https://github.com/Portkey-AI/models
+    authority: discovery_metadata_only
+future_provider_intake:
+  evergreen_required: true
+  harmonization_required: true
+  default_state: quarantine
+  routing_authority: false

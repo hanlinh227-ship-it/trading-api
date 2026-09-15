@@ -13,7 +13,7 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Mandatory routing contract: exactly one primary skill + validated execution capsule for every GitHub Brain request
 - FAST routing: exact-SHA hot snapshot, zero GitHub/provider/network calls for route selection
 - Fallback primary skill: `core_reasoning`
-- Current capability release target: `4.8.1` Continuous Intelligence & Autonomous Improvement, preserving `109` routed skills / `109` execution capsules
+- Current capability release target: `4.9.0` Adaptive Free Model Mesh + Peer Tri-Layer AI Legion; remains not-known-good until exact-SHA production verification, preserving the canonical routed skill/capsule authority chain
 - Continuous Intelligence rule: the Evergreen Update Plane may autonomously refresh sources, detect evidence-backed gaps, generate/test candidates, and prepare bounded improvements; Stable remains immutable during request execution and changes only through validated release promotion.
 - Autonomous promotion boundary: Class A/B may promote only after all required gates (and sandbox for B); Class C/D require explicit human authorization and cannot unattended-promote.
 - Open-source fusion rule: upstream repositories are reference/evidence only; strengthen existing canonical skills first; no parallel reasoning authority; no permission widening; no mandatory local runtime
@@ -22,6 +22,32 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Live-price public research gateway: `crypto-research-gateway-prod-production.up.railway.app`
 - Live-price release marker: `live-price-execution-v1`
 - Local user installation required: **NO**
+
+## Peer Tri-Layer AI Legion candidate checkpoint — 2026-09-15
+
+This implementation exists on isolated branch `github-brain-v4-afmm-implementation2`. It is a **candidate**, not the active Stable release and not a production-deployment claim.
+
+- Sole commander/routing authority remains `GITHUB_BRAIN_V4`.
+- AI Legion is a bounded specialist execution layer; `routing_authority=false`, `reasoning_authority=false`.
+- Learning Layer A=`experience`, B=`curated`, C=`exploration`; all three are epistemic peers with no fixed layer weight or priority.
+- Learning Layers A/B/C are distinct from existing Risk Class A/B/C/D. Source layer never lowers or raises risk by itself.
+- Truth is never selected by majority vote. Claims are resolved by provenance, freshness, claim-specific authority, reproducibility, measured evidence and verification.
+- Legion worker concurrency remains FAST=0, STANDARD<=2, DEEP<=4.
+- Adaptive Free Model Mesh (AFMM) remains the only provider/model execution layer; Legion does not create a second provider registry.
+- OpenCode is optional bounded execution only; Awesome LLM Apps and AutoSkill/SkillEvo contribute patterns/capabilities only.
+- Skill Factory/SkillEvo may mine, create, merge, mutate, replay and benchmark candidates, but may not write Stable directly or widen permissions.
+- Idle learning may generate only budgeted low-risk background objectives and yields immediately to active user work.
+- Existing cloud handler now has candidate contracts for `/brain/legion/health`, `/brain/legion/capabilities`, and `/brain/learning/status`; `/brain/route` remains provider-free with `externalRoutingCalls=0`.
+- `validate_legion.py` enforces single authority, peer-layer invariants, prompt-injection boundaries, credential redaction, permission ceilings and research-only financial defaults.
+- Checkpoint paths for Legion/learning policies are registered in `AI_SKILL_LIBRARY/checkpoint.json`.
+- Candidate release packaging is non-promoting. `release.py build_candidate_manifest()` hashes Stable + Legion contracts without mutating `current.json`.
+- Stable promotion is intentionally blocked until AFMM release/snapshot/runtime dependency verification is complete and all canonical release hashes are reconciled.
+- Active stable release pointer therefore remains `4.8.1`; do not represent the Legion candidate as active production.
+- Implementation audit: `AI_SKILL_LIBRARY/v4/audit/PEER_TRI_LAYER_AI_LEGION_IMPLEMENTATION_REPORT.md`.
+- Approved spec: `docs/superpowers/specs/2026-09-15-peer-tri-layer-ai-legion-design.md`.
+- Implementation plan: `docs/superpowers/plans/2026-09-15-peer-tri-layer-ai-legion.md`.
+
+High-risk gates remain unchanged: no autonomous live financial execution, fund transfer, credential/secret mutation, destructive production operation, production permission widening, security-control disabling, authority-hierarchy self-modification, high-risk self-promotion, or quota/access-control circumvention.
 
 The Cloudflare Skill Gateway rollout does **not** by itself migrate live-price/exchange research authority away from Railway. Keep those runtime responsibilities separate until a dedicated live-research Cloudflare cutover is independently verified.
 
@@ -188,8 +214,21 @@ For every new substantive work cycle using this repository:
 
 `AGENTS.md -> checkpoint.json -> AI_GLOBAL_CHECKPOINT.md -> current V4 release -> validated Skill Gateway snapshot contract -> task_router -> runtime profile -> exactly one primary skill + execution capsule -> lazy project authority/context/tools as needed -> response quality gate -> plain_language_presentation -> answer`
 
-For Brain maintenance, resolve `stable_continuous_intelligence_path` before changing Evergreen discovery/promotion behavior.
+For Brain maintenance, resolve `stable_continuous_intelligence_path` before changing Evergreen discovery/promotion behavior. For AI Legion work, also resolve `legion_policy_path`, `learning_policy_path`, `learning_sources_path`, `skill_factory_policy_path`, `skill_evo_policy_path`, and `idle_learning_policy_path` from the checkpoint before changing autonomous-learning behavior.
 
 Do not fetch the full skill catalog/provider registries on every FAST request. FAST route selection uses the already validated exact-SHA hot snapshot. STANDARD/DEEP perform lazy loads only after routing.
 
 Do not reconstruct current runtime state from old conversation memory when GitHub/runtime evidence is available. Refresh the checkpoint and current production evidence at the start of a substantive work cycle. If refresh fails, use only the last verified stable release/snapshot where policy permits and disclose `fresh_git_context=false` when material.
+
+
+## Brain 4.9 Adaptive Free Model Mesh + Peer Tri-Layer AI Legion contract
+
+- `task_router` and project authority remain the sole routing/reasoning authority; model providers, OpenCode workers, specialist agents, RAG/MCP patterns and learning engines are subordinate execution/evidence resources.
+- FAST remains provider-free with `externalRoutingCalls=0`; STANDARD and DEEP may use bounded independent workers only, capped at 2 and 4 respectively.
+- Model Mesh mode is `FREE_ONLY`; catalog presence is not free-entitlement proof, and paid/unknown/quarantined models are not execution eligible.
+- Provider execution is disabled by default and requires runtime configuration, current free entitlement, privacy compatibility and health evidence. Integrated providers without those gates are `INTEGRATED_NOT_ACTIVE`, never reported LIVE.
+- Learning planes Experience, Curated and Exploration are peers for hypothesis/challenge/candidate creation. No plane has a fixed truth weight and majority vote is forbidden.
+- AutoSkill/SkillEvo patterns are absorbed as Brain-native skill mining/evolution with replay, protected regression checks, sandbox/canary and promotion gates; they cannot self-elevate permissions or authority.
+- Idle learning may create bounded low-risk background jobs but yields immediately to active user work and cannot execute live financial actions, access secrets outside scope, or widen permissions.
+- Trading specialists remain research/backtest/evidence workers only; real order execution is outside this release authority.
+- Brain 4.9 is not known-good until canonical CI, Worker checks, Wrangler dry-run, exact-SHA deployment, `/brain/health`, `/brain/mesh/health`, route/planner smoke and post-deploy verification all pass.

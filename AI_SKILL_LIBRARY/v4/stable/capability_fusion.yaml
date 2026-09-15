@@ -449,3 +449,76 @@ upstream_pattern_map:
     routing_authority: false
     mandatory_runtime_dependency: false
     code_reuse: false
+  anomalyco/models.dev:
+    status: approved_reference
+    license: MIT
+    absorbs: [provider_model_catalog, capability_metadata, pricing_metadata, model_family_identity]
+    routing_authority: false
+    reasoning_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  anomalyco/opencode:
+    status: approved_reference
+    license: MIT
+    absorbs: [provider_discovery, provider_plugin_order, zen_adapter_patterns, broad_provider_compatibility, primary_subagent_modes, permission_scoped_tools, child_session_isolation, mcp_execution_patterns]
+    routing_authority: false
+    reasoning_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  Portkey-AI/models:
+    status: approved_reference
+    license: MIT
+    absorbs: [supplementary_provider_model_metadata, pricing_config_metadata]
+    routing_authority: false
+    reasoning_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  Portkey-AI/gateway:
+    status: approved_reference
+    license: MIT
+    absorbs: [bounded_retry, fallback, load_balancing, conditional_routing]
+    routing_authority: false
+    reasoning_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  vllm-project/semantic-router:
+    status: approved_reference
+    license: Apache-2.0
+    absorbs: [mixture_of_models_selection, capability_routing, route_evaluation, policy_signals]
+    routing_authority: false
+    reasoning_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  microsoft/agent-framework:
+    status: approved_reference
+    license: MIT
+    absorbs: [bounded_sequential_workflow, bounded_concurrent_workflow, handoff_patterns]
+    routing_authority: false
+    reasoning_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+
+  Shubhamsaboo/awesome-llm-apps:
+    status: approved_reference
+    license: Apache-2.0
+    absorbs: [multi_agent_specialist_teams, mixture_of_agents_perspectives, mcp_specialist_routing, agentic_rag, corrective_rag, multimodal_agent_teams, research_planner_executor]
+    routing_authority: false
+    reasoning_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  ECNU-ICALK/AutoSkill:
+    status: approved_reference
+    license: MIT
+    absorbs: [experience_driven_skill_mining, reusable_experience_triage, skill_merge, skill_versioning, conversation_trajectory_learning]
+    routing_authority: false
+    reasoning_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false
+  ECNU-ICALK/AutoSkill/SkillEvo:
+    status: approved_reference
+    license: MIT
+    absorbs: [frozen_replay, bounded_skill_mutation, eval_rule_compilation, champion_selection, promotion_test]
+    routing_authority: false
+    reasoning_authority: false
+    mandatory_runtime_dependency: false
+    code_reuse: false

@@ -1,0 +1,259 @@
+version: 1
+purpose: typed_specialist_registry_for_ai_legion
+routing_authority: false
+reasoning_authority: false
+agents:
+  engineering_builder:
+    agent_id: engineering_builder
+    division: engineering
+    domains: [engineering, core]
+    modes: [plan, explore, patch, test]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, repo_search, repo_edit, test_runner]
+    sources: [project_authority, approved_docs, approved_upstreams]
+    permission_ceiling: bounded_write
+    risk_ceiling: B
+    model_capabilities: [coding, text_reasoning, structured_output]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 2
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  security_reviewer:
+    agent_id: security_reviewer
+    division: security
+    domains: [engineering, core]
+    modes: [plan, explore, review, test]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, repo_search, test_runner]
+    sources: [project_authority, approved_docs, security_evidence]
+    permission_ceiling: read_only
+    risk_ceiling: C
+    model_capabilities: [coding, text_reasoning, structured_output]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 1
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  research_scout:
+    agent_id: research_scout
+    division: research
+    domains: [core, engineering, academic, business, data_docs]
+    modes: [plan, explore, research, review]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, repo_search, web_research, document_read]
+    sources: [official_docs, public_web, approved_upstreams, quarantined_public_sources]
+    permission_ceiling: read_only
+    risk_ceiling: B
+    model_capabilities: [text_reasoning, research_synthesis, long_context]
+    privacy_classes: [PUBLIC, INTERNAL]
+    max_retries: 2
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  data_rag_analyst:
+    agent_id: data_rag_analyst
+    division: data_rag
+    domains: [data_docs, academic, business, core]
+    modes: [plan, explore, research, review]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, document_read, retrieval_query, data_analysis]
+    sources: [project_authority, approved_docs, verified_retrieval]
+    permission_ceiling: read_only
+    risk_ceiling: B
+    model_capabilities: [data_analysis, long_context, structured_output, research_synthesis]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 2
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  creative_prompt_specialist:
+    agent_id: creative_prompt_specialist
+    division: creative
+    domains: [prompt_media, writing, design_2d, design_3d, adobe]
+    modes: [plan, research, review]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, document_read]
+    sources: [project_authority, creative_skill_library, approved_references]
+    permission_ceiling: read_only
+    risk_ceiling: A
+    model_capabilities: [creative_writing, prompt_media, vision, text_reasoning]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 1
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  uxui_reviewer:
+    agent_id: uxui_reviewer
+    division: uxui
+    domains: [design_2d, adobe, prompt_media]
+    modes: [plan, explore, review]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, document_read, visual_review]
+    sources: [project_authority, design_system, approved_references]
+    permission_ceiling: read_only
+    risk_ceiling: A
+    model_capabilities: [vision, text_reasoning, structured_output]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 1
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  asset_3d_validator:
+    agent_id: asset_3d_validator
+    division: asset_3d
+    domains: [design_3d, game]
+    modes: [plan, explore, review, test]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, asset_inspect, test_runner]
+    sources: [project_authority, asset_validators, approved_references]
+    permission_ceiling: read_only
+    risk_ceiling: A
+    model_capabilities: [vision, structured_output, text_reasoning]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 1
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  automation_integrator:
+    agent_id: automation_integrator
+    division: automation
+    domains: [engineering, core, business]
+    modes: [plan, explore, patch, test]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, repo_search, repo_edit, test_runner, mcp_invoke]
+    sources: [project_authority, approved_docs, approved_tool_metadata]
+    permission_ceiling: bounded_write
+    risk_ceiling: B
+    model_capabilities: [coding, planning, tool_calling, structured_output]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 2
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  deployment_verifier:
+    agent_id: deployment_verifier
+    division: deployment
+    domains: [engineering, core]
+    modes: [plan, explore, review, test]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, runtime_read, health_probe, test_runner]
+    sources: [project_authority, runtime_metadata, deployment_evidence]
+    permission_ceiling: read_only
+    risk_ceiling: C
+    model_capabilities: [coding, text_reasoning, structured_output]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 2
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  quant_researcher:
+    agent_id: quant_researcher
+    division: quant_research
+    domains: [trading, data_docs]
+    modes: [plan, research, review, test]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, document_read, data_analysis, backtest]
+    sources: [project_authority, verified_market_data, approved_research]
+    permission_ceiling: read_only
+    risk_ceiling: B
+    model_capabilities: [math_quant, data_analysis, text_reasoning, structured_output]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 1
+    provenance_required: true
+    verification_required: true
+    research_only: true
+    live_financial_execution: false
+    routing_authority: false
+    reasoning_authority: false
+  business_analyst:
+    agent_id: business_analyst
+    division: business
+    domains: [business, core, data_docs]
+    modes: [plan, research, review]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, document_read, web_research, data_analysis]
+    sources: [project_authority, approved_docs, public_web]
+    permission_ceiling: read_only
+    risk_ceiling: B
+    model_capabilities: [text_reasoning, research_synthesis, data_analysis]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 1
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  game_system_designer:
+    agent_id: game_system_designer
+    division: game
+    domains: [game, design_2d, design_3d]
+    modes: [plan, research, review]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, document_read]
+    sources: [project_authority, game_skill_library, approved_references]
+    permission_ceiling: read_only
+    risk_ceiling: A
+    model_capabilities: [planning, creative_writing, text_reasoning]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 1
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  academic_researcher:
+    agent_id: academic_researcher
+    division: academic
+    domains: [academic, writing, data_docs]
+    modes: [plan, research, review]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, document_read, web_research, retrieval_query]
+    sources: [official_docs, approved_papers, public_research]
+    permission_ceiling: read_only
+    risk_ceiling: B
+    model_capabilities: [research_synthesis, long_context, structured_output, text_reasoning]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 1
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+  independent_checker:
+    agent_id: independent_checker
+    division: verification
+    domains: [core, engineering, trading, game, design_2d, design_3d, adobe, prompt_media, writing, academic, data_docs, business]
+    modes: [review, test]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [repo_read, document_read, test_runner]
+    sources: [project_authority, evidence_bundle, verification_artifacts]
+    permission_ceiling: read_only
+    risk_ceiling: C
+    model_capabilities: [text_reasoning, structured_output]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    max_retries: 1
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false

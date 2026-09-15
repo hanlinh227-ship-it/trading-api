@@ -1,0 +1,21 @@
+version: 1
+purpose: bounded_specialist_execution_under_single_github_brain_authority
+single_commander: true
+commander: GITHUB_BRAIN_V4
+routing_authority: false
+reasoning_authority: false
+max_parallel:
+  FAST: 0
+  STANDARD: 2
+  DEEP: 4
+agent_delegation: brain_task_graph_only
+provider_layer: AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml
+fast_path_preload: false
+stable_request_dependency: false
+permission_ceiling_inherited_from_brain: true
+permission_widening_by_agent: forbidden
+unbounded_child_authority_tree: forbidden
+same_model_family_counts_as_independent_reasoning: false
+trading_default: research_only
+live_financial_execution_default: false
+external_framework_authority: false

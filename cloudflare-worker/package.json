@@ -3,12 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node validate-worker.mjs && node validate-btc-hyperscale.mjs && node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs && node test-skill-gateway-snapshot.mjs",
+    "check": "node validate-worker.mjs && node validate-btc-hyperscale.mjs && node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs && node test-skill-gateway-snapshot.mjs && node test-model-mesh.mjs && node test-model-mesh-handler.mjs && node test-model-mesh-execute.mjs",
     "test:skill-gateway": "node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs && node test-skill-gateway-snapshot.mjs",
+    "test:model-mesh": "node test-model-mesh.mjs && node test-model-mesh-handler.mjs && node test-model-mesh-execute.mjs",
     "prepare:skill-gateway": "node prepare-skill-gateway.mjs",
+    "prepare:model-mesh": "node prepare-model-mesh.mjs",
     "prepare:wrangler": "node prepare-wrangler.mjs",
-    "deploy": "npm run prepare:skill-gateway && npm run check && npm run prepare:wrangler && wrangler deploy --dry-run",
-    "preview": "npm run prepare:skill-gateway && npm run check && npm run prepare:wrangler && wrangler versions upload"
+    "deploy": "npm run prepare:skill-gateway && npm run prepare:model-mesh && npm run check && npm run prepare:wrangler && wrangler deploy --dry-run",
+    "preview": "npm run prepare:skill-gateway && npm run prepare:model-mesh && npm run check && npm run prepare:wrangler && wrangler versions upload"
   },
   "devDependencies": {
     "wrangler": "4.124.0"

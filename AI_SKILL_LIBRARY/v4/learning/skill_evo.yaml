@@ -1,0 +1,16 @@
+version: 1
+purpose: replay_driven_skill_self_evolution_under_brain_promotion_gates
+routing_authority: false
+reasoning_authority: false
+mutation_budget_max: 6
+llm_judge_sufficient_for_promotion: false
+protected_regression_required: true
+permission_unchanged_required: true
+critical_conflicts_max: 0
+score_delta_min: 0.0
+canary_when_required: true
+stable_write_allowed: false
+replay_must_be_frozen: true
+champion_replacement_requires_measured_evidence: true
+permission_widening_by_mutation: forbidden
+risk_downgrade_by_mutation: forbidden

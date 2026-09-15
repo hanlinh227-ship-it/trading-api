@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Legion Agent Contract",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "agent_id", "division", "domains", "input_contract", "output_contract",
+    "tools", "sources", "permission_ceiling", "risk_ceiling",
+    "model_capabilities", "max_retries", "provenance_required",
+    "verification_required", "routing_authority", "reasoning_authority"
+  ],
+  "properties": {
+    "agent_id": {"type": "string", "minLength": 1},
+    "division": {"type": "string", "minLength": 1},
+    "domains": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+    "modes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "input_contract": {"type": "string", "minLength": 1},
+    "output_contract": {"type": "string", "minLength": 1},
+    "tools": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "sources": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "permission_ceiling": {"enum": ["read_only", "bounded_write", "sandbox_execute"]},
+    "risk_ceiling": {"enum": ["A", "B", "C", "D"]},
+    "model_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "privacy_classes": {"type": "array", "items": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "SECRET"]}},
+    "max_retries": {"type": "integer", "minimum": 0, "maximum": 3},
+    "provenance_required": {"type": "boolean"},
+    "verification_required": {"type": "boolean"},
+    "routing_authority": {"const": false},
+    "reasoning_authority": {"const": false},
+    "research_only": {"type": "boolean"},
+    "live_financial_execution": {"type": "boolean"}
+  }
+}

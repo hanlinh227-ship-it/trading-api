@@ -27,3 +27,12 @@ health:
   source_code_is_not_runtime_proof: true
   failed_dependency_does_not_promote_cached_state: true
   evergreen_failure_does_not_disable_stable: true
+model_mesh:
+  policy_path: AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml
+  preserve_global_retry_ceiling: true
+  quota_reset_evidence_order: [runtime_api_metadata, response_headers, account_entitlement, first_party_docs, verified_snapshot]
+  quota_states: [AVAILABLE, LOW_HEADROOM, COOLDOWN_QUOTA, PROBE_READY]
+  health_states: [AVAILABLE, DEGRADED, CIRCUIT_OPEN, HALF_OPEN]
+  invalid_credentials_retry: false
+  quota_circumvention: forbidden
+  serial_fallback_on_orchestration_failure: true

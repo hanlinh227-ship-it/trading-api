@@ -8,6 +8,15 @@ schedules:
   candidate_cycle: hourly
   deep_audit: weekly
   failure_intake: event_driven
+model_mesh_discovery:
+  plane: evergreen_only
+  cadence: hourly
+  stable_request_dependency: false
+  output_state: quarantine
+  free_status_revalidation: true
+  privacy_terms_revalidation: true
+  model_family_dedupe: true
+  auto_permission_expansion: false
 source_aging:
   official_docs_hours: 48
   approved_github_hours: 48

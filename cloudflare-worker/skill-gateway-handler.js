@@ -3,6 +3,15 @@ import {routeSkillRequest} from './skill-gateway.js';
 const MAX_BODY_BYTES=64_000;
 const encoder=new TextEncoder();
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
+const LEGION_MAX_PARALLEL={FAST:0,STANDARD:2,DEEP:4};
+const LEGION_DIVISIONS=[
+  'engineering','security','research','data_rag','creative','ux_ui','design_2d','design_3d',
+  'automation','browser_mcp','deployment','trading_quant_research','business','game','academic','checker_grader'
+];
+const LEGION_EXECUTION_PATTERNS=[
+  'single_specialist','parallel_specialists','maker_checker','corrective_rag','agentic_rag','mcp_specialist_router','multimodal_team'
+];
+const LEARNING_LAYERS=['experience','curated','exploration'];
 
 async function parseBody(request){
   const declared=Number(request.headers.get('content-length')||0);
@@ -29,11 +38,69 @@ function publicCapsule(capsule){
   };
 }
 
+function legionBase(snapshot){
+  return {
+    sourceSha:snapshot.source_sha,
+    releaseId:snapshot.release_id,
+    routingAuthority:false,
+    reasoningAuthority:false,
+    externalRoutingCalls:0,
+    stableRequestDependency:false,
+  };
+}
+
+function legionStatus(snapshot){
+  return {
+    ok:true,
+    service:'peer-tri-layer-ai-legion',
+    ...legionBase(snapshot),
+    status:'ready',
+    singleCommander:'GITHUB_BRAIN_V4',
+    maxParallel:LEGION_MAX_PARALLEL,
+    tradingDefault:'research_only',
+    liveFinancialExecution:false,
+  };
+}
+
+function legionCapabilities(snapshot){
+  return {
+    ok:true,
+    ...legionBase(snapshot),
+    divisions:LEGION_DIVISIONS,
+    maxParallel:LEGION_MAX_PARALLEL,
+    executionPatterns:LEGION_EXECUTION_PATTERNS,
+    workerSelection:'bounded_capability_match',
+    modelExecutionLayer:'adaptive_free_model_mesh',
+    opencodeWorker:'optional_bounded_execution',
+    permissionWidening:false,
+  };
+}
+
+function learningStatus(snapshot){
+  return {
+    ok:true,
+    service:'peer-tri-layer-learning',
+    ...legionBase(snapshot),
+    status:'idle',
+    activeJobs:0,
+    layers:LEARNING_LAYERS,
+    epistemicRelationship:'peer',
+    fixedLayerPriority:false,
+    majorityVoteForTruth:false,
+    stableDirectWrite:false,
+    promotionRequiresEvidence:true,
+    highRiskSelfApproval:false,
+  };
+}
+
 export function createSkillGatewayHandler({snapshot}={}){
   if(!snapshot||snapshot.schema_version!==1||snapshot.presentation?.mode!=='plain')throw new Error('SKILL_GATEWAY_SNAPSHOT_REQUIRED');
   return async function handleSkillGateway(request){
     const url=new URL(request.url);
-    if(!['/brain/health','/brain/route'].includes(url.pathname))return null;
+    const supported=[
+      '/brain/health','/brain/route','/brain/legion/health','/brain/legion/capabilities','/brain/learning/status'
+    ];
+    if(!supported.includes(url.pathname))return null;
     if(url.pathname==='/brain/health'){
       if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
       return json({
@@ -50,6 +117,18 @@ export function createSkillGatewayHandler({snapshot}={}){
         externalRoutingCalls:0,
         generatedAt:snapshot.generated_at,
       });
+    }
+    if(url.pathname==='/brain/legion/health'){
+      if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
+      return json(legionStatus(snapshot));
+    }
+    if(url.pathname==='/brain/legion/capabilities'){
+      if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
+      return json(legionCapabilities(snapshot));
+    }
+    if(url.pathname==='/brain/learning/status'){
+      if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
+      return json(learningStatus(snapshot));
     }
     if(request.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
     let input;

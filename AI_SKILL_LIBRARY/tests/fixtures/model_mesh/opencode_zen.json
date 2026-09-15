@@ -1,0 +1,8 @@
+{
+  "object": "list",
+  "data": [
+    {"id": "deepseek-v4-flash-free", "object": "model", "owned_by": "opencode"},
+    {"id": "mimo-v2.5-free", "object": "model", "owned_by": "opencode"},
+    {"id": "gpt-5.6-sol", "object": "model", "owned_by": "opencode"}
+  ]
+}

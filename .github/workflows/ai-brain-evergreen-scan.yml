@@ -33,10 +33,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python AI_SKILL_LIBRARY/v4/tools/evergreen.py scan --root . --output /tmp/v4-quarantine-scan.json
+      - name: Discover free-model candidates into quarantine
+        run: python AI_SKILL_LIBRARY/v4/tools/discover_free_models.py --root . --output /tmp/v4-free-model-mesh-candidates.json
       - name: Build continuous intelligence audit report
         run: python AI_SKILL_LIBRARY/v4/tools/evergreen.py audit --root . --output /tmp/v4-intelligence-audit.json
       - name: Summarize quarantine scan
-        run: python -c "import json; d=json.load(open('/tmp/v4-quarantine-scan.json')); print('quarantine candidates=', len(d.get('candidates', [])), 'errors=', len(d.get('errors', [])))"
+        run: |
+          python -c "import json; d=json.load(open('/tmp/v4-quarantine-scan.json')); print('quarantine candidates=', len(d.get('candidates', [])), 'errors=', len(d.get('errors', [])))"
+          python -c "import json; d=json.load(open('/tmp/v4-free-model-mesh-candidates.json')); print('model candidates=', len(d.get('candidates', [])), 'state=', d.get('state'))"
       - name: Upload source refresh artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -44,6 +48,7 @@ jobs:
           path: |
             /tmp/v4-source-registry-audit.txt
             /tmp/v4-quarantine-scan.json
+            /tmp/v4-free-model-mesh-candidates.json
             /tmp/v4-intelligence-audit.json
           retention-days: 7
 
@@ -59,7 +64,7 @@ jobs:
       - name: Install validator dependencies
         run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
       - name: Verify Brain 4.8 continuous intelligence contract
-        run: python -m unittest AI_SKILL_LIBRARY.tests.test_brain_4_8_continuous_intelligence -v
+        run: python -m unittest AI_SKILL_LIBRARY.tests.test_brain_4_8_continuous_intelligence AI_SKILL_LIBRARY.tests.test_adaptive_free_model_mesh_evergreen -v
       - name: Verify immutable release freshness
         run: python AI_SKILL_LIBRARY/v4/tools/release.py check --root .
       - name: Run canonical Brain validation

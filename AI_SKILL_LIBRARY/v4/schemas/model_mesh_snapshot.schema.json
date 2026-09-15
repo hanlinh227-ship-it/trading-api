@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "model_mesh_snapshot.schema.json",
+  "title": "Adaptive Free Model Mesh snapshot",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_sha",
+    "mode",
+    "routing_authority",
+    "reasoning_authority",
+    "generated_at",
+    "models"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source_sha": {"type": "string", "minLength": 7},
+    "mode": {"const": "FREE_ONLY"},
+    "routing_authority": {"const": false},
+    "reasoning_authority": {"const": false},
+    "generated_at": {"type": "string", "minLength": 1},
+    "models": {
+      "type": "array",
+      "items": {"$ref": "model_mesh_provider.schema.json"}
+    }
+  },
+  "additionalProperties": false
+}

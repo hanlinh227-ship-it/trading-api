@@ -1,0 +1,17 @@
+version: 1
+purpose: brain_native_experience_to_skill_candidate_factory
+routing_authority: false
+reasoning_authority: false
+stable_write_allowed: false
+allowed_triage_actions: [discard, improve, merge, create]
+default_status: incubating
+default_permission_ceiling: read_only
+default_risk_class: A
+source_layers: [experience, curated, exploration]
+peer_layer_priority: none
+lineage_required: true
+provenance_required: true
+eval_plan_required: true
+permission_widening_on_merge: forbidden
+risk_downgrade_on_merge: forbidden
+stable_catalog_mutation: promotion_pipeline_only

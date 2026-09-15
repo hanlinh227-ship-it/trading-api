@@ -1,0 +1,40 @@
+version: 1
+purpose: selective_multi_agent_and_rag_pattern_fusion
+canonical_source: Shubhamsaboo/awesome-llm-apps
+user_supplied_fork: awesome-llm-apps/awesome-llm-apps
+license: Apache-2.0
+code_reuse: false
+routing_authority: false
+reasoning_authority: false
+mandatory_runtime_dependency: false
+bulk_import: false
+allowed_patterns:
+  - single_specialist
+  - parallel_specialists
+  - maker_checker
+  - corrective_rag
+  - agentic_rag
+  - mcp_specialist_router
+  - multimodal_team
+forbidden_patterns:
+  - broadcast_all_models
+  - majority_vote_for_truth
+  - unbounded_agent_swarm
+mixture_of_agents_adaptation:
+  pipeline:
+    - bounded_diverse_workers
+    - normalize_outputs
+    - extract_claims_and_evidence
+    - detect_conflicts
+    - checker_or_critic
+    - evidence_weighted_synthesis
+  majority_vote: false
+  all_models_fanout: false
+rag_adaptation:
+  agentic_rag: iterative_retrieval_when_plan_requires_multiple_evidence_steps
+  corrective_rag: validate_retrieval_quality_before_synthesis
+mcp_adaptation:
+  specialist_least_privilege_tools: true
+  brain_task_router_precedes_mcp_router: true
+multimodal_adaptation:
+  specialist_roles_not_competing_commanders: true

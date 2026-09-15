@@ -1,0 +1,57 @@
+version: 1
+purpose: optional_bounded_opencode_execution_worker
+runtime_required: false
+routing_authority: false
+reasoning_authority: false
+brain_permission_ceiling_wins: true
+auto_mode_can_override_denies: false
+modes:
+  plan:
+    read: allow
+    edit: deny
+    bash: deny
+    webfetch: ask
+    websearch: ask
+  explore:
+    read: allow
+    edit: deny
+    bash: deny
+    webfetch: deny
+    websearch: deny
+  research:
+    read: allow
+    edit: deny
+    bash: deny
+    webfetch: allow
+    websearch: allow
+  patch:
+    read: allow
+    edit: allow
+    bash: ask
+    webfetch: deny
+    websearch: deny
+  test:
+    read: allow
+    edit: deny
+    bash: allow
+    webfetch: deny
+    websearch: deny
+  review:
+    read: allow
+    edit: deny
+    bash: deny
+    webfetch: deny
+    websearch: deny
+always_deny:
+  - git_push
+  - external_directory
+  - financial_execution
+  - credential_mutation
+  - permission_widening
+  - destructive_production
+result_requirements:
+  source_sha_match: true
+  allowed_paths_only: true
+  no_credentials: true
+  no_permission_expansion: true
+  task_id_match: true

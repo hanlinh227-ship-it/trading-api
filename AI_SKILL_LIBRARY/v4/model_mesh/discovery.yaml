@@ -1,0 +1,39 @@
+version: 1
+plane: evergreen_only
+stable_request_dependency: false
+output:
+  state: quarantine
+  routing_authority: false
+  stable_mutation: false
+policy:
+  catalog_presence_is_not_free_entitlement: true
+  zero_price_metadata_is_not_account_entitlement: true
+  free_label_is_not_account_entitlement: true
+  unknown_free_status: retain_in_quarantine_only
+  provider_terms_must_be_reverified_before_promotion: true
+  privacy_must_be_reverified_before_promotion: true
+network:
+  timeout_seconds: 20
+  user_agent: github-brain-v4-model-mesh-discovery
+catalog_sources:
+  models_dev:
+    url: https://models.dev/api.json
+    parser: parse_models_dev
+    required: true
+  opencode_zen:
+    url: https://opencode.ai/zen/v1/models
+    parser: parse_opencode_zen
+    required: false
+  portkey_models:
+    url: https://raw.githubusercontent.com/Portkey-AI/models/main/pricing/groq.json
+    parser: parse_portkey_models
+    provider_hint: groq
+    required: false
+candidate_defaults:
+  provider_class: Q
+  free_status: unknown
+  quota_scope: unknown
+  reset_semantics: unknown
+  privacy_class: unknown
+  usage_terms: unknown
+  health: unavailable

@@ -187,9 +187,14 @@ class Brain48ContinuousIntelligenceTests(unittest.TestCase):
         self.assertIn("AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml", release_text)
         self.assertIn('"continuous_intelligence"', release_text)
 
-    def test_release_target_is_4_8_1(self):
+    def test_release_target_preserves_brain_4_8_or_newer(self):
         pointer = json.loads((ROOT / "AI_SKILL_LIBRARY/v4/releases/current.json").read_text(encoding="utf-8"))
-        self.assertEqual(pointer.get("version"), "4.8.1")
+        version = str(pointer.get("version", ""))
+        parts = version.split(".")
+        self.assertEqual(len(parts), 3)
+        major, minor, patch = (int(part) for part in parts)
+        self.assertEqual(major, 4)
+        self.assertGreaterEqual((minor, patch), (8, 1))
 
 
 if __name__ == "__main__":
