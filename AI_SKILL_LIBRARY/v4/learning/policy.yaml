@@ -1,0 +1,20 @@
+version: 1
+purpose: peer_tri_layer_continuous_intelligence_without_parallel_authority
+routing_authority: false
+reasoning_authority: false
+peer_layers: [experience, curated, exploration]
+fixed_layer_priority: forbidden
+majority_vote_for_truth: forbidden
+claim_specific_evidence_weighting: true
+permission_expansion_by_learning: forbidden
+stable_direct_write: forbidden
+risk_taxonomy_is_separate: true
+conflict_action: verify_or_block_promotion
+external_code_untrusted_by_default: true
+learning_can_propose_policy_change: true
+learning_can_self_approve_permission_change: false
+learning_can_self_approve_authority_change: false
+hidden_reasoning_persistence: forbidden
+secret_ingestion_without_authorization: forbidden
+financial_execution_by_learning: forbidden
+promotion_requires_evidence: true
