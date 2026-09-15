@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {createBrainEvidenceHandler} from './brain-evidence-handler.js';
 import {callTinyFish} from './evidence/tinyfish-client.js';
+import {TinyFishCircuit} from './evidence/tinyfish-circuit.js';
 
 let calls=[];
 const fetchImpl=async(url,init={})=>{
@@ -15,9 +16,15 @@ assert.equal(JSON.stringify(result).includes('tiny-secret'),false);
 calls=[];
 result=await callTinyFish({operation:'fetch',urls:['https://example.com/a'],apiKey:'tiny-secret',fetchImpl,delay:async()=>{}});
 assert.equal(result.ok,true);assert.equal(calls[0].url,'https://api.fetch.tinyfish.ai');assert.equal(calls[0].init.method,'POST');
+result=await callTinyFish({operation:'fetch',urls:['https://example.com/a'],apiKey:'tiny-secret',fetchImpl:async()=>new Response(JSON.stringify({results:[],errors:[{url:'https://example.com/a',error:'timeout with secret detail'}]}),{status:200}),delay:async()=>{}});
+assert.equal(result.ok,false);assert.equal(result.category,'UNKNOWN_SANITIZED');assert.equal(JSON.stringify(result).includes('secret detail'),false);
+result=await callTinyFish({operation:'fetch',urls:['https://example.com/a'],apiKey:'tiny-secret',fetchImpl:async()=>new Response(JSON.stringify({results:[{url:'https://example.com/a',final_url:'http://127.0.0.1/private',text:'bad'}],errors:[]}),{status:200}),delay:async()=>{}});
+assert.equal(result.ok,false);assert.equal(result.category,'REQUEST_INVALID');
 
 const routeSkill=({text})=>({profile:text==='quick'?'FAST':'STANDARD',primarySkill:'core_reasoning',externalRoutingCalls:0});
 const handler=createBrainEvidenceHandler({routeSkill,fetchImpl});
+const rows=new Map(),storage={transaction:async fn=>fn({get:async key=>rows.get(key),put:async(key,value)=>rows.set(key,value)})};
+const circuit=new TinyFishCircuit({storage}),TINYFISH_CIRCUIT={getByName:()=>({fetch:(url,init)=>circuit.fetch(new Request(url,init))})};
 let response=await handler(new Request('https://example.com/brain/evidence/health'),{TINY_FISH_API:'tiny-secret'});
 let body=await response.json();assert.equal(body.ok,true);assert.equal(body.configured,true);assert.equal(JSON.stringify(body).includes('tiny-secret'),false);
 
@@ -26,9 +33,11 @@ response=await handler(request('/brain/evidence/query',{text:'quick'}),{TINY_FIS
 assert.equal(response.status,409);
 response=await handler(request('/brain/evidence/query',{text:'secret research',dataClass:'SECRET'}),{TINY_FISH_API:'tiny-secret',MODEL_MESH_EXECUTION_TOKEN:'token'});
 assert.equal(response.status,403);
+response=await handler(request('/brain/evidence/query',{text:'typo classification',dataClass:'SECRETT'}),{TINY_FISH_API:'tiny-secret',MODEL_MESH_EXECUTION_TOKEN:'token'});
+assert.equal(response.status,403);
 response=await handler(request('/brain/evidence/query',{text:'research this',operation:'agent'}),{TINY_FISH_API:'tiny-secret',MODEL_MESH_EXECUTION_TOKEN:'token'});
 assert.equal(response.status,400);
-response=await handler(request('/brain/evidence/query',{text:'research this',operation:'search'}),{TINY_FISH_API:'tiny-secret',MODEL_MESH_EXECUTION_TOKEN:'token'});
+response=await handler(request('/brain/evidence/query',{text:'research this',operation:'search'}),{TINY_FISH_API:'tiny-secret',MODEL_MESH_EXECUTION_TOKEN:'token',TINYFISH_CIRCUIT});
 assert.equal(response.status,200);body=await response.json();assert.equal(body.ok,true);assert.equal(body.routingAuthority,false);assert.equal(body.reasoningAuthority,false);assert.equal(body.provider,'tinyfish');
 assert.equal(JSON.stringify(body).includes('tiny-secret'),false);
 

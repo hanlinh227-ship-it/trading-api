@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {FREE_ONLY_ELIGIBLE_STATUSES,classifyProviderFailure,freeOnlyEligible} from './model-mesh/contracts.js';
+import {FREE_ONLY_ELIGIBLE_STATUSES,classifyProviderFailure,freeOnlyEligible,sanitizeDataClass} from './model-mesh/contracts.js';
 
 assert.deepEqual([...FREE_ONLY_ELIGIBLE_STATUSES].sort(),['account_specific','recurring']);
 assert.equal(freeOnlyEligible({free_status:'recurring',free_verified_at:'2026-09-15T00:00:00Z'}),true);
@@ -8,6 +8,8 @@ for(const status of ['trial_credit','limited_time','unknown','paid','expired']){
   assert.equal(freeOnlyEligible({free_status:status,free_verified_at:'2026-09-15T00:00:00Z'}),false,status);
 }
 assert.equal(freeOnlyEligible({free_status:'recurring',free_verified_at:null}),false);
+assert.equal(sanitizeDataClass(undefined),'PUBLIC');
+assert.equal(sanitizeDataClass('SECRETT'),'SECRET');
 
 assert.equal(classifyProviderFailure({status:401}),'AUTH_FAILED');
 assert.equal(classifyProviderFailure({status:404}),'MODEL_NOT_FOUND');

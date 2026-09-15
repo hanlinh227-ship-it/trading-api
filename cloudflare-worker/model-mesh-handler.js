@@ -2,6 +2,7 @@ import {buildModelMeshPlan} from './model-mesh-runtime.js';
 import {sanitizeDataClass} from './model-mesh/contracts.js';
 import {providerRuntimeStatus} from './model-mesh/runtime-health.js';
 import {freeOnlyEligible} from './model-mesh/contracts.js';
+import {timingSafeToken} from './model-mesh/auth.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 
@@ -33,7 +34,7 @@ export function createModelMeshHandler({skillSnapshot,modelSnapshot,routeSkill,e
       if(request.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
       const expected=String(env.MODEL_MESH_EXECUTION_TOKEN||'');
       const supplied=String(request.headers.get('x-model-mesh-token')||'');
-      if(!expected||!supplied||supplied!==expected)return json({ok:false,error:'unauthorized'},401);
+      if(!await timingSafeToken(expected,supplied))return json({ok:false,error:'unauthorized'},401);
       if(typeof probeProviders!=='function')return json({ok:false,error:'mesh_probe_not_configured'},503);
       const result=await probeProviders(env,{modelSnapshot,ctx});
       return json(result);
@@ -49,6 +50,7 @@ export function createModelMeshHandler({skillSnapshot,modelSnapshot,routeSkill,e
       return json(plan);
     }
     if(url.pathname==='/brain/mesh/execute'){
+      if(request.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
       if(typeof executeWorkers!=='function')return json({ok:false,error:'mesh_execution_not_configured'},503);
       return executeWorkers(request,env,{skillSnapshot,modelSnapshot,routeSkill,ctx});
     }

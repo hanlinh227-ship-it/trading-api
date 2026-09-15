@@ -17,7 +17,10 @@
       "id": "REPLACE_WITH_EXISTING_TRADING_V77_STATE_NAMESPACE_ID"
     }
   ],
-  "triggers": {
-    "crons": ["* * * * *"]
-  }
+  "durable_objects": {
+    "bindings": [{"name": "TINYFISH_CIRCUIT", "class_name": "TinyFishCircuit"}]
+  },
+  "migrations": [
+    {"tag": "tinyfish-circuit-v1", "new_sqlite_classes": ["TinyFishCircuit"]}
+  ]
 }

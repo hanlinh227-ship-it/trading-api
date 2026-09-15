@@ -1,0 +1,36 @@
+name: Model Mesh Live Health Refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-mesh-live-health-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Refresh current-revision provider evidence
+        env:
+          WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+          MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODEL_MESH_EXECUTION_TOKEN:-}"
+          expected="$(git rev-parse HEAD)"
+          contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
+          printf '%s\n' "$contract" | EXPECTED="$expected" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2)})"
+          result="$(curl -fsS --connect-timeout 5 --max-time 90 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
+          printf '%s\n' "$result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s),configured=(x.results||[]).filter(r=>r.configured);const matrix=(x.results||[]).map(r=>({providerId:r.providerId,modelId:r.modelId,configured:r.configured,ok:r.ok,status:r.status,state:r.state,category:r.category,latencyMs:r.latencyMs}));console.log('MODEL_MESH_PROBE_MATRIX='+JSON.stringify(matrix));if(!x.ok||!configured.length||configured.some(r=>!r.ok||r.state!=='LIVE_HEALTHY'))process.exit(2)})"

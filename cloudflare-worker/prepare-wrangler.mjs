@@ -15,6 +15,6 @@ const revision=String(process.env.GITHUB_SHA||process.env.CF_PAGES_COMMIT_SHA||p
 // Financial/live operator switches remain dashboard-controlled and are never generated here.
 // Model Mesh execution is explicitly source-authorized by the user, but remains protected by MODEL_MESH_EXECUTION_TOKEN.
 const vars={RUNTIME_REVISION:revision,MODEL_MESH_EXECUTION_ENABLED:'1'};
-const config={$schema:'./node_modules/wrangler/config-schema.json',name:'trading-v77-scanner',main:'index.js',compatibility_date:'2026-08-21',keep_vars:true,vars,kv_namespaces:[{binding:'TRADING_STATE',id:kv.id}],vpc_services:[{binding:'AI_BRIDGE',service_id:proxy.id,remote:true}]};
+const config={$schema:'./node_modules/wrangler/config-schema.json',name:'trading-v77-scanner',main:'index.js',compatibility_date:'2026-08-21',keep_vars:true,vars,kv_namespaces:[{binding:'TRADING_STATE',id:kv.id}],durable_objects:{bindings:[{name:'TINYFISH_CIRCUIT',class_name:'TinyFishCircuit'}]},migrations:[{tag:'tinyfish-circuit-v1',new_sqlite_classes:['TinyFishCircuit']}],vpc_services:[{binding:'AI_BRIDGE',service_id:proxy.id,remote:true}]};
 fs.writeFileSync('wrangler.jsonc',`${JSON.stringify(config,null,2)}\n`,'utf8');
 console.log(`Prepared BTC-only wrangler.jsonc: TRADING_STATE=${kv.source}, BYBIT_VPS_PROXY=${proxy.source}, RUNTIME_REVISION=${revision}, MODEL_MESH_EXECUTION=ENABLED_AUTHENTICATED, FINANCIAL_RUNTIME_SWITCHES=PRESERVE_EXISTING, LIVE_ACK=PRESERVE_EXISTING, CRON=NONE_EVENT_DRIVER_ONLY`);

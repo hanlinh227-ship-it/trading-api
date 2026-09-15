@@ -4,8 +4,9 @@ import {callCloudflareAI} from './providers/cloudflare-ai.js';
 import {selectModelWorkers} from './selector.js';
 import {classifyProviderFailure,freeOnlyEligible,sanitizeDataClass} from './contracts.js';
 import {MODEL_MESH_BINDINGS} from '../generated/model-mesh-bindings.js';
-import {writeProbeHealth} from './health-store.js';
+import {recordModelExecutionHealth,writeProbeHealth} from './health-store.js';
 import {providerRuntimeStatus,resolveLiveModels} from './runtime-health.js';
+import {timingSafeToken} from './auth.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const nowIso=()=>new Date().toISOString();
@@ -66,7 +67,7 @@ export function createMeshExecutor({fetchImpl=fetch}={}){
   return async function executeWorkers(request,env,{skillSnapshot,modelSnapshot,routeSkill}){
     if(String(env?.MODEL_MESH_EXECUTION_ENABLED||'0')!=='1')return json({ok:false,error:'mesh_execution_disabled'},503);
     const expected=String(env?.MODEL_MESH_EXECUTION_TOKEN||'');const supplied=String(request.headers.get('x-model-mesh-token')||'');
-    if(!expected||!supplied||supplied!==expected)return json({ok:false,error:'unauthorized'},401);
+    if(!await timingSafeToken(expected,supplied))return json({ok:false,error:'unauthorized'},401);
     let body;try{body=await request.json();}catch{return json({ok:false,error:'invalid_json'},400);}
     if(typeof body?.text!=='string'||!body.text.trim())return json({ok:false,error:'invalid_text'},400);
     const dataClass=sanitizeDataClass(body.dataClass);if(dataClass==='SECRET')return json({ok:false,error:'secret_external_mesh_forbidden'},403);
@@ -80,7 +81,7 @@ export function createMeshExecutor({fetchImpl=fetch}={}){
       const startedAt=nowIso();const worker=resolveRuntimeWorker(selectedWorker);
       const result=worker?await callProvider(worker,env,messages,fetchImpl):{ok:false,status:0,category:'UNKNOWN_SANITIZED'};
       const completedAt=nowIso(),normalized=normalizedResult(worker||selectedWorker,route,startedAt,completedAt,result);
-      const persist=writeProbeHealth(env?.TRADING_STATE,selectedWorker,{ok:Boolean(result.ok),category:result.category,latencyMs:normalized.latency_ms},{sourceSha:modelSnapshot?.source_sha||''});
+      const persist=recordModelExecutionHealth(env?.TRADING_STATE,selectedWorker,{ok:Boolean(result.ok),category:result.category,latencyMs:normalized.latency_ms},{sourceSha:modelSnapshot?.source_sha||''});
       await persist;
       return normalized;
     };

@@ -5,7 +5,7 @@ export const MODEL_MESH_LIMITS=Object.freeze({FAST:0,STANDARD:2,DEEP:4});
 export const EXTERNAL_SECRET_CLASSES=new Set(['SECRET']);
 export const FREE_ONLY_ELIGIBLE_STATUSES=Object.freeze([...FREE_ONLY_POLICY.eligible_statuses]);
 export const PROVIDER_FAILURE_CATEGORIES=Object.freeze(['AUTH_FAILED','MODEL_NOT_FOUND','RATE_LIMITED','FREE_ENTITLEMENT_INVALID','REQUEST_INVALID','REGION_UNAVAILABLE','TIMEOUT','PROVIDER_5XX','PARSE_FAILED','UNKNOWN_SANITIZED']);
-export function sanitizeDataClass(value){const v=String(value||'PUBLIC').toUpperCase();return ['PUBLIC','INTERNAL','CONFIDENTIAL','SECRET'].includes(v)?v:'PUBLIC';}
+export function sanitizeDataClass(value){if(value===undefined||value===null||String(value).trim()==='')return 'PUBLIC';const v=String(value).trim().toUpperCase();return ['PUBLIC','INTERNAL','CONFIDENTIAL','SECRET'].includes(v)?v:'SECRET';}
 export function freeOnlyEligible(model){return Boolean(model&&FREE_ONLY_ELIGIBLE_STATUSES.includes(String(model.free_status||''))&&String(model.free_verified_at||'').trim());}
 export function classifyProviderFailure({status=0,code=''}={}){
   const c=String(code||'').toUpperCase();

@@ -24,26 +24,6 @@ jobs:
   deploy-exact-main:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
-      AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
-      V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
-      MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
-      TINY_FISH_API: ${{ secrets.TINY_FISH_API }}
-      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      CLOUDFLARE_AI_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-      CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
-      SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
-      DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
-      OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,6 +48,12 @@ jobs:
           echo "EXACT_MAIN_SHA=$SOURCE_SHA"
 
       - name: Validate deployment credentials and existing bindings
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+          AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
+          V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -87,10 +73,27 @@ jobs:
 
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
-        run: npm install --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Sync configured Model Mesh secrets without exposing values
         working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+          TINY_FISH_API: ${{ secrets.TINY_FISH_API }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CLOUDFLARE_AI_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -118,6 +121,12 @@ jobs:
 
       - name: Prepare safe exact-revision Wrangler config
         working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+          AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
+          V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -136,6 +145,9 @@ jobs:
 
       - name: Deploy exact-main Worker
         working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -205,36 +217,38 @@ jobs:
           exit 1
 
       - name: Production Model Mesh provider canary
+        env:
+          MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${MODEL_MESH_EXECUTION_TOKEN:-}" ]; then
-            echo 'MODEL_MESH_PROBE=SKIPPED_NO_EXECUTION_TOKEN'
-            exit 0
-          fi
-          configured=0
-          for key in GROQ_API_KEY GEMINI_API_KEY CLOUDFLARE_AI_API_TOKEN OPENROUTER_API_KEY MISTRAL_API_KEY COHERE_API_KEY HF_TOKEN NVIDIA_API_KEY CEREBRAS_API_KEY SAMBANOVA_API_KEY DASHSCOPE_API_KEY OPENCODE_ZEN_API_KEY; do
-            if [ -n "${!key:-}" ]; then configured=$((configured+1)); fi
-          done
-          if [ "$configured" -eq 0 ]; then
-            echo 'MODEL_MESH_PROBE=SKIPPED_NO_PROVIDER_CREDENTIALS'
-            exit 0
-          fi
+          test -n "${MODEL_MESH_EXECUTION_TOKEN:-}"
           result="$(curl -fsS --connect-timeout 5 --max-time 90 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
-          printf '%s\n' "$result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.mode!=='FREE_ONLY'||x.routingAuthority!==false||x.reasoningAuthority!==false||!Array.isArray(x.results)||x.results.length===0)process.exit(2);if(JSON.stringify(x).match(/API_KEY|TOKEN|secret/i))process.exit(3);const matrix=x.results.map(r=>({providerId:r.providerId,modelId:r.modelId,configured:r.configured,ok:r.ok,status:r.status,state:r.state,category:r.category,latencyMs:r.latencyMs}));console.log('MODEL_MESH_PROBE_MATRIX='+JSON.stringify(matrix));if(matrix.some(r=>!r.configured||!r.ok||r.state!=='LIVE_HEALTHY'))process.exit(4);console.log('MODEL_MESH_PROBE=PASS probed='+x.probedProviderCount+' successful='+x.successfulProviderCount)})"
+          printf '%s\n' "$result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.mode!=='FREE_ONLY'||x.routingAuthority!==false||x.reasoningAuthority!==false||!Array.isArray(x.results)||x.results.length===0)process.exit(2);if(JSON.stringify(x).match(/API_KEY|TOKEN|secret/i))process.exit(3);const matrix=x.results.map(r=>({providerId:r.providerId,modelId:r.modelId,configured:r.configured,ok:r.ok,status:r.status,state:r.state,category:r.category,latencyMs:r.latencyMs})),configured=matrix.filter(r=>r.configured);console.log('MODEL_MESH_PROBE_MATRIX='+JSON.stringify(matrix));if(!configured.length||configured.some(r=>!r.ok||r.state!=='LIVE_HEALTHY'))process.exit(4);console.log('MODEL_MESH_PROBE=PASS probed='+x.probedProviderCount+' configured='+configured.length+' successful='+x.successfulProviderCount)})"
           for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
             health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
-            if RESULT="$result" HEALTH="$health" node -e "const p=JSON.parse(process.env.RESULT),h=JSON.parse(process.env.HEALTH);const active=new Set((h.providers||[]).filter(x=>x.active).map(x=>x.providerId));if(!p.results.every(x=>active.has(x.providerId)))process.exit(2);console.log('MODEL_MESH_LIVE_OVERLAY=PASS active='+active.size)"; then break; fi
+            if RESULT="$result" HEALTH="$health" node -e "const p=JSON.parse(process.env.RESULT),h=JSON.parse(process.env.HEALTH),configured=p.results.filter(x=>x.configured);const active=new Set((h.providers||[]).filter(x=>x.active).map(x=>x.providerId));if(!configured.every(x=>active.has(x.providerId)))process.exit(2);console.log('MODEL_MESH_LIVE_OVERLAY=PASS active='+active.size)"; then break; fi
             if [ "$attempt" -eq 12 ]; then exit 5; fi
             echo "MODEL_MESH_KV_PROPAGATION_RETRY attempt=$attempt"
             sleep 5
           done
+          verify_live_plan() {
+            text="$1" expected_profile="$2" max_workers="$3"
+            body="$(TEXT="$text" node -e "process.stdout.write(JSON.stringify({text:process.env.TEXT,dataClass:'PUBLIC'}))")"
+            plan="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' -d "$body" "$WORKER_BASE_URL/brain/mesh/plan")"
+            printf '%s\n' "$plan" | EXPECTED_PROFILE="$expected_profile" MAX_WORKERS="$max_workers" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s),w=Array.isArray(x.workers)?x.workers:[];if(!x.ok||x.route?.profile!==process.env.EXPECTED_PROFILE||x.sourceSha!==process.env.EXPECTED_SHA||w.length<1||w.length>Number(process.env.MAX_WORKERS)||x.selectionReason!=='live_healthy_provider_selected')process.exit(2);console.log('MODEL_MESH_POST_PROBE_PLAN=PASS '+x.route.profile+' workers='+w.length)})"
+          }
+          verify_live_plan 'sá»­a lá»—i API nÃ y' STANDARD 2
+          verify_live_plan 'quÃ©t market BTC live' DEEP 4
+          contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
+          printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2)})"
 
       - name: Production TinyFish free evidence canary
+        env:
+          MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${TINY_FISH_API:-}"
           test -n "${MODEL_MESH_EXECUTION_TOKEN:-}"
           health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/evidence/health")"
           printf '%s\n' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||!x.configured||x.mode!=='FREE_ONLY'||JSON.stringify(x.allowedOperations)!=='[\"search\",\"fetch\"]'||x.routingAuthority!==false||x.reasoningAuthority!==false)process.exit(2);console.log('TINYFISH_HEALTH=PASS')})"

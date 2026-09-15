@@ -2,7 +2,8 @@ import {PROVIDER_FAILURE_CATEGORIES,freeOnlyEligible} from './contracts.js';
 
 export const MODEL_HEALTH_STATES=Object.freeze(['CONFIGURED','LIVE_HEALTHY','DEGRADED','COOLDOWN','QUARANTINED','NOT_ELIGIBLE']);
 const PREFIX='brain:model-mesh:health:v1:';
-const LIVE_TTL_MS=15*60*1000,DEGRADED_TTL_MS=5*60*1000,COOLDOWN_TTL_MS=5*60*1000,QUARANTINE_TTL_MS=6*60*60*1000;
+const LIVE_TTL_MS=30*60*1000,DEGRADED_TTL_MS=5*60*1000,COOLDOWN_TTL_MS=5*60*1000,QUARANTINE_TTL_MS=6*60*60*1000;
+const HEALTH_CATEGORIES=new Set([...PROVIDER_FAILURE_CATEGORIES,'FREE_ONLY_POLICY','NO_HEALTH_STORE','NO_LIVE_EVIDENCE','HEALTH_STORE_UNAVAILABLE','MODEL_FINGERPRINT_MISMATCH','SOURCE_REVISION_MISMATCH','STALE_EVIDENCE','CREDENTIAL_OR_BINDING_MISSING']);
 
 const hex=bytes=>[...new Uint8Array(bytes)].map(value=>value.toString(16).padStart(2,'0')).join('');
 const iso=ms=>new Date(ms).toISOString();
@@ -17,7 +18,7 @@ function safeRecord(value){
   if(!value||typeof value!=='object'||value.schemaVersion!==1||!MODEL_HEALTH_STATES.includes(value.state))return null;
   return {
     schemaVersion:1,providerId:String(value.providerId||''),modelId:String(value.modelId||''),fingerprint:String(value.fingerprint||''),sourceSha:String(value.sourceSha||''),
-    state:value.state,category:value.category?String(value.category):null,observedAt:String(value.observedAt||''),expiresAt:String(value.expiresAt||''),latencyMs:Number.isFinite(value.latencyMs)?Math.max(0,Math.round(value.latencyMs)):null,
+    state:value.state,category:value.category?(HEALTH_CATEGORIES.has(String(value.category))?String(value.category):'UNKNOWN_SANITIZED'):null,observedAt:String(value.observedAt||''),expiresAt:String(value.expiresAt||''),latencyMs:Number.isFinite(value.latencyMs)?Math.max(0,Math.round(value.latencyMs)):null,
     consecutiveFailures:Number.isInteger(value.consecutiveFailures)?Math.max(0,value.consecutiveFailures):0,cooldownUntil:value.cooldownUntil?String(value.cooldownUntil):null,
   };
 }
@@ -57,4 +58,10 @@ export async function writeProbeHealth(kv,model,probe,{sourceSha='',nowMs=Date.n
     if(attempt+1<verifyAttempts)await delay(25*(attempt+1));
   }
   return {...record,persisted:false,storeCategory:'KV_PROPAGATION_PENDING'};
+}
+
+export async function recordModelExecutionHealth(kv,model,result,options={}){
+  const nowMs=options.nowMs??Date.now(),sourceSha=options.sourceSha||'';
+  if(result?.ok===true){const current=await readModelHealth(kv,model,{sourceSha,nowMs});if(current.state==='LIVE_HEALTHY'&&Date.parse(current.expiresAt)>nowMs+5*60*1000)return {...current,persisted:false,storeCategory:'REFRESH_NOT_DUE'};}
+  return writeProbeHealth(kv,model,result,{...options,nowMs,sourceSha});
 }
