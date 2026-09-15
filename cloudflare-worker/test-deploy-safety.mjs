@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const workflow=fs.readFileSync('../.github/workflows/deploy-skill-mandatory-fast-gateway.yml','utf8');
-const refresh=fs.readFileSync('../.github/workflows/model-mesh-live-health.yml','utf8');
 const wranglerPrep=fs.readFileSync('prepare-wrangler.mjs','utf8');
 const wranglerExample=fs.readFileSync('wrangler.example.jsonc','utf8');
 assert.match(workflow,/TINY_FISH_API:\s*\$\{\{ secrets\.TINY_FISH_API \}\}/);
@@ -15,6 +14,6 @@ assert.match(wranglerPrep,/new_sqlite_classes/);
 assert.match(wranglerExample,/TINYFISH_CIRCUIT/);
 assert.doesNotMatch(wranglerExample,/"crons"/);
 assert.doesNotMatch(workflow,/echo\s+['"]?\$\{?TINY_FISH_API/);
-assert.match(refresh,/cron: '\*\/10 \* \* \* \*'/);
-assert.match(refresh,/runtimeRevision/);
+assert.match(workflow,/cron: '\*\/10 \* \* \* \*'/);
+assert.match(workflow,/refresh-model-mesh-health/);
 console.log('deployment secret and live-canary contracts ok');

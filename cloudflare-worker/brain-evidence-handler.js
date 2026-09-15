@@ -12,7 +12,7 @@ export function createBrainEvidenceHandler({routeSkill,fetchImpl=fetch}={}){
     const url=new URL(request.url);if(!url.pathname.startsWith('/brain/evidence/'))return null;
     if(url.pathname==='/brain/evidence/health'){
       if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
-      return json({ok:true,provider:'tinyfish',mode:'FREE_ONLY',configured:Boolean(env.TINY_FISH_API),allowedOperations:['search','fetch'],routingAuthority:false,reasoningAuthority:false});
+      return json({ok:true,provider:'tinyfish',mode:'FREE_ONLY',configured:Boolean(env.TINY_FISH_API),admissionControlConfigured:Boolean(env.TINYFISH_CIRCUIT),allowedOperations:['search','fetch'],routingAuthority:false,reasoningAuthority:false});
     }
     if(!['/brain/evidence/query','/brain/evidence/probe'].includes(url.pathname))return null;
     if(request.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);

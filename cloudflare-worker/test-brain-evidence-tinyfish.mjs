@@ -25,8 +25,8 @@ const routeSkill=({text})=>({profile:text==='quick'?'FAST':'STANDARD',primarySki
 const handler=createBrainEvidenceHandler({routeSkill,fetchImpl});
 const rows=new Map(),storage={transaction:async fn=>fn({get:async key=>rows.get(key),put:async(key,value)=>rows.set(key,value)})};
 const circuit=new TinyFishCircuit({storage}),TINYFISH_CIRCUIT={getByName:()=>({fetch:(url,init)=>circuit.fetch(new Request(url,init))})};
-let response=await handler(new Request('https://example.com/brain/evidence/health'),{TINY_FISH_API:'tiny-secret'});
-let body=await response.json();assert.equal(body.ok,true);assert.equal(body.configured,true);assert.equal(JSON.stringify(body).includes('tiny-secret'),false);
+let response=await handler(new Request('https://example.com/brain/evidence/health'),{TINY_FISH_API:'tiny-secret',TINYFISH_CIRCUIT});
+let body=await response.json();assert.equal(body.ok,true);assert.equal(body.configured,true);assert.equal(body.admissionControlConfigured,true);assert.equal(JSON.stringify(body).includes('tiny-secret'),false);
 
 const request=(path,body,token='token')=>new Request(`https://example.com${path}`,{method:'POST',headers:{'content-type':'application/json','x-model-mesh-token':token},body:JSON.stringify(body)});
 response=await handler(request('/brain/evidence/query',{text:'quick'}),{TINY_FISH_API:'tiny-secret',MODEL_MESH_EXECUTION_TOKEN:'token'});
