@@ -1,0 +1,25 @@
+{
+  "provider": "groq",
+  "models": {
+    "gpt-oss-120b": {
+      "model_family": "gpt-oss-120b",
+      "pricing_config": {
+        "pay_as_you_go": {
+          "request_token": {"price": 0},
+          "response_token": {"price": 0}
+        },
+        "currency": "USD"
+      }
+    },
+    "llama-3.3-70b-versatile": {
+      "model_family": "llama-3.3-70b",
+      "pricing_config": {
+        "pay_as_you_go": {
+          "request_token": {"price": 0.00001},
+          "response_token": {"price": 0.00002}
+        },
+        "currency": "USD"
+      }
+    }
+  }
+}
