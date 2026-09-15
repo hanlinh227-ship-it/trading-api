@@ -205,3 +205,21 @@ def validate_artifact_ownership(graph: dict) -> list[str]:
             ids = [writer.get("task_id") for writer in writers]
             errors.append(f"artifact {artifact} has conflicting writers: {ids}")
     return errors
+
+
+def execution_pattern(task: dict) -> str:
+    """Select one bounded execution pattern; never broadcast to all models."""
+    if task.get("has_image") and task.get("cross_domain_visual"):
+        return "multimodal_team"
+    if task.get("needs_tools") and task.get("mcp_specialist_required"):
+        return "mcp_specialist_router"
+    if task.get("needs_retrieval"):
+        if task.get("retrieval_quality_uncertain"):
+            return "corrective_rag"
+        if task.get("retrieval_requires_iteration"):
+            return "agentic_rag"
+    if task.get("needs_checker"):
+        return "maker_checker"
+    if int(task.get("independent_subtasks", 1)) > 1:
+        return "parallel_specialists"
+    return "single_specialist"
