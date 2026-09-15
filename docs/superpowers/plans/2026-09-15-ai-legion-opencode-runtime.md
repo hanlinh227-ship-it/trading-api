@@ -4,9 +4,9 @@
 
 **Goal:** Implement a bounded specialist AI Legion and a cloud OpenCode coding worker so Brain can decompose DEEP/STANDARD work, assign the smallest useful set of specialists/models/tools, execute code work in isolation, and merge verified outputs without parallel authority.
 
-**Architecture:** The canonical Legion catalog and task-graph rules live in `AI_SKILL_LIBRARY/v4/legion/` and are compiled into a runtime snapshot. `crypto-research-gateway` gains an orchestration client that consumes only the validated snapshot and Adaptive Model Mesh; a separate `opencode-worker` service hosts OpenCode for isolated plan/explore/research/patch/test/review jobs. Patterns from Awesome LLM Apps are absorbed as bounded specialist/MCP/Mixture-of-Agents workflows, not copied as a second framework.
+**Architecture:** The canonical Legion catalog and task-graph rules live in `AI_SKILL_LIBRARY/v4/legion/` and are compiled into a runtime snapshot. `crypto-research-gateway` gains an orchestration client that consumes only the validated snapshot and Adaptive Model Mesh; a separate `opencode-worker` service hosts OpenCode for isolated plan/explore/research/patch/test/review jobs. The OpenCode service gets its own Brain runtime policy so its sandboxed process/shell capability does not widen the existing research gateway execution boundary. Patterns from Awesome LLM Apps are absorbed as bounded specialist/MCP/Mixture-of-Agents workflows, not copied as a second framework.
 
-**Tech Stack:** Python 3.12, PyYAML, jsonschema, Node.js 22, TypeScript, Fastify, Zod, `@opencode-ai/sdk@1.18.31`, OpenCode CLI/server, existing Railway cloud runtime, unittest/node:test.
+**Tech Stack:** Python 3.12, PyYAML, jsonschema, Node.js 22, TypeScript, Fastify 5.12.4, Zod 4.0.0, `@opencode-ai/sdk@1.18.31`, OpenCode CLI/server, Railway cloud runtime, unittest/node:test.
 
 **Spec:** `docs/superpowers/specs/2026-09-15-peer-tri-layer-ai-legion-design.md`
 
@@ -18,7 +18,8 @@
 - One primary Brain skill remains mandatory. Agent roles are execution metadata, never replacement reasoning authorities.
 - Same model family on multiple providers is availability redundancy, not reasoning diversity.
 - OpenCode explicit Brain `deny` always wins; OpenCode auto mode may not widen permissions.
-- OpenCode `plan`, `explore`, `research`, `review` are read-only. `patch` writes only to isolated workspace/branch and allowed paths. `test` executes only approved command prefixes.
+- OpenCode `plan`, `explore`, `research`, `review` are read-only. `patch` writes only to an isolated workspace/branch and allowed paths. `test` executes only approved command prefixes.
+- The existing `crypto-research-gateway` keeps `shell_execution=false` and `local_process_spawn=false`; only the separate OpenCode worker may spawn its managed OpenCode process inside its isolated service boundary.
 - No worker may push to `main`, mutate credentials, perform live financial execution, or access secret-bearing files outside explicit runtime authorization.
 - External upstream code is untrusted until sandbox/eval gates pass.
 - No Mixture-of-Agents vote counting; outputs are normalized into claims/evidence and checked before synthesis.
@@ -235,7 +236,7 @@ python -m unittest AI_SKILL_LIBRARY.tests.test_ai_legion_snapshot -v
 
 - [ ] **Step 3: Implement whitelist-only compiler and validator**
 
-Snapshot must include `source_sha`, `agents`, `profiles`, `allowed_modes`, `model_mesh_contract`, `permission_ceiling`, `upstream_pattern_refs`, and schema hashes; do not copy arbitrary YAML keys.
+Snapshot must include `source_sha`, `agents`, `profiles`, `allowed_modes`, `model_mesh_contract`, `permission_ceiling`, `opencode_runtime_policy_hash`, `upstream_pattern_refs`, and schema hashes; do not copy arbitrary YAML keys.
 
 - [ ] **Step 4: Run GREEN and commit**
 
@@ -247,9 +248,10 @@ git commit -m "feat: compile AI Legion runtime snapshot"
 
 ---
 
-### Task 5: Add an isolated cloud OpenCode worker
+### Task 5: Add an isolated cloud OpenCode worker with a separate Brain runtime policy
 
 **Files:**
+- Create: `AI_SKILL_LIBRARY/v4/legion/opencode_runtime.yaml`
 - Create: `opencode-worker/package.json`
 - Create: `opencode-worker/tsconfig.json`
 - Create: `opencode-worker/src/contracts.ts`
@@ -259,6 +261,7 @@ git commit -m "feat: compile AI Legion runtime snapshot"
 - Create: `opencode-worker/test/policy.test.ts`
 - Create: `opencode-worker/test/server.test.ts`
 - Create: `opencode-worker/railway.toml`
+- Test: `AI_SKILL_LIBRARY/tests/test_opencode_runtime_policy.py`
 
 **Interfaces:**
 - HTTP `GET /health`
@@ -281,7 +284,37 @@ export type OpenCodeJob = {
 };
 ```
 
-- [ ] **Step 1: Create package with pinned OpenCode SDK**
+- [ ] **Step 1: Write RED Brain runtime-policy tests**
+
+Require `reasoning_authority=false`, `routing_authority=false`, `service_isolation_required=true`, `stable_secret_access=false`, `financial_execution=false`, `main_push=false`, `workspace=temporary_exact_sha`, and process/shell execution allowed only inside the OpenCode service sandbox.
+
+Run:
+
+```bash
+python -m unittest AI_SKILL_LIBRARY.tests.test_opencode_runtime_policy -v
+```
+
+Expected: FAIL because the policy file does not exist.
+
+- [ ] **Step 2: Implement `opencode_runtime.yaml` and create package with pinned dependencies**
+
+Minimum policy:
+
+```yaml
+version: 1
+routing_authority: false
+reasoning_authority: false
+service_isolation_required: true
+stable_secret_access: false
+financial_execution: false
+destructive_production_action: false
+credential_mutation: false
+main_push: false
+workspace: temporary_exact_sha
+shell_execution: sandbox_only
+process_spawn: managed_opencode_process_only
+allowed_modes: [plan, explore, research, patch, test, review]
+```
 
 `package.json` must pin:
 
@@ -290,15 +323,15 @@ export type OpenCodeJob = {
   "type": "module",
   "dependencies": {
     "@opencode-ai/sdk": "1.18.31",
-    "fastify": "5.6.1",
-    "zod": "4.1.11"
+    "fastify": "5.12.4",
+    "zod": "4.0.0"
   }
 }
 ```
 
 Keep a lockfile generated by the package manager used by CI; do not use floating dependency ranges.
 
-- [ ] **Step 2: Write RED permission tests**
+- [ ] **Step 3: Write RED worker permission tests**
 
 ```ts
 import test from 'node:test';
@@ -314,7 +347,7 @@ test('review mode denies edits and shell writes', () => {
 
 Also assert `patch` may edit only allowed paths, `test` allows only approved command prefixes, `.env*` reads are denied, `git push`/credential commands are denied in all modes, and no mode can widen the Brain ceiling.
 
-- [ ] **Step 3: Run RED**
+- [ ] **Step 4: Run RED worker tests**
 
 ```bash
 cd opencode-worker && npm test
@@ -322,9 +355,9 @@ cd opencode-worker && npm test
 
 Expected: FAIL until policy/server modules exist.
 
-- [ ] **Step 4: Implement OpenCode lifecycle**
+- [ ] **Step 5: Implement OpenCode lifecycle**
 
-Use `@opencode-ai/sdk` to launch/connect to an OpenCode server inside the worker environment. Generate OpenCode config from Brain job contract; explicit denies override every permissive default. Create one temporary workspace per job keyed by `jobId`, check out exact `baseSha`, and delete workspace after artifact extraction.
+Use `@opencode-ai/sdk` to launch/connect to an OpenCode server inside the isolated worker environment. Generate OpenCode config from the Brain job contract; explicit denies override every permissive default. Create one temporary workspace per job keyed by `jobId`, check out exact `baseSha`, and delete the workspace after artifact extraction.
 
 Return only:
 
@@ -339,12 +372,13 @@ Return only:
 
 Never return hidden reasoning or secret-bearing environment values.
 
-- [ ] **Step 5: Run tests and commit**
+- [ ] **Step 6: Run GREEN and commit**
 
 ```bash
+python -m unittest AI_SKILL_LIBRARY.tests.test_opencode_runtime_policy -v
 cd opencode-worker && npm test && npm run typecheck
 cd ..
-git add opencode-worker
+git add AI_SKILL_LIBRARY/v4/legion/opencode_runtime.yaml AI_SKILL_LIBRARY/tests/test_opencode_runtime_policy.py opencode-worker
 git commit -m "feat: add isolated OpenCode cloud worker"
 ```
 
@@ -378,7 +412,7 @@ cd crypto-research-gateway && npm test -- --test-name-pattern="legion|opencode"
 
 - [ ] **Step 3: Implement orchestrator**
 
-Runtime plan consumes validated Legion + Model Mesh snapshots only. It must not infer new routing authority. Require `DEPLOYMENT_SOURCE_SHA` match for active execution claims.
+Runtime plan consumes validated Legion + Model Mesh snapshots only. It must not infer new routing authority. Require `DEPLOYMENT_SOURCE_SHA` match for active execution claims. The gateway calls OpenCode over its bounded internal client; it does not itself spawn OpenCode or enable shell/process execution.
 
 - [ ] **Step 4: Expose capabilities safely**
 
