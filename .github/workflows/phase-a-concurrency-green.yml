@@ -1,0 +1,48 @@
+name: Phase A Concurrency GREEN Helper
+
+on:
+  push:
+    branches:
+      - fix/phase-a-zero-local-concurrency
+    paths:
+      - '.github/workflows/phase-a-concurrency-green.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/phase-a-zero-local-concurrency
+          fetch-depth: 0
+      - name: Apply minimal concurrency fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/workflows/deploy-cloudflare-worker.yml')
+          text = p.read_text(encoding='utf-8')
+          old = '  group: cloudflare-zero-local-runtime-production\n'
+          new = '  group: cloudflare-zero-local-runtime-observer\n'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one production concurrency group, found {text.count(old)}')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          rm .github/workflows/phase-a-concurrency-green.yml
+          git diff --check
+      - name: Commit GREEN fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/deploy-cloudflare-worker.yml .github/workflows/phase-a-concurrency-green.yml
+          git diff --cached --check
+          git commit -m "fix(runtime): separate Zero-Local observer lock"
+          git push origin HEAD:fix/phase-a-zero-local-concurrency
