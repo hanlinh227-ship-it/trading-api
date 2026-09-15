@@ -5,6 +5,7 @@ on:
     branches: [github-brain-v4-afmm-implementation2]
     paths:
       - '.github/workflows/prepare-brain-4-9.yml'
+      - 'AI_SKILL_LIBRARY/v4/tools/ci_validate.py'
 
 permissions:
   contents: write
@@ -42,8 +43,6 @@ jobs:
           release_path = Path('AI_SKILL_LIBRARY/v4/tools/release.py')
           s = release_path.read_text(encoding='utf-8')
 
-          # Brain 4.9 promotes the already-verified Legion/Learning contracts into
-          # the immutable release set. Candidate packaging remains available for audit.
           marker = ')\n\n\ndef sha256_file'
           addition = (
               ')\n\n'
@@ -59,7 +58,7 @@ jobs:
               s = s.replace(marker, addition, 1)
 
           old = '''def rollback_release(root: Path) -> str:\n    pointer = load_release_pointer(root)\n    current = pointer.get("version")\n    history_path = root / RELEASE_ROOT / "history.yaml"\n    data = yaml.safe_load(history_path.read_text(encoding="utf-8")) if history_path.is_file() else {}\n    rows = data.get("releases", []) if isinstance(data, dict) else []\n    known_good = [row.get("version") for row in rows if isinstance(row, dict) and row.get("known_good") is True]\n    if current not in known_good:\n        raise ValueError("current release is not present in known-good history")\n    index = known_good.index(current)\n    if index == 0:\n        raise ValueError("no previous known-good release available")\n    target = known_good[index - 1]\n    manifest_path = root / RELEASE_ROOT / target / "manifest.yaml"\n    if not manifest_path.is_file():\n        raise ValueError("previous known-good manifest missing")\n    set_release_pointer(root, target, sha256_file(manifest_path))\n    return target\n'''
-          new = '''def rollback_release(root: Path) -> str:\n    pointer = load_release_pointer(root)\n    current = pointer.get("version")\n    history_path = root / RELEASE_ROOT / "history.yaml"\n    data = yaml.safe_load(history_path.read_text(encoding="utf-8")) if history_path.is_file() else {}\n    rows = [row for row in (data.get("releases", []) if isinstance(data, dict) else []) if isinstance(row, dict)]\n    versions = [row.get("version") for row in rows]\n    if current not in versions:\n        raise ValueError("current release is not present in release history")\n    current_index = versions.index(current)\n    eligible = [row for row in rows[:current_index] if row.get("known_good") is True]\n    if not eligible:\n        raise ValueError("no previous known-good release available")\n    target = eligible[-1].get("version")\n    if not isinstance(target, str) or not target:\n        raise ValueError("previous known-good version is invalid")\n    manifest_path = root / RELEASE_ROOT / target / "manifest.yaml"\n    if not manifest_path.is_file():\n        raise ValueError("previous known-good manifest missing")\n    # Rollback is pointer-only by contract. Historical manifests hash the source\n    # tree that existed when they were built, so verifying them against the new\n    # working tree would incorrectly reject every legitimate older release.\n    set_release_pointer(root, target, sha256_file(manifest_path))\n    return target\n'''
+          new = '''def rollback_release(root: Path) -> str:\n    pointer = load_release_pointer(root)\n    current = pointer.get("version")\n    history_path = root / RELEASE_ROOT / "history.yaml"\n    data = yaml.safe_load(history_path.read_text(encoding="utf-8")) if history_path.is_file() else {}\n    rows = [row for row in (data.get("releases", []) if isinstance(data, dict) else []) if isinstance(row, dict)]\n    versions = [row.get("version") for row in rows]\n    if current not in versions:\n        raise ValueError("current release is not present in release history")\n    current_index = versions.index(current)\n    eligible = [row for row in rows[:current_index] if row.get("known_good") is True]\n    if not eligible:\n        raise ValueError("no previous known-good release available")\n    target = eligible[-1].get("version")\n    if not isinstance(target, str) or not target:\n        raise ValueError("previous known-good version is invalid")\n    manifest_path = root / RELEASE_ROOT / target / "manifest.yaml"\n    if not manifest_path.is_file():\n        raise ValueError("previous known-good manifest missing")\n    set_release_pointer(root, target, sha256_file(manifest_path))\n    return target\n'''
           if old in s:
               s = s.replace(old, new, 1)
           elif 'current release is not present in release history' not in s:
