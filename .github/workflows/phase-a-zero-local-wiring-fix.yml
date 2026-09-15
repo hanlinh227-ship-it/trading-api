@@ -27,17 +27,26 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           path = Path('.github/workflows/deploy-cloudflare-worker.yml')
-          text = path.read_text(encoding='utf-8')
-          old = '''          python AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_snapshot.py \\
-            AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json \\
-            --source-sha "$SOURCE_SHA"\n'''
-          new = old + '''          python AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_active_index.py \\
-            --source-sha "$SOURCE_SHA"\n          python AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_active_index.py \\
-            AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-active-candidate-index.json \\
-            --source-sha "$SOURCE_SHA"\n'''
-          if text.count(old) != 1:
-              raise SystemExit(f'expected exactly one Model Mesh snapshot validation block, found {text.count(old)}')
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          lines = path.read_text(encoding='utf-8').splitlines()
+          starts = [i for i, line in enumerate(lines) if 'python AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_snapshot.py' in line]
+          if len(starts) != 1:
+              raise SystemExit(f'expected one snapshot validator command, found {len(starts)}')
+          start = starts[0]
+          end = next((i for i in range(start + 1, min(len(lines), start + 8)) if '--source-sha "$SOURCE_SHA"' in lines[i]), None)
+          if end is None:
+              raise SystemExit('snapshot validator source-sha terminator not found')
+          indent = lines[start][:len(lines[start]) - len(lines[start].lstrip())]
+          insertion = [
+              indent + 'python AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_active_index.py \\',
+              indent + '  --source-sha "$SOURCE_SHA"',
+              indent + 'python AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_active_index.py \\',
+              indent + '  AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-active-candidate-index.json \\',
+              indent + '  --source-sha "$SOURCE_SHA"',
+          ]
+          if any('compile_model_mesh_active_index.py' in line for line in lines):
+              raise SystemExit('active index compiler already wired')
+          lines[end + 1:end + 1] = insertion
+          path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
           PY
           rm .github/workflows/phase-a-zero-local-wiring-fix.yml
           git diff --check
