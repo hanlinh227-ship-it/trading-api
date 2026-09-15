@@ -253,6 +253,26 @@ export default {
       )
     }
 
+    const taskDeviceOperationMatch = url.pathname.match(/^\/v1\/device\/([^/]+)\/tasks\/([^/]+)\/(checkpoint|micro-plan|recovery)$/)
+    if (taskDeviceOperationMatch) {
+      if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
+      const deviceId = decodeURIComponent(taskDeviceOperationMatch[1])
+      const taskId = decodeURIComponent(taskDeviceOperationMatch[2])
+      const operation = taskDeviceOperationMatch[3]
+      const internalOperation = operation === 'checkpoint'
+        ? 'task-checkpoint'
+        : operation === 'micro-plan'
+          ? 'task-micro-plan'
+          : 'task-recovery'
+      const response = await proxyJson(
+        sessionStub(env, deviceId),
+        `/${internalOperation}/${encodeURIComponent(taskId)}`,
+        request,
+      )
+      if (response.ok) await touchLatestDevice(env, deviceId)
+      return response
+    }
+
     const taskLifecycleMatch = url.pathname.match(/^\/v1\/device\/([^/]+)\/tasks\/([^/]+)\/(confirm|cancel)$/)
     if (taskLifecycleMatch) {
       if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
