@@ -100,9 +100,25 @@
   "compatibility_v2_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md",
   "compatibility_v1_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V1.md",
   "activation_key": "GITHUB_BRAIN_V4",
-  "activation_aliases": ["GITHUB_BRAIN_V3", "GITHUB_BRAIN_V2", "GITHUB_BRAIN_V1"],
+  "activation_aliases": [
+    "GITHUB_BRAIN_V3",
+    "GITHUB_BRAIN_V2",
+    "GITHUB_BRAIN_V1"
+  ],
   "mode": "github-first-v4-lts-dual-plane",
   "fallback": "continue_from_last_verified_stable_release_and_disclose_refresh_failure",
-  "index_tiers": {"HOT": "router_authority_current_skills_current_release", "WARM": "supporting_docs_sources_references", "COLD": "legacy_checkpoints_historical_releases_retired_systems"},
-  "fast_profile_tiers": ["HOT"]
+  "index_tiers": {
+    "HOT": "router_authority_current_skills_current_release",
+    "WARM": "supporting_docs_sources_references",
+    "COLD": "legacy_checkpoints_historical_releases_retired_systems"
+  },
+  "fast_profile_tiers": [
+    "HOT"
+  ],
+  "vnext_integration_policy_path": "AI_SKILL_LIBRARY/v4/integrations/policy.yaml",
+  "agent_skill_compatibility_tool_path": "AI_SKILL_LIBRARY/v4/tools/agent_skill_compat.py",
+  "vnext_integration_adapter_tool_path": "AI_SKILL_LIBRARY/v4/tools/integration_adapters.py",
+  "adaptive_execution_tool_path": "AI_SKILL_LIBRARY/v4/tools/adaptive_execution.py",
+  "free_model_discovery_tool_path": "AI_SKILL_LIBRARY/v4/tools/discover_free_models.py",
+  "legion_runtime_tool_path": "AI_SKILL_LIBRARY/v4/tools/legion.py"
 }
