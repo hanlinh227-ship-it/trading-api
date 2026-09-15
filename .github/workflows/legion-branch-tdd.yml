@@ -1,0 +1,54 @@
+name: Legion Branch TDD
+
+on:
+  push:
+    branches:
+      - github-brain-v4-afmm-implementation2
+    paths:
+      - 'AI_SKILL_LIBRARY/v4/legion/**'
+      - 'AI_SKILL_LIBRARY/v4/learning/**'
+      - 'AI_SKILL_LIBRARY/v4/tools/legion.py'
+      - 'AI_SKILL_LIBRARY/v4/tools/intelligence_bus.py'
+      - 'AI_SKILL_LIBRARY/v4/tools/opencode_worker.py'
+      - 'AI_SKILL_LIBRARY/v4/tools/skill_factory.py'
+      - 'AI_SKILL_LIBRARY/v4/tools/skill_evo.py'
+      - 'AI_SKILL_LIBRARY/v4/tools/idle_learning.py'
+      - 'AI_SKILL_LIBRARY/v4/tools/validate_legion.py'
+      - 'AI_SKILL_LIBRARY/v4/schemas/legion_*.schema.json'
+      - 'AI_SKILL_LIBRARY/v4/schemas/intelligence_claim.schema.json'
+      - 'AI_SKILL_LIBRARY/v4/schemas/skill_candidate.schema.json'
+      - 'AI_SKILL_LIBRARY/tests/test_peer_tri_layer_policy.py'
+      - 'AI_SKILL_LIBRARY/tests/test_legion_*.py'
+      - 'AI_SKILL_LIBRARY/tests/test_intelligence_bus.py'
+      - 'AI_SKILL_LIBRARY/tests/test_opencode_worker.py'
+      - 'AI_SKILL_LIBRARY/tests/test_awesome_llm_pattern_fusion.py'
+      - 'AI_SKILL_LIBRARY/tests/test_skill_factory.py'
+      - 'AI_SKILL_LIBRARY/tests/test_skill_evo.py'
+      - 'AI_SKILL_LIBRARY/tests/test_idle_learning.py'
+      - '.github/workflows/legion-branch-tdd.yml'
+
+jobs:
+  legion-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check pyyaml jsonschema
+      - name: Run Legion tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(AI_SKILL_LIBRARY/tests/test_peer_tri_layer_policy.py AI_SKILL_LIBRARY/tests/test_legion_*.py AI_SKILL_LIBRARY/tests/test_intelligence_bus.py AI_SKILL_LIBRARY/tests/test_opencode_worker.py AI_SKILL_LIBRARY/tests/test_awesome_llm_pattern_fusion.py AI_SKILL_LIBRARY/tests/test_skill_factory.py AI_SKILL_LIBRARY/tests/test_skill_evo.py AI_SKILL_LIBRARY/tests/test_idle_learning.py)
+          existing=()
+          for f in "${files[@]}"; do
+            [[ -f "$f" ]] && existing+=("$f")
+          done
+          if [[ ${#existing[@]} -eq 0 ]]; then
+            echo 'No Legion tests yet.'
+            exit 0
+          fi
+          python -m unittest -v "${existing[@]}"
