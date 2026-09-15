@@ -21,3 +21,17 @@ cold_start:
 decay:
   enabled: true
   stale_observation_half_life_days: 90
+model_mesh:
+  ranking_only_after_policy_gates: true
+  equivalent_authority_only: true
+  provider_model_path_signals:
+    - success_rate
+    - schema_valid_rate
+    - verifier_accept_rate
+    - latency_efficiency
+    - quota_reliability
+    - task_class_fit
+    - protected_regression_inverse
+  no_permission_grant: true
+  no_authority_grant: true
+  same_family_provider_redundancy_is_not_reasoning_diversity: true
