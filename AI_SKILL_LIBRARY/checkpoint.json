@@ -31,6 +31,8 @@
   "mesh_bridges_path": "AI_SKILL_LIBRARY/v4/mesh/bridges.yaml",
   "model_mesh_policy_path": "AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml",
   "model_mesh_provider_registry_path": "AI_SKILL_LIBRARY/v4/model_mesh/providers.yaml",
+  "model_mesh_active_registry_path": "AI_SKILL_LIBRARY/v4/model_mesh/active.json",
+  "model_mesh_runtime_bindings_path": "AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json",
   "model_mesh_domain_capabilities_path": "AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml",
   "model_mesh_snapshot_schema_path": "AI_SKILL_LIBRARY/v4/schemas/model_mesh_snapshot.schema.json",
   "model_mesh_snapshot_compiler_path": "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_snapshot.py",
@@ -92,19 +94,9 @@
   "compatibility_v2_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V2.md",
   "compatibility_v1_path": "AI_SKILL_LIBRARY/GITHUB_BRAIN_V1.md",
   "activation_key": "GITHUB_BRAIN_V4",
-  "activation_aliases": [
-    "GITHUB_BRAIN_V3",
-    "GITHUB_BRAIN_V2",
-    "GITHUB_BRAIN_V1"
-  ],
+  "activation_aliases": ["GITHUB_BRAIN_V3", "GITHUB_BRAIN_V2", "GITHUB_BRAIN_V1"],
   "mode": "github-first-v4-lts-dual-plane",
   "fallback": "continue_from_last_verified_stable_release_and_disclose_refresh_failure",
-  "index_tiers": {
-    "HOT": "router_authority_current_skills_current_release",
-    "WARM": "supporting_docs_sources_references",
-    "COLD": "legacy_checkpoints_historical_releases_retired_systems"
-  },
-  "fast_profile_tiers": [
-    "HOT"
-  ]
+  "index_tiers": {"HOT": "router_authority_current_skills_current_release", "WARM": "supporting_docs_sources_references", "COLD": "legacy_checkpoints_historical_releases_retired_systems"},
+  "fast_profile_tiers": ["HOT"]
 }
