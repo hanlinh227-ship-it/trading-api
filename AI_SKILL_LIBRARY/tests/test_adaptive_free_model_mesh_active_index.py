@@ -89,7 +89,7 @@ class ActiveCandidateIndexTests(unittest.TestCase):
         return snapshot_path, ledger_path, capabilities_path
 
     def test_compile_is_deterministic_and_cannot_create_index_only_model(self):
-        rows = [model("p2", "m2", "f2"), model("p1", "m1", "f1")]
+        rows = [model("p1", "m1", "f1"), model("p2", "m2", "f2")]
         records = [
             evidence("p1", "m1", "f1", "coding", "e1"),
             evidence("ghost", "ghost-model", "ghost-family", "coding", "ghost-evidence"),
