@@ -90,7 +90,9 @@ function intentShape(objective) {
         : ['ACTION_VERIFIED']
 
   return {
-    intentSchema: 5,
+    // Keep the V4 schema marker for wire compatibility. V5 extends the
+    // payload additively with persistencePolicy/allowedPackages fields.
+    intentSchema: 4,
     objective,
     completionCriteria,
     forbiddenActions,
