@@ -100,4 +100,9 @@ assert.match(otherDeploy,/CLOUDFLARE_WORKER_DEPLOY=DRY_RUN_ONLY/);
 // The gate itself must still be the one that deploys, and that must survive.
 assert.match(workflow,realDeploy,'the gated workflow must still perform the real deploy');
 
-console.log('deployment secret, rollback, authority and live-canary contracts ok');
+// --- FAST/SECRET boundaries proven against the running Worker --------------
+assert.match(workflow,/SECRET_EXTERNAL_BOUNDARY=PASS/,'SECRET must be proven closed on production, not only in unit tests');
+assert.match(workflow,/DATACLASS_FAIL_CLOSED=PASS/,'an unknown data class must fail closed to SECRET on production');
+assert.match(workflow,/FAST_EXTERNAL_BOUNDARY=PASS/,'FAST must be proven to select zero external workers on production');
+
+console.log('deployment secret, rollback, authority, boundary and live-canary contracts ok');

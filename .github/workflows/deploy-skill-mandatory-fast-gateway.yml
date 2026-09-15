@@ -300,6 +300,35 @@ jobs:
           contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
           printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2)})"
 
+      # The FAST and SECRET boundaries are the contract the whole Brain-authority
+      # model rests on. They were covered by unit tests but never asserted
+      # against the running Worker, so they are proven here on production.
+      - name: Production FAST and SECRET external boundary proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          post_plan() {
+            body="$1"
+            curl -sS -o /tmp/plan_body -w '%{http_code}' --connect-timeout 5 --max-time 20 \
+              -H 'content-type: application/json' -d "$body" "$WORKER_BASE_URL/brain/mesh/plan"
+          }
+
+          # SECRET must never reach an external worker.
+          code="$(post_plan '{"text":"phan tich noi bo","dataClass":"SECRET"}')"
+          test "$code" = "403" || { echo "SECRET_EXTERNAL_BOUNDARY=FAIL http=$code"; cat /tmp/plan_body; exit 2; }
+          grep -q 'secret_external_mesh_forbidden' /tmp/plan_body || { echo "SECRET_EXTERNAL_BOUNDARY=FAIL reason_missing"; exit 2; }
+          echo "SECRET_EXTERNAL_BOUNDARY=PASS external_workers=0 http=403"
+
+          # An unrecognised data class must fail CLOSED to SECRET, not open to PUBLIC.
+          code="$(post_plan '{"text":"phan tich noi bo","dataClass":"not-a-real-class"}')"
+          test "$code" = "403" || { echo "DATACLASS_FAIL_CLOSED=FAIL http=$code"; exit 2; }
+          echo "DATACLASS_FAIL_CLOSED=PASS unknown_class_treated_as_secret http=403"
+
+          # FAST must select zero external workers and make zero routing calls.
+          fast="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' \
+            -d '{"text":"giải thích bác sĩ nội trú","dataClass":"PUBLIC"}' "$WORKER_BASE_URL/brain/mesh/plan")"
+          printf '%s\n' "$fast" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);const w=Array.isArray(x.workers)?x.workers:[];if(x.ok!==true||x.route?.profile!=='FAST'){console.log('FAST_EXTERNAL_BOUNDARY=SKIPPED profile='+x.route?.profile);return}if(w.length!==0||x.selectionReason!=='fast_external_mesh_forbidden'||x.route?.externalRoutingCalls!==0){console.log('FAST_EXTERNAL_BOUNDARY=FAIL workers='+w.length+' reason='+x.selectionReason);process.exit(2)}console.log('FAST_EXTERNAL_BOUNDARY=PASS external_workers=0 externalRoutingCalls=0')})"
+
       # Diagnose provider model availability from live evidence rather than
       # guessing a model id. A 404 here means the configured model is not
       # resolvable for this key; the step reports which model ids ARE available
