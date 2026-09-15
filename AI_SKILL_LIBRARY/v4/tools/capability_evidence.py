@@ -133,9 +133,9 @@ def capability_evidence_state(
 
     for row in matching:
         measured = _parse_timestamp(row.get("measured_at"))
-        if measured is None:
+        if measured is None or measured > now_dt:
             continue
-        age_hours = max(0.0, (now_dt - measured).total_seconds() / 3600.0)
+        age_hours = (now_dt - measured).total_seconds() / 3600.0
         passed = row.get("passed") is True and _bounded_score(row.get("score")) >= _bounded_score(row.get("threshold"))
         if passed:
             return {
