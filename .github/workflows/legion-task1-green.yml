@@ -1,0 +1,60 @@
+name: Legion Task1 Green Patch
+
+on:
+  push:
+    branches: [github-brain-v4-afmm-implementation2]
+    paths: ['.github/workflows/legion-task1-green.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: github-brain-v4-afmm-implementation2
+      - name: Patch Task 1 integration maps
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          fusion_path = Path('AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml')
+          text = fusion_path.read_text(encoding='utf-8')
+          old = '    absorbs: [provider_discovery, provider_plugin_order, zen_adapter_patterns, broad_provider_compatibility]\n'
+          new = '    absorbs: [provider_discovery, provider_plugin_order, zen_adapter_patterns, broad_provider_compatibility, primary_subagent_modes, permission_scoped_tools, child_session_isolation, mcp_execution_patterns]\n'
+          if old not in text and new not in text:
+              raise SystemExit('OpenCode absorbs anchor not found')
+          text = text.replace(old, new, 1)
+          if '  Shubhamsaboo/awesome-llm-apps:' not in text:
+              text += '''\n  Shubhamsaboo/awesome-llm-apps:\n    status: approved_reference\n    license: Apache-2.0\n    absorbs: [multi_agent_specialist_teams, mixture_of_agents_perspectives, mcp_specialist_routing, agentic_rag, corrective_rag, multimodal_agent_teams, research_planner_executor]\n    routing_authority: false\n    reasoning_authority: false\n    mandatory_runtime_dependency: false\n    code_reuse: false\n  ECNU-ICALK/AutoSkill:\n    status: approved_reference\n    license: MIT\n    absorbs: [experience_driven_skill_mining, reusable_experience_triage, skill_merge, skill_versioning, conversation_trajectory_learning]\n    routing_authority: false\n    reasoning_authority: false\n    mandatory_runtime_dependency: false\n    code_reuse: false\n  ECNU-ICALK/AutoSkill/SkillEvo:\n    status: approved_reference\n    license: MIT\n    absorbs: [frozen_replay, bounded_skill_mutation, eval_rule_compilation, champion_selection, promotion_test]\n    routing_authority: false\n    reasoning_authority: false\n    mandatory_runtime_dependency: false\n    code_reuse: false\n'''
+          fusion_path.write_text(text, encoding='utf-8')
+
+          map_path = Path('AI_SKILL_LIBRARY/v4/index/workspace_map.yaml')
+          text = map_path.read_text(encoding='utf-8')
+          anchor = '  model_mesh: [AI_SKILL_LIBRARY/v4/model_mesh]\n'
+          addition = anchor + '  legion: [AI_SKILL_LIBRARY/v4/legion]\n  learning: [AI_SKILL_LIBRARY/v4/learning]\n'
+          if '  legion: [AI_SKILL_LIBRARY/v4/legion]' not in text:
+              if anchor not in text:
+                  raise SystemExit('workspace group anchor not found')
+              text = text.replace(anchor, addition, 1)
+          warm_anchor = '      - AI_SKILL_LIBRARY/v4/model_mesh\n'
+          warm_add = warm_anchor + '      - AI_SKILL_LIBRARY/v4/legion\n      - AI_SKILL_LIBRARY/v4/learning\n'
+          if '      - AI_SKILL_LIBRARY/v4/legion' not in text:
+              if warm_anchor not in text:
+                  raise SystemExit('workspace WARM anchor not found')
+              text = text.replace(warm_anchor, warm_add, 1)
+          map_path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit Task 1 GREEN integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml AI_SKILL_LIBRARY/v4/index/workspace_map.yaml
+          if git diff --cached --quiet; then
+            echo 'No patch needed.'
+          else
+            git commit -m 'feat: register peer legion upstream patterns'
+            git push origin HEAD:github-brain-v4-afmm-implementation2
+          fi
