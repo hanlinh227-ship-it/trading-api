@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "model_mesh_active_candidate_index.schema.json",
+  "title": "Model Mesh Active Candidate Index",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_sha",
+    "mode",
+    "routing_authority",
+    "reasoning_authority",
+    "generated_at",
+    "hard_gate_policy",
+    "coverage",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "mode": {"const": "FREE_ONLY"},
+    "routing_authority": {"const": false},
+    "reasoning_authority": {"const": false},
+    "generated_at": {"type": "string", "minLength": 1},
+    "hard_gate_policy": {
+      "type": "object",
+      "required": ["default_enabled", "min_verified_candidates", "min_coverage_ratio", "overrides"],
+      "properties": {
+        "default_enabled": {"type": "boolean"},
+        "min_verified_candidates": {"type": "integer", "minimum": 1},
+        "min_coverage_ratio": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        "overrides": {
+          "type": "object",
+          "additionalProperties": {"type": "boolean"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/coverageRow"}
+    },
+    "entries": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/candidateEntry"}
+    }
+  },
+  "$defs": {
+    "capabilityEvidenceState": {
+      "type": "object",
+      "required": ["state", "score", "evidence_ids", "measured_at"],
+      "properties": {
+        "state": {"enum": ["VERIFIED", "PROVISIONAL", "UNKNOWN", "STALE"]},
+        "score": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        "evidence_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "measured_at": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "coverageRow": {
+      "type": "object",
+      "required": [
+        "domain",
+        "capability",
+        "eligible_candidates",
+        "verified_candidates",
+        "coverage_ratio",
+        "requested_enabled",
+        "gate_eligible",
+        "enabled"
+      ],
+      "properties": {
+        "domain": {"type": "string", "minLength": 1},
+        "capability": {"type": "string", "minLength": 1},
+        "eligible_candidates": {"type": "integer", "minimum": 0},
+        "verified_candidates": {"type": "integer", "minimum": 0},
+        "coverage_ratio": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        "requested_enabled": {"type": "boolean"},
+        "gate_eligible": {"type": "boolean"},
+        "enabled": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "candidateEntry": {
+      "type": "object",
+      "required": ["candidate_key", "provider_id", "model_id", "model_family", "capability_evidence"],
+      "properties": {
+        "candidate_key": {"type": "string", "minLength": 3},
+        "provider_id": {"type": "string", "minLength": 1},
+        "model_id": {"type": "string", "minLength": 1},
+        "model_family": {"type": "string", "minLength": 1},
+        "capability_evidence": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/capabilityEvidenceState"}
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
