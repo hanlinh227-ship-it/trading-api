@@ -4,9 +4,9 @@
 
 **Goal:** Integrate Peer Tri-Layer Intelligence, AI Legion/OpenCode, Skill Evolution, Idle Autonomy and the Adaptive Free Model Mesh into one validated GITHUB_BRAIN_V4 release and roll it out in bounded stages with exact-SHA production verification.
 
-**Architecture:** Treat the existing Adaptive Free Model Mesh implementation plan as a prerequisite execution layer. Add checkpoint paths, release-manifest files, CI snapshot compilation/validation and end-to-end protected evals for Legion. Roll out shadow/read-only first, then bounded coding/evolution/autonomy features; do not change live-price or high-risk execution authority. Stable must retain last-known-good fallback through every stage.
+**Architecture:** Treat the existing Adaptive Free Model Mesh implementation plan as a prerequisite execution layer. Add checkpoint paths, release-manifest files, CI snapshot compilation/validation and end-to-end protected evals for Legion. The existing research gateway keeps its no-shell/no-process execution boundary; OpenCode uses a separately governed isolated worker service. Cloudflare autonomy is a durable control/scheduling plane only, while provider/coding execution remains in explicitly approved execution services. Roll out shadow/read-only first, then bounded coding/evolution/autonomy features; do not change live-price or high-risk execution authority. Stable must retain last-known-good fallback through every stage.
 
-**Tech Stack:** Python 3.12, unittest, PyYAML/jsonschema, Node.js 22, Fastify, Cloudflare Workers/Wrangler, Railway, GitHub Actions, existing release/retrieval-index tools.
+**Tech Stack:** Python 3.12, unittest, PyYAML/jsonschema, Node.js 22, Fastify, Cloudflare Workers/Wrangler, D1/Queues/Cron, Railway, GitHub Actions, existing release/retrieval-index tools.
 
 **Spec:** `docs/superpowers/specs/2026-09-15-peer-tri-layer-ai-legion-design.md`
 
@@ -21,6 +21,7 @@
 - High-risk financial, credential, destructive and permission-widening actions remain blocked/gated exactly as Stable security requires.
 - Deployment success is not inferred from source code; exact deployed SHA + health/smoke verification is required.
 - OpenCode/Legion/Autonomy failure may degrade capability but must not disable Stable routing or live-price research.
+- Existing `AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml` remains the policy for the research gateway; OpenCode receives a separate `v4/legion/opencode_runtime.yaml` policy rather than widening the gateway boundary.
 
 ## Plan dependency order
 
@@ -58,6 +59,7 @@ EXPECTED = {
   "legion_learning_path": "AI_SKILL_LIBRARY/v4/legion/learning.yaml",
   "legion_evolution_path": "AI_SKILL_LIBRARY/v4/legion/evolution.yaml",
   "legion_autonomy_path": "AI_SKILL_LIBRARY/v4/legion/autonomy.yaml",
+  "legion_opencode_runtime_policy_path": "AI_SKILL_LIBRARY/v4/legion/opencode_runtime.yaml",
   "legion_snapshot_compiler_path": "AI_SKILL_LIBRARY/v4/tools/compile_legion_snapshot.py",
   "legion_snapshot_validator_path": "AI_SKILL_LIBRARY/v4/tools/validate_legion_snapshot.py",
   "legion_intelligence_snapshot_compiler_path": "AI_SKILL_LIBRARY/v4/tools/compile_legion_intelligence_snapshot.py",
@@ -75,7 +77,7 @@ python -m unittest AI_SKILL_LIBRARY.tests.test_ai_legion_checkpoint -v
 
 - [ ] **Step 3: Add checkpoint keys and workspace mapping**
 
-Do not replace existing model-mesh/skill-gateway pointers. Add Legion as a separate capability namespace only.
+Do not replace existing model-mesh/skill-gateway/runtime pointers. Add Legion and its isolated OpenCode runtime policy as separate capability paths only.
 
 - [ ] **Step 4: Run GREEN and commit**
 
@@ -95,12 +97,12 @@ git commit -m "feat: register AI Legion checkpoint paths"
 - Test: `AI_SKILL_LIBRARY/tests/test_ai_legion_ci.py`
 
 **Interfaces:**
-- `validate_legion.py --root <repo>` validates canonical policy/catalog/schema relationships.
+- `validate_legion.py --root <repo>` validates canonical policy/catalog/schema/runtime-policy relationships.
 - `ci_validate.run_validators()` compiles and validates Skill Gateway, Model Mesh, Legion Runtime and Peer Intelligence snapshots against the same exact source SHA.
 
 - [ ] **Step 1: Write RED CI test**
 
-Assert `VALIDATORS` contains `validate_legion.py`; generated paths include `legion-runtime-snapshot.json` and `legion-intelligence-snapshot.json`; source SHA mismatch fails validation; empty/quarantine learning state is safe and valid.
+Assert `VALIDATORS` contains `validate_legion.py`; generated paths include `legion-runtime-snapshot.json` and `legion-intelligence-snapshot.json`; source SHA mismatch fails validation; empty/quarantine learning state is safe and valid; the Legion validator proves OpenCode shell/process permissions do not alter the research gateway runtime policy.
 
 - [ ] **Step 2: Run RED**
 
@@ -158,6 +160,7 @@ AI_SKILL_LIBRARY/v4/legion/orchestration.yaml
 AI_SKILL_LIBRARY/v4/legion/upstreams.yaml
 AI_SKILL_LIBRARY/v4/legion/evolution.yaml
 AI_SKILL_LIBRARY/v4/legion/autonomy.yaml
+AI_SKILL_LIBRARY/v4/legion/opencode_runtime.yaml
 ```
 
 - [ ] **Step 2: Run RED**
@@ -200,13 +203,14 @@ Required scenarios:
 4. Same model family on two providers is not diversity.
 5. Provider quota exhaustion triggers compliant cooldown/fallback.
 6. OpenCode review cannot edit; patch cannot escape allowed paths; `git push` denied.
-7. Worker crash/retry remains idempotent.
-8. Generated skill cannot expand permission ceiling.
-9. Mutation cannot win by judge preference without protected eval evidence.
-10. Idle scheduler rejects financial/credential/destructive jobs.
-11. Trading Legion remains research-only.
-12. Stable works when Legion, OpenCode, Autonomy and model mesh are all unavailable.
-13. FAST route latency/external-call invariants remain unchanged.
+7. OpenCode process/shell permission stays isolated from the research gateway boundary.
+8. Worker crash/retry remains idempotent.
+9. Generated skill cannot expand permission ceiling.
+10. Mutation cannot win by judge preference without protected eval evidence.
+11. Idle scheduler rejects financial/credential/destructive jobs.
+12. Trading Legion remains research-only.
+13. Stable works when Legion, OpenCode, Autonomy and model mesh are all unavailable.
+14. FAST route latency/external-call invariants remain unchanged.
 
 - [ ] **Step 2: Run RED suites**
 
@@ -293,7 +297,7 @@ git commit -m "release: prepare GITHUB_BRAIN_V4 AI Legion"
 
 - [ ] **Step 1: Deploy exact commit to runtime services**
 
-Deploy Gateway, OpenCode worker and Autonomy Worker from the same approved GitHub source revision where applicable. No auto-deploy-on-push assumption; use existing deployment connectors/workflows and pin the commit.
+Deploy Gateway, OpenCode worker and Autonomy Worker from the same approved GitHub source revision where applicable. The Gateway remains the provider/research execution service; OpenCode runs in its own isolated process-capable service; Cloudflare autonomy only schedules/persists/dispatches jobs. No auto-deploy-on-push assumption; use existing deployment connectors/workflows and pin the commit.
 
 - [ ] **Step 2: Verify exact SHA and health**
 
@@ -314,7 +318,7 @@ Smoke read-only specialist task, conflict resolution, model-mesh fallback, OpenC
 
 - [ ] **Step 4: Verify no authority regression**
 
-Check `/brain/route` still selects exactly one primary skill/capsule; FAST uses no external routing call; `/research/market` remains live-price research authority; Legion routes expose no financial/write capability beyond approved isolated coding writes.
+Check `/brain/route` still selects exactly one primary skill/capsule; FAST uses no external routing call; `/research/market` remains live-price research authority; Gateway health still reflects no local shell/process boundary; Legion routes expose no financial/write capability beyond approved isolated coding writes inside OpenCode worker.
 
 - [ ] **Step 5: Mark release known-good only after production evidence**
 
