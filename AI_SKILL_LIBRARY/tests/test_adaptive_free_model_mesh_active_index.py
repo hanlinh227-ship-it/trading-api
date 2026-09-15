@@ -107,6 +107,19 @@ class ActiveCandidateIndexTests(unittest.TestCase):
             self.assertNotIn("ghost:ghost-model", output_a.read_text(encoding="utf-8"))
             self.assertEqual(first["entries"][0]["capability_evidence"]["coding"]["state"], "VERIFIED")
 
+    def test_index_is_bounded_by_admitted_snapshot_not_ledger_size(self):
+        rows = [model("p1", "m1", "f1"), model("p2", "m2", "f2"), model("p3", "m3", "f3")]
+        records = [evidence(f"ghost-{i}", f"ghost-model-{i}", f"ghost-family-{i}", "coding", f"ghost-{i}") for i in range(100)]
+        records.append(evidence("p1", "m1", "f1", "coding", "admitted-evidence"))
+        with tempfile.TemporaryDirectory() as temp:
+            temp_root = Path(temp)
+            snapshot_path, ledger_path, capabilities_path = self._write_inputs(temp_root, rows, records)
+            output = temp_root / "index.json"
+            index = compile_active_index(ROOT, source_sha=SOURCE_SHA, snapshot_path=snapshot_path, ledger_path=ledger_path, capabilities_path=capabilities_path, output=output, generated_at=GENERATED_AT)
+            self.assertEqual(len(index["entries"]), 3)
+            self.assertEqual({row["candidate_key"] for row in index["entries"]}, {"p1:m1", "p2:m2", "p3:m3"})
+            self.assertNotIn("ghost-model-", output.read_text(encoding="utf-8"))
+
     def test_coverage_requires_two_verified_and_eighty_percent(self):
         rows = [model("p1", "m1", "f1"), model("p2", "m2", "f2")]
         records = [
@@ -156,6 +169,17 @@ class ActiveCandidateIndexTests(unittest.TestCase):
             errors = validate_active_index(ROOT, output, snapshot_path=snapshot_path, expected_source_sha=SOURCE_SHA)
             self.assertTrue(any("source_sha" in item for item in errors))
             self.assertTrue(any("not present in admitted snapshot" in item for item in errors))
+
+    def test_validator_does_not_treat_prompt_media_capability_as_a_secret_key(self):
+        rows = [model("p1", "m1", "f1")]
+        config = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as temp:
+            temp_root = Path(temp)
+            snapshot_path, ledger_path, capabilities_path = self._write_inputs(temp_root, rows, [], capabilities=config)
+            output = temp_root / "index.json"
+            index = compile_active_index(ROOT, source_sha=SOURCE_SHA, snapshot_path=snapshot_path, ledger_path=ledger_path, capabilities_path=capabilities_path, output=output, generated_at=GENERATED_AT)
+            self.assertIn("prompt_media", index["entries"][0]["capability_evidence"])
+            self.assertEqual(validate_active_index(ROOT, output, snapshot_path=snapshot_path, expected_source_sha=SOURCE_SHA), [])
 
     def test_checkpoint_compiler_and_validator_paths_exist_after_task_three(self):
         checkpoint = json.loads((ROOT / "AI_SKILL_LIBRARY/checkpoint.json").read_text(encoding="utf-8"))
