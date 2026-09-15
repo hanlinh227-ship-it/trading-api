@@ -119,6 +119,11 @@ jobs:
           python AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_snapshot.py \
             AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json \
             --source-sha "$SOURCE_SHA"
+          python AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_active_index.py \
+            --source-sha "$SOURCE_SHA"
+          python AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_active_index.py \
+            AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-active-candidate-index.json \
+            --source-sha "$SOURCE_SHA"
       - name: Install gateway dependencies
         working-directory: crypto-research-gateway
         run: npm install --no-audit --no-fund
