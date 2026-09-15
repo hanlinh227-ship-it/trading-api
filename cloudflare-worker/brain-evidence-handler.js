@@ -26,7 +26,8 @@ export function createBrainEvidenceHandler({routeSkill,fetchImpl=fetch}={}){
     if(!['search','fetch'].includes(operation))return json({ok:false,error:'tinyfish_paid_or_unknown_operation_forbidden'},400);
     const guard=await checkTinyFishGuard(env.TINYFISH_CIRCUIT);if(!guard.allowed)return json({ok:false,error:'tinyfish_guard_blocked',guardState:guard.state,retryAfterMs:guard.retryAfterMs},429);
     const result=await callTinyFish({operation,query:body.text,urls:body.urls,apiKey:env.TINY_FISH_API,fetchImpl});
-    await recordTinyFishGuard(env.TINYFISH_CIRCUIT,result);
+    const recorded=await recordTinyFishGuard(env.TINYFISH_CIRCUIT,result);
+    if(!recorded.persisted)return json({ok:false,error:'tinyfish_guard_state_unavailable',provider:'tinyfish',mode:'FREE_ONLY',routingAuthority:false,reasoningAuthority:false},503);
     return json({ok:result.ok,provider:'tinyfish',mode:'FREE_ONLY',operation,status:result.status,category:result.category,attempts:result.attempts,evidence:result.evidence,route:{profile:route.profile,primarySkill:route.primarySkill,externalRoutingCalls:0},routingAuthority:false,reasoningAuthority:false},result.ok?200:503);
   };
 }

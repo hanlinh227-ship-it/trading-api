@@ -263,6 +263,13 @@ jobs:
           fetch_result="$(curl -fsS --connect-timeout 5 --max-time 180 -X POST -H 'content-type: application/json' -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" -d "$fetch_body" "$WORKER_BASE_URL/brain/evidence/query")"
           printf '%s\n' "$fetch_result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.provider!=='tinyfish'||x.operation!=='fetch'||!Array.isArray(x.evidence)||!x.evidence.length)process.exit(2);if(JSON.stringify(x).match(/API_KEY|TOKEN|secret/i))process.exit(3);console.log('TINYFISH_FETCH_CANARY=PASS status='+x.status)})"
 
+      - name: Final exact-SHA deployment gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
+          printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2);console.log('FINAL_EXACT_SHA_GATE=PASS revision='+x.runtimeRevision)})"
+
       - name: Deployment record
         run: |
           echo "SKILL_MANDATORY_FAST_GATEWAY_DEPLOY=PASS"
@@ -285,7 +292,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 1
+          fetch-depth: 0
       - name: Refresh current-revision provider evidence
         env:
           MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
@@ -293,8 +300,9 @@ jobs:
         run: |
           set -euo pipefail
           test -n "${MODEL_MESH_EXECUTION_TOKEN:-}"
-          expected="$(git rev-parse HEAD)"
           contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
-          printf '%s\n' "$contract" | EXPECTED="$expected" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2)})"
+          deployed="$(printf '%s\n' "$contract" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s),r=String(x.runtimeRevision||'');if(!x.ok||!/^[a-f0-9]{40}$/.test(r))process.exit(2);process.stdout.write(r)})")"
+          git merge-base --is-ancestor "$deployed" HEAD
+          echo "MODEL_MESH_REFRESH_REVISION=PASS deployed=$deployed"
           result="$(curl -fsS --connect-timeout 5 --max-time 90 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
           printf '%s\n' "$result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s),configured=(x.results||[]).filter(r=>r.configured);const matrix=(x.results||[]).map(r=>({providerId:r.providerId,modelId:r.modelId,configured:r.configured,ok:r.ok,status:r.status,state:r.state,category:r.category,latencyMs:r.latencyMs}));console.log('MODEL_MESH_PROBE_MATRIX='+JSON.stringify(matrix));if(!x.ok||!configured.length||configured.some(r=>!r.ok||r.state!=='LIVE_HEALTHY'))process.exit(2)})"

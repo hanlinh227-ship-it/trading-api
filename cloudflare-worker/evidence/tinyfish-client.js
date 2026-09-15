@@ -4,11 +4,11 @@ import {readJsonBounded} from '../model-mesh/providers/response.js';
 const SEARCH_URL='https://api.search.tinyfish.ai',FETCH_URL='https://api.fetch.tinyfish.ai';
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function safeUrl(value){
-  try{const url=new URL(value);const host=url.hostname.toLowerCase();if(url.protocol!=='https:'||!host.includes('.')||host.startsWith('[')||/^\d+(?:\.\d+){3}$/.test(host)||host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||host.endsWith('.internal')||host==='metadata.google.internal')return null;return url.toString();}catch{return null;}
+  try{const url=new URL(value);const host=url.hostname.toLowerCase();if(url.protocol!=='https:'||url.username||url.password||!host.includes('.')||host.startsWith('[')||/^\d+(?:\.\d+){3}$/.test(host)||host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||host.endsWith('.internal')||host==='metadata.google.internal')return null;return url.toString();}catch{return null;}
 }
 function sanitizeEvidence(data){
   const source=Array.isArray(data?.results)?data.results:Array.isArray(data)?data:[];
-  return source.slice(0,10).map(item=>({title:String(item?.title||'').slice(0,300),url:safeUrl(item?.url)||null,finalUrl:item?.final_url?safeUrl(item.final_url):undefined,snippet:String(item?.snippet??item?.content??item?.text??'').slice(0,4000)}));
+  return source.slice(0,10).map(item=>({title:String(item?.title||'').slice(0,300),url:safeUrl(item?.url)||null,finalUrl:safeUrl(item?.final_url)||null,snippet:String(item?.snippet??item?.content??item?.text??'').slice(0,4000)}));
 }
 export async function callTinyFish({operation,query='',urls=[],apiKey,timeoutMs,maxRetries=1,fetchImpl=fetch,delay=wait}={}){
   if(!apiKey)return {ok:false,status:0,category:'AUTH_FAILED',attempts:0,evidence:[]};

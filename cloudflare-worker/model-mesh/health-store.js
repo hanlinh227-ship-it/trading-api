@@ -62,6 +62,6 @@ export async function writeProbeHealth(kv,model,probe,{sourceSha='',nowMs=Date.n
 
 export async function recordModelExecutionHealth(kv,model,result,options={}){
   const nowMs=options.nowMs??Date.now(),sourceSha=options.sourceSha||'';
-  if(result?.ok===true){const current=await readModelHealth(kv,model,{sourceSha,nowMs});if(current.state==='LIVE_HEALTHY'&&Date.parse(current.expiresAt)>nowMs+5*60*1000)return {...current,persisted:false,storeCategory:'REFRESH_NOT_DUE'};}
+  if(result?.ok===true){const current=await readModelHealth(kv,model,{sourceSha,nowMs});return {...current,persisted:false,storeCategory:'SCHEDULED_PROBE_OWNS_SUCCESS_REFRESH'};}
   return writeProbeHealth(kv,model,result,{...options,nowMs,sourceSha});
 }

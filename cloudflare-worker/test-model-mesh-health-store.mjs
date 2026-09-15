@@ -22,7 +22,7 @@ assert.equal(pass.state,'LIVE_HEALTHY');
 assert.equal((await readModelHealth(kv,model,{sourceSha,nowMs})).state,'LIVE_HEALTHY');
 assert.equal(kv.puts.length,1);
 const skipped=await recordModelExecutionHealth(kv,model,{ok:true,latencyMs:5},{sourceSha,nowMs:nowMs+1000,delay:async()=>{}});
-assert.equal(skipped.storeCategory,'REFRESH_NOT_DUE');assert.equal(kv.puts.length,1);
+assert.equal(skipped.storeCategory,'SCHEDULED_PROBE_OWNS_SUCCESS_REFRESH');assert.equal(kv.puts.length,1);
 assert.ok(kv.puts[0].options.expirationTtl>=60);
 for(const forbidden of ['prompt','response','credential','secret','token','apiKey'])assert.equal(kv.puts[0].value.includes(forbidden),false,forbidden);
 
