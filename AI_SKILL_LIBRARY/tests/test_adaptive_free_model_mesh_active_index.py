@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 from AI_SKILL_LIBRARY.v4.tools.compile_model_mesh_active_index import compile_active_index
+from AI_SKILL_LIBRARY.v4.tools.compile_model_mesh_policy import compile_policy
 from AI_SKILL_LIBRARY.v4.tools.validate_model_mesh_active_index import validate_active_index
 
 
@@ -160,6 +161,23 @@ class ActiveCandidateIndexTests(unittest.TestCase):
         checkpoint = json.loads((ROOT / "AI_SKILL_LIBRARY/checkpoint.json").read_text(encoding="utf-8"))
         for key in ("model_mesh_active_index_compiler_path", "model_mesh_active_index_validator_path"):
             self.assertTrue((ROOT / checkpoint[key]).is_file(), checkpoint[key])
+
+    def test_compiled_policy_carries_phase_a_evidence_rollout_contract(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "policy.json"
+            contract = compile_policy(
+                ROOT,
+                policy_path=Path("AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml"),
+                capabilities_path=Path("AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml"),
+                output=output,
+            )
+            evidence_policy = contract["capability_evidence"]
+            self.assertFalse(evidence_policy["routing_authority"])
+            self.assertEqual(evidence_policy["default_freshness_hours"], 168)
+            self.assertFalse(evidence_policy["hard_gate"]["default_enabled"])
+            self.assertEqual(evidence_policy["hard_gate"]["min_verified_candidates"], 2)
+            self.assertEqual(evidence_policy["hard_gate"]["min_coverage_ratio"], 0.80)
+            self.assertEqual(evidence_policy["hard_gate"]["overrides"], {})
 
 
 if __name__ == "__main__":
