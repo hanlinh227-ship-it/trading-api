@@ -22,5 +22,9 @@
   },
   "migrations": [
     {"tag": "tinyfish-circuit-v1", "new_sqlite_classes": ["TinyFishCircuit"]}
-  ]
+  ],
+  // Read-only Model Mesh health maintenance only. Financial, trading, deploy
+  // and autonomous Brain crons remain forbidden and are rejected by
+  // assertHealthOnlyCrons at wrangler-generation time.
+  "triggers": {"crons": ["*/20 * * * *"]}
 }
