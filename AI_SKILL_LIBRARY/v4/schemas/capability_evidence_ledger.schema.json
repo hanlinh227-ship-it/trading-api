@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability_evidence_ledger.schema.json",
+  "title": "Model Mesh Capability Evidence Ledger",
+  "type": "object",
+  "required": ["version", "routing_authority", "reasoning_authority", "records"],
+  "properties": {
+    "version": {"const": 1},
+    "routing_authority": {"const": false},
+    "reasoning_authority": {"const": false},
+    "records": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/evidenceRecord"}
+    }
+  },
+  "$defs": {
+    "evidenceRecord": {
+      "type": "object",
+      "required": [
+        "evidence_id",
+        "provider_id",
+        "model_id",
+        "model_family",
+        "capability",
+        "benchmark_id",
+        "benchmark_version",
+        "score",
+        "threshold",
+        "passed",
+        "measured_at",
+        "source_sha",
+        "environment",
+        "provenance"
+      ],
+      "properties": {
+        "evidence_id": {"type": "string", "minLength": 1},
+        "provider_id": {"type": "string", "minLength": 1},
+        "model_id": {"type": "string", "minLength": 1},
+        "model_family": {"type": "string", "minLength": 1},
+        "capability": {"type": "string", "minLength": 1},
+        "benchmark_id": {"type": "string", "minLength": 1},
+        "benchmark_version": {"type": "string", "minLength": 1},
+        "score": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        "threshold": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        "passed": {"type": "boolean"},
+        "measured_at": {"type": "string", "minLength": 1},
+        "source_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "environment": {
+          "type": "object",
+          "required": ["protocol", "runtime"],
+          "properties": {
+            "protocol": {"type": "string", "minLength": 1},
+            "runtime": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        "provenance": {
+          "type": "object",
+          "required": ["kind", "reference"],
+          "properties": {
+            "kind": {"type": "string", "minLength": 1},
+            "reference": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
