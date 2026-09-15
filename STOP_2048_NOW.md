@@ -1,0 +1,1 @@
+Temporary stop instruction marker. This file should be deleted immediately after issuing the Android stop command.
