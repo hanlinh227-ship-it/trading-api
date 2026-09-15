@@ -101,10 +101,8 @@ jobs:
               synced=$((synced+1))
             fi
           done
-          if [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
-            printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | npx wrangler secret put CLOUDFLARE_ACCOUNT_ID --name trading-v77-scanner >/dev/null
-          fi
           echo "MODEL_MESH_SECRETS_SYNCED_COUNT=$synced"
+          echo "CLOUDFLARE_ACCOUNT_ID_BINDING=PRESERVE_EXISTING"
 
       - name: Prepare, test and benchmark exact-main Skill Gateway and Model Mesh
         working-directory: cloudflare-worker
