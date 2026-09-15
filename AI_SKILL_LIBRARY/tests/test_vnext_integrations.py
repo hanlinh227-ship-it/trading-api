@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import unittest
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 TOOLS = ROOT / "AI_SKILL_LIBRARY/v4/tools"
@@ -20,6 +23,27 @@ def load_tool(name: str):
 
 
 class VNextIntegrationContracts(unittest.TestCase):
+    def test_checkpoint_resolves_vnext_integrations_without_new_authority(self):
+        checkpoint = json.loads((ROOT / "AI_SKILL_LIBRARY/checkpoint.json").read_text(encoding="utf-8"))
+        expected = {
+            "vnext_integration_policy_path": "AI_SKILL_LIBRARY/v4/integrations/policy.yaml",
+            "agent_skill_compatibility_tool_path": "AI_SKILL_LIBRARY/v4/tools/agent_skill_compat.py",
+            "vnext_integration_adapter_tool_path": "AI_SKILL_LIBRARY/v4/tools/integration_adapters.py",
+            "adaptive_execution_tool_path": "AI_SKILL_LIBRARY/v4/tools/adaptive_execution.py",
+            "free_model_discovery_tool_path": "AI_SKILL_LIBRARY/v4/tools/discover_free_models.py",
+            "legion_runtime_tool_path": "AI_SKILL_LIBRARY/v4/tools/legion.py",
+        }
+        for key, rel in expected.items():
+            self.assertEqual(checkpoint[key], rel)
+            self.assertTrue((ROOT / rel).is_file(), key)
+        policy = yaml.safe_load((ROOT / expected["vnext_integration_policy_path"]).read_text(encoding="utf-8"))
+        self.assertFalse(policy["routing_authority"])
+        self.assertFalse(policy["reasoning_authority"])
+        self.assertFalse(policy["omniroute"]["enabled_by_default"])
+        self.assertFalse(policy["omniroute"]["network_execution_enabled"])
+        self.assertEqual(policy["existing_subsystems_reused"]["legion_task_graph"], expected["legion_runtime_tool_path"])
+        self.assertEqual(policy["existing_subsystems_reused"]["free_model_discovery"], expected["free_model_discovery_tool_path"])
+
     def test_agent_skill_compatibility_is_quarantine_only(self):
         compat = load_tool("agent_skill_compat")
         text = """---\nname: api-debug-helper\ndescription: Helps inspect API failures safely.\n---\nUse logs and tests to diagnose the issue.\n"""
