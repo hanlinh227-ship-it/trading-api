@@ -531,6 +531,88 @@ export class DeviceSession {
       return json({ ...publicTaskState(task), error: code }, 409)
     }
 
+    if (body.localOperator === true) {
+      let planned
+      try {
+        planned = await planMicroActions({
+          env: this.env,
+          task,
+          observation: body.observation,
+          imageDataUrl: typeof body.imageDataUrl === 'string' ? body.imageDataUrl : null,
+          history: task.history,
+        }, Math.min(8, Math.max(1, Number(body.maxActions) || 8)))
+      } catch {
+        task = {
+          ...task,
+          status: 'FAILED',
+          failureCode: 'PLANNER_FAILED',
+          pendingCommandId: null,
+          pendingExpected: null,
+          pendingActionType: null,
+          updatedAt: new Date().toISOString(),
+        }
+        await this.state.storage.put(key, task)
+        return json({ ...publicTaskState(task), error: 'PLANNER_FAILED' }, 500)
+      }
+
+      const localActions = []
+      try {
+        for (const candidate of planned.actions ?? []) {
+          const clamped = clampTaskStep({ task, action: candidate, observation: body.observation })
+          localActions.push(clamped.action)
+        }
+      } catch (error) {
+        task = {
+          ...task,
+          status: 'FAILED',
+          failureCode: error.message,
+          pendingCommandId: null,
+          pendingExpected: null,
+          pendingActionType: null,
+          updatedAt: new Date().toISOString(),
+        }
+        await this.state.storage.put(key, task)
+        return json({ ...publicTaskState(task), error: error.message }, 403)
+      }
+
+      if (planned.expected?.type === 'task_complete' || localActions.length === 0) {
+        task = {
+          ...task,
+          status: 'COMPLETED',
+          pendingExpected: null,
+          pendingActionType: null,
+          pendingCommandId: null,
+          lastFingerprint: currentFingerprint,
+          updatedAt: new Date().toISOString(),
+        }
+        await this.state.storage.put(key, task)
+        return json({
+          ...publicTaskState(task),
+          plannerMode: planned.mode ?? 'cloud',
+          localActions: [],
+          localBatchId: null,
+        })
+      }
+
+      const localBatchId = crypto.randomUUID()
+      task = {
+        ...task,
+        status: 'ACTING',
+        lastFingerprint: currentFingerprint,
+        pendingExpected: planned.expected ?? { type: 'observation_returned' },
+        pendingActionType: localActions[0].type,
+        pendingCommandId: localBatchId,
+        updatedAt: new Date().toISOString(),
+      }
+      await this.state.storage.put(key, task)
+      return json({
+        ...publicTaskState(task),
+        plannerMode: planned.mode ?? 'cloud',
+        localActions: localActions.slice(0, 8),
+        localBatchId,
+      })
+    }
+
     let planned
     try {
       planned = await planNextStep({
