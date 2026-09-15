@@ -79,9 +79,9 @@ def validate_candidate(candidate: dict, *, baseline_permissions: dict | None = N
     baseline_permissions = baseline_permissions or {}
     for path, key, value in _walk(candidate):
         key_text = str(key).lower()
-        if key_text in {"financial_execution", "live_financial_execution"} and value is True:
+        if key_text in {"financial_execution", "live_financial_execution", "live_financial_execution_default"} and value is True:
             errors.append(f"financial_execution: forbidden candidate capability at {path}")
-        if key_text in {"permission_widening", "expand_permissions", "permission_expansion"} and value is True:
+        if key_text in {"permission_widening", "permission_widening_by_agent", "expand_permissions", "permission_expansion"} and value is True:
             errors.append(f"permission_widening: candidate attempts permission expansion at {path}")
         if key_text == "external_directory":
             requested = _external_scopes(value)
@@ -99,7 +99,7 @@ def validate_idle_job(job: dict) -> list[str]:
     if kind in {"permission_change", "credential_mutation", "live_financial_execution", "destructive_production"}:
         errors.append(f"permission_or_high_risk_job: idle learning cannot execute {kind}")
     for path, key, value in _walk(job):
-        if str(key).lower() in {"permission_widening", "expand_permissions", "permission_expansion"} and value is True:
+        if str(key).lower() in {"permission_widening", "permission_widening_by_agent", "expand_permissions", "permission_expansion"} and value is True:
             errors.append(f"permission_widening: idle learning cannot widen permissions at {path}")
     return sorted(set(errors))
 
@@ -138,10 +138,18 @@ def validate_legion(root: Path) -> list[str]:
         errors.append("authority: GITHUB_BRAIN_V4 must remain the single commander")
     if legion_policy.get("routing_authority") is not False or legion_policy.get("reasoning_authority") is not False:
         errors.append("authority: Legion must not gain routing or reasoning authority")
-    if legion_policy.get("live_financial_execution") is not False:
-        errors.append("financial_execution: Legion default must remain research-only")
-    if legion_policy.get("permission_widening") != "forbidden":
-        errors.append("permission_widening: Legion policy must forbid permission widening")
+    if legion_policy.get("permission_ceiling_inherited_from_brain") is not True:
+        errors.append("permission_ceiling: Legion must inherit the Brain permission ceiling")
+    if legion_policy.get("permission_widening_by_agent") != "forbidden":
+        errors.append("permission_widening: Legion policy must forbid agent permission widening")
+    if legion_policy.get("trading_default") != "research_only":
+        errors.append("trading_default: Legion trading default must remain research_only")
+    if legion_policy.get("live_financial_execution_default") is not False:
+        errors.append("financial_execution: Legion default must forbid live financial execution")
+    if legion_policy.get("external_framework_authority") is not False:
+        errors.append("authority: external frameworks must remain non-authoritative")
+    if legion_policy.get("unbounded_child_authority_tree") != "forbidden":
+        errors.append("authority: unbounded child authority trees must remain forbidden")
 
     return sorted(set(errors))
 
