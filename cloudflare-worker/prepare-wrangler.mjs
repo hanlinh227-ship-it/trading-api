@@ -12,10 +12,9 @@ function discoverProxy(){try{const raw=run(['vpc','service','list']);let rows=[]
 const kv=explicitKv()||discoverKv();if(!kv)throw new Error(`Unable to resolve existing ${NAMESPACE_NAME} KV namespace; deployment aborted.`);
 const proxy=explicitProxy()||discoverProxy();if(!proxy)throw new Error(`Unable to resolve existing VPS service used by Bybit private transport (${PROXY_NAMES.join(' or ')}); deployment aborted.`);
 const revision=String(process.env.GITHUB_SHA||process.env.CF_PAGES_COMMIT_SHA||process.env.RUNTIME_REVISION||gitHead()||'UNKNOWN').trim();
-// Runtime operator switches are deliberately NOT generated from build environment.
-// keep_vars:true preserves the already-authorized dashboard values across code deploys,
-// so a source update cannot silently flip LIVE/PAPER, ACK, DEMO or fallback authority.
-const vars={RUNTIME_REVISION:revision};
+// Financial/live operator switches remain dashboard-controlled and are never generated here.
+// Model Mesh execution is explicitly source-authorized by the user, but remains protected by MODEL_MESH_EXECUTION_TOKEN.
+const vars={RUNTIME_REVISION:revision,MODEL_MESH_EXECUTION_ENABLED:'1'};
 const config={$schema:'./node_modules/wrangler/config-schema.json',name:'trading-v77-scanner',main:'index.js',compatibility_date:'2026-08-21',keep_vars:true,vars,kv_namespaces:[{binding:'TRADING_STATE',id:kv.id}],vpc_services:[{binding:'AI_BRIDGE',service_id:proxy.id,remote:true}]};
 fs.writeFileSync('wrangler.jsonc',`${JSON.stringify(config,null,2)}\n`,'utf8');
-console.log(`Prepared BTC-only wrangler.jsonc: TRADING_STATE=${kv.source}, BYBIT_VPS_PROXY=${proxy.source}, RUNTIME_REVISION=${revision}, RUNTIME_SWITCHES=PRESERVE_EXISTING, LIVE_ACK=PRESERVE_EXISTING, CRON=NONE_EVENT_DRIVER_ONLY`);
+console.log(`Prepared BTC-only wrangler.jsonc: TRADING_STATE=${kv.source}, BYBIT_VPS_PROXY=${proxy.source}, RUNTIME_REVISION=${revision}, MODEL_MESH_EXECUTION=ENABLED_AUTHENTICATED, FINANCIAL_RUNTIME_SWITCHES=PRESERVE_EXISTING, LIVE_ACK=PRESERVE_EXISTING, CRON=NONE_EVENT_DRIVER_ONLY`);

@@ -5,24 +5,18 @@ Runs every validator exactly once, in a fixed order, and reports one summary:
   Skill Gateway snapshot compile/validate -> Model Mesh snapshot compile/validate ->
   release + retrieval-index freshness -> consolidation invariants -> unit tests (optional)
 
-When unit tests are enabled, snapshots are compiled and validated once more after
-all tests. Some snapshot tests intentionally write synthetic source SHAs; the final
-recompile guarantees that canonical generated artifacts always leave validation
-pinned to the requested exact source SHA.
-
-Usage:
-  python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$(git rev-parse HEAD)" [--skip-tests]
+Production Model Mesh compilation defaults to the canonical promoted active registry.
+An explicit --model-candidates path remains available for quarantine/candidate tests.
 """
 from __future__ import annotations
 
 import argparse
-import json
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_ACTIVE_REGISTRY = "AI_SKILL_LIBRARY/v4/model_mesh/active.json"
 
 VALIDATORS = (
     "AI_SKILL_LIBRARY/validate_registry.py",
@@ -42,16 +36,6 @@ VALIDATORS = (
 def _run(cmd: list[str], root: Path) -> tuple[int, str]:
     proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True)
     return proc.returncode, (proc.stdout + proc.stderr).strip()
-
-
-def _empty_quarantine_candidates(path: Path) -> None:
-    payload = {
-        "state": "quarantine",
-        "routing_authority": False,
-        "stable_mutation": False,
-        "candidates": [],
-    }
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _compile_skill_snapshot(py: str, root: Path, source_sha: str, snapshot: str, *, label: str = "") -> list[str]:
@@ -76,52 +60,37 @@ def _compile_model_snapshot(
     model_snapshot: str,
     *,
     model_candidates: str | None = None,
+    active_registry: str = DEFAULT_ACTIVE_REGISTRY,
     label: str = "",
 ) -> list[str]:
     failures: list[str] = []
     prefix = f"{label} " if label else ""
-    with tempfile.TemporaryDirectory(prefix="brain-model-mesh-") as temp_dir:
-        if model_candidates:
-            candidates_path = Path(model_candidates)
-            if not candidates_path.is_absolute():
-                candidates_path = root / candidates_path
-        else:
-            candidates_path = Path(temp_dir) / "empty-quarantine-candidates.json"
-            _empty_quarantine_candidates(candidates_path)
-        code, out = _run(
-            [
-                py,
-                "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_snapshot.py",
-                "--root",
-                str(root),
-                "--source-sha",
-                source_sha,
-                "--candidates",
-                str(candidates_path),
-                "--output",
-                model_snapshot,
-            ],
-            root,
-        )
-        print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}compile_model_mesh_snapshot: {out.splitlines()[-1] if out else ''}")
-        if code != 0:
-            failures.append(f"{prefix}compile_model_mesh_snapshot: {out}")
-            return failures
-        code, out = _run(
-            [
-                py,
-                "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_snapshot.py",
-                model_snapshot,
-                "--root",
-                str(root),
-                "--source-sha",
-                source_sha,
-            ],
-            root,
-        )
-        print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}validate_model_mesh_snapshot: {out.splitlines()[-1] if out else ''}")
-        if code != 0:
-            failures.append(f"{prefix}validate_model_mesh_snapshot: {out}")
+    cmd = [
+        py,
+        "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_snapshot.py",
+        "--root",
+        str(root),
+        "--source-sha",
+        source_sha,
+        "--output",
+        model_snapshot,
+    ]
+    if model_candidates:
+        cmd.extend(["--candidates", model_candidates])
+    else:
+        cmd.extend(["--active-registry", active_registry])
+    code, out = _run(cmd, root)
+    print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}compile_model_mesh_snapshot: {out.splitlines()[-1] if out else ''}")
+    if code != 0:
+        failures.append(f"{prefix}compile_model_mesh_snapshot: {out}")
+        return failures
+    code, out = _run(
+        [py, "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_snapshot.py", model_snapshot, "--root", str(root), "--source-sha", source_sha],
+        root,
+    )
+    print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}validate_model_mesh_snapshot: {out.splitlines()[-1] if out else ''}")
+    if code != 0:
+        failures.append(f"{prefix}validate_model_mesh_snapshot: {out}")
     return failures
 
 
@@ -133,6 +102,7 @@ def run_validators(
     snapshot_output: str | None = None,
     model_snapshot_output: str | None = None,
     model_candidates: str | None = None,
+    active_registry: str = DEFAULT_ACTIVE_REGISTRY,
 ) -> list[str]:
     root = Path(root).resolve()
     failures: list[str] = []
@@ -151,7 +121,7 @@ def run_validators(
     snapshot = snapshot_output or "AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json"
     model_snapshot = model_snapshot_output or "AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json"
     failures.extend(_compile_skill_snapshot(py, root, source_sha, snapshot))
-    failures.extend(_compile_model_snapshot(py, root, source_sha, model_snapshot, model_candidates=model_candidates))
+    failures.extend(_compile_model_snapshot(py, root, source_sha, model_snapshot, model_candidates=model_candidates, active_registry=active_registry))
 
     code, out = _run([py, "AI_SKILL_LIBRARY/v4/tools/release.py", "check", "--root", str(root)], root)
     print(f"{'PASS' if code == 0 else 'FAIL'} release check: {out.splitlines()[-1] if out else ''}")
@@ -173,10 +143,6 @@ def run_validators(
             if code != 0:
                 failures.append(f"unittest {start}: {out[-2000:]}")
 
-        # Unit tests intentionally exercise synthetic source SHAs and may write the
-        # canonical generated snapshot paths. Re-establish exact-SHA artifacts as
-        # the final validation side effect so downstream Worker preparation cannot
-        # consume a test fixture snapshot.
         failures.extend(_compile_skill_snapshot(py, root, source_sha, snapshot, label="finalize_exact_sha"))
         failures.extend(
             _compile_model_snapshot(
@@ -185,6 +151,7 @@ def run_validators(
                 source_sha,
                 model_snapshot,
                 model_candidates=model_candidates,
+                active_registry=active_registry,
                 label="finalize_exact_sha",
             )
         )
@@ -198,7 +165,8 @@ def main() -> int:
     parser.add_argument("--skip-tests", action="store_true")
     parser.add_argument("--snapshot-output", default=None)
     parser.add_argument("--model-snapshot-output", default=None)
-    parser.add_argument("--model-candidates", default=None, help="optional verified candidate report; omitted means a safe empty Stable pool")
+    parser.add_argument("--model-candidates", default=None, help="optional verified quarantine candidate report; overrides active registry")
+    parser.add_argument("--active-registry", default=DEFAULT_ACTIVE_REGISTRY, help="canonical promoted FREE_ONLY model registry")
     args = parser.parse_args()
     failures = run_validators(
         Path(args.root),
@@ -207,6 +175,7 @@ def main() -> int:
         snapshot_output=args.snapshot_output,
         model_snapshot_output=args.model_snapshot_output,
         model_candidates=args.model_candidates,
+        active_registry=args.active_registry,
     )
     for item in failures:
         print(f"[ERROR] {item}")

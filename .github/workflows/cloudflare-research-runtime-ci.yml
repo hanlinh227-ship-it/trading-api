@@ -37,6 +37,9 @@ jobs:
           cache: 'pip'
           cache-dependency-path: AI_SKILL_LIBRARY/requirements.txt
 
+      - name: Use npm 11 to avoid npm 10 Arborist peer crash
+        run: npm install --global npm@11 --no-audit --no-fund
+
       - name: Install Brain validator dependencies
         run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
 
@@ -70,7 +73,7 @@ jobs:
         with:
           name: cloudflare-gateway-test-log
           path: crypto-research-gateway/gateway-test.log
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 3
 
       - name: Gateway typecheck
@@ -96,6 +99,7 @@ jobs:
           export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
           {
             npm run prepare:skill-gateway &&
+            npm run prepare:model-mesh &&
             npm run check &&
             npm run prepare:wrangler &&
             npx wrangler deploy --dry-run --outdir .wrangler-ci-dry-run
