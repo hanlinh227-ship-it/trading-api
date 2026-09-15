@@ -21,7 +21,12 @@ class CapabilityEvidenceContractTests(unittest.TestCase):
         }
         for key, rel in expected.items():
             self.assertEqual(checkpoint.get(key), rel)
-            self.assertTrue((ROOT / rel).is_file(), rel)
+        for key in (
+            "model_mesh_capability_evidence_path",
+            "model_mesh_capability_evidence_schema_path",
+            "model_mesh_active_index_schema_path",
+        ):
+            self.assertTrue((ROOT / checkpoint[key]).is_file(), checkpoint[key])
 
     def test_evidence_rollout_policy_is_non_authoritative_and_off_by_default(self):
         config = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml").read_text(encoding="utf-8"))
