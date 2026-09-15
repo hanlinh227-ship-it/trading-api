@@ -1,0 +1,48 @@
+name: Phase A Consolidation Contract Fix Helper
+
+on:
+  push:
+    branches:
+      - fix/phase-a-consolidation-concurrency-contract
+    paths:
+      - '.github/workflows/phase-a-consolidation-contract-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/phase-a-consolidation-concurrency-contract
+          fetch-depth: 0
+      - name: Align consolidation regression with sole-deploy architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('AI_SKILL_LIBRARY/tests/test_v4_consolidation.py')
+          text = p.read_text(encoding='utf-8')
+          old = '''    def test_production_deploy_workflows_do_not_cancel_each_other(self):\n        for name in ("deploy-skill-mandatory-fast-gateway.yml", "deploy-cloudflare-worker.yml"):\n            data = yaml.safe_load((WORKFLOWS / name).read_text(encoding="utf-8"))\n            self.assertEqual(data["concurrency"]["group"], "cloudflare-zero-local-runtime-production", name)\n            self.assertIs(data["concurrency"]["cancel-in-progress"], False, name)\n'''
+          new = '''    def test_production_deploy_and_zero_local_observer_use_isolated_locks(self):\n        production = yaml.safe_load((WORKFLOWS / "deploy-skill-mandatory-fast-gateway.yml").read_text(encoding="utf-8"))\n        observer = yaml.safe_load((WORKFLOWS / "deploy-cloudflare-worker.yml").read_text(encoding="utf-8"))\n        self.assertEqual(production["concurrency"]["group"], "cloudflare-zero-local-runtime-production")\n        self.assertIs(production["concurrency"]["cancel-in-progress"], False)\n        self.assertNotEqual(observer["concurrency"]["group"], production["concurrency"]["group"])\n        self.assertEqual(observer["concurrency"]["group"], "cloudflare-zero-local-runtime-observer")\n        self.assertIs(observer["concurrency"]["cancel-in-progress"], False)\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one stale consolidation test block, found {text.count(old)}')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          rm .github/workflows/phase-a-consolidation-contract-fix.yml
+          git diff --check
+      - name: Commit test-contract fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add AI_SKILL_LIBRARY/tests/test_v4_consolidation.py .github/workflows/phase-a-consolidation-contract-fix.yml
+          git diff --cached --check
+          git commit -m "test(runtime): isolate observer from production deploy lock"
+          git push origin HEAD:fix/phase-a-consolidation-concurrency-contract
