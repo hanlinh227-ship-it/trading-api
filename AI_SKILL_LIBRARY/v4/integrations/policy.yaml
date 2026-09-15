@@ -1,0 +1,124 @@
+version: 1
+status: bounded_vnext_integrations
+brain_authority: GITHUB_BRAIN_V4
+routing_authority: false
+reasoning_authority: false
+stable_mutation: false
+
+agent_skills:
+  enabled: true
+  mode: compatibility_import_to_quarantine
+  canonical_registry_reused: true
+  auto_promote: false
+  executable_dependency_added: false
+  upstream:
+    repo: agentskills/agentskills
+    ref: 69ef37e9424c0a7ea9dd2293b559e43ec8176379
+    license: Apache-2.0
+    audited_at: '2026-09-15'
+  requirements:
+    - parse_yaml_frontmatter
+    - require_name_and_description
+    - normalize_to_canonical_skill_schema
+    - evergreen_admission_required
+    - quarantine_before_promotion
+
+graphify:
+  enabled: true
+  mode: derived_repository_graph_adapter
+  authority: false
+  executable_dependency_added: false
+  upstream:
+    repo: Graphify-Labs/graphify
+    ref: fe66389083369c3159aa391117185c8f58b4d07c
+    version: 0.9.61
+    license: Apache-2.0
+    audited_at: '2026-09-15'
+  requirements:
+    source_sha_required: true
+    stale_detection: true
+    bounded_nodes: true
+    source_wins_conflicts: true
+    secrets_excluded: true
+    generated_artifact_only: true
+
+ponytail:
+  enabled: true
+  mode: advisory_simplicity_critic
+  authority: false
+  executable_dependency_added: false
+  upstream:
+    repo: DietrichGebert/ponytail
+    ref: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
+    version: 4.10.0
+    license: MIT
+    audited_at: '2026-09-15'
+  cannot:
+    - remove_requirements
+    - weaken_security
+    - bypass_tests
+    - replace_architecture_authority
+    - widen_permissions
+
+omniroute:
+  enabled: false
+  enabled_by_default: false
+  sandbox_only: true
+  mode: optional_provider_discovery_adapter
+  routing_authority: false
+  reasoning_authority: false
+  executable_dependency_added: false
+  network_execution_enabled: false
+  upstream:
+    repo: diegosouzapw/OmniRoute
+    ref: 45c54ca8aa47668b180524865899d05350e0af65
+    branch: release/v3.8.51
+    license: MIT
+    audited_at: '2026-09-15'
+  forbidden_defaults:
+    fusion: false
+    pipeline: false
+    autonomous_orchestration: false
+    paid_fallback: false
+    auto_purchase: false
+    trial_as_free: false
+    promo_as_free: false
+  candidate_gate:
+    entitlement_verified: true
+    health_fresh: true
+    quota_available: true
+    privacy_verified: true
+    terms_verified: true
+  failure_isolation:
+    off_is_safe: true
+    unavailable_is_safe: true
+    empty_is_safe: true
+    stale_is_safe: true
+
+adaptive_execution:
+  max_parallel:
+    FAST: 0
+    STANDARD: 2
+    DEEP: 4
+  speculation:
+    enabled_by_default: false
+    profiles: [DEEP]
+    allowed_data_classes: [PUBLIC, INTERNAL]
+    require_quota_available: true
+    require_health_available: true
+    require_headroom_threshold: true
+  early_exit:
+    deterministic: true
+    majority_vote: false
+    require_schema_pass: true
+    require_evidence: true
+    require_checker_accept: true
+    require_distinct_family: true
+    require_security_pass: true
+    require_permissions_pass: true
+
+existing_subsystems_reused:
+  free_model_discovery: AI_SKILL_LIBRARY/v4/tools/discover_free_models.py
+  evergreen_admission: AI_SKILL_LIBRARY/v4/tools/admission.py
+  legion_task_graph: AI_SKILL_LIBRARY/v4/tools/legion.py
+  model_mesh: AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml
