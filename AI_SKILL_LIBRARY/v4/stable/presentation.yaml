@@ -1,4 +1,4 @@
-version: 1
+version: 2
 locale: vi
 mode: plain
 purpose: explain_verified_results_in_simple_vietnamese_without_changing_reasoning
@@ -13,6 +13,63 @@ answer_rules:
   hide_internal_ids_by_default: true
   no_underscore_display_names: true
   non_patronizing: true
+
+project_process_monitor:
+  enabled: true
+  scope: substantive_multi_step_or_long_running_tasks
+  cross_chat_default: true
+  skip_for_short_simple_requests: true
+  stages:
+    - intake
+    - route
+    - context
+    - skills
+    - sources
+    - execute
+    - validate
+    - deliver
+  status_symbols:
+    complete: "✅"
+    active: "🔄"
+    pending: "⏳"
+    warning: "⚠️"
+    failed: "❌"
+    skipped: "⏭"
+  progress_rules:
+    show_initial_monitor_early: true
+    update_on_material_stage_change: true
+    update_after_bounded_tool_batches_when_useful: true
+    show_current_action: true
+    show_last_verified: true
+    show_blockers_when_present: true
+    avoid_repetitive_updates: true
+    never_claim_complete_before_validation: true
+  routing_visibility:
+    show_domain_when_useful: true
+    show_primary_skill_when_useful: true
+    show_supporting_skills_when_useful: true
+    show_source_or_tool_class_when_useful: true
+    hide_sensitive_or_internal_identifiers_by_default: true
+  epistemic_labels:
+    important_conclusions_distinguish:
+      - fact
+      - inference
+      - assumption
+  privacy_guardrails:
+    expose_hidden_chain_of_thought: false
+    expose_raw_private_reasoning: false
+    expose_secrets_credentials_private_keys: false
+    expose_raw_private_tool_payloads: false
+    allow_concise_decision_summary: true
+    allow_verified_evidence_summary: true
+  completion_contract:
+    completion_requires_validation_when_validation_is_applicable: true
+    verified_terms_require_evidence: true
+    examples_of_verified_terms:
+      - hoàn tất
+      - đã sửa
+      - đã pass
+      - đã triển khai
 
 accuracy_guardrails:
   preserve_exact_numbers: true
