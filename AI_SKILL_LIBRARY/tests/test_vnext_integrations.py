@@ -113,24 +113,47 @@ class VNextIntegrationContracts(unittest.TestCase):
         self.assertFalse(candidate["routing_authority"])
         self.assertFalse(candidate["stable_mutation"])
 
-    def test_adaptive_execution_is_bounded_and_fail_closed(self):
+    def test_adaptive_execution_is_bounded_and_speculation_is_default_off(self):
         adaptive = load_tool("adaptive_execution")
         self.assertEqual(adaptive.adaptive_budget("FAST"), 0)
         self.assertEqual(adaptive.adaptive_budget("STANDARD"), 2)
         self.assertEqual(adaptive.adaptive_budget("DEEP"), 4)
-        self.assertFalse(adaptive.can_speculate("FAST", quota_remaining=10, data_class="PUBLIC"))
-        self.assertFalse(adaptive.can_speculate("DEEP", quota_remaining=10, data_class="SECRET"))
-        self.assertTrue(adaptive.can_speculate("DEEP", quota_remaining=1, data_class="PUBLIC"))
+        self.assertFalse(adaptive.can_speculate("DEEP", quota_remaining=10, data_class="PUBLIC"))
+        self.assertFalse(adaptive.can_speculate("FAST", quota_remaining=10, data_class="PUBLIC", enabled=True))
+        self.assertFalse(adaptive.can_speculate("DEEP", quota_remaining=10, data_class="SECRET", enabled=True))
+        self.assertFalse(adaptive.can_speculate("DEEP", quota_remaining=10, data_class="PUBLIC", enabled=True, health_state="COOLDOWN"))
+        self.assertTrue(
+            adaptive.can_speculate(
+                "DEEP",
+                quota_remaining=10,
+                data_class="PUBLIC",
+                enabled=True,
+                health_state="AVAILABLE",
+                headroom=10,
+                speculative_threshold=2,
+            )
+        )
 
-    def test_early_exit_requires_independent_checker_and_evidence(self):
+    def test_early_exit_requires_independent_checker_evidence_and_all_gates(self):
         adaptive = load_tool("adaptive_execution")
-        maker = {"ok": True, "family": "openai", "evidence": ["e1", "e2"]}
-        checker_same = {"ok": True, "family": "openai"}
-        checker_other = {"ok": True, "family": "anthropic"}
+        maker = {
+            "ok": True,
+            "family": "openai",
+            "evidence": ["e1", "e2"],
+            "schema_pass": True,
+            "security_pass": True,
+            "permissions_pass": True,
+        }
+        checker_same = {"ok": True, "family": "openai", "decision": "ACCEPT", "unresolved_conflict": False}
+        checker_other = {"ok": True, "family": "anthropic", "decision": "ACCEPT", "unresolved_conflict": False}
         self.assertFalse(adaptive.deterministic_early_exit(maker, checker_same, required_evidence=2))
         self.assertTrue(adaptive.deterministic_early_exit(maker, checker_other, required_evidence=2))
-        maker_low_evidence = {"ok": True, "family": "openai", "evidence": ["e1"]}
+        checker_conflict = dict(checker_other, unresolved_conflict=True)
+        self.assertFalse(adaptive.deterministic_early_exit(maker, checker_conflict, required_evidence=2))
+        maker_low_evidence = dict(maker, evidence=["e1"])
         self.assertFalse(adaptive.deterministic_early_exit(maker_low_evidence, checker_other, required_evidence=2))
+        maker_bad_security = dict(maker, security_pass=False)
+        self.assertFalse(adaptive.deterministic_early_exit(maker_bad_security, checker_other, required_evidence=2))
 
 
 if __name__ == "__main__":
