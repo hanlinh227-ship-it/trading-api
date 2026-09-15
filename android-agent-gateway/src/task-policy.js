@@ -5,6 +5,7 @@ const EPOCH_ACTION_LIMIT = 50
 const MAX_EPOCHS = 20
 const MAX_TOTAL_ACTIONS = EPOCH_ACTION_LIMIT * MAX_EPOCHS
 const MAX_RECOVERIES = 5
+const PERSISTENCE_POLICIES = new Set(['UNTIL_GOAL_COMPLETE', 'UNTIL_USER_STOP', 'UNTIL_APP_SCOPE_EXIT'])
 
 const RISK_D_TERMS = [
   'otp', 'one-time password', 'one time password', '2fa', 'mfa', 'password', 'passcode',
@@ -117,6 +118,12 @@ function contextualActionCode(action, observation) {
   return null
 }
 
+function normalizePersistencePolicy(value) {
+  const source = Array.isArray(value) ? value : ['UNTIL_GOAL_COMPLETE']
+  const normalized = [...new Set(source.map(String).filter(item => PERSISTENCE_POLICIES.has(item)))]
+  return normalized.length ? normalized : ['UNTIL_GOAL_COMPLETE']
+}
+
 export function createTaskState(input) {
   if (!input?.taskId || typeof input.taskId !== 'string') throw new Error('task_id_required')
   if (!input?.goal || typeof input.goal !== 'string') throw new Error('task_goal_required')
@@ -133,6 +140,8 @@ export function createTaskState(input) {
     executionMode: input.executionMode ?? 'AUTO',
     deterministicAdapter: input.deterministicAdapter ?? null,
     persistence: input.persistence ?? 'LONG_RUNNING',
+    persistencePolicy: normalizePersistencePolicy(input.persistencePolicy),
+    allowedPackages: Array.isArray(input.allowedPackages) ? [...new Set(input.allowedPackages.map(String).filter(Boolean))].slice(0, 24) : [],
     userConstraints: Array.isArray(input.userConstraints) ? input.userConstraints.map(String).slice(0, 16) : [],
     capabilityScope: [...new Set(input.capabilityScope)].sort(),
     riskClass,
@@ -151,6 +160,8 @@ export function createTaskState(input) {
     stalledAtCheckpoint: Boolean(input.stalledAtCheckpoint),
     recoveryCount: Number.isInteger(input.recoveryCount) ? input.recoveryCount : 0,
     lastFingerprint: input.lastFingerprint ?? null,
+    selectedSkillId: typeof input.selectedSkillId === 'string' ? input.selectedSkillId.slice(0, 96) : null,
+    lastDeviceCheckpoint: input.lastDeviceCheckpoint ?? null,
     failureCode: input.failureCode ?? null,
     createdAt: input.createdAt ?? new Date().toISOString(),
     updatedAt: input.updatedAt ?? new Date().toISOString(),
@@ -201,9 +212,10 @@ export function clampTaskStep({ task, action, observation = null }) {
 
 export function recordTaskProgress(task, event) {
   const next = { ...task, updatedAt: new Date().toISOString() }
+  const untilUserStop = Array.isArray(next.persistencePolicy) && next.persistencePolicy.includes('UNTIL_USER_STOP')
   if (event?.kind === 'step') {
     if (next.stalledAtCheckpoint) throw new Error('no_progress_detected')
-    if ((next.stepCount ?? 0) >= MAX_TOTAL_ACTIONS || (next.epoch ?? 0) >= MAX_EPOCHS) {
+    if (!untilUserStop && ((next.stepCount ?? 0) >= MAX_TOTAL_ACTIONS || (next.epoch ?? 0) >= MAX_EPOCHS)) {
       throw new Error('max_epochs_exceeded')
     }
 
@@ -227,7 +239,7 @@ export function recordTaskProgress(task, event) {
       next.epoch = (next.epoch ?? 0) + 1
       next.checkpointCount = (next.checkpointCount ?? 0) + 1
       next.checkpointProgressMarker = next.progressMarker
-      next.stalledAtCheckpoint = next.persistence === 'UNTIL_TERMINAL' && !epochProgressed
+      next.stalledAtCheckpoint = (next.persistence === 'UNTIL_TERMINAL' || untilUserStop) && !epochProgressed
       next.epochStepCount = 0
       next.epochStartProgressMarker = null
       next.epochProgressed = false
@@ -254,6 +266,8 @@ export function publicTaskState(task) {
     executionMode: task.executionMode ?? 'AUTO',
     deterministicAdapter: task.deterministicAdapter ?? null,
     persistence: task.persistence ?? 'LONG_RUNNING',
+    persistencePolicy: task.persistencePolicy ?? ['UNTIL_GOAL_COMPLETE'],
+    allowedPackages: task.allowedPackages ?? [],
     capabilityScope: task.capabilityScope,
     riskClass: task.riskClass,
     taskRiskClass: task.taskRiskClass ?? task.riskClass,
@@ -265,6 +279,8 @@ export function publicTaskState(task) {
     checkpointCount: task.checkpointCount ?? 0,
     recoveryCount: task.recoveryCount,
     lastFingerprint: task.lastFingerprint ?? null,
+    selectedSkillId: task.selectedSkillId ?? null,
+    lastDeviceCheckpoint: task.lastDeviceCheckpoint ?? null,
     failureCode: typeof task.failureCode === 'string' ? task.failureCode.slice(0, 96) : null,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
