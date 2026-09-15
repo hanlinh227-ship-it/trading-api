@@ -1,0 +1,46 @@
+version: 1
+purpose: peer_source_planes_for_continuous_learning
+layers:
+  experience:
+    description: verified_internal_experience_and_sanitized_outcomes
+    epistemic_priority: peer
+    routing_authority: false
+    reasoning_authority: false
+    sources:
+      - accepted_task_trajectories
+      - verified_user_corrections
+      - sanitized_telemetry
+      - regression_failures
+      - benchmark_outcomes
+      - model_provider_reliability_history
+      - skill_performance_history
+  curated:
+    description: approved_authoritative_and_registered_knowledge
+    epistemic_priority: peer
+    routing_authority: false
+    reasoning_authority: false
+    sources:
+      - approved_github_repositories
+      - official_documentation
+      - canonical_brain_skills_and_policies
+      - verified_project_authority
+      - admitted_papers_and_datasets
+      - approved_plugin_tool_metadata
+  exploration:
+    description: open_public_discovery_and_novel_hypotheses
+    epistemic_priority: peer
+    routing_authority: false
+    reasoning_authority: false
+    sources:
+      - public_github_unapproved
+      - public_web
+      - new_papers_and_benchmarks
+      - emerging_agent_frameworks
+      - new_free_model_provider_opportunities
+      - newly_discovered_tools_and_protocols
+common_rules:
+  source_layer_does_not_set_risk_class: true
+  source_layer_does_not_set_truth: true
+  claim_specific_verification_required: true
+  unresolved_material_conflict_blocks_promotion: true
+  executable_content_requires_sandbox: true
