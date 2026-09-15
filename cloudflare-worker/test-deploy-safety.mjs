@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {canonicalPreparationEnv} from './workers-build-contract.mjs';
+import {HEALTH_REFRESH_CRON,assertHealthOnlyCrons} from './model-mesh/scheduled-health.js';
 const workflow=fs.readFileSync('../.github/workflows/deploy-skill-mandatory-fast-gateway.yml','utf8');
 const wranglerPrep=fs.readFileSync('prepare-wrangler.mjs','utf8');
 const workersBuildPrep=fs.readFileSync('prepare-workers-build.mjs','utf8');
@@ -24,7 +25,22 @@ assert.match(workflow,/FINAL_EXACT_SHA_GATE=PASS/);
 assert.match(wranglerPrep,/TINYFISH_CIRCUIT/);
 assert.match(wranglerPrep,/new_sqlite_classes/);
 assert.match(wranglerExample,/TINYFISH_CIRCUIT/);
-assert.doesNotMatch(wranglerExample,/"crons"/);
+// Crons are no longer banned outright: a read-only Model Mesh health-refresh
+// cron is required, because GitHub Actions cron demonstrably cannot hold the
+// 30-minute LIVE_TTL (one firing in 4.9h). The invariant is now semantic --
+// financial, trading, deploy and autonomous crons stay forbidden, and the
+// generator itself refuses anything but the single health cron.
+{
+  const exampleCrons=[...wranglerExample.matchAll(/"crons"\s*:\s*\[([^\]]*)\]/g)]
+    .flatMap(m=>[...m[1].matchAll(/"([^"]+)"/g)].map(x=>x[1]));
+  assert.deepEqual(exampleCrons,[HEALTH_REFRESH_CRON],'only the health cron may be configured');
+  assert.doesNotThrow(()=>assertHealthOnlyCrons(exampleCrons));
+  assert.throws(()=>assertHealthOnlyCrons([...exampleCrons,'*/5 * * * *']),/unexpected_cron/);
+  // The generator must validate its own output, not just emit it.
+  assert.match(wranglerPrep,/assertHealthOnlyCrons\(config\.triggers\.crons\)/);
+  // The scheduled handler stays health-only.
+  assert.match(fs.readFileSync('index.js','utf8'),/async scheduled\(/);
+}
 assert.doesNotMatch(workflow,/echo\s+['"]?\$\{?TINY_FISH_API/);
 // The health-refresh schedule must use fixed-minute entries: GitHub sheds
 // high-frequency '*/N' schedules under load and the '*/10' form never produced

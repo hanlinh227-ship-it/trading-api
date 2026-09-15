@@ -1,5 +1,6 @@
 import {ACTIVE_SKILL_GATEWAY_SNAPSHOT} from './skill-gateway-runtime.js';
 import {routeSkillRequest} from './skill-gateway.js';
+import {handleScheduledHealthRefresh as runScheduledHealthRefresh} from './model-mesh/scheduled-health.js';
 import {MODEL_MESH_SNAPSHOT} from './generated/model-mesh-snapshot.js';
 import {MODEL_MESH_ACTIVE_CANDIDATE_INDEX} from './generated/model-mesh-active-candidate-index.js';
 import {createModelMeshHandler} from './model-mesh-handler.js';
@@ -20,4 +21,11 @@ const handleMeshOnly=createModelMeshHandler({
 
 export async function handleModelMesh(request,env={},ctx={}){
   return await handleMeshOnly(request,env,ctx)||await handleBrainEvidence(request,env,ctx);
+}
+
+// Worker cron entry point. Bound to the same canonical provider probe and
+// snapshot the manual refresh uses, so the scheduled path can never drift into
+// a second health mechanism.
+export async function handleScheduledHealthRefresh(event,env={},ctx={}){
+  return runScheduledHealthRefresh({event,env,ctx,probeProviders,modelSnapshot:ACTIVE_MODEL_MESH_SNAPSHOT});
 }
