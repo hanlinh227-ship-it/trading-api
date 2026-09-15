@@ -65,7 +65,7 @@ jobs:
       - name: Install Brain dependencies
         run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
 
-      - name: Verify exact-main Brain contracts and compile hot snapshot (single entrypoint)
+      - name: Verify exact-main Brain contracts and compile exact-SHA snapshots
         shell: bash
         run: |
           set -euo pipefail
@@ -75,13 +75,14 @@ jobs:
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
 
-      - name: Prepare, test and benchmark exact-main Skill Gateway
+      - name: Prepare, test and benchmark exact-main Skill Gateway and Model Mesh
         working-directory: cloudflare-worker
         shell: bash
         run: |
           set -euo pipefail
           export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
           npm run prepare:skill-gateway
+          npm run prepare:model-mesh
           npm run check
           node benchmark-skill-gateway.mjs
 
@@ -97,6 +98,8 @@ jobs:
           const expected=process.env.SKILL_GATEWAY_SOURCE_SHA;
           if(x.name!=='trading-v77-scanner'||x.keep_vars!==true||x.vars?.RUNTIME_REVISION!==expected)throw new Error('unsafe_skill_gateway_deploy_config');
           for(const key of ['BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_AUTO_ENABLED'])if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('runtime_switch_must_not_be_generated:'+key);
+          const forbiddenSecretKeys=['MODEL_MESH_EXECUTION_TOKEN','GROQ_API_KEY','OPENROUTER_API_KEY','GEMINI_API_KEY','MISTRAL_API_KEY','CEREBRAS_API_KEY','SAMBANOVA_API_KEY'];
+          for(const key of forbiddenSecretKeys)if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('provider_secret_must_not_be_generated:'+key);
           console.log('SKILL_GATEWAY_DEPLOY_CONFIG=PASS revision='+expected);
           NODE
           npx wrangler deploy --dry-run --outdir .wrangler-skill-gateway-prod-dry-run
@@ -109,7 +112,7 @@ jobs:
           export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
           npx wrangler deploy
 
-      - name: Verify exact deployed revision and Skill Gateway health
+      - name: Verify exact deployed revision, Skill Gateway and Model Mesh health
         shell: bash
         run: |
           set -euo pipefail
@@ -118,6 +121,8 @@ jobs:
             printf '%s\n' "$CONTRACT" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2);console.log('RUNTIME_REVISION=PASS '+x.runtimeRevision)}catch{process.exit(2)}})" || return 1
             BRAIN="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/health" || true)"
             printf '%s\n' "$BRAIN" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.sourceSha!==process.env.EXPECTED||x.schemaVersion!==1||x.primarySkillRequired!==true||x.capsuleRequired!==true||x.externalRoutingCalls!==0)process.exit(3);console.log('BRAIN_HEALTH=PASS '+x.sourceSha)}catch{process.exit(3)}})" || return 1
+            MESH="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
+            printf '%s\n' "$MESH" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.mode!=='FREE_ONLY'||x.sourceSha!==process.env.EXPECTED||x.routingAuthority!==false||x.reasoningAuthority!==false||x.maxParallelStandard!==2||x.maxParallelDeep!==4||typeof x.executionEnabled!=='boolean')process.exit(4);console.log('MODEL_MESH_HEALTH=PASS '+x.sourceSha+' executionEnabled='+x.executionEnabled)}catch{process.exit(4)}})" || return 1
             return 0
           }
           for attempt in 1 2 3 4 5 6; do
@@ -152,11 +157,33 @@ jobs:
           check_route_eventually 'viết quảng cáo giày cho quý bà' advertising_copy FAST
           check_route_eventually 'quét market BTC live' trading_router DEEP
 
+      - name: Production Model Mesh planner smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_plan() {
+            text="$1" expected_profile="$2" max_workers="$3"
+            body="$(TEXT="$text" node -e "process.stdout.write(JSON.stringify({text:process.env.TEXT,dataClass:'PUBLIC'}))")"
+            result="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' -d "$body" "$WORKER_BASE_URL/brain/mesh/plan" || true)"
+            printf '%s\n' "$result" | EXPECTED_PROFILE="$expected_profile" MAX_WORKERS="$max_workers" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),r=x.route||{},w=Array.isArray(x.workers)?x.workers:[];if(x.ok!==true||r.profile!==process.env.EXPECTED_PROFILE||r.sourceSha!==process.env.EXPECTED_SHA||r.externalRoutingCalls!==0||w.length>Number(process.env.MAX_WORKERS))process.exit(2);console.log('MODEL_MESH_PLAN=PASS '+r.profile+' workers='+w.length)}catch{process.exit(2)}})"
+          }
+          for attempt in 1 2 3 4 5 6; do
+            if check_plan 'sửa lỗi API này' STANDARD 2 && check_plan 'quét market BTC live' DEEP 4; then exit 0; fi
+            echo "MODEL_MESH_PLAN_RETRY attempt=$attempt"
+            sleep 5
+          done
+          exit 1
+
       - name: Deployment record
         run: |
           echo "SKILL_MANDATORY_FAST_GATEWAY_DEPLOY=PASS"
           echo "SOURCE_SHA=$SKILL_GATEWAY_SOURCE_SHA"
           echo "PRIMARY_SKILL_REQUIRED=true"
           echo "FAST_EXTERNAL_ROUTING_CALLS=0"
+          echo "MODEL_MESH_MODE=FREE_ONLY"
+          echo "MODEL_MESH_ROUTING_AUTHORITY=false"
+          echo "MODEL_MESH_MAX_PARALLEL_STANDARD=2"
+          echo "MODEL_MESH_MAX_PARALLEL_DEEP=4"
           echo "RUNTIME_SWITCH_MUTATION=false"
+          echo "PROVIDER_SECRET_GENERATION=false"
           echo "ROUTE_SMOKE_PROPAGATION_RETRY=true"
