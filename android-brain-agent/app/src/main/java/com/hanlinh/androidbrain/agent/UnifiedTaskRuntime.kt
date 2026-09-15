@@ -9,8 +9,8 @@ import java.util.ArrayDeque
 
 /**
  * Owns one persistent on-device task runtime. Cloud actions are seeds; after each
- * verified transition the same engine can continue from verified App Mapping data
- * without another network round trip.
+ * verified transition the same engine can continue from a local domain solver or
+ * verified App Mapping data without another planning round trip.
  */
 class UnifiedTaskRuntime(
     val taskId: String,
@@ -19,6 +19,8 @@ class UnifiedTaskRuntime(
     initialCloudActions: List<Action> = emptyList(),
     private val observationProvider: () -> UnifiedObservation?,
     private val actionExecutor: (Action, PersistentOperatorSession) -> Boolean,
+    private val domainMode: Boolean = false,
+    private val domainPlanProvider: (UnifiedObservation) -> MicroPlan? = { null },
 ) {
     private val cloudActions = ArrayDeque<Action>()
     private val mappingPlanner = LocalMappingPlanner(mappingStore)
@@ -32,7 +34,7 @@ class UnifiedTaskRuntime(
             observationProvider = observationProvider,
             localPlanProvider = ::nextLocalPlan,
             signalProvider = ::signalsFor,
-            actionExecutor = { action -> actionExecutor(action, engineSession()) },
+            actionExecutor = { action -> actionExecutor(action, session) },
             onVerifiedTransition = mappingPlanner::recordVerifiedTransition,
         )
     }
@@ -53,8 +55,6 @@ class UnifiedTaskRuntime(
 
     fun hasPendingCloudActions(): Boolean = cloudActions.isNotEmpty()
 
-    private fun engineSession(): PersistentOperatorSession = engine.currentSession()
-
     private fun nextLocalPlan(observation: UnifiedObservation): MicroPlan? {
         if (cloudActions.isNotEmpty()) {
             return MicroPlan(
@@ -62,6 +62,9 @@ class UnifiedTaskRuntime(
                 reobserveAfter = emptySet(),
                 confidence = CLOUD_ACTION_CONFIDENCE,
             )
+        }
+        if (domainMode) {
+            domainPlanProvider(observation)?.let { return it }
         }
         return mappingPlanner.planFor(observation)
     }
@@ -76,6 +79,16 @@ class UnifiedTaskRuntime(
                 knownTransition = 0.95,
                 riskClass = pending.riskClass,
                 taskNovelty = 0.05,
+            )
+        }
+        if (domainMode) {
+            return signals(
+                observation = observation,
+                confidence = 0.98,
+                knownScreen = 0.95,
+                knownTransition = 0.95,
+                riskClass = RiskClass.A,
+                taskNovelty = 0.0,
             )
         }
         val mapped = mappingPlanner.planFor(observation) ?: return null
@@ -115,7 +128,7 @@ class UnifiedTaskRuntime(
 
     private companion object {
         const val MAX_CLOUD_ACTIONS = 8
-        const val MAX_LOCAL_ACTIONS = 8
+        const val MAX_LOCAL_ACTIONS = 64
         const val CLOUD_ACTION_CONFIDENCE = 0.99
     }
 }
