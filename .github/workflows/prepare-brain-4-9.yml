@@ -76,7 +76,9 @@ jobs:
           python -m unittest discover -s AI_SKILL_LIBRARY/tests -p 'test_adaptive_free_model_mesh*.py' -v
           python -m unittest discover -s AI_SKILL_LIBRARY/tests -p 'test_*legion*.py' -v
           cd cloudflare-worker
-          npm run check
+          node test-model-mesh.mjs
+          node test-model-mesh-handler.mjs
+          node test-model-mesh-execute.mjs
       - name: Build canonical retrieval index and unmarked 4.9.0 release
         shell: bash
         run: |
