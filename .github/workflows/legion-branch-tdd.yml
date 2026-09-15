@@ -60,3 +60,33 @@ jobs:
             exit 0
           fi
           python -m unittest -v "${existing[@]}"
+      - name: Package exact-SHA blocked candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="$(sha256sum AI_SKILL_LIBRARY/v4/releases/current.json | awk '{print $1}')"
+          python AI_SKILL_LIBRARY/v4/tools/release.py candidate \
+            --source-sha "$GITHUB_SHA" \
+            --version 4.9.0-candidate \
+            --output AI_SKILL_LIBRARY/v4/runtime/generated/peer-tri-layer-ai-legion-candidate.yaml
+          after="$(sha256sum AI_SKILL_LIBRARY/v4/releases/current.json | awk '{print $1}')"
+          test "$before" = "$after"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import yaml
+          path = Path('AI_SKILL_LIBRARY/v4/runtime/generated/peer-tri-layer-ai-legion-candidate.yaml')
+          data = yaml.safe_load(path.read_text(encoding='utf-8'))
+          assert data['source_sha'] == os.environ['GITHUB_SHA'].lower()
+          assert data['active_pointer_mutation'] is False
+          assert data['dependencies']['adaptive_free_model_mesh_verified'] is False
+          assert data['promotion']['blocked'] is True
+          print('LEGION_CANDIDATE_ARTIFACT=PASS')
+          PY
+      - name: Upload Legion candidate manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: peer-tri-layer-ai-legion-${{ github.sha }}
+          path: AI_SKILL_LIBRARY/v4/runtime/generated/peer-tri-layer-ai-legion-candidate.yaml
+          if-no-files-found: error
+          retention-days: 30
