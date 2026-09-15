@@ -4,6 +4,9 @@ import {callCloudflareAI} from './providers/cloudflare-ai.js';
 import {selectModelWorkers} from './selector.js';
 import {sanitizeDataClass} from './contracts.js';
 import {MODEL_MESH_BINDINGS} from '../generated/model-mesh-bindings.js';
+import {classifyProviderFailure,freeOnlyEligible} from './contracts.js';
+import {writeProbeHealth} from './health-store.js';
+import {resolveLiveModels} from './runtime-health.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const nowIso=()=>new Date().toISOString();
@@ -17,11 +20,11 @@ export function resolveRuntimeWorker(worker){
 
 async function callProvider(worker,env,messages,fetchImpl){
   const secretName=String(worker.secret_name||'');const apiKey=secretName?env?.[secretName]:undefined;
-  if(!apiKey)return {ok:false,status:0,error:'provider_not_configured'};
+  if(!apiKey)return {ok:false,status:0,category:'UNKNOWN_SANITIZED'};
   if(worker.endpoint_family==='gemini')return callGemini({baseUrl:worker.endpoint_url,apiKey,model:worker.model_id,messages,fetchImpl});
   if(worker.endpoint_family==='cloudflare_ai'){
     const accountId=env?.[worker.account_id_env||'CLOUDFLARE_ACCOUNT_ID'];
-    if(!accountId)return {ok:false,status:0,error:'provider_account_not_configured'};
+    if(!accountId)return {ok:false,status:0,category:'UNKNOWN_SANITIZED'};
     return callCloudflareAI({accountId,apiKey,model:worker.model_id,messages,fetchImpl});
   }
   return callOpenAICompatible({baseUrl:worker.endpoint_url,apiKey,model:worker.model_id,messages,fetchImpl});
@@ -29,7 +32,7 @@ async function callProvider(worker,env,messages,fetchImpl){
 
 function normalizedResult(worker,route,startedAt,completedAt,result){
   const started=Date.parse(startedAt),completed=Date.parse(completedAt);
-  return {task_id:`mesh-${route.primarySkill}`,subtask_id:`${worker.provider_id}:${worker.model_id}`,input_hash:null,authority_revision:route.sourceSha||null,primary_skill_id:route.primarySkill,capsule_hash:route.capsuleHash||null,domain_label:route.domain||'core',worker_role:worker.worker_role||'maker',provider_id:worker.provider_id,model_id:worker.model_id,model_family:worker.model_family,started_at:startedAt,completed_at:completedAt,latency_ms:Number.isFinite(completed-started)?Math.max(0,completed-started):0,quota_state:result.status===429?'COOLDOWN_QUOTA':'AVAILABLE',source_refs:[],verification_status:result.ok?'unverified_model_output':'provider_error',text:result.ok?redact(result.text):undefined,error:result.ok?undefined:redact(result.error),retry_after:result.status===429?result.retryAfter||null:undefined,reset_at:result.status===429?result.resetAt||null:undefined};
+  return {task_id:`mesh-${route.primarySkill}`,subtask_id:`${worker.provider_id}:${worker.model_id}`,input_hash:null,authority_revision:route.sourceSha||null,primary_skill_id:route.primarySkill,capsule_hash:route.capsuleHash||null,domain_label:route.domain||'core',worker_role:worker.worker_role||'maker',provider_id:worker.provider_id,model_id:worker.model_id,model_family:worker.model_family,started_at:startedAt,completed_at:completedAt,latency_ms:Number.isFinite(completed-started)?Math.max(0,completed-started):0,quota_state:result.status===429?'COOLDOWN_QUOTA':'AVAILABLE',source_refs:[],verification_status:result.ok?'unverified_model_output':'provider_error',text:result.ok?redact(result.text):undefined,error_category:result.ok?undefined:(result.category||classifyProviderFailure({status:result.status})),retry_after:result.status===429?result.retryAfter||null:undefined,reset_at:result.status===429?result.resetAt||null:undefined};
 }
 
 export function providerConfigurationStatus(modelSnapshot,env={}){
@@ -47,15 +50,16 @@ export function providerConfigurationStatus(modelSnapshot,env={}){
 export function createProviderProbe({fetchImpl=fetch,maxParallel=4}={}){
   return async function probeProviders(env,{modelSnapshot}={}){
     const firstByProvider=[];const seen=new Set();
-    for(const model of modelSnapshot?.models||[]){if(!seen.has(model.provider_id)){seen.add(model.provider_id);firstByProvider.push(model);}}
+    for(const model of modelSnapshot?.models||[]){if(freeOnlyEligible(model)&&!seen.has(model.provider_id)){seen.add(model.provider_id);firstByProvider.push(model);}}
     const probeOne=async model=>{
       const started=Date.now();const worker=resolveRuntimeWorker(model);
-      if(!worker)return {providerId:model.provider_id,modelId:model.model_id,configured:false,ok:false,status:0,latencyMs:Date.now()-started,error:'provider_binding_not_configured'};
+      if(!worker)return {providerId:model.provider_id,modelId:model.model_id,configured:false,ok:false,status:0,latencyMs:Date.now()-started,category:'UNKNOWN_SANITIZED',state:'CONFIGURED'};
       const configured=Boolean(worker.secret_name&&env?.[worker.secret_name])&&Boolean(!worker.account_id_env||env?.[worker.account_id_env]);
-      if(!configured)return {providerId:model.provider_id,modelId:model.model_id,configured:false,ok:false,status:0,latencyMs:Date.now()-started,error:'provider_not_configured'};
+      if(!configured)return {providerId:model.provider_id,modelId:model.model_id,configured:false,ok:false,status:0,latencyMs:Date.now()-started,category:'UNKNOWN_SANITIZED',state:'CONFIGURED'};
       const result=await callProvider(worker,env,[{role:'user',content:'Reply with OK only.'}],fetchImpl);
-      const row={providerId:model.provider_id,modelId:model.model_id,configured:true,ok:Boolean(result.ok),status:Number(result.status||0),latencyMs:Math.max(0,Date.now()-started)};
-      if(!result.ok)row.error=redact(result.error||'provider_error');
+      const latencyMs=Math.max(0,Date.now()-started),category=result.ok?null:(result.category||classifyProviderFailure({status:result.status}));
+      const health=await writeProbeHealth(env?.TRADING_STATE,model,{ok:Boolean(result.ok),category,latencyMs},{sourceSha:modelSnapshot?.source_sha||''});
+      const row={providerId:model.provider_id,modelId:model.model_id,configured:true,ok:Boolean(result.ok),status:Number(result.status||0),latencyMs,category,state:health.state,evidencePersisted:Boolean(health.persisted)};
       if(result.status===429){row.retryAfter=result.retryAfter||null;row.resetAt=result.resetAt||null;}
       return row;
     };
@@ -63,7 +67,7 @@ export function createProviderProbe({fetchImpl=fetch,maxParallel=4}={}){
     for(let index=0;index<firstByProvider.length;index+=width){
       const batch=firstByProvider.slice(index,index+width);
       const settled=await Promise.allSettled(batch.map(probeOne));
-      settled.forEach((item,offset)=>results.push(item.status==='fulfilled'?item.value:{providerId:batch[offset].provider_id,modelId:batch[offset].model_id,configured:false,ok:false,status:0,latencyMs:0,error:'probe_failure'}));
+      settled.forEach((item,offset)=>results.push(item.status==='fulfilled'?item.value:{providerId:batch[offset].provider_id,modelId:batch[offset].model_id,configured:false,ok:false,status:0,latencyMs:0,category:'UNKNOWN_SANITIZED',state:'DEGRADED',evidencePersisted:false}));
     }
     return {ok:true,mode:'FREE_ONLY',routingAuthority:false,reasoningAuthority:false,probedProviderCount:results.length,successfulProviderCount:results.filter(row=>row.ok).length,results};
   };
@@ -79,13 +83,17 @@ export function createMeshExecutor({fetchImpl=fetch}={}){
     const dataClass=sanitizeDataClass(body.dataClass);if(dataClass==='SECRET')return json({ok:false,error:'secret_external_mesh_forbidden'},403);
     const route=routeSkill({text:body.text});if(route.profile==='FAST')return json({ok:false,error:'fast_profile_external_execution_forbidden'},409);
     const capsule=skillSnapshot?.capsules?.[route.primarySkill]||{};
-    const selected=selectModelWorkers({profile:route.profile,domain:route.domain||capsule.domain||'core',dataClass,models:modelSnapshot?.models||[]});
+    const liveModels=await resolveLiveModels(modelSnapshot,env);
+    const selected=selectModelWorkers({profile:route.profile,domain:route.domain||capsule.domain||'core',dataClass,models:liveModels});
     if(!selected.length)return json({ok:false,error:'no_eligible_free_worker'},503);
     const messages=[{role:'user',content:body.text}];
     const run=async selectedWorker=>{
       const startedAt=nowIso();const worker=resolveRuntimeWorker(selectedWorker);
-      const result=worker?await callProvider(worker,env,messages,fetchImpl):{ok:false,status:0,error:'provider_binding_not_configured'};
-      const completedAt=nowIso();return normalizedResult(worker||selectedWorker,route,startedAt,completedAt,result);
+      const result=worker?await callProvider(worker,env,messages,fetchImpl):{ok:false,status:0,category:'UNKNOWN_SANITIZED'};
+      const completedAt=nowIso(),normalized=normalizedResult(worker||selectedWorker,route,startedAt,completedAt,result);
+      const persist=writeProbeHealth(env?.TRADING_STATE,selectedWorker,{ok:Boolean(result.ok),category:result.category,latencyMs:normalized.latency_ms},{sourceSha:modelSnapshot?.source_sha||''});
+      await persist;
+      return normalized;
     };
     const settled=await Promise.allSettled(selected.map(run));
     const results=settled.map((item,index)=>item.status==='fulfilled'?item.value:normalizedResult(selected[index],route,nowIso(),nowIso(),{ok:false,status:0,error:'worker_failure'}));

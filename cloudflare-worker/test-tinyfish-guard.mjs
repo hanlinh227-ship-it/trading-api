@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {checkTinyFishGuard,recordTinyFishGuard} from './evidence/tinyfish-guard.js';
+const rows=new Map(),kv={get:async key=>rows.get(key)||null,put:async(key,value)=>rows.set(key,value)};const now=100000;
+assert.equal((await checkTinyFishGuard(kv,now)).allowed,true);
+await recordTinyFishGuard(kv,{ok:true},now);
+assert.equal((await checkTinyFishGuard(kv,now+1000)).state,'RATE_LIMITED');
+assert.equal((await checkTinyFishGuard(kv,now+2001)).allowed,true);
+await recordTinyFishGuard(kv,{ok:false,category:'PROVIDER_5XX'},now+3000);
+await recordTinyFishGuard(kv,{ok:false,category:'PROVIDER_5XX'},now+6000);
+await recordTinyFishGuard(kv,{ok:false,category:'PROVIDER_5XX'},now+9000);
+assert.equal((await checkTinyFishGuard(kv,now+10000)).state,'OPEN');
+console.log('TinyFish rate and circuit guard contracts ok');

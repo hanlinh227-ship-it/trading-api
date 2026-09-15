@@ -62,6 +62,12 @@ class AdaptiveFreeModelMeshRegistryTests(unittest.TestCase):
         self.assertFalse(eligible_free_candidate(dict(base, free_status="paid"), data_class="PUBLIC"))
         self.assertFalse(eligible_free_candidate(base, data_class="SECRET"))
 
+    def test_free_only_excludes_trial_and_time_limited_promotions(self):
+        base = normalize_candidate("groq", self._raw(), observed_at="2026-09-15T04:05:00Z")
+        self.assertFalse(eligible_free_candidate(dict(base, free_status="trial_credit"), data_class="PUBLIC"))
+        self.assertFalse(eligible_free_candidate(dict(base, free_status="limited_time"), data_class="PUBLIC"))
+        self.assertTrue(eligible_free_candidate(dict(base, free_status="account_specific"), data_class="PUBLIC"))
+
     def test_internal_requires_compatible_privacy(self):
         public_only = normalize_candidate("zen", self._raw(privacy_class="public_safe"), observed_at="2026-09-15T04:05:00Z")
         internal_ok = normalize_candidate("groq", self._raw(privacy_class="confidential_safe"), observed_at="2026-09-15T04:05:00Z")

@@ -14,6 +14,7 @@ from jsonschema import Draft202012Validator
 V4_ROOT = Path(__file__).resolve().parents[1]
 PROVIDER_SCHEMA_PATH = V4_ROOT / "schemas/model_mesh_provider.schema.json"
 DOMAIN_CAPABILITIES_PATH = V4_ROOT / "model_mesh/domain_capabilities.yaml"
+FREE_ONLY_POLICY_PATH = V4_ROOT / "model_mesh/free_only_policy.json"
 
 _FREE_STATUSES = {
     "recurring",
@@ -24,7 +25,10 @@ _FREE_STATUSES = {
     "paid",
     "expired",
 }
-_ELIGIBLE_FREE_STATUSES = {"recurring", "limited_time", "trial_credit", "account_specific"}
+_FREE_ONLY_POLICY = json.loads(FREE_ONLY_POLICY_PATH.read_text(encoding="utf-8"))
+if _FREE_ONLY_POLICY.get("schema_version") != 1 or _FREE_ONLY_POLICY.get("mode") != "FREE_ONLY":
+    raise ValueError("invalid canonical FREE_ONLY policy")
+_ELIGIBLE_FREE_STATUSES = frozenset(_FREE_ONLY_POLICY.get("eligible_statuses", []))
 _PROVIDER_CLASSES = {"F1", "F2", "F3", "Q"}
 _ENDPOINT_FAMILIES = {"openai_compatible", "anthropic_compatible", "native", "other"}
 _QUOTA_SCOPES = {"provider", "account", "project", "model", "unknown"}
