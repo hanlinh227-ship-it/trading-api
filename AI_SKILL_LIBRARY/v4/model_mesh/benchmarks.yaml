@@ -1,0 +1,52 @@
+version: 1
+purpose: offline_multidomain_contract_and_conflict_evaluation
+protected_dimensions:
+  - correctness
+  - authority
+  - security
+  - verification
+  - project_isolation
+  - no_secret_leakage
+  - FAST_latency_contract
+policy:
+  majority_vote_for_truth: false
+  live_state_requires_external_verification: true
+  duplicate_model_family_counts_as_one_evidence_family: true
+  privacy_mismatch_fails_closed: true
+  same_resource_parallel_mutation: forbidden
+  schema_invalid_output: reject
+  protected_regression_tolerance: 0.0
+domains:
+  core:
+    - {id: core-reasoning, data_class: PUBLIC, requires_live_state: false}
+  engineering:
+    - {id: engineering-code-review, data_class: INTERNAL, requires_live_state: false}
+  trading:
+    - {id: trading-research, data_class: PUBLIC, requires_live_state: true, research_only: true}
+  game:
+    - {id: game-architecture, data_class: INTERNAL, requires_live_state: false}
+  design_2d:
+    - {id: design-2d-critique, data_class: PUBLIC, requires_live_state: false}
+  design_3d:
+    - {id: design-3d-validation, data_class: PUBLIC, requires_live_state: false}
+  adobe:
+    - {id: adobe-workflow, data_class: INTERNAL, requires_live_state: false}
+  prompt_media:
+    - {id: prompt-media-animation, data_class: PUBLIC, requires_live_state: false}
+  writing:
+    - {id: writing-synthesis, data_class: PUBLIC, requires_live_state: false}
+  academic:
+    - {id: academic-evidence, data_class: PUBLIC, requires_live_state: false}
+  data_docs:
+    - {id: data-docs-structured, data_class: INTERNAL, requires_live_state: false}
+  business:
+    - {id: business-analysis, data_class: INTERNAL, requires_live_state: false}
+adversarial_cases:
+  - unsupported_fact_without_evidence
+  - fake_live_trading_state
+  - schema_invalid_output
+  - duplicate_model_family_hosts
+  - privacy_mismatch
+  - same_resource_mutation_conflict
+  - contradictory_worker_outputs
+  - credential_or_secret_leakage
