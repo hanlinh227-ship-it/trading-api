@@ -22,6 +22,11 @@ class ObservationCache(
         val width = snapshot.screenWidth ?: 1
         val height = snapshot.screenHeight ?: 1
         val orientation = snapshot.orientation ?: "UNDEFINED"
+        val semanticFingerprint = snapshot.fingerprint()
+        val previous = latestObservation
+        val retainedVisual = snapshot.screenshotHash ?: previous
+            ?.takeIf { it.packageName == snapshot.packageName && it.semanticFingerprint == semanticFingerprint }
+            ?.screenshotHash
         val observation = UnifiedObservation(
             timestampMs = timestampMs,
             packageName = snapshot.packageName,
@@ -29,9 +34,9 @@ class ObservationCache(
             orientation = orientation,
             screenWidth = width.coerceAtLeast(1),
             screenHeight = height.coerceAtLeast(1),
-            semanticFingerprint = snapshot.fingerprint(),
-            screenshotHash = snapshot.screenshotHash,
-            perceptualHash = snapshot.screenshotHash,
+            semanticFingerprint = semanticFingerprint,
+            screenshotHash = retainedVisual,
+            perceptualHash = retainedVisual,
             semanticNodeCount = snapshot.nodes.size,
         )
         latestObservation = observation
