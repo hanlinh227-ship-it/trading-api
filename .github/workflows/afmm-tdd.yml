@@ -1,0 +1,31 @@
+name: AFMM Branch TDD
+
+on:
+  push:
+    branches: [github-brain-v4-afmm-implementation2]
+    paths:
+      - 'AI_SKILL_LIBRARY/v4/model_mesh/**'
+      - 'AI_SKILL_LIBRARY/v4/tools/model_mesh.py'
+      - 'AI_SKILL_LIBRARY/v4/tools/discover_free_models.py'
+      - 'AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_snapshot.py'
+      - 'AI_SKILL_LIBRARY/v4/tools/validate_model_mesh*.py'
+      - 'AI_SKILL_LIBRARY/v4/schemas/model_mesh_*.json'
+      - 'AI_SKILL_LIBRARY/tests/test_adaptive_free_model_mesh*.py'
+      - '.github/workflows/afmm-tdd.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  afmm-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+      - name: Run Adaptive Free Model Mesh tests
+        run: python -m unittest discover -s AI_SKILL_LIBRARY/tests -p 'test_adaptive_free_model_mesh*.py' -v
