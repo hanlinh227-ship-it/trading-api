@@ -97,12 +97,12 @@ jobs:
           for key in MODEL_MESH_EXECUTION_TOKEN GROQ_API_KEY GEMINI_API_KEY CLOUDFLARE_AI_API_TOKEN OPENROUTER_API_KEY MISTRAL_API_KEY COHERE_API_KEY HF_TOKEN NVIDIA_API_KEY CEREBRAS_API_KEY SAMBANOVA_API_KEY DASHSCOPE_API_KEY OPENCODE_ZEN_API_KEY; do
             value="${!key:-}"
             if [ -n "$value" ]; then
-              printf '%s' "$value" | npx wrangler secret put "$key" >/dev/null
+              printf '%s' "$value" | npx wrangler secret put "$key" --name trading-v77-scanner >/dev/null
               synced=$((synced+1))
             fi
           done
           if [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
-            printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | npx wrangler secret put CLOUDFLARE_ACCOUNT_ID >/dev/null
+            printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | npx wrangler secret put CLOUDFLARE_ACCOUNT_ID --name trading-v77-scanner >/dev/null
           fi
           echo "MODEL_MESH_SECRETS_SYNCED_COUNT=$synced"
 
