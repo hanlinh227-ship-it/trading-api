@@ -19,6 +19,7 @@ cloudflare-worker/generated/model-mesh-snapshot.js
 cloudflare-worker/generated/model-mesh-bindings.js
 cloudflare-worker/generated/model-mesh-policy.js
 cloudflare-worker/generated/free-only-policy.js
+cloudflare-worker/generated/model-mesh-active-candidate-index.js
 
 # Secrets / runtime configuration
 .env
