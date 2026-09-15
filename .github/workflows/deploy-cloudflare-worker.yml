@@ -151,7 +151,41 @@ jobs:
           for(const key of ['BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_AUTO_ENABLED'])if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('runtime_switch_must_not_be_generated:'+key);
           console.log('CLOUDFLARE_DEPLOY_CONFIG=PASS revision='+x.vars.RUNTIME_REVISION);
           NODE
-          npx wrangler deploy
+          # Single deployment authority.
+          #
+          # This workflow used to run `wrangler deploy` against the same Worker
+          # as deploy-skill-mandatory-fast-gateway.yml. On aa30bccf that made
+          # the exact-SHA contract bypassable in practice: the gated workflow
+          # failed before its Model Mesh provider canary, planner smoke and
+          # TinyFish canary could run, while this workflow deployed the same
+          # revision unconditionally -- so unverified code went live and the
+          # gate had nothing left to stop.
+          #
+          # deploy-skill-mandatory-fast-gateway.yml is now the only workflow
+          # that deploys trading-v77-scanner. This one keeps its full build,
+          # test and bundle verification as a dry run, so a broken bundle still
+          # fails here early, but production mutation belongs to the gate.
+          npx wrangler deploy --dry-run --outdir .wrangler-deploy-authority-check
+          echo "CLOUDFLARE_DEPLOY_AUTHORITY=deploy-skill-mandatory-fast-gateway.yml"
+          echo "CLOUDFLARE_WORKER_DEPLOY=DRY_RUN_ONLY revision=$GITHUB_SHA"
+
+      - name: Confirm gated workflow owns the deployed revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Verification here is observational: it reports what the gated
+          # workflow deployed and never mutates production itself.
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract" || true)"
+            if printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA)process.exit(2);console.log('CLOUDFLARE_RUNTIME_REVISION=PASS '+x.runtimeRevision)}catch{process.exit(2)}})"; then
+              exit 0
+            fi
+            echo "AWAITING_GATED_DEPLOY attempt=$attempt"
+            sleep 20
+          done
+          echo "CLOUDFLARE_RUNTIME_REVISION=NOT_YET_DEPLOYED expected=$GITHUB_SHA authority=deploy-skill-mandatory-fast-gateway.yml"
+          exit 1
+
       - name: Verify exact deployed revision and existing trading contract
         shell: bash
         run: |
