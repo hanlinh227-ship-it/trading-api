@@ -44,6 +44,31 @@ export function providerConfigurationStatus(modelSnapshot,env={}){
   })).sort((a,b)=>a.providerId.localeCompare(b.providerId));
 }
 
+export function createProviderProbe({fetchImpl=fetch,maxParallel=4}={}){
+  return async function probeProviders(env,{modelSnapshot}={}){
+    const firstByProvider=[];const seen=new Set();
+    for(const model of modelSnapshot?.models||[]){if(!seen.has(model.provider_id)){seen.add(model.provider_id);firstByProvider.push(model);}}
+    const probeOne=async model=>{
+      const started=Date.now();const worker=resolveRuntimeWorker(model);
+      if(!worker)return {providerId:model.provider_id,modelId:model.model_id,configured:false,ok:false,status:0,latencyMs:Date.now()-started,error:'provider_binding_not_configured'};
+      const configured=Boolean(worker.secret_name&&env?.[worker.secret_name])&&Boolean(!worker.account_id_env||env?.[worker.account_id_env]);
+      if(!configured)return {providerId:model.provider_id,modelId:model.model_id,configured:false,ok:false,status:0,latencyMs:Date.now()-started,error:'provider_not_configured'};
+      const result=await callProvider(worker,env,[{role:'user',content:'Reply with OK only.'}],fetchImpl);
+      const row={providerId:model.provider_id,modelId:model.model_id,configured:true,ok:Boolean(result.ok),status:Number(result.status||0),latencyMs:Math.max(0,Date.now()-started)};
+      if(!result.ok)row.error=redact(result.error||'provider_error');
+      if(result.status===429){row.retryAfter=result.retryAfter||null;row.resetAt=result.resetAt||null;}
+      return row;
+    };
+    const results=[];const width=Math.max(1,Math.min(4,Number(maxParallel)||4));
+    for(let index=0;index<firstByProvider.length;index+=width){
+      const batch=firstByProvider.slice(index,index+width);
+      const settled=await Promise.allSettled(batch.map(probeOne));
+      settled.forEach((item,offset)=>results.push(item.status==='fulfilled'?item.value:{providerId:batch[offset].provider_id,modelId:batch[offset].model_id,configured:false,ok:false,status:0,latencyMs:0,error:'probe_failure'}));
+    }
+    return {ok:true,mode:'FREE_ONLY',routingAuthority:false,reasoningAuthority:false,probedProviderCount:results.length,successfulProviderCount:results.filter(row=>row.ok).length,results};
+  };
+}
+
 export function createMeshExecutor({fetchImpl=fetch}={}){
   return async function executeWorkers(request,env,{skillSnapshot,modelSnapshot,routeSkill}){
     if(String(env?.MODEL_MESH_EXECUTION_ENABLED||'0')!=='1')return json({ok:false,error:'mesh_execution_disabled'},503);
