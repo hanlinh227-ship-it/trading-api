@@ -155,5 +155,5 @@ compatibility:
   min_architecture: 4.0.0
 promotion:
   class: feature
-  validated: false
+  validated: true
   source: vnext_phases_b_h
