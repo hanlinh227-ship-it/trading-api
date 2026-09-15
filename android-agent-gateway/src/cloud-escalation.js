@@ -14,14 +14,18 @@ const METRIC_KEYS = new Set([
   'cancellationLatencyMs',
 ])
 
-export async function planMicroActions(context, maxActions = 8) {
+export function boundMicroActions(actions, maxActions = 8) {
   const limit = Math.max(1, Math.min(8, Number(maxActions) || 1))
+  return (Array.isArray(actions) ? actions : []).slice(0, limit)
+}
+
+export async function planMicroActions(context, maxActions = 8) {
   const planned = await planNextStep(context)
   if (!planned?.action || planned?.expected?.type === 'task_complete') {
     return { actions: [], expected: planned?.expected ?? { type: 'task_complete' }, mode: planned?.mode ?? 'unknown' }
   }
   return {
-    actions: [planned.action].slice(0, limit),
+    actions: boundMicroActions([planned.action], maxActions),
     expected: planned.expected ?? { type: 'observation_returned' },
     mode: planned.mode ?? 'unknown',
   }
