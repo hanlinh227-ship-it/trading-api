@@ -26,4 +26,17 @@ assert.ok(standard.workers.length<=2);
 assert.equal(externalFetchCount,0);
 assert.equal(standard.routingAuthority,false);
 assert.equal(standard.reasoningAuthority,false);
+
+// Production passes the canonical Skill Gateway route, which is frozen.
+// The model-mesh planner must never mutate canonical routing output.
+const frozenRoute=Object.freeze({profile:'STANDARD',primarySkill:'core_reasoning',externalRoutingCalls:0,sourceSha:'a'.repeat(40)});
+const emptySnapshot={...modelSnapshot,models:[]};
+const frozenPlan=await buildModelMeshPlan({text:'debug api',dataClass:'PUBLIC',hasImage:false,route:frozenRoute}, {skillSnapshot,modelSnapshot:emptySnapshot,fetchImpl:noFetch});
+assert.equal(frozenPlan.ok,true);
+assert.equal(frozenPlan.route.externalRoutingCalls,0);
+assert.equal(frozenPlan.route.sourceSha,'a'.repeat(40));
+assert.equal(frozenPlan.workers.length,0);
+assert.equal(Object.isFrozen(frozenRoute),true);
+assert.equal(externalFetchCount,0);
+
 console.log('model mesh planner contracts ok');
