@@ -1,0 +1,37 @@
+version: 1
+mode: FREE_ONLY
+routing_authority: false
+reasoning_authority: false
+stable_request_dependency: false
+discovery_plane: evergreen_only
+stable_snapshot_only: true
+free_status_unknown_action: exclude
+paid_fallback: disabled
+auto_purchase: false
+max_parallel: {FAST: 0, STANDARD: 2, DEEP: 4}
+provider_voting: forbidden
+same_family_counts_as_independent_reasoning: false
+quota:
+  respect_provider_reset: true
+  use_runtime_headers_first: true
+  cooldown_on_exhaustion: true
+  circumvention_forbidden: true
+privacy:
+  SECRET: deny_external_free
+  CONFIDENTIAL: verified_provider_only
+  INTERNAL: verified_provider_only
+  PUBLIC: eligible_free_pool
+selection:
+  filter_before_score: [capability, permission_ceiling, privacy, health, free_entitlement, quota, context_fit, usage_terms]
+  signals: [capability_fit, measured_quality, reliability, quota_headroom, latency, model_family_diversity]
+  unknown_capability_action: exclude_for_requirement
+  no_permission_widening: true
+fallback:
+  stable_survives_mesh_failure: true
+  no_paid_fallback: true
+  serial_on_orchestration_failure: true
+trading:
+  research_only: true
+  financial_execution: false
+  account_mutation: false
+  wallet_signing: false
