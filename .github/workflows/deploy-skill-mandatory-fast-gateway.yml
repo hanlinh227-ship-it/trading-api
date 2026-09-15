@@ -30,6 +30,19 @@ jobs:
       TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
       AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
+      MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      CLOUDFLARE_AI_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+      SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+      DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+      OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,6 +88,24 @@ jobs:
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
 
+      - name: Sync configured Model Mesh secrets without exposing values
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          synced=0
+          for key in MODEL_MESH_EXECUTION_TOKEN GROQ_API_KEY GEMINI_API_KEY CLOUDFLARE_AI_API_TOKEN OPENROUTER_API_KEY MISTRAL_API_KEY COHERE_API_KEY HF_TOKEN NVIDIA_API_KEY CEREBRAS_API_KEY SAMBANOVA_API_KEY DASHSCOPE_API_KEY OPENCODE_ZEN_API_KEY; do
+            value="${!key:-}"
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | npx wrangler secret put "$key" >/dev/null
+              synced=$((synced+1))
+            fi
+          done
+          if [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | npx wrangler secret put CLOUDFLARE_ACCOUNT_ID >/dev/null
+          fi
+          echo "MODEL_MESH_SECRETS_SYNCED_COUNT=$synced"
+
       - name: Prepare, test and benchmark exact-main Skill Gateway and Model Mesh
         working-directory: cloudflare-worker
         shell: bash
@@ -98,7 +129,7 @@ jobs:
           const expected=process.env.SKILL_GATEWAY_SOURCE_SHA;
           if(x.name!=='trading-v77-scanner'||x.keep_vars!==true||x.vars?.RUNTIME_REVISION!==expected)throw new Error('unsafe_skill_gateway_deploy_config');
           for(const key of ['BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_AUTO_ENABLED'])if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('runtime_switch_must_not_be_generated:'+key);
-          const forbiddenSecretKeys=['MODEL_MESH_EXECUTION_TOKEN','GROQ_API_KEY','OPENROUTER_API_KEY','GEMINI_API_KEY','MISTRAL_API_KEY','CEREBRAS_API_KEY','SAMBANOVA_API_KEY'];
+          const forbiddenSecretKeys=['MODEL_MESH_EXECUTION_TOKEN','GROQ_API_KEY','GEMINI_API_KEY','CLOUDFLARE_AI_API_TOKEN','OPENROUTER_API_KEY','MISTRAL_API_KEY','COHERE_API_KEY','HF_TOKEN','NVIDIA_API_KEY','CEREBRAS_API_KEY','SAMBANOVA_API_KEY','DASHSCOPE_API_KEY','OPENCODE_ZEN_API_KEY'];
           for(const key of forbiddenSecretKeys)if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('provider_secret_must_not_be_generated:'+key);
           console.log('SKILL_GATEWAY_DEPLOY_CONFIG=PASS revision='+expected);
           NODE
@@ -122,7 +153,7 @@ jobs:
             BRAIN="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/health" || true)"
             printf '%s\n' "$BRAIN" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.sourceSha!==process.env.EXPECTED||x.schemaVersion!==1||x.primarySkillRequired!==true||x.capsuleRequired!==true||x.externalRoutingCalls!==0)process.exit(3);console.log('BRAIN_HEALTH=PASS '+x.sourceSha)}catch{process.exit(3)}})" || return 1
             MESH="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
-            printf '%s\n' "$MESH" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.mode!=='FREE_ONLY'||x.sourceSha!==process.env.EXPECTED||x.routingAuthority!==false||x.reasoningAuthority!==false||x.maxParallelStandard!==2||x.maxParallelDeep!==4||typeof x.executionEnabled!=='boolean')process.exit(4);console.log('MODEL_MESH_HEALTH=PASS '+x.sourceSha+' executionEnabled='+x.executionEnabled)}catch{process.exit(4)}})" || return 1
+            printf '%s\n' "$MESH" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.mode!=='FREE_ONLY'||x.sourceSha!==process.env.EXPECTED||x.routingAuthority!==false||x.reasoningAuthority!==false||x.maxParallelStandard!==2||x.maxParallelDeep!==4||typeof x.executionEnabled!=='boolean')process.exit(4);console.log('MODEL_MESH_HEALTH=PASS '+x.sourceSha+' configured='+x.configuredProviderCount+' active='+x.activeProviderCount)}catch{process.exit(4)}})" || return 1
             return 0
           }
           for attempt in 1 2 3 4 5 6; do
@@ -149,7 +180,6 @@ jobs:
               echo "BRAIN_ROUTE_RETRY attempt=$attempt expected_skill=$expected_skill expected_profile=$expected_profile"
               sleep 5
             done
-            echo "BRAIN_ROUTE_FAILED expected_skill=$expected_skill expected_profile=$expected_profile text=$text"
             return 1
           }
           check_route_eventually 'giải thích bác sĩ nội trú' core_reasoning FAST
@@ -169,10 +199,28 @@ jobs:
           }
           for attempt in 1 2 3 4 5 6; do
             if check_plan 'sửa lỗi API này' STANDARD 2 && check_plan 'quét market BTC live' DEEP 4; then exit 0; fi
-            echo "MODEL_MESH_PLAN_RETRY attempt=$attempt"
             sleep 5
           done
           exit 1
+
+      - name: Production Model Mesh provider canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${MODEL_MESH_EXECUTION_TOKEN:-}" ]; then
+            echo 'MODEL_MESH_PROBE=SKIPPED_NO_EXECUTION_TOKEN'
+            exit 0
+          fi
+          configured=0
+          for key in GROQ_API_KEY GEMINI_API_KEY CLOUDFLARE_AI_API_TOKEN OPENROUTER_API_KEY MISTRAL_API_KEY COHERE_API_KEY HF_TOKEN NVIDIA_API_KEY CEREBRAS_API_KEY SAMBANOVA_API_KEY DASHSCOPE_API_KEY OPENCODE_ZEN_API_KEY; do
+            if [ -n "${!key:-}" ]; then configured=$((configured+1)); fi
+          done
+          if [ "$configured" -eq 0 ]; then
+            echo 'MODEL_MESH_PROBE=SKIPPED_NO_PROVIDER_CREDENTIALS'
+            exit 0
+          fi
+          result="$(curl -fsS --connect-timeout 5 --max-time 90 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
+          printf '%s\n' "$result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.mode!=='FREE_ONLY'||x.routingAuthority!==false||x.reasoningAuthority!==false||!Array.isArray(x.results))process.exit(2);if(JSON.stringify(x).match(/API_KEY|TOKEN|secret/i))process.exit(3);console.log('MODEL_MESH_PROBE=PASS probed='+x.probedProviderCount+' successful='+x.successfulProviderCount)})"
 
       - name: Deployment record
         run: |
@@ -186,4 +234,4 @@ jobs:
           echo "MODEL_MESH_MAX_PARALLEL_DEEP=4"
           echo "RUNTIME_SWITCH_MUTATION=false"
           echo "PROVIDER_SECRET_GENERATION=false"
-          echo "ROUTE_SMOKE_PROPAGATION_RETRY=true"
+          echo "PROVIDER_SECRET_SYNC=CONDITIONAL_EXISTING_ONLY"
