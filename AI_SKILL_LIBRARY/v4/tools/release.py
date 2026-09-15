@@ -29,6 +29,7 @@ RELEASE_FILES: tuple[tuple[str, str], ...] = (
     ("AI_SKILL_LIBRARY/v4/mesh/graph.yaml", "mesh"),
     ("AI_SKILL_LIBRARY/v4/mesh/bridges.yaml", "bridges"),
     ("AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml", "model_mesh_policy"),
+    ("AI_SKILL_LIBRARY/v4/model_mesh/free_only_policy.json", "model_mesh_free_only_policy"),
     ("AI_SKILL_LIBRARY/v4/model_mesh/providers.yaml", "model_mesh_providers"),
     ("AI_SKILL_LIBRARY/v4/model_mesh/active.json", "model_mesh_active"),
     ("AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json", "model_mesh_runtime_bindings"),
@@ -140,7 +141,7 @@ def set_release_pointer(root: Path, version: str, manifest_sha256: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"version": version, "manifest_path": manifest_path, "manifest_sha256": manifest_sha256}
     temp = path.with_suffix(".json.tmp")
-    temp.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temp.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
     temp.replace(path)
 
 
@@ -239,7 +240,7 @@ def build_candidate_manifest(root: Path, version: str, *, source_sha: str, depen
 def write_candidate_manifest(root: Path, manifest: dict, output: str) -> Path:
     path = inside(Path(root).resolve(), output)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_dump_manifest(manifest), encoding="utf-8")
+    path.write_text(_dump_manifest(manifest), encoding="utf-8", newline="\n")
     return path
 
 
@@ -283,7 +284,7 @@ def record_history(root: Path, version: str, *, known_good: bool) -> dict:
     entry = {"version": version, "known_good": known_good, "architecture": "GITHUB_BRAIN_V4", "manifest": f"AI_SKILL_LIBRARY/v4/releases/{version}/manifest.yaml", "previous": previous}
     rows = [row for row in rows if row["version"] != version] + [entry]
     history["releases"] = rows
-    (root / RELEASE_ROOT / "history.yaml").write_text(_dump_history(history), encoding="utf-8")
+    (root / RELEASE_ROOT / "history.yaml").write_text(_dump_history(history), encoding="utf-8", newline="\n")
     return history
 
 
@@ -292,7 +293,7 @@ def build_release(root: Path, version: str, *, source: str, validated: bool, kno
     manifest = build_manifest(root, version, promotion={"class": promotion_class, "validated": validated, "source": source})
     manifest_path = inside(root, f"AI_SKILL_LIBRARY/v4/releases/{version}/manifest.yaml")
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(_dump_manifest(manifest), encoding="utf-8")
+    manifest_path.write_text(_dump_manifest(manifest), encoding="utf-8", newline="\n")
     errors, _ = verify_release(root, version)
     if errors: raise ValueError("release build produced an invalid manifest: " + "; ".join(errors))
     set_release_pointer(root, version, sha256_file(manifest_path))

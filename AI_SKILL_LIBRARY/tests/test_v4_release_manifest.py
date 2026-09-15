@@ -14,6 +14,12 @@ class V4ReleaseManifestTests(unittest.TestCase):
         self.assertTrue({"kernel", "runtime", "router", "mesh", "evergreen", "security"}.issubset(roles))
         self.assertIs(data["promotion"]["validated"], True)
 
+    def test_current_manifest_contains_canonical_free_only_policy(self):
+        current = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/v4/releases/current.json").read_text(encoding="utf-8"))
+        manifest = yaml.safe_load((ROOT / current["manifest_path"]).read_text(encoding="utf-8"))
+        roles = {row["role"] for row in manifest["files"]}
+        self.assertIn("model_mesh_free_only_policy", roles)
+
 
 if __name__ == "__main__":
     unittest.main()

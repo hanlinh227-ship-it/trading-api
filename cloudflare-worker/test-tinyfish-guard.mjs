@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {checkTinyFishGuard,recordTinyFishGuard} from './evidence/tinyfish-guard.js';
+import {TinyFishCircuit} from './evidence/tinyfish-circuit.js';
+const rows=new Map(),storage={transaction:async fn=>fn({get:async key=>rows.get(key),put:async(key,value)=>rows.set(key,value)})};
+const circuit=new TinyFishCircuit({storage}),binding={getByName:()=>({fetch:(url,init)=>circuit.fetch(new Request(url,init))})};const now=100000;
+assert.equal((await checkTinyFishGuard(binding,now)).allowed,true);
+assert.equal((await checkTinyFishGuard(null,now)).state,'STORE_UNAVAILABLE');
+await recordTinyFishGuard(binding,{ok:true},now);
+assert.equal((await checkTinyFishGuard(binding,now+1000)).state,'RATE_LIMITED');
+assert.equal((await checkTinyFishGuard(binding,now+2001)).allowed,true);
+await recordTinyFishGuard(binding,{ok:false,category:'REQUEST_INVALID'},now+2500);
+assert.equal(rows.get('state').failures,0);
+await recordTinyFishGuard(binding,{ok:false,category:'PROVIDER_5XX'},now+3000);
+await recordTinyFishGuard(binding,{ok:false,category:'PROVIDER_5XX'},now+6000);
+await recordTinyFishGuard(binding,{ok:false,category:'PROVIDER_5XX'},now+9000);
+assert.equal((await checkTinyFishGuard(binding,now+10000)).state,'OPEN');
+console.log('TinyFish rate and circuit guard contracts ok');

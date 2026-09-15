@@ -80,6 +80,7 @@ def validate_model_mesh(root: Path) -> list[str]:
     required_json = {
         "active": mesh_root / "active.json",
         "runtime_bindings": mesh_root / "runtime_bindings.json",
+        "free_only_policy": mesh_root / "free_only_policy.json",
     }
     documents: dict[str, dict] = {}
     for name, path in required_yaml.items():
@@ -133,6 +134,12 @@ def validate_model_mesh(root: Path) -> list[str]:
         if len(provider_ids) < 8: errors.append("provider evidence registry is unexpectedly incomplete")
 
     active = documents.get("active", {})
+    free_only_policy = documents.get("free_only_policy", {})
+    eligible_statuses = set(free_only_policy.get("eligible_statuses", []))
+    if free_only_policy:
+        if free_only_policy.get("schema_version") != 1 or free_only_policy.get("mode") != "FREE_ONLY": errors.append("canonical FREE_ONLY policy metadata invalid")
+        if eligible_statuses != {"recurring", "account_specific"}: errors.append("canonical FREE_ONLY statuses must be recurring and account_specific")
+        if free_only_policy.get("free_verified_at_required") is not True: errors.append("canonical FREE_ONLY policy must require verification evidence")
     if active:
         if active.get("version") != 1 or active.get("mode") != "FREE_ONLY": errors.append("active model registry must be version 1 FREE_ONLY")
         if active.get("routing_authority") is not False or active.get("reasoning_authority") is not False: errors.append("active model registry must have zero authority")
@@ -144,8 +151,8 @@ def validate_model_mesh(root: Path) -> list[str]:
                 pid = row.get("provider_id")
                 if pid not in provider_ids: errors.append(f"active model provider is not registered: {pid}")
                 if row.get("provider_class") == "Q": errors.append(f"quarantine provider cannot be active: {pid}")
-                if row.get("free_status") not in {"recurring", "limited_time", "trial_credit", "account_specific"}: errors.append(f"active model is not FREE_ONLY eligible: {pid}:{row.get('model_id')}")
-                if not row.get("free_verified_at") or not row.get("source_evidence"): errors.append(f"active model lacks entitlement evidence: {pid}:{row.get('model_id')}")
+                if row.get("free_status") not in eligible_statuses and row.get("registry_state") != "NOT_ELIGIBLE": errors.append(f"ineligible model must be explicitly demoted: {pid}:{row.get('model_id')}")
+                if row.get("free_status") in eligible_statuses and (not row.get("free_verified_at") or not row.get("source_evidence")): errors.append(f"eligible model lacks entitlement evidence: {pid}:{row.get('model_id')}")
 
     bindings_doc = documents.get("runtime_bindings", {})
     if bindings_doc:
