@@ -87,4 +87,17 @@ const policyCompiler=fs.readFileSync('../AI_SKILL_LIBRARY/v4/tools/compile_model
 assert.match(policyCompiler,/max_parallel\.FAST must be 0/,'FAST may never fan out to external workers');
 assert.match(fs.readFileSync('prepare-model-mesh.mjs','utf8'),/endpoint_family conflict/,'endpoint_family must have a single owner');
 
-console.log('deployment secret, rollback and live-canary contracts ok');
+// --- Single deployment authority ------------------------------------------
+// Two workflows deployed the same Worker on the same trigger. On aa30bccf the
+// gated workflow failed before its Model Mesh canaries ran while the other one
+// deployed the revision anyway, so unverified code went live and the exact-SHA
+// gate had nothing left to stop.
+const otherDeploy=fs.readFileSync('../.github/workflows/deploy-cloudflare-worker.yml','utf8');
+const realDeploy=/npx wrangler deploy(?!\s+--dry-run)/;
+assert.doesNotMatch(otherDeploy,realDeploy,'only the gated workflow may deploy trading-v77-scanner');
+assert.match(otherDeploy,/CLOUDFLARE_DEPLOY_AUTHORITY=deploy-skill-mandatory-fast-gateway\.yml/);
+assert.match(otherDeploy,/CLOUDFLARE_WORKER_DEPLOY=DRY_RUN_ONLY/);
+// The gate itself must still be the one that deploys, and that must survive.
+assert.match(workflow,realDeploy,'the gated workflow must still perform the real deploy');
+
+console.log('deployment secret, rollback, authority and live-canary contracts ok');

@@ -108,8 +108,9 @@ jobs:
           # could ever use them.
           required="$(node - <<'NODE'
           const fs=require('fs');
-          const snapshot=JSON.parse(fs.readFileSync('AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json','utf8'));
-          const bindings=JSON.parse(fs.readFileSync('AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json','utf8')).bindings;
+          // This step runs in cloudflare-worker/, so canonical sources are one level up.
+          const snapshot=JSON.parse(fs.readFileSync('../AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json','utf8'));
+          const bindings=JSON.parse(fs.readFileSync('../AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json','utf8')).bindings;
           const needed=new Set(['MODEL_MESH_EXECUTION_TOKEN','TINY_FISH_API']);
           for(const model of snapshot.models||[]){
             const binding=bindings[model.provider_id];
