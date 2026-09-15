@@ -48,6 +48,7 @@ jobs:
         id: device
         env:
           GATEWAY: https://android-brain-agent-gateway.hanlinh227.workers.dev
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
           REQUESTED_DEVICE_ID: ${{ steps.command.outputs.device_id }}
         run: |
           node <<'NODE'
@@ -56,14 +57,16 @@ jobs:
             const gateway = process.env.GATEWAY
             const requested = (process.env.REQUESTED_DEVICE_ID || '').trim()
             async function getJson(path) {
-              const response = await fetch(gateway + path)
+              const response = await fetch(gateway + path, {
+                headers: { authorization: `Bearer ${process.env.OIDC_TOKEN}` },
+              })
               const body = await response.json().catch(() => ({}))
               if (!response.ok) throw new Error(`${path} -> ${response.status} ${JSON.stringify(body)}`)
               return body
             }
             let deviceId = requested
             if (!deviceId) {
-              const latest = await getJson('/v1/devices/latest')
+              const latest = await getJson('/v1/device/latest')
               deviceId = latest.deviceId || ''
             }
             if (!deviceId) throw new Error('No Android device has registered yet')
@@ -114,6 +117,7 @@ jobs:
       - name: Wait for exact device result
         env:
           GATEWAY: https://android-brain-agent-gateway.hanlinh227.workers.dev
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
           DEVICE_ID: ${{ steps.device.outputs.device_id }}
           DISPATCH: ${{ steps.dispatch.outputs.dispatch }}
           COMMAND_ID: ${{ steps.dispatch.outputs.command_id }}
@@ -125,7 +129,9 @@ jobs:
             const device = encodeURIComponent(process.env.DEVICE_ID)
             const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
             async function get(path) {
-              const response = await fetch(gateway + path)
+              const response = await fetch(gateway + path, {
+                headers: { authorization: `Bearer ${process.env.OIDC_TOKEN}` },
+              })
               const body = await response.json().catch(() => ({}))
               return { response, body }
             }
@@ -133,7 +139,7 @@ jobs:
               const id = encodeURIComponent(process.env.COMMAND_ID || '')
               if (!id) throw new Error('Missing command id')
               for (let i = 0; i < 120; i += 1) {
-                const { response, body } = await get(`/v1/device/${device}/command-result/${id}`)
+                const { response, body } = await get(`/v1/device/${device}/commands/${id}/result`)
                 if (response.ok) {
                   if (body.commandId !== process.env.COMMAND_ID) throw new Error('Command receipt mismatch')
                   if (body.status === 'COMPLETED') { console.log(JSON.stringify(body)); return }
@@ -146,7 +152,7 @@ jobs:
             const taskId = encodeURIComponent(process.env.TASK_ID || '')
             if (!taskId) throw new Error('Missing task id')
             for (let i = 0; i < 600; i += 1) {
-              const { response, body } = await get(`/v1/device/${device}/task/${taskId}`)
+              const { response, body } = await get(`/v1/device/${device}/tasks/${taskId}`)
               if (response.ok) {
                 if (body.taskId !== process.env.TASK_ID) throw new Error('Task id mismatch')
                 if (body.status === 'COMPLETED') { console.log(JSON.stringify(body)); return }
