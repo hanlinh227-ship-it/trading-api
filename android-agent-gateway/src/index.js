@@ -16,6 +16,7 @@ const LOCAL_CONTACT_GOAL_TERMS = [
   'not in contacts', 'not saved in contacts', 'unsaved number', 'unsaved numbers',
   'số lạ', 'số không lưu', 'không lưu danh bạ', 'không có trong danh bạ', 'ngoài danh bạ',
 ]
+const ANDROID_PACKAGE = /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+$/
 
 export function healthPayload(env = {}) {
   return {
@@ -98,6 +99,14 @@ function goalNeedsLocalContacts(goal) {
   return LOCAL_CONTACT_GOAL_TERMS.some(term => text.includes(term))
 }
 
+function normalizeAllowedPackages(value, fallback = []) {
+  const source = Array.isArray(value) ? value : fallback
+  return [...new Set(source
+    .map(item => String(item ?? '').trim())
+    .filter(item => item.length <= 255 && ANDROID_PACKAGE.test(item)))]
+    .slice(0, 24)
+}
+
 export function normalizedTaskInput(body, authMode) {
   if (!body || typeof body !== 'object') throw new Error('input_required')
   if (typeof body.goal !== 'string' || !body.goal.trim()) throw new Error('goal_required')
@@ -117,6 +126,7 @@ export function normalizedTaskInput(body, authMode) {
     ? [...new Set(body.capabilityScope.map(String))]
     : [...new Set(['apps.open', 'ui.navigate', ...intent.capabilityScope])]
   const needsContacts = goalNeedsLocalContacts(goal)
+  const allowedPackages = normalizeAllowedPackages(body.allowedPackages, intent.allowedPackages ?? intent.targetPackages ?? [])
 
   if (!scope.includes('ui.navigate')) throw new Error('ui_navigate_required')
   if (!explicitScope && (goalRisk === 'B' || goalRisk === 'C') && !scope.includes('ui.write')) scope.push('ui.write')
@@ -135,6 +145,8 @@ export function normalizedTaskInput(body, authMode) {
     executionMode: intent.executionMode,
     deterministicAdapter: intent.deterministicAdapter,
     persistence: intent.persistence,
+    persistencePolicy: [...intent.persistencePolicy],
+    allowedPackages,
     userConstraints: intent.userConstraints,
     capabilityScope: [...new Set(scope)],
     riskClass: riskCeiling,
