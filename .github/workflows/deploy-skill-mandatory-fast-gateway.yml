@@ -9,6 +9,7 @@ on:
         options:
           - deploy
           - refresh-health
+          - discover-providers
         default: deploy
   # Fixed-minute entries, not '*/10'. GitHub sheds high-frequency '*/N'
   # schedules under load and this repository never received a single '*/10'
@@ -42,7 +43,7 @@ env:
 
 jobs:
   deploy-exact-main:
-    if: github.event_name != 'schedule' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'refresh-health')
+    if: github.event_name != 'schedule' && !(github.event_name == 'workflow_dispatch' && (inputs.mode == 'refresh-health' || inputs.mode == 'discover-providers'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -485,7 +486,7 @@ jobs:
           fi
 
   refresh-model-mesh-health:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'refresh-health')
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'refresh-health' || inputs.mode == 'discover-providers'))
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -494,6 +495,7 @@ jobs:
           ref: main
           fetch-depth: 0
       - name: Refresh current-revision provider evidence
+        if: github.event_name == 'schedule' || inputs.mode == 'refresh-health'
         env:
           MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
         shell: bash
@@ -514,8 +516,30 @@ jobs:
           printf '%s\n' "$result" | node cloudflare-worker/validate-model-mesh-probe.mjs
       # Advisory, read-only. Never gates the refresh: a provider diagnosis
       # failing must not turn a good health refresh into a failed run.
+      # Read-only listing, run on demand only: several bindings hold a
+      # credential but no admitted model, and a model cannot be admitted from a
+      # guess. Lists what each account can actually reach. Never prints a key.
+      - name: Discover reachable provider models (advisory, on demand)
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'discover-providers'
+        continue-on-error: true
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          node cloudflare-worker/discover-provider-models.mjs
+
       - name: Gemini generateContent capability diagnosis (advisory)
-        if: always()
+        if: github.event_name == 'schedule' || inputs.mode == 'refresh-health'
         continue-on-error: true
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
