@@ -26,7 +26,23 @@ assert.match(wranglerPrep,/new_sqlite_classes/);
 assert.match(wranglerExample,/TINYFISH_CIRCUIT/);
 assert.doesNotMatch(wranglerExample,/"crons"/);
 assert.doesNotMatch(workflow,/echo\s+['"]?\$\{?TINY_FISH_API/);
-assert.match(workflow,/cron: '\*\/10 \* \* \* \*'/);
+// The health-refresh schedule must use fixed-minute entries: GitHub sheds
+// high-frequency '*/N' schedules under load and the '*/10' form never produced
+// a single run in this repository. The cadence must also stay inside the
+// model-mesh LIVE_TTL_MS (30 min) so healthy evidence cannot expire between
+// refreshes, and the refresh must be dispatchable so it can be proven on demand.
+const cronLine=workflow.match(/cron: '([^']+)'/);
+assert.ok(cronLine,'health refresh cron missing');
+const [minuteField,...restFields]=cronLine[1].split(' ');
+assert.doesNotMatch(minuteField,/\*\//,'health refresh must not use a */N minute field');
+assert.deepEqual(restFields,['*','*','*','*'],'health refresh must run every hour');
+const minutes=minuteField.split(',').map(Number);
+assert.ok(minutes.length>=2&&minutes.every(m=>Number.isInteger(m)&&m>=0&&m<60),'fixed minute list required');
+const sorted=[...minutes].sort((a,b)=>a-b);
+const gaps=sorted.map((m,i)=>i===0?m+60-sorted[sorted.length-1]:m-sorted[i-1]);
+assert.ok(Math.max(...gaps)<=25,`refresh gap ${Math.max(...gaps)}min must stay inside LIVE_TTL_MS (30min) with margin`);
+assert.match(workflow,/mode == 'refresh-health'/);
+assert.match(workflow,/options:/);
 assert.match(workflow,/refresh-model-mesh-health/);
 assert.match(workflow,/git merge-base --is-ancestor "\$deployed" HEAD/);
 assert.match(workflow,/fetch-depth: 0/);

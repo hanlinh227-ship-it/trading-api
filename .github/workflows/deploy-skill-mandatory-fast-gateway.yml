@@ -2,8 +2,21 @@ name: Deploy Skill-Mandatory Fast Gateway
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'deploy = gated production deploy (default); refresh-health = non-mutating provider health refresh only'
+        type: choice
+        options:
+          - deploy
+          - refresh-health
+        default: deploy
+  # Fixed-minute entries, not '*/10'. GitHub sheds high-frequency '*/N'
+  # schedules under load and this repository never received a single '*/10'
+  # firing; every schedule here that does fire uses fixed minutes. A 20-minute
+  # cadence stays inside model-mesh LIVE_TTL_MS (30 min) with margin for the
+  # delay GitHub applies to scheduled events.
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '3,23,43 * * * *'
   push:
     branches: [main]
     paths:
@@ -29,7 +42,7 @@ env:
 
 jobs:
   deploy-exact-main:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'refresh-health')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -466,7 +479,7 @@ jobs:
           fi
 
   refresh-model-mesh-health:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'refresh-health')
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
