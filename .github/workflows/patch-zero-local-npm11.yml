@@ -1,0 +1,41 @@
+name: Patch Zero Local npm11
+
+on:
+  push:
+    branches: [feat/model-mesh-runtime-bindings]
+    paths:
+      - '.github/workflows/patch-zero-local-npm11.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/model-mesh-runtime-bindings
+      - name: Insert npm 11 workaround
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('.github/workflows/zero-local-cloud-runtime.yml')
+          text=path.read_text()
+          needle="      - uses: actions/setup-node@v4\n        with:\n          node-version: '22'\n"
+          replacement=needle+"      - name: Use npm 11 to avoid npm 10 Arborist peer crash\n        run: npm install --global npm@11 --no-audit --no-fund\n"
+          if replacement in text:
+              print('already patched')
+          elif needle in text:
+              path.write_text(text.replace(needle,replacement,1))
+          else:
+              raise SystemExit('setup-node anchor not found')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .github/workflows/zero-local-cloud-runtime.yml
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'ci: use npm 11 for zero-local gateway validation'
+          git push origin HEAD:feat/model-mesh-runtime-bindings
