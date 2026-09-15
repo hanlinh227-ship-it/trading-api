@@ -1,5 +1,6 @@
 import { parsePlannerModelResponse, PLANNER_JSON_SCHEMA } from './planner-schema.js'
 import { selectExecutionMode } from './mode-router.js'
+import { plan2048Step } from './game-2048-planner.js'
 
 const ORDER = { A: 0, B: 1, C: 2, D: 3 }
 const MODEL = '@cf/meta/llama-3.2-11b-vision-instruct'
@@ -205,10 +206,28 @@ function deterministicFallback(task, reason) {
   }
 }
 
+function deterministic2048(task, observation) {
+  const planned = clampPlan(
+    plan2048Step(task, observation),
+    task?.capabilityScope ?? [],
+    task?.riskClass ?? 'A',
+    task ?? {},
+  )
+  return {
+    action: planned.action,
+    expected: planned.expectedPostcondition,
+    mode: 'deterministic-2048',
+    rationaleCode: planned.direction ? `2048_${planned.direction}` : '2048_TERMINAL',
+  }
+}
+
 export async function planNextStep({ env, task, observation, imageDataUrl = null, history = [] }) {
   if (!task || typeof task !== 'object') throw new Error('task_required')
   if (!Array.isArray(task.capabilityScope)) throw new Error('task_capability_scope_required')
   if (!(task.riskClass in ORDER)) throw new Error('invalid_task_risk_class')
+  if (String(task.deterministicAdapter ?? '').toLowerCase() === '2048') {
+    return deterministic2048(task, observation)
+  }
   if (!env?.AI?.run) return deterministicFallback(task, 'ai_unavailable')
 
   try {
