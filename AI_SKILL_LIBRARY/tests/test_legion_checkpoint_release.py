@@ -50,6 +50,11 @@ class LegionCheckpointReleaseTests(unittest.TestCase):
         manifest_paths = {row["path"] for row in manifest["files"]}
         self.assertTrue(required.issubset(manifest_paths))
 
+    def test_stable_release_set_includes_legion_after_afmm_gate(self):
+        stable_paths = {rel for rel, _role in release.RELEASE_FILES}
+        required = {rel for rel, _role in release.CANDIDATE_EXTENSION_FILES}
+        self.assertTrue(required.issubset(stable_paths))
+
 
 if __name__ == "__main__":
     unittest.main()
