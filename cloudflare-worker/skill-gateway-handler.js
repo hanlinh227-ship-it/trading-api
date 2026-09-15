@@ -42,8 +42,8 @@ function legionBase(snapshot){
   return {
     sourceSha:snapshot.source_sha,
     releaseId:snapshot.release_id,
-    routing_authority:false,
-    reasoning_authority:false,
+    routingAuthority:false,
+    reasoningAuthority:false,
     externalRoutingCalls:0,
     stableRequestDependency:false,
   };
