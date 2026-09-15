@@ -7,6 +7,30 @@ legacy_aliases: [image_video_generation, generative_media]
 permissions: [read_only]
 risk_ceiling: read_only
 evals: [constraint_preservation, character_consistency, scene_continuity, camera_direction, prompt_regression]
+harmonization:
+  compiler_skill: video_prompt
+  parallel_primary_skills: false
+  supporting_skills_material_only: true
+  max_supporting_skills: 2
+  supporting_skill_candidates: [character_consistency, scene_continuity, camera_direction, negative_constraints]
+  generic_animation_owner: animation
+  specialist_animation_prompt_owner: video_prompt
+  shared_logic_owner:
+    identity_preservation: character_consistency
+    scene_continuity: scene_continuity
+    object_counts: scene_continuity
+    camera_variation: camera_direction
+    reference_preservation: character_consistency
+    negative_constraints: negative_constraints
+    start_end_state: scene_continuity
+    contact_continuity: scene_continuity
+    trajectory: scene_continuity
+    screen_direction: camera_direction
+    camera_ownership: camera_direction
+    motion_budget: video_prompt
+    temporal_action_order: video_prompt
+    body_mechanics: video_prompt
+    provider_wording: video_prompt
 quality_requirements:
   explicit_objective: true
   measurable_success_criteria_when_iterating: true
