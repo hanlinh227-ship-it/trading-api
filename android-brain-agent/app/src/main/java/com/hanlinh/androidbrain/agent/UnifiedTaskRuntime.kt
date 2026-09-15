@@ -35,7 +35,9 @@ class UnifiedTaskRuntime(
             localPlanProvider = ::nextLocalPlan,
             signalProvider = ::signalsFor,
             actionExecutor = { action -> actionExecutor(action, session) },
-            onVerifiedTransition = mappingPlanner::recordVerifiedTransition,
+            onVerifiedTransition = { before, action, after, latencyMs ->
+                if (!domainMode) mappingPlanner.recordVerifiedTransition(before, action, after, latencyMs)
+            },
         )
     }
 
