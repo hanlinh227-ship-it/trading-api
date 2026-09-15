@@ -45,4 +45,3 @@ Merge and deploy the diagnostic-capable exact-main revision. Capture the safe pr
 ## Task 8: Release, pull request, and exact-SHA production proof
 
 Run the complete Node suite and Linux Python release validation, inspect the diff, and perform security review. Update checkpoint/release artifacts through repository tooling. Push the branch, open a PR, require full CI and review, merge without force, wait for exact-main deployment, and verify runtime revision, Brain health, route matrix, provider matrix, planner cardinality, TinyFish health/canary, and unchanged trading contract. Mark known-good only when all gates pass; otherwise report the precise safe blocker.
-

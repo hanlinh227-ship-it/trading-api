@@ -47,4 +47,3 @@ Wrangler configuration continues using `keep_vars: true`; financial/live switche
 - CI cannot pass a reported ACTIVE provider without a live probe pass.
 - TinyFish uses only Search/Fetch, with timeouts, bounded retries, rate/circuit protection, and separate health/canary evidence.
 - Existing Bybit routes, bindings, runtime switches, and event-driven trading behavior remain unchanged.
-

@@ -58,4 +58,3 @@ export async function writeProbeHealth(kv,model,probe,{sourceSha='',nowMs=Date.n
   }
   return {...record,persisted:false,storeCategory:'KV_PROPAGATION_PENDING'};
 }
-

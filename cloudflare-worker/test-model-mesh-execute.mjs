@@ -35,7 +35,7 @@ assert.equal(calls,1);
 assert.equal(JSON.stringify(body).includes('topsecret'),false);
 assert.equal(body.results[0].verification_status,'unverified_model_output');
 
-const statuses=providerConfigurationStatus(modelSnapshot,{GROQ_API_KEY:'topsecret'});
+const statuses=await providerConfigurationStatus(modelSnapshot,{GROQ_API_KEY:'topsecret',TRADING_STATE});
 const groq=statuses.find(row=>row.providerId==='groq');
 const nvidia=statuses.find(row=>row.providerId==='nvidia_nim');
 assert.equal(groq.configured,true);
