@@ -15,6 +15,7 @@ data class UnifiedObservation(
     val screenshotHash: String? = null,
     val perceptualHash: String? = null,
     val semanticNodeCount: Int = 0,
+    val skillSpecificState: String? = null,
     val screenSignature: String = signature(
         packageName = packageName,
         activityHint = activityHint,
