@@ -5,8 +5,15 @@ import com.hanlinh.androidbrain.execution.AdaptiveActionScheduler
 import com.hanlinh.androidbrain.perception.UnifiedObservation
 import com.hanlinh.androidbrain.policy.RiskClass
 import com.hanlinh.androidbrain.protocol.Action
+import com.hanlinh.androidbrain.protocol.GlobalBack
+import com.hanlinh.androidbrain.protocol.GlobalHome
+import com.hanlinh.androidbrain.protocol.GlobalNotifications
+import com.hanlinh.androidbrain.protocol.GlobalQuickSettings
+import com.hanlinh.androidbrain.protocol.GlobalRecents
 import com.hanlinh.androidbrain.protocol.LaunchApp
 import com.hanlinh.androidbrain.protocol.OpenUrl
+import com.hanlinh.androidbrain.protocol.ReadScreen
+import com.hanlinh.androidbrain.protocol.Wait
 import com.hanlinh.androidbrain.recovery.RecoveryEngine
 import com.hanlinh.androidbrain.verification.UnifiedVerifier
 
@@ -127,11 +134,20 @@ class UnifiedOperatorEngine(
                 if (currentSession().terminal) {
                     return LocalLoopResult(executedThisRun, cloudRequestCount, terminalCode ?: "APP_SCOPE_EXIT")
                 }
-                val verification = verifier.verifyTransition(before, after, expectedPackage = before.packageName)
-                if (!verification.success) return escalate(executedThisRun, "LOCAL_POSTCONDITION_NOT_MET")
+                val observationOnlyAction = action === ReadScreen || action is Wait
+                val verification = if (observationOnlyAction) {
+                    null
+                } else {
+                    verifier.verifyTransition(before, after, expectedPackage = expectedPackage(action, before.packageName))
+                }
+                if (verification != null && !verification.success) {
+                    return escalate(executedThisRun, "LOCAL_POSTCONDITION_NOT_MET")
+                }
 
                 val latencyMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0)
-                onVerifiedTransition(before, action, after, latencyMs)
+                if (!observationOnlyAction) {
+                    onVerifiedTransition(before, action, after, latencyMs)
+                }
                 recordVerifiedLocalAction()
                 executedThisRun += 1
                 before = after
@@ -149,6 +165,18 @@ class UnifiedOperatorEngine(
     @Synchronized
     fun recordVerifiedLocalAction() {
         if (!terminal) verifiedLocalActionCount += 1
+    }
+
+    private fun expectedPackage(action: Action, currentPackage: String): String? = when (action) {
+        is LaunchApp -> action.packageName
+        is OpenUrl,
+        GlobalBack,
+        GlobalHome,
+        GlobalRecents,
+        GlobalNotifications,
+        GlobalQuickSettings,
+        -> null
+        else -> currentPackage
     }
 
     private fun isLocalActionAuthorized(action: Action): Boolean {
