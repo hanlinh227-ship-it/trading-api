@@ -31,16 +31,21 @@ jobs:
           python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
           cd cloudflare-worker
           npm install --no-audit --no-fund
-      - name: Promote verified Legion contracts into 4.9 release set
+
+      - name: Fix 4.9 release mechanics and archive retired workflows
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          p=Path('AI_SKILL_LIBRARY/v4/tools/release.py')
-          s=p.read_text(encoding='utf-8')
-          marker=')\n\n\ndef sha256_file'
-          addition=(
+
+          release_path = Path('AI_SKILL_LIBRARY/v4/tools/release.py')
+          s = release_path.read_text(encoding='utf-8')
+
+          # Brain 4.9 promotes the already-verified Legion/Learning contracts into
+          # the immutable release set. Candidate packaging remains available for audit.
+          marker = ')\n\n\ndef sha256_file'
+          addition = (
               ')\n\n'
               '# AFMM component gates are verified before Brain 4.9 packaging. The Peer Tri-Layer\n'
               '# AI Legion contracts therefore join the immutable 4.9 stable release set while\n'
@@ -51,9 +56,45 @@ jobs:
           if 'RELEASE_FILES = RELEASE_FILES + CANDIDATE_EXTENSION_FILES' not in s:
               if marker not in s:
                   raise SystemExit('release.py promotion insertion point not found')
-              s=s.replace(marker,addition,1)
-              p.write_text(s,encoding='utf-8')
+              s = s.replace(marker, addition, 1)
+
+          old = '''def rollback_release(root: Path) -> str:\n    pointer = load_release_pointer(root)\n    current = pointer.get("version")\n    history_path = root / RELEASE_ROOT / "history.yaml"\n    data = yaml.safe_load(history_path.read_text(encoding="utf-8")) if history_path.is_file() else {}\n    rows = data.get("releases", []) if isinstance(data, dict) else []\n    known_good = [row.get("version") for row in rows if isinstance(row, dict) and row.get("known_good") is True]\n    if current not in known_good:\n        raise ValueError("current release is not present in known-good history")\n    index = known_good.index(current)\n    if index == 0:\n        raise ValueError("no previous known-good release available")\n    target = known_good[index - 1]\n    manifest_path = root / RELEASE_ROOT / target / "manifest.yaml"\n    if not manifest_path.is_file():\n        raise ValueError("previous known-good manifest missing")\n    set_release_pointer(root, target, sha256_file(manifest_path))\n    return target\n'''
+          new = '''def rollback_release(root: Path) -> str:\n    pointer = load_release_pointer(root)\n    current = pointer.get("version")\n    history_path = root / RELEASE_ROOT / "history.yaml"\n    data = yaml.safe_load(history_path.read_text(encoding="utf-8")) if history_path.is_file() else {}\n    rows = [row for row in (data.get("releases", []) if isinstance(data, dict) else []) if isinstance(row, dict)]\n    versions = [row.get("version") for row in rows]\n    if current not in versions:\n        raise ValueError("current release is not present in release history")\n    current_index = versions.index(current)\n    current_row = rows[current_index]\n    if current_row.get("known_good") is True:\n        eligible = [row for row in rows[:current_index] if row.get("known_good") is True]\n    else:\n        eligible = [row for row in rows[:current_index] if row.get("known_good") is True]\n    if not eligible:\n        raise ValueError("no previous known-good release available")\n    target = eligible[-1].get("version")\n    if not isinstance(target, str) or not target:\n        raise ValueError("previous known-good version is invalid")\n    manifest_path = root / RELEASE_ROOT / target / "manifest.yaml"\n    if not manifest_path.is_file():\n        raise ValueError("previous known-good manifest missing")\n    errors, _warnings = verify_release(root, target)\n    if errors:\n        raise ValueError("previous known-good release is invalid: " + "; ".join(errors))\n    set_release_pointer(root, target, sha256_file(manifest_path))\n    return target\n'''
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'current release is not present in release history' not in s:
+              raise SystemExit('rollback_release expected source block not found')
+          release_path.write_text(s, encoding='utf-8')
+
+          test_path = Path('AI_SKILL_LIBRARY/tests/test_brain_4_8_continuous_intelligence.py')
+          t = test_path.read_text(encoding='utf-8')
+          old_test = '''    def test_release_target_is_4_8_1(self):\n        pointer = json.loads((ROOT / "AI_SKILL_LIBRARY/v4/releases/current.json").read_text(encoding="utf-8"))\n        self.assertEqual(pointer.get("version"), "4.8.1")\n'''
+          new_test = '''    def test_release_target_preserves_brain_4_8_or_newer(self):\n        pointer = json.loads((ROOT / "AI_SKILL_LIBRARY/v4/releases/current.json").read_text(encoding="utf-8"))\n        version = str(pointer.get("version", ""))\n        parts = version.split(".")\n        self.assertEqual(len(parts), 3)\n        major, minor, patch = (int(part) for part in parts)\n        self.assertEqual(major, 4)\n        self.assertGreaterEqual((minor, patch), (8, 1))\n'''
+          if old_test in t:
+              t = t.replace(old_test, new_test, 1)
+          elif 'test_release_target_preserves_brain_4_8_or_newer' not in t:
+              raise SystemExit('Brain 4.8 pointer test source block not found')
+          test_path.write_text(t, encoding='utf-8')
           PY
+
+          mkdir -p .github/workflows-archive
+          for name in afmm-tdd.yml legion-branch-tdd.yml prepare-brain-4-9.yml apply-btc-hold-logic.yml; do
+            if [[ -f ".github/workflows/$name" ]]; then
+              if [[ -e ".github/workflows-archive/$name" ]]; then
+                echo "archive destination already exists: $name" >&2
+                exit 1
+              fi
+              git mv ".github/workflows/$name" ".github/workflows-archive/$name"
+            fi
+          done
+          python - <<'PY'
+          from pathlib import Path
+          active = sorted(p.name for p in Path('.github/workflows').glob('*.yml'))
+          print('ACTIVE_WORKFLOW_COUNT=', len(active))
+          if len(active) >= 120:
+              raise SystemExit(f'active workflow ceiling still exceeded: {len(active)}')
+          PY
+
       - name: Update Brain 4.9 cross-chat checkpoint
         shell: bash
         run: |
@@ -71,20 +112,25 @@ jobs:
               s += '''\n\n## Brain 4.9 Adaptive Free Model Mesh + Peer Tri-Layer AI Legion contract\n\n- `task_router` and project authority remain the sole routing/reasoning authority; model providers, OpenCode workers, specialist agents, RAG/MCP patterns and learning engines are subordinate execution/evidence resources.\n- FAST remains provider-free with `externalRoutingCalls=0`; STANDARD and DEEP may use bounded independent workers only, capped at 2 and 4 respectively.\n- Model Mesh mode is `FREE_ONLY`; catalog presence is not free-entitlement proof, and paid/unknown/quarantined models are not execution eligible.\n- Provider execution is disabled by default and requires runtime configuration, current free entitlement, privacy compatibility and health evidence. Integrated providers without those gates are `INTEGRATED_NOT_ACTIVE`, never reported LIVE.\n- Learning planes Experience, Curated and Exploration are peers for hypothesis/challenge/candidate creation. No plane has a fixed truth weight and majority vote is forbidden.\n- AutoSkill/SkillEvo patterns are absorbed as Brain-native skill mining/evolution with replay, protected regression checks, sandbox/canary and promotion gates; they cannot self-elevate permissions or authority.\n- Idle learning may create bounded low-risk background jobs but yields immediately to active user work and cannot execute live financial actions, access secrets outside scope, or widen permissions.\n- Trading specialists remain research/backtest/evidence workers only; real order execution is outside this release authority.\n- Brain 4.9 is not known-good until canonical CI, Worker checks, Wrangler dry-run, exact-SHA deployment, `/brain/health`, `/brain/mesh/health`, route/planner smoke and post-deploy verification all pass.\n'''
           p.write_text(s,encoding='utf-8')
           PY
+
       - name: Component pre-release tests
         run: |
           python -m unittest discover -s AI_SKILL_LIBRARY/tests -p 'test_adaptive_free_model_mesh*.py' -v
           python -m unittest discover -s AI_SKILL_LIBRARY/tests -p 'test_*legion*.py' -v
+          python -m unittest AI_SKILL_LIBRARY.tests.test_brain_4_8_continuous_intelligence -v
           cd cloudflare-worker
           node test-model-mesh.mjs
           node test-model-mesh-handler.mjs
           node test-model-mesh-execute.mjs
-      - name: Build canonical retrieval index and unmarked 4.9.0 release
+
+      - name: Build canonical 4.9 release and retrieval index in dependency order
         shell: bash
         run: |
           set -euo pipefail
-          python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --root .
           python AI_SKILL_LIBRARY/v4/tools/release.py build --version 4.9.0 --source human_authorized_adaptive_free_model_mesh_and_legion --class C --validated --root .
+          python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --root . --write
+          python AI_SKILL_LIBRARY/v4/tools/release.py build --version 4.9.0 --source human_authorized_adaptive_free_model_mesh_and_legion --class C --validated --root .
+
       - name: Full verification on generated 4.9 tree
         shell: bash
         run: |
@@ -99,17 +145,14 @@ jobs:
           npm run prepare:model-mesh
           npm run check
           node benchmark-skill-gateway.mjs
+
       - name: Commit validated 4.9 release state to implementation branch
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            AI_SKILL_LIBRARY/v4/tools/release.py \
-            AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md \
-            AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml \
-            AI_SKILL_LIBRARY/v4/releases
+          git add -A
           git diff --cached --check
           if git diff --cached --quiet; then
             echo 'BRAIN_4_9_RELEASE_STATE=UNCHANGED'
