@@ -23,6 +23,29 @@ class EventDrivenObserver(
         return cache.updateSemantic(snapshot, nowMs)
     }
 
+    /**
+     * Waits briefly for an accessibility revision after a dispatched action, then re-observes.
+     * The timeout is a safety bound; normal completion remains event-driven rather than a fixed sleep.
+     */
+    fun awaitSemanticChange(
+        afterRevision: Long,
+        timeoutMs: Long = 800L,
+        pollMs: Long = 20L,
+    ): UnifiedObservation? {
+        require(timeoutMs >= 0)
+        require(pollMs > 0)
+        val deadline = System.nanoTime() + timeoutMs * 1_000_000L
+        while (cache.semanticRevision <= afterRevision && System.nanoTime() < deadline) {
+            try {
+                Thread.sleep(pollMs.coerceAtMost(50L))
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                break
+            }
+        }
+        return refresh()
+    }
+
     fun latest(): UnifiedObservation? = cache.latestObservation ?: refresh()
 
     companion object {
