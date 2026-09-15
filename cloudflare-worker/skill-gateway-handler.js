@@ -8,6 +8,9 @@ const LEGION_DIVISIONS=[
   'engineering','security','research','data_rag','creative','ux_ui','design_2d','design_3d',
   'automation','browser_mcp','deployment','trading_quant_research','business','game','academic','checker_grader'
 ];
+const LEGION_EXECUTION_PATTERNS=[
+  'single_specialist','parallel_specialists','maker_checker','corrective_rag','agentic_rag','mcp_specialist_router','multimodal_team'
+];
 const LEARNING_LAYERS=['experience','curated','exploration'];
 
 async function parseBody(request){
@@ -51,6 +54,7 @@ function legionStatus(snapshot){
     ok:true,
     service:'peer-tri-layer-ai-legion',
     ...legionBase(snapshot),
+    status:'ready',
     singleCommander:'GITHUB_BRAIN_V4',
     maxParallel:LEGION_MAX_PARALLEL,
     tradingDefault:'research_only',
@@ -63,6 +67,8 @@ function legionCapabilities(snapshot){
     ok:true,
     ...legionBase(snapshot),
     divisions:LEGION_DIVISIONS,
+    maxParallel:LEGION_MAX_PARALLEL,
+    executionPatterns:LEGION_EXECUTION_PATTERNS,
     workerSelection:'bounded_capability_match',
     modelExecutionLayer:'adaptive_free_model_mesh',
     opencodeWorker:'optional_bounded_execution',
@@ -75,6 +81,8 @@ function learningStatus(snapshot){
     ok:true,
     service:'peer-tri-layer-learning',
     ...legionBase(snapshot),
+    status:'idle',
+    activeJobs:0,
     layers:LEARNING_LAYERS,
     epistemicRelationship:'peer',
     fixedLayerPriority:false,
