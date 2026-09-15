@@ -108,4 +108,4 @@ compatibility:
 promotion:
   class: C
   validated: true
-  source: human_authorized_adaptive_free_model_mesh_and_legion
+  source: post_deploy_verified_adaptive_free_model_mesh
