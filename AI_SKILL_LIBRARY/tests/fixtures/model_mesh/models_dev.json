@@ -1,0 +1,33 @@
+{
+  "groq": {
+    "id": "groq",
+    "name": "Groq",
+    "models": {
+      "gpt-oss-120b": {
+        "id": "gpt-oss-120b",
+        "name": "GPT OSS 120B",
+        "family": "gpt-oss-120b",
+        "limit": {"context": 131072},
+        "capabilities": {"tool_calling": true, "reasoning": true}
+      },
+      "llama-3.3-70b-versatile": {
+        "id": "llama-3.3-70b-versatile",
+        "name": "Llama 3.3 70B Versatile",
+        "family": "llama-3.3-70b",
+        "limit": {"context": 131072}
+      }
+    }
+  },
+  "openrouter": {
+    "id": "openrouter",
+    "name": "OpenRouter",
+    "models": {
+      "example/free-labelled-model": {
+        "id": "example/free-labelled-model",
+        "name": "Free Labelled Example",
+        "family": "example-model",
+        "cost": {"input": 0, "output": 0}
+      }
+    }
+  }
+}
