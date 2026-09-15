@@ -44,7 +44,7 @@ files:
   sha256: d7940705dc70da3fe386de098d200aaf59ce02e9652b2e88a0af2e7c447f57a0
   role: creative_visual_fusion
 - path: AI_SKILL_LIBRARY/v4/stable/presentation.yaml
-  sha256: c80a002373c45c09879dd518c36a56c4720c139bc4ecd590a989a8fd97926337
+  sha256: cb48174cf6e85b459a8c92dfce6bb4115dc3bbae7cd00b899de466eee2519cf2
   role: presentation
 - path: AI_SKILL_LIBRARY/v4/stable/display_names.yaml
   sha256: 599e8ba027ba6472766e51cac1c33fe26b370b96204e45a523ea0908c887f302
