@@ -30,9 +30,10 @@ class RecoveryEngine(
         if (context.hardSafetyBlock || context.attemptsForState >= maxAttemptsPerState) {
             return RecoveryDirective.PAUSE_OR_FAIL
         }
-        if (context.observationStale || context.attemptsForState == 0) return RecoveryDirective.REOBSERVE
+        if (context.observationStale) return RecoveryDirective.REOBSERVE
         if (context.groundingInvalid) return RecoveryDirective.REGROUND
         if (context.hasVerifiedAlternateSelector) return RecoveryDirective.USE_VERIFIED_SELECTOR
+        if (context.attemptsForState == 0) return RecoveryDirective.REOBSERVE
         if (!context.visualAvailable) return RecoveryDirective.CAPTURE_VISUAL
         if (context.hasVerifiedVisualRecovery) return RecoveryDirective.USE_VERIFIED_VISUAL_RECOVERY
         if (context.hasVerifiedGraphPath) return RecoveryDirective.USE_GRAPH_PATH
