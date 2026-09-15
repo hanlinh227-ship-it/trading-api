@@ -19,7 +19,6 @@ const noDelay=async()=>{};
   const first=await writeProbeHealth(kv,baseModel,{ok:false,category:'AUTH_FAILED',latencyMs:10},{sourceSha:SHA,nowMs:t0,delay:noDelay});
   assert.equal(first.state,'DEGRADED','a single AUTH_FAILED is transient, not a quarantine');
   assert.equal(first.consecutiveFailures,1);
-  // ...and recovers on the very next successful probe.
   const recovered=await writeProbeHealth(kv,baseModel,{ok:true,latencyMs:12},{sourceSha:SHA,nowMs:t0+60_000,delay:noDelay});
   assert.equal(recovered.state,'LIVE_HEALTHY');
   assert.equal(recovered.consecutiveFailures,0,'a success resets the failure streak');
@@ -63,7 +62,6 @@ const noDelay=async()=>{};
 // 4. Quota-aware probing: a provider inside its own cooldown is not re-probed
 // ===========================================================================
 {
-  // The probe reads the real clock, so the stored cooldown is anchored to now.
   const kv=makeKv();
   await writeProbeHealth(kv,baseModel,{ok:false,category:'RATE_LIMITED',retryAfter:'900',latencyMs:3},{sourceSha:SHA,nowMs:Date.now(),delay:noDelay});
   let calls=0;
@@ -83,21 +81,19 @@ const noDelay=async()=>{};
   await writeProbeHealth(kv,baseModel,{ok:true,latencyMs:5},{sourceSha:SHA,nowMs:t0,delay:noDelay});
   const fresh=await readModelHealth(kv,baseModel,{sourceSha:SHA,nowMs:t0+60_000});
   assert.equal(fresh.state,'LIVE_HEALTHY');
-  // 30 minutes later the evidence has expired.
   const stale=await readModelHealth(kv,baseModel,{sourceSha:SHA,nowMs:t0+31*60_000});
   assert.equal(stale.state,'DEGRADED');
   assert.equal(stale.category,'STALE_EVIDENCE');
-  // A new revision invalidates evidence rather than trusting it.
   const otherRevision=await readModelHealth(kv,baseModel,{sourceSha:'d'.repeat(40),nowMs:t0+60_000});
   assert.equal(otherRevision.category,'SOURCE_REVISION_MISMATCH');
 }
 
 const skillSnapshot={source_sha:SHA,fallback_primary_skill:'core_reasoning',capsules:{core_reasoning:{domain:'core',capsule_hash:'h'}}};
 const modelSnapshot={source_sha:SHA,models:[baseModel]};
+const activeIndex={schema_version:1,source_sha:SHA,mode:'FREE_ONLY',routing_authority:false,reasoning_authority:false,coverage:{},entries:[{candidate_key:'groq:openai/gpt-oss-120b',provider_id:'groq',model_id:'openai/gpt-oss-120b',model_family:'gpt-oss-120b',capability_evidence:{text_reasoning:{state:'PROVISIONAL',score:0.8,evidence_ids:[],measured_at:null}}}]};
 
 {
-  // Every provider unavailable: a correct plan with zero workers, not an error.
-  const plan=await buildModelMeshPlan({text:'analyse this',profile:'DEEP'},{skillSnapshot,modelSnapshot,env:{}});
+  const plan=await buildModelMeshPlan({text:'analyse this',profile:'DEEP'},{skillSnapshot,modelSnapshot,activeIndex,env:{}});
   assert.equal(plan.ok,true,'the Brain answers even with no provider at all');
   assert.deepEqual(plan.workers,[]);
   assert.equal(plan.selectionReason,'no_live_healthy_provider');
@@ -110,16 +106,15 @@ const modelSnapshot={source_sha:SHA,models:[baseModel]};
 // ===========================================================================
 {
   const env={GROQ_API_KEY:'k'.repeat(24),TRADING_STATE:makeKv()};
-  const fast=await buildModelMeshPlan({text:'hi',profile:'FAST'},{skillSnapshot,modelSnapshot,env});
+  const fast=await buildModelMeshPlan({text:'hi',profile:'FAST'},{skillSnapshot,modelSnapshot,activeIndex,env});
   assert.deepEqual(fast.workers,[]);
   assert.equal(fast.selectionReason,'fast_external_mesh_forbidden');
   assert.equal(MODEL_MESH_LIMITS.FAST,0,'the compiled policy forbids FAST fan-out');
 
-  const secret=await buildModelMeshPlan({text:'hi',profile:'DEEP',dataClass:'SECRET'},{skillSnapshot,modelSnapshot,env});
+  const secret=await buildModelMeshPlan({text:'hi',profile:'DEEP',dataClass:'SECRET'},{skillSnapshot,modelSnapshot,activeIndex,env});
   assert.deepEqual(secret.workers,[]);
   assert.equal(secret.selectionReason,'secret_external_mesh_forbidden');
-  // An unrecognised class fails closed to SECRET.
-  const unknown=await buildModelMeshPlan({text:'hi',profile:'DEEP',dataClass:'not-a-class'},{skillSnapshot,modelSnapshot,env});
+  const unknown=await buildModelMeshPlan({text:'hi',profile:'DEEP',dataClass:'not-a-class'},{skillSnapshot,modelSnapshot,activeIndex,env});
   assert.equal(unknown.dataClass,'SECRET');
   assert.deepEqual(unknown.workers,[]);
 }
@@ -139,12 +134,8 @@ const modelSnapshot={source_sha:SHA,models:[baseModel]};
   assert.equal(selectionRejection({...healthy,quota_state:{state:'COOLDOWN_QUOTA',resetAt:null}},{}),'quota');
   assert.equal(selectionRejection(healthy,{contextTokens:200000}),'context_fit');
   for(const filter of MODEL_MESH_SELECTION_FILTERS)assert.ok(typeof filter==='string'&&filter.length);
-
-  // An evaluation-only model is not production capacity anywhere: not probed,
-  // not counted as inventory, not selectable.
   assert.equal(selectionCandidate({...healthy,usage_terms:'evaluation'}),false);
   assert.equal(eligibleModel({...healthy,usage_terms:'evaluation'}),false);
-  // But a merely unhealthy model is still inventory -- it can recover.
   assert.equal(selectionCandidate({...healthy,health:'unavailable'}),true);
 }
 
@@ -168,8 +159,6 @@ const modelSnapshot={source_sha:SHA,models:[baseModel]};
 // ===========================================================================
 {
   const kv=makeKv();const t0=Date.parse('2026-09-15T12:00:00Z');
-  // Two writers racing on the same key: the surviving record must still be a
-  // valid, readable record rather than a torn merge.
   const [a,b]=await Promise.all([
     writeProbeHealth(kv,baseModel,{ok:false,category:'AUTH_FAILED',latencyMs:1},{sourceSha:SHA,nowMs:t0,delay:noDelay}),
     writeProbeHealth(kv,baseModel,{ok:false,category:'AUTH_FAILED',latencyMs:2},{sourceSha:SHA,nowMs:t0+1,delay:noDelay}),
@@ -191,7 +180,16 @@ const modelSnapshot={source_sha:SHA,models:[baseModel]};
 }
 
 // ===========================================================================
-// 11. Self-heal is bounded and never surfaces as a request error
+// 11. Capability evidence never mints live health
+// ===========================================================================
+{
+  const evidenceOnly={...baseModel,capability_evidence:{text_reasoning:{state:'VERIFIED',score:0.95,evidence_ids:['bench'],measured_at:'2026-09-15T10:00:00Z'}}};
+  const state=await readModelHealth(makeKv(),evidenceOnly,{sourceSha:SHA,nowMs:Date.parse('2026-09-15T12:00:00Z')});
+  assert.notEqual(state.state,'LIVE_HEALTHY','capability verification is independent from provider live-health evidence');
+}
+
+// ===========================================================================
+// 12. Self-heal is bounded and never surfaces as a request error
 // ===========================================================================
 {
   const kv=makeKv();const t0=Date.parse('2026-09-15T12:00:00Z');
@@ -202,7 +200,6 @@ const modelSnapshot={source_sha:SHA,models:[baseModel]};
   assert.equal((await claimSelfHeal(kv,{nowMs:t0+6*60_000})).claimed,true,'and becomes available again after the interval');
   assert.equal((await claimSelfHeal(null,{nowMs:t0})).claimed,false,'no health store means no recovery attempt');
 
-  // A recovery probe that throws must not reject the caller's request.
   const pending=[];
   const ctx={waitUntil:p=>pending.push(p)};
   const scheduled=scheduleSelfHeal({env:{TRADING_STATE:makeKv()},ctx,probeProviders:async()=>{throw new Error('provider down');},modelSnapshot,nowMs:t0});
@@ -212,11 +209,9 @@ const modelSnapshot={source_sha:SHA,models:[baseModel]};
 }
 
 // ===========================================================================
-// 12. domain_capabilities.yaml is real ranking authority, not documentation
+// 13. domain_capabilities.yaml is real ranking authority, not documentation
 // ===========================================================================
 {
-  // Previously ranking read quality_scores[domain], which is {} for every model
-  // in the active registry, so the routed domain changed nothing.
   const coder={...baseModel,provider_id:'groq',model_id:'coder',model_family:'coder-family',
     capabilities:{text_reasoning:{supported:true,score:0.7},coding:{supported:true,score:0.95}},quality_scores:{}};
   const scholar={...baseModel,provider_id:'gemini_developer_api',model_id:'scholar',model_family:'scholar-family',
@@ -228,8 +223,6 @@ const modelSnapshot={source_sha:SHA,models:[baseModel]};
   const academic=selectModelWorkers({profile:'DEEP',domain:'academic',models:pool});
   assert.equal(academic[0].model_family,'scholar-family','academic must prefer the long-context research model');
 
-  // Ranking must never become gating: a model that declares none of the
-  // domain's dimensions is ranked last, not excluded.
   const sparse={...baseModel,provider_id:'mistral',model_id:'sparse',model_family:'sparse-family',
     capabilities:{text_reasoning:{supported:true,score:0.5}},quality_scores:{}};
   const withSparse=selectModelWorkers({profile:'DEEP',domain:'engineering',models:[...pool,sparse]});
