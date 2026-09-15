@@ -13,7 +13,9 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Mandatory routing contract: exactly one primary skill + validated execution capsule for every GitHub Brain request
 - FAST routing: exact-SHA hot snapshot, zero GitHub/provider/network calls for route selection
 - Fallback primary skill: `core_reasoning`
-- Current capability release target: `4.9.0` Adaptive Free Model Mesh + Peer Tri-Layer AI Legion; remains not-known-good until exact-SHA production verification, preserving the canonical routed skill/capsule authority chain
+- Current capability release: `4.9.1` Adaptive Free Model Mesh — **production verified known-good** at exact SHA `99359b1720a28614749d53615fe2b740044de40e` (deploy run 34987419682), preserving the canonical routed skill/capsule authority chain
+- Master cross-session handoff: `CHECKPOINTS/GITHUB_BRAIN_MASTER_HANDOFF_2026-09-15.md` — read this after the checkpoint for current production truth, Model Mesh architecture, unresolved items and the next-phase boundary
+- Model Mesh production state: FREE_ONLY, 5 eligible providers, 3 ACTIVE; `gemini_developer_api` quarantined on an unresolved 404 and `mistral` rate-limited (both non-blocking, see the master handoff)
 - Continuous Intelligence rule: the Evergreen Update Plane may autonomously refresh sources, detect evidence-backed gaps, generate/test candidates, and prepare bounded improvements; Stable remains immutable during request execution and changes only through validated release promotion.
 - Autonomous promotion boundary: Class A/B may promote only after all required gates (and sandbox for B); Class C/D require explicit human authorization and cannot unattended-promote.
 - Open-source fusion rule: upstream repositories are reference/evidence only; strengthen existing canonical skills first; no parallel reasoning authority; no permission widening; no mandatory local runtime
