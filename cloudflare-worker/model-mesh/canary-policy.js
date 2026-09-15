@@ -1,9 +1,11 @@
-const SECRET_PATTERN=/API_KEY|TOKEN|Authorization|Bearer|secret/i;
+import {findCredentialLeaks} from '../security/secret-scan.js';
+
 const UNAVAILABLE_STATES=new Set(['DEGRADED','COOLDOWN','QUARANTINED']);
 
-export function validateProbeCanary(envelope,{requireHealthy=false}={}){
+export function validateProbeCanary(envelope,{requireHealthy=false,secretValues=[]}={}){
   if(!envelope||envelope.ok!==true||envelope.mode!=='FREE_ONLY'||envelope.routingAuthority!==false||envelope.reasoningAuthority!==false||!Array.isArray(envelope.results)||envelope.results.length===0)throw new Error('invalid_probe_envelope');
-  if(SECRET_PATTERN.test(JSON.stringify(envelope)))throw new Error('unsafe_probe_output');
+  const leaks=findCredentialLeaks(JSON.stringify(envelope),{secretValues});
+  if(leaks.length)throw new Error(`unsafe_probe_output:${leaks.map(leak=>`${leak.kind}:${leak.detail}`).sort().join(',')}`);
   if(envelope.probedProviderCount!==envelope.results.length)throw new Error('probe_count_mismatch');
   const configured=envelope.results.filter(row=>row?.configured===true);
   if(configured.length===0)throw new Error('no_configured_provider');

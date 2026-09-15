@@ -2,11 +2,12 @@ import {callOpenAICompatible} from './providers/openai-compatible.js';
 import {callGemini} from './providers/gemini.js';
 import {callCloudflareAI} from './providers/cloudflare-ai.js';
 import {selectModelWorkers} from './selector.js';
-import {classifyProviderFailure,freeOnlyEligible,sanitizeDataClass} from './contracts.js';
+import {classifyProviderFailure,sanitizeDataClass,selectionCandidate} from './contracts.js';
 import {MODEL_MESH_BINDINGS} from '../generated/model-mesh-bindings.js';
-import {recordModelExecutionHealth,writeProbeHealth} from './health-store.js';
+import {readModelHealth,recordModelExecutionHealth,writeProbeHealth} from './health-store.js';
 import {providerRuntimeStatus,resolveLiveModels} from './runtime-health.js';
 import {timingSafeToken} from './auth.js';
+import {scheduleSelfHeal} from './self-heal.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const nowIso=()=>new Date().toISOString();
@@ -40,15 +41,30 @@ export async function providerConfigurationStatus(modelSnapshot,env={}){return p
 export function createProviderProbe({fetchImpl=fetch,maxParallel=4}={}){
   return async function probeProviders(env,{modelSnapshot}={}){
     const firstByProvider=[];const seen=new Set();
-    for(const model of modelSnapshot?.models||[]){if(freeOnlyEligible(model)&&!seen.has(model.provider_id)){seen.add(model.provider_id);firstByProvider.push(model);}}
+    for(const model of modelSnapshot?.models||[]){if(selectionCandidate(model)&&!seen.has(model.provider_id)){seen.add(model.provider_id);firstByProvider.push(model);}}
     const probeOne=async model=>{
       const started=Date.now();const worker=resolveRuntimeWorker(model);
       if(!worker)return {providerId:model.provider_id,modelId:model.model_id,configured:false,ok:false,status:0,latencyMs:Date.now()-started,category:'UNKNOWN_SANITIZED',state:'CONFIGURED'};
       const configured=Boolean(worker.secret_name&&env?.[worker.secret_name])&&Boolean(!worker.account_id_env||env?.[worker.account_id_env]);
       if(!configured)return {providerId:model.provider_id,modelId:model.model_id,configured:false,ok:false,status:0,latencyMs:Date.now()-started,category:'UNKNOWN_SANITIZED',state:'CONFIGURED'};
+
+      // Quota-aware probing. A provider that told us to wait is not probed
+      // again until its own reset has passed -- probing into an active cooldown
+      // spends free quota to learn something the store already knows, and is
+      // how mistral/opencode_zen ended up 429 on every probe.
+      const existing=await readModelHealth(env?.TRADING_STATE,model,{sourceSha:modelSnapshot?.source_sha||'',nowMs:started});
+      const cooldownUntilMs=existing?.cooldownUntil?Date.parse(String(existing.cooldownUntil)):NaN;
+      if(existing?.state==='COOLDOWN'&&Number.isFinite(cooldownUntilMs)&&cooldownUntilMs>started){
+        return {providerId:model.provider_id,modelId:model.model_id,configured:true,ok:false,status:0,latencyMs:0,
+          category:existing.category||'RATE_LIMITED',state:'COOLDOWN',evidencePersisted:true,skipped:'quota_cooldown_active',
+          resetAt:existing.cooldownUntil};
+      }
+
       const result=await callProvider(worker,env,[{role:'user',content:'Reply with OK only.'}],fetchImpl);
       const latencyMs=Math.max(0,Date.now()-started),category=result.ok?null:(result.category||classifyProviderFailure({status:result.status}));
-      const health=await writeProbeHealth(env?.TRADING_STATE,model,{ok:Boolean(result.ok),category,latencyMs},{sourceSha:modelSnapshot?.source_sha||''});
+      // retryAfter/resetAt are forwarded so the cooldown honours the provider's
+      // own reset rather than a fixed five minutes.
+      const health=await writeProbeHealth(env?.TRADING_STATE,model,{ok:Boolean(result.ok),category,latencyMs,retryAfter:result.retryAfter,resetAt:result.resetAt},{sourceSha:modelSnapshot?.source_sha||''});
       const row={providerId:model.provider_id,modelId:model.model_id,configured:true,ok:Boolean(result.ok),status:Number(result.status||0),latencyMs,category,state:health.state,evidencePersisted:Boolean(health.persisted)};
       if(result.status===429){row.retryAfter=result.retryAfter||null;row.resetAt=result.resetAt||null;}
       return row;
@@ -63,8 +79,8 @@ export function createProviderProbe({fetchImpl=fetch,maxParallel=4}={}){
   };
 }
 
-export function createMeshExecutor({fetchImpl=fetch}={}){
-  return async function executeWorkers(request,env,{skillSnapshot,modelSnapshot,routeSkill}){
+export function createMeshExecutor({fetchImpl=fetch,selfHealProbe=null}={}){
+  return async function executeWorkers(request,env,{skillSnapshot,modelSnapshot,routeSkill,ctx}){
     if(String(env?.MODEL_MESH_EXECUTION_ENABLED||'0')!=='1')return json({ok:false,error:'mesh_execution_disabled'},503);
     const expected=String(env?.MODEL_MESH_EXECUTION_TOKEN||'');const supplied=String(request.headers.get('x-model-mesh-token')||'');
     if(!await timingSafeToken(expected,supplied))return json({ok:false,error:'unauthorized'},401);
@@ -75,13 +91,18 @@ export function createMeshExecutor({fetchImpl=fetch}={}){
     const capsule=skillSnapshot?.capsules?.[route.primarySkill]||{};
     const liveModels=await resolveLiveModels(modelSnapshot,env);
     const selected=selectModelWorkers({profile:route.profile,domain:route.domain||capsule.domain||'core',dataClass,models:liveModels});
-    if(!selected.length)return json({ok:false,error:'no_eligible_free_worker'},503);
+    if(!selected.length){
+      // No live worker: schedule a bounded recovery probe so a stale-evidence
+      // outage can heal without the external refresh schedule.
+      scheduleSelfHeal({env,ctx,probeProviders:selfHealProbe,modelSnapshot});
+      return json({ok:false,error:'no_eligible_free_worker'},503);
+    }
     const messages=[{role:'user',content:body.text}];
     const run=async selectedWorker=>{
       const startedAt=nowIso();const worker=resolveRuntimeWorker(selectedWorker);
       const result=worker?await callProvider(worker,env,messages,fetchImpl):{ok:false,status:0,category:'UNKNOWN_SANITIZED'};
       const completedAt=nowIso(),normalized=normalizedResult(worker||selectedWorker,route,startedAt,completedAt,result);
-      const persist=recordModelExecutionHealth(env?.TRADING_STATE,selectedWorker,{ok:Boolean(result.ok),category:result.category,latencyMs:normalized.latency_ms},{sourceSha:modelSnapshot?.source_sha||''});
+      const persist=recordModelExecutionHealth(env?.TRADING_STATE,selectedWorker,{ok:Boolean(result.ok),category:result.category,latencyMs:normalized.latency_ms,retryAfter:result.retryAfter,resetAt:result.resetAt},{sourceSha:modelSnapshot?.source_sha||''});
       await persist;
       return normalized;
     };

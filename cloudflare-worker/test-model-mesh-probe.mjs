@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createProviderProbe} from './model-mesh/provider-client.js';
 
-const modelSnapshot={source_sha:'a'.repeat(40),models:[{provider_id:'groq',model_id:'openai/gpt-oss-120b',model_family:'gpt-oss-120b',free_status:'account_specific',free_verified_at:'2026-09-15T00:00:00Z',health:'degraded',privacy_class:'public_safe',capabilities:{text_reasoning:{supported:true,score:0.8}},quality_scores:{}}]};
+const modelSnapshot={source_sha:'a'.repeat(40),models:[{provider_id:'groq',model_id:'openai/gpt-oss-120b',model_family:'gpt-oss-120b',free_status:'account_specific',free_verified_at:'2026-09-15T00:00:00Z',usage_terms:'production_allowed',context_window:131072,health:'degraded',privacy_class:'public_safe',capabilities:{text_reasoning:{supported:true,score:0.8}},quality_scores:{}}]};
 const rows=new Map();const TRADING_STATE={get:async key=>rows.get(key)||null,put:async(key,value)=>rows.set(key,value)};
 const fetchImpl=async(_url,options)=>{
   const auth=String(options?.headers?.Authorization||'');

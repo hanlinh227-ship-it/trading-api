@@ -1,5 +1,5 @@
 import {MODEL_MESH_BINDINGS} from '../generated/model-mesh-bindings.js';
-import {freeOnlyEligible} from './contracts.js';
+import {freeOnlyEligible,selectionCandidate} from './contracts.js';
 import {readModelHealth} from './health-store.js';
 
 export function providerConfigured(model,env={}){
@@ -9,7 +9,7 @@ export function providerConfigured(model,env={}){
 
 export async function resolveLiveModels(modelSnapshot,env={},options={}){
   return Promise.all((modelSnapshot?.models||[]).map(async model=>{
-    if(!freeOnlyEligible(model))return {...model,runtimeState:'NOT_ELIGIBLE',runtimeCategory:'FREE_ONLY_POLICY',health:'unavailable',configured:providerConfigured(model,env)};
+    if(!selectionCandidate(model))return {...model,runtimeState:'NOT_ELIGIBLE',runtimeCategory:freeOnlyEligible(model)?'SELECTION_POLICY':'FREE_ONLY_POLICY',health:'unavailable',configured:providerConfigured(model,env)};
     const configured=providerConfigured(model,env);
     if(!configured)return {...model,runtimeState:'CONFIGURED',runtimeCategory:'CREDENTIAL_OR_BINDING_MISSING',health:'unavailable',configured:false};
     const evidence=await readModelHealth(env?.TRADING_STATE,model,{sourceSha:modelSnapshot?.source_sha||'',nowMs:options.nowMs});
@@ -23,7 +23,7 @@ export async function providerRuntimeStatus(modelSnapshot,env={},options={}){
   for(const model of models){
     if(!byProvider.has(model.provider_id))byProvider.set(model.provider_id,{providerId:model.provider_id,bindingEnabled:false,configured:false,eligibleModelCount:0,liveHealthyModelCount:0,active:false,states:[]});
     const row=byProvider.get(model.provider_id);row.configured=row.configured||model.configured;
-    if(freeOnlyEligible(model))row.eligibleModelCount+=1;
+    if(selectionCandidate(model))row.eligibleModelCount+=1;
     if(model.runtimeState==='LIVE_HEALTHY')row.liveHealthyModelCount+=1;
     row.states.push({modelId:model.model_id,state:model.runtimeState,category:model.runtimeCategory||null});
   }

@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 1
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -100,15 +100,37 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Least privilege: a provider credential is only placed in the
+          # production Worker when the compiled snapshot actually carries an
+          # eligible model for that provider. Three providers (nvidia_nim,
+          # cerebras, sambanova) are bound and enabled but have no eligible
+          # model, so their keys were live in production while no code path
+          # could ever use them.
+          required="$(node - <<'NODE'
+          const fs=require('fs');
+          const snapshot=JSON.parse(fs.readFileSync('AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json','utf8'));
+          const bindings=JSON.parse(fs.readFileSync('AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json','utf8')).bindings;
+          const needed=new Set(['MODEL_MESH_EXECUTION_TOKEN','TINY_FISH_API']);
+          for(const model of snapshot.models||[]){
+            const binding=bindings[model.provider_id];
+            if(binding&&binding.enabled===true&&binding.secret_name)needed.add(binding.secret_name);
+          }
+          process.stdout.write([...needed].sort().join(' '));
+          NODE
+          )"
+          echo "MODEL_MESH_SECRETS_REQUIRED=$required"
           synced=0
+          skipped=0
           for key in MODEL_MESH_EXECUTION_TOKEN TINY_FISH_API GROQ_API_KEY GEMINI_API_KEY CLOUDFLARE_AI_API_TOKEN OPENROUTER_API_KEY MISTRAL_API_KEY COHERE_API_KEY HF_TOKEN NVIDIA_API_KEY CEREBRAS_API_KEY SAMBANOVA_API_KEY DASHSCOPE_API_KEY OPENCODE_ZEN_API_KEY; do
             value="${!key:-}"
+            case " $required " in *" $key "*) ;; *) skipped=$((skipped+1)); continue ;; esac
             if [ -n "$value" ]; then
               printf '%s' "$value" | npx wrangler secret put "$key" --name trading-v77-scanner >/dev/null
               synced=$((synced+1))
             fi
           done
           echo "MODEL_MESH_SECRETS_SYNCED_COUNT=$synced"
+          echo "MODEL_MESH_SECRETS_SKIPPED_NO_ELIGIBLE_MODEL=$skipped"
           echo "CLOUDFLARE_ACCOUNT_ID_BINDING=PRESERVE_EXISTING"
 
       - name: Prepare, test and benchmark exact-main Skill Gateway and Model Mesh
@@ -146,15 +168,46 @@ jobs:
           NODE
           npx wrangler deploy --dry-run --outdir .wrangler-skill-gateway-prod-dry-run
 
+      - name: Capture currently-live revision for deterministic rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Recorded BEFORE production is mutated. If a core canary fails after
+          # deploy, this is the exact SHA production is restored to -- so a
+          # failed verification can no longer leave new code live with the
+          # exact-SHA gate skipped.
+          live="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract" 2>/dev/null || true)"
+          previous="$(printf '%s\n' "$live" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);const r=String(x.runtimeRevision||'');process.stdout.write(/^[a-f0-9]{40}$/.test(r)?r:'')}catch{process.stdout.write('')}})" || true)"
+          if [ -n "$previous" ] && git cat-file -e "$previous^{commit}" 2>/dev/null; then
+            echo "PREVIOUS_GOOD_SHA=$previous" >> "$GITHUB_ENV"
+            echo "ROLLBACK_TARGET=$previous"
+          else
+            echo "PREVIOUS_GOOD_SHA=" >> "$GITHUB_ENV"
+            echo "ROLLBACK_TARGET=NONE_RESOLVABLE"
+          fi
+
       - name: Deploy exact-main Worker
         working-directory: cloudflare-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+          TINY_FISH_API: ${{ secrets.TINY_FISH_API }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CLOUDFLARE_AI_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
+          TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+          AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
         shell: bash
         run: |
           set -euo pipefail
           export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
+          # Every secret this job can see is exported here so value-based
+          # redaction covers them; previously only two were in scope and the
+          # rest relied on shape matching alone.
           npx wrangler deploy 2>&1 | node redact-deploy-output.mjs
 
       - name: Verify exact deployed revision, Skill Gateway and Model Mesh health
@@ -246,43 +299,136 @@ jobs:
           contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
           printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2)})"
 
-      - name: Production TinyFish free evidence canary
+      # Diagnose provider model availability from live evidence rather than
+      # guessing a model id. A 404 here means the configured model is not
+      # resolvable for this key; the step reports which model ids ARE available
+      # so the registry can be corrected against evidence. Advisory: a provider
+      # being unavailable must never roll back a good Brain revision.
+      - name: Provider model availability diagnosis (advisory)
+        if: always()
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          configured="$(node -e "const s=require('./AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json');const m=(s.models||[]).find(x=>x.provider_id==='gemini_developer_api');process.stdout.write(m?m.model_id:'')" 2>/dev/null || true)"
+          if [ -z "${GEMINI_API_KEY:-}" ] || [ -z "$configured" ]; then
+            echo "GEMINI_MODEL_AVAILABILITY=SKIPPED reason=not_configured"
+            exit 0
+          fi
+          listing="$(curl -fsS --connect-timeout 5 --max-time 20 -H "x-goog-api-key: $GEMINI_API_KEY" 'https://generativelanguage.googleapis.com/v1beta/models' || true)"
+          printf '%s\n' "$listing" | CONFIGURED="$configured" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{let names=[];try{names=(JSON.parse(s).models||[]).map(m=>String(m.name||'').replace(/^models\//,''))}catch{}const want=process.env.CONFIGURED;if(!names.length){console.log('GEMINI_MODEL_AVAILABILITY=UNKNOWN configured='+want);return}if(names.includes(want)){console.log('GEMINI_MODEL_AVAILABILITY=PASS configured='+want);return}const near=names.filter(n=>n.startsWith('gemini-')&&n.includes('flash')).slice(0,12);console.log('GEMINI_MODEL_AVAILABILITY=MISMATCH configured='+want+' not_in_listing available_flash='+JSON.stringify(near))})"
+
+      # TinyFish is an OPTIONAL, cost-gated evidence capability. Its health is
+      # reported but never gates the Brain or the Model Mesh deployment: a
+      # provider being down, out of quota or unconfigured must not roll back a
+      # good Brain revision.
+      - name: Production TinyFish free evidence canary (advisory, optional)
+        id: tinyfish_canary
+        continue-on-error: true
         env:
           MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+          TINY_FISH_API: ${{ secrets.TINY_FISH_API }}
         shell: bash
         run: |
           set -euo pipefail
           test -n "${MODEL_MESH_EXECUTION_TOKEN:-}"
           health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/evidence/health")"
-          printf '%s\n' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||!x.configured||!x.admissionControlConfigured||x.mode!=='FREE_ONLY'||JSON.stringify(x.allowedOperations)!=='[\"search\",\"fetch\"]'||x.routingAuthority!==false||x.reasoningAuthority!==false)process.exit(2);console.log('TINYFISH_HEALTH=PASS')})"
+          printf '%s\n' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.mode!=='FREE_ONLY'||x.optional!==true||x.hardDependency!==false||JSON.stringify(x.allowedOperations)!=='[\"search\",\"fetch\"]'||x.routingAuthority!==false||x.reasoningAuthority!==false)process.exit(2);console.log('TINYFISH_HEALTH=PASS optional=true configured='+x.configured+' admissionControl='+x.admissionControlConfigured)})"
           body='{"text":"debug this API integration","operation":"search","dataClass":"PUBLIC"}'
           result="$(curl -fsS --connect-timeout 5 --max-time 45 -X POST -H 'content-type: application/json' -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" -d "$body" "$WORKER_BASE_URL/brain/evidence/probe")"
-          printf '%s\n' "$result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.provider!=='tinyfish'||x.mode!=='FREE_ONLY'||x.operation!=='search'||x.routingAuthority!==false||x.reasoningAuthority!==false)process.exit(2);if(JSON.stringify(x).match(/API_KEY|TOKEN|secret/i))process.exit(3);console.log('TINYFISH_SEARCH_CANARY=PASS status='+x.status)})"
+          printf '%s\n' "$result" | node cloudflare-worker/validate-evidence-canary.mjs --operation=search
           sleep 3
           fetch_body='{"text":"sá»­a lá»—i API nÃ y","operation":"fetch","urls":["https://docs.tinyfish.ai/fetch-api"],"dataClass":"PUBLIC"}'
           fetch_result="$(curl -fsS --connect-timeout 5 --max-time 180 -X POST -H 'content-type: application/json' -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" -d "$fetch_body" "$WORKER_BASE_URL/brain/evidence/query")"
-          printf '%s\n' "$fetch_result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.provider!=='tinyfish'||x.operation!=='fetch'||!Array.isArray(x.evidence)||!x.evidence.length)process.exit(2);if(JSON.stringify(x).match(/API_KEY|TOKEN|secret/i))process.exit(3);console.log('TINYFISH_FETCH_CANARY=PASS status='+x.status)})"
+          printf '%s\n' "$fetch_result" | node cloudflare-worker/validate-evidence-canary.mjs --operation=fetch --require-evidence
 
+      # Deterministic exact-SHA rollback. Reached only when a CORE gate failed
+      # (revision, Brain health, mesh health, route matrix, planner, provider
+      # canary) -- the optional TinyFish canary above cannot reach it. Restores
+      # production to the exact revision captured before this deploy, rebuilt
+      # from that SHA rather than from a stored artifact.
+      - name: Roll back to previously live exact revision
+        if: failure()
+        working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+          AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
+          V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${PREVIOUS_GOOD_SHA:-}" ]; then
+            echo "ROLLBACK=SKIPPED reason=no_resolvable_previous_revision"
+            echo "PRODUCTION_STATE=UNVERIFIED revision=$SKILL_GATEWAY_SOURCE_SHA"
+            exit 0
+          fi
+          if [ "$PREVIOUS_GOOD_SHA" = "$SKILL_GATEWAY_SOURCE_SHA" ]; then
+            echo "ROLLBACK=SKIPPED reason=already_at_previous_revision"
+            exit 0
+          fi
+          echo "ROLLBACK=START target=$PREVIOUS_GOOD_SHA"
+          git -c advice.detachedHead=false checkout --force "$PREVIOUS_GOOD_SHA"
+          python -m pip install -q -r ../AI_SKILL_LIBRARY/requirements.txt
+          python ../AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$PREVIOUS_GOOD_SHA" --skip-tests
+          npm ci --ignore-scripts --no-audit --no-fund
+          export GITHUB_SHA="$PREVIOUS_GOOD_SHA"
+          npm run prepare:skill-gateway
+          npm run prepare:model-mesh
+          npm run prepare:wrangler
+          npx wrangler deploy 2>&1 | node redact-deploy-output.mjs
+          for attempt in 1 2 3 4 5 6; do
+            contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract" || true)"
+            if printf '%s\n' "$contract" | EXPECTED="$PREVIOUS_GOOD_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2);}catch{process.exit(2)}})"; then
+              echo "ROLLBACK=PASS revision=$PREVIOUS_GOOD_SHA"
+              exit 0
+            fi
+            sleep 8
+          done
+          echo "ROLLBACK=FAIL target=$PREVIOUS_GOOD_SHA"
+          exit 1
+
+      # Always runs, so a revision can never be live without this gate having
+      # rendered a verdict on it.
       - name: Final exact-SHA deployment gate
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
-          printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2);console.log('FINAL_EXACT_SHA_GATE=PASS revision='+x.runtimeRevision)})"
+          printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" PREVIOUS="${PREVIOUS_GOOD_SHA:-}" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);const live=String(x.runtimeRevision||'');if(!x.ok){console.log('FINAL_EXACT_SHA_GATE=FAIL reason=contract_not_ok');process.exit(2)}if(live===process.env.EXPECTED){console.log('FINAL_EXACT_SHA_GATE=PASS revision='+live);process.exit(0)}if(process.env.PREVIOUS&&live===process.env.PREVIOUS){console.log('FINAL_EXACT_SHA_GATE=ROLLED_BACK revision='+live+' rejected='+process.env.EXPECTED);process.exit(2)}console.log('FINAL_EXACT_SHA_GATE=FAIL revision='+live+' expected='+process.env.EXPECTED);process.exit(2)})"
 
       - name: Deployment record
+        if: always()
+        shell: bash
         run: |
-          echo "SKILL_MANDATORY_FAST_GATEWAY_DEPLOY=PASS"
-          echo "SOURCE_SHA=$SKILL_GATEWAY_SOURCE_SHA"
-          echo "PRIMARY_SKILL_REQUIRED=true"
-          echo "FAST_EXTERNAL_ROUTING_CALLS=0"
-          echo "MODEL_MESH_MODE=FREE_ONLY"
-          echo "MODEL_MESH_ROUTING_AUTHORITY=false"
-          echo "MODEL_MESH_MAX_PARALLEL_STANDARD=2"
-          echo "MODEL_MESH_MAX_PARALLEL_DEEP=4"
-          echo "RUNTIME_SWITCH_MUTATION=false"
-          echo "PROVIDER_SECRET_GENERATION=false"
-          echo "PROVIDER_SECRET_SYNC=CONDITIONAL_EXISTING_ONLY"
+          set -uo pipefail
+          contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract" || true)"
+          live="$(printf '%s\n' "$contract" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).runtimeRevision||'unknown'))}catch{process.stdout.write('unknown')}})" || echo unknown)"
+          echo "PRODUCTION_LIVE_REVISION=$live"
+          echo "ATTEMPTED_REVISION=$SKILL_GATEWAY_SOURCE_SHA"
+          echo "TINYFISH_CANARY=${{ steps.tinyfish_canary.outcome }} (optional, non-gating)"
+          # Parallelism is echoed from the compiled canonical contract, not
+          # re-typed here, so this record cannot drift from what actually ran.
+          limits="$(node -e "const p=require('./AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-policy.json');process.stdout.write('STANDARD='+p.max_parallel.STANDARD+' DEEP='+p.max_parallel.DEEP+' FAST='+p.max_parallel.FAST)" 2>/dev/null || echo 'unavailable')"
+          if [ "$live" = "$SKILL_GATEWAY_SOURCE_SHA" ]; then
+            echo "SKILL_MANDATORY_FAST_GATEWAY_DEPLOY=PASS"
+            echo "SOURCE_SHA=$SKILL_GATEWAY_SOURCE_SHA"
+            echo "PRIMARY_SKILL_REQUIRED=true"
+            echo "FAST_EXTERNAL_ROUTING_CALLS=0"
+            echo "MODEL_MESH_MODE=FREE_ONLY"
+            echo "MODEL_MESH_ROUTING_AUTHORITY=false"
+            echo "MODEL_MESH_MAX_PARALLEL=$limits"
+            echo "RUNTIME_SWITCH_MUTATION=false"
+            echo "PROVIDER_SECRET_GENERATION=false"
+            echo "PROVIDER_SECRET_SYNC=ELIGIBLE_PROVIDERS_ONLY"
+          else
+            echo "SKILL_MANDATORY_FAST_GATEWAY_DEPLOY=FAIL"
+            echo "REASON=live_revision_is_not_the_attempted_revision"
+          fi
 
   refresh-model-mesh-health:
     if: github.event_name == 'schedule'

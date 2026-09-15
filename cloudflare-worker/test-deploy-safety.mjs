@@ -48,4 +48,43 @@ assert.equal(injected.SKILL_GATEWAY_SNAPSHOT_PATH,path.join(canonicalRoot,'AI_SK
 assert.equal(injected.MODEL_MESH_SNAPSHOT_PATH,path.join(canonicalRoot,'AI_SKILL_LIBRARY','v4','runtime','generated','model-mesh-snapshot.json'));
 assert.equal(injected.MODEL_MESH_BINDINGS_PATH,path.join(canonicalRoot,'AI_SKILL_LIBRARY','v4','model_mesh','runtime_bindings.json'));
 assert.equal(injected.MODEL_MESH_FREE_POLICY_PATH,path.join(canonicalRoot,'AI_SKILL_LIBRARY','v4','model_mesh','free_only_policy.json'));
-console.log('deployment secret and live-canary contracts ok');
+// --- C1: production must never be left half-gated --------------------------
+// Previously: deploy -> canary fails -> final exact-SHA gate SKIPPED, leaving
+// the new revision live and unverified (run 34980048523).
+assert.match(workflow,/Capture currently-live revision for deterministic rollback/,'rollback target must be captured before production is mutated');
+assert.match(workflow,/PREVIOUS_GOOD_SHA=/,'previous live revision must be recorded');
+assert.match(workflow,/name: Roll back to previously live exact revision\n\s+if: failure\(\)/,'rollback must trigger on core-gate failure');
+assert.match(workflow,/ROLLBACK=PASS revision=\$PREVIOUS_GOOD_SHA/,'rollback must verify the restored revision');
+assert.match(workflow,/name: Final exact-SHA deployment gate\n\s+if: always\(\)/,'the exact-SHA gate must always render a verdict');
+assert.match(workflow,/name: Deployment record\n\s+if: always\(\)/,'the deployment record must always state what is live');
+assert.match(workflow,/FINAL_EXACT_SHA_GATE=ROLLED_BACK/,'a rolled-back deploy must be reported distinctly, not as a pass');
+assert.match(workflow,/PRODUCTION_LIVE_REVISION=/,'the record must report the revision actually serving traffic');
+// The rollback rebuilds from the exact SHA, so full history is required.
+assert.match(workflow,/ref: main\n\s+fetch-depth: 0/,'rollback needs full history to rebuild an earlier exact SHA');
+
+// --- Phase 3: TinyFish is optional and must not gate the Brain deploy -------
+assert.match(workflow,/Production TinyFish free evidence canary \(advisory, optional\)\n\s+id: tinyfish_canary\n\s+continue-on-error: true/,'TinyFish must not gate the mesh deployment');
+assert.match(workflow,/validate-evidence-canary\.mjs --operation=search/);
+assert.match(workflow,/validate-evidence-canary\.mjs --operation=fetch --require-evidence/);
+// The vocabulary gate that blocked every deploy must not come back.
+assert.doesNotMatch(workflow,/match\(\/API_KEY\|TOKEN\|secret\/i\)/,'leak detection must be credential-shaped, never vocabulary-based');
+assert.match(workflow,/x\.optional!==true\|\|x\.hardDependency!==false/,'TinyFish health must advertise the optional contract');
+
+// --- Security: least-privilege credential sync ------------------------------
+assert.match(workflow,/MODEL_MESH_SECRETS_REQUIRED=/,'only providers with an eligible model may receive a credential');
+assert.match(workflow,/MODEL_MESH_SECRETS_SKIPPED_NO_ELIGIBLE_MODEL=/);
+assert.match(workflow,/PROVIDER_SECRET_SYNC=ELIGIBLE_PROVIDERS_ONLY/);
+
+// --- M1: parallelism is echoed from the compiled contract, never re-typed ---
+assert.doesNotMatch(workflow,/MODEL_MESH_MAX_PARALLEL_STANDARD=2/,'limits must come from the compiled canonical policy');
+assert.match(workflow,/model-mesh-policy\.json/,'the record must read the compiled policy contract');
+
+// --- H2: provider model availability is diagnosed from evidence -------------
+assert.match(workflow,/GEMINI_MODEL_AVAILABILITY=/,'a 404 provider must be diagnosed against the live model listing');
+assert.match(workflow,/Provider model availability diagnosis \(advisory\)\n\s+if: always\(\)\n\s+continue-on-error: true/);
+
+const policyCompiler=fs.readFileSync('../AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_policy.py','utf8');
+assert.match(policyCompiler,/max_parallel\.FAST must be 0/,'FAST may never fan out to external workers');
+assert.match(fs.readFileSync('prepare-model-mesh.mjs','utf8'),/endpoint_family conflict/,'endpoint_family must have a single owner');
+
+console.log('deployment secret, rollback and live-canary contracts ok');

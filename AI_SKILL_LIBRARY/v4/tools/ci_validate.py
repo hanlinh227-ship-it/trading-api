@@ -65,6 +65,20 @@ def _compile_model_snapshot(
 ) -> list[str]:
     failures: list[str] = []
     prefix = f"{label} " if label else ""
+
+    # Compile the canonical policy into the runtime contract first: the Worker's
+    # parallelism limits and selection filters are read from this artifact, so a
+    # policy that does not compile must stop the build before anything is built
+    # against stale limits.
+    code, out = _run(
+        [py, "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_policy.py", "--root", str(root)],
+        root,
+    )
+    print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}compile_model_mesh_policy: {out.splitlines()[-1] if out else ''}")
+    if code != 0:
+        failures.append(f"{prefix}compile_model_mesh_policy: {out}")
+        return failures
+
     cmd = [
         py,
         "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_snapshot.py",

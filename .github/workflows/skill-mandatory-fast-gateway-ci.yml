@@ -54,6 +54,7 @@ jobs:
         run: |
           export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
           npm run prepare:skill-gateway
+          npm run prepare:model-mesh
 
       - name: Run Skill Gateway routing and HTTP contracts
         working-directory: cloudflare-worker

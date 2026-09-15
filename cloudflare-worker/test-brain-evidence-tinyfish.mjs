@@ -45,8 +45,34 @@ response=await handler(request('/brain/evidence/query',{text:'research this',ope
 assert.equal(response.status,200);body=await response.json();assert.equal(body.ok,true);assert.equal(body.routingAuthority,false);assert.equal(body.reasoningAuthority,false);assert.equal(body.provider,'tinyfish');
 assert.equal(JSON.stringify(body).includes('tiny-secret'),false);
 
+// TinyFish is OPTIONAL: bookkeeping that fails AFTER a completed provider call
+// must degrade the guard, not discard evidence that has already been paid for.
+// Discarding it bought no safety (the external call was already made) and cost
+// a retry that spends free quota a second time.
 const brokenCircuit={getByName:()=>({fetch:async(url)=>String(url).endsWith('/acquire')?new Response(JSON.stringify({allowed:true,state:'CLOSED',retryAfterMs:0}),{status:200}):new Response(JSON.stringify({persisted:false,state:'UNAVAILABLE'}),{status:503})})};
 response=await handler(request('/brain/evidence/query',{text:'research this',operation:'search'}),{TINY_FISH_API:'tiny-secret',MODEL_MESH_EXECUTION_TOKEN:'token',TINYFISH_CIRCUIT:brokenCircuit});
-assert.equal(response.status,503);body=await response.json();assert.equal(body.error,'tinyfish_guard_state_unavailable');assert.equal('evidence' in body,false);
+assert.equal(response.status,200);body=await response.json();
+assert.equal(body.ok,true,'successful evidence survives a guard bookkeeping failure');
+assert.equal(body.guardStatePersisted,false,'the degraded guard state is reported, not hidden');
+assert.ok(Array.isArray(body.evidence)&&body.evidence.length>0,'evidence is returned, not discarded');
+assert.equal(JSON.stringify(body).includes('tiny-secret'),false);
+
+// Admission control missing entirely stays fail-closed: without it no external
+// call may be made at all.
+response=await handler(request('/brain/evidence/query',{text:'research this',operation:'search'}),{TINY_FISH_API:'tiny-secret',MODEL_MESH_EXECUTION_TOKEN:'token'});
+assert.equal(response.status,429);body=await response.json();assert.equal(body.guardState,'STORE_UNAVAILABLE');assert.equal(body.hardDependency,false);
+
+// Provider not configured is an explicit optional-capability answer, and must
+// not attempt an unauthenticated external call.
+response=await handler(request('/brain/evidence/query',{text:'research this',operation:'search'}),{MODEL_MESH_EXECUTION_TOKEN:'token',TINYFISH_CIRCUIT});
+assert.equal(response.status,503);body=await response.json();
+assert.equal(body.error,'evidence_provider_not_configured');
+assert.equal(body.optional,true);assert.equal(body.hardDependency,false);
+
+// Health advertises the optional contract.
+const health=await handler(new Request('https://example.com/brain/evidence/health'),{MODEL_MESH_EXECUTION_TOKEN:'token'});
+const healthBody=await health.json();
+assert.equal(healthBody.optional,true);assert.equal(healthBody.hardDependency,false);
+assert.equal(healthBody.configured,false);assert.equal(healthBody.degradesTo,'no_external_evidence');
 
 console.log('TinyFish separate evidence lane contracts ok');

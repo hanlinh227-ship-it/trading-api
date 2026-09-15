@@ -1,8 +1,9 @@
 import {buildModelMeshPlan} from './model-mesh-runtime.js';
 import {sanitizeDataClass} from './model-mesh/contracts.js';
 import {providerRuntimeStatus} from './model-mesh/runtime-health.js';
-import {freeOnlyEligible} from './model-mesh/contracts.js';
+import {selectionCandidate,MODEL_MESH_LIMITS,MODEL_MESH_SELECTION_FILTERS} from './model-mesh/contracts.js';
 import {timingSafeToken} from './model-mesh/auth.js';
+import {scheduleSelfHeal} from './model-mesh/self-heal.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 
@@ -20,11 +21,13 @@ export function createModelMeshHandler({skillSnapshot,modelSnapshot,routeSkill,e
         sourceSha:modelSnapshot.source_sha,
         routingAuthority:false,
         reasoningAuthority:false,
-        maxParallelStandard:2,
-        maxParallelDeep:4,
+        maxParallelStandard:MODEL_MESH_LIMITS.STANDARD,
+        maxParallelDeep:MODEL_MESH_LIMITS.DEEP,
+        maxParallelFast:MODEL_MESH_LIMITS.FAST,
+        selectionFilters:MODEL_MESH_SELECTION_FILTERS,
         executionEnabled:String(env.MODEL_MESH_EXECUTION_ENABLED||'0')==='1',
         executionTokenConfigured:Boolean(env.MODEL_MESH_EXECUTION_TOKEN),
-        eligibleModelCount:(modelSnapshot.models||[]).filter(freeOnlyEligible).length,
+        eligibleModelCount:(modelSnapshot.models||[]).filter(model=>selectionCandidate(model)).length,
         configuredProviderCount:providers.filter(row=>row.configured).length,
         activeProviderCount:providers.filter(row=>row.active).length,
         providers,
@@ -47,6 +50,10 @@ export function createModelMeshHandler({skillSnapshot,modelSnapshot,routeSkill,e
       if(dataClass==='SECRET')return json({ok:false,error:'secret_external_mesh_forbidden'},403);
       const route=routeSkill({text:body.text});
       const plan=await buildModelMeshPlan({...body,dataClass,profile:route.profile,route},{skillSnapshot,modelSnapshot,env});
+      // Graceful zero is a correct answer, but if it was caused by expired
+      // evidence rather than by genuinely dead providers, the mesh must be able
+      // to recover without waiting for the external refresh schedule.
+      if(plan.selectionReason==='no_live_healthy_provider')scheduleSelfHeal({env,ctx,probeProviders,modelSnapshot});
       return json(plan);
     }
     if(url.pathname==='/brain/mesh/execute'){

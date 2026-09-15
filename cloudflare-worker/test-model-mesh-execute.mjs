@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createMeshExecutor,resolveRuntimeWorker,providerConfigurationStatus} from './model-mesh/provider-client.js';
 
 const skillSnapshot={source_sha:'a'.repeat(40),fallback_primary_skill:'core_reasoning',capsules:{core_reasoning:{skill_id:'core_reasoning',domain:'core',capsule_hash:'cap-core'}}};
-const model={provider_id:'groq',model_id:'free-model',model_family:'family-free',free_status:'recurring',free_verified_at:'2026-09-15T00:00:00Z',health:'healthy',privacy_class:'public_safe',capabilities:{text_reasoning:{supported:true,score:0.9}},quality_scores:{core:0.9}};
+const model={provider_id:'groq',model_id:'free-model',model_family:'family-free',free_status:'recurring',free_verified_at:'2026-09-15T00:00:00Z',usage_terms:'production_allowed',context_window:131072,health:'healthy',privacy_class:'public_safe',capabilities:{text_reasoning:{supported:true,score:0.9}},quality_scores:{core:0.9}};
 const modelSnapshot={schema_version:1,source_sha:'a'.repeat(40),mode:'FREE_ONLY',routing_authority:false,reasoning_authority:false,models:[model]};
 const routeSkill=({text})=>({profile:text==='fast'?'FAST':'STANDARD',primarySkill:'core_reasoning',domain:'core',capsuleHash:'cap-core',externalRoutingCalls:0});
 let calls=0;
