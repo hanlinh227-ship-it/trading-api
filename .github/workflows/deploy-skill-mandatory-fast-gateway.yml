@@ -9,6 +9,11 @@ on:
     paths:
       - 'AI_SKILL_LIBRARY/**'
       - 'cloudflare-worker/**'
+      - 'crypto-research-gateway/**'
+      - 'bybit-live-bridge/**'
+      - 'tests/test_cloud_runtime_policy.py'
+      - '.github/workflows/zero-local-cloud-runtime.yml'
+      - '.github/workflows/deploy-cloudflare-worker.yml'
       - '.github/workflows/deploy-skill-mandatory-fast-gateway.yml'
       - 'AGENTS.md'
 
