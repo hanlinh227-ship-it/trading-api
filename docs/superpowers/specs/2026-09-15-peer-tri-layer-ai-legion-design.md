@@ -150,6 +150,12 @@ No fixed score such as `A > B > C` or `B > C` is allowed.
 
 Operational safety constraints are not epistemic priority. For example, executable code from any branch, including A or B, still passes sandbox and security validation. Similarly, an official specification may carry stronger claim-specific authority for an API contract than an anecdotal trajectory, but that is evidence weighting for the particular claim, not permanent priority for Layer B.
 
+### 4.5 Naming boundary: learning layers vs risk classes
+
+`Layer A / Layer B / Layer C` in this document identify the three peer learning-source planes only. They MUST NOT be confused with the existing Brain autonomy/promotion `Class A / Class B / Class C / Class D` risk taxonomy.
+
+The mapping is intentionally many-to-many: a candidate originating from any learning Layer A, B, or C is independently classified into the existing risk class according to what the candidate would change or execute. Source layer MUST NOT lower or raise the candidate's risk class by itself. For example, a Layer A internal-experience proposal can still be high-risk, while a Layer C open-discovery idea can still be low-risk if it is non-executable, well-verified, and does not widen permissions.
+
 ## 5. Intelligence Bus and conflict resolution
 
 Every material claim entering synthesis SHOULD carry:
@@ -400,6 +406,8 @@ Full Autonomous Mode means the system may independently research, plan, test, ge
 
 It does NOT mean unrestricted authority.
 
+The existing Class A/B/C/D risk taxonomy remains separate from Peer Learning Layers A/B/C. Risk classification is performed after candidate generation and is based on action/change risk, not source-layer identity.
+
 Always gated unless separately and explicitly authorized:
 
 - live financial execution;
@@ -502,6 +510,7 @@ Protected eval suites MUST cover at least:
 - agent contract compatibility;
 - conflict resolution without majority voting;
 - A/B/C peer-right invariants;
+- learning-layer vs risk-class separation;
 - source provenance preservation;
 - prompt-injection resistance in open discovery;
 - permission-ceiling enforcement;
@@ -536,7 +545,7 @@ A candidate may promote only when:
 - canary outcome is acceptable where required;
 - exact source revision is recorded.
 
-No candidate gains stable status because it originated from A, B, C, OpenCode, AutoSkill, Awesome LLM Apps, or any named model/provider.
+No candidate gains stable status because it originated from Learning Layer A, B, or C, OpenCode, AutoSkill, Awesome LLM Apps, or any named model/provider. Every candidate is separately assigned the existing action/change risk class before promotion.
 
 ## 18. Upstream intake policy
 
@@ -594,21 +603,22 @@ This design does NOT:
 
 The design is considered implemented only when all of the following are demonstrated:
 
-1. A/B/C have equal candidate/challenge rights with no hard-coded branch priority.
-2. Claim-specific evidence can override a majority of weaker agents.
-3. A user task can be decomposed into bounded specialist work and merged deterministically.
-4. Agent permissions cannot exceed the Brain-issued ceiling.
-5. OpenCode can operate in bounded plan/explore/patch/test/review modes without gaining authority.
-6. Awesome LLM Apps patterns are represented as native Brain capabilities rather than a second orchestration stack.
-7. AutoSkill-style mining can create candidate skills with lineage/provenance.
-8. SkillEvo-style mutation cannot promote unless protected evals/regressions pass.
-9. Idle scheduler can create and complete low-risk learning jobs while yielding to active user tasks.
-10. Adaptive Model Mesh can select/fail over providers without counting identical model families as independent reasoning votes.
-11. Secrets and unauthorized sensitive data are absent from learning artifacts and model-mesh snapshots.
-12. Trading agents remain research/backtest-only unless a separately approved execution authority exists.
-13. High-risk production actions remain gated.
-14. CI/evals pass on the release candidate.
-15. Production activation, if requested later, is tied to an exact verified source SHA and health/smoke verification.
+1. A/B/C Learning Layers have equal candidate/challenge rights with no hard-coded branch priority.
+2. Learning-layer identity cannot change the existing autonomy risk class by itself.
+3. Claim-specific evidence can override a majority of weaker agents.
+4. A user task can be decomposed into bounded specialist work and merged deterministically.
+5. Agent permissions cannot exceed the Brain-issued ceiling.
+6. OpenCode can operate in bounded plan/explore/patch/test/review modes without gaining authority.
+7. Awesome LLM Apps patterns are represented as native Brain capabilities rather than a second orchestration stack.
+8. AutoSkill-style mining can create candidate skills with lineage/provenance.
+9. SkillEvo-style mutation cannot promote unless protected evals/regressions pass.
+10. Idle scheduler can create and complete low-risk learning jobs while yielding to active user tasks.
+11. Adaptive Model Mesh can select/fail over providers without counting identical model families as independent reasoning votes.
+12. Secrets and unauthorized sensitive data are absent from learning artifacts and model-mesh snapshots.
+13. Trading agents remain research/backtest-only unless a separately approved execution authority exists.
+14. High-risk production actions remain gated.
+15. CI/evals pass on the release candidate.
+16. Production activation, if requested later, is tied to an exact verified source SHA and health/smoke verification.
 
 ## 22. Design decision summary
 
@@ -619,6 +629,7 @@ Chosen architecture: **Peer Tri-Layer AI Legion**.
 - Many model/provider execution resources.
 - Three peer learning branches: Experience, Curated, Exploration.
 - No fixed A/B/C epistemic ranking.
+- Learning Layers A/B/C are distinct from existing autonomy Risk Classes A/B/C/D.
 - Evidence-based conflict resolution.
 - OpenCode as bounded coding/execution worker.
 - Awesome LLM Apps as orchestration/RAG/multimodal pattern source.
