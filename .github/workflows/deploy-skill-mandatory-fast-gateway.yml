@@ -517,5 +517,16 @@ jobs:
             echo "GEMINI_DIAGNOSIS=SKIPPED reason=tool_not_in_deployed_revision"
             exit 0
           fi
-          CONFIGURED="$(node -e "const s=require('./AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json');const m=(s.models||[]).find(x=>x.provider_id==='gemini_developer_api');process.stdout.write(m?m.model_id:'')" 2>/dev/null || true)" \
+          # This job only checks out; it does not run the generators, so the
+          # generated snapshot is absent here. Read the canonical committed
+          # registry, falling back to the snapshot when one has been built.
+          CONFIGURED="$(node -e "
+            const fs=require('fs');
+            const paths=['./AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json','./AI_SKILL_LIBRARY/v4/model_mesh/active.json'];
+            for(const p of paths){
+              try{
+                const m=(JSON.parse(fs.readFileSync(p,'utf8')).models||[]).find(x=>x.provider_id==='gemini_developer_api');
+                if(m&&m.model_id){process.stdout.write(m.model_id);break}
+              }catch{}
+            }" 2>/dev/null || true)" \
             node cloudflare-worker/diagnose-gemini.mjs
