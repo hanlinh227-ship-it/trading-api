@@ -1,6 +1,7 @@
 import { DeviceSession } from './device-session.js'
 import { classifyGoal, validateRunGoal, TOOL_CONTRACT } from './tools.js'
 import { verifyGitHubOidcToken } from './github-oidc.js'
+import { bridgeDispatchPlan, interpretTaskIntent } from './task-intent.js'
 
 export { DeviceSession }
 
@@ -21,6 +22,7 @@ export function healthPayload(env = {}) {
     ok: true,
     schema: 1,
     taskSchema: 2,
+    intentSchema: 4,
     service: 'android-brain-agent-gateway',
     sourceSha: env.DEPLOYMENT_SOURCE_SHA ?? 'development',
     tradingAuthority: false,
@@ -34,6 +36,11 @@ export function healthPayload(env = {}) {
       boundedTaskSessions: true,
       contextualRiskClamp: true,
       exactCommandReceipts: true,
+      taskFirstBridge: true,
+      longHorizonEpochs: true,
+      hybridPerception: true,
+      appSkillMemory: true,
+      game2048Deterministic: true,
       securityBypass: false,
       financialMutation: false,
     },
@@ -95,7 +102,8 @@ export function normalizedTaskInput(body, authMode) {
   if (!body || typeof body !== 'object') throw new Error('input_required')
   if (typeof body.goal !== 'string' || !body.goal.trim()) throw new Error('goal_required')
   const goal = body.goal.trim()
-  const goalRisk = classifyGoal(goal)
+  const intent = interpretTaskIntent(goal)
+  const goalRisk = intent.riskClass
   if (goalRisk === 'D') throw new Error('class_d_blocked')
   const riskCeiling = body.riskCeiling ?? goalRisk
   if (!(riskCeiling in RISK_ORDER) || riskCeiling === 'D') throw new Error('invalid_risk_ceiling')
@@ -107,7 +115,7 @@ export function normalizedTaskInput(body, authMode) {
   const explicitScope = Array.isArray(body.capabilityScope) && body.capabilityScope.length > 0
   const scope = explicitScope
     ? [...new Set(body.capabilityScope.map(String))]
-    : ['apps.open', 'ui.navigate']
+    : [...new Set(['apps.open', 'ui.navigate', ...intent.capabilityScope])]
   const needsContacts = goalNeedsLocalContacts(goal)
 
   if (!scope.includes('ui.navigate')) throw new Error('ui_navigate_required')
@@ -121,7 +129,14 @@ export function normalizedTaskInput(body, authMode) {
   return {
     taskId,
     goal,
-    capabilityScope: scope,
+    intentSchema: intent.intentSchema,
+    completionCriteria: intent.completionCriteria,
+    forbiddenActions: intent.forbiddenActions,
+    executionMode: intent.executionMode,
+    deterministicAdapter: intent.deterministicAdapter,
+    persistence: intent.persistence,
+    userConstraints: intent.userConstraints,
+    capabilityScope: [...new Set(scope)],
     riskClass: riskCeiling,
     taskRiskClass: goalRisk,
     confirmedRiskClassC: goalRisk === 'C' && body.confirmedRiskClassC === true,
@@ -148,6 +163,55 @@ async function bootstrapTask(stub, deviceId, task) {
       capabilityScope,
       riskClass: 'A',
     }),
+  }))
+}
+
+async function createTaskOnStub(stub, deviceId, task) {
+  const created = await stub.fetch(new Request('https://device.internal/task', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(task),
+  }))
+  if (!created.ok) return created
+  const createdBody = await created.json()
+  const bootstrap = await bootstrapTask(stub, deviceId, task)
+  if (!bootstrap.ok) {
+    const detail = await bootstrap.json().catch(() => ({ error: 'unknown' }))
+    return json({ error: 'task_bootstrap_failed', taskId: task.taskId, detail }, 409)
+  }
+  return json({ ...createdBody, bootstrapQueued: true }, 201)
+}
+
+async function queueLegacyCommand(stub, deviceId, input, authMode) {
+  if (input.deviceId !== deviceId) return json({ error: 'device_mismatch' }, 400)
+  const riskClass = classifyGoal(input.goal)
+  if (riskClass === 'D') return json({ error: 'class_d_blocked' }, 403)
+  if (riskClass === 'C' && !input.confirmedRiskClassC) {
+    return json({ error: 'confirmation_required', riskClass }, 409)
+  }
+  if (riskClass === 'C' && authMode !== 'github-oidc') {
+    return json({ error: 'class_c_requires_github_oidc', riskClass }, 403)
+  }
+  if (riskClass === 'B') return json({ error: 'class_b_not_enabled_in_v1_gateway', riskClass }, 409)
+
+  const capabilityScope = [...new Set(input.capabilityScope)]
+  if (riskClass === 'C') capabilityScope.push('ui.destructive.confirmed')
+  const now = new Date()
+  const command = {
+    schema: 1,
+    commandId: crypto.randomUUID(),
+    deviceId,
+    issuedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+    nonce: crypto.randomUUID(),
+    goal: input.goal,
+    capabilityScope: [...new Set(capabilityScope)],
+    riskClass,
+  }
+  return stub.fetch(new Request('https://device.internal/command-sign', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(command),
   }))
 }
 
@@ -189,6 +253,24 @@ export default {
       )
     }
 
+    const taskLifecycleMatch = url.pathname.match(/^\/v1\/device\/([^/]+)\/tasks\/([^/]+)\/(confirm|cancel)$/)
+    if (taskLifecycleMatch) {
+      if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
+      const auth = await requireControl(request, env)
+      if (!auth.ok) return auth.response
+      const deviceId = decodeURIComponent(taskLifecycleMatch[1])
+      const taskId = decodeURIComponent(taskLifecycleMatch[2])
+      const operation = taskLifecycleMatch[3]
+      const stub = sessionStub(env, deviceId)
+      if (operation === 'confirm') {
+        if (auth.mode !== 'github-oidc') return json({ error: 'class_c_requires_github_oidc' }, 403)
+        const body = await request.json().catch(() => null)
+        if (body?.confirmedRiskClassC !== true) return json({ error: 'confirmation_required' }, 409)
+        return stub.fetch(new Request(`https://device.internal/task-confirm/${encodeURIComponent(taskId)}`, { method: 'POST' }))
+      }
+      return stub.fetch(new Request(`https://device.internal/task-cancel/${encodeURIComponent(taskId)}`, { method: 'POST' }))
+    }
+
     const taskMatch = url.pathname.match(/^\/v1\/device\/([^/]+)\/tasks(?:\/([^/]+))?$/)
     if (taskMatch) {
       const deviceId = decodeURIComponent(taskMatch[1])
@@ -204,19 +286,7 @@ export default {
           const status = error.message.includes('class_d') ? 403 : error.message.includes('confirmation') ? 409 : 400
           return json({ error: error.message }, status)
         }
-        const created = await stub.fetch(new Request('https://device.internal/task', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(task),
-        }))
-        if (!created.ok) return created
-        const createdBody = await created.json()
-        const bootstrap = await bootstrapTask(stub, deviceId, task)
-        if (!bootstrap.ok) {
-          const detail = await bootstrap.json().catch(() => ({ error: 'unknown' }))
-          return json({ error: 'task_bootstrap_failed', taskId: task.taskId, detail }, 409)
-        }
-        return json({ ...createdBody, bootstrapQueued: true }, 201)
+        return createTaskOnStub(stub, deviceId, task)
       }
 
       if (request.method === 'GET' && taskId) {
@@ -224,6 +294,33 @@ export default {
       }
 
       return json({ error: 'method_not_allowed' }, 405)
+    }
+
+    const runMatch = url.pathname.match(/^\/v1\/device\/([^/]+)\/run$/)
+    if (runMatch) {
+      if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
+      const auth = await requireControl(request, env)
+      if (!auth.ok) return auth.response
+      const deviceId = decodeURIComponent(runMatch[1])
+      const body = await request.json().catch(() => null)
+      if (!body?.goal || typeof body.goal !== 'string') return json({ error: 'goal_required' }, 400)
+      const dispatch = bridgeDispatchPlan(body.goal)
+      const stub = sessionStub(env, deviceId)
+      if (dispatch.path === 'tasks') {
+        let task
+        try { task = normalizedTaskInput(body, auth.mode) } catch (error) {
+          const status = error.message.includes('class_d') ? 403 : error.message.includes('confirmation') ? 409 : 400
+          return json({ error: error.message }, status)
+        }
+        const response = await createTaskOnStub(stub, deviceId, task)
+        const payload = await response.json()
+        return json({ dispatch: 'task', ...payload }, response.status)
+      }
+      let input
+      try { input = validateRunGoal({ ...body, deviceId }) } catch (error) { return json({ error: error.message }, 400) }
+      const response = await queueLegacyCommand(stub, deviceId, input, auth.mode)
+      const payload = await response.json()
+      return json({ dispatch: 'command', ...payload }, response.status)
     }
 
     const match = url.pathname.match(/^\/v1\/device\/([^/]+)\/(status|commands|next|result|task-step|socket)$/)
@@ -264,37 +361,7 @@ export default {
         if (!auth.ok) return auth.response
         let input
         try { input = validateRunGoal(await request.json()) } catch (error) { return json({ error: error.message }, 400) }
-        if (input.deviceId !== deviceId) return json({ error: 'device_mismatch' }, 400)
-        const riskClass = classifyGoal(input.goal)
-        if (riskClass === 'D') return json({ error: 'class_d_blocked' }, 403)
-        if (riskClass === 'C' && !input.confirmedRiskClassC) {
-          return json({ error: 'confirmation_required', riskClass }, 409)
-        }
-        if (riskClass === 'C' && auth.mode !== 'github-oidc') {
-          return json({ error: 'class_c_requires_github_oidc', riskClass }, 403)
-        }
-        if (riskClass === 'B') return json({ error: 'class_b_not_enabled_in_v1_gateway', riskClass }, 409)
-
-        const capabilityScope = [...new Set(input.capabilityScope)]
-        if (riskClass === 'C') capabilityScope.push('ui.destructive.confirmed')
-
-        const now = new Date()
-        const command = {
-          schema: 1,
-          commandId: crypto.randomUUID(),
-          deviceId,
-          issuedAt: now.toISOString(),
-          expiresAt: new Date(now.getTime() + 60_000).toISOString(),
-          nonce: crypto.randomUUID(),
-          goal: input.goal,
-          capabilityScope: [...new Set(capabilityScope)],
-          riskClass,
-        }
-        return stub.fetch(new Request('https://device.internal/command-sign', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(command),
-        }))
+        return queueLegacyCommand(stub, deviceId, input, auth.mode)
       }
     }
 

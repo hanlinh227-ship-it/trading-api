@@ -7,6 +7,8 @@ class TaskSessionEngine(
     initialProgress: TaskProgress,
     private val maxSteps: Int = 40,
     private val maxRecoveries: Int = 5,
+    private val epochActionLimit: Int = 50,
+    private val maxEpochs: Int = 20,
 ) {
     private var progress: TaskProgress = initialProgress
 
@@ -14,8 +16,21 @@ class TaskSessionEngine(
     fun currentProgress(): TaskProgress = progress
 
     @Synchronized
+    fun resume(checkpoint: TaskProgressCheckpoint): TaskProgress {
+        if (checkpoint.stepCount < progress.stepCount) return progress
+        progress = progress.copy(
+            stepCount = checkpoint.stepCount,
+            epoch = checkpoint.epoch.coerceAtMost(maxEpochs),
+            epochStepCount = checkpoint.epochStepCount.coerceIn(0, epochActionLimit - 1),
+            checkpointCount = checkpoint.checkpointCount,
+            recoveryCount = checkpoint.recoveryCount.coerceAtMost(maxRecoveries),
+        )
+        return progress
+    }
+
+    @Synchronized
     fun cancel(): TaskProgress {
-        progress = progress.copy(cancelled = true, status = TaskLoopStatus.FAILED)
+        progress = progress.copy(cancelled = true, status = TaskLoopStatus.CANCELLED)
         return progress
     }
 
@@ -26,7 +41,12 @@ class TaskSessionEngine(
         killSwitchActive: Boolean,
     ): TaskLoopDecision {
         if (killSwitchActive) return fail("KILL_SWITCH")
-        if (progress.cancelled) return fail("CANCELLED")
+        if (progress.cancelled || progress.status == TaskLoopStatus.CANCELLED) {
+            if (progress.status != TaskLoopStatus.CANCELLED) {
+                progress = progress.copy(cancelled = true, status = TaskLoopStatus.CANCELLED)
+            }
+            return TaskLoopDecision.Failed(progress, "CANCELLED")
+        }
         if (progress.status == TaskLoopStatus.COMPLETED) return TaskLoopDecision.Completed(progress)
         if (progress.status == TaskLoopStatus.FAILED) return TaskLoopDecision.Failed(progress, "TASK_TERMINAL")
         if (progress.riskClass == RiskClass.D) return fail("CLASS_D_DENIED")
@@ -45,8 +65,8 @@ class TaskSessionEngine(
         }
 
         if (previousResult != null) {
-            if (progress.stepCount >= maxSteps) return fail("STEP_LIMIT")
-            progress = progress.copy(stepCount = progress.stepCount + 1, status = TaskLoopStatus.VERIFYING)
+            if (!canAdvance()) return fail("STEP_LIMIT")
+            progress = advanceStep(progress).copy(status = TaskLoopStatus.VERIFYING)
         }
 
         val fingerprint = observation.fingerprint()
@@ -69,6 +89,35 @@ class TaskSessionEngine(
             status = TaskLoopStatus.PLANNING,
         )
         return TaskLoopDecision.PlanNext(progress)
+    }
+
+    private fun canAdvance(): Boolean = when (progress.persistence) {
+        TaskPersistence.ONE_SHOT -> progress.stepCount < maxSteps
+        TaskPersistence.LONG_RUNNING,
+        TaskPersistence.UNTIL_TERMINAL,
+        -> progress.stepCount < epochActionLimit * maxEpochs && progress.epoch < maxEpochs
+    }
+
+    private fun advanceStep(current: TaskProgress): TaskProgress {
+        val stepCount = current.stepCount + 1
+        if (current.persistence == TaskPersistence.ONE_SHOT) {
+            return current.copy(stepCount = stepCount)
+        }
+
+        val nextEpochStepCount = current.epochStepCount + 1
+        return if (nextEpochStepCount >= epochActionLimit) {
+            current.copy(
+                stepCount = stepCount,
+                epoch = current.epoch + 1,
+                epochStepCount = 0,
+                checkpointCount = current.checkpointCount + 1,
+            )
+        } else {
+            current.copy(
+                stepCount = stepCount,
+                epochStepCount = nextEpochStepCount,
+            )
+        }
     }
 
     private fun recover(code: String, fingerprint: String): TaskLoopDecision {

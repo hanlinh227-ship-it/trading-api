@@ -3,7 +3,9 @@ package com.hanlinh.androidbrain.network
 import android.content.Context
 import com.hanlinh.androidbrain.agent.CommandDispatcher
 import com.hanlinh.androidbrain.agent.TaskLoopDecision
+import com.hanlinh.androidbrain.agent.TaskPersistence
 import com.hanlinh.androidbrain.agent.TaskProgress
+import com.hanlinh.androidbrain.agent.TaskProgressCheckpoint
 import com.hanlinh.androidbrain.agent.TaskSessionEngine
 import com.hanlinh.androidbrain.agent.TaskStepOutcome
 import com.hanlinh.androidbrain.agent.TaskStepResult
@@ -16,6 +18,7 @@ import com.hanlinh.androidbrain.service.AgentForegroundService
 import com.hanlinh.androidbrain.service.BrainAccessibilityService
 import com.hanlinh.androidbrain.skills.core.UnknownNumberConversationClassifier
 import com.hanlinh.androidbrain.skills.core.UnknownNumberConversationSelector
+import java.security.MessageDigest
 import java.util.Base64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -42,6 +45,7 @@ class AgentConnectionManager(
     @Volatile private var socketConnected: Boolean = false
     private val dispatcher = CommandDispatcher(appContext, pairing)
     private val taskEngines = mutableMapOf<String, TaskSessionEngine>()
+    private val receiptTracker = CommandReceiptTracker(maxEntries = 64)
     private val unknownConversationSelector by lazy {
         UnknownNumberConversationSelector(
             UnknownNumberConversationClassifier(ContactsResolver(appContext))
@@ -174,7 +178,14 @@ class AgentConnectionManager(
         try {
             while (running.get()) {
                 val command = client.nextCommand(pairing.deviceId, pairing.deviceToken) ?: return
+                val cached = receiptTracker.resultFor(command.commandId)
+                if (cached != null) {
+                    client.postResult(pairing.deviceId, pairing.deviceToken, cached)
+                    continue
+                }
+
                 val result = dispatcher.handle(command)
+                receiptTracker.record(result)
                 client.postResult(pairing.deviceId, pairing.deviceToken, result)
                 if (command.schema == 2 && !command.taskId.isNullOrBlank()) {
                     continueTask(command, result)
@@ -223,7 +234,10 @@ class AgentConnectionManager(
         } else {
             existingProgress.riskClass
         }
-        val desiredProgress = (existingProgress ?: TaskProgress(taskId = taskId)).copy(
+        val desiredProgress = (existingProgress ?: TaskProgress(
+            taskId = taskId,
+            persistence = TaskPersistence.LONG_RUNNING,
+        )).copy(
             riskClass = effectiveRisk,
             confirmedRiskClassC = (existingProgress?.confirmedRiskClassC == true) || confirmedClassC,
         )
@@ -261,15 +275,25 @@ class AgentConnectionManager(
             return
         }
 
-        val imageDataUrl = capturePlannerScreenshot(service)
+        val capture = capturePlannerScreenshot(service)
+        val groundedSnapshot = if (capture != null) snapshot.copy(screenshotHash = capture.sha256) else snapshot
         val response = client.postTaskStep(
             deviceId = pairing.deviceId,
             token = pairing.deviceToken,
             taskId = taskId,
-            observation = snapshot,
+            observation = groundedSnapshot,
             previousResult = result,
-            imageDataUrl = imageDataUrl,
+            imageDataUrl = capture?.dataUrl,
             localFacts = localGrounding.facts,
+        )
+        engine.resume(
+            TaskProgressCheckpoint(
+                stepCount = response.stepCount,
+                epoch = response.epoch,
+                epochStepCount = response.epochStepCount,
+                checkpointCount = response.checkpointCount,
+                recoveryCount = response.recoveryCount,
+            )
         )
         if (response.status in TERMINAL_TASK_STATUSES || decision is TaskLoopDecision.Completed) {
             taskEngines.remove(taskId)
@@ -310,7 +334,7 @@ class AgentConnectionManager(
             value.contains(".messaging")
     }
 
-    private fun capturePlannerScreenshot(service: BrainAccessibilityService): String? {
+    private fun capturePlannerScreenshot(service: BrainAccessibilityService): PlannerScreenshot? {
         val latch = CountDownLatch(1)
         var capture: ScreenshotCapture? = null
         service.captureScreenshot {
@@ -321,7 +345,13 @@ class AgentConnectionManager(
         val captured = capture as? ScreenshotCapture.Captured ?: return null
         if (captured.bytes.isEmpty() || captured.bytes.size > MAX_SCREENSHOT_BYTES) return null
         val encoded = Base64.getEncoder().encodeToString(captured.bytes)
-        return "data:${captured.mimeType};base64,$encoded"
+        val sha256 = MessageDigest.getInstance("SHA-256")
+            .digest(captured.bytes)
+            .joinToString("") { "%02x".format(it) }
+        return PlannerScreenshot(
+            dataUrl = "data:${captured.mimeType};base64,$encoded",
+            sha256 = sha256,
+        )
     }
 
     private fun GatewayClient.TaskResult.toTaskStepResult(): TaskStepResult = when (status.uppercase()) {
@@ -334,6 +364,11 @@ class AgentConnectionManager(
         }
         else -> TaskStepResult(TaskStepOutcome.FATAL_FAILURE, "UNKNOWN_RESULT_STATUS")
     }
+
+    private data class PlannerScreenshot(
+        val dataUrl: String,
+        val sha256: String,
+    )
 
     private data class LocalGrounding(
         val facts: List<GatewayClient.LocalObservationFact> = emptyList(),

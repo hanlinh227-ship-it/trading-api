@@ -48,11 +48,22 @@ data class AccessibilitySnapshot(
     val packageName: String,
     val windowTitle: String?,
     val nodes: List<AccessibilityNode>,
+    val screenWidth: Int? = null,
+    val screenHeight: Int? = null,
+    val orientation: String? = null,
+    val screenshotHash: String? = null,
+    val regionHashes: Map<String, String> = emptyMap(),
 ) {
     fun fingerprint(): String {
         val canonical = buildString {
             append(packageName).append('\n')
             append(windowTitle.orEmpty()).append('\n')
+            append(screenWidth ?: -1).append('x').append(screenHeight ?: -1).append('|')
+            append(orientation.orEmpty()).append('|')
+            append(screenshotHash.orEmpty()).append('\n')
+            regionHashes.toSortedMap().forEach { (region, hash) ->
+                append("region:").append(region).append('=').append(hash).append('\n')
+            }
             nodes.forEach { node ->
                 append(node.nodeId).append('|')
                 append(node.resourceId.orEmpty()).append('|')
@@ -109,6 +120,11 @@ class AccessibilitySnapshotMapper(
         packageName: String,
         windowTitle: String?,
         rawNodes: List<RawAccessibilityNode>,
+        screenWidth: Int? = null,
+        screenHeight: Int? = null,
+        orientation: String? = null,
+        screenshotHash: String? = null,
+        regionHashes: Map<String, String> = emptyMap(),
     ): AccessibilitySnapshot = AccessibilitySnapshot(
         packageName = packageName,
         windowTitle = windowTitle,
@@ -137,5 +153,10 @@ class AccessibilitySnapshotMapper(
                 bounds = raw.bounds,
             )
         },
+        screenWidth = screenWidth,
+        screenHeight = screenHeight,
+        orientation = orientation,
+        screenshotHash = screenshotHash,
+        regionHashes = regionHashes.toSortedMap(),
     )
 }

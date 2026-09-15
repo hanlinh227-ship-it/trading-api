@@ -1,7 +1,14 @@
 import { validateTypedAction } from './action-schema.js'
 import { importPrivateJwk, signCommand, verifyPairingProof } from './crypto.js'
 import { planNextStep } from './planner.js'
-import { clampTaskStep, createTaskState, publicTaskState, recordTaskProgress } from './task-policy.js'
+import {
+  cancelTaskState,
+  clampTaskStep,
+  confirmTaskState,
+  createTaskState,
+  publicTaskState,
+  recordTaskProgress,
+} from './task-policy.js'
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -41,6 +48,11 @@ function observationFingerprint(observation) {
   return typeof observation?.fingerprint === 'string' ? observation.fingerprint.slice(0, 192) : null
 }
 
+function safeProgressMarker(body, currentFingerprint) {
+  if (typeof body?.progressMarker === 'string' && body.progressMarker.length) return body.progressMarker.slice(0, 192)
+  return currentFingerprint
+}
+
 function observationText(observation) {
   return (Array.isArray(observation?.nodes) ? observation.nodes : [])
     .flatMap(node => [node?.text, node?.contentDescription])
@@ -69,7 +81,7 @@ function expectedSatisfied(expected, observation, previousFingerprint) {
 
 function appendSafeHistory(task, entry) {
   const history = [...(Array.isArray(task.history) ? task.history : []), entry]
-  return history.slice(-6)
+  return history.slice(-12)
 }
 
 export function isDeviceOnline(lastSeenAt, now = new Date(), maxAgeMs = 15_000) {
@@ -137,6 +149,8 @@ export class DeviceSession {
     if (url.pathname === '/command' && request.method === 'POST') return this.enqueue(request)
     if (url.pathname === '/command-sign' && request.method === 'POST') return this.signAndEnqueue(request)
     if (url.pathname === '/task' && request.method === 'POST') return this.createTask(request)
+    if (url.pathname.startsWith('/task-confirm/') && request.method === 'POST') return this.confirmTask(url.pathname.slice('/task-confirm/'.length))
+    if (url.pathname.startsWith('/task-cancel/') && request.method === 'POST') return this.cancelTask(url.pathname.slice('/task-cancel/'.length))
     if (url.pathname.startsWith('/task/') && request.method === 'GET') return this.getTask(url.pathname.slice('/task/'.length))
     if (url.pathname === '/task-step' && request.method === 'POST') return this.taskStep(request)
     if (url.pathname === '/next' && request.method === 'GET') return this.next(request)
@@ -292,6 +306,38 @@ export class DeviceSession {
     return json(publicTaskState(task))
   }
 
+  async confirmTask(taskId) {
+    const decoded = decodeURIComponent(taskId)
+    const key = `task:${decoded}`
+    const task = await this.state.storage.get(key)
+    if (!task) return json({ error: 'task_not_found' }, 404)
+    let confirmed
+    try { confirmed = confirmTaskState(task, decoded) } catch (error) { return json({ error: error.message }, 409) }
+    await this.state.storage.put(key, confirmed)
+    return json(publicTaskState(confirmed))
+  }
+
+  async cancelTask(taskId) {
+    const decoded = decodeURIComponent(taskId)
+    const key = `task:${decoded}`
+    const task = await this.state.storage.get(key)
+    if (!task) return json({ error: 'task_not_found' }, 404)
+    const cancelled = cancelTaskState(task)
+    await this.state.storage.put(key, {
+      ...cancelled,
+      pendingExpected: null,
+      pendingActionType: null,
+      pendingCommandId: null,
+    })
+    const queue = pruneExpiredCommands((await this.state.storage.get('queue')) ?? [])
+      .filter(command => command?.taskId !== decoded)
+    await this.state.storage.put('queue', queue)
+    for (const ws of this.state.getWebSockets()) {
+      try { ws.send(JSON.stringify({ type: 'task_cancelled', taskId: decoded })) } catch { }
+    }
+    return json(publicTaskState(cancelled))
+  }
+
   async taskStep(request) {
     const pairing = await this.authorizedDevice(request)
     if (!pairing) return json({ error: 'unauthorized_device' }, 401)
@@ -305,6 +351,7 @@ export class DeviceSession {
     if (!task) return json({ error: 'task_not_found' }, 404)
 
     const currentFingerprint = observationFingerprint(body.observation)
+    const progressMarker = safeProgressMarker(body, currentFingerprint)
     const previousResult = body.previousResult && typeof body.previousResult === 'object' ? body.previousResult : null
     const previousCommandId = typeof previousResult?.commandId === 'string' ? previousResult.commandId : null
 
@@ -318,7 +365,7 @@ export class DeviceSession {
 
     try {
       if (previousResult) {
-        task = recordTaskProgress(task, { kind: 'step', status: 'VERIFYING' })
+        task = recordTaskProgress(task, { kind: 'step', fingerprint: currentFingerprint, progressMarker, status: 'VERIFYING' })
         const resultStatus = String(previousResult.status ?? '').toUpperCase()
         const resultCode = safeResultCode(previousResult)
         const verificationOk = resultStatus === 'COMPLETED' && expectedSatisfied(task.pendingExpected, body.observation, task.lastFingerprint)
@@ -363,7 +410,13 @@ export class DeviceSession {
         task = { ...task, lastFingerprint: currentFingerprint, status: 'PLANNING', updatedAt: new Date().toISOString() }
       }
     } catch (error) {
-      const code = error.message === 'max_steps_exceeded' ? 'STEP_LIMIT' : error.message === 'max_recoveries_exceeded' ? 'RECOVERY_LIMIT' : 'TASK_PROGRESS_ERROR'
+      const code = error.message === 'max_epochs_exceeded'
+        ? 'EPOCH_LIMIT'
+        : error.message === 'max_recoveries_exceeded'
+          ? 'RECOVERY_LIMIT'
+          : error.message === 'no_progress_detected'
+            ? 'NO_PROGRESS'
+            : 'TASK_PROGRESS_ERROR'
       task = {
         ...task,
         status: 'FAILED',

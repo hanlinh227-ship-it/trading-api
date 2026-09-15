@@ -104,7 +104,7 @@ jobs:
           set -euo pipefail
           for attempt in 1 2 3 4 5; do
             BODY="$(curl -fsS --connect-timeout 5 --max-time 15 https://android-brain-agent-gateway.hanlinh227.workers.dev/health || true)"
-            if printf '%s' "$BODY" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok===true&&x.service==='android-brain-agent-gateway'&&x.sourceSha===process.env.GITHUB_SHA&&x.commandAuth==='github-oidc'&&x.capabilities?.exactCommandReceipts===true)process.exit(0)}catch{}process.exit(1)})"; then
+            if printf '%s' "$BODY" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok===true&&x.service==='android-brain-agent-gateway'&&x.sourceSha===process.env.GITHUB_SHA&&x.commandAuth==='github-oidc'&&x.capabilities?.exactCommandReceipts===true&&x.capabilities?.taskFirstBridge===true)process.exit(0)}catch{}process.exit(1)})"; then
               echo 'ANDROID_AGENT_GATEWAY=PASS'
               exit 0
             fi
@@ -118,7 +118,7 @@ jobs:
       github.event.issue.user.login == 'hanlinh227-ship-it' &&
       startsWith(github.event.issue.title, '[ANDROID_AGENT]')
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     concurrency:
       group: android-agent-physical-command-bridge
       cancel-in-progress: false
@@ -155,8 +155,20 @@ jobs:
           fi
           test -n "$DEVICE_ID"
           echo "device_id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
-      - name: Queue Android command
-        id: queue
+      - name: Verify paired online device
+        shell: bash
+        env:
+          DEVICE_ID: ${{ steps.target.outputs.device_id }}
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
+            "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/status")"
+          printf '%s' "$STATUS" | jq -e '.paired == true and .online == true' >/dev/null
+          echo 'ANDROID_AGENT_DEVICE_ONLINE=PASS'
+      - name: Dispatch Android goal
+        id: dispatch
         shell: bash
         env:
           DEVICE_ID: ${{ steps.target.outputs.device_id }}
@@ -168,48 +180,87 @@ jobs:
             -H "Authorization: Bearer $OIDC_TOKEN" \
             -H 'content-type: application/json' \
             -d "$PAYLOAD" \
-            "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/commands")"
-          printf '%s' "$RESPONSE" | jq -e '.queued == true and (.commandId|type=="string" and length>0)'
-          COMMAND_ID="$(printf '%s' "$RESPONSE" | jq -r '.commandId')"
-          echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
-          echo "ANDROID_AGENT_QUEUED=PASS"
-          echo "ANDROID_AGENT_COMMAND_ID=$COMMAND_ID"
+            "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/run")"
+          DISPATCH="$(printf '%s' "$RESPONSE" | jq -r '.dispatch // empty')"
+          case "$DISPATCH" in
+            command)
+              printf '%s' "$RESPONSE" | jq -e '.queued == true and (.commandId|type=="string" and length>0)' >/dev/null
+              COMMAND_ID="$(printf '%s' "$RESPONSE" | jq -r '.commandId')"
+              echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
+              echo "task_id=" >> "$GITHUB_OUTPUT"
+              ;;
+            task)
+              printf '%s' "$RESPONSE" | jq -e '.bootstrapQueued == true and (.taskId|type=="string" and length>0)' >/dev/null
+              TASK_ID="$(printf '%s' "$RESPONSE" | jq -r '.taskId')"
+              echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
+              echo "command_id=" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported dispatch: $DISPATCH"
+              exit 1
+              ;;
+          esac
+          echo "dispatch=$DISPATCH" >> "$GITHUB_OUTPUT"
+          echo "ANDROID_AGENT_DISPATCH=$DISPATCH"
       - name: Wait for exact device result
         shell: bash
         env:
           DEVICE_ID: ${{ steps.target.outputs.device_id }}
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
-          COMMAND_ID: ${{ steps.queue.outputs.command_id }}
+          DISPATCH: ${{ steps.dispatch.outputs.dispatch }}
+          COMMAND_ID: ${{ steps.dispatch.outputs.command_id }}
+          TASK_ID: ${{ steps.dispatch.outputs.task_id }}
         run: |
           set -euo pipefail
-          STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 \
-            -H "Authorization: Bearer $OIDC_TOKEN" \
-            "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/status")"
-          printf '%s' "$STATUS" | jq -e '.paired == true and .online == true' >/dev/null
-          echo 'ANDROID_AGENT_DEVICE_ONLINE=PASS'
-
-          for attempt in $(seq 1 30); do
-            HTTP_CODE="$(curl -sS --connect-timeout 5 --max-time 15 \
-              -o command-result.json -w '%{http_code}' \
-              -H "Authorization: Bearer $OIDC_TOKEN" \
-              "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/commands/$COMMAND_ID/result")"
-            if [ "$HTTP_CODE" = "404" ]; then
-              sleep 1
-              continue
-            fi
-            test "$HTTP_CODE" = "200"
-            cat command-result.json | jq '{commandId,status,code,receivedAt}'
-            RESULT_ID="$(jq -r '.commandId // empty' command-result.json)"
-            RESULT_STATUS="$(jq -r '.status // empty' command-result.json)"
-            RESULT_CODE="$(jq -r '.code // empty' command-result.json)"
-            test "$RESULT_ID" = "$COMMAND_ID"
-            if [ "$RESULT_STATUS" = "COMPLETED" ]; then
-              echo 'ANDROID_AGENT_DEVICE_EXECUTED=PASS'
-              exit 0
-            fi
-            echo "ANDROID_AGENT_DEVICE_EXECUTED=FAIL status=$RESULT_STATUS code=$RESULT_CODE"
+          if [ "$DISPATCH" = "command" ]; then
+            for attempt in $(seq 1 90); do
+              HTTP_CODE="$(curl -sS --connect-timeout 5 --max-time 15 \
+                -o command-result.json -w '%{http_code}' \
+                -H "Authorization: Bearer $OIDC_TOKEN" \
+                "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/commands/$COMMAND_ID/result")"
+              if [ "$HTTP_CODE" = "404" ]; then
+                sleep 1
+                continue
+              fi
+              test "$HTTP_CODE" = "200"
+              jq '{commandId,status,code,receivedAt}' command-result.json
+              RESULT_ID="$(jq -r '.commandId // empty' command-result.json)"
+              RESULT_STATUS="$(jq -r '.status // empty' command-result.json)"
+              RESULT_CODE="$(jq -r '.code // empty' command-result.json)"
+              test "$RESULT_ID" = "$COMMAND_ID"
+              if [ "$RESULT_STATUS" = "COMPLETED" ]; then
+                echo 'ANDROID_AGENT_DEVICE_EXECUTED=PASS'
+                exit 0
+              fi
+              echo "ANDROID_AGENT_DEVICE_EXECUTED=FAIL status=$RESULT_STATUS code=$RESULT_CODE"
+              exit 1
+            done
+            echo 'ANDROID_AGENT_DEVICE_EXECUTED=TIMEOUT'
             exit 1
-          done
+          fi
 
-          echo 'ANDROID_AGENT_DEVICE_EXECUTED=TIMEOUT'
+          for attempt in $(seq 1 150); do
+            HTTP_CODE="$(curl -sS --connect-timeout 5 --max-time 15 \
+              -o task-state.json -w '%{http_code}' \
+              -H "Authorization: Bearer $OIDC_TOKEN" \
+              "$GATEWAY_BASE_URL/v1/device/$DEVICE_ID/tasks/$TASK_ID")"
+            test "$HTTP_CODE" = "200"
+            jq '{taskId,status,stepCount,epoch,checkpointCount,recoveryCount,failureCode}' task-state.json
+            RESULT_ID="$(jq -r '.taskId // empty' task-state.json)"
+            RESULT_STATUS="$(jq -r '.status // empty' task-state.json)"
+            RESULT_CODE="$(jq -r '.failureCode // empty' task-state.json)"
+            test "$RESULT_ID" = "$TASK_ID"
+            case "$RESULT_STATUS" in
+              COMPLETED)
+                echo 'ANDROID_AGENT_TASK_EXECUTED=PASS'
+                exit 0
+                ;;
+              FAILED|CANCELLED)
+                echo "ANDROID_AGENT_TASK_EXECUTED=FAIL status=$RESULT_STATUS code=$RESULT_CODE"
+                exit 1
+                ;;
+            esac
+            sleep 2
+          done
+          echo 'ANDROID_AGENT_TASK_EXECUTED=TIMEOUT'
           exit 1
