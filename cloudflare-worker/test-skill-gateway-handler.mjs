@@ -43,6 +43,34 @@ assert.equal(body.capsule.output_contract,'Write audience-fit advertising copy.'
 assert.equal('reasoning' in body,false);
 assert.equal('chainOfThought' in body,false);
 
+res=await handler(new Request('https://example.test/brain/legion/health'));
+assert.equal(res.status,200);
+body=await res.json();
+assert.equal(body.ok,true);
+assert.equal(body.sourceSha,snapshot.source_sha);
+assert.equal(body.routingAuthority,false);
+assert.equal(body.reasoningAuthority,false);
+assert.equal(body.externalRoutingCalls,0);
+
+res=await handler(new Request('https://example.test/brain/legion/capabilities'));
+assert.equal(res.status,200);
+body=await res.json();
+assert.equal(body.ok,true);
+assert.equal(body.sourceSha,snapshot.source_sha);
+assert.equal(body.routingAuthority,false);
+assert.deepEqual(body.maxParallel,{FAST:0,STANDARD:2,DEEP:4});
+assert.equal(Array.isArray(body.executionPatterns),true);
+
+res=await handler(new Request('https://example.test/brain/learning/status'));
+assert.equal(res.status,200);
+body=await res.json();
+assert.equal(body.ok,true);
+assert.equal(body.sourceSha,snapshot.source_sha);
+assert.equal(body.routingAuthority,false);
+assert.equal(body.reasoningAuthority,false);
+assert.equal(body.activeJobs,0);
+for(const forbidden of ['prompt','secret','credential','rawTelemetry','chainOfThought'])assert.equal(forbidden in body,false);
+
 res=await handler(new Request('https://example.test/brain/route',{method:'POST',headers:{'content-type':'application/json'},body:'{}'}));
 assert.equal(res.status,400);
 body=await res.json();
