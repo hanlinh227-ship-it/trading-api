@@ -22,6 +22,14 @@ policy:
   image_input_min_vision_weight: 0.8
   hard_capability_weight_threshold: 0.7
   hard_capability_min_score: 0.35
+capability_evidence:
+  routing_authority: false
+  default_freshness_hours: 168
+  hard_gate:
+    default_enabled: false
+    min_verified_candidates: 2
+    min_coverage_ratio: 0.80
+    overrides: {}
 roles: [maker, researcher, specialist, critic, checker, grader, summarizer]
 domains:
   core:

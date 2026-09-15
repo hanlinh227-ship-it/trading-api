@@ -1,15 +1,9 @@
 """Compile the canonical Model Mesh policy into a runtime contract.
 
 `AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml` is the checkpoint-declared
-authority for parallelism and selection, but until now it was not compiled
-into anything: the same limits were hard-coded independently in
-`cloudflare-worker/model-mesh/contracts.js`, in the `/brain/mesh/health`
-response and in the deploy workflow's assertions. Editing the canonical policy
-therefore changed nothing at runtime, silently.
-
-This compiler makes the canonical policy the single source of truth:
-
-    policy.yaml -> compiler -> generated contract -> runtime/planner -> CI
+authority for parallelism and selection. Domain capability weights and the
+Phase A capability-evidence rollout policy are compiled alongside it so the
+Worker, CI and release gates consume one deterministic contract.
 """
 from __future__ import annotations
 
@@ -50,8 +44,6 @@ def compile_policy(root: Path, *, policy_path: Path, capabilities_path: Path, ou
         value = max_parallel.get(profile)
         if not isinstance(value, int) or isinstance(value, bool) or value < 0:
             errors.append(f"max_parallel.{profile} must be a non-negative integer")
-    # FAST must never fan out to an external worker; this is the contract the
-    # whole Brain-authority model rests on, so it is enforced at compile time.
     if max_parallel.get("FAST") != 0:
         errors.append("max_parallel.FAST must be 0 (FAST may not use external workers)")
 
@@ -66,13 +58,6 @@ def compile_policy(root: Path, *, policy_path: Path, capabilities_path: Path, ou
 
     quota = policy.get("quota") or {}
 
-    # domain_capabilities.yaml declares weights_are_selection_metadata_only, so
-    # it is compiled in as RANKING authority: it decides which capability
-    # dimensions matter for a routed domain and how much. It is not a hard gate
-    # -- the active registry does not yet declare every dimension for every
-    # model, and treating a missing declaration as disqualifying would zero out
-    # whole domains (no admitted model currently declares math_quant or
-    # data_analysis, which the trading domain weights most heavily).
     if not capabilities_path.is_absolute():
         capabilities_path = root / capabilities_path
     capabilities_doc = yaml.safe_load(capabilities_path.read_text(encoding="utf-8")) or {}
@@ -87,6 +72,26 @@ def compile_policy(root: Path, *, policy_path: Path, capabilities_path: Path, ou
     if not domain_weights:
         errors.append("domain_capabilities declares no domains")
     scoring = capabilities_doc.get("scoring") or {}
+
+    evidence = capabilities_doc.get("capability_evidence") or {}
+    if evidence.get("routing_authority") is not False:
+        errors.append("capability_evidence routing_authority must be false")
+    freshness = evidence.get("default_freshness_hours")
+    hard_gate = evidence.get("hard_gate") or {}
+    min_verified = hard_gate.get("min_verified_candidates")
+    min_ratio = hard_gate.get("min_coverage_ratio")
+    default_enabled = hard_gate.get("default_enabled")
+    overrides = hard_gate.get("overrides") or {}
+    if not isinstance(freshness, int) or isinstance(freshness, bool) or not 1 <= freshness <= 8760:
+        errors.append("capability_evidence.default_freshness_hours must be an integer in 1..8760")
+    if not isinstance(min_verified, int) or isinstance(min_verified, bool) or min_verified < 1:
+        errors.append("capability_evidence.hard_gate.min_verified_candidates must be an integer >= 1")
+    if isinstance(min_ratio, bool) or not isinstance(min_ratio, (int, float)) or not 0.0 <= float(min_ratio) <= 1.0:
+        errors.append("capability_evidence.hard_gate.min_coverage_ratio must be between 0 and 1")
+    if default_enabled is not False:
+        errors.append("capability_evidence.hard_gate.default_enabled must remain false in Phase A")
+    if not isinstance(overrides, dict) or any(not isinstance(key, str) or not isinstance(value, bool) for key, value in overrides.items()):
+        errors.append("capability_evidence.hard_gate.overrides must map string keys to booleans")
 
     if errors:
         raise SystemExit("MODEL_MESH_POLICY_COMPILE=FAIL " + "; ".join(errors))
@@ -109,6 +114,16 @@ def compile_policy(root: Path, *, policy_path: Path, capabilities_path: Path, ou
             "cooldown_on_exhaustion": bool(quota.get("cooldown_on_exhaustion", False)),
         },
         "domain_capabilities": domain_weights,
+        "capability_evidence": {
+            "routing_authority": False,
+            "default_freshness_hours": int(freshness),
+            "hard_gate": {
+                "default_enabled": False,
+                "min_verified_candidates": int(min_verified),
+                "min_coverage_ratio": float(min_ratio),
+                "overrides": {str(key): bool(value) for key, value in sorted(overrides.items())},
+            },
+        },
         "scoring": {
             "capability_fit": float(scoring.get("capability_fit", 0.5)),
             "measured_quality": float(scoring.get("measured_quality", 0.25)),
@@ -134,7 +149,8 @@ def main(argv: list[str] | None = None) -> int:
         "MODEL_MESH_POLICY_COMPILE=PASS "
         f"max_parallel={json.dumps(contract['max_parallel'], sort_keys=True)} "
         f"filters={len(contract['selection_filters'])} "
-        f"domains={len(contract['domain_capabilities'])}"
+        f"domains={len(contract['domain_capabilities'])} "
+        f"capability_evidence_freshness={contract['capability_evidence']['default_freshness_hours']}"
     )
     return 0
 

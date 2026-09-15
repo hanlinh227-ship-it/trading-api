@@ -3,7 +3,8 @@
 Runs every validator exactly once, in a fixed order, and reports one summary:
   legacy validators -> V4 validators -> Model Mesh + Legion safety validators ->
   Skill Gateway snapshot compile/validate -> Model Mesh snapshot compile/validate ->
-  release + retrieval-index freshness -> consolidation invariants -> unit tests (optional)
+  Active Candidate Index compile/validate -> release + retrieval-index freshness ->
+  consolidation invariants -> unit tests (optional)
 
 Production Model Mesh compilation defaults to the canonical promoted active registry.
 An explicit --model-candidates path remains available for quarantine/candidate tests.
@@ -17,6 +18,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_ACTIVE_REGISTRY = "AI_SKILL_LIBRARY/v4/model_mesh/active.json"
+DEFAULT_ACTIVE_INDEX = "AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-active-candidate-index.json"
+DEFAULT_CAPABILITY_LEDGER = "AI_SKILL_LIBRARY/v4/model_mesh/capability_evidence.json"
 
 VALIDATORS = (
     "AI_SKILL_LIBRARY/validate_registry.py",
@@ -61,15 +64,12 @@ def _compile_model_snapshot(
     *,
     model_candidates: str | None = None,
     active_registry: str = DEFAULT_ACTIVE_REGISTRY,
+    active_index: str = DEFAULT_ACTIVE_INDEX,
     label: str = "",
 ) -> list[str]:
     failures: list[str] = []
     prefix = f"{label} " if label else ""
 
-    # Compile the canonical policy into the runtime contract first: the Worker's
-    # parallelism limits and selection filters are read from this artifact, so a
-    # policy that does not compile must stop the build before anything is built
-    # against stale limits.
     code, out = _run(
         [py, "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_policy.py", "--root", str(root)],
         root,
@@ -98,6 +98,7 @@ def _compile_model_snapshot(
     if code != 0:
         failures.append(f"{prefix}compile_model_mesh_snapshot: {out}")
         return failures
+
     code, out = _run(
         [py, "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_snapshot.py", model_snapshot, "--root", str(root), "--source-sha", source_sha],
         root,
@@ -105,6 +106,47 @@ def _compile_model_snapshot(
     print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}validate_model_mesh_snapshot: {out.splitlines()[-1] if out else ''}")
     if code != 0:
         failures.append(f"{prefix}validate_model_mesh_snapshot: {out}")
+        return failures
+
+    code, out = _run(
+        [
+            py,
+            "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_active_index.py",
+            "--root",
+            str(root),
+            "--source-sha",
+            source_sha,
+            "--snapshot",
+            model_snapshot,
+            "--ledger",
+            DEFAULT_CAPABILITY_LEDGER,
+            "--output",
+            active_index,
+        ],
+        root,
+    )
+    print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}compile_model_mesh_active_index: {out.splitlines()[-1] if out else ''}")
+    if code != 0:
+        failures.append(f"{prefix}compile_model_mesh_active_index: {out}")
+        return failures
+
+    code, out = _run(
+        [
+            py,
+            "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_active_index.py",
+            active_index,
+            "--root",
+            str(root),
+            "--snapshot",
+            model_snapshot,
+            "--source-sha",
+            source_sha,
+        ],
+        root,
+    )
+    print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}validate_model_mesh_active_index: {out.splitlines()[-1] if out else ''}")
+    if code != 0:
+        failures.append(f"{prefix}validate_model_mesh_active_index: {out}")
     return failures
 
 
