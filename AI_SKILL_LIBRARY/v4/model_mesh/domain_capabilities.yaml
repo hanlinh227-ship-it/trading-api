@@ -1,0 +1,68 @@
+version: 1
+purpose: measured_capability_requirements_after_canonical_routing
+dimensions:
+  - text_reasoning
+  - coding
+  - math_quant
+  - long_context
+  - multilingual
+  - vision
+  - structured_output
+  - tool_calling
+  - planning
+  - creative_writing
+  - prompt_media
+  - research_synthesis
+  - data_analysis
+  - low_latency
+policy:
+  routing_authority: false
+  primary_skill_remains_authority: true
+  weights_are_selection_metadata_only: true
+  image_input_min_vision_weight: 0.8
+  hard_capability_weight_threshold: 0.7
+  hard_capability_min_score: 0.35
+roles: [maker, researcher, specialist, critic, checker, grader, summarizer]
+domains:
+  core:
+    research_only: false
+    capabilities: {text_reasoning: 0.95, planning: 0.65, structured_output: 0.45, research_synthesis: 0.55}
+  engineering:
+    research_only: false
+    capabilities: {coding: 1.0, text_reasoning: 0.85, structured_output: 0.65, tool_calling: 0.55, planning: 0.60, low_latency: 0.25}
+  trading:
+    research_only: true
+    capabilities: {math_quant: 0.95, data_analysis: 0.90, text_reasoning: 0.85, research_synthesis: 0.75, structured_output: 0.55}
+  game:
+    research_only: false
+    capabilities: {coding: 0.75, planning: 0.75, text_reasoning: 0.65, creative_writing: 0.55}
+  design_2d:
+    research_only: false
+    capabilities: {vision: 0.70, text_reasoning: 0.65, planning: 0.60, structured_output: 0.35, prompt_media: 0.45}
+  design_3d:
+    research_only: false
+    capabilities: {vision: 0.70, planning: 0.70, coding: 0.55, text_reasoning: 0.65, structured_output: 0.35}
+  adobe:
+    research_only: false
+    capabilities: {vision: 0.65, planning: 0.65, text_reasoning: 0.55, prompt_media: 0.50, structured_output: 0.35}
+  prompt_media:
+    research_only: false
+    capabilities: {prompt_media: 1.0, creative_writing: 0.75, vision: 0.60, multilingual: 0.45, text_reasoning: 0.50}
+  writing:
+    research_only: false
+    capabilities: {creative_writing: 1.0, multilingual: 0.55, text_reasoning: 0.50, planning: 0.35}
+  academic:
+    research_only: false
+    capabilities: {research_synthesis: 1.0, long_context: 0.85, text_reasoning: 0.85, structured_output: 0.60, multilingual: 0.35}
+  data_docs:
+    research_only: false
+    capabilities: {data_analysis: 0.95, structured_output: 0.85, text_reasoning: 0.65, long_context: 0.55, math_quant: 0.45}
+  business:
+    research_only: false
+    capabilities: {text_reasoning: 0.85, research_synthesis: 0.75, planning: 0.75, structured_output: 0.55, data_analysis: 0.45}
+scoring:
+  capability_fit: 0.50
+  measured_quality: 0.25
+  reputation: 0.12
+  quota_headroom: 0.08
+  latency_efficiency: 0.05
