@@ -44,6 +44,28 @@ class AdaptiveFreeModelMeshUpstreamTests(unittest.TestCase):
             self.assertFalse(by_id[source_id]["mandatory_runtime_dependency"])
             self.assertFalse(by_id[source_id]["code_reuse"])
 
+    def test_capability_fusion_mirrors_model_mesh_references(self):
+        fusion = self._yaml("AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml")
+        rows = fusion["upstream_pattern_map"]
+        for source_id in (
+            "anomalyco/models.dev",
+            "anomalyco/opencode",
+            "Portkey-AI/models",
+            "Portkey-AI/gateway",
+            "vllm-project/semantic-router",
+            "microsoft/agent-framework",
+        ):
+            self.assertIn(source_id, rows)
+            self.assertFalse(rows[source_id]["routing_authority"])
+            self.assertFalse(rows[source_id]["reasoning_authority"])
+            self.assertFalse(rows[source_id]["mandatory_runtime_dependency"])
+
+    def test_model_mesh_is_warm_not_hot(self):
+        workspace = self._yaml("AI_SKILL_LIBRARY/v4/index/workspace_map.yaml")
+        self.assertIn("AI_SKILL_LIBRARY/v4/model_mesh", workspace["tiers"]["WARM"]["paths"])
+        self.assertNotIn("AI_SKILL_LIBRARY/v4/model_mesh", workspace["tiers"]["HOT"]["paths"])
+        self.assertIn("model_mesh", workspace["groups"])
+
 
 if __name__ == "__main__":
     unittest.main()
