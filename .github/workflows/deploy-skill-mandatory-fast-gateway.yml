@@ -31,6 +31,7 @@ jobs:
       AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
       MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+      TINY_FISH_API: ${{ secrets.TINY_FISH_API }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       CLOUDFLARE_AI_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN }}
@@ -94,7 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           synced=0
-          for key in MODEL_MESH_EXECUTION_TOKEN GROQ_API_KEY GEMINI_API_KEY CLOUDFLARE_AI_API_TOKEN OPENROUTER_API_KEY MISTRAL_API_KEY COHERE_API_KEY HF_TOKEN NVIDIA_API_KEY CEREBRAS_API_KEY SAMBANOVA_API_KEY DASHSCOPE_API_KEY OPENCODE_ZEN_API_KEY; do
+          for key in MODEL_MESH_EXECUTION_TOKEN TINY_FISH_API GROQ_API_KEY GEMINI_API_KEY CLOUDFLARE_AI_API_TOKEN OPENROUTER_API_KEY MISTRAL_API_KEY COHERE_API_KEY HF_TOKEN NVIDIA_API_KEY CEREBRAS_API_KEY SAMBANOVA_API_KEY DASHSCOPE_API_KEY OPENCODE_ZEN_API_KEY; do
             value="${!key:-}"
             if [ -n "$value" ]; then
               printf '%s' "$value" | npx wrangler secret put "$key" --name trading-v77-scanner >/dev/null
@@ -127,7 +128,7 @@ jobs:
           const expected=process.env.SKILL_GATEWAY_SOURCE_SHA;
           if(x.name!=='trading-v77-scanner'||x.keep_vars!==true||x.vars?.RUNTIME_REVISION!==expected)throw new Error('unsafe_skill_gateway_deploy_config');
           for(const key of ['BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_AUTO_ENABLED'])if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('runtime_switch_must_not_be_generated:'+key);
-          const forbiddenSecretKeys=['MODEL_MESH_EXECUTION_TOKEN','GROQ_API_KEY','GEMINI_API_KEY','CLOUDFLARE_AI_API_TOKEN','OPENROUTER_API_KEY','MISTRAL_API_KEY','COHERE_API_KEY','HF_TOKEN','NVIDIA_API_KEY','CEREBRAS_API_KEY','SAMBANOVA_API_KEY','DASHSCOPE_API_KEY','OPENCODE_ZEN_API_KEY'];
+          const forbiddenSecretKeys=['MODEL_MESH_EXECUTION_TOKEN','TINY_FISH_API','GROQ_API_KEY','GEMINI_API_KEY','CLOUDFLARE_AI_API_TOKEN','OPENROUTER_API_KEY','MISTRAL_API_KEY','COHERE_API_KEY','HF_TOKEN','NVIDIA_API_KEY','CEREBRAS_API_KEY','SAMBANOVA_API_KEY','DASHSCOPE_API_KEY','OPENCODE_ZEN_API_KEY'];
           for(const key of forbiddenSecretKeys)if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('provider_secret_must_not_be_generated:'+key);
           console.log('SKILL_GATEWAY_DEPLOY_CONFIG=PASS revision='+expected);
           NODE
@@ -139,7 +140,7 @@ jobs:
         run: |
           set -euo pipefail
           export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
-          npx wrangler deploy
+          npx wrangler deploy 2>&1 | node redact-deploy-output.mjs
 
       - name: Verify exact deployed revision, Skill Gateway and Model Mesh health
         shell: bash
@@ -191,9 +192,11 @@ jobs:
           set -euo pipefail
           check_plan() {
             text="$1" expected_profile="$2" max_workers="$3"
+            health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
+            min_workers="$(printf '%s\n' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);process.stdout.write(String(Number(x.activeProviderCount)>0?1:0))})")"
             body="$(TEXT="$text" node -e "process.stdout.write(JSON.stringify({text:process.env.TEXT,dataClass:'PUBLIC'}))")"
             result="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' -d "$body" "$WORKER_BASE_URL/brain/mesh/plan" || true)"
-            printf '%s\n' "$result" | EXPECTED_PROFILE="$expected_profile" MAX_WORKERS="$max_workers" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),r=x.route||{},w=Array.isArray(x.workers)?x.workers:[];if(x.ok!==true||r.profile!==process.env.EXPECTED_PROFILE||r.sourceSha!==process.env.EXPECTED_SHA||r.externalRoutingCalls!==0||w.length>Number(process.env.MAX_WORKERS))process.exit(2);console.log('MODEL_MESH_PLAN=PASS '+r.profile+' workers='+w.length)}catch{process.exit(2)}})"
+            printf '%s\n' "$result" | EXPECTED_PROFILE="$expected_profile" MIN_WORKERS="$min_workers" MAX_WORKERS="$max_workers" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),r=x.route||{},w=Array.isArray(x.workers)?x.workers:[];if(x.ok!==true||r.profile!==process.env.EXPECTED_PROFILE||r.sourceSha!==process.env.EXPECTED_SHA||r.externalRoutingCalls!==0||w.length<Number(process.env.MIN_WORKERS)||w.length>Number(process.env.MAX_WORKERS)||(w.length===0&&x.selectionReason!=='no_live_healthy_provider'))process.exit(2);console.log('MODEL_MESH_PLAN=PASS '+r.profile+' workers='+w.length+' reason='+x.selectionReason)}catch{process.exit(2)}})"
           }
           for attempt in 1 2 3 4 5 6; do
             if check_plan 'sửa lỗi API này' STANDARD 2 && check_plan 'quét market BTC live' DEEP 4; then exit 0; fi
@@ -218,7 +221,26 @@ jobs:
             exit 0
           fi
           result="$(curl -fsS --connect-timeout 5 --max-time 90 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
-          printf '%s\n' "$result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.mode!=='FREE_ONLY'||x.routingAuthority!==false||x.reasoningAuthority!==false||!Array.isArray(x.results))process.exit(2);if(JSON.stringify(x).match(/API_KEY|TOKEN|secret/i))process.exit(3);console.log('MODEL_MESH_PROBE=PASS probed='+x.probedProviderCount+' successful='+x.successfulProviderCount)})"
+          printf '%s\n' "$result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.mode!=='FREE_ONLY'||x.routingAuthority!==false||x.reasoningAuthority!==false||!Array.isArray(x.results)||x.results.length===0)process.exit(2);if(JSON.stringify(x).match(/API_KEY|TOKEN|secret/i))process.exit(3);const matrix=x.results.map(r=>({providerId:r.providerId,modelId:r.modelId,configured:r.configured,ok:r.ok,status:r.status,state:r.state,category:r.category,latencyMs:r.latencyMs}));console.log('MODEL_MESH_PROBE_MATRIX='+JSON.stringify(matrix));if(matrix.some(r=>!r.configured||!r.ok||r.state!=='LIVE_HEALTHY'))process.exit(4);console.log('MODEL_MESH_PROBE=PASS probed='+x.probedProviderCount+' successful='+x.successfulProviderCount)})"
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
+            if RESULT="$result" HEALTH="$health" node -e "const p=JSON.parse(process.env.RESULT),h=JSON.parse(process.env.HEALTH);const active=new Set((h.providers||[]).filter(x=>x.active).map(x=>x.providerId));if(!p.results.every(x=>active.has(x.providerId)))process.exit(2);console.log('MODEL_MESH_LIVE_OVERLAY=PASS active='+active.size)"; then break; fi
+            if [ "$attempt" -eq 12 ]; then exit 5; fi
+            echo "MODEL_MESH_KV_PROPAGATION_RETRY attempt=$attempt"
+            sleep 5
+          done
+
+      - name: Production TinyFish free evidence canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${TINY_FISH_API:-}"
+          test -n "${MODEL_MESH_EXECUTION_TOKEN:-}"
+          health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/evidence/health")"
+          printf '%s\n' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||!x.configured||x.mode!=='FREE_ONLY'||JSON.stringify(x.allowedOperations)!=='[\"search\",\"fetch\"]'||x.routingAuthority!==false||x.reasoningAuthority!==false)process.exit(2);console.log('TINYFISH_HEALTH=PASS')})"
+          body='{"text":"debug this API integration","operation":"search","dataClass":"PUBLIC"}'
+          result="$(curl -fsS --connect-timeout 5 --max-time 45 -X POST -H 'content-type: application/json' -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" -d "$body" "$WORKER_BASE_URL/brain/evidence/probe")"
+          printf '%s\n' "$result" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.provider!=='tinyfish'||x.mode!=='FREE_ONLY'||x.operation!=='search'||x.routingAuthority!==false||x.reasoningAuthority!==false)process.exit(2);if(JSON.stringify(x).match(/API_KEY|TOKEN|secret/i))process.exit(3);console.log('TINYFISH_SEARCH_CANARY=PASS status='+x.status)})"
 
       - name: Deployment record
         run: |
