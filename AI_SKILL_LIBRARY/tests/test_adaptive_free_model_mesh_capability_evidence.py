@@ -155,6 +155,11 @@ class CapabilityEvidenceStateTests(unittest.TestCase):
         state = capability_evidence_state(candidate(), "coding", self._map(record(measured_at="not-a-time")), now=NOW, freshness_hours=168)
         self.assertEqual(state["state"], "PROVISIONAL")
 
+    def test_future_timestamp_never_verifies(self):
+        state = capability_evidence_state(candidate(), "coding", self._map(record(measured_at="2026-09-16T10:00:00Z")), now=NOW, freshness_hours=168)
+        self.assertEqual(state["state"], "PROVISIONAL")
+        self.assertEqual(state["evidence_ids"], [])
+
     def test_strict_loader_rejects_extra_secret_shaped_field(self):
         ledger = {
             "version": 1,
