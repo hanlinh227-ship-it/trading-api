@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node validate-worker.mjs && node validate-btc-hyperscale.mjs && node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs && node test-skill-gateway-snapshot.mjs && node test-model-mesh-contracts.mjs && node test-model-mesh-health-store.mjs && node test-model-mesh.mjs && node test-model-mesh-handler.mjs && node test-model-mesh-bindings.mjs && node test-model-mesh-execute.mjs && node test-model-mesh-probe.mjs && node test-brain-evidence-tinyfish.mjs && node test-tinyfish-guard.mjs && node test-deploy-safety.mjs",
+    "check": "node prepare-workers-build.mjs && node validate-worker.mjs && node validate-btc-hyperscale.mjs && node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs && node test-skill-gateway-snapshot.mjs && node test-model-mesh-contracts.mjs && node test-model-mesh-health-store.mjs && node test-model-mesh.mjs && node test-model-mesh-handler.mjs && node test-model-mesh-bindings.mjs && node test-model-mesh-execute.mjs && node test-model-mesh-probe.mjs && node test-brain-evidence-tinyfish.mjs && node test-tinyfish-guard.mjs && node test-deploy-safety.mjs",
     "test:skill-gateway": "node test-skill-gateway.mjs && node test-skill-gateway-handler.mjs && node test-skill-gateway-snapshot.mjs",
     "test:model-mesh": "node test-model-mesh-contracts.mjs && node test-model-mesh-health-store.mjs && node test-model-mesh.mjs && node test-model-mesh-handler.mjs && node test-model-mesh-bindings.mjs && node test-model-mesh-execute.mjs && node test-model-mesh-probe.mjs",
     "prepare:skill-gateway": "node prepare-skill-gateway.mjs",
