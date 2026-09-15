@@ -1,14 +1,20 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { observationFingerprint } from '../src/device-session.js'
+import { plan2048Step } from '../src/game-2048-planner.js'
 
-test('visual-only screen changes produce a different task observation fingerprint', () => {
-  const semantic = 'same-accessibility-tree'
-  const before = observationFingerprint({ fingerprint: semantic, screenshotHash: 'shot-a' })
-  const after = observationFingerprint({ fingerprint: semantic, screenshotHash: 'shot-b' })
-  assert.notEqual(before, after)
+test('2048 keeps swiping when accessibility fingerprint cannot observe Canvas changes', () => {
+  const plan = plan2048Step(
+    { stepCount: 5, recoveryCount: 4, persistence: 'UNTIL_TERMINAL' },
+    { screenWidth: 1080, screenHeight: 2400, nodes: [] },
+  )
+  assert.equal(plan.action.type, 'swipe')
+  assert.equal(plan.expectedPostcondition.type, 'observation_returned')
 })
 
-test('semantic fingerprint remains usable when screenshot is unavailable', () => {
-  assert.equal(observationFingerprint({ fingerprint: 'semantic-a' }), 'semantic-a')
+test('2048 still stops on an explicit game-over signal', () => {
+  const plan = plan2048Step(
+    { stepCount: 50, recoveryCount: 0 },
+    { nodes: [{ text: 'Game Over!' }] },
+  )
+  assert.equal(plan.expectedPostcondition.type, 'task_complete')
 })
