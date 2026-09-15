@@ -58,7 +58,17 @@ CANDIDATE_EXTENSION_FILES: tuple[tuple[str, str], ...] = (
     ("AI_SKILL_LIBRARY/v4/learning/idle.yaml", "idle_learning"),
 )
 
-RELEASE_FILES = RELEASE_FILES + CANDIDATE_EXTENSION_FILES
+VNEXT_INTEGRATION_FILES: tuple[tuple[str, str], ...] = (
+    ("AI_SKILL_LIBRARY/v4/integrations/policy.yaml", "vnext_integration_policy"),
+    ("AI_SKILL_LIBRARY/v4/tools/agent_skill_compat.py", "agent_skill_compatibility_tool"),
+    ("AI_SKILL_LIBRARY/v4/tools/integration_adapters.py", "vnext_integration_adapter_tool"),
+    ("AI_SKILL_LIBRARY/v4/tools/adaptive_execution.py", "adaptive_execution_tool"),
+    ("AI_SKILL_LIBRARY/v4/tools/discover_free_models.py", "free_model_discovery_tool"),
+    ("AI_SKILL_LIBRARY/v4/tools/legion.py", "legion_runtime_tool"),
+    ("AI_SKILL_LIBRARY/v4/tools/admission.py", "evergreen_admission_tool"),
+)
+
+RELEASE_FILES = RELEASE_FILES + CANDIDATE_EXTENSION_FILES + VNEXT_INTEGRATION_FILES
 
 
 def sha256_file(path: Path) -> str:
