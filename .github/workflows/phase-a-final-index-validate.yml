@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install index dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
       - name: Rebuild canonical retrieval index
         shell: bash
         run: |
