@@ -5,7 +5,8 @@ const skillSnapshot={source_sha:'a'.repeat(40),release_id:'test',schema_version:
 const activeModel={provider_id:'groq',model_id:'openai/gpt-oss-120b',model_family:'gpt-oss-120b',free_status:'account_specific',health:'degraded',privacy_class:'public_safe',capabilities:{text_reasoning:{supported:true,score:0.8}},quality_scores:{}};
 const modelSnapshot={schema_version:1,source_sha:'a'.repeat(40),mode:'FREE_ONLY',routing_authority:false,reasoning_authority:false,generated_at:'2026-09-15T00:00:00Z',models:[activeModel]};
 const routeSkill=({text})=>({profile:text==='fast'?'FAST':'STANDARD',primarySkill:'core_reasoning',domain:'core',externalRoutingCalls:0});
-const handler=createModelMeshHandler({skillSnapshot,modelSnapshot,routeSkill});
+const probeProviders=async(_env)=>({ok:true,mode:'FREE_ONLY',results:[{providerId:'groq',modelId:'openai/gpt-oss-120b',configured:true,ok:true,status:200,latencyMs:12}]});
+const handler=createModelMeshHandler({skillSnapshot,modelSnapshot,routeSkill,probeProviders});
 
 let response=await handler(new Request('https://example.com/brain/mesh/health'),{GROQ_API_KEY:'do-not-leak',MODEL_MESH_EXECUTION_ENABLED:'1',MODEL_MESH_EXECUTION_TOKEN:'token'});
 assert.equal(response.status,200);
@@ -28,6 +29,15 @@ assert.equal(nvidia.configured,false);
 assert.equal(JSON.stringify(body).includes('do-not-leak'),false);
 assert.equal(JSON.stringify(body).includes('GROQ_API_KEY'),false);
 
+response=await handler(new Request('https://example.com/brain/mesh/probe',{method:'POST'}),{MODEL_MESH_EXECUTION_TOKEN:'token'});
+assert.equal(response.status,401);
+response=await handler(new Request('https://example.com/brain/mesh/probe',{method:'POST',headers:{'x-model-mesh-token':'token'}}),{MODEL_MESH_EXECUTION_TOKEN:'token'});
+assert.equal(response.status,200);
+body=await response.json();
+assert.equal(body.ok,true);
+assert.equal(body.results[0].providerId,'groq');
+assert.equal(JSON.stringify(body).includes('token'),false);
+
 response=await handler(new Request('https://example.com/brain/mesh/plan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:'fast'})}));
 assert.equal(response.status,200);
 body=await response.json();
@@ -36,4 +46,4 @@ assert.equal(body.workers.length,0);
 
 response=await handler(new Request('https://example.com/brain/mesh/plan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:'normal',dataClass:'SECRET'})}));
 assert.equal(response.status,403);
-console.log('model mesh handler contracts and sanitized provider health ok');
+console.log('model mesh handler contracts, probe auth and sanitized provider health ok');
