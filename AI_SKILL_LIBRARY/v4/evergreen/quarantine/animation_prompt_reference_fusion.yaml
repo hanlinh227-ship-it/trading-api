@@ -6,7 +6,16 @@ reasoning_authority: false
 permission_expansion: false
 mandatory_runtime_dependency: false
 zero_local_preserved: true
-promotion_target: strengthen_video_prompt_only
+promotion_target: strengthen_existing_prompt_media_skills_only
+max_new_primary_skills: 0
+normalized_absorption:
+  motion_priors: video_prompt
+  motion_pattern_control: video_prompt
+  sparse_structural_control: scene_continuity
+  chronological_motion_prompting: video_prompt
+  literal_temporal_action_order: video_prompt
+  complex_video_motion_reference: camera_direction
+  image_to_video_reference: scene_continuity
 candidates:
   - repository: guoyww/AnimateDiff
     provenance: github_public_official_implementation
@@ -39,7 +48,7 @@ reference_guidance:
   no_runtime_dependency_from_reference_sources: true
 conflict_resolution:
   canonical_skill_first: true
-  strengthen_existing_video_prompt: true
+  strengthen_existing_prompt_media_skills: true
   generic_animation_trigger_stays_with_design_3d: true
   duplicate_reasoning_authority: reject
   permission_widening: reject
