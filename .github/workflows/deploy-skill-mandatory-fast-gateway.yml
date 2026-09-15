@@ -510,5 +510,12 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
+          # This job checks out main on purpose, so it runs the diagnosis that
+          # ships with the deployed revision. Skip cleanly when that revision
+          # predates the tool instead of failing the refresh.
+          if [ ! -f cloudflare-worker/diagnose-gemini.mjs ]; then
+            echo "GEMINI_DIAGNOSIS=SKIPPED reason=tool_not_in_deployed_revision"
+            exit 0
+          fi
           CONFIGURED="$(node -e "const s=require('./AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json');const m=(s.models||[]).find(x=>x.provider_id==='gemini_developer_api');process.stdout.write(m?m.model_id:'')" 2>/dev/null || true)" \
             node cloudflare-worker/diagnose-gemini.mjs
