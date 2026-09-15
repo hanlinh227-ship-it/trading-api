@@ -1,0 +1,160 @@
+name: Android Brain Agent Command V4
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  id-token: write
+  issues: read
+
+jobs:
+  github-command-v4:
+    if: startsWith(github.event.issue.title, '[ANDROID_AGENT]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Validate command payload
+        id: command
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          ;(() => {
+            const body = process.env.ISSUE_BODY ?? ''
+            let parsed
+            try { parsed = JSON.parse(body) } catch { throw new Error('Issue body must be JSON') }
+            if (!parsed.goal || typeof parsed.goal !== 'string' || parsed.goal.length > 2000) throw new Error('goal required')
+            if (parsed.rawShell || parsed.shell || parsed.command) throw new Error('raw shell is forbidden')
+            const output = process.env.GITHUB_OUTPUT
+            fs.appendFileSync(output, `goal=${JSON.stringify(parsed.goal)}\n`)
+            fs.appendFileSync(output, `confirmed=${parsed.confirmedRiskClassC === true ? 'true' : 'false'}\n`)
+            fs.appendFileSync(output, `device_id=${typeof parsed.deviceId === 'string' ? parsed.deviceId : ''}\n`)
+          })()
+          NODE
+
+      - name: Request GitHub OIDC token
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken('android-agent-gateway')
+            core.setSecret(token)
+            core.setOutput('token', token)
+
+      - name: Resolve active Android device
+        id: device
+        env:
+          GATEWAY: https://android-brain-agent-gateway.hanlinh227.workers.dev
+          REQUESTED_DEVICE_ID: ${{ steps.command.outputs.device_id }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          ;(async () => {
+            const gateway = process.env.GATEWAY
+            const requested = (process.env.REQUESTED_DEVICE_ID || '').trim()
+            async function getJson(path) {
+              const response = await fetch(gateway + path)
+              const body = await response.json().catch(() => ({}))
+              if (!response.ok) throw new Error(`${path} -> ${response.status} ${JSON.stringify(body)}`)
+              return body
+            }
+            let deviceId = requested
+            if (!deviceId) {
+              const latest = await getJson('/v1/devices/latest')
+              deviceId = latest.deviceId || ''
+            }
+            if (!deviceId) throw new Error('No Android device has registered yet')
+            const status = await getJson(`/v1/device/${encodeURIComponent(deviceId)}/status`)
+            if (status.deviceId !== deviceId || status.paired !== true || status.online !== true) {
+              throw new Error(`Android device ${deviceId} is not paired and online: ${JSON.stringify(status)}`)
+            }
+            console.log(`DEVICE_READY ${deviceId}`)
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `device_id=${deviceId}\n`)
+          })().catch(error => { console.error(error); process.exit(1) })
+          NODE
+
+      - name: Dispatch Android goal
+        id: dispatch
+        env:
+          GATEWAY: https://android-brain-agent-gateway.hanlinh227.workers.dev
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          DEVICE_ID: ${{ steps.device.outputs.device_id }}
+          GOAL_JSON: ${{ steps.command.outputs.goal }}
+          CONFIRMED: ${{ steps.command.outputs.confirmed }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          ;(async () => {
+            const goal = JSON.parse(process.env.GOAL_JSON)
+            const response = await fetch(`${process.env.GATEWAY}/v1/device/${encodeURIComponent(process.env.DEVICE_ID)}/run`, {
+              method: 'POST',
+              headers: {
+                authorization: `Bearer ${process.env.OIDC_TOKEN}`,
+                'content-type': 'application/json',
+              },
+              body: JSON.stringify({
+                goal,
+                confirmedRiskClassC: process.env.CONFIRMED === 'true',
+                source: 'github-oidc',
+              }),
+            })
+            const body = await response.json().catch(() => ({}))
+            if (!response.ok) throw new Error(`Gateway rejected goal: ${response.status} ${JSON.stringify(body)}`)
+            if (!['command', 'task'].includes(body.dispatch)) throw new Error(`Unknown dispatch mode: ${JSON.stringify(body)}`)
+            console.log(`DISPATCHED ${JSON.stringify(body)}`)
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `dispatch=${body.dispatch}\n`)
+            if (body.commandId) fs.appendFileSync(process.env.GITHUB_OUTPUT, `command_id=${body.commandId}\n`)
+            if (body.taskId) fs.appendFileSync(process.env.GITHUB_OUTPUT, `task_id=${body.taskId}\n`)
+          })().catch(error => { console.error(error); process.exit(1) })
+          NODE
+
+      - name: Wait for exact device result
+        env:
+          GATEWAY: https://android-brain-agent-gateway.hanlinh227.workers.dev
+          DEVICE_ID: ${{ steps.device.outputs.device_id }}
+          DISPATCH: ${{ steps.dispatch.outputs.dispatch }}
+          COMMAND_ID: ${{ steps.dispatch.outputs.command_id }}
+          TASK_ID: ${{ steps.dispatch.outputs.task_id }}
+        run: |
+          node <<'NODE'
+          ;(async () => {
+            const gateway = process.env.GATEWAY
+            const device = encodeURIComponent(process.env.DEVICE_ID)
+            const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+            async function get(path) {
+              const response = await fetch(gateway + path)
+              const body = await response.json().catch(() => ({}))
+              return { response, body }
+            }
+            if (process.env.DISPATCH === 'command') {
+              const id = encodeURIComponent(process.env.COMMAND_ID || '')
+              if (!id) throw new Error('Missing command id')
+              for (let i = 0; i < 120; i += 1) {
+                const { response, body } = await get(`/v1/device/${device}/command-result/${id}`)
+                if (response.ok) {
+                  if (body.commandId !== process.env.COMMAND_ID) throw new Error('Command receipt mismatch')
+                  if (body.status === 'COMPLETED') { console.log(JSON.stringify(body)); return }
+                  if (body.status === 'FAILED' || body.status === 'NEEDS_CONFIRMATION') throw new Error(JSON.stringify(body))
+                }
+                await sleep(3000)
+              }
+              throw new Error('Timed out waiting for exact command receipt')
+            }
+            const taskId = encodeURIComponent(process.env.TASK_ID || '')
+            if (!taskId) throw new Error('Missing task id')
+            for (let i = 0; i < 600; i += 1) {
+              const { response, body } = await get(`/v1/device/${device}/task/${taskId}`)
+              if (response.ok) {
+                if (body.taskId !== process.env.TASK_ID) throw new Error('Task id mismatch')
+                if (body.status === 'COMPLETED') { console.log(JSON.stringify(body)); return }
+                if (body.status === 'FAILED' || body.status === 'CANCELLED') throw new Error(JSON.stringify(body))
+                if (i % 10 === 0) console.log(`TASK_PROGRESS ${JSON.stringify(body)}`)
+              }
+              await sleep(3000)
+            }
+            throw new Error('Timed out waiting for task terminal state')
+          })().catch(error => { console.error(error); process.exit(1) })
+          NODE
