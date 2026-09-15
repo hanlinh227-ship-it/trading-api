@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/prepare-brain-4-9.yml'
       - 'AI_SKILL_LIBRARY/v4/tools/ci_validate.py'
+      - 'AI_SKILL_LIBRARY/tests/test_legion_runtime_contracts.py'
+      - 'cloudflare-worker/skill-gateway-handler.js'
 
 permissions:
   contents: write
