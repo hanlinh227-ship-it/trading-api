@@ -14,6 +14,7 @@ import com.hanlinh.androidbrain.policy.RiskPolicy
 import com.hanlinh.androidbrain.policy.UserPolicy
 import com.hanlinh.androidbrain.protocol.Action
 import com.hanlinh.androidbrain.protocol.CommandEnvelope
+import com.hanlinh.androidbrain.protocol.CommandEnvelopeVerifier
 import com.hanlinh.androidbrain.protocol.GlobalBack
 import com.hanlinh.androidbrain.protocol.GlobalHome
 import com.hanlinh.androidbrain.protocol.GlobalNotifications
