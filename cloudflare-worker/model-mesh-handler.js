@@ -4,7 +4,7 @@ import {providerConfigurationStatus} from './model-mesh/provider-client.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 
-export function createModelMeshHandler({skillSnapshot,modelSnapshot,routeSkill,executeWorkers=null}={}){
+export function createModelMeshHandler({skillSnapshot,modelSnapshot,routeSkill,executeWorkers=null,probeProviders=null}={}){
   if(!skillSnapshot||!modelSnapshot||typeof routeSkill!=='function')throw new Error('MODEL_MESH_HANDLER_CONFIG_REQUIRED');
   return async function handleModelMesh(request,env={}){
     const url=new URL(request.url);
@@ -27,6 +27,15 @@ export function createModelMeshHandler({skillSnapshot,modelSnapshot,routeSkill,e
         activeProviderCount:providers.filter(row=>row.active).length,
         providers,
       });
+    }
+    if(url.pathname==='/brain/mesh/probe'){
+      if(request.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
+      const expected=String(env.MODEL_MESH_EXECUTION_TOKEN||'');
+      const supplied=String(request.headers.get('x-model-mesh-token')||'');
+      if(!expected||!supplied||supplied!==expected)return json({ok:false,error:'unauthorized'},401);
+      if(typeof probeProviders!=='function')return json({ok:false,error:'mesh_probe_not_configured'},503);
+      const result=await probeProviders(env,{modelSnapshot});
+      return json(result);
     }
     if(url.pathname==='/brain/mesh/plan'){
       if(request.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
