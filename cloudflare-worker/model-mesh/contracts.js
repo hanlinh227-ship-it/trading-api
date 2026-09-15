@@ -3,9 +3,6 @@ import {quotaAvailable} from './quota-state.js';
 import {MODEL_MESH_POLICY} from '../generated/model-mesh-policy.js';
 
 export const MODEL_MESH_MODE=MODEL_MESH_POLICY.mode;
-// Compiled from the canonical policy.yaml -- never hard-coded here. The same
-// contract feeds the /brain/mesh/health response and the CI assertion, so the
-// canonical policy is the single authority for parallelism.
 export const MODEL_MESH_LIMITS=Object.freeze({...MODEL_MESH_POLICY.max_parallel});
 export const MODEL_MESH_SELECTION_FILTERS=Object.freeze([...MODEL_MESH_POLICY.selection_filters]);
 export const MODEL_MESH_PRIVACY_POLICY=Object.freeze({...MODEL_MESH_POLICY.privacy});
@@ -27,45 +24,31 @@ export function classifyProviderFailure({status=0,code=''}={}){
   if(s>=500&&s<=599)return 'PROVIDER_5XX';
   return 'UNKNOWN_SANITIZED';
 }
-// Production usage terms. A model offered only for evaluation/trial may be
-// discoverable but must never be selected to serve a real request.
 const PRODUCTION_USAGE_TERMS=new Set(['production_allowed']);
 const SAFE_PRIVACY_CLASSES=new Set(['internal_safe','confidential_safe']);
 
 /**
- * Apply the canonical policy's `selection.filter_before_score` chain.
+ * Apply the canonical filter-before-score chain.
  *
- * Every filter named in policy.yaml is implemented here. Returns the name of
- * the first filter that rejects the model, or null when the model is eligible,
- * so callers can report *why* a model was excluded instead of silently
- * producing an empty worker set.
+ * Provider-declared capability support preserves the current production gate.
+ * Phase A measured evidence becomes an additional veto only when the compiled
+ * Active Candidate Index explicitly enables a hard gate for that capability.
  */
-export function selectionRejection(model,{dataClass='PUBLIC',requiredCapability='text_reasoning',contextTokens=0}={}){
+export function selectionRejection(model,{dataClass='PUBLIC',requiredCapability='text_reasoning',contextTokens=0,hardCapabilityGate=false}={}){
   const cls=sanitizeDataClass(dataClass);
 
-  // free_entitlement: FREE_ONLY eligibility with a verified observation.
   if(!freeOnlyEligible(model))return 'free_entitlement';
-
-  // usage_terms: evaluation/trial offerings are not production capacity.
   if(!PRODUCTION_USAGE_TERMS.has(String(model.usage_terms||'')))return 'usage_terms';
 
-  // capability: the model must actually support what the request needs.
   const capability=model?.capabilities?.[requiredCapability];
   if(!capability||capability.supported!==true)return 'capability';
+  if(hardCapabilityGate===true&&model?.capability_evidence?.[requiredCapability]?.state!=='VERIFIED')return 'capability';
 
-  // permission_ceiling: the request's data class may never be widened.
   if(MODEL_MESH_PRIVACY_POLICY[cls]==='deny_external_free')return 'permission_ceiling';
-
-  // privacy: non-public classes need an explicitly safe privacy class.
   if(['INTERNAL','CONFIDENTIAL'].includes(cls)&&!SAFE_PRIVACY_CLASSES.has(String(model.privacy_class||'')))return 'privacy';
-
-  // health: only fresh LIVE_HEALTHY evidence admits a model.
   if(String(model.health||'healthy')!=='healthy')return 'health';
-
-  // quota: a model inside its own cooldown/disabled window is not capacity.
   if(!quotaAvailable(model.quota_state??{state:model.runtimeState==='COOLDOWN'?'COOLDOWN_QUOTA':'AVAILABLE',resetAt:model.liveEvidence?.cooldownUntil??null}))return 'quota';
 
-  // context_fit: the request must fit the model's context window.
   const window=Number(model.context_window||0);
   if(contextTokens>0&&window>0&&contextTokens>window)return 'context_fit';
 
@@ -76,18 +59,8 @@ export function eligibleModel(model,dataClass='PUBLIC',options={}){
   return selectionRejection(model,{...options,dataClass})===null;
 }
 
-// Filters that depend only on the registry, not on live runtime state.
 const STATIC_FILTERS=new Set(['free_entitlement','usage_terms','capability','permission_ceiling','privacy']);
 
-/**
- * Can this model EVER be selected, ignoring current health and quota?
- *
- * Used to decide what is worth probing and what counts toward the runtime
- * provider inventory. A model the selection chain can never admit (an
- * evaluation-only offering, say) must not be probed -- probing it spends free
- * quota to produce evidence nothing will read -- and must not be reported as
- * ACTIVE, or the health overlay disagrees with the planner.
- */
 export function selectionCandidate(model,dataClass='PUBLIC'){
   const rejection=selectionRejection(model,{dataClass});
   return rejection===null||!STATIC_FILTERS.has(rejection);
