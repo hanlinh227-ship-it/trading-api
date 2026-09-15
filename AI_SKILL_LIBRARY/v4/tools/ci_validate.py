@@ -5,6 +5,11 @@ Runs every validator exactly once, in a fixed order, and reports one summary:
   Skill Gateway snapshot compile/validate -> Model Mesh snapshot compile/validate ->
   release + retrieval-index freshness -> consolidation invariants -> unit tests (optional)
 
+When unit tests are enabled, snapshots are compiled and validated once more after
+all tests. Some snapshot tests intentionally write synthetic source SHAs; the final
+recompile guarantees that canonical generated artifacts always leave validation
+pinned to the requested exact source SHA.
+
 Usage:
   python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$(git rev-parse HEAD)" [--skip-tests]
 """
@@ -49,6 +54,77 @@ def _empty_quarantine_candidates(path: Path) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _compile_skill_snapshot(py: str, root: Path, source_sha: str, snapshot: str, *, label: str = "") -> list[str]:
+    failures: list[str] = []
+    prefix = f"{label} " if label else ""
+    code, out = _run([py, "AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py", "--source-sha", source_sha, "--output", snapshot], root)
+    print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}compile_skill_gateway: {out.splitlines()[-1] if out else ''}")
+    if code != 0:
+        failures.append(f"{prefix}compile_skill_gateway: {out}")
+        return failures
+    code, out = _run([py, "AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py", snapshot], root)
+    print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}validate_skill_gateway_snapshot: {out.splitlines()[-1] if out else ''}")
+    if code != 0:
+        failures.append(f"{prefix}validate_skill_gateway_snapshot: {out}")
+    return failures
+
+
+def _compile_model_snapshot(
+    py: str,
+    root: Path,
+    source_sha: str,
+    model_snapshot: str,
+    *,
+    model_candidates: str | None = None,
+    label: str = "",
+) -> list[str]:
+    failures: list[str] = []
+    prefix = f"{label} " if label else ""
+    with tempfile.TemporaryDirectory(prefix="brain-model-mesh-") as temp_dir:
+        if model_candidates:
+            candidates_path = Path(model_candidates)
+            if not candidates_path.is_absolute():
+                candidates_path = root / candidates_path
+        else:
+            candidates_path = Path(temp_dir) / "empty-quarantine-candidates.json"
+            _empty_quarantine_candidates(candidates_path)
+        code, out = _run(
+            [
+                py,
+                "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_snapshot.py",
+                "--root",
+                str(root),
+                "--source-sha",
+                source_sha,
+                "--candidates",
+                str(candidates_path),
+                "--output",
+                model_snapshot,
+            ],
+            root,
+        )
+        print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}compile_model_mesh_snapshot: {out.splitlines()[-1] if out else ''}")
+        if code != 0:
+            failures.append(f"{prefix}compile_model_mesh_snapshot: {out}")
+            return failures
+        code, out = _run(
+            [
+                py,
+                "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_snapshot.py",
+                model_snapshot,
+                "--root",
+                str(root),
+                "--source-sha",
+                source_sha,
+            ],
+            root,
+        )
+        print(f"{'PASS' if code == 0 else 'FAIL'} {prefix}validate_model_mesh_snapshot: {out.splitlines()[-1] if out else ''}")
+        if code != 0:
+            failures.append(f"{prefix}validate_model_mesh_snapshot: {out}")
+    return failures
+
+
 def run_validators(
     root: Path,
     *,
@@ -73,59 +149,9 @@ def run_validators(
             failures.append(f"{rel}: {tail}")
 
     snapshot = snapshot_output or "AI_SKILL_LIBRARY/v4/runtime/generated/skill-gateway-snapshot.json"
-    code, out = _run([py, "AI_SKILL_LIBRARY/v4/tools/compile_skill_gateway.py", "--source-sha", source_sha, "--output", snapshot], root)
-    print(f"{'PASS' if code == 0 else 'FAIL'} compile_skill_gateway: {out.splitlines()[-1] if out else ''}")
-    if code != 0:
-        failures.append(f"compile_skill_gateway: {out}")
-    else:
-        code, out = _run([py, "AI_SKILL_LIBRARY/v4/tools/validate_skill_gateway_snapshot.py", snapshot], root)
-        print(f"{'PASS' if code == 0 else 'FAIL'} validate_skill_gateway_snapshot: {out.splitlines()[-1] if out else ''}")
-        if code != 0:
-            failures.append(f"validate_skill_gateway_snapshot: {out}")
-
     model_snapshot = model_snapshot_output or "AI_SKILL_LIBRARY/v4/runtime/generated/model-mesh-snapshot.json"
-    with tempfile.TemporaryDirectory(prefix="brain-model-mesh-") as temp_dir:
-        if model_candidates:
-            candidates_path = Path(model_candidates)
-            if not candidates_path.is_absolute():
-                candidates_path = root / candidates_path
-        else:
-            candidates_path = Path(temp_dir) / "empty-quarantine-candidates.json"
-            _empty_quarantine_candidates(candidates_path)
-        code, out = _run(
-            [
-                py,
-                "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_snapshot.py",
-                "--root",
-                str(root),
-                "--source-sha",
-                source_sha,
-                "--candidates",
-                str(candidates_path),
-                "--output",
-                model_snapshot,
-            ],
-            root,
-        )
-        print(f"{'PASS' if code == 0 else 'FAIL'} compile_model_mesh_snapshot: {out.splitlines()[-1] if out else ''}")
-        if code != 0:
-            failures.append(f"compile_model_mesh_snapshot: {out}")
-        else:
-            code, out = _run(
-                [
-                    py,
-                    "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_snapshot.py",
-                    model_snapshot,
-                    "--root",
-                    str(root),
-                    "--source-sha",
-                    source_sha,
-                ],
-                root,
-            )
-            print(f"{'PASS' if code == 0 else 'FAIL'} validate_model_mesh_snapshot: {out.splitlines()[-1] if out else ''}")
-            if code != 0:
-                failures.append(f"validate_model_mesh_snapshot: {out}")
+    failures.extend(_compile_skill_snapshot(py, root, source_sha, snapshot))
+    failures.extend(_compile_model_snapshot(py, root, source_sha, model_snapshot, model_candidates=model_candidates))
 
     code, out = _run([py, "AI_SKILL_LIBRARY/v4/tools/release.py", "check", "--root", str(root)], root)
     print(f"{'PASS' if code == 0 else 'FAIL'} release check: {out.splitlines()[-1] if out else ''}")
@@ -146,6 +172,22 @@ def run_validators(
             print(f"{'PASS' if code == 0 else 'FAIL'} unittest {start}: {' | '.join(tail)}")
             if code != 0:
                 failures.append(f"unittest {start}: {out[-2000:]}")
+
+        # Unit tests intentionally exercise synthetic source SHAs and may write the
+        # canonical generated snapshot paths. Re-establish exact-SHA artifacts as
+        # the final validation side effect so downstream Worker preparation cannot
+        # consume a test fixture snapshot.
+        failures.extend(_compile_skill_snapshot(py, root, source_sha, snapshot, label="finalize_exact_sha"))
+        failures.extend(
+            _compile_model_snapshot(
+                py,
+                root,
+                source_sha,
+                model_snapshot,
+                model_candidates=model_candidates,
+                label="finalize_exact_sha",
+            )
+        )
     return failures
 
 
