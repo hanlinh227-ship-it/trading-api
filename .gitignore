@@ -8,9 +8,17 @@ node_modules/
 # AI loop local run artifacts (run state lives in the PR, never in git)
 .ai-loop/
 
-# Generated Skill-Mandatory Fast Gateway artifacts
+# Generated Skill-Mandatory Fast Gateway and Model Mesh artifacts.
+# These are compiled from canonical sources at exact SHA on every build; a
+# committed copy goes stale silently (the tracked model-mesh-snapshot.js had
+# models:[] and a source_sha from an older revision) and can mask a broken
+# compile in any path that runs tests without preparing first.
 AI_SKILL_LIBRARY/v4/runtime/generated/
 cloudflare-worker/generated/skill-gateway-snapshot.js
+cloudflare-worker/generated/model-mesh-snapshot.js
+cloudflare-worker/generated/model-mesh-bindings.js
+cloudflare-worker/generated/model-mesh-policy.js
+cloudflare-worker/generated/free-only-policy.js
 
 # Secrets / runtime configuration
 .env

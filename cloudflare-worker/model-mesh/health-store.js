@@ -3,7 +3,7 @@ import {PROVIDER_FAILURE_CATEGORIES,freeOnlyEligible} from './contracts.js';
 export const MODEL_HEALTH_STATES=Object.freeze(['CONFIGURED','LIVE_HEALTHY','DEGRADED','COOLDOWN','QUARANTINED','NOT_ELIGIBLE']);
 const PREFIX='brain:model-mesh:health:v1:';
 const LIVE_TTL_MS=30*60*1000,DEGRADED_TTL_MS=5*60*1000,COOLDOWN_TTL_MS=5*60*1000,QUARANTINE_TTL_MS=6*60*60*1000;
-const HEALTH_CATEGORIES=new Set([...PROVIDER_FAILURE_CATEGORIES,'FREE_ONLY_POLICY','NO_HEALTH_STORE','NO_LIVE_EVIDENCE','HEALTH_STORE_UNAVAILABLE','MODEL_FINGERPRINT_MISMATCH','SOURCE_REVISION_MISMATCH','STALE_EVIDENCE','CREDENTIAL_OR_BINDING_MISSING']);
+const HEALTH_CATEGORIES=new Set([...PROVIDER_FAILURE_CATEGORIES,'FREE_ONLY_POLICY','NO_HEALTH_STORE','NO_LIVE_EVIDENCE','HEALTH_STORE_UNAVAILABLE','MODEL_FINGERPRINT_MISMATCH','SOURCE_REVISION_MISMATCH','STALE_EVIDENCE','CREDENTIAL_OR_BINDING_MISSING','SELECTION_POLICY','KV_PROPAGATION_PENDING']);
 
 const hex=bytes=>[...new Uint8Array(bytes)].map(value=>value.toString(16).padStart(2,'0')).join('');
 const iso=ms=>new Date(ms).toISOString();
@@ -36,28 +36,69 @@ export async function readModelHealth(kv,model,{sourceSha='',nowMs=Date.now()}={
   return parsed;
 }
 
-function stateForProbe(probe){
+// A provider is only removed from the pool for six hours once the failure has
+// proven persistent. A single transient 401/403/404 -- a provider-side blip, a
+// momentary auth propagation delay -- must cost minutes, not a working day.
+export const QUARANTINE_FAILURE_THRESHOLD=Object.freeze({AUTH_FAILED:2,MODEL_NOT_FOUND:3,FREE_ENTITLEMENT_INVALID:2});
+
+const MIN_COOLDOWN_MS=30*1000,MAX_COOLDOWN_MS=60*60*1000;
+
+/**
+ * Resolve how long a rate-limited provider must rest.
+ * The provider's own Retry-After / reset header wins over our fixed default,
+ * as `policy.yaml` quota.respect_provider_reset / use_runtime_headers_first
+ * require: retrying sooner burns free quota, retrying later wastes capacity.
+ */
+export function resolveCooldownMs(probe,nowMs=Date.now()){
+  const retryAfterSeconds=Number(probe?.retryAfter);
+  if(Number.isFinite(retryAfterSeconds)&&retryAfterSeconds>0)return clampCooldown(retryAfterSeconds*1000);
+  const retryAfterDate=probe?.retryAfter?Date.parse(String(probe.retryAfter)):NaN;
+  if(Number.isFinite(retryAfterDate)&&retryAfterDate>nowMs)return clampCooldown(retryAfterDate-nowMs);
+  const resetAtMs=probe?.resetAt?Date.parse(String(probe.resetAt)):NaN;
+  if(Number.isFinite(resetAtMs)&&resetAtMs>nowMs)return clampCooldown(resetAtMs-nowMs);
+  const resetSeconds=Number(probe?.resetAt);
+  if(Number.isFinite(resetSeconds)&&resetSeconds>0&&resetSeconds<MAX_COOLDOWN_MS/1000)return clampCooldown(resetSeconds*1000);
+  return COOLDOWN_TTL_MS;
+}
+function clampCooldown(ms){return Math.min(MAX_COOLDOWN_MS,Math.max(MIN_COOLDOWN_MS,Math.round(ms)));}
+
+function stateForProbe(probe,previousFailures=0,nowMs=Date.now()){
   if(probe?.ok===true)return {state:'LIVE_HEALTHY',ttlMs:LIVE_TTL_MS,category:null};
   const category=PROVIDER_FAILURE_CATEGORIES.includes(String(probe?.category||''))?String(probe.category):'UNKNOWN_SANITIZED';
-  if(['AUTH_FAILED','MODEL_NOT_FOUND','FREE_ENTITLEMENT_INVALID'].includes(category))return {state:'QUARANTINED',ttlMs:QUARANTINE_TTL_MS,category};
-  if(category==='RATE_LIMITED')return {state:'COOLDOWN',ttlMs:COOLDOWN_TTL_MS,category};
+  const failures=Math.max(0,Number(previousFailures)||0)+1;
+  const threshold=QUARANTINE_FAILURE_THRESHOLD[category];
+  if(threshold!==undefined){
+    // Below the threshold the provider is merely DEGRADED, so the next probe
+    // can restore it within minutes instead of six hours.
+    if(failures<threshold)return {state:'DEGRADED',ttlMs:DEGRADED_TTL_MS,category};
+    return {state:'QUARANTINED',ttlMs:QUARANTINE_TTL_MS,category};
+  }
+  if(category==='RATE_LIMITED')return {state:'COOLDOWN',ttlMs:resolveCooldownMs(probe,nowMs),category};
   return {state:'DEGRADED',ttlMs:DEGRADED_TTL_MS,category};
 }
 
 export async function writeProbeHealth(kv,model,probe,{sourceSha='',nowMs=Date.now(),delay=ms=>new Promise(resolve=>setTimeout(resolve,ms)),verifyAttempts=2}={}){
   if(!freeOnlyEligible(model))return {state:'NOT_ELIGIBLE',category:'FREE_ONLY_POLICY'};
-  const fingerprint=await modelFingerprint(model),transition=stateForProbe(probe),expiresMs=nowMs+transition.ttlMs;
+  const fingerprint=await modelFingerprint(model);
   const previous=await readModelHealth(kv,model,{sourceSha,nowMs});
-  const consecutiveFailures=probe?.ok===true?0:Math.max(0,Number(previous?.consecutiveFailures)||0)+1;
+  const previousFailures=Math.max(0,Number(previous?.consecutiveFailures)||0);
+  const transition=stateForProbe(probe,previousFailures,nowMs),expiresMs=nowMs+transition.ttlMs;
+  const consecutiveFailures=probe?.ok===true?0:previousFailures+1;
   const record=safeRecord({schemaVersion:1,providerId:model.provider_id,modelId:model.model_id,fingerprint,sourceSha,state:transition.state,category:transition.category,observedAt:iso(nowMs),expiresAt:iso(expiresMs),latencyMs:Number(probe?.latencyMs),consecutiveFailures,cooldownUntil:transition.state==='COOLDOWN'?iso(expiresMs):null});
   if(!kv||typeof kv.put!=='function')return {...record,persisted:false};
   const key=healthKey(model,fingerprint),serialized=JSON.stringify(record);
   try{await kv.put(key,serialized,{expirationTtl:Math.max(60,Math.ceil((transition.ttlMs+60*60*1000)/1000))});}catch{return {...record,persisted:false,storeCategory:'HEALTH_STORE_UNAVAILABLE'};}
-  for(let attempt=0;attempt<Math.max(1,verifyAttempts);attempt+=1){
-    try{if(await kv.get(key)===serialized)return {...record,persisted:true};}catch{}
+  // A resolved kv.put IS the durability guarantee. Workers KV is eventually
+  // consistent and caches reads at the edge, so a read-back moments later can
+  // legitimately miss a write that did land -- previously that made the deploy
+  // canary (which requires evidencePersisted) fail for no real reason.
+  // Read-back is kept only as an optional, non-authoritative freshness signal.
+  let readBack='unverified';
+  for(let attempt=0;attempt<Math.max(0,verifyAttempts);attempt+=1){
+    try{if(await kv.get(key)===serialized){readBack='confirmed';break;}}catch{readBack='unavailable';break;}
     if(attempt+1<verifyAttempts)await delay(25*(attempt+1));
   }
-  return {...record,persisted:false,storeCategory:'KV_PROPAGATION_PENDING'};
+  return {...record,persisted:true,readBack};
 }
 
 export async function recordModelExecutionHealth(kv,model,result,options={}){

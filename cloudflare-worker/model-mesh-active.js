@@ -6,12 +6,13 @@ import {createMeshExecutor,createProviderProbe} from './model-mesh/provider-clie
 import {handleBrainEvidence} from './brain-evidence-active.js';
 
 export const ACTIVE_MODEL_MESH_SNAPSHOT=MODEL_MESH_SNAPSHOT;
+const probeProviders=createProviderProbe();
 const handleMeshOnly=createModelMeshHandler({
   skillSnapshot:ACTIVE_SKILL_GATEWAY_SNAPSHOT,
   modelSnapshot:ACTIVE_MODEL_MESH_SNAPSHOT,
   routeSkill:({text})=>routeSkillRequest({text},ACTIVE_SKILL_GATEWAY_SNAPSHOT),
-  executeWorkers:createMeshExecutor(),
-  probeProviders:createProviderProbe(),
+  executeWorkers:createMeshExecutor({selfHealProbe:probeProviders}),
+  probeProviders,
 });
 
 export async function handleModelMesh(request,env={},ctx={}){

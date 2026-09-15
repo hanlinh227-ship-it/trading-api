@@ -8,8 +8,8 @@ const skillSnapshot={
 const modelSnapshot={
   schema_version:1,source_sha:'a'.repeat(40),mode:'FREE_ONLY',routing_authority:false,reasoning_authority:false,generated_at:'2026-09-15T00:00:00Z',
   models:[
-    {provider_id:'groq',model_id:'m1',model_family:'family-1',free_status:'recurring',free_verified_at:'2026-09-15T00:00:00Z',health:'healthy',privacy_class:'public_safe',capabilities:{text_reasoning:{supported:true,score:0.9}},quality_scores:{core:0.9},context_window:32000},
-    {provider_id:'openrouter',model_id:'m2',model_family:'family-2',free_status:'recurring',free_verified_at:'2026-09-15T00:00:00Z',health:'healthy',privacy_class:'public_safe',capabilities:{text_reasoning:{supported:true,score:0.8}},quality_scores:{core:0.8},context_window:32000},
+    {provider_id:'groq',model_id:'m1',model_family:'family-1',free_status:'recurring',free_verified_at:'2026-09-15T00:00:00Z',usage_terms:'production_allowed',context_window:131072,health:'healthy',privacy_class:'public_safe',capabilities:{text_reasoning:{supported:true,score:0.9}},quality_scores:{core:0.9},context_window:32000},
+    {provider_id:'openrouter',model_id:'m2',model_family:'family-2',free_status:'recurring',free_verified_at:'2026-09-15T00:00:00Z',usage_terms:'production_allowed',context_window:131072,health:'healthy',privacy_class:'public_safe',capabilities:{text_reasoning:{supported:true,score:0.8}},quality_scores:{core:0.8},context_window:32000},
   ],
 };
 
