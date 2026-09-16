@@ -39,7 +39,11 @@ export async function readModelHealth(kv,model,{sourceSha='',nowMs=Date.now()}={
 // A provider is only removed from the pool for six hours once the failure has
 // proven persistent. A single transient 401/403/404 -- a provider-side blip, a
 // momentary auth propagation delay -- must cost minutes, not a working day.
-export const QUARANTINE_FAILURE_THRESHOLD=Object.freeze({AUTH_FAILED:2,MODEL_NOT_FOUND:3,FREE_ENTITLEMENT_INVALID:2});
+// 402 and a price that rose above zero are the two exceptions: both mean the
+// next request would be billable, so the model leaves the pool immediately
+// rather than after a second confirming failure. Everything else still gets
+// the benefit of the doubt, because a transient blip must cost minutes.
+export const QUARANTINE_FAILURE_THRESHOLD=Object.freeze({AUTH_FAILED:2,MODEL_NOT_FOUND:3,MODEL_GONE:3,FREE_ENTITLEMENT_INVALID:1,PRICING_CHANGED:1});
 
 const MIN_COOLDOWN_MS=30*1000,MAX_COOLDOWN_MS=60*60*1000;
 

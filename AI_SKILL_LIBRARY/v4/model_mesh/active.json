@@ -3,7 +3,7 @@
   "mode": "FREE_ONLY",
   "routing_authority": false,
   "reasoning_authority": false,
-  "generated_at": "2026-09-16T01:16:00Z",
+  "generated_at": "2026-09-16T09:00:00Z",
   "models": [
     {
       "provider_id": "groq",
@@ -69,7 +69,23 @@
         "https://console.groq.com/docs/models",
         "https://console.groq.com/docs/rate-limits",
         "https://console.groq.com/docs/your-data"
-      ]
+      ],
+      "zero_cost": {
+        "price_model": "account_free",
+        "input_price_per_million": 0.0,
+        "output_price_per_million": 0.0,
+        "price_verified_at": "2026-09-15T09:40:00Z",
+        "price_revalidate_after_hours": null,
+        "quota_model": "unknown",
+        "hard_stop_verified": false,
+        "hard_stop_evidence": "",
+        "quota_headroom_ratio": null,
+        "evidence": [
+          "https://console.groq.com/docs/rate-limits"
+        ],
+        "free_quota_expires_at": null
+      },
+      "zero_cost_notes": "rate-limited free tier; no finite billable credit observed"
     },
     {
       "provider_id": "gemini_developer_api",
@@ -135,7 +151,24 @@
       "source_evidence": [
         "https://ai.google.dev/gemini-api/docs/models",
         "live generateContent probe 2026-09-15 (run 35037248325): gemini-flash-latest=200, gemini-2.5-flash=404 NOT_FOUND"
-      ]
+      ],
+      "zero_cost": {
+        "price_model": "recurring_free",
+        "input_price_per_million": 0.0,
+        "output_price_per_million": 0.0,
+        "price_verified_at": "2026-09-15T23:48:11Z",
+        "price_revalidate_after_hours": null,
+        "quota_model": "unknown",
+        "hard_stop_verified": false,
+        "hard_stop_evidence": "",
+        "quota_headroom_ratio": null,
+        "evidence": [
+          "https://ai.google.dev/gemini-api/docs/pricing",
+          "https://ai.google.dev/gemini-api/docs/rate-limits"
+        ],
+        "free_quota_expires_at": null
+      },
+      "zero_cost_notes": "free tier is rpm/tpm/rpd limited"
     },
     {
       "provider_id": "cloudflare_workers_ai",
@@ -191,7 +224,23 @@
       "source_evidence": [
         "https://developers.cloudflare.com/workers-ai/platform/pricing/",
         "https://developers.cloudflare.com/workers-ai/models/"
-      ]
+      ],
+      "zero_cost": {
+        "price_model": "recurring_free",
+        "input_price_per_million": 0.0,
+        "output_price_per_million": 0.0,
+        "price_verified_at": "2026-09-15T09:40:00Z",
+        "price_revalidate_after_hours": null,
+        "quota_model": "unknown",
+        "hard_stop_verified": false,
+        "hard_stop_evidence": "",
+        "quota_headroom_ratio": null,
+        "evidence": [
+          "https://developers.cloudflare.com/workers-ai/platform/pricing/"
+        ],
+        "free_quota_expires_at": null
+      },
+      "zero_cost_notes": "daily neuron allowance; billable boundary unverified for this account"
     },
     {
       "provider_id": "openrouter",
@@ -249,7 +298,24 @@
         "https://openrouter.ai/openrouter/free",
         "https://openrouter.ai/collections/free-models",
         "https://openrouter.ai/pricing"
-      ]
+      ],
+      "zero_cost": {
+        "price_model": "recurring_free",
+        "input_price_per_million": 0.0,
+        "output_price_per_million": 0.0,
+        "price_verified_at": "2026-09-15T09:40:00Z",
+        "price_revalidate_after_hours": null,
+        "quota_model": "unknown",
+        "hard_stop_verified": false,
+        "hard_stop_evidence": "",
+        "quota_headroom_ratio": null,
+        "evidence": [
+          "https://openrouter.ai/pricing",
+          "https://openrouter.ai/collections/free-models"
+        ],
+        "free_quota_expires_at": null
+      },
+      "zero_cost_notes": "dynamic free pool; paid routes must stay unselected"
     },
     {
       "provider_id": "mistral",
@@ -306,7 +372,23 @@
       "source_evidence": [
         "https://docs.mistral.ai/admin/billing-usage/usage-limits",
         "https://docs.mistral.ai/getting-started/quickstart/"
-      ]
+      ],
+      "zero_cost": {
+        "price_model": "account_free",
+        "input_price_per_million": 0.0,
+        "output_price_per_million": 0.0,
+        "price_verified_at": "2026-09-15T09:40:00Z",
+        "price_revalidate_after_hours": null,
+        "quota_model": "unknown",
+        "hard_stop_verified": false,
+        "hard_stop_evidence": "",
+        "quota_headroom_ratio": null,
+        "evidence": [
+          "https://docs.mistral.ai/admin/billing-usage/usage-limits"
+        ],
+        "free_quota_expires_at": null
+      },
+      "zero_cost_notes": "free mode; monthly usage limited"
     },
     {
       "provider_id": "cohere",
@@ -356,7 +438,23 @@
       "source_evidence": [
         "https://docs.cohere.com/docs/rate-limits",
         "https://docs.cohere.com/docs/compatibility-api"
-      ]
+      ],
+      "zero_cost": {
+        "price_model": "trial_credit",
+        "input_price_per_million": null,
+        "output_price_per_million": null,
+        "price_verified_at": "2026-09-15T09:40:00Z",
+        "price_revalidate_after_hours": null,
+        "quota_model": "finite",
+        "hard_stop_verified": false,
+        "hard_stop_evidence": "",
+        "quota_headroom_ratio": null,
+        "evidence": [
+          "https://docs.cohere.com/v1/docs/rate-limits"
+        ],
+        "free_quota_expires_at": null
+      },
+      "zero_cost_notes": "trial/evaluation access; ineligible for autonomous FREE_ONLY"
     },
     {
       "provider_id": "huggingface_inference_providers",
@@ -405,7 +503,23 @@
       "source_evidence": [
         "https://huggingface.co/docs/inference-providers/pricing",
         "https://huggingface.co/docs/inference-providers/guides/usage"
-      ]
+      ],
+      "zero_cost": {
+        "price_model": "trial_credit",
+        "input_price_per_million": null,
+        "output_price_per_million": null,
+        "price_verified_at": "2026-09-15T09:40:00Z",
+        "price_revalidate_after_hours": null,
+        "quota_model": "finite",
+        "hard_stop_verified": false,
+        "hard_stop_evidence": "",
+        "quota_headroom_ratio": null,
+        "evidence": [
+          "https://huggingface.co/docs/inference-providers/pricing"
+        ],
+        "free_quota_expires_at": null
+      },
+      "zero_cost_notes": "small recurring monthly included credit, not unlimited free inference"
     },
     {
       "provider_id": "opencode_zen",
@@ -414,7 +528,7 @@
       "model_family": "mimo-v2.5",
       "model_variant": "zen-free",
       "endpoint_family": "openai_compatible",
-      "free_status": "account_specific",
+      "free_status": "temporary_zero_price",
       "free_verified_at": "2026-09-15T09:40:00Z",
       "observed_at": "2026-09-15T09:40:00Z",
       "quota_scope": "account",
@@ -454,7 +568,26 @@
       "source_evidence": [
         "https://opencode.ai/docs/zen",
         "https://opencode.ai/zen/v1/models"
-      ]
+      ],
+      "zero_cost": {
+        "price_model": "temporary_zero_price",
+        "input_price_per_million": 0.0,
+        "output_price_per_million": 0.0,
+        "price_verified_at": null,
+        "price_revalidate_after_hours": 24,
+        "quota_model": "unknown",
+        "hard_stop_verified": false,
+        "hard_stop_evidence": "",
+        "quota_headroom_ratio": null,
+        "evidence": [
+          "https://opencode.ai/zen/v1/models",
+          "https://opencode.ai/docs/zen"
+        ],
+        "free_quota_expires_at": null
+      },
+      "zero_cost_notes": "live catalog price not yet verified from this runtime; pending probe-driven zero-price verification",
+      "registry_state": "NOT_ELIGIBLE",
+      "registry_state_reason": "pending_live_zero_price_verification: admit only after the live Zen catalog proves input=0 and output=0 for this model"
     },
     {
       "provider_id": "alibaba_model_studio",
@@ -463,7 +596,7 @@
       "model_family": "qwen3.8-flash",
       "model_variant": "model-studio-hosted",
       "endpoint_family": "openai_compatible",
-      "free_status": "account_specific",
+      "free_status": "free_quota_hard_stop",
       "free_verified_at": "2026-09-16T01:05:00Z",
       "observed_at": "2026-09-16T01:05:00Z",
       "quota_scope": "account",
@@ -508,11 +641,29 @@
       "success_rate_ema": null,
       "quality_scores": {},
       "last_benchmark_at": null,
-      "entitlement_evidence": "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier",
+      "entitlement_evidence": "account-holder console verification 2026-09-16: Alibaba Model Studio Free Quota status=Enabled, expiration 2026-11-21; no PAYG spillover while enabled",
       "source_evidence": [
         "live model listing 2026-09-16T01:05:00Z: alibaba_model_studio listed 167 models",
-        "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier"
-      ]
+        "account-holder console verification 2026-09-16: Alibaba Model Studio Free Quota status=Enabled, expiration 2026-11-21; no PAYG spillover while enabled"
+      ],
+      "zero_cost": {
+        "price_model": "finite_free_quota",
+        "input_price_per_million": 0.0,
+        "output_price_per_million": 0.0,
+        "price_verified_at": "2026-09-16T01:05:00Z",
+        "price_revalidate_after_hours": null,
+        "quota_model": "finite",
+        "hard_stop_verified": true,
+        "hard_stop_evidence": "account-holder console verification 2026-09-16: Alibaba Model Studio Free Quota status=Enabled, expiration 2026-11-21; no PAYG spillover while enabled",
+        "quota_headroom_ratio": null,
+        "evidence": [
+          "https://help.aliyun.com/en/model-studio/new-free-quota",
+          "account-holder console verification 2026-09-16: Alibaba Model Studio Free Quota status=Enabled, expiration 2026-11-21; no PAYG spillover while enabled"
+        ],
+        "free_quota_expires_at": "2026-11-21T00:00:00Z"
+      },
+      "zero_cost_notes": "finite free quota, Free Quota Only enabled on the account (verified on console 2026-09-16, expires 2026-11-21); rotate among still-free model quotas and fail over to another zero-cost provider on exhaustion or expiry, never PAYG"
     }
-  ]
+  ],
+  "policy_schema_version": 2
 }

@@ -44,6 +44,7 @@ def _catalog_candidate(
     endpoint_family: str = "other",
     context_window: int | None = None,
     capabilities: dict[str, dict] | None = None,
+    zero_cost: dict | None = None,
 ) -> dict:
     raw = {
         "provider_class": "Q",
@@ -68,6 +69,7 @@ def _catalog_candidate(
         "quality_scores": {},
         "last_benchmark_at": None,
         "source_evidence": [source],
+        "zero_cost": zero_cost or {},
     }
     return normalize_candidate(provider_id, raw, observed_at=observed_at)
 
@@ -132,7 +134,32 @@ def parse_models_dev(payload: object, observed_at: str) -> list[dict]:
     return rows
 
 
+def _zen_price(item: dict, key: str) -> float | None:
+    """Read one side of a Zen catalog price, whichever shape the row uses."""
+    cost = item.get("cost") if isinstance(item.get("cost"), dict) else item.get("pricing") if isinstance(item.get("pricing"), dict) else {}
+    for candidate_key in (key, f"{key}_per_million", f"{key}_cost", f"prompt" if key == "input" else "completion"):
+        value = cost.get(candidate_key) if isinstance(cost, dict) else None
+        if value is None:
+            value = item.get(f"{key}_price_per_million")
+        if isinstance(value, bool) or value is None:
+            continue
+        if isinstance(value, (int, float)):
+            return float(value)
+        try:
+            return float(str(value).strip())
+        except ValueError:
+            continue
+    return None
+
+
 def parse_opencode_zen(payload: object, observed_at: str) -> list[dict]:
+    """Parse the mixed Zen catalog, keeping each model's own price as evidence.
+
+    The catalog holds paid and zero-price models side by side, so a price read
+    here is what later distinguishes a `temporary_zero_price` candidate from a
+    paid one. It stays evidence: a price of zero does not by itself promote a
+    model out of quarantine, and a '-free' suffix in an id proves nothing at all.
+    """
     if not isinstance(payload, dict):
         return []
     data = payload.get("data")
@@ -147,6 +174,9 @@ def parse_opencode_zen(payload: object, observed_at: str) -> list[dict]:
             continue
         # Even an explicit '-free' model id is not account-entitlement proof.
         family = str(item.get("model_family") or model_id).strip()
+        input_price = _zen_price(item, "input")
+        output_price = _zen_price(item, "output")
+        priced_at_zero = input_price == 0.0 and output_price == 0.0
         rows.append(
             _catalog_candidate(
                 provider_id="opencode_zen",
@@ -154,6 +184,19 @@ def parse_opencode_zen(payload: object, observed_at: str) -> list[dict]:
                 model_family=family,
                 observed_at=observed_at,
                 source=OPENCODE_ZEN_URL,
+                zero_cost={
+                    "price_model": "temporary_zero_price" if priced_at_zero else ("paid" if (input_price or 0) > 0 or (output_price or 0) > 0 else "unknown"),
+                    "input_price_per_million": input_price,
+                    "output_price_per_million": output_price,
+                    # Zen does not document permanence, so a zero price is only
+                    # proven as of this read and has to be re-read on a timer.
+                    "price_verified_at": observed_at if priced_at_zero else None,
+                    "price_revalidate_after_hours": 24 if priced_at_zero else None,
+                    "quota_model": "unknown",
+                    "hard_stop_verified": False,
+                    "quota_headroom_ratio": None,
+                    "evidence": [OPENCODE_ZEN_URL],
+                },
             )
         )
     return rows
@@ -220,6 +263,18 @@ def merge_candidates(*groups: list[dict]) -> list[dict]:
             if current.get("free_status") != candidate.get("free_status"):
                 current["free_status"] = "unknown"
                 current["free_verified_at"] = None
+            # Two sources disagreeing about price is not a zero price. Fail the
+            # merge closed rather than letting the cheaper source win.
+            current_cost = current.get("zero_cost") or {}
+            other_cost = candidate.get("zero_cost") or {}
+            for field in ("input_price_per_million", "output_price_per_million"):
+                if current_cost.get(field) is None and other_cost.get(field) is not None:
+                    current_cost[field] = other_cost[field]
+                elif other_cost.get(field) is not None and current_cost.get(field) != other_cost.get(field):
+                    current_cost[field] = max(current_cost.get(field) or 0.0, other_cost.get(field) or 0.0)
+                    current_cost["price_model"] = "unknown"
+                    current_cost["price_verified_at"] = None
+            current["zero_cost"] = current_cost
     return [merged[key] for key in order]
 
 

@@ -5,57 +5,103 @@ policy:
   runtime_account_state_outranks_docs: true
   unknown_free_status: exclude
   secrets_in_registry: forbidden
+  # A mixed catalog holds paid and zero-price models at the same time, so
+  # eligibility is decided per model. One paid or 402 model never blacklists
+  # the provider; only every eligible candidate failing does.
+  eligibility_scope: model_level
+  provider_blacklist_on_single_model_failure: false
 providers:
   groq:
     provider_class_hint: F1
+    zero_cost_class: account_specific
+    treatment: headroom_aware_rotation
+    notes: Verified zero-cost operation. Rotate on low headroom rather than running to 429.
     evidence:
       rate_limits: https://console.groq.com/docs/rate-limits
       data_policy: https://console.groq.com/docs/your-data
   gemini_developer_api:
     provider_class_hint: F1
+    zero_cost_class: recurring
+    treatment: probe_driven_model_selection
+    transient_failures: [429, 503]
+    notes: 429/503 are transient. Cooldown, fail over, re-enter after the cooldown; never read transient health as permanent loss.
     evidence:
       rate_limits: https://ai.google.dev/gemini-api/docs/rate-limits
       pricing_privacy: https://ai.google.dev/gemini-api/docs/pricing
   cloudflare_workers_ai:
     provider_class_hint: F1
+    zero_cost_class: recurring
+    treatment: headroom_aware_rotation
+    notes: Daily neuron allowance. Rotate on low headroom rather than running to exhaustion.
     evidence:
       pricing: https://developers.cloudflare.com/workers-ai/platform/pricing/
   openrouter:
     provider_class_hint: F1
+    zero_cost_class: recurring
+    treatment: dynamic_free_pool
+    notes: Free router is a dynamic pool. Verify no paid route is selected before each admission refresh.
     evidence:
       free_models: https://openrouter.ai/collections/free-models
       pricing_limits: https://openrouter.ai/pricing
   mistral:
     provider_class_hint: F1
+    zero_cost_class: account_specific
+    treatment: bounded_backoff_then_failover
+    notes: Rate limits rotate immediately to another zero-cost model and reprobe after cooldown.
     evidence:
       usage_limits: https://docs.mistral.ai/admin/billing-usage/usage-limits
   cohere:
     provider_class_hint: F1
+    zero_cost_class: trial_credit
+    autonomous_use: false
+    treatment: discovery_only
+    notes: Current access is trial/evaluation. Re-evaluate automatically only if a recurring or account-specific zero-cost tier appears.
     evidence:
       trial_rate_limits: https://docs.cohere.com/v1/docs/rate-limits
   huggingface_inference_providers:
     provider_class_hint: F1
+    zero_cost_class: trial_credit
+    autonomous_use: false
+    treatment: finite_included_credit_guard
+    notes: Free accounts receive a small recurring monthly credit, not unlimited free inference. Route only while remaining included credit is verifiable and paid-credit spillover is impossible; otherwise standby discovery-only.
     evidence:
       pricing: https://huggingface.co/docs/inference-providers/pricing
   nvidia_nim:
     provider_class_hint: F1
+    zero_cost_class: unverified
+    treatment: probe_and_select_from_live_listing
+    prefer_labels: ["Free Endpoint"]
+    notes: Listing is not liveness. Enumerate the live listing, probe bounded candidates against chat completions, reject 404/410, and persist only a model that completed. Repeat periodically. If no live free endpoint works, classify provider-side unavailable without failing Brain.
     evidence:
       developer_access: https://docs.api.nvidia.com/nim/docs/product
   cerebras:
     provider_class_hint: F3
+    zero_cost_class: trial_credit
+    autonomous_use: false
+    treatment: discovery_only
+    notes: Official pricing is a finite free trial, not recurring-free access. Excluded from autonomous FREE_ONLY once trial credit is exhausted; never route into the paid Developer tier.
     evidence:
       rate_limits: https://inference-docs.cerebras.ai/support/rate-limits
       pricing: https://www.cerebras.ai/pricing
   sambanova:
     provider_class_hint: Q
+    zero_cost_class: unverified
+    treatment: probe_and_select_from_live_listing
+    notes: A documented free tier exists, so one 402 classifies that model/account pair, not the provider. Probe bounded free-tier candidates; only when every eligible candidate returns 402 is the provider recorded discovered-but-unavailable with a reason.
     evidence:
       rate_limits: https://docs.sambanova.ai/docs/en/models/rate-limits
   alibaba_model_studio:
     provider_class_hint: F3
+    zero_cost_class: free_quota_hard_stop
+    treatment: rotate_among_still_free_model_quotas
+    notes: Free quota is finite and region-specific, and billing-enabled accounts can be charged after exhaustion unless Free Quota Only is enabled. Autonomous use requires a verified no-billing hard stop; otherwise discovery-only.
     evidence:
       free_quota: https://help.aliyun.com/en/model-studio/new-free-quota
   opencode_zen:
     provider_class_hint: F2
+    zero_cost_class: temporary_zero_price
+    treatment: mixed_catalog_zero_price_only
+    notes: The catalog mixes paid and zero-price models. Admit only models whose live pricing reads input=0 and output=0, classify them temporary_zero_price unless recurring-free status is proven, revalidate price at every health refresh, and quarantine the moment a price rises. Never consume paid Zen balance and never enable auto-reload.
     evidence:
       models: https://opencode.ai/zen/v1/models
       docs: https://opencode.ai/docs/zen

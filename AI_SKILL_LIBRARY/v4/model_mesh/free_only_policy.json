@@ -1,13 +1,47 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "mode": "FREE_ONLY",
+  "zero_cost_semantics": "FREE_ONLY means zero monetary cost at execution time, not that a provider is permanently free. A model is eligible only while zero price is provable AND billable spillover is impossible.",
   "eligible_statuses": [
     "recurring",
-    "account_specific"
+    "account_specific",
+    "temporary_zero_price",
+    "free_quota_hard_stop"
   ],
-  "ineligible_promotional_statuses": [
+  "default_ineligible_statuses": [
+    "trial_credit",
     "limited_time",
-    "trial_credit"
+    "paid",
+    "expired",
+    "unknown"
   ],
+  "requirements": {
+    "zero_price_verified_at_required": true,
+    "health_fresh_required": true,
+    "quota_headroom_required_when_finite": true,
+    "hard_stop_required_for_finite_free_quota": true,
+    "auto_purchase_forbidden": true,
+    "paid_fallback_forbidden": true,
+    "price_revalidation_required_for_temporary_zero_price": true
+  },
+  "zero_cost_guards": {
+    "price_revalidate_after_hours": 24,
+    "max_price_evidence_age_hours": 168,
+    "quota_safety_reserve_ratio": 0.1,
+    "nonzero_price_action": "quarantine_before_next_request"
+  },
+  "failure_policy": {
+    "401": "credential_scope_failure_no_paid_fallback",
+    "402": "quarantine_model_and_failover",
+    "403": "credential_scope_failure_no_paid_fallback",
+    "404": "discover_probe_replacement",
+    "410": "discover_probe_replacement",
+    "429": "cooldown_and_failover",
+    "5xx": "degrade_and_failover"
+  },
+  "model_level_eligibility": {
+    "provider_blacklist_on_single_model_failure": false,
+    "max_probe_candidates_per_provider": 6
+  },
   "free_verified_at_required": true
 }

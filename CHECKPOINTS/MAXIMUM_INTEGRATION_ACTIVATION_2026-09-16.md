@@ -68,7 +68,7 @@ generated output via `assertHealthOnlyCrons`.
 | sambanova | reachable, ACCOUNT_ENTITLEMENT_UNAVAILABLE | listing OK 200, 7 models |
 | alibaba_model_studio | reachable, ACCOUNT_ENTITLEMENT_UNAVAILABLE | listing OK 200, 167 models |
 | huggingface_inference_providers | reachable, entitlement VERIFIED non-paid | `whoami-v2`: `plan=user isPro=false no_billing_period` |
-| cohere | NOT_ELIGIBLE_FREE_ONLY | admitted model is `trial_credit` |
+| cohere | NOT_ELIGIBLE_FREE_ONLY | admitted model is `trial_credit`; discovery-only until a zero-cost tier appears |
 | opencode_zen | NOT_ELIGIBLE | `usage_terms: evaluation`; catalog is premium frontier models only |
 
 ### Gemini — root cause
@@ -118,16 +118,29 @@ another model id chosen by hand.
 **LIVE_HEALTHY: 4** - groq, cloudflare_workers_ai, openrouter,
 alibaba_model_studio.
 
-### Why entitlement stops here
+### Why entitlement stopped here, and what replaced it
 
-A model listing proves reachability, never that access is **recurring** free
-rather than trial credit or paid — and `free_only_policy.json`
-(`eligible_statuses: [recurring, account_specific]`) turns on exactly that
-distinction. Only HuggingFace exposes plan at runtime. For the rest, no
-runtime endpoint exposes entitlement, so they are recorded as
-`ACCOUNT_ENTITLEMENT_UNAVAILABLE` rather than admitted on an assumption.
-**Writing `free_status: recurring` without evidence would fabricate the exact
-fact the policy exists to require.**
+A model listing proves reachability, never that access is free. The policy that
+turned on that distinction admitted only `recurring` and `account_specific`,
+which kept paid usage out but also kept out models that genuinely cost nothing
+right now — and it decided eligibility per provider, so one paid model or one
+retired model id wrote off a whole catalog.
+
+`free_only_policy.json` schema 2 replaces that rule. FREE_ONLY now means **zero
+monetary cost at execution time**, proven per model:
+
+| Class | Autonomous | What has to be true |
+|---|---|---|
+| `recurring` | yes | recurring $0 tier evidence |
+| `account_specific` | yes | account-specific $0 evidence |
+| `temporary_zero_price` | yes | live price = 0, re-proven every 24h, auto-quarantined the moment it rises |
+| `free_quota_hard_stop` | yes | free quota remaining, a verified hard stop, and an unexpired window |
+| `trial_credit` | no | only after conversion to a hard-stop class with proof |
+| `paid` | never | rejected |
+
+A recorded price above zero vetoes a model whatever its class says, because the
+class is a claim and the price is evidence. **Writing a zero-cost class without
+that evidence would fabricate the exact fact the policy exists to require.**
 
 ---
 
@@ -175,14 +188,30 @@ probe volume.
 
 ## 6. Remaining blockers
 
-1. **`ACCOUNT_ENTITLEMENT_UNAVAILABLE`** — nvidia_nim, cerebras, sambanova,
-   alibaba_model_studio. Reachable with working credentials, but no runtime
-   endpoint exposes whether the plan is recurring-free. Needs the account
-   holder's confirmation of tier, or a provider billing endpoint. Once the
-   tier is known, admission needs only a registry entry and a probe.
-2. **`NOT_ELIGIBLE` by policy** — cohere, opencode_zen, and the trial-credit
-   models on huggingface and alibaba. No credential changes these; they need a
-   recurring-free model admitted instead.
+The entitlement blocker recorded earlier in this session is closed. It said
+admission needed the account holder's tier confirmation because no runtime
+endpoint exposes it; the zero-cost classes plus a model-level probe now decide
+admission from current price and quota evidence instead of from a tier label.
+`alibaba_model_studio` is admitted as `free_quota_hard_stop` on a console
+verification (Free Quota Only enabled, quota status Enabled, window to
+2026-11-21), so it cannot fall through to PAYG; it leaves the pool by itself on
+expiry or when headroom reaches the safety reserve.
+
+What is left is evidence, not engineering:
+
+1. **Awaiting a live probe run** — nvidia_nim, sambanova and opencode_zen.
+   The engineering is done: the probe walks a bounded slice of each provider's
+   live listing, a 402/404/410 costs the model rather than the provider, and
+   only an id that completed is persisted. Run
+   `PROBE_COMPLETIONS=1 node cloudflare-worker/discover-provider-models.mjs`
+   with the provider credentials to produce the evidence; any candidate that
+   answers is admitted by registry entry, and Zen models are admitted only for
+   the ids whose live catalog price reads input=0 and output=0.
+2. **Discovery-only by evidence** — cerebras (finite free trial, never the paid
+   Developer tier) and cohere (trial/evaluation). Both re-enter automatically if
+   a recurring or account-specific zero-cost tier appears; neither is a code
+   change. `huggingface_inference_providers` is admissible as
+   `free_quota_hard_stop` once remaining included credit is readable at runtime.
 3. Phases 15–17 (auto-recovery scenario matrix, full E2E profile matrix) are
    partially evidenced through production boundary proofs rather than a
    dedicated scenario suite.
