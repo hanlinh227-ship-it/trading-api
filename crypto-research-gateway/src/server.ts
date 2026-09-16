@@ -367,7 +367,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     const providers = [...new Set(scopedObservations.map((item) => `${item.sourceType}:${item.source}`))];
     const sourceCoverage = sourceCoverageFromPlan(scope, dataAcquisitionPlan.sourcesByDomain);
     const degraded = coverage.some((item) => v3Coverage ? item.status !== 'LIVE' : item.status === 'GAP')
-      || dataAcquisitionPlan.gaps.length > 0
+      || (v3Coverage && dataAcquisitionPlan.gaps.length > 0)
       || blocked.length > 0
       || ranking.decision === 'NO_TRADE';
 
