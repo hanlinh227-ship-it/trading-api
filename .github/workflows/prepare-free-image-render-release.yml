@@ -1,0 +1,81 @@
+name: Prepare Free Image Render Release
+
+on:
+  push:
+    branches: [feature/free-image-render-agent]
+    paths:
+      - 'AI_SKILL_LIBRARY/v4/legion/agents.yaml'
+      - 'AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml'
+      - 'cloudflare-worker/**'
+      - 'tests/test_image_render_agent.py'
+      - '.github/workflows/prepare-free-image-render-release.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  validate-build-and-record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/free-image-render-agent
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: AI_SKILL_LIBRARY/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Brain dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+
+      - name: Build unvalidated release metadata so exact contracts can be tested
+        run: |
+          set -euo pipefail
+          python AI_SKILL_LIBRARY/v4/tools/release.py build \
+            --version 4.12.0 \
+            --source free_image_render_agent_pr385 \
+            --class feature
+
+      - name: Validate full Brain and repository tests
+        run: |
+          set -euo pipefail
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA"
+
+      - name: Install and validate Worker runtime
+        working-directory: cloudflare-worker
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          export GITHUB_SHA="$(git -C .. rev-parse HEAD)"
+          npm run prepare:skill-gateway
+          npm run prepare:model-mesh
+          npm run check
+
+      - name: Mark release validated and known-good only after all checks pass
+        run: |
+          set -euo pipefail
+          python AI_SKILL_LIBRARY/v4/tools/release.py build \
+            --version 4.12.0 \
+            --source free_image_render_agent_pr385 \
+            --class feature \
+            --validated \
+            --known-good
+          python AI_SKILL_LIBRARY/v4/tools/release.py check --root .
+          python AI_SKILL_LIBRARY/validate_v4.py
+
+      - name: Commit generated release metadata to feature branch
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add AI_SKILL_LIBRARY/v4/releases/current.json AI_SKILL_LIBRARY/v4/releases/history.yaml AI_SKILL_LIBRARY/v4/releases/4.12.0/manifest.yaml
+          git diff --cached --quiet && { echo 'No release metadata changes'; exit 0; }
+          git commit -m 'chore(release): validate free image render agent 4.12.0'
+          git push origin HEAD:feature/free-image-render-agent
