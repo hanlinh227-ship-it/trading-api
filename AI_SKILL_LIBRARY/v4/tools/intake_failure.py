@@ -18,6 +18,7 @@ _ALLOWED = {
     "client_id",
     "skill_id",
 }
+_CONTROL = {"authority", "stable_write"}
 _FORBIDDEN = {
     "raw_prompt",
     "raw_private_chat",
@@ -61,9 +62,12 @@ def normalize_failure(row: dict) -> dict:
     keys = set(row)
     if keys & _FORBIDDEN:
         raise ValueError("forbidden_failure_field")
-    unknown = keys - _ALLOWED
+    unknown = keys - _ALLOWED - _CONTROL
     if unknown:
         raise ValueError("unknown_failure_field:" + ",".join(sorted(unknown)))
+    for key in _CONTROL:
+        if key in row and row[key] is not False:
+            raise ValueError(f"invalid_{key}")
     missing = _REQUIRED - keys
     if missing:
         raise ValueError("missing_failure_field:" + ",".join(sorted(missing)))
@@ -93,7 +97,7 @@ def merge_failures(ledger: dict, rows: list[dict]) -> dict:
         raise ValueError("ledger_failures_must_be_list")
     by_id: dict[str, dict] = {}
     for row in existing:
-        normalized = normalize_failure({k: v for k, v in row.items() if k in _ALLOWED})
+        normalized = normalize_failure(row)
         by_id[normalized["failure_id"]] = normalized
     for row in rows:
         normalized = normalize_failure(row)
