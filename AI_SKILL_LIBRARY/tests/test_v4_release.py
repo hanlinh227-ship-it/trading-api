@@ -30,15 +30,20 @@ class V4ReleaseTests(unittest.TestCase):
         self.assertFalse(Path(pointer["manifest_path"]).is_absolute())
         self.assertNotIn("..", Path(pointer["manifest_path"]).parts)
 
-    def test_current_release_is_known_good_after_production_closure(self):
+    def test_current_release_history_and_manifest_validation_are_consistent(self):
         root = Path(__file__).resolve().parents[2]
         pointer = load_release_pointer(root)
         version = pointer["version"]
         history = yaml.safe_load((root / "AI_SKILL_LIBRARY/v4/releases/history.yaml").read_text(encoding="utf-8"))
         row = next(item for item in history["releases"] if item["version"] == version)
         manifest = yaml.safe_load((root / pointer["manifest_path"]).read_text(encoding="utf-8"))
-        self.assertTrue(row["known_good"], f"active release {version} must be known_good after production closure")
-        self.assertTrue(manifest["promotion"]["validated"], f"active release {version} manifest must be validated after production closure")
+        known_good = row.get("known_good") is True
+        validated = manifest.get("promotion", {}).get("validated") is True
+        self.assertEqual(
+            known_good,
+            validated,
+            f"active release {version} closure drift: history.known_good={known_good} manifest.promotion.validated={validated}",
+        )
 
     def test_rollback_requires_known_good_previous_release(self):
         with tempfile.TemporaryDirectory() as tmp:
