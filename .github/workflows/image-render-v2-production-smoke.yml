@@ -1,0 +1,68 @@
+name: Image Render V2 Production Smoke
+
+on:
+  workflow_run:
+    workflows: ['Deploy Skill-Mandatory Fast Gateway']
+    types: [completed]
+
+permissions:
+  contents: read
+
+env:
+  WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+
+jobs:
+  image-render-v2-production-smoke:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: image-render-v2-production-smoke
+      cancel-in-progress: false
+    steps:
+      - name: Production Image Render V2 smoke
+        env:
+          MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODEL_MESH_EXECUTION_TOKEN:-}"
+          test -n "${EXPECTED_SHA:-}"
+
+          contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
+          printf '%s\n' "$contract" | EXPECTED_SHA="$EXPECTED_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.runtimeRevision!==process.env.EXPECTED_SHA)process.exit(2);console.log('IMAGE_RENDER_EXACT_SHA=PASS '+x.runtimeRevision)})"
+
+          health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/image/health")"
+          printf '%s\n' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.executionEnabled!==true||x.executionTokenConfigured!==true||x.privacy?.referenceImagesEnabled!==false||!Array.isArray(x.privacy?.allowedDataClasses)||!x.privacy.allowedDataClasses.includes('PUBLIC')||x.batch?.enabled!==true||x.batch?.maxScenes!==100||x.batch?.defaultConcurrency!==4||x.batch?.maxConcurrency!==8||x.batch?.maxAttemptsPerScene!==3)process.exit(3);console.log('IMAGE_RENDER_HEALTH=PASS provider_reachable='+Boolean(x.provider?.reachable))})"
+
+          models_file="$(mktemp)"
+          models_code="$(curl --silent --show-error --connect-timeout 5 --max-time 25 -o "$models_file" -w '%{http_code}' -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/models" || true)"
+          if [ "$models_code" = "200" ]; then
+            node - "$models_file" <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.provider!=='ai_horde'||!Array.isArray(x.models))process.exit(4);
+          console.log('IMAGE_RENDER_MODELS=PASS count='+x.models.length);
+          NODE
+          else
+            MODELS_FILE="$models_file" MODELS_CODE="$models_code" node - <<'NODE'
+          const fs=require('fs');
+          let x={};try{x=JSON.parse(fs.readFileSync(process.env.MODELS_FILE,'utf8'))}catch{}
+          if(process.env.MODELS_CODE==='401'||x.error==='unauthorized')process.exit(5);
+          console.log('IMAGE_RENDER_MODELS=PROVIDER_DEGRADED http='+process.env.MODELS_CODE+' error='+(x.error||'unknown'));
+          NODE
+          fi
+          rm -f "$models_file"
+
+          batch="$(curl -fsS --connect-timeout 5 --max-time 20 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" -H 'content-type: application/json' -d '{"dataClass":"PUBLIC","qualityMode":"STRUCTURAL","consistencyMode":"STRICT","concurrency":1,"scenes":[{"sceneId":"prod-smoke-1","prompt":"public production smoke test: one simple blue square centered on a plain white background"}]}' "$WORKER_BASE_URL/brain/image/batch")"
+          batch_id="$(printf '%s\n' "$batch" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.dataClass!=='PUBLIC'||x.sceneCount!==1||!/^img-[0-9a-f-]+$/i.test(String(x.batchId||'')))process.exit(6);process.stdout.write(x.batchId)})")"
+          test -n "$batch_id"
+
+          cancelled="$(curl -fsS --connect-timeout 5 --max-time 20 -X DELETE -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/batch?id=$batch_id")"
+          printf '%s\n' "$cancelled" | BATCH_ID="$batch_id" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.state?.batch_id!==process.env.BATCH_ID||x.summary?.status!=='cancelled')process.exit(7);console.log('IMAGE_RENDER_BATCH_CANCEL=PASS '+x.state.batch_id)})"
+
+          status="$(curl -fsS --connect-timeout 5 --max-time 20 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/batch/status?id=$batch_id")"
+          printf '%s\n' "$status" | BATCH_ID="$batch_id" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.state?.batch_id!==process.env.BATCH_ID||x.summary?.status!=='cancelled')process.exit(8);console.log('IMAGE_RENDER_BATCH_STATUS=PASS '+x.state.batch_id)})"
+
+          echo 'IMAGE_RENDER_V2_PRODUCTION_SMOKE=PASS'
