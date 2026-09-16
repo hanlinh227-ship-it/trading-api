@@ -192,6 +192,69 @@ class LegionFunctional(unittest.TestCase):
         self.assertEqual(legion.validate_artifact_ownership(graph), [])
 
 
+class OmniRouteStageAFunctional(unittest.TestCase):
+    """Phase 9: OmniRoute is ON at Stage A, and being ON changes no invariant."""
+
+    def _policy(self):
+        import yaml
+        path = ROOT / "AI_SKILL_LIBRARY" / "v4" / "integrations" / "policy.yaml"
+        return yaml.safe_load(path.read_text(encoding="utf-8"))["omniroute"]
+
+    def test_stage_a_is_enabled_without_granting_anything(self):
+        policy = self._policy()
+        self.assertIs(policy["enabled"], True, "Stage A discovery/catalog is ON")
+        self.assertEqual(policy["stage"], "A_discovery_catalog")
+        # Enabling must not imply any of these.
+        self.assertIs(policy["enabled_by_default"], False)
+        self.assertIs(policy["network_execution_enabled"], False)
+        self.assertIs(policy["routing_authority"], False)
+        self.assertIs(policy["reasoning_authority"], False)
+        self.assertIs(policy["sandbox_only"], True)
+        for flag, value in policy["forbidden_defaults"].items():
+            self.assertIs(value, False, f"{flag} must stay off at Stage A")
+
+    def test_enabled_adapter_still_quarantines_every_candidate(self):
+        adapters = load_tool("integration_adapters")
+        fully_verified = {
+            "provider_id": "p", "model_id": "m", "family": "f", "free_status": "free",
+            "entitlement_verified": True, "health_fresh": True, "quota_available": True,
+            "privacy_verified": True, "terms_verified": True,
+        }
+        candidate = adapters.normalize_omniroute_candidate(fully_verified)
+        # Even a fully verified candidate is quarantined, never auto-promoted.
+        self.assertEqual(candidate["state"], "quarantine")
+        self.assertIs(candidate["routing_authority"], False)
+        self.assertIs(candidate["reasoning_authority"], False)
+        self.assertIs(candidate["stable_mutation"], False)
+
+    def test_paid_and_temporary_free_are_refused_while_enabled(self):
+        adapters = load_tool("integration_adapters")
+        for free_status in ("paid", "trial", "promo", "promotional", "credit"):
+            with self.subTest(free_status=free_status):
+                candidate = adapters.normalize_omniroute_candidate({
+                    "provider_id": "p", "model_id": "m", "free_status": free_status,
+                    "entitlement_verified": True, "health_fresh": True,
+                    "quota_available": True, "privacy_verified": True, "terms_verified": True,
+                })
+                self.assertFalse(candidate["eligible"])
+                self.assertEqual(candidate["exclusion_reason"], "paid_or_temporary_free")
+
+    def test_every_verification_gate_is_load_bearing(self):
+        adapters = load_tool("integration_adapters")
+        base = {
+            "provider_id": "p", "model_id": "m", "free_status": "free",
+            "entitlement_verified": True, "health_fresh": True, "quota_available": True,
+            "privacy_verified": True, "terms_verified": True,
+        }
+        self.assertTrue(adapters.normalize_omniroute_candidate(base)["eligible"])
+        for gate in ("entitlement_verified", "health_fresh", "quota_available",
+                     "privacy_verified", "terms_verified"):
+            with self.subTest(gate=gate):
+                candidate = adapters.normalize_omniroute_candidate({**base, gate: False})
+                self.assertFalse(candidate["eligible"])
+                self.assertEqual(candidate["exclusion_reason"], "verification_incomplete")
+
+
 class AdaptiveExecutionFunctional(unittest.TestCase):
     """Phase 14: bounds hold and speculation stays off without explicit enable."""
 
