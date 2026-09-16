@@ -1,4 +1,4 @@
-version: 1
+version: 2
 purpose: free_only_cloud_image_rendering_without_new_routing_authority
 status: candidate
 routing_authority: false
@@ -40,12 +40,32 @@ runtime:
   submit_path: /brain/image/render
   check_path: /brain/image/check
   status_path: /brain/image/status
+  batch_submit_path: /brain/image/batch
+  batch_status_path: /brain/image/batch/status
+  models_path: /brain/image/models
+  retry_path: /brain/image/retry
   cancel_method: DELETE
   execution_flag: IMAGE_RENDER_EXECUTION_ENABLED
   execution_token: IMAGE_RENDER_EXECUTION_TOKEN
   token_fallback: MODEL_MESH_EXECUTION_TOKEN
   optional_provider_key: AI_HORDE_API_KEY
   anonymous_without_provider_key: true
+
+batch:
+  enabled: true
+  max_scenes: 100
+  default_concurrency: 4
+  max_concurrency: 8
+  max_attempts_per_scene: 3
+  state_binding: IMAGE_RENDER_BATCH
+  state_class: ImageRenderBatchState
+  trading_state_forbidden: true
+
+quality:
+  modes: [STRUCTURAL, STRICT]
+  strict_requires_visual_verification_for_verified_label: true
+  visual_critic_unavailable_state: complete_unverified
+  metadata_only_may_report_verified: false
 
 constraints:
   max_images_per_request: 4
