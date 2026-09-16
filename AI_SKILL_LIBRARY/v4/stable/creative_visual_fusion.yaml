@@ -132,6 +132,14 @@ upstream_pattern_map:
     code_reuse: false
     registry_promotion: manual_review_required
 
+image_execution_bindings:
+  prompt_compiler_owner: visual_prompt_compiler
+  consistency_owner: continuity_engine
+  quality_owner: render_quality_critic
+  execution_agent: image_render_agent
+  duplicate_creative_reasoning_forbidden: true
+  preserve_user_constraints: true
+
 render_strategy:
   prompt_only_when_sufficient: true
   reference_conditioning_when_identity_matters: true
