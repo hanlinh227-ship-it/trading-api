@@ -2,6 +2,11 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { listenPort, RUNTIME_MODE, SERVICE_NAME, SERVICE_VERSION } from './config.js';
+import {
+  rankOpportunities,
+  resolveMarketScope,
+  type MarketDomain,
+} from './intelligence/multi-market.js';
 import { READ_ONLY_TOOL_NAMES, registerMcpRoute } from './mcp/server.js';
 import { buildDataEnvelope, type DataFreshness } from './normalization/data-contract.js';
 import { ResearchRuntime } from './research.js';
@@ -30,6 +35,46 @@ const marketRequestSchema = z.object({
   }
 });
 
+const marketDomainSchema = z.enum(['crypto', 'forex', 'futures', 'indices', 'metals', 'commodities']);
+const freshnessSchema = z.enum(['FRESH', 'DEGRADED', 'STALE', 'UNKNOWN']);
+const scoreScaleSchema = z.object({
+  min: z.number().finite(),
+  max: z.number().finite(),
+}).strict().refine((value) => value.max > value.min, { message: 'score_scale_invalid' });
+const evidenceSchema = z.object({
+  id: z.string().min(1).max(120),
+  direction: z.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  strength: z.number().finite().min(0).max(1),
+  freshness: freshnessSchema,
+  source: z.string().min(1).max(160),
+}).strict();
+const chartSchema = z.object({
+  provider: z.literal('tradingview'),
+  symbol: z.string().min(1).max(120),
+  timeframe: z.string().min(1).max(20).optional(),
+  verified: z.boolean(),
+}).strict();
+const opportunityCandidateSchema = z.object({
+  id: z.string().min(1).max(120),
+  domain: marketDomainSchema,
+  symbol: z.string().min(1).max(80),
+  direction: z.enum(['LONG', 'SHORT']),
+  rawScore: z.number().finite(),
+  scoreScale: scoreScaleSchema,
+  confidence: z.number().finite().min(0).max(1),
+  riskReward: z.number().finite().min(0).max(100),
+  invalidation: z.string().min(1).max(500).optional(),
+  freshness: freshnessSchema,
+  dataConflict: z.boolean().optional(),
+  provenance: z.array(z.string().min(1).max(240)).min(1).max(32),
+  evidence: z.array(evidenceSchema).min(1).max(64),
+  chart: chartSchema.optional(),
+}).strict();
+const opportunityRequestSchema = z.object({
+  requestedDomains: z.array(marketDomainSchema).min(1).max(6).optional(),
+  candidates: z.array(opportunityCandidateSchema).min(1).max(100),
+}).strict();
+
 function responseEventTime(result: Record<string, unknown>, fallback: Date): string {
   const observations = Array.isArray(result.observations) ? result.observations : [];
   const timestamps = observations
@@ -39,7 +84,10 @@ function responseEventTime(result: Record<string, unknown>, fallback: Date): str
   return new Date(Math.max(...timestamps)).toISOString();
 }
 
-function attachDataContract(result: Record<string, unknown>): Record<string, unknown> {
+function attachDataContract(
+  result: Record<string, unknown>,
+  kind = 'crypto_market_research',
+): Record<string, unknown> {
   const now = new Date();
   const degraded = result.degraded === true;
   const ok = result.ok === true;
@@ -51,7 +99,7 @@ function attachDataContract(result: Record<string, unknown>): Record<string, unk
     capability: result.capability ?? null,
   };
   const dataContract = buildDataEnvelope({
-    kind: 'crypto_market_research',
+    kind,
     source: SERVICE_NAME,
     sourceSha,
     eventTime: responseEventTime(result, now),
@@ -101,6 +149,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     runtimeMode: RUNTIME_MODE,
     localInstallRequired: false,
     tools: READ_ONLY_TOOL_NAMES,
+    researchSurfaces: ['multi_market_opportunity_ranking'],
   }));
 
   app.post('/research/market', async (request, reply) => {
@@ -112,6 +161,32 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     if (result.degraded === true && result.ok === false) {
       return reply.code(503).send(result);
     }
+    return reply.code(200).send(result);
+  });
+
+  app.post('/research/opportunities', async (request, reply) => {
+    const parsed = opportunityRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ ok: false, degraded: false, error: 'invalid_opportunity_request' });
+    }
+
+    const scope = resolveMarketScope(parsed.data.requestedDomains as MarketDomain[] | undefined);
+    const candidates = parsed.data.candidates.filter((candidate) => scope.includes(candidate.domain));
+    const excludedOutOfScope = parsed.data.candidates
+      .filter((candidate) => !scope.includes(candidate.domain))
+      .map((candidate) => candidate.id);
+    const ranking = rankOpportunities(candidates);
+    const degraded = ranking.decision === 'NO_TRADE' && ranking.blocked.length > 0;
+    const result = attachDataContract({
+      ok: true,
+      degraded,
+      capability: 'multi_market_opportunity_ranking',
+      researchOnly: true,
+      productionExecutionAuthority: false,
+      scope,
+      excludedOutOfScope,
+      ...ranking,
+    }, 'multi_market_research');
     return reply.code(200).send(result);
   });
 
