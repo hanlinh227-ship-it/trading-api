@@ -2,11 +2,11 @@
 
 Date: 2026-09-16
 Architecture: GITHUB_BRAIN_V4
-Status: CANDIDATE — pending exact-SHA production verification (this line is updated by the known-good closure PR)
+Status: PRODUCTION KNOWN-GOOD / EXACT-SHA VERIFIED
 Target release: `4.11.1`
 Previous known-good release: `4.11.0` (production SHA `0e89cd69b7aef699f4b37844141705b51a7f9ce8`, deploy run 35067636598)
-Production source SHA: RESOLVE FROM `/runtime/contract` — not yet verified for 4.11.1
-Production workflow run: PENDING
+Production source SHA: `b9774d83f877309f9b4eaed5acc2097ef62e79bd` (main after PR #380 `cf930d9a` + PR #381 `b9774d83`)
+Production workflow run: `35073895563` (FINAL_EXACT_SHA_GATE=PASS; run `35072895068` at `cf930d9a` failed closed on a self-heal/canary probe race and rolled back to `0e89cd69`, fixed by PR #381)
 
 ## Scope of this hardening round
 

@@ -164,5 +164,5 @@ compatibility:
   min_architecture: 4.0.0
 promotion:
   class: hardening
-  validated: false
+  validated: true
   source: final_hardening_candidate
