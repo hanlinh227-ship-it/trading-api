@@ -9,7 +9,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const doc = JSON.parse(fs.readFileSync('AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json', 'utf8'));
+// Resolve against this file, not the cwd: `npm run check` runs from
+// cloudflare-worker/ while the registry lives at the repository root.
+const repoFile = (relative) => new URL(`../${relative}`, import.meta.url);
+const doc = JSON.parse(fs.readFileSync(repoFile('AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json'), 'utf8'));
 
 assert.equal(doc.version, 1);
 assert.equal(doc.policy.authority, 'pricing_evidence_only');
@@ -43,7 +46,7 @@ if (nvidia.free_models.length) {
 
 // Every recorded provider must exist in the provider registry, so a catalog
 // cannot quietly introduce a provider that nothing else knows about.
-const providers = fs.readFileSync('AI_SKILL_LIBRARY/v4/model_mesh/providers.yaml', 'utf8');
+const providers = fs.readFileSync(repoFile('AI_SKILL_LIBRARY/v4/model_mesh/providers.yaml'), 'utf8');
 for (const providerId of Object.keys(doc.catalogs)) {
   assert.ok(providers.includes(`\n  ${providerId}:`), `catalog provider is not registered: ${providerId}`);
 }
