@@ -21,13 +21,15 @@
     "bindings": [
       {"name": "TINYFISH_CIRCUIT", "class_name": "TinyFishCircuit"},
       {"name": "MODEL_MESH_HEALTH", "class_name": "ModelMeshHealthState"},
-      {"name": "IMAGE_RENDER_BATCH", "class_name": "ImageRenderBatchState"}
+      {"name": "IMAGE_RENDER_BATCH", "class_name": "ImageRenderBatchState"},
+      {"name": "IMAGE_LOGICAL_JOB", "class_name": "ImageLogicalJobState"}
     ]
   },
   "migrations": [
     {"tag": "tinyfish-circuit-v1", "new_sqlite_classes": ["TinyFishCircuit"]},
     {"tag": "model-mesh-health-v1", "new_sqlite_classes": ["ModelMeshHealthState"]},
-    {"tag": "image-render-batch-v1", "new_sqlite_classes": ["ImageRenderBatchState"]}
+    {"tag": "image-render-batch-v1", "new_sqlite_classes": ["ImageRenderBatchState"]},
+    {"tag": "image-logical-job-v1", "new_sqlite_classes": ["ImageLogicalJobState"]}
   ],
   // Read-only Model Mesh health maintenance only. Financial, trading, deploy
   // and autonomous Brain crons remain forbidden and are rejected by

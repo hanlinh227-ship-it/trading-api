@@ -113,24 +113,29 @@ agents:
     reasoning_authority: false
     runtime:
       policy_path: AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml
-      contract_version: image_render_v3
-      v2_health_path: /brain/image/health
-      v2_submit_path: /brain/image/render
-      v2_status_path: /brain/image/status
-      v2_batch_submit_path: /brain/image/batch
-      v2_batch_status_path: /brain/image/batch/status
-      v2_batch_retry_path: /brain/image/retry
-      v2_models_path: /brain/image/models
+      # V2 keys stay canonical public contract; V3 keys are additive.
+      contract_version: image_render_v2
+      v3_contract_version: image_render_v3
+      health_path: /brain/image/health
+      submit_path: /brain/image/render
+      status_path: /brain/image/status
+      batch_submit_path: /brain/image/batch
+      batch_status_path: /brain/image/batch/status
+      batch_retry_path: /brain/image/retry
+      models_path: /brain/image/models
       v3_jobs_path: /brain/image/v3/jobs
       v3_jobs_status_path: /brain/image/v3/jobs/status
       v3_jobs_retry_path: /brain/image/v3/jobs/retry
       v3_edit_path: /brain/image/v3/edit
       v3_models_path: /brain/image/v3/models
       v3_capabilities_path: /brain/image/v3/capabilities
+      state_binding: IMAGE_RENDER_BATCH
       physical_state_binding: IMAGE_RENDER_BATCH
       logical_state_binding: IMAGE_LOGICAL_JOB
       free_only: true
+      public_only: true
       public_execution_only_until_reference_safe_runtime_active: true
+      reference_images_on_provider: false
       reference_images_on_volunteer_provider: false
       missing_reference_safe_runtime_action: WAITING_FOR_SAFE_FREE_RUNTIME
       paid_fallback: false

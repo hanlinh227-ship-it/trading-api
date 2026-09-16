@@ -4,6 +4,7 @@ import {cancelImageBatch,createImageBatch,getImageBatchStatus} from './batch-cli
 const STATE_KEY='image-logical-job-state-v3';
 const TERMINAL=new Set(['complete','complete_with_failures','cancelled']);
 const RETRYABLE_SCENE_STATES=new Set(['failed_quality','failed_provider','cancelled']);
+const ACTIVE_SCENE_STATES=new Set(['provider_processing']);
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8'}});
 const clone=value=>structuredClone(value);
 
@@ -16,7 +17,9 @@ function physicalManifest(state,chunk){
   const selected=chunk.sceneIds.map(id=>state.scenes.find(scene=>scene.id===id)).filter(Boolean);
   const strict=selected.some(scene=>scene.intent?.qualityProfile!=='STRUCTURAL');
   return {
-    batch_id:`${state.jobId}-${chunk.id}`,
+    // One physical batch id per chunk attempt: /create overwrites physical batch state,
+    // so a resubmission must never reuse the id of a batch that already ran.
+    batch_id:`${state.jobId}-${chunk.id}-a${Number(chunk.attempt||1)}`,
     data_class:'PUBLIC',
     quality_mode:strict?'STRICT':'STRUCTURAL',
     scheduler_config:{concurrency:4},
@@ -76,7 +79,14 @@ export function createImageLogicalJobClass({
         state=retryLogicalJobScenes(state,[...retryableIds]);
         if(retryableIds.size){
           for(const chunk of state.chunks){
-            if(chunk.sceneIds.some(id=>retryableIds.has(id))){chunk.status='queued';delete chunk.physicalBatchId;}
+            if(!chunk.sceneIds.some(id=>retryableIds.has(id)))continue;
+            // A chunk whose physical batch is still working for sibling scenes keeps that
+            // batch id, otherwise cancel can no longer reach the running provider job.
+            // The retried scene is picked up once the chunk settles.
+            if(chunk.sceneIds.some(id=>ACTIVE_SCENE_STATES.has(state.scenes.find(scene=>scene.id===id)?.status)))continue;
+            chunk.status='queued';
+            chunk.attempt=Number(chunk.attempt||1)+1;
+            delete chunk.physicalBatchId;
           }
           await this.schedule(2);
         }
@@ -123,7 +133,7 @@ export function createImageLogicalJobClass({
           state=applyLogicalJobEvent(state,{type:'WAITING_FOR_FREE_COMPUTE'});
           await this.save(state);await this.schedule(10);return state;
         }
-        chunk.status='submitted';chunk.physicalBatchId=manifest.batch_id;
+        chunk.status='submitted';chunk.attempt=Number(chunk.attempt||1);chunk.physicalBatchId=manifest.batch_id;
         for(const sceneId of action.sceneIds)state=applyLogicalJobEvent(state,{type:'SCENE_STATUS',sceneId,status:'provider_processing'});
       }
 

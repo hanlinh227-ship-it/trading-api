@@ -31,6 +31,9 @@ export function createLogicalJob({jobId,scenes,chunkSize=100,operationalSceneLim
 export function nextLogicalJobActions(state,{maxChunks=1}={}){
   if(['cancelled','complete','complete_with_failures'].includes(state.status)||String(state.status).startsWith('waiting_for_'))return [];
   return state.chunks
+    // A chunk whose physical batch is still in flight is never resubmitted: its queued
+    // scenes (e.g. a scene retried mid-flight) wait until that batch settles.
+    .filter(chunk=>chunk.status!=='submitted')
     .filter(chunk=>chunk.sceneIds.some(id=>state.scenes.find(scene=>scene.id===id)?.status==='queued'))
     .slice(0,maxChunks)
     .map(chunk=>({type:'SUBMIT_CHUNK',chunkId:chunk.id,sceneIds:chunk.sceneIds.filter(id=>state.scenes.find(scene=>scene.id===id)?.status==='queued')}));

@@ -11,6 +11,6 @@ export async function handleImageRenderV3(request,env={}){
   if(!url.pathname.startsWith('/brain/image/v3/'))return null;
   if(!enabled(env))return json({ok:false,error:'image_render_execution_disabled'},503);
   const expected=configuredToken(env);
-  if(!expected||!timingSafeToken(expected,suppliedToken(request)))return json({ok:false,error:'unauthorized'},401);
+  if(!expected||!await timingSafeToken(expected,suppliedToken(request)))return json({ok:false,error:'unauthorized'},401);
   return await handleImageRenderV3Authorized(request,env);
 }

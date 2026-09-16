@@ -17,7 +17,15 @@ def load_yaml(path: Path):
 class ImageRenderV2BrainIntegrationTests(unittest.TestCase):
     def test_policy_v2_keeps_free_public_fail_closed_boundary(self):
         policy = load_yaml(POLICY_PATH)
-        self.assertEqual(policy["version"], 2)
+        # The policy document version tracks the document, not the public contract: it was
+        # bumped to 4 when the V3 control plane and V4 quality plane were added on top of V2.
+        # The V2 contract itself must still be declared verbatim and stay compatible.
+        self.assertGreaterEqual(policy["version"], 2)
+        self.assertEqual(policy["compatibility"]["v2_policy_version"], 2)
+        self.assertTrue(policy["compatibility"]["preserve_v1"])
+        self.assertTrue(policy["compatibility"]["preserve_v2"])
+        self.assertEqual(policy["runtime"]["contract_version"], "image_render_v2")
+        self.assertEqual(policy["execution_mode"], "async_job")
         self.assertFalse(policy["routing_authority"])
         self.assertFalse(policy["reasoning_authority"])
         self.assertFalse(policy["paid_fallback"])

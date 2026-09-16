@@ -88,6 +88,9 @@ canonical_skill_bindings:
   adobe: [photoshop, illustrator, premiere_pro, after_effects, lightroom, audition, indesign, acrobat]
   writing: [scriptwriting, screenwriting, voice_over, advertising_copy, hook_retention, storytelling]
 
+# Shared creative logic has exactly one canonical owner skill; other skills reference, never duplicate.
+# V4 modules (render_quality_critic, candidate_tournament, targeted_repair_planner) are execution
+# modules, not canonical skills, so they can never own shared logic.
 shared_logic_owner:
   identity_preservation: character_consistency
   scene_continuity: scene_continuity
@@ -103,8 +106,8 @@ shared_logic_owner:
   timeline_editing: premiere_pro
   layout_hierarchy: layout
   visual_direction: graphic_design
-  candidate_selection: render_quality_critic
-  targeted_repair_decision: render_quality_critic
+  candidate_selection: verification
+  targeted_repair_decision: photoshop
 
 legacy_alias_ids_resolved_by_catalog: [image_video_generation, generative_media, adobe_media, design_2d_ux, design_3d_blender]
 budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
@@ -131,18 +134,27 @@ upstream_pattern_map:
     code_reuse: false
     registry_promotion: manual_review_required
 
+# Creative reasoning may use references as project authority, but the current
+# FREE_ONLY volunteer execution provider must never receive reference uploads.
+# Provider/runtime policy is canonical in image_render_policy.yaml.
 image_render_runtime:
   policy_path: AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml
-  contract_version: image_render_v3
+  # V2 keys stay canonical public contract; V3/V4 keys are additive.
+  contract_version: image_render_v2
+  v3_contract_version: image_render_v3
   v2_compatibility: true
+  batch_enabled: true
   logical_jobs_enabled: true
   physical_chunk_max_scenes: 100
   free_only: true
   cloud_only: true
+  public_only: true
   public_execution_only_until_reference_safe_runtime_active: true
+  reference_provider_upload: false
   reference_provider_upload_to_volunteer: false
   missing_reference_safe_runtime_action: WAITING_FOR_SAFE_FREE_RUNTIME
-  quality_profiles: [STRUCTURAL, STRICT, STRICT_VISUAL]
+  quality_profiles: [STRUCTURAL, STRICT]
+  v3_quality_profiles: [STRUCTURAL, STRICT, STRICT_VISUAL]
   strict_without_visual_critic: complete_unverified
   candidate_tournament: true
   targeted_repair: true

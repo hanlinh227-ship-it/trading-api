@@ -1,7 +1,10 @@
 import vault from './model-vault.json' with {type:'json'};
 
 const ALLOWED_LICENSES=new Set(['Apache-2.0','MIT']);
-const ALLOWED_STATUS=new Set(['CANDIDATE','ACTIVE','DEGRADED','DISABLED']);
+// Promotion pipeline: candidate -> benchmark -> compare -> promotion proposal -> gate -> active.
+// BENCHMARKED means the benchmark evidence passed but the policy/runtime gate has not.
+export const MODEL_VAULT_STATUSES=Object.freeze(['CANDIDATE','BENCHMARKED','ACTIVE','DEGRADED','DISABLED']);
+const ALLOWED_STATUS=new Set(MODEL_VAULT_STATUSES);
 const SHA40=/^[0-9a-f]{40}$/i;
 
 export function validateModelVaultEntry(entry={}){

@@ -4,7 +4,9 @@ status: candidate
 routing_authority: false
 reasoning_authority: false
 brain_authority: GITHUB_BRAIN_V4
-execution_mode: async_logical_job
+# V2 public execution contract stays `async_job`; V3 adds the logical-job plane on top.
+execution_mode: async_job
+v3_execution_mode: async_logical_job
 paid_fallback: false
 auto_purchase: false
 trial_credit_as_free: false
@@ -13,6 +15,7 @@ promo_credit_as_free: false
 compatibility:
   preserve_v1: true
   preserve_v2: true
+  v2_policy_version: 2
   v3_control_plane: true
   v4_quality_plane: true
 
@@ -25,6 +28,11 @@ provider:
   anonymous_key_value: '0000000000'
   monetary_cost: zero
   external_availability_guarantee: false
+  free_commitment_evidence:
+    mission: https://aihorde.net/mission/
+    api: https://aihorde.net/api/
+    integration: https://github.com/Haidra-Org/AI-Horde/blob/main/README_integration.md
+  notes: AI Horde publicly commits to free access and no paid-priority tier, but no external service can be technically guaranteed to exist forever. Runtime therefore guarantees FREE_ONLY behavior, not perpetual provider availability.
 
 provider_mesh:
   free_only: true
@@ -36,24 +44,35 @@ provider_mesh:
 
 privacy:
   explicit_data_class_required: true
+  # allowed/denied_data_classes describe the volunteer (AI Horde) execution provider and
+  # remain the canonical V2 fail-closed boundary. A future reference-safe FREE runtime
+  # gets its own provider entry; it never widens these.
+  allowed_data_classes: [PUBLIC]
+  denied_data_classes: [INTERNAL, CONFIDENTIAL, SECRET]
   volunteer_allowed_data_classes: [PUBLIC]
   non_public_action: fail_closed
   reference_images_on_volunteer_provider: disabled
+  anonymous_requests_may_be_shared_by_provider: true
+  anonymous_sharing_note: AI Horde documents that anonymous requests are always shared even when shared=false is requested, so anonymous mode is restricted to explicitly PUBLIC prompts only.
+  reason: prompts and generated assets are processed by community volunteer infrastructure; do not send non-public project assets by default.
   reference_safe_provider_required: true
   missing_safe_runtime_action: WAITING_FOR_SAFE_FREE_RUNTIME
   never_strip_reference_to_force_execution: true
 
 runtime:
+  # V2 keys stay canonical public contract; V3 keys are additive.
+  contract_version: image_render_v2
   v2_contract_version: image_render_v2
   v3_contract_version: image_render_v3
   health_path: /brain/image/health
-  v2_submit_path: /brain/image/render
-  v2_check_path: /brain/image/check
-  v2_status_path: /brain/image/status
-  v2_batch_submit_path: /brain/image/batch
-  v2_batch_status_path: /brain/image/batch/status
-  v2_batch_retry_path: /brain/image/retry
-  v2_models_path: /brain/image/models
+  submit_path: /brain/image/render
+  check_path: /brain/image/check
+  status_path: /brain/image/status
+  batch_submit_path: /brain/image/batch
+  batch_status_path: /brain/image/batch/status
+  batch_retry_path: /brain/image/retry
+  models_path: /brain/image/models
+  cancel_method: DELETE
   v3_jobs_path: /brain/image/v3/jobs
   v3_jobs_status_path: /brain/image/v3/jobs/status
   v3_jobs_retry_path: /brain/image/v3/jobs/retry
@@ -63,6 +82,8 @@ runtime:
   execution_flag: IMAGE_RENDER_EXECUTION_ENABLED
   execution_token: IMAGE_RENDER_EXECUTION_TOKEN
   token_fallback: MODEL_MESH_EXECUTION_TOKEN
+  optional_provider_key: AI_HORDE_API_KEY
+  anonymous_without_provider_key: true
 
 batch:
   enabled: true
@@ -108,8 +129,10 @@ routing:
 quality:
   profiles: [STRUCTURAL, STRICT, STRICT_VISUAL]
   structural:
+    purpose: prompt_structure_and_metadata_quality_without_claiming_visual_verification
     verified_completion_allowed_without_visual_critic: false
   strict:
+    requires_visual_critic_for_verified_completion: true
     missing_visual_critic_action: complete_unverified
   strict_visual:
     real_visual_critic_required_for_verified_completion: true
@@ -135,16 +158,25 @@ model_vault:
   runtime_configured_is_separate_from_model_approval: true
 
 constraints:
+  max_images_per_request: 4
   max_images_per_physical_request: 4
+  width_range: [256, 1536]
+  height_range: [256, 1536]
+  dimension_alignment: 64
+  steps_range: [4, 40]
   nsfw: false
   censor_nsfw: true
+  requested_shared: false
+  anonymous_effective_shared: true
   no_infinite_retry: true
   paid_route_forbidden: true
+  unknown_cost_action: reject
   no_required_local_runtime: true
 
 agent_contract:
   agent_id: image_render_agent
   primary_domain: prompt_media
+  capability: image_generation
   capabilities: [image_generation, image_editing, reference_generation, multi_scene_batch, visual_quality_review, targeted_repair]
   permission_ceiling: sandbox_execute
   privacy_classes: [PUBLIC]
