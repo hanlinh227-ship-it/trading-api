@@ -75,7 +75,7 @@ export async function handleImageRenderV3Authorized(request,env={}){
 
   if(url.pathname==='/brain/image/v3/capabilities'){
     if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
-    const registrations=createImageProviderMesh().listRegistrations();
+    const registrations=createImageProviderMesh({env}).listRegistrations();
     const availability=taskAvailability(registrations);
     const critic=await visualCriticAvailability(env);
     const inference=await workersAiHealth(env);
@@ -140,7 +140,7 @@ export async function handleImageRenderV3Authorized(request,env={}){
 
   if(url.pathname==='/brain/image/v3/models'){
     if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
-    const mesh=createImageProviderMesh();
+    const mesh=createImageProviderMesh({env});
     return json({ok:true,mode:'FREE_ONLY',paidFallback:false,vault:loadApprovedModelVault(),providerRegistrations:mesh.listRegistrations()});
   }
 

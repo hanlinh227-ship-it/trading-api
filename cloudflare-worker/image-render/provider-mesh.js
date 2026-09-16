@@ -1,3 +1,5 @@
+import {AI_HORDE_ADAPTER,listProviderAdapters} from './provider-adapter-registry.js';
+
 const FREE_COST='zero';
 const REFERENCE_TASKS=new Set(['REFERENCE_GENERATION','IMAGE_EDIT_GLOBAL','IMAGE_EDIT_LOCAL','INPAINT','OUTPAINT','BACKGROUND_REPLACE','OBJECT_REPLACE','MULTI_IMAGE_COMPOSE','CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY','TARGETED_REPAIR']);
 
@@ -39,24 +41,40 @@ export function filterEligibleProviderModels(intent={},registrations=[]){
   }).map(registration=>({...registration}));
 }
 
-const AI_HORDE_REGISTRATION=Object.freeze({
-  providerId:'ai_horde',
-  providerClass:'community_nonprofit_volunteer_compute',
-  modelId:'sdxl',
-  monetaryCost:'zero',
-  paidFallback:false,
-  autoPurchase:false,
-  supportedDataClasses:['PUBLIC'],
-  referenceSafe:false,
-  supportedTasks:['TEXT_TO_IMAGE','MULTI_SCENE_BATCH'],
-  health:'dynamic',
-  maxResolution:{width:1536,height:1536},
-  privacyNotes:'PUBLIC_ONLY volunteer infrastructure; reference/private assets forbidden',
-  retentionNotes:'provider-controlled volunteer processing; do not send non-public assets',
-});
+// Registrations are derived from the adapter registry: the adapters are the single
+// provider authority, so a provider cannot be described differently in two places.
+function registrationFromAdapter(adapter){
+  return {
+    providerId:adapter.id,
+    providerClass:adapter.type,
+    modelId:adapter.supportedModels[0],
+    monetaryCost:adapter.monetaryCost,
+    paidFallback:adapter.paidFallback,
+    autoPurchase:adapter.autoPurchase,
+    supportedDataClasses:[...adapter.privacyClasses],
+    referenceSafe:adapter.referenceSafe,
+    supportedTasks:[...adapter.supportedTasks],
+    health:'dynamic',
+    maxResolution:{...adapter.maxResolution},
+    privacyNotes:adapter.referenceSafe
+      ?'reference-safe runtime; may receive reference and source images'
+      :'PUBLIC_ONLY; reference/private assets forbidden',
+    retentionNotes:adapter.provenance,
+  };
+}
 
-export function createImageProviderMesh({extraRegistrations=[]}={}){
-  const registrations=[AI_HORDE_REGISTRATION,...extraRegistrations].map(item=>({...item}));
+// Registering an adapter is not the same as having a runtime. A provider only enters the
+// mesh when the runtime it needs is actually present, so nothing is offered that cannot run.
+function adapterHasRuntime(adapter,env){
+  if(adapter.authentication==='worker_ai_binding')return Boolean(env?.AI&&typeof env.AI.run==='function');
+  return true;
+}
+
+const AI_HORDE_REGISTRATION=Object.freeze(registrationFromAdapter(AI_HORDE_ADAPTER));
+
+export function createImageProviderMesh({extraRegistrations=[],env={}}={}){
+  const available=listProviderAdapters().filter(adapter=>adapterHasRuntime(adapter,env));
+  const registrations=[...available.map(registrationFromAdapter),...extraRegistrations].map(item=>({...item}));
   const keys=new Set();
   for(const registration of registrations){
     const validation=validateProviderModelRegistration(registration);

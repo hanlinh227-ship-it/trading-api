@@ -13,7 +13,9 @@ export const AI_HORDE_ADAPTER=Object.freeze({
   privacyClasses:Object.freeze(['PUBLIC']),
   referenceSafe:false,
   supportedTasks:Object.freeze(['TEXT_TO_IMAGE','MULTI_SCENE_BATCH']),
-  supportedModels:Object.freeze(['stable_diffusion_xl']),
+  // Keeps the model id the V2 registration already published; the live model list comes
+  // from runtime discovery, not from this declaration.
+  supportedModels:Object.freeze(['sdxl']),
   maxResolution:Object.freeze({width:1536,height:1536}),
   healthEndpoint:'/status/heartbeat',
   queueBehavior:'async_poll',
