@@ -29,7 +29,7 @@ export function createImageRenderHandler({fetchImpl=fetch}={}){
         executionEnabled:enabled(env),
         executionTokenConfigured:Boolean(configuredToken(env)),
         provider:{id:'ai_horde',reachable:provider.ok,status:provider.status,anonymousAccess:true,monetaryCost:'zero',queuePriority:'lowest_when_anonymous'},
-        privacy:{allowedDataClasses:['PUBLIC'],nonPublicAction:'fail_closed'},
+        privacy:{allowedDataClasses:['PUBLIC'],explicitDataClassRequired:true,nonPublicAction:'fail_closed',referenceImagesEnabled:false,anonymousRequestsMayBeSharedByProvider:true},
         paidFallback:false,
         externalAvailabilityGuarantee:false,
       });
@@ -42,7 +42,8 @@ export function createImageRenderHandler({fetchImpl=fetch}={}){
     if(url.pathname==='/brain/image/render'){
       if(request.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
       let body;try{body=await request.json();}catch{return json({ok:false,error:'invalid_json'},400);}
-      const dataClass=sanitizeDataClass(body?.dataClass);
+      if(body?.dataClass===undefined||body?.dataClass===null||String(body.dataClass).trim()==='')return json({ok:false,error:'data_class_required'},400);
+      const dataClass=sanitizeDataClass(body.dataClass);
       if(dataClass!=='PUBLIC')return json({ok:false,error:'ai_horde_public_data_only',dataClass},403);
       if(typeof body?.prompt!=='string'||!body.prompt.trim())return json({ok:false,error:'invalid_prompt'},400);
       if(body.prompt.length>12000||String(body?.negativePrompt||'').length>6000)return json({ok:false,error:'prompt_too_large'},413);
@@ -60,7 +61,7 @@ export function createImageRenderHandler({fetchImpl=fetch}={}){
         fetchImpl,
       });
       if(!result.ok)return json({ok:false,error:result.error,provider:'ai_horde',providerStatus:result.status},result.status>=400&&result.status<600?result.status:502);
-      return json({ok:true,mode:'FREE_ONLY',paidFallback:false,dataClass,provider:'ai_horde',jobId:result.jobId,kudos:result.kudos,anonymous:result.anonymous,request:result.request,statusUrl:`/brain/image/status?id=${encodeURIComponent(result.jobId)}`},202);
+      return json({ok:true,mode:'FREE_ONLY',paidFallback:false,dataClass,provider:'ai_horde',jobId:result.jobId,kudos:result.kudos,anonymous:result.anonymous,anonymousRequestsMayBeSharedByProvider:result.anonymous,request:result.request,statusUrl:`/brain/image/status?id=${encodeURIComponent(result.jobId)}`},202);
     }
 
     if(url.pathname==='/brain/image/check'){
