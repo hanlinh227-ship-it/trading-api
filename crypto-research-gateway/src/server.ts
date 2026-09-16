@@ -9,6 +9,7 @@ import {
   type NormalizedMarketObservation,
 } from './intelligence/autonomous-scan.js';
 import { buildCoverageReport } from './intelligence/coverage-report.js';
+import { resolveDomainsFromIntent } from './intelligence/intent-domain.js';
 import {
   rankOpportunities,
   resolveMarketScope,
@@ -39,20 +40,15 @@ const marketRequestSchema = z.object({
   executionVenue: z.enum(['bybit', 'binance']).optional(),
 }).strict().superRefine((value, ctx) => {
   if (value.action === 'execution_quote' && !value.side) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['side'],
-      message: 'side_required_for_execution_quote',
-    });
+    ctx.addIssue({ code: 'custom', path: ['side'], message: 'side_required_for_execution_quote' });
   }
 });
 
 const marketDomainSchema = z.enum(['crypto', 'forex', 'futures', 'indices', 'metals', 'commodities']);
 const freshnessSchema = z.enum(['FRESH', 'DEGRADED', 'STALE', 'UNKNOWN']);
-const scoreScaleSchema = z.object({
-  min: z.number().finite(),
-  max: z.number().finite(),
-}).strict().refine((value) => value.max > value.min, { message: 'score_scale_invalid' });
+const scoreScaleSchema = z.object({ min: z.number().finite(), max: z.number().finite() })
+  .strict()
+  .refine((value) => value.max > value.min, { message: 'score_scale_invalid' });
 const evidenceSchema = z.object({
   id: z.string().min(1).max(120),
   direction: z.enum(['LONG', 'SHORT', 'NO_TRADE']),
@@ -133,9 +129,7 @@ const sourceCapabilitySchema = z.object({
   available: z.boolean(),
   state: z.enum(['AVAILABLE', 'DEGRADED', 'RATE_LIMITED', 'UNAVAILABLE', 'UNVERIFIED']).optional(),
 }).strict();
-const acquisitionContextSchema = z.object({
-  sources: z.array(sourceCapabilitySchema).max(64).default([]),
-}).strict();
+const acquisitionContextSchema = z.object({ sources: z.array(sourceCapabilitySchema).max(64).default([]) }).strict();
 const autoscanRequestSchema = z.object({
   intent: z.string().min(1).max(240).optional(),
   requestedDomains: z.array(marketDomainSchema).min(1).max(6).optional(),
@@ -155,9 +149,7 @@ function responseEventTime(result: Record<string, unknown>, fallback: Date): str
 }
 
 function normalizedEvidenceEventTime(observations: readonly NormalizedMarketObservation[]): string | undefined {
-  const timestamps = observations
-    .map((item) => Date.parse(item.eventTime))
-    .filter((value) => Number.isFinite(value));
+  const timestamps = observations.map((item) => Date.parse(item.eventTime)).filter((value) => Number.isFinite(value));
   if (timestamps.length === 0) return undefined;
   return new Date(Math.max(...timestamps)).toISOString();
 }
@@ -205,10 +197,7 @@ function sourceCoverageFromPlan(
   const coverage: Partial<Record<MarketDomain, { sources: string[]; status: 'COVERED' | 'GAP' }>> = {};
   for (const domain of scope) {
     const sources = sourcesByDomain[domain] ?? [];
-    coverage[domain] = {
-      sources,
-      status: sources.length > 0 ? 'COVERED' : 'GAP',
-    };
+    coverage[domain] = { sources, status: sources.length > 0 ? 'COVERED' : 'GAP' };
   }
   return coverage;
 }
@@ -231,9 +220,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   if (options.forceAllProvidersDown) runtime.forceAllDown();
 
   if (options.probeOnStart !== false && !options.forceAllProvidersDown) {
-    app.addHook('onReady', async () => {
-      await runtime.probeAll();
-    });
+    app.addHook('onReady', async () => { await runtime.probeAll(); });
   }
 
   app.get('/health', async () => {
@@ -264,9 +251,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     localInstallRequired: false,
     tools: READ_ONLY_TOOL_NAMES,
     researchSurfaces: ['multi_market_opportunity_ranking', 'autonomous_multi_market_research'],
-    capabilityVersions: {
-      autonomous_multi_market_research: 3,
-    },
+    capabilityVersions: { autonomous_multi_market_research: 3 },
     autonomousMultiMarketResearch: {
       capabilityVersion: 3,
       researchOnly: true,
@@ -278,27 +263,19 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.post('/research/market', async (request, reply) => {
     const parsed = marketRequestSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ ok: false, degraded: false, error: 'invalid_research_request' });
-    }
+    if (!parsed.success) return reply.code(400).send({ ok: false, degraded: false, error: 'invalid_research_request' });
     const result = attachDataContract(await runtime.runMarket(parsed.data));
-    if (result.degraded === true && result.ok === false) {
-      return reply.code(503).send(result);
-    }
+    if (result.degraded === true && result.ok === false) return reply.code(503).send(result);
     return reply.code(200).send(result);
   });
 
   app.post('/research/opportunities', async (request, reply) => {
     const parsed = opportunityRequestSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ ok: false, degraded: false, error: 'invalid_opportunity_request' });
-    }
+    if (!parsed.success) return reply.code(400).send({ ok: false, degraded: false, error: 'invalid_opportunity_request' });
 
     const scope = resolveMarketScope(parsed.data.requestedDomains as MarketDomain[] | undefined);
     const candidates = parsed.data.candidates.filter((candidate) => scope.includes(candidate.domain));
-    const excludedOutOfScope = parsed.data.candidates
-      .filter((candidate) => !scope.includes(candidate.domain))
-      .map((candidate) => candidate.id);
+    const excludedOutOfScope = parsed.data.candidates.filter((candidate) => !scope.includes(candidate.domain)).map((candidate) => candidate.id);
     const ranking = rankOpportunities(candidates);
     const degraded = ranking.decision === 'NO_TRADE' && ranking.blocked.length > 0;
     const result = attachDataContract({
@@ -316,33 +293,24 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.post('/research/autoscan', async (request, reply) => {
     const parsed = autoscanRequestSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ ok: false, degraded: false, error: 'invalid_autoscan_request' });
-    }
+    if (!parsed.success) return reply.code(400).send({ ok: false, degraded: false, error: 'invalid_autoscan_request' });
 
     const observations = (parsed.data.externalObservations ?? []) as NormalizedMarketObservation[];
     const invalidObservations = observations
       .map((observation) => ({ id: observation.id, reasons: validateObservationSemantics(observation) }))
       .filter((item) => item.reasons.length > 0);
     if (invalidObservations.length > 0) {
-      return reply.code(400).send({
-        ok: false,
-        degraded: false,
-        error: 'invalid_autoscan_observation',
-        invalidObservations,
-      });
+      return reply.code(400).send({ ok: false, degraded: false, error: 'invalid_autoscan_observation', invalidObservations });
     }
 
-    const scope = resolveMarketScope(parsed.data.requestedDomains as MarketDomain[] | undefined);
+    const explicitDomains = parsed.data.requestedDomains as MarketDomain[] | undefined;
+    const inferredDomains = explicitDomains ? [] : resolveDomainsFromIntent(parsed.data.intent);
+    const scope = resolveMarketScope(explicitDomains ?? (inferredDomains.length > 0 ? inferredDomains : undefined));
     const requestedSymbols = parsed.data.symbols as Partial<Record<MarketDomain, string[]>> | undefined;
     const scopedObservations = observations.filter((observation) =>
       scope.includes(observation.domain) && symbolAllowed(observation, requestedSymbols));
     const acquisitionCapabilities = (parsed.data.acquisitionContext?.sources ?? []) as SourceCapability[];
-    const dataAcquisitionPlan = buildDataAcquisitionPlan({
-      requestedDomains: scope,
-      requestedSymbols,
-      capabilities: acquisitionCapabilities,
-    });
+    const dataAcquisitionPlan = buildDataAcquisitionPlan({ requestedDomains: scope, requestedSymbols, capabilities: acquisitionCapabilities });
     const requestNowMs = options.nowMs ?? Date.now();
     const v3Coverage = usesV3CoverageSemantics(scopedObservations, acquisitionCapabilities);
     const coverage = v3Coverage
@@ -351,13 +319,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         const domainObservations = scopedObservations.filter((item) => item.domain === domain);
         const usable = domainObservations.filter((item) => item.freshness === 'FRESH' || item.freshness === 'DEGRADED');
         if (usable.length > 0) {
-          return {
-            domain,
-            requested: true,
-            usableObservationCount: usable.length,
-            status: 'COVERED' as const,
-            reasons: [] as string[],
-          };
+          return { domain, requested: true, usableObservationCount: usable.length, status: 'COVERED' as const, reasons: [] as string[] };
         }
         return {
           domain,
