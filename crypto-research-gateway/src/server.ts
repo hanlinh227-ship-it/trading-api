@@ -9,6 +9,7 @@ import {
   type NormalizedMarketObservation,
 } from './intelligence/autonomous-scan.js';
 import { buildCoverageReport } from './intelligence/coverage-report.js';
+import { inferMarketDomainsFromIntent } from './intelligence/intent-domain-resolver.js';
 import {
   rankOpportunities,
   resolveMarketScope,
@@ -333,7 +334,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       });
     }
 
-    const scope = resolveMarketScope(parsed.data.requestedDomains as MarketDomain[] | undefined);
+    const requestedDomains = parsed.data.requestedDomains as MarketDomain[] | undefined;
+    const inferredDomains = requestedDomains ? [] : inferMarketDomainsFromIntent(parsed.data.intent);
+    const scope = resolveMarketScope(requestedDomains ?? (inferredDomains.length > 0 ? inferredDomains : undefined));
     const requestedSymbols = parsed.data.symbols as Partial<Record<MarketDomain, string[]>> | undefined;
     const scopedObservations = observations.filter((observation) =>
       scope.includes(observation.domain) && symbolAllowed(observation, requestedSymbols));
