@@ -3,7 +3,7 @@
   "mode": "FREE_ONLY",
   "routing_authority": false,
   "reasoning_authority": false,
-  "generated_at": "2026-09-16T01:05:00Z",
+  "generated_at": "2026-09-16T01:10:00Z",
   "models": [
     {
       "provider_id": "groq",
@@ -459,13 +459,13 @@
     {
       "provider_id": "nvidia_nim",
       "provider_class": "F1",
-      "model_id": "meta/llama-3.3-70b-instruct",
-      "model_family": "llama-3.3-70b",
+      "model_id": "google/gemma-3-12b-it",
+      "model_family": "gemma-3-12b",
       "model_variant": "nim-hosted",
       "endpoint_family": "openai_compatible",
       "free_status": "account_specific",
-      "free_verified_at": "2026-09-16T01:05:00Z",
-      "observed_at": "2026-09-16T01:05:00Z",
+      "free_verified_at": "2026-09-16T01:10:00Z",
+      "observed_at": "2026-09-16T01:10:00Z",
       "quota_scope": "account",
       "quota_dimensions": [
         "rpm",
@@ -477,25 +477,25 @@
           "supported": true,
           "score": 0.8,
           "evidence": [
-            "live model listing 2026-09-16T01:05:00Z: nvidia_nim listed 82 models"
+            "live model listing 2026-09-16: google/gemma-3-12b-it present in the nvidia_nim listing (previous meta/llama-3.3-70b-instruct returned 410 Gone)"
           ],
-          "verified_at": "2026-09-16T01:05:00Z"
+          "verified_at": "2026-09-16T01:10:00Z"
         },
         "coding": {
           "supported": true,
           "score": 0.75,
           "evidence": [
-            "live model listing 2026-09-16T01:05:00Z: nvidia_nim listed 82 models"
+            "live model listing 2026-09-16: google/gemma-3-12b-it present in the nvidia_nim listing (previous meta/llama-3.3-70b-instruct returned 410 Gone)"
           ],
-          "verified_at": "2026-09-16T01:05:00Z"
+          "verified_at": "2026-09-16T01:10:00Z"
         },
         "structured_output": {
           "supported": true,
           "score": 0.7,
           "evidence": [
-            "live model listing 2026-09-16T01:05:00Z: nvidia_nim listed 82 models"
+            "live model listing 2026-09-16: google/gemma-3-12b-it present in the nvidia_nim listing (previous meta/llama-3.3-70b-instruct returned 410 Gone)"
           ],
-          "verified_at": "2026-09-16T01:05:00Z"
+          "verified_at": "2026-09-16T01:10:00Z"
         }
       },
       "context_window": 131072,
@@ -510,65 +510,7 @@
       "last_benchmark_at": null,
       "entitlement_evidence": "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier",
       "source_evidence": [
-        "live model listing 2026-09-16T01:05:00Z: nvidia_nim listed 82 models",
-        "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier"
-      ]
-    },
-    {
-      "provider_id": "cerebras",
-      "provider_class": "F1",
-      "model_id": "qwen-3.8-27b",
-      "model_family": "qwen-3.8-27b",
-      "model_variant": "cerebras-hosted",
-      "endpoint_family": "openai_compatible",
-      "free_status": "account_specific",
-      "free_verified_at": "2026-09-16T01:05:00Z",
-      "observed_at": "2026-09-16T01:05:00Z",
-      "quota_scope": "account",
-      "quota_dimensions": [
-        "rpm",
-        "tpm"
-      ],
-      "reset_semantics": "rolling",
-      "capabilities": {
-        "text_reasoning": {
-          "supported": true,
-          "score": 0.8,
-          "evidence": [
-            "live model listing 2026-09-16T01:05:00Z: cerebras listed 2 models (gpt-oss-120b, qwen-3.8-27b)"
-          ],
-          "verified_at": "2026-09-16T01:05:00Z"
-        },
-        "coding": {
-          "supported": true,
-          "score": 0.75,
-          "evidence": [
-            "live model listing 2026-09-16T01:05:00Z: cerebras listed 2 models (gpt-oss-120b, qwen-3.8-27b)"
-          ],
-          "verified_at": "2026-09-16T01:05:00Z"
-        },
-        "structured_output": {
-          "supported": true,
-          "score": 0.7,
-          "evidence": [
-            "live model listing 2026-09-16T01:05:00Z: cerebras listed 2 models (gpt-oss-120b, qwen-3.8-27b)"
-          ],
-          "verified_at": "2026-09-16T01:05:00Z"
-        }
-      },
-      "context_window": 32768,
-      "privacy_class": "restricted",
-      "data_training_allowed_by_provider": null,
-      "retention_policy": "provider policy applies; PUBLIC workloads only until runtime privacy verification",
-      "usage_terms": "production_allowed",
-      "health": "degraded",
-      "latency_ema_ms": null,
-      "success_rate_ema": null,
-      "quality_scores": {},
-      "last_benchmark_at": null,
-      "entitlement_evidence": "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier",
-      "source_evidence": [
-        "live model listing 2026-09-16T01:05:00Z: cerebras listed 2 models (gpt-oss-120b, qwen-3.8-27b)",
+        "live model listing 2026-09-16: google/gemma-3-12b-it present in the nvidia_nim listing (previous meta/llama-3.3-70b-instruct returned 410 Gone)",
         "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier"
       ]
     },
