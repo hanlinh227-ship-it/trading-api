@@ -23,6 +23,15 @@ function normalizeScenes(rawScenes=[]){
   });
 }
 
+async function createJobResponse(env,scenes,chunkSize=100){
+  const jobId=`imgjob-${crypto.randomUUID()}`;
+  try{
+    const created=await createImageLogicalJob(env,jobId,scenes,{chunkSize});
+    if(!created.ok)return json({ok:false,error:created.error||'image_logical_job_create_failed'},created.status||502);
+    return json({ok:true,mode:'FREE_ONLY',paidFallback:false,jobId,sceneCount:scenes.length,statusUrl:`/brain/image/v3/jobs/status?id=${encodeURIComponent(jobId)}`,summary:created.summary||null},202);
+  }catch(error){return clientError(error);}
+}
+
 export async function handleImageRenderV3Authorized(request,env={}){
   const url=new URL(request.url);
   if(!url.pathname.startsWith('/brain/image/v3/'))return null;
@@ -38,16 +47,18 @@ export async function handleImageRenderV3Authorized(request,env={}){
     return json({ok:true,mode:'FREE_ONLY',paidFallback:false,vault:loadApprovedModelVault(),providerRegistrations:mesh.listRegistrations()});
   }
 
+  if(url.pathname==='/brain/image/v3/edit'){
+    if(request.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
+    let body;try{body=await request.json();}catch{return json({ok:false,error:'invalid_json'},400);}
+    let scenes;try{scenes=normalizeScenes([{id:body?.sceneId||'edit-1',intent:{...body,taskType:body?.taskType||'IMAGE_EDIT_LOCAL'}}]);}catch(error){return json({ok:false,error:String(error?.message||error)},400);}
+    return createJobResponse(env,scenes,1);
+  }
+
   if(url.pathname==='/brain/image/v3/jobs'){
     if(request.method==='POST'){
       let body;try{body=await request.json();}catch{return json({ok:false,error:'invalid_json'},400);}
       let scenes;try{scenes=normalizeScenes(body?.scenes);}catch(error){return json({ok:false,error:String(error?.message||error)},400);}
-      const jobId=`imgjob-${crypto.randomUUID()}`;
-      try{
-        const created=await createImageLogicalJob(env,jobId,scenes,{chunkSize:body?.chunkSize??100});
-        if(!created.ok)return json({ok:false,error:created.error||'image_logical_job_create_failed'},created.status||502);
-        return json({ok:true,mode:'FREE_ONLY',paidFallback:false,jobId,sceneCount:scenes.length,statusUrl:`/brain/image/v3/jobs/status?id=${encodeURIComponent(jobId)}`,summary:created.summary||null},202);
-      }catch(error){return clientError(error);}
+      return createJobResponse(env,scenes,body?.chunkSize??100);
     }
     if(request.method==='DELETE'){
       const jobId=String(url.searchParams.get('id')||'').trim();
