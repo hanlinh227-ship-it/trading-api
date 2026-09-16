@@ -2,7 +2,7 @@ import {UNIVERSAL_ADAPTERS} from './generated/universal-adapters.js';
 
 const CLIENTS=Object.freeze(Object.fromEntries((UNIVERSAL_ADAPTERS.adapters||[]).map(row=>[
   row.id,
-  Object.freeze({binding:row.token_binding,scopes:Object.freeze([...(row.scopes||[])])}),
+  Object.freeze({binding:row.token_binding,principalType:row.principal_type||'user',scopes:Object.freeze([...(row.scopes||[])])}),
 ])));
 
 const encoder=new TextEncoder();
@@ -27,6 +27,8 @@ export function requiredScopeForPath(pathname,method='GET'){
   if(pathname==='/brain/universal/route'&&methodUpper==='POST')return 'brain.route';
   if((pathname==='/brain/universal/health'||pathname==='/brain/universal/capabilities')&&methodUpper==='GET')return 'brain.read_runtime_health';
   if(pathname==='/brain/memory/candidates'&&methodUpper==='POST')return 'brain.submit_candidate_memory';
+  if(pathname==='/brain/memory/review'&&methodUpper==='POST')return 'brain.review_candidate_memory';
+  if(pathname==='/brain/context/query'&&methodUpper==='POST')return 'brain.read_context';
   return null;
 }
 
@@ -42,9 +44,11 @@ export async function authenticateAdapter(request,env={},requiredScope='brain.ro
   return {
     ok:true,
     status:200,
-    principal:{clientId,scopes:[...client.scopes]},
+    principal:{clientId,principalType:client.principalType,scopes:[...client.scopes]},
   };
 }
 
 export const UNIVERSAL_CLIENT_IDS=Object.freeze(Object.keys(CLIENTS));
+export const UNIVERSAL_USER_CLIENT_IDS=Object.freeze(Object.keys(CLIENTS).filter(id=>CLIENTS[id].principalType==='user'));
+export const UNIVERSAL_INTERNAL_CLIENT_IDS=Object.freeze(Object.keys(CLIENTS).filter(id=>CLIENTS[id].principalType==='internal'));
 export const UNIVERSAL_ADAPTER_SOURCE_SHA=UNIVERSAL_ADAPTERS.source_sha;
