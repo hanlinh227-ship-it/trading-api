@@ -1,7 +1,38 @@
-import {compileImageIntent,validateImageIntent} from './image-intent.js';
+import {compileImageIntent,IMAGE_INTENT_TASKS,validateImageIntent} from './image-intent.js';
 import {createImageProviderMesh} from './provider-mesh.js';
 import {loadApprovedModelVault} from './model-vault.js';
 import {cancelImageLogicalJob,createImageLogicalJob,getImageLogicalJobStatus,retryImageLogicalJobScenes} from './logical-job-client.js';
+
+// Tasks that can only run on a runtime allowed to receive the reference/source image.
+const REFERENCE_SAFE_TASKS=new Set(['REFERENCE_GENERATION','CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY','IMAGE_EDIT_GLOBAL','IMAGE_EDIT_LOCAL','INPAINT','OUTPAINT','BACKGROUND_REPLACE','OBJECT_REPLACE','TEXT_RENDER_EDIT','MULTI_IMAGE_COMPOSE','STYLE_TRANSFER','TARGETED_REPAIR']);
+
+// A supported intent is not an executable capability: a task is only AVAILABLE when a
+// registered FREE provider can actually run it today, and reference work that has no
+// reference-safe free runtime waits rather than being reported as live.
+function taskAvailability(registrations=[]){
+  const availability={};
+  for(const task of IMAGE_INTENT_TASKS){
+    const needsReferenceSafe=REFERENCE_SAFE_TASKS.has(task);
+    const eligible=registrations.some(registration=>
+      Array.isArray(registration.supportedTasks)&&registration.supportedTasks.includes(task)
+      &&registration.monetaryCost==='zero'
+      &&registration.paidFallback===false
+      &&registration.autoPurchase===false
+      &&(!needsReferenceSafe||registration.referenceSafe===true));
+    availability[task]=eligible?'AVAILABLE':(needsReferenceSafe?'WAITING_FOR_SAFE_FREE_RUNTIME':'WAITING_FOR_FREE_COMPUTE');
+  }
+  return availability;
+}
+
+function vaultSummary(entries=[]){
+  const summary={CANDIDATE:0,BENCHMARKED:0,ACTIVE:0,DEGRADED:0,DISABLED:0};
+  for(const entry of entries){
+    // A model is only counted ACTIVE when its runtime is actually configured.
+    const status=entry.approvalStatus==='ACTIVE'&&entry.runtimeConfigured!==true?'BENCHMARKED':entry.approvalStatus;
+    if(summary[status]!==undefined)summary[status]+=1;
+  }
+  return summary;
+}
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 
@@ -38,7 +69,28 @@ export async function handleImageRenderV3Authorized(request,env={}){
 
   if(url.pathname==='/brain/image/v3/capabilities'){
     if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
-    return json({ok:true,contractVersion:'image_render_v3',mode:'FREE_ONLY',paidFallback:false,autoPurchase:false,cloudOnly:true,localRuntimeRequired:false,logicalJobs:{enabled:Boolean(env?.IMAGE_LOGICAL_JOB),physicalChunkMaxScenes:100},tasks:['TEXT_TO_IMAGE','REFERENCE_GENERATION','IMAGE_EDIT_GLOBAL','IMAGE_EDIT_LOCAL','INPAINT','OUTPAINT','BACKGROUND_REPLACE','STYLE_TRANSFER','OBJECT_REPLACE','TEXT_RENDER_EDIT','MULTI_IMAGE_COMPOSE','CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY','MULTI_SCENE_BATCH','TARGETED_REPAIR'],privacy:{aiHordePublicOnly:true,referenceSafeRequired:true},quality:{strictVisualRequiresRealCritic:true}});
+    const registrations=createImageProviderMesh().listRegistrations();
+    const availability=taskAvailability(registrations);
+    const referenceSafeRuntime=Object.entries(availability).some(([task,state])=>REFERENCE_SAFE_TASKS.has(task)&&state==='AVAILABLE')?'AVAILABLE':'WAITING_FOR_SAFE_FREE_RUNTIME';
+    return json({
+      ok:true,
+      contractVersion:'image_render_v3',
+      mode:'FREE_ONLY',
+      paidFallback:false,
+      autoPurchase:false,
+      cloudOnly:true,
+      localRuntimeRequired:false,
+      logicalJobs:{enabled:Boolean(env?.IMAGE_LOGICAL_JOB),physicalChunkMaxScenes:100},
+      tasks:[...IMAGE_INTENT_TASKS],
+      taskAvailability:availability,
+      referenceSafeRuntime,
+      // No visual critic runtime is configured, so STRICT_VISUAL can only ever finish
+      // complete_unverified. Never report a metadata-only pass as visually verified.
+      visualCriticRuntime:'UNAVAILABLE',
+      modelVault:vaultSummary(loadApprovedModelVault()),
+      privacy:{aiHordePublicOnly:true,referenceSafeRequired:true},
+      quality:{strictVisualRequiresRealCritic:true,missingVisualCriticAction:'complete_unverified'},
+    });
   }
 
   if(url.pathname==='/brain/image/v3/models'){
