@@ -72,7 +72,11 @@ for (const [providerId, binding] of Object.entries(BINDINGS)) {
   const detail = reason ? ` reason=${reason}` : '';
   console.log(`PROVIDER_DISCOVERY provider=${providerId} status=${verdict} http=${status} models=${models.length}${detail} endpoint=${binding.endpoint_url}`);
   if (models.length) {
-    console.log(`PROVIDER_MODELS provider=${providerId} ids=${JSON.stringify(models.slice(0, MAX_MODELS_SHOWN))}`);
+    const shown = models.slice(0, MAX_MODELS_SHOWN);
+    // Say when the list is capped. A truncated list read as a complete one is
+    // how a model present in the catalog was reported as absent.
+    const truncated = models.length > shown.length ? ` (showing ${shown.length} of ${models.length}; use PROBE_MODEL_ALLOWLIST to target ids beyond the cap)` : '';
+    console.log(`PROVIDER_MODELS provider=${providerId} ids=${JSON.stringify(shown)}${truncated}`);
     reportCatalogShape(providerId, rows);
     const labelled = rows.filter((row) => freeLabel(row));
     console.log(`PROVIDER_FREE_LABELS provider=${providerId} labelled=${labelled.length}/${rows.length}` +
@@ -209,6 +213,13 @@ const ALLOW_UNPRICED = String(process.env.PROBE_ALLOW_UNPRICED || '1') === '1';
 // answered first.
 const REQUIRE_FREE_LABEL = String(process.env.PROBE_REQUIRE_FREE_LABEL || '0') === '1';
 
+// Where a provider documents its free models on a pricing page its API does not
+// expose, the id list is an INPUT to the probe, never admission evidence. The
+// probe intersects it with the live catalog, so an id the vendor lists but the
+// catalog has dropped is reported as gone rather than probed blindly, and a
+// completion still has to pass before anything is admitted.
+const MODEL_ALLOWLIST = (process.env.PROBE_MODEL_ALLOWLIST || '').split(',').map((s) => s.trim()).filter(Boolean);
+
 const probeEligibility = (row) => catalogProbeEligibility(row, { allowUnpriced: ALLOW_UNPRICED, requireFreeLabel: REQUIRE_FREE_LABEL });
 
 // Prefer models the catalog prices at zero, then ids whose name says free.
@@ -234,7 +245,16 @@ if (String(process.env.PROBE_COMPLETIONS || '') === '1') {
     const { status: listStatus, models, rows } = await listOpenAiCompatible(binding.endpoint_url, key);
     if (!models.length) { console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_LISTING http=${listStatus}`); continue; }
     reportCatalogShape(providerId, rows);
-    const ordered = orderCandidates(rows.length ? rows : models.map((id) => ({ id })));
+    let candidateRows = rows.length ? rows : models.map((id) => ({ id }));
+    if (MODEL_ALLOWLIST.length) {
+      const present = new Set(models);
+      const missing = MODEL_ALLOWLIST.filter((id) => !present.has(id));
+      if (missing.length) console.log(`PROVIDER_ALLOWLIST_MISSING provider=${providerId} ids=${JSON.stringify(missing)} (documented but not in the live catalog)`);
+      candidateRows = candidateRows.filter((row) => MODEL_ALLOWLIST.includes(String(row?.id || row?.name || '')));
+      console.log(`PROVIDER_ALLOWLIST_MATCHED provider=${providerId} matched=${candidateRows.length}/${MODEL_ALLOWLIST.length}`);
+      if (!candidateRows.length) { console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_ALLOWLISTED_MODEL_IN_CATALOG listed=${models.length}`); continue; }
+    }
+    const ordered = orderCandidates(candidateRows);
     const eligible = [];
     let skippedPaid = 0;
     for (const entry of ordered) {
