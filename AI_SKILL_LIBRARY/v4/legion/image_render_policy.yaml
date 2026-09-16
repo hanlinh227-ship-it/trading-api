@@ -150,8 +150,33 @@ benchmark_evolution:
   regression_demotion: true
   upstream_claims_are_not_promotion_evidence: true
 
+runtime_activation:
+  # A model is only ACTIVE once every gate below has passed with recorded evidence.
+  # No stage may be satisfied by a claim, a model name, or an upstream benchmark.
+  stages: [CANDIDATE, RUNTIME_DISCOVERED, HEALTH_VERIFIED, LICENSE_VERIFIED, PRIVACY_VERIFIED, BENCHMARKED, ACTIVE]
+  regression_status: DEGRADED
+  disqualified_status: DISABLED
+  evidence_required_per_stage: true
+  provider_adapter_contract_required: true
+  incomplete_adapter_action: inactive
+  unknown_cost_action: reject
+  unknown_privacy_behavior_action: reject
+  no_free_runtime_action: WAITING_FOR_FREE_COMPUTE
+  no_reference_safe_free_runtime_action: WAITING_FOR_SAFE_FREE_RUNTIME
+  runtime_health_probe_location: deployed_worker
+  report_path: /brain/image/v3/activation
+
+benchmark_suites:
+  per_task_dimensions_required: true
+  incomplete_dimensions_action: not_a_pass
+  tasks: [TEXT_TO_IMAGE, REFERENCE_GENERATION, IMAGE_EDIT_LOCAL, IMAGE_EDIT_GLOBAL, CHARACTER_CONSISTENCY, TARGETED_REPAIR]
+  frontier_parity_claim_without_benchmark: forbidden
+
 model_vault:
   exact_source_revision_required: true
+  full_record_schema_required: true
+  active_requires_runtime_provider: true
+  active_requires_benchmark_evidence: true
   separate_code_and_weights_license_required: true
   preferred_licenses: [Apache-2.0, MIT]
   commercial_use_must_be_explicit: true

@@ -1,6 +1,10 @@
 import {compileImageIntent,IMAGE_INTENT_TASKS,validateImageIntent} from './image-intent.js';
 import {createImageProviderMesh} from './provider-mesh.js';
 import {loadApprovedModelVault} from './model-vault.js';
+import {getProviderAdapter,listProviderAdapters} from './provider-adapter-registry.js';
+import {describeProviderAdapter} from './provider-adapter.js';
+import {evaluateActivation} from './activation.js';
+import {BENCHMARK_SUITES} from './benchmark-suite.js';
 import {cancelImageLogicalJob,createImageLogicalJob,getImageLogicalJobStatus,retryImageLogicalJobScenes} from './logical-job-client.js';
 
 // Tasks that can only run on a runtime allowed to receive the reference/source image.
@@ -90,6 +94,40 @@ export async function handleImageRenderV3Authorized(request,env={}){
       modelVault:vaultSummary(loadApprovedModelVault()),
       privacy:{aiHordePublicOnly:true,referenceSafeRequired:true},
       quality:{strictVisualRequiresRealCritic:true,missingVisualCriticAction:'complete_unverified'},
+    });
+  }
+
+  if(url.pathname==='/brain/image/v3/activation'){
+    if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
+    const adapters=listProviderAdapters();
+    const summary={CANDIDATE:0,RUNTIME_DISCOVERED:0,HEALTH_VERIFIED:0,LICENSE_VERIFIED:0,PRIVACY_VERIFIED:0,BENCHMARKED:0,ACTIVE:0,DEGRADED:0,DISABLED:0};
+    const blockerCounts={};
+    const models=loadApprovedModelVault().map(model=>{
+      const tasks=(model.supportedTasks||[]).map(taskType=>{
+        // A model is evaluated against a provider that actually declares the task; with no
+        // such provider it stops at the first gate rather than being assumed runnable.
+        const adapter=adapters.find(item=>(model.runtimeProviders||[]).includes(item.id)&&item.supportedTasks.includes(taskType))
+          ||getProviderAdapter((model.runtimeProviders||[])[0])
+          ||adapters[0];
+        const evaluation=evaluateActivation({model,adapter,taskType,evidence:model.activationEvidence?.[taskType]||{}});
+        if(summary[evaluation.status]!==undefined)summary[evaluation.status]+=1;
+        for(const blocker of evaluation.blockers)blockerCounts[blocker]=(blockerCounts[blocker]||0)+1;
+        return {taskType,status:evaluation.status,stage:evaluation.stage,blockers:evaluation.blockers,evidenceTrail:evaluation.evidenceTrail};
+      });
+      return {modelId:model.modelId,family:model.family,version:model.version,status:model.status,runtimeProviders:[...(model.runtimeProviders||[])],referenceSupport:model.referenceSupport===true,editSupport:model.editSupport===true,criticSupport:model.criticSupport===true,tasks};
+    });
+    const nextBottleneck=Object.entries(blockerCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
+    return json({
+      ok:true,
+      contractVersion:'image_render_v3',
+      mode:'FREE_ONLY',
+      paidFallback:false,
+      autoPurchase:false,
+      providers:adapters.map(describeProviderAdapter),
+      models,
+      summary,
+      nextBottleneck,
+      benchmarkSuites:Object.values(BENCHMARK_SUITES).map(suite=>({taskType:suite.taskType,purpose:suite.purpose,dimensions:suite.dimensions.map(d=>d.id)})),
     });
   }
 
