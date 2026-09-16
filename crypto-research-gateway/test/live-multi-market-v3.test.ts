@@ -1,6 +1,31 @@
 import { describe, expect, it } from 'vitest';
+import { classifyEvidenceQuality } from '../src/intelligence/evidence-quality.js';
 import { DEFAULT_MARKET_UNIVERSE, resolveUniverse } from '../src/intelligence/market-universe.js';
 import { buildDataAcquisitionPlan } from '../src/intelligence/source-planner.js';
+import type { NormalizedMarketObservation } from '../src/intelligence/autonomous-scan.js';
+
+function qualityObs(overrides: Partial<NormalizedMarketObservation> = {}): NormalizedMarketObservation {
+  return {
+    id: 'eurusd-quality',
+    domain: 'forex',
+    symbol: 'EURUSD',
+    source: 'connector-test',
+    sourceType: 'connector',
+    eventTime: '2026-09-16T12:00:00.000Z',
+    ingestTime: '2026-09-16T12:00:01.000Z',
+    freshness: 'FRESH',
+    timeframe: '15m',
+    open: 1.18,
+    high: 1.185,
+    low: 1.178,
+    close: 1.183,
+    bid: 1.1829,
+    ask: 1.1831,
+    entitlement: 'VERIFIED_REALTIME',
+    delayClass: 'REALTIME',
+    ...overrides,
+  };
+}
 
 describe('live multi-market V3 market universe', () => {
   it('contains bounded intent-level coverage for all six research domains', () => {
@@ -105,5 +130,73 @@ describe('live multi-market V3 source planner', () => {
     expect(plan.sourcesByDomain.forex).toBeUndefined();
     expect(plan.gaps).toContainEqual({ domain: 'forex', reason: 'NO_ENTITLED_SOURCE' });
     expect(plan.entitlementStateBySource['delayed-fx']).toBe('VERIFIED_DELAYED');
+  });
+});
+
+describe('live multi-market V3 evidence quality', () => {
+  const clock = {
+    nowMs: Date.parse('2026-09-16T12:00:02.000Z'),
+    maxAgeMs: 10_000,
+    clockSkewMs: 2_000,
+  };
+
+  it('allows verified realtime evidence when event time is fresh', () => {
+    const q = classifyEvidenceQuality(qualityObs(), clock);
+    expect(q).toEqual({ liveEligible: true, state: 'LIVE_REALTIME', reasons: [] });
+  });
+
+  it('blocks delayed evidence from live eligibility even when event time is recent', () => {
+    const q = classifyEvidenceQuality(qualityObs({
+      entitlement: 'VERIFIED_DELAYED',
+      delayClass: 'DELAYED',
+    }), clock);
+    expect(q.liveEligible).toBe(false);
+    expect(q.state).toBe('DELAYED_CONTEXT');
+    expect(q.reasons).toContain('DELAYED_ENTITLEMENT');
+  });
+
+  it('blocks connector evidence when entitlement is unknown', () => {
+    const q = classifyEvidenceQuality(qualityObs({ entitlement: 'UNVERIFIED', delayClass: 'UNKNOWN' }), clock);
+    expect(q.liveEligible).toBe(false);
+    expect(q.state).toBe('UNKNOWN');
+    expect(q.reasons).toContain('ENTITLEMENT_UNVERIFIED');
+  });
+
+  it('rejects future event timestamps beyond skew tolerance', () => {
+    const q = classifyEvidenceQuality(qualityObs({
+      eventTime: '2026-09-16T12:01:00.000Z',
+      ingestTime: '2026-09-16T12:01:01.000Z',
+    }), clock);
+    expect(q.state).toBe('INVALID');
+    expect(q.reasons).toContain('EVENT_TIME_IN_FUTURE');
+  });
+
+  it('rejects ingest timestamps materially before event timestamps', () => {
+    const q = classifyEvidenceQuality(qualityObs({
+      eventTime: '2026-09-16T12:00:00.000Z',
+      ingestTime: '2026-09-16T11:59:50.000Z',
+    }), clock);
+    expect(q.state).toBe('INVALID');
+    expect(q.reasons).toContain('INGEST_BEFORE_EVENT');
+  });
+
+  it('classifies an old observation as stale when the market is expected active', () => {
+    const q = classifyEvidenceQuality(qualityObs({
+      eventTime: '2026-09-16T11:00:00.000Z',
+      ingestTime: '2026-09-16T11:00:01.000Z',
+    }), clock);
+    expect(q.liveEligible).toBe(false);
+    expect(q.state).toBe('STALE');
+  });
+
+  it('keeps a closed-market last observation as context instead of mislabeling it live', () => {
+    const q = classifyEvidenceQuality(qualityObs({
+      eventTime: '2026-09-15T20:00:00.000Z',
+      ingestTime: '2026-09-15T20:00:01.000Z',
+      session: 'closed',
+    }), clock);
+    expect(q.liveEligible).toBe(false);
+    expect(q.state).toBe('DELAYED_CONTEXT');
+    expect(q.reasons).toContain('MARKET_CLOSED_CONTEXT');
   });
 });
