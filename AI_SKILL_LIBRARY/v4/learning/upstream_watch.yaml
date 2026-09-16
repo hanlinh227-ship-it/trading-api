@@ -1,0 +1,40 @@
+version: 1
+purpose: upstream_capability_diff_under_existing_evergreen_plane
+routing_authority: false
+reasoning_authority: false
+stable_direct_write: false
+scheduler: existing_continuous_intelligence_only
+
+source_states: [active, candidate, stale, reverify, blocked, deprecated, archived]
+required_metadata: [source_id, source_type, location, pinned_revision, license, maintenance_status, capabilities]
+
+whitelist:
+  refresh_via_existing_evergreen: true
+  active_requires_approved: true
+  code_requires_pinned_revision: true
+  current_license_required: true
+  maintenance_status_required: true
+
+candidate_sources:
+  auto_discovery: true
+  default_state: candidate
+  routing_authority: false
+  executable_authority: false
+  promotion_requires: [provenance, license, maintenance, security, overlap, conflict, permission_ceiling, evals, canary]
+
+capability_diff:
+  categories: [already_assimilated, strengthen_existing, distinct_candidate, conflict, blocked_license, blocked_security, stale]
+  strengthen_existing_first: true
+  duplicate_primary_skill_default: deny
+  majority_vote: false
+  unresolved_conflict_blocks_promotion: true
+
+security:
+  hidden_permission_expansion: block
+  credential_material: block
+  critical_unresolved_risk: block
+  unbounded_runtime_growth: block
+
+output:
+  quarantine_destination: AI_SKILL_LIBRARY/v4/evergreen/quarantine
+  authority: false
