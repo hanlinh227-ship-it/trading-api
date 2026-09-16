@@ -2,32 +2,31 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Upgrade the existing FREE_ONLY image renderer so one typed render request can execute 20–100 scenes with durable batch state, bounded parallelism, adaptive free-model routing, continuity locks, bounded QA/retry, and backward-compatible single-image endpoints.
+**Goal:** Upgrade the existing FREE_ONLY image renderer so one typed request can execute 20–100 scenes with durable batch state, bounded parallelism, adaptive free-model routing, continuity locks, bounded QA/retry, and backward-compatible single-image endpoints.
 
-**Architecture:** Keep `GITHUB_BRAIN_V4` as the only routing/reasoning authority. Natural-language interpretation produces a typed `image_render_batch_request_v2`; the Cloudflare Worker validates it, persists each logical batch in a dedicated `ImageRenderBatchState` Durable Object, and uses provider-neutral adapters to execute AI Horde jobs. Pure modules own manifest validation, prompt compilation, model ranking, state transitions, quality decisions, and export metadata; the Durable Object only orchestrates persistence, alarms, provider polling, retries, and cancellation.
+**Architecture:** `GITHUB_BRAIN_V4` stays the only routing/reasoning authority. Brain converts natural-language render intent into `image_render_batch_request_v2`; the Worker validates that typed request, creates a manifest, and persists each logical batch in an `ImageRenderBatchState` Durable Object. Pure modules own prompt/continuity compilation, model ranking, state transitions, quality decisions, and export metadata; the Durable Object owns persistence, alarms, provider polling, bounded retry, and cancellation.
 
-**Tech Stack:** JavaScript ES modules on Cloudflare Workers, Durable Objects with SQLite storage, Node.js `assert/strict` test scripts, AI Horde REST API, YAML Brain policy files, Python `release.py` for GITHUB_BRAIN_V4 release manifests.
+**Tech Stack:** JavaScript ES modules on Cloudflare Workers, Durable Objects with SQLite storage, Node.js `assert/strict` tests, AI Horde REST API, YAML Brain policy, Python `release.py` for GITHUB_BRAIN_V4 releases.
 
 **Spec:** `docs/superpowers/specs/2026-09-16-image-render-agent-v2-design.md`
 
 ## Global Constraints
 
 - `FREE_ONLY` is mandatory for every image-generation route.
-- `paid_fallback` is always `false`.
-- `auto_purchase` is always `false`.
-- Trial/promo credit is never treated as a permitted paid fallback path.
-- `GITHUB_BRAIN_V4` remains routing and reasoning authority.
-- `image_render_agent` remains a specialist executor with no routing authority.
-- Existing `POST /brain/image/render`, `GET /brain/image/check`, `GET /brain/image/status`, and `DELETE /brain/image/status` behavior remains backward compatible.
-- AI Horde execution remains restricted to explicit `PUBLIC` data unless a separate approved privacy change is made.
-- Reference images remain disabled by default in this V2 core.
-- Maximum logical scenes per batch is `100`.
-- Default active provider jobs is `4`; adaptive ceiling is `8`.
-- Maximum total attempts per scene is `3`.
-- Image batch state must use `IMAGE_RENDER_BATCH`, never `TRADING_STATE`.
-- STRICT quality mode must never report metadata-only QA as full visual verification.
-- No persistent paid asset-storage dependency is introduced.
-- No production image render is performed until all unit/integration/regression gates pass.
+- `paid_fallback=false`; `auto_purchase=false`.
+- Trial/promo credit is never an acceptable paid fallback.
+- `GITHUB_BRAIN_V4` remains routing/reasoning authority.
+- `image_render_agent` remains a specialist executor with `routing_authority:false` and `reasoning_authority:false`.
+- Existing V1 single-image routes stay backward compatible.
+- AI Horde execution requires an explicit `dataClass` and accepts only `PUBLIC`.
+- Reference images remain disabled by default in V2 core.
+- Maximum logical scenes per batch: `100`.
+- Default active provider jobs: `4`; adaptive ceiling: `8`.
+- Maximum attempts per scene: `3`.
+- Batch state uses `IMAGE_RENDER_BATCH`, never `TRADING_STATE`.
+- STRICT mode never reports metadata-only QA as full visual verification.
+- No persistent paid asset-storage dependency is added.
+- No production render smoke occurs before unit/integration/regression gates pass.
 
 ---
 
@@ -35,15 +34,15 @@
 
 ### New runtime modules
 
-- `cloudflare-worker/image-render/render-manifest.js` — typed request validation and canonical scene manifest creation.
-- `cloudflare-worker/image-render/prompt-compiler.js` — merges scene prompt with global/identity/wardrobe/environment locks without changing user intent.
-- `cloudflare-worker/image-render/model-router.js` — deterministic ranking of currently available free image models.
-- `cloudflare-worker/image-render/provider-registry.js` — provider-neutral adapter registry; AI Horde is the only registered V2 provider initially.
-- `cloudflare-worker/image-render/quality-policy.js` — STRUCTURAL/VISUAL/STRICT QA decisions and fail-safe unverified state.
-- `cloudflare-worker/image-render/batch-engine.js` — pure scene/batch state machine, concurrency accounting, retry transitions, terminal-state calculation.
-- `cloudflare-worker/image-render/batch-state.js` — `ImageRenderBatchState` Durable Object wrapper, persistent state, provider polling, alarms, cancellation, retry dispatch.
-- `cloudflare-worker/image-render/batch-client.js` — handler-to-Durable-Object client functions.
-- `cloudflare-worker/image-render/export-contract.js` — manifest/report payloads for downstream ZIP/export callers.
+- `cloudflare-worker/image-render/render-manifest.js` — typed batch validation and canonical manifests.
+- `cloudflare-worker/image-render/prompt-compiler.js` — merges explicit scene content with continuity locks.
+- `cloudflare-worker/image-render/model-router.js` — deterministic ranking of live free image models.
+- `cloudflare-worker/image-render/provider-registry.js` — provider-neutral adapter registry; AI Horde only at V2 launch.
+- `cloudflare-worker/image-render/quality-policy.js` — STRUCTURAL/VISUAL/STRICT decisions.
+- `cloudflare-worker/image-render/batch-engine.js` — pure batch/scene state machine.
+- `cloudflare-worker/image-render/batch-state.js` — Durable Object orchestration and alarms.
+- `cloudflare-worker/image-render/batch-client.js` — handler-to-Durable-Object client.
+- `cloudflare-worker/image-render/export-contract.js` — render report and ZIP/export handoff metadata.
 
 ### Existing runtime files to modify
 
@@ -66,14 +65,14 @@
 - `cloudflare-worker/test-image-render-v2-handler.mjs`
 - `cloudflare-worker/test-image-render-v2-export.mjs`
 
-### Brain policy/release files to modify
+### Brain policy/release files
 
 - `AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml`
 - `AI_SKILL_LIBRARY/v4/legion/agents.yaml`
 - `AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml`
-- `AI_SKILL_LIBRARY/v4/releases/4.13.0/manifest.yaml` — generated by `release.py`.
-- `AI_SKILL_LIBRARY/v4/releases/current.json` — generated by `release.py`.
-- `AI_SKILL_LIBRARY/v4/releases/history.yaml` — generated by `release.py`.
+- generated `AI_SKILL_LIBRARY/v4/releases/4.13.0/manifest.yaml`
+- generated `AI_SKILL_LIBRARY/v4/releases/current.json`
+- generated `AI_SKILL_LIBRARY/v4/releases/history.yaml`
 
 ---
 
@@ -82,55 +81,45 @@
 **Files:**
 - Create: `cloudflare-worker/image-render/render-manifest.js`
 - Create: `cloudflare-worker/image-render/prompt-compiler.js`
-- Create: `cloudflare-worker/test-image-render-v2-contracts.mjs`
+- Test: `cloudflare-worker/test-image-render-v2-contracts.mjs`
 
 **Interfaces:**
-- Produces: `validateImageBatchRequest(body) -> {ok:true, request}|{ok:false,status,error}`
+- Produces: `validateImageBatchRequest(body) -> {ok:true,request}|{ok:false,status,error}`
 - Produces: `createRenderManifest(request,{batchId,createdAt}) -> manifest`
 - Produces: `compileScenePrompt(scene,manifest) -> {prompt,negativePrompt,locks}`
-- Manifest fields consumed later by Tasks 3–8: `batch_id`, `data_class`, `quality_mode`, `consistency_mode`, `global_constraints`, `shared_character_state`, `shared_style_state`, `scheduler_config`, `retry_policy`, `qa_policy`, `scenes[]`.
 
-- [ ] **Step 1: Write the failing contract tests**
+- [ ] **Step 1: Write the failing test**
 
 ```js
 import assert from 'node:assert/strict';
 import {validateImageBatchRequest,createRenderManifest} from './image-render/render-manifest.js';
 import {compileScenePrompt} from './image-render/prompt-compiler.js';
 
-const scenes=Array.from({length:20},(_,i)=>({sceneId:String(i+1).padStart(2,'0'),prompt:`Max scene ${i+1}`}));
-const valid=validateImageBatchRequest({
-  dataClass:'PUBLIC',qualityMode:'STRICT',consistencyMode:'STRICT',
-  scenes,globalConstraints:['16:9','one image per scene'],
-  sharedCharacterState:{Max:['red-orange fur','blue shirt','yellow overalls']},
-});
+const scenes=Array.from({length:20},(_,i)=>({sceneId:String(i+1),prompt:`Max scene ${i+1}`}));
+assert.equal(validateImageBatchRequest({scenes}).error,'data_class_required');
+assert.equal(validateImageBatchRequest({dataClass:'INTERNAL',scenes}).error,'ai_horde_public_data_only');
+assert.equal(validateImageBatchRequest({dataClass:'PUBLIC',referenceImages:['x'],scenes}).error,'reference_images_not_enabled_for_volunteer_provider');
+assert.equal(validateImageBatchRequest({dataClass:'PUBLIC',scenes:Array.from({length:101},()=>({prompt:'x'}))}).error,'batch_scene_limit_exceeded');
+const valid=validateImageBatchRequest({dataClass:'PUBLIC',qualityMode:'STRICT',consistencyMode:'STRICT',scenes,globalConstraints:['16:9'],sharedCharacterState:{Max:['red-orange fur','blue shirt','yellow overalls']}});
 assert.equal(valid.ok,true);
-assert.equal(valid.request.scenes.length,20);
-assert.equal(validateImageBatchRequest({...valid.request,scenes:Array.from({length:101},(_,i)=>({sceneId:String(i),prompt:'x'}))}).error,'batch_scene_limit_exceeded');
-assert.equal(validateImageBatchRequest({...valid.request,dataClass:'INTERNAL'}).error,'ai_horde_public_data_only');
-assert.equal(validateImageBatchRequest({...valid.request,referenceImages:['x']}).error,'reference_images_not_enabled_for_volunteer_provider');
 const manifest=createRenderManifest(valid.request,{batchId:'batch-test-001',createdAt:'2026-09-16T00:00:00.000Z'});
 const compiled=compileScenePrompt(manifest.scenes[0],manifest);
 assert.match(compiled.prompt,/Max scene 1/);
 assert.match(compiled.prompt,/red-orange fur/);
-assert.match(compiled.prompt,/blue shirt/);
 assert.equal(compiled.locks.consistencyMode,'STRICT');
 console.log('IMAGE_RENDER_V2_CONTRACTS_TEST=PASS');
 ```
 
-- [ ] **Step 2: Run the test and verify it fails because the modules do not exist**
-
-Run:
+- [ ] **Step 2: Run to prove RED**
 
 ```bash
 cd cloudflare-worker
 node test-image-render-v2-contracts.mjs
 ```
 
-Expected: non-zero exit with module-not-found for `render-manifest.js` or `prompt-compiler.js`.
+Expected: non-zero exit because the new modules do not exist.
 
-- [ ] **Step 3: Implement minimal validated contracts**
-
-`render-manifest.js` must define these exact constants and guards:
+- [ ] **Step 3: Implement minimal contract**
 
 ```js
 export const IMAGE_BATCH_MAX_SCENES=100;
@@ -139,33 +128,26 @@ export const IMAGE_BATCH_MAX_CONCURRENCY=8;
 export const IMAGE_BATCH_MAX_ATTEMPTS=3;
 
 export function validateImageBatchRequest(body={}) {
-  if (String(body.dataClass||'') !== 'PUBLIC') return {ok:false,status:403,error:'ai_horde_public_data_only'};
+  if (body?.dataClass===undefined || body?.dataClass===null || String(body.dataClass).trim()==='') return {ok:false,status:400,error:'data_class_required'};
+  if (String(body.dataClass)!=='PUBLIC') return {ok:false,status:403,error:'ai_horde_public_data_only'};
   if (body.referenceImages!==undefined || body.sourceImage!==undefined) return {ok:false,status:409,error:'reference_images_not_enabled_for_volunteer_provider'};
   const scenes=Array.isArray(body.scenes)?body.scenes:[];
   if (!scenes.length) return {ok:false,status:400,error:'batch_scenes_required'};
   if (scenes.length>IMAGE_BATCH_MAX_SCENES) return {ok:false,status:413,error:'batch_scene_limit_exceeded'};
   if (scenes.some(x=>typeof x?.prompt!=='string'||!x.prompt.trim())) return {ok:false,status:400,error:'invalid_scene_prompt'};
-  return {ok:true,request:{
-    ...body,
-    dataClass:'PUBLIC',
-    qualityMode:body.qualityMode==='STRUCTURAL'?'STRUCTURAL':'STRICT',
-    consistencyMode:body.consistencyMode==='FLEXIBLE'?'FLEXIBLE':'STRICT',
-    scenes:scenes.map((scene,index)=>({...scene,sceneId:String(scene.sceneId||index+1)})),
-    schedulerConfig:{concurrency:Math.min(IMAGE_BATCH_MAX_CONCURRENCY,Math.max(1,Number(body?.schedulerConfig?.concurrency)||IMAGE_BATCH_DEFAULT_CONCURRENCY))},
-    retryPolicy:{maxAttempts:Math.min(IMAGE_BATCH_MAX_ATTEMPTS,Math.max(1,Number(body?.retryPolicy?.maxAttempts)||IMAGE_BATCH_MAX_ATTEMPTS))},
-  }};
+  return {ok:true,request:{...body,dataClass:'PUBLIC',qualityMode:body.qualityMode==='STRUCTURAL'?'STRUCTURAL':'STRICT',consistencyMode:body.consistencyMode==='FLEXIBLE'?'FLEXIBLE':'STRICT',scenes:scenes.map((s,i)=>({...s,sceneId:String(s.sceneId||i+1)})),schedulerConfig:{concurrency:Math.min(8,Math.max(1,Number(body?.schedulerConfig?.concurrency)||4))},retryPolicy:{maxAttempts:Math.min(3,Math.max(1,Number(body?.retryPolicy?.maxAttempts)||3))}}};
 }
 ```
 
-`createRenderManifest()` must preserve the original scene prompts and create empty `attempts` arrays; `compileScenePrompt()` must append explicit locks and global constraints without replacing the scene's original action/environment text.
+`createRenderManifest()` preserves `original_prompt`, creates `attempts:[]`, and initializes each scene to `queued`. `compileScenePrompt()` appends explicit locks/global constraints without replacing subject/action/environment facts from `original_prompt`.
 
-- [ ] **Step 4: Run the contract test**
+- [ ] **Step 4: Run GREEN**
 
 Run: `node test-image-render-v2-contracts.mjs`
 
 Expected: `IMAGE_RENDER_V2_CONTRACTS_TEST=PASS`.
 
-- [ ] **Step 5: Commit the isolated contract layer**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add cloudflare-worker/image-render/render-manifest.js cloudflare-worker/image-render/prompt-compiler.js cloudflare-worker/test-image-render-v2-contracts.mjs
@@ -179,44 +161,33 @@ git commit -m "feat(image): add V2 batch manifest contracts"
 **Files:**
 - Modify: `cloudflare-worker/image-render/ai-horde.js`
 - Create: `cloudflare-worker/image-render/provider-registry.js`
-- Create: `cloudflare-worker/test-image-render-v2-provider.mjs`
+- Test: `cloudflare-worker/test-image-render-v2-provider.mjs`
 
 **Interfaces:**
 - Produces: `listAiHordeModels({fetchImpl}) -> {ok,status,provider,models[]}`
-- Produces: `createImageProviderRegistry({fetchImpl}) -> {get(id,env), list()}`
-- Provider interface consumed by Tasks 5–6: `health()`, `listModels()`, `submit(input)`, `check(jobId)`, `status(jobId)`, `cancel(jobId)`.
+- Produces: `createImageProviderRegistry({fetchImpl}) -> {get(id,env),list()}`
+- Adapter methods: `health()`, `listModels()`, `submit(input)`, `check(jobId)`, `status(jobId)`, `cancel(jobId)`.
 
-- [ ] **Step 1: Write the failing provider normalization test**
+- [ ] **Step 1: Write the failing test**
 
 ```js
 import assert from 'node:assert/strict';
 import {listAiHordeModels} from './image-render/ai-horde.js';
 import {createImageProviderRegistry} from './image-render/provider-registry.js';
-
-const fetchImpl=async url=>{
-  assert.match(String(url),/status\/models\?type=image$/);
-  return new Response(JSON.stringify([
-    {name:'Model A',count:4,performance:25.5,eta:2,queued:1},
-    {name:'Model B',count:1,performance:10,eta:40,queued:9},
-  ]),{status:200,headers:{'content-type':'application/json'}});
-};
+const fetchImpl=async url=>new Response(JSON.stringify([{name:'Model A',count:4,performance:25.5,eta:2,queued:1}]),{status:200,headers:{'content-type':'application/json'}});
 const listed=await listAiHordeModels({fetchImpl});
-assert.equal(listed.ok,true);
 assert.deepEqual(listed.models[0],{name:'Model A',workerCount:4,performance:25.5,eta:2,queued:1});
 const registry=createImageProviderRegistry({fetchImpl});
 assert.deepEqual(registry.list(),['ai_horde']);
 assert.equal(registry.get('unknown',{}),null);
-assert.equal((await registry.get('ai_horde',{}).listModels()).models.length,2);
 console.log('IMAGE_RENDER_V2_PROVIDER_TEST=PASS');
 ```
 
-- [ ] **Step 2: Run and verify failure**
+- [ ] **Step 2: Run RED**
 
 Run: `node test-image-render-v2-provider.mjs`
 
-Expected: import failure for `listAiHordeModels` or `provider-registry.js`.
-
-- [ ] **Step 3: Add model-list normalization and provider-neutral wrapper**
+- [ ] **Step 3: Implement model listing**
 
 Add to `ai-horde.js`:
 
@@ -227,30 +198,24 @@ export async function listAiHordeModels({fetchImpl=fetch}={}) {
   catch { return {ok:false,status:0,provider:'ai_horde',error:'provider_unreachable',models:[]}; }
   const body=await readJson(response);
   if (!response.ok || !Array.isArray(body)) return {ok:false,status:Number(response.status||0),provider:'ai_horde',error:'provider_rejected',models:[]};
-  return {ok:true,status:Number(response.status||200),provider:'ai_horde',models:body.map(x=>({
-    name:String(x?.name||''),workerCount:Number(x?.count||0),performance:Number(x?.performance||0),eta:Number(x?.eta||0),queued:Number(x?.queued||0),
-  })).filter(x=>x.name)};
+  return {ok:true,status:Number(response.status||200),provider:'ai_horde',models:body.map(x=>({name:String(x?.name||''),workerCount:Number(x?.count||0),performance:Number(x?.performance||0),eta:Number(x?.eta||0),queued:Number(x?.queued||0)})).filter(x=>x.name)};
 }
 ```
 
-`provider-registry.js` must bind the existing `resolveAiHordeKey(env)` and existing submit/check/status/cancel functions so callers never need provider-specific auth logic.
+`provider-registry.js` wraps existing AI Horde auth/submit/check/status/cancel so orchestration code has no provider-specific credential branches.
 
-- [ ] **Step 4: Run provider tests and V1 regression**
-
-Run:
+- [ ] **Step 4: Run GREEN + V1 regression**
 
 ```bash
 node test-image-render-v2-provider.mjs
 npm run test:image-render
 ```
 
-Expected: both pass.
-
 - [ ] **Step 5: Commit**
 
 ```bash
 git add cloudflare-worker/image-render/ai-horde.js cloudflare-worker/image-render/provider-registry.js cloudflare-worker/test-image-render-v2-provider.mjs
-git commit -m "feat(image): add live free model provider registry"
+git commit -m "feat(image): add live free image provider registry"
 ```
 
 ---
@@ -259,68 +224,52 @@ git commit -m "feat(image): add live free model provider registry"
 
 **Files:**
 - Create: `cloudflare-worker/image-render/model-router.js`
-- Create: `cloudflare-worker/test-image-render-v2-model-router.mjs`
+- Test: `cloudflare-worker/test-image-render-v2-model-router.mjs`
 
 **Interfaces:**
-- Consumes provider model rows from Task 2.
-- Produces: `rankImageModels({models,preferredModels,preferredBaselines,history,limit}) -> ranked[]`.
-- Every ranked row contains `name`, `score`, and `reasons[]`.
+- Produces: `rankImageModels({models,preferredModels,history,limit}) -> ranked[]`.
 
-- [ ] **Step 1: Write deterministic ranking tests**
+- [ ] **Step 1: Write the failing test**
 
 ```js
 import assert from 'node:assert/strict';
 import {rankImageModels} from './image-render/model-router.js';
-const ranked=rankImageModels({
-  models:[
-    {name:'Fast Model',workerCount:8,performance:20,eta:1,queued:0},
-    {name:'Preferred Model',workerCount:2,performance:15,eta:8,queued:1},
-    {name:'Failing Model',workerCount:8,performance:30,eta:0,queued:0},
-  ],
-  preferredModels:['Preferred Model'],
-  history:{'Failing Model':{failures:5,successes:0}},
-  limit:3,
-});
-assert.equal(ranked[0].name,'Preferred Model');
-assert.ok(ranked.find(x=>x.name==='Failing Model').score < ranked.find(x=>x.name==='Fast Model').score);
-assert.ok(ranked[0].reasons.includes('preferred_model'));
+const ranked=rankImageModels({models:[{name:'Fast',workerCount:8,performance:20,eta:1,queued:0},{name:'Preferred',workerCount:2,performance:15,eta:8,queued:1},{name:'Failing',workerCount:8,performance:30,eta:0,queued:0}],preferredModels:['Preferred'],history:{Failing:{failures:5,successes:0}},limit:3});
+assert.equal(ranked[0].name,'Preferred');
+assert.ok(ranked.find(x=>x.name==='Failing').score<ranked.find(x=>x.name==='Fast').score);
 console.log('IMAGE_RENDER_V2_MODEL_ROUTER_TEST=PASS');
 ```
 
-- [ ] **Step 2: Run and verify module-not-found**
+- [ ] **Step 2: Run RED**
 
 Run: `node test-image-render-v2-model-router.mjs`
 
-- [ ] **Step 3: Implement the exact scoring function**
+- [ ] **Step 3: Implement deterministic scoring**
 
 ```js
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,Number(v)||0));
-export function rankImageModels({models=[],preferredModels=[],preferredBaselines=[],history={},limit=4}={}) {
+export function rankImageModels({models=[],preferredModels=[],history={},limit=4}={}) {
   const preferred=new Set(preferredModels.map(String));
   return models.map(model=>{
-    const failures=Number(history?.[model.name]?.failures||0);
-    const successes=Number(history?.[model.name]?.successes||0);
-    let score=0;const reasons=[];
-    if (preferred.has(model.name)) { score+=50;reasons.push('preferred_model'); }
+    const h=history?.[model.name]||{};let score=0;const reasons=[];
+    if (preferred.has(model.name)) {score+=50;reasons.push('preferred_model');}
     score+=clamp(model.workerCount,0,8)*4;
     score+=clamp(model.performance,0,200)/10;
     score-=clamp(model.eta,0,300)/10;
     score-=clamp(model.queued,0,50);
-    score+=Math.min(successes,5)*3;
-    score-=Math.min(failures,5)*12;
+    score+=Math.min(Number(h.successes||0),5)*3;
+    score-=Math.min(Number(h.failures||0),5)*12;
     if (Number(model.workerCount||0)<=0) score-=1000;
     return {...model,score,reasons};
   }).sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name)).slice(0,Math.max(1,Math.min(8,Number(limit)||4)));
 }
 ```
 
-`preferredBaselines` remains part of the function contract but is only scored when provider normalization later exposes a baseline field; until then it must not infer a baseline from model-name text.
+Do not infer model family/baseline from arbitrary model-name text.
 
-- [ ] **Step 4: Run tests**
+- [ ] **Step 4: Run GREEN**
 
 Run: `node test-image-render-v2-model-router.mjs`
-
-Expected: pass and deterministic ordering.
 
 - [ ] **Step 5: Commit**
 
@@ -331,56 +280,46 @@ git commit -m "feat(image): rank live free render models"
 
 ---
 
-### Task 4: Quality policy with strict fail-safe semantics
+### Task 4: Quality policy and STRICT fail-safe
 
 **Files:**
 - Create: `cloudflare-worker/image-render/quality-policy.js`
-- Create: `cloudflare-worker/test-image-render-v2-quality.mjs`
+- Test: `cloudflare-worker/test-image-render-v2-quality.mjs`
 
 **Interfaces:**
-- Produces: `evaluateImageQuality({scene,generation,qualityMode,visualCritic}) -> Promise<{decision,sceneState,qaLevel,confidence,reasons}>`.
+- Produces: `evaluateImageQuality({scene,generation,qualityMode,visualCritic})`.
 - Decisions: `PASS`, `PASS_UNVERIFIED`, `RETRY_PROMPT`, `RETRY_MODEL`, `RETRY_SEED`, `FAIL_TERMINAL`.
 
-- [ ] **Step 1: Write failing quality tests**
+- [ ] **Step 1: Write the failing test**
 
 ```js
 import assert from 'node:assert/strict';
 import {evaluateImageQuality} from './image-render/quality-policy.js';
 const scene={scene_id:'01',compiled_prompt:'one Max',expected_subject_count:1};
 const good={imageUrl:'https://example.invalid/a.webp',censored:false,model:'m',state:'ok'};
-let result=await evaluateImageQuality({scene,generation:good,qualityMode:'STRICT'});
-assert.equal(result.decision,'PASS_UNVERIFIED');
-assert.equal(result.sceneState,'complete_unverified');
-result=await evaluateImageQuality({scene,generation:{...good,censored:true},qualityMode:'STRICT'});
-assert.equal(result.decision,'RETRY_MODEL');
-result=await evaluateImageQuality({scene,generation:good,qualityMode:'STRICT',visualCritic:async()=>({ok:true,pass:false,confidence:0.97,reasons:['duplicate_subject']})});
-assert.equal(result.decision,'RETRY_PROMPT');
-result=await evaluateImageQuality({scene,generation:good,qualityMode:'STRICT',visualCritic:async()=>({ok:true,pass:true,confidence:0.94,reasons:[]})});
-assert.equal(result.decision,'PASS');
-assert.equal(result.qaLevel,'VISUAL');
+assert.equal((await evaluateImageQuality({scene,generation:good,qualityMode:'STRICT'})).decision,'PASS_UNVERIFIED');
+assert.equal((await evaluateImageQuality({scene,generation:{...good,censored:true},qualityMode:'STRICT'})).decision,'RETRY_MODEL');
+assert.equal((await evaluateImageQuality({scene,generation:good,qualityMode:'STRICT',visualCritic:async()=>({ok:true,pass:false,confidence:.97,reasons:['duplicate_subject']})})).decision,'RETRY_PROMPT');
+assert.equal((await evaluateImageQuality({scene,generation:good,qualityMode:'STRICT',visualCritic:async()=>({ok:true,pass:true,confidence:.94,reasons:[]})})).decision,'PASS');
 console.log('IMAGE_RENDER_V2_QUALITY_TEST=PASS');
 ```
 
-- [ ] **Step 2: Run and verify failure**
+- [ ] **Step 2: Run RED**
 
 Run: `node test-image-render-v2-quality.mjs`
 
-- [ ] **Step 3: Implement structural checks and optional visual hook**
+- [ ] **Step 3: Implement structural + optional visual policy**
 
-The implementation must reject non-HTTPS generation URLs, censored outputs, missing model/state, and malformed generation records. STRICT mode without a usable `visualCritic` returns `PASS_UNVERIFIED`; it must not return `PASS`.
-
-Failure mapping is explicit:
+Reject non-HTTPS URLs, censored output, missing model/state, and malformed generation records. STRICT without a usable `visualCritic` returns `PASS_UNVERIFIED` and scene state `complete_unverified`.
 
 ```js
 const PROMPT_REPAIR_REASONS=new Set(['duplicate_subject','wrong_subject_count','wardrobe_mismatch','identity_mismatch','background_mismatch','camera_mismatch','text_or_watermark']);
 const MODEL_RETRY_REASONS=new Set(['severe_anatomy','deformation','provider_censored','model_mismatch']);
 ```
 
-- [ ] **Step 4: Run quality tests**
+- [ ] **Step 4: Run GREEN**
 
 Run: `node test-image-render-v2-quality.mjs`
-
-Expected: pass.
 
 - [ ] **Step 5: Commit**
 
@@ -391,25 +330,23 @@ git commit -m "feat(image): add strict bounded quality policy"
 
 ---
 
-### Task 5: Pure batch state machine and bounded retry engine
+### Task 5: Pure batch state machine and retry engine
 
 **Files:**
 - Create: `cloudflare-worker/image-render/batch-engine.js`
-- Create: `cloudflare-worker/test-image-render-v2-batch-engine.mjs`
+- Test: `cloudflare-worker/test-image-render-v2-batch-engine.mjs`
 
 **Interfaces:**
-- Produces: `createBatchState(manifest)`
-- Produces: `nextSubmissionSceneIds(state)`
-- Produces: `markSceneSubmitted(state,{sceneId,provider,model,jobId,seed,submittedAt})`
-- Produces: `markSceneProviderResult(state,{sceneId,generation,completedAt})`
-- Produces: `applySceneQualityDecision(state,{sceneId,quality,completedAt})`
-- Produces: `cancelBatchState(state)`
-- Produces: `resetFailedScenesForRetry(state,sceneIds)`
-- Produces: `summarizeBatch(state)`
+- `createBatchState(manifest)`
+- `nextSubmissionSceneIds(state)`
+- `markSceneSubmitted(state,input)`
+- `markSceneProviderResult(state,input)`
+- `applySceneQualityDecision(state,input)`
+- `cancelBatchState(state)`
+- `resetFailedScenesForRetry(state,sceneIds)`
+- `summarizeBatch(state)`
 
-All functions return a new serializable state object; no provider/network calls occur in this module.
-
-- [ ] **Step 1: Write failing scheduler/state tests**
+- [ ] **Step 1: Write the failing test**
 
 ```js
 import assert from 'node:assert/strict';
@@ -417,67 +354,57 @@ import {createBatchState,nextSubmissionSceneIds,markSceneSubmitted,applySceneQua
 const manifest={batch_id:'b1',scheduler_config:{concurrency:4},retry_policy:{maxAttempts:3},scenes:Array.from({length:20},(_,i)=>({scene_id:String(i+1),status:'queued',attempts:[]}))};
 let state=createBatchState(manifest);
 assert.equal(nextSubmissionSceneIds(state).length,4);
-for (const id of nextSubmissionSceneIds(state)) state=markSceneSubmitted(state,{sceneId:id,provider:'ai_horde',model:'M',jobId:`job-${id}-000000000000`,seed:id,submittedAt:'t1'});
+for (const id of nextSubmissionSceneIds(state)) state=markSceneSubmitted(state,{sceneId:id,provider:'ai_horde',model:'M',jobId:`job-${id}`,seed:id,submittedAt:'t1'});
 assert.equal(nextSubmissionSceneIds(state).length,0);
 state=applySceneQualityDecision(state,{sceneId:'1',quality:{decision:'RETRY_PROMPT',reasons:['duplicate_subject']},completedAt:'t2'});
 assert.equal(state.scenes.find(x=>x.scene_id==='1').status,'retry_pending');
 assert.equal(nextSubmissionSceneIds(state).length,1);
-const summary=summarizeBatch(state);
-assert.equal(summary.totalScenes,20);
-assert.equal(summary.activeScenes,3);
+assert.equal(summarizeBatch(state).activeScenes,3);
 console.log('IMAGE_RENDER_V2_BATCH_ENGINE_TEST=PASS');
 ```
 
-Add a second case that drives one scene through three failed attempts and asserts terminal `failed_quality` while another scene can still become `complete`.
+Add a second test that drives one scene through three failed attempts and proves it becomes `failed_quality` while another scene reaches `complete`.
 
-- [ ] **Step 2: Run and verify failure**
+- [ ] **Step 2: Run RED**
 
 Run: `node test-image-render-v2-batch-engine.mjs`
 
-- [ ] **Step 3: Implement immutable state transitions**
+- [ ] **Step 3: Implement state transitions**
 
-Use scene statuses exactly from the spec: `queued`, `submitting`, `provider_wait`, `provider_processing`, `qa_pending`, `retry_pending`, `complete`, `complete_unverified`, `failed_quality`, `failed_provider`, `cancelled`.
-
-`nextSubmissionSceneIds()` must calculate free slots as:
+Active states are `submitting`, `provider_wait`, `provider_processing`, `qa_pending`. Free slots are:
 
 ```js
-const active=new Set(['submitting','provider_wait','provider_processing','qa_pending']);
-const activeCount=state.scenes.filter(scene=>active.has(scene.status)).length;
-const free=Math.max(0,Math.min(8,state.scheduler.concurrency)-activeCount);
+const free=Math.max(0,Math.min(8,state.scheduler.concurrency)-state.scenes.filter(s=>active.has(s.status)).length);
 ```
 
-A retry consumes another attempt and never exceeds `state.retry.maxAttempts`.
+Retries increment attempts and stop at `state.retry.maxAttempts`. One failed scene never forces the whole batch to `failed` while other scenes remain runnable.
 
-- [ ] **Step 4: Run batch-engine tests**
+- [ ] **Step 4: Run GREEN**
 
 Run: `node test-image-render-v2-batch-engine.mjs`
-
-Expected: pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add cloudflare-worker/image-render/batch-engine.js cloudflare-worker/test-image-render-v2-batch-engine.mjs
-git commit -m "feat(image): add durable batch state machine"
+git commit -m "feat(image): add V2 batch state machine"
 ```
 
 ---
 
-### Task 6: Durable Object coordinator, alarms, resume, and cancellation
+### Task 6: Durable Object coordinator, alarms, resume, cancellation
 
 **Files:**
 - Create: `cloudflare-worker/image-render/batch-state.js`
 - Create: `cloudflare-worker/image-render/batch-client.js`
-- Create: `cloudflare-worker/test-image-render-v2-batch-state.mjs`
+- Test: `cloudflare-worker/test-image-render-v2-batch-state.mjs`
 
 **Interfaces:**
-- Produces Durable Object class: `ImageRenderBatchState`.
-- Produces testable factory: `createImageRenderBatchClass({registryFactory,qualityEvaluator,now})`.
-- Produces client functions: `createImageBatch(env,manifest)`, `getImageBatchStatus(env,batchId)`, `cancelImageBatch(env,batchId)`, `retryImageBatchScenes(env,batchId,sceneIds)`.
+- Durable Object: `ImageRenderBatchState`.
+- Test factory: `createImageRenderBatchClass({registryFactory,qualityEvaluator,now})`.
+- Client: `createImageBatch`, `getImageBatchStatus`, `cancelImageBatch`, `retryImageBatchScenes`.
 
-- [ ] **Step 1: Write a memory-storage test harness and failing lifecycle test**
-
-Use a fake Durable Object context with these exact storage methods: `get`, `put`, `delete`, `setAlarm`, `getAlarm`.
+- [ ] **Step 1: Write memory-storage lifecycle tests**
 
 ```js
 class MemoryStorage {
@@ -490,71 +417,42 @@ class MemoryStorage {
 }
 ```
 
-The test registry returns a fake provider whose `submit()` returns stable job IDs and whose `check()/status()` complete deterministically. Assert:
+Use a fake provider that returns deterministic job IDs/status. Create 20 scenes, call `/create`, invoke `alarm()`, assert progress, reconstruct the Durable Object with the same storage, invoke `alarm()` again, and assert already completed scene IDs were not resubmitted. Add cancellation and selected-scene retry tests.
 
-```js
-const TestClass=createImageRenderBatchClass({registryFactory:()=>fakeRegistry,qualityEvaluator:async()=>({decision:'PASS_UNVERIFIED',sceneState:'complete_unverified',qaLevel:'STRUCTURAL',confidence:1,reasons:['visual_critic_unavailable']}),now:()=>1000});
-const ctx={storage:new MemoryStorage()};
-const object=new TestClass(ctx,{AI_HORDE_API_KEY:''});
-let response=await object.fetch(new Request('https://batch.internal/create',{method:'POST',body:JSON.stringify({manifest})}));
-assert.equal(response.status,202);
-await object.alarm();
-response=await object.fetch(new Request('https://batch.internal/status'));
-const status=await response.json();
-assert.equal(status.totalScenes,20);
-assert.ok(status.completedScenes>0);
-```
-
-Also instantiate a second object with the same `MemoryStorage` after progress and assert completed scene IDs are not resubmitted.
-
-- [ ] **Step 2: Run and verify failure**
+- [ ] **Step 2: Run RED**
 
 Run: `node test-image-render-v2-batch-state.mjs`
 
-- [ ] **Step 3: Implement the Durable Object wrapper**
+- [ ] **Step 3: Implement Durable Object routes**
 
 Persistent key: `image-render-batch-state-v2`.
 
 Internal routes:
-
 - `POST /create`
 - `GET /status`
 - `DELETE /cancel`
 - `POST /retry`
-- `POST /tick` for deterministic tests and authenticated internal execution only
+- `POST /tick` for deterministic tests/internal lifecycle only
 
-`alarm()` calls the same private `runCycle()` used by `/tick`.
+`alarm()` calls the same private cycle used by `/tick`. Cycle order: poll active jobs -> fetch completed generation -> quality decision -> rank models if submissions are needed -> submit up to free slots -> persist once -> schedule next alarm if non-terminal.
 
-Each cycle performs, in order:
-
-1. load state;
-2. poll active provider jobs;
-3. fetch full provider status for completed jobs;
-4. apply quality result;
-5. refresh model candidates when submissions are needed;
-6. submit up to available concurrency slots;
-7. persist state once after transition batch;
-8. schedule next alarm only if non-terminal.
-
-Use bounded alarm delay:
+Bound alarm delay:
 
 ```js
 const nextDelayMs=Math.min(30_000,Math.max(2_000,Number(nearestProviderWaitSeconds||2)*1000));
 await this.storage.setAlarm(this.now()+nextDelayMs);
 ```
 
-- [ ] **Step 4: Implement the namespace client**
+- [ ] **Step 4: Implement client binding**
 
-`batch-client.js` must use `env.IMAGE_RENDER_BATCH.idFromName(batchId)` and `env.IMAGE_RENDER_BATCH.get(id)`; if binding is absent, return/throw `image_render_batch_binding_unavailable` rather than falling back to trading state.
+`batch-client.js` must use `env.IMAGE_RENDER_BATCH.idFromName(batchId)` and `env.IMAGE_RENDER_BATCH.get(id)`. Missing binding fails with `image_render_batch_binding_unavailable`; there is no `TRADING_STATE` fallback.
 
-- [ ] **Step 5: Run lifecycle and engine tests**
+- [ ] **Step 5: Run GREEN**
 
 ```bash
 node test-image-render-v2-batch-engine.mjs
 node test-image-render-v2-batch-state.mjs
 ```
-
-Expected: both pass, including restart/resume and cancellation cases.
 
 - [ ] **Step 6: Commit**
 
@@ -569,66 +467,49 @@ git commit -m "feat(image): persist V2 batches in Durable Objects"
 
 **Files:**
 - Modify: `cloudflare-worker/image-render-handler.js`
-- Create: `cloudflare-worker/test-image-render-v2-handler.mjs`
+- Test: `cloudflare-worker/test-image-render-v2-handler.mjs`
 
 **Interfaces:**
-- Adds `POST /brain/image/batch`.
-- Adds `GET /brain/image/batch/status?id=<batch_id>`.
-- Adds `DELETE /brain/image/batch?id=<batch_id>`.
-- Adds `POST /brain/image/retry`.
-- Adds `GET /brain/image/models`.
-- Preserves all V1 routes and response contracts.
+- `POST /brain/image/batch`
+- `GET /brain/image/batch/status?id=<batch_id>`
+- `DELETE /brain/image/batch?id=<batch_id>`
+- `POST /brain/image/retry`
+- `GET /brain/image/models`
 
-- [ ] **Step 1: Write failing handler tests with a fake Durable Object namespace**
+- [ ] **Step 1: Write failing endpoint tests**
 
-The test must prove all five new routes plus these guards:
+Prove unauthenticated access is `401`, missing data class is `400 data_class_required`, non-PUBLIC is `403`, reference image is `409`, 101 scenes is `413`, and a valid 20-scene request returns `202`, `mode:'FREE_ONLY'`, `paidFallback:false`, `sceneCount:20`, and a server-generated `batchId`.
 
-```js
-assert.equal((await callBatch({dataClass:'INTERNAL',scenes:[{prompt:'x'}]})).status,403);
-assert.equal((await callBatch({dataClass:'PUBLIC',referenceImages:['x'],scenes:[{prompt:'x'}]})).status,409);
-assert.equal((await callBatch({dataClass:'PUBLIC',scenes:Array.from({length:101},()=>({prompt:'x'}))})).status,413);
-```
-
-For an accepted 20-scene batch, assert HTTP `202`, `mode:'FREE_ONLY'`, `paidFallback:false`, `sceneCount:20`, and a server-generated `batchId`.
-
-- [ ] **Step 2: Run V2 handler test and existing V1 test**
+- [ ] **Step 2: Run RED and confirm V1 remains green**
 
 ```bash
 node test-image-render-v2-handler.mjs
 npm run test:image-render
 ```
 
-Expected before implementation: V2 test fails; V1 remains green.
+- [ ] **Step 3: Implement routes**
 
-- [ ] **Step 3: Add new routes after common auth/data guards**
-
-Generate IDs server-side:
+Batch IDs are generated server-side:
 
 ```js
 const batchId=`img-${crypto.randomUUID()}`;
 ```
 
-`GET /brain/image/models` calls Task 2 registry and Task 3 ranking, returning only normalized availability/ranking metadata; it never submits an image.
+`GET /brain/image/models` only lists/ranks model metadata and never submits an image.
 
-- [ ] **Step 4: Extend `/brain/image/health` without removing existing fields**
-
-Add:
+- [ ] **Step 4: Extend health without deleting V1 fields**
 
 ```js
 batch:{enabled:Boolean(env?.IMAGE_RENDER_BATCH),maxScenes:100,defaultConcurrency:4,maxConcurrency:8,maxAttemptsPerScene:3},
 quality:{strictVisualVerificationRequired:true,metadataOnlyMayReportVerified:false},
 ```
 
-Do not change existing `mode`, `paidFallback`, `privacy`, or provider fields.
-
-- [ ] **Step 5: Run handler + V1 regression**
+- [ ] **Step 5: Run GREEN + V1 regression**
 
 ```bash
 node test-image-render-v2-handler.mjs
 npm run test:image-render
 ```
-
-Expected: both pass.
 
 - [ ] **Step 6: Commit**
 
@@ -639,49 +520,42 @@ git commit -m "feat(image): expose V2 batch render API"
 
 ---
 
-### Task 8: Export/report contract for multi-image delivery
+### Task 8: Export/report contract
 
 **Files:**
 - Create: `cloudflare-worker/image-render/export-contract.js`
-- Create: `cloudflare-worker/test-image-render-v2-export.mjs`
+- Test: `cloudflare-worker/test-image-render-v2-export.mjs`
 - Modify: `cloudflare-worker/image-render-handler.js`
 
 **Interfaces:**
-- Produces: `buildRenderReport(state)`.
-- Produces: `buildExportManifest(state)`.
-- Batch status response exposes `exportManifest` only when at least one scene has a generation URL.
+- `buildRenderReport(state)`
+- `buildExportManifest(state)`
 
-- [ ] **Step 1: Write failing export tests**
+- [ ] **Step 1: Write the failing test**
 
 ```js
 import assert from 'node:assert/strict';
 import {buildRenderReport,buildExportManifest} from './image-render/export-contract.js';
-const state={batch_id:'b1',status:'complete_with_failures',mode:'FREE_ONLY',scenes:[
-  {scene_id:'01',status:'complete_unverified',attempts:[{model:'A',seed:'1',generation:{imageUrl:'https://example.invalid/1.webp'},qa:{qaLevel:'STRUCTURAL'}}]},
-  {scene_id:'02',status:'failed_quality',attempts:[{model:'B',seed:'2',qa:{reasons:['deformation']}}]},
-]};
-const report=buildRenderReport(state);
-assert.equal(report.monetaryImageProviderCost,0);
-assert.equal(report.freeOnly,true);
-assert.deepEqual(report.failedScenes,['02']);
-const manifest=buildExportManifest(state);
-assert.deepEqual(manifest.assets,[{sceneId:'01',fileName:'Scene_01.webp',url:'https://example.invalid/1.webp'}]);
+const state={batch_id:'b1',status:'complete_with_failures',scenes:[{scene_id:'01',status:'complete_unverified',attempts:[{model:'A',seed:'1',generation:{imageUrl:'https://example.invalid/1.webp'},qa:{qaLevel:'STRUCTURAL'}}]},{scene_id:'02',status:'failed_quality',attempts:[{model:'B',seed:'2',qa:{reasons:['deformation']}}]}]};
+assert.equal(buildRenderReport(state).monetaryImageProviderCost,0);
+assert.deepEqual(buildRenderReport(state).failedScenes,['02']);
+assert.deepEqual(buildExportManifest(state).assets,[{sceneId:'01',fileName:'Scene_01.webp',url:'https://example.invalid/1.webp'}]);
 console.log('IMAGE_RENDER_V2_EXPORT_TEST=PASS');
 ```
 
-- [ ] **Step 2: Run and verify failure**
+- [ ] **Step 2: Run RED**
 
 Run: `node test-image-render-v2-export.mjs`
 
-- [ ] **Step 3: Implement report/export builders**
+- [ ] **Step 3: Implement metadata-only export**
 
-The export builder must accept only `https:` generation URLs and must not fetch or persist binary assets. The report includes scene counts, models, seeds, attempt counts, QA levels, failure reasons, `freeOnly:true`, `paidFallback:false`, and `monetaryImageProviderCost:0`.
+Accept only `https:` generation URLs. Report includes total/passed/failed scenes, model usage, seeds, attempts, QA, failure reasons, `freeOnly:true`, `paidFallback:false`, and `monetaryImageProviderCost:0`. Do not fetch/store binary assets in Worker storage.
 
-- [ ] **Step 4: Add export metadata to V2 status response**
+- [ ] **Step 4: Expose export metadata from batch status**
 
-The handler/DO status path returns logical metadata only. ZIP packaging remains a caller/export-layer operation and does not create a paid storage dependency.
+Only include `exportManifest` when at least one completed scene has a validated generation URL.
 
-- [ ] **Step 5: Run export and handler tests**
+- [ ] **Step 5: Run GREEN**
 
 ```bash
 node test-image-render-v2-export.mjs
@@ -697,7 +571,7 @@ git commit -m "feat(image): add batch render export contract"
 
 ---
 
-### Task 9: Cloudflare Durable Object deployment wiring
+### Task 9: Durable Object deployment wiring
 
 **Files:**
 - Modify: `cloudflare-worker/index.js`
@@ -706,61 +580,47 @@ git commit -m "feat(image): add batch render export contract"
 - Modify: `cloudflare-worker/test-deploy-safety.mjs`
 
 **Interfaces:**
-- Exports `ImageRenderBatchState` from Worker entrypoint.
-- Adds Durable Object binding `IMAGE_RENDER_BATCH` -> `ImageRenderBatchState`.
-- Adds migration tag `image-render-batch-v1` with `new_sqlite_classes:['ImageRenderBatchState']`.
+- Export `ImageRenderBatchState`.
+- Binding `IMAGE_RENDER_BATCH` -> `ImageRenderBatchState`.
+- Migration `image-render-batch-v1` with `new_sqlite_classes:['ImageRenderBatchState']`.
 
-- [ ] **Step 1: Add failing deploy-safety assertions first**
-
-Add to `test-deploy-safety.mjs`:
+- [ ] **Step 1: Add failing deploy-safety assertions**
 
 ```js
 assert.match(wranglerPrep,/IMAGE_RENDER_BATCH/);
 assert.match(wranglerPrep,/ImageRenderBatchState/);
 assert.match(wranglerPrep,/image-render-batch-v1/);
 assert.match(wranglerExample,/IMAGE_RENDER_BATCH/);
-assert.match(wranglerExample,/ImageRenderBatchState/);
 assert.match(fs.readFileSync('index.js','utf8'),/export \{ImageRenderBatchState\} from '\.\/image-render\/batch-state\.js'/);
 assert.doesNotMatch(fs.readFileSync('image-render/batch-state.js','utf8'),/TRADING_STATE/);
 ```
 
-- [ ] **Step 2: Run and verify deploy-safety fails**
+- [ ] **Step 2: Run RED**
 
 Run: `node test-deploy-safety.mjs`
 
-Expected: failure on missing `IMAGE_RENDER_BATCH` wiring.
+- [ ] **Step 3: Wire Worker config**
 
-- [ ] **Step 3: Wire entrypoint and generated wrangler config**
-
-`index.js` adds:
+Add to `index.js`:
 
 ```js
 export {ImageRenderBatchState} from './image-render/batch-state.js';
 ```
 
-`prepare-wrangler.mjs` Durable Object section becomes the existing bindings plus:
+Add binding and migration to both generated config source and example:
 
 ```js
 {name:'IMAGE_RENDER_BATCH',class_name:'ImageRenderBatchState'}
-```
-
-and migrations include:
-
-```js
 {tag:'image-render-batch-v1',new_sqlite_classes:['ImageRenderBatchState']}
 ```
 
-Mirror the same binding/migration in `wrangler.example.jsonc`.
-
-- [ ] **Step 4: Run deployment safety + image tests**
+- [ ] **Step 4: Run GREEN + image regression**
 
 ```bash
 node test-deploy-safety.mjs
 npm run test:image-render
 node test-image-render-v2-batch-state.mjs
 ```
-
-Expected: all pass.
 
 - [ ] **Step 5: Commit**
 
@@ -771,19 +631,14 @@ git commit -m "feat(image): wire render batch Durable Object"
 
 ---
 
-### Task 10: Brain policy, agent contract, and creative continuity bindings
+### Task 10: Brain policy and creative canonical bindings
 
 **Files:**
 - Modify: `AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml`
 - Modify: `AI_SKILL_LIBRARY/v4/legion/agents.yaml`
 - Modify: `AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml`
 
-**Interfaces:**
-- Policy becomes V2 source of truth for batch limits/endpoints/QA semantics.
-- `image_render_agent.runtime` lists V2 batch/model/retry endpoints.
-- Creative visual fusion remains canonical owner of identity/continuity/render-quality logic; image execution references these modules instead of duplicating them.
-
-- [ ] **Step 1: Update policy version and exact runtime contract**
+- [ ] **Step 1: Promote image policy to V2**
 
 Set `version: 2` and add:
 
@@ -808,25 +663,15 @@ runtime:
   retry_path: /brain/image/retry
 ```
 
-Keep `paid_fallback:false`, `auto_purchase:false`, PUBLIC-only privacy, and reference-image disabled rules unchanged.
+Preserve PUBLIC-only privacy, reference-image disabled, `paid_fallback:false`, and `auto_purchase:false`.
 
-- [ ] **Step 2: Update the agent registry**
+- [ ] **Step 2: Update `image_render_agent.runtime`**
 
-Under `image_render_agent.runtime`, add the same V2 paths and:
+Add V2 paths and exact limits (`100`, `4`, `8`, `3`) without changing authority flags.
 
-```yaml
-batch_max_scenes: 100
-default_concurrency: 4
-max_concurrency: 8
-max_attempts_per_scene: 3
-strict_qa_fail_safe: true
-```
+- [ ] **Step 3: Bind execution to existing canonical creative modules**
 
-Do not change `routing_authority:false` or `reasoning_authority:false`.
-
-- [ ] **Step 3: Bind execution to canonical creative logic**
-
-Add an `image_execution_bindings` section to `creative_visual_fusion.yaml`:
+Add:
 
 ```yaml
 image_execution_bindings:
@@ -838,18 +683,16 @@ image_execution_bindings:
   preserve_user_constraints: true
 ```
 
-- [ ] **Step 4: Run canonical validation before release promotion**
-
-Run from repository root:
+- [ ] **Step 4: Run policy validators**
 
 ```bash
 python3 AI_SKILL_LIBRARY/v4/tools/validate_legion.py
 python3 AI_SKILL_LIBRARY/v4/tools/validate_consolidation.py
 ```
 
-Expected: zero errors.
+Expected: exit 0.
 
-- [ ] **Step 5: Commit policy changes**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml AI_SKILL_LIBRARY/v4/legion/agents.yaml AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml
@@ -858,31 +701,24 @@ git commit -m "feat(brain): register Image Render Agent V2"
 
 ---
 
-### Task 11: Test scripts, release 4.13.0, full regression, and production smoke gates
+### Task 11: Test script integration, release 4.13.0, regression, and production smoke
 
 **Files:**
 - Modify: `cloudflare-worker/package.json`
-- Generated: `AI_SKILL_LIBRARY/v4/releases/4.13.0/manifest.yaml`
-- Generated: `AI_SKILL_LIBRARY/v4/releases/current.json`
-- Generated: `AI_SKILL_LIBRARY/v4/releases/history.yaml`
-- Modify only if needed for smoke gate coverage: `.github/workflows/deploy-skill-mandatory-fast-gateway.yml`
+- Generated by release tool: `AI_SKILL_LIBRARY/v4/releases/4.13.0/manifest.yaml`
+- Generated by release tool: `AI_SKILL_LIBRARY/v4/releases/current.json`
+- Generated by release tool: `AI_SKILL_LIBRARY/v4/releases/history.yaml`
+- Modify `.github/workflows/deploy-skill-mandatory-fast-gateway.yml` only if V2 smoke assertions cannot be expressed with existing post-deploy hooks.
 
-**Interfaces:**
-- Adds one command: `npm run test:image-render-v2`.
-- `npm run check` includes V1 + V2 image tests before deploy-safety.
-- Release pointer advances from 4.12.0 to 4.13.0 only after local/full CI validation passes.
-
-- [ ] **Step 1: Add the V2 test script**
-
-Set:
+- [ ] **Step 1: Add V2 test script**
 
 ```json
 "test:image-render-v2": "node test-image-render-v2-contracts.mjs && node test-image-render-v2-provider.mjs && node test-image-render-v2-model-router.mjs && node test-image-render-v2-quality.mjs && node test-image-render-v2-batch-engine.mjs && node test-image-render-v2-batch-state.mjs && node test-image-render-v2-handler.mjs && node test-image-render-v2-export.mjs"
 ```
 
-Append `&& npm run test:image-render-v2` immediately after `npm run test:image-render` in `scripts.check`.
+Append `&& npm run test:image-render-v2` immediately after `npm run test:image-render` inside `scripts.check`.
 
-- [ ] **Step 2: Run the focused image suite**
+- [ ] **Step 2: Run focused image regression**
 
 ```bash
 cd cloudflare-worker
@@ -890,35 +726,33 @@ npm run test:image-render
 npm run test:image-render-v2
 ```
 
-Expected: all V1 and V2 tests pass.
+Expected: exit 0.
 
-- [ ] **Step 3: Run complete Worker regression**
+- [ ] **Step 3: Run full Worker regression before release promotion**
 
 ```bash
 npm run check
 ```
 
-Expected: exit code 0; existing trading/model-mesh/security/deploy-safety tests remain green.
+Expected: exit 0.
 
-- [ ] **Step 4: Run Brain validation before creating the release**
+- [ ] **Step 4: Run Brain validators that do not require a fresh release pointer**
 
 From repository root:
 
 ```bash
-python3 AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$(git rev-parse HEAD)"
+python3 AI_SKILL_LIBRARY/v4/tools/validate_legion.py
+python3 AI_SKILL_LIBRARY/v4/tools/validate_consolidation.py
 ```
 
-Expected: validation passes with no stale-release or policy failures except the expected need to build the new release after policy hashes changed.
+Expected: exit 0.
 
-- [ ] **Step 5: Build release 4.13.0 using the repository release tool**
+Do **not** run `ci_validate.py` against the old 4.12.0 pointer after changing release-tracked policy files; that validator is allowed to reject stale hashes. Build the new release first.
+
+- [ ] **Step 5: Build and verify release 4.13.0**
 
 ```bash
-python3 AI_SKILL_LIBRARY/v4/tools/release.py build \
-  --version 4.13.0 \
-  --source image_render_agent_v2 \
-  --class feature \
-  --validated \
-  --known-good
+python3 AI_SKILL_LIBRARY/v4/tools/release.py build --version 4.13.0 --source image_render_agent_v2 --class feature --validated --known-good
 python3 AI_SKILL_LIBRARY/v4/tools/release.py verify
 python3 AI_SKILL_LIBRARY/v4/tools/release.py check
 ```
@@ -927,11 +761,19 @@ Expected:
 
 ```text
 RELEASE_BUILD=PASS version=4.13.0
-Release verification summary: 0 error(s)
+Release verification summary: 0 error(s), 0 warning(s)
 RELEASE_CHECK=PASS version=4.13.0
 ```
 
-- [ ] **Step 6: Re-run complete regression against the new release pointer**
+- [ ] **Step 6: Run canonical CI validation against the new pointer**
+
+```bash
+python3 AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$(git rev-parse HEAD)"
+```
+
+Expected: exit 0.
+
+- [ ] **Step 7: Re-run full Worker regression**
 
 ```bash
 cd cloudflare-worker
@@ -940,51 +782,46 @@ npm run check
 
 Expected: exit 0.
 
-- [ ] **Step 7: Commit release/test integration**
+- [ ] **Step 8: Commit release/test integration**
 
 ```bash
 git add cloudflare-worker/package.json AI_SKILL_LIBRARY/v4/releases/4.13.0/manifest.yaml AI_SKILL_LIBRARY/v4/releases/current.json AI_SKILL_LIBRARY/v4/releases/history.yaml
 git commit -m "release: promote Image Render Agent V2"
 ```
 
-- [ ] **Step 8: Run deployment dry-run before any live smoke**
+- [ ] **Step 9: Run Wrangler dry-run**
 
 ```bash
 cd cloudflare-worker
 npm run deploy
 ```
 
-Expected: Wrangler dry-run succeeds and generated config contains `IMAGE_RENDER_BATCH`/`ImageRenderBatchState` while preserving `keep_vars:true` and the single allowed Model Mesh health cron.
+Expected: dry-run succeeds; generated config contains `IMAGE_RENDER_BATCH`/`ImageRenderBatchState`, keeps `keep_vars:true`, and preserves the single Model Mesh health cron.
 
-- [ ] **Step 9: Production smoke sequence after gated deployment**
+- [ ] **Step 10: Production smoke only after gated exact-main deployment**
 
-Use the existing exact-main gated deployment workflow. After it reports the deployed SHA as verified, run these smoke probes in order with the authenticated image-render token:
+Run authenticated probes in this order using PUBLIC test prompts only:
 
 ```text
-1. GET  /brain/image/health
-   Require: mode=FREE_ONLY, paidFallback=false, batch.enabled=true, batch.maxScenes=100.
-
-2. GET  /brain/image/models
-   Require: HTTP 200 and at least one normalized free model when AI Horde is available.
-
-3. POST /brain/image/render with one small PUBLIC test prompt
-   Require: existing V1 202 response shape still works.
-
-4. POST /brain/image/batch with two small PUBLIC test scenes, qualityMode=STRUCTURAL
-   Require: 202, one batchId, sceneCount=2.
-
-5. Poll GET /brain/image/batch/status?id=<batchId>
-   Require: terminal complete/complete_with_failures, no paid route, each submitted scene records provider/model/job/attempt metadata.
-
-6. DELETE a separate queued two-scene test batch
-   Require: cancelled state and no new submissions after cancellation.
+1. GET /brain/image/health
+   Require mode=FREE_ONLY, paidFallback=false, batch.enabled=true, maxScenes=100.
+2. GET /brain/image/models
+   Require HTTP 200; when AI Horde is available, at least one normalized live model.
+3. POST /brain/image/render with one small PUBLIC prompt
+   Require existing V1 202 response contract.
+4. POST /brain/image/batch with two small PUBLIC scenes and qualityMode=STRUCTURAL
+   Require 202, one batchId, sceneCount=2.
+5. Poll /brain/image/batch/status?id=<batchId>
+   Require terminal state; submitted scenes record provider/model/job/attempt metadata; no paid route.
+6. Create a separate small batch and DELETE /brain/image/batch?id=<batchId>
+   Require cancelled state and no later submissions.
 ```
 
-No user reference image and no private project asset is used in these production smoke tests.
+No user reference asset is used for smoke tests.
 
-- [ ] **Step 10: Record verification evidence before merge**
+- [ ] **Step 11: Record fresh verification evidence**
 
-The PR description or deployment evidence must include the exact outputs for:
+PR/deployment evidence must include exact outputs for:
 
 ```text
 npm run test:image-render
@@ -992,44 +829,25 @@ npm run test:image-render-v2
 npm run check
 release.py verify
 release.py check
+ci_validate.py
 Wrangler dry-run
 production health/model/single/batch/cancel smoke gates
 ```
 
-A failed core smoke gate blocks merge/promotion of the runtime change.
+Any failed core gate blocks runtime promotion.
 
 ---
 
-## Self-Review Results
+## Self-Review Checklist
 
-### Spec coverage
+- Spec coverage: contract, 20–100 scenes, 4–8 concurrency, durable state, live model ranking, consistency locks, QA/retry, status/cancel/retry API, export metadata, backward compatibility, FREE_ONLY/privacy, release and smoke gates are all assigned to tasks above.
+- Placeholder scan: no `TODO`, `TBD`, or “similar to Task N” instructions are permitted in this plan.
+- Type consistency: downstream tasks use the exact interfaces `validateImageBatchRequest`, `createRenderManifest`, `compileScenePrompt`, `createImageProviderRegistry`, `rankImageModels`, `evaluateImageQuality`, `ImageRenderBatchState`, `createImageBatch`, `getImageBatchStatus`, `cancelImageBatch`, and `retryImageBatchScenes`.
+- Visual QA boundary: this plan does not fabricate a multimodal critic. STRICT mode exposes `complete_unverified` until an approved FREE_ONLY visual critic is actually wired through the `visualCritic` interface.
+- Release order: runtime/policy tests -> release build -> release verification -> `ci_validate.py` -> full regression -> dry-run -> gated deployment -> PUBLIC smoke.
 
-- Natural-language command -> typed request boundary: Task 1 contract + Task 10 policy; free-form interpretation stays in Brain authority.
-- 20–100 scene logical batches: Tasks 1, 5, 6, 7.
-- Bounded 4–8 concurrency: Tasks 1, 5, 6.
-- Live free-model ranking: Tasks 2–3.
-- Durable state/resume/cancellation: Tasks 5–6 and Task 9 deployment wiring.
-- Consistency locks and prompt preservation: Task 1 and Task 10 canonical creative binding.
-- QA and bounded retry: Tasks 4–6.
-- STRICT visual fail-safe: Task 4.
-- Result/report/export contract: Task 8.
-- Backward compatibility: Tasks 2, 7, 11.
-- FREE_ONLY/privacy/reference restrictions: Global Constraints, Tasks 1, 7, 10, 11.
-- No trading-state coupling: Tasks 6 and 9.
-- Release/promotion/verification: Task 11.
+## Execution Order
 
-### Deliberate boundary
+Tasks 1–4 create independent pure/provider foundations. Tasks 5–9 add durable orchestration and API/deployment wiring. Task 10 updates Brain policy only after runtime contracts are testable. Task 11 alone advances the stable release pointer and performs production smoke.
 
-A real image-understanding critic is not fabricated in this plan. V2 provides a `visualCritic` hook and STRICT fail-safe semantics; if the existing FREE_ONLY model mesh does not expose a verified multimodal image input path, scenes are `complete_unverified` instead of being falsely labeled visually verified. A dedicated multimodal-critic extension can be implemented under the same quality interface without changing the batch contract.
-
-### Type/signature consistency
-
-All downstream tasks use the same names defined above: `validateImageBatchRequest`, `createRenderManifest`, `compileScenePrompt`, `createImageProviderRegistry`, `rankImageModels`, `evaluateImageQuality`, `ImageRenderBatchState`, and the four batch-client operations.
-
----
-
-## Execution Order and Review Gates
-
-Tasks 1–4 are independent pure/adapter foundations and can be reviewed before stateful orchestration. Tasks 5–9 introduce batch execution and deployment state. Task 10 changes Brain policy only after runtime behavior is proven by tests. Task 11 is the only task allowed to advance the stable release pointer or run production smoke renders.
-
-Every task ends in an independently reviewable commit. Do not squash intermediate TDD evidence during implementation until the final branch review has completed.
+Every task ends in an independently reviewable commit. Production deployment is not part of any earlier task.
