@@ -119,7 +119,7 @@ files:
   sha256: b6e82059077e89cb7f5b6f845959b3f3baa1c31e4eab231e6af402ef0952da7d
   role: legion_agents
 - path: AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml
-  sha256: 3e02c9b80f59bd89eb4b9e01ee97cf97c550d1ee0bcd695025b953725164302e
+  sha256: 4b0369ef0f5fc7efa4a840eff8d0008a139fe7bf72a8ac01f9727d639e1900cf
   role: image_render_policy
 - path: AI_SKILL_LIBRARY/v4/learning/policy.yaml
   sha256: 83eeac085f3af5b3d1468d3972e1a730928927c11c16c261961e28fa3f0f59c7

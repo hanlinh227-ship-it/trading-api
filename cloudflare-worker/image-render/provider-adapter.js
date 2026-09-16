@@ -43,7 +43,13 @@ export function validateProviderAdapter(adapter={}){
   if(adapter.supportedModels!==undefined&&!isStringList(adapter.supportedModels))errors.push('supportedModels_required');
 
   if(adapter.maxResolution!==undefined&&(!isPlainObject(adapter.maxResolution)||!isPositiveInt(adapter.maxResolution.width)||!isPositiveInt(adapter.maxResolution.height)))errors.push('maxResolution_required');
-  if(adapter.timeout!==undefined&&(!isPlainObject(adapter.timeout)||!Object.values(adapter.timeout).every(isPositiveInt)))errors.push('timeout_required');
+  // Every timeout must be a non-negative integer and submitMs must be set. A synchronous
+  // provider legitimately has no poll or cancel step, so 0 is allowed for those.
+  if(adapter.timeout!==undefined&&(
+    !isPlainObject(adapter.timeout)
+    ||!isPositiveInt(adapter.timeout.submitMs)
+    ||!Object.values(adapter.timeout).every(value=>Number.isInteger(Number(value))&&Number(value)>=0)
+  ))errors.push('timeout_required');
   if(adapter.retryPolicy!==undefined&&(!isPlainObject(adapter.retryPolicy)||!isPositiveInt(adapter.retryPolicy.maxAttempts)))errors.push('retryPolicy_required');
 
   // A provider that is not reference-safe must never be handed non-public data or a task

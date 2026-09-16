@@ -54,6 +54,12 @@ for(const override of [
   assert.equal(result.ok,false,`${JSON.stringify(override)} must be rejected`);
 }
 
+// A synchronous provider has no poll step, so 0 is valid there, but submitMs is required
+// and no timeout may be negative.
+assert.equal(validateProviderAdapter({...adapter,timeout:{submitMs:30000,pollMs:0,cancelMs:0}}).ok,true);
+assert.equal(validateProviderAdapter({...adapter,timeout:{pollMs:1000}}).ok,false);
+assert.equal(validateProviderAdapter({...adapter,timeout:{submitMs:30000,pollMs:-1}}).ok,false);
+
 // Privacy classes must be explicit and known; a reference-unsafe provider may never
 // advertise a non-public class.
 assert.equal(validateProviderAdapter({...adapter,privacyClasses:[]}).ok,false);

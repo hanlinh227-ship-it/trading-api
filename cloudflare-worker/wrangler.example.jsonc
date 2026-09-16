@@ -17,6 +17,9 @@
       "id": "REPLACE_WITH_EXISTING_TRADING_V77_STATE_NAMESPACE_ID"
     }
   ],
+  // Workers AI, used as the free reference-safe image runtime and visual critic. On the
+  // Workers Free plan the daily Neuron allocation hard-stops, so it cannot bill.
+  "ai": {"binding": "AI"},
   "durable_objects": {
     "bindings": [
       {"name": "TINYFISH_CIRCUIT", "class_name": "TinyFishCircuit"},

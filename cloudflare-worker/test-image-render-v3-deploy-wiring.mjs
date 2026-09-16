@@ -28,3 +28,15 @@ assert.match(v3Entry,/!await timingSafeToken\(/);
 assert.doesNotMatch(wranglerPrep,/AI_HORDE_API_KEY:/);
 
 console.log('IMAGE_RENDER_V3_DEPLOY_WIRING_TEST=PASS');
+
+// The Workers AI binding must exist in both the generated and reference wrangler config:
+// it is the free reference-safe image runtime and the visual critic.
+for(const source of [wranglerPrep,wranglerExample]){
+  assert.match(source,/binding: *'AI'|"binding": *"AI"/);
+}
+// No provider credential may be generated into Worker vars for any image provider.
+for(const secret of ['AI_HORDE_API_KEY:','POLLINATIONS_API_KEY:','CF_AI_TOKEN:']){
+  assert.ok(!wranglerPrep.includes(secret),secret);
+}
+
+console.log('IMAGE_RENDER_V3_AI_BINDING_WIRING_TEST=PASS');

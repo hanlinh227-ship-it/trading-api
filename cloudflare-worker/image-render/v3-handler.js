@@ -5,6 +5,8 @@ import {getProviderAdapter,listProviderAdapters} from './provider-adapter-regist
 import {describeProviderAdapter} from './provider-adapter.js';
 import {evaluateActivation} from './activation.js';
 import {BENCHMARK_SUITES} from './benchmark-suite.js';
+import {visualCriticAvailability} from './critic-runtime.js';
+import {workersAiHealth} from './workers-ai.js';
 import {cancelImageLogicalJob,createImageLogicalJob,getImageLogicalJobStatus,retryImageLogicalJobScenes} from './logical-job-client.js';
 
 // Tasks that can only run on a runtime allowed to receive the reference/source image.
@@ -75,6 +77,8 @@ export async function handleImageRenderV3Authorized(request,env={}){
     if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
     const registrations=createImageProviderMesh().listRegistrations();
     const availability=taskAvailability(registrations);
+    const critic=await visualCriticAvailability(env);
+    const inference=await workersAiHealth(env);
     const referenceSafeRuntime=Object.entries(availability).some(([task,state])=>REFERENCE_SAFE_TASKS.has(task)&&state==='AVAILABLE')?'AVAILABLE':'WAITING_FOR_SAFE_FREE_RUNTIME';
     return json({
       ok:true,
@@ -88,9 +92,12 @@ export async function handleImageRenderV3Authorized(request,env={}){
       tasks:[...IMAGE_INTENT_TASKS],
       taskAvailability:availability,
       referenceSafeRuntime,
-      // No visual critic runtime is configured, so STRICT_VISUAL can only ever finish
-      // complete_unverified. Never report a metadata-only pass as visually verified.
-      visualCriticRuntime:'UNAVAILABLE',
+      // STRICT_VISUAL is only ever verified when a real critic runtime answered. With no
+      // critic the quality layer reports complete_unverified; nothing metadata-only passes.
+      visualCriticRuntime:critic.available?'AVAILABLE':'UNAVAILABLE',
+      visualCriticProvider:critic.provider,
+      visualCriticModel:critic.model,
+      inferenceRuntime:inference.ok?'AVAILABLE':'UNAVAILABLE',
       modelVault:vaultSummary(loadApprovedModelVault()),
       privacy:{aiHordePublicOnly:true,referenceSafeRequired:true},
       quality:{strictVisualRequiresRealCritic:true,missingVisualCriticAction:'complete_unverified'},

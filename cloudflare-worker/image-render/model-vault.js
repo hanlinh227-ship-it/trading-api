@@ -1,6 +1,17 @@
 import vault from './model-vault.json' with {type:'json'};
 
-const ALLOWED_LICENSES=new Set(['Apache-2.0','MIT']);
+// Licences we may redistribute or self-host under.
+export const PERMISSIVE_LICENSES=Object.freeze(new Set(['Apache-2.0','MIT']));
+// Licences that permit commercial use of the model and its outputs but are not free
+// redistribution licences. A model under one of these may only be reached through a
+// hosted provider that already licensed it; we never mirror or ship its weights.
+export const HOSTED_INFERENCE_LICENSES=Object.freeze(new Set([
+  'CreativeML-Open-RAIL-M',
+  'CreativeML-Open-RAIL++-M',
+  'Llama-2-Community-License',
+  'Llama-3.2-Community-License',
+]));
+const ALLOWED_LICENSES=new Set([...PERMISSIVE_LICENSES,...HOSTED_INFERENCE_LICENSES]);
 // Promotion pipeline: candidate -> benchmark -> compare -> promotion proposal -> gate -> active.
 // BENCHMARKED means the benchmark evidence passed but the policy/runtime gate has not.
 export const MODEL_VAULT_STATUSES=Object.freeze(['CANDIDATE','BENCHMARKED','ACTIVE','DEGRADED','DISABLED']);
@@ -16,6 +27,8 @@ export function validateModelVaultEntry(entry={}){
   if(!ALLOWED_LICENSES.has(entry.weightsLicense))errors.push('weights_license_not_approved');
   if(entry.commercialUseEligible!==true)errors.push('commercial_use_must_be_explicitly_allowed');
   if(typeof entry.redistributionEligible!=='boolean')errors.push('redistribution_eligibility_required');
+  // Only a permissive licence may claim redistribution eligibility.
+  if(entry.redistributionEligible===true&&!(PERMISSIVE_LICENSES.has(entry.codeLicense)&&PERMISSIVE_LICENSES.has(entry.weightsLicense)))errors.push('redistribution_requires_permissive_license');
   if(typeof entry.runtimeConfigured!=='boolean')errors.push('runtime_configured_required');
   if(!ALLOWED_STATUS.has(entry.approvalStatus))errors.push('approval_status_invalid');
   if(!Array.isArray(entry.supportedTasks)||entry.supportedTasks.length===0)errors.push('supported_tasks_required');
