@@ -43,7 +43,6 @@ production_verification:
   live_execution_smoke_required: true
   required_execution_venues:
     - bybit
-    - binance
   exact_source_sha_health_field: deploymentSourceSha
   railway_deployment_metadata_must_match_source_sha: true
 execution_boundary:

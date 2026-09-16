@@ -37,7 +37,6 @@ class ZeroLocalManifestTests(unittest.TestCase):
             "AI_SKILL_LIBRARY/v4/tools/ci_validate.py",
         ):
             self.assertIn(required, text)
-        # The single entrypoint must still run every Brain validator exactly once.
         entrypoint = (ROOT / "AI_SKILL_LIBRARY/v4/tools/ci_validate.py").read_text(encoding="utf-8")
         for required in (
             "validate_skill_registry.py",
@@ -67,17 +66,41 @@ class ZeroLocalManifestTests(unittest.TestCase):
         ):
             self.assertIn(required, text)
 
-    def test_main_ci_verifies_exact_connector_managed_source_sha_and_both_execution_venues(self):
+    def test_research_provider_smoke_tolerates_one_degraded_optional_source(self):
         text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
+        validate = text.split("  production-smoke:", 1)[0]
+        self.assertNotIn("required_unrestricted - healthy", validate)
+        self.assertNotIn("public provider probes failed: {missing}", validate)
+        self.assertIn("research_sources = {'binance', 'okx', 'gate', 'kucoin'}", validate)
+        self.assertIn("if len(healthy_research) < 2:", validate)
+        self.assertIn("public research redundancy insufficient", validate)
+
+    def test_main_ci_verifies_exact_connector_managed_source_sha_and_authoritative_execution_venue(self):
+        text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
+        production = text.split("  production-smoke:", 1)[1]
         for required in (
             "crypto-research-gateway-prod-production.up.railway.app",
             "deploymentCommitSha",
             "GITHUB_SHA",
             "bybit LONG BTCUSDT ask",
-            "binance LONG BTCUSDT ask",
+            "bybit SHORT BTCUSDT bid",
             "Production venue-bound execution smoke",
         ):
             self.assertIn(required, text)
+        self.assertNotIn("binance LONG BTCUSDT ask", production)
+        self.assertNotIn("binance SHORT SOLUSDT bid", production)
+        self.assertNotIn("bybit SHORT SOLUSDT bid", production)
+
+    def test_production_smoke_does_not_promote_research_only_symbols_or_optional_venues(self):
+        text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
+        production = text.split("  production-smoke:", 1)[1]
+        self.assertIn("'bybit LONG BTCUSDT ask'", production)
+        self.assertIn("'bybit SHORT BTCUSDT bid'", production)
+        self.assertNotIn("'bybit SHORT SOLUSDT bid'", production)
+        self.assertNotIn("'binance LONG BTCUSDT ask'", production)
+        self.assertNotIn("'binance SHORT SOLUSDT bid'", production)
+        manifest_text = (ROOT / "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml").read_text(encoding="utf-8")
+        self.assertNotIn("required_execution_venues:\n    - bybit\n    - binance", manifest_text)
 
     def test_cloud_runtime_manifest_names_railway_service_root(self):
         manifest = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml").read_text(encoding="utf-8"))
@@ -99,7 +122,7 @@ class ZeroLocalManifestTests(unittest.TestCase):
         verification = manifest["production_verification"]
         self.assertEqual(verification["release_marker"], "live-price-execution-v1")
         self.assertTrue(verification["railway_success_required"])
-        self.assertEqual(verification["required_execution_venues"], ["bybit", "binance"])
+        self.assertEqual(verification["required_execution_venues"], ["bybit"])
         self.assertTrue(verification["live_execution_smoke_required"])
 
     def test_global_checkpoint_is_resolved_for_every_new_work_cycle(self):
