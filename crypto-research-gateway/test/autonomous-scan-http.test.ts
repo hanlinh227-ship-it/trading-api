@@ -36,6 +36,12 @@ function risingV3Observations() {
   ];
 }
 
+const verifiedFxAcquisitionContext = {
+  sources: [
+    { source: 'fx-free', sourceType: 'connector', domains: ['forex'], entitlement: 'VERIFIED_REALTIME', available: true },
+  ],
+};
+
 describe('autonomous multi-market research HTTP surface', () => {
   it('turns normalized evidence into a ranked research-only TOP_SETUP', async () => {
     process.env.DEPLOYMENT_SOURCE_SHA = 'autoscan-test-sha';
@@ -120,17 +126,13 @@ describe('autonomous multi-market research HTTP surface', () => {
   });
 
   it('accepts V3 observation semantics and carries research-only levels into ranking', async () => {
-    const app = buildApp({ probeOnStart: false });
+    const app = buildApp({ probeOnStart: false, nowMs: Date.parse('2026-09-16T11:50:00.000Z') });
     const response = await app.inject({
       method: 'POST',
       url: '/research/autoscan',
       payload: {
         requestedDomains: ['forex'],
-        acquisitionContext: {
-          sources: [
-            { source: 'fx-free', sourceType: 'connector', domains: ['forex'], entitlement: 'VERIFIED_REALTIME', available: true },
-          ],
-        },
+        acquisitionContext: verifiedFxAcquisitionContext,
         externalObservations: risingV3Observations(),
         maxResults: 1,
       },
@@ -144,6 +146,25 @@ describe('autonomous multi-market research HTTP surface', () => {
     expect(body.ranked[0].levels.entrySemantic).toBe('EXECUTABLE_ASK');
     expect(body.ranked[0].levels.researchOnly).toBe(true);
     expect(body.ranked[0]).not.toHaveProperty('orderPermission');
+    await app.close();
+  });
+
+  it('uses request-time clock so old V3 observations cannot self-refresh from ingest time', async () => {
+    const app = buildApp({ probeOnStart: false, nowMs: Date.parse('2026-09-16T14:00:00.000Z') });
+    const response = await app.inject({
+      method: 'POST',
+      url: '/research/autoscan',
+      payload: {
+        requestedDomains: ['forex'],
+        acquisitionContext: verifiedFxAcquisitionContext,
+        externalObservations: risingV3Observations(),
+      },
+    });
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.decision).toBe('NO_TRADE');
+    expect(body.ranked).toEqual([]);
+    expect(body.blocked[0].reasons).toContain('NO_LIVE_EVIDENCE');
     await app.close();
   });
 
