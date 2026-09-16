@@ -30,15 +30,16 @@ function v3Obs(overrides: Partial<NormalizedMarketObservation> = {}): Normalized
 }
 
 function bars(timeframe: '1h' | '15m', prefix: string): NormalizedMarketObservation[] {
+  const contextHours = ['09', '10', '11'];
   return [0, 1, 2].map((index) => v3Obs({
     id: `${prefix}-${index}`,
     timeframe,
     eventTime: timeframe === '1h'
-      ? `2026-09-16T0${9 + index}:00:00.000Z`
-      : `2026-09-16T11:${15 + index * 15}:00.000Z`,
+      ? `2026-09-16T${contextHours[index]}:00:00.000Z`
+      : `2026-09-16T11:${String(15 + index * 15).padStart(2, '0')}:00.000Z`,
     ingestTime: timeframe === '1h'
-      ? `2026-09-16T0${9 + index}:00:01.000Z`
-      : `2026-09-16T11:${15 + index * 15}:01.000Z`,
+      ? `2026-09-16T${contextHours[index]}:00:01.000Z`
+      : `2026-09-16T11:${String(15 + index * 15).padStart(2, '0')}:01.000Z`,
     open: 1.18 + index * 0.001,
     high: 1.184 + index * 0.001,
     low: 1.179 + index * 0.001,
