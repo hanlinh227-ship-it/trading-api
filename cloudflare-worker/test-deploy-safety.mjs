@@ -162,6 +162,11 @@ const idx=name=>{const i=workflow.indexOf(name);assert.ok(i>=0,`missing step: ${
 assert.ok(idx('Capture currently-live revision for deterministic rollback')<idx('name: Deploy exact-main Worker'),'rollback target must be captured before the deploy');
 assert.ok(idx('Capture currently-live revision for deterministic rollback')<idx('Sync configured Model Mesh secrets'),'secrets (a production mutation) are synced only after the rollback target is captured');
 assert.ok(idx('Sync Universal Brain credentials')<idx('name: Deploy exact-main Worker'));
+// The manual probe must run before any step that calls /brain/mesh/plan on the fresh
+// revision: with zero live evidence, plan schedules a background self-heal probe that
+// races the canary's probe writes (run 35072895068 failed closed on that race).
+assert.ok(idx('name: Production Model Mesh provider canary')<idx('name: Production Model Mesh planner smoke'),'provider canary must precede the planner smoke');
+assert.ok(idx('name: Production Model Mesh provider canary')<idx('name: Production FAST and SECRET external boundary proof'));
 assert.equal((workflow.match(/npx wrangler deploy 2>&1 \| node redact-deploy-output\.mjs/g)||[]).length,2,'both real deploys (forward and rollback) must be piped through redaction');
 assert.match(workflow,/x\.keep_vars!==true/,'generated config must keep dashboard vars');
 assert.match(wranglerPrep,/keep_vars:true/);
