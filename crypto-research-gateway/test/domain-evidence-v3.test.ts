@@ -74,6 +74,39 @@ describe('V3 domain evidence enforcement', () => {
     expect(result.reasons).toContain('MISSING_SESSION_CONTEXT');
   });
 
+  it('fails closed when equivalent V3 bars disagree materially at the same event time', () => {
+    const observations = [...bars('1h', 'context'), ...bars('15m', 'entry')];
+    observations.push(v3Obs({
+      id: 'entry-conflict',
+      source: 'second-source',
+      timeframe: '15m',
+      eventTime: '2026-09-16T11:45:00.000Z',
+      ingestTime: '2026-09-16T11:45:02.000Z',
+      open: 1.24,
+      high: 1.255,
+      low: 1.235,
+      close: 1.25,
+      bid: 1.2498,
+      ask: 1.2502,
+    }));
+    const result = evaluateDomainEvidence('forex', observations, NOW);
+    expect(result.eligible).toBe(false);
+    expect(result.reasons).toContain('DATA_CONFLICT');
+  });
+
+  it('fails closed when one crypto candidate mixes spot and perpetual evidence', () => {
+    const observations = [...bars('1h', 'context'), ...bars('15m', 'entry')].map((item, index) => ({
+      ...item,
+      domain: 'crypto' as const,
+      symbol: 'BTCUSDT',
+      session: undefined,
+      instrumentType: index === 0 ? 'spot' as const : 'perpetual' as const,
+    }));
+    const result = evaluateDomainEvidence('crypto', observations, NOW);
+    expect(result.eligible).toBe(false);
+    expect(result.reasons).toContain('DATA_CONFLICT');
+  });
+
   it('blocks futures evidence without a resolved current contract', () => {
     const observations = [...bars('1h', 'context'), ...bars('15m', 'entry')].map((item) => ({
       ...item,
