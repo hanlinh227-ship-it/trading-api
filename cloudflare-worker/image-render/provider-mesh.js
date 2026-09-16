@@ -31,7 +31,7 @@ export function validateProviderModelRegistration(registration={}){
   return {ok:errors.length===0,errors};
 }
 
-function needsReferenceSafe(intent={}){
+export function requiresReferenceSafeRuntime(intent={}){
   return (Array.isArray(intent.referenceAssets)&&intent.referenceAssets.length>0)||REFERENCE_TASKS.has(String(intent.taskType||''));
 }
 
@@ -40,7 +40,7 @@ export function filterEligibleProviderModels(intent={},registrations=[]){
   const privacyClass=String(intent.privacyClass||'');
   const targetWidth=Number(intent.target?.width||0);
   const targetHeight=Number(intent.target?.height||0);
-  const requireReferenceSafe=needsReferenceSafe(intent);
+  const requireReferenceSafe=requiresReferenceSafeRuntime(intent);
   return registrations.filter(registration=>{
     if(!validateProviderModelRegistration(registration).ok)return false;
     if(!asStringArray(registration.supportedTasks).includes(taskType))return false;
