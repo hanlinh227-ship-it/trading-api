@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const wranglerPrep=fs.readFileSync('prepare-wrangler.mjs','utf8');
+const wranglerExample=fs.readFileSync('wrangler.example.jsonc','utf8');
+const index=fs.readFileSync('index.js','utf8');
+const batchState=fs.readFileSync('image-render/batch-state.js','utf8');
+assert.match(wranglerPrep,/IMAGE_RENDER_BATCH/);
+assert.match(wranglerPrep,/ImageRenderBatchState/);
+assert.match(wranglerPrep,/image-render-batch-v1/);
+assert.match(wranglerExample,/IMAGE_RENDER_BATCH/);
+assert.match(index,/export \{ImageRenderBatchState\} from '\.\/image-render\/batch-state\.js'/);
+assert.doesNotMatch(batchState,/TRADING_STATE/);
+console.log('IMAGE_RENDER_V2_DEPLOY_WIRING_TEST=PASS');

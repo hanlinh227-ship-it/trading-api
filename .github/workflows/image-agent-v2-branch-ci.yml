@@ -1,0 +1,69 @@
+name: image-agent-v2-branch-ci
+
+on:
+  push:
+    branches:
+      - design/image-agent-v2-20260916
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image-v2-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: cloudflare-worker/package-lock.json
+      - name: Install Node dependencies
+        working-directory: cloudflare-worker
+        run: npm ci --ignore-scripts
+      - name: Compile canonical Brain snapshots
+        run: |
+          python3 -m pip install --disable-pip-version-check -r AI_SKILL_LIBRARY/requirements.txt
+          python3 AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$GITHUB_SHA" --skip-tests
+      - name: Prepare generated Worker contracts
+        working-directory: cloudflare-worker
+        run: |
+          npm run prepare:universal-fabric
+          npm run prepare:skill-gateway
+          npm run prepare:model-mesh
+      - name: V1 regression
+        working-directory: cloudflare-worker
+        run: npm run test:image-render
+      - name: V2 contracts
+        if: ${{ hashFiles('cloudflare-worker/test-image-render-v2-contracts.mjs') != '' }}
+        working-directory: cloudflare-worker
+        run: node test-image-render-v2-contracts.mjs
+      - name: V2 provider
+        if: ${{ hashFiles('cloudflare-worker/test-image-render-v2-provider.mjs') != '' }}
+        working-directory: cloudflare-worker
+        run: node test-image-render-v2-provider.mjs
+      - name: V2 model router
+        if: ${{ hashFiles('cloudflare-worker/test-image-render-v2-model-router.mjs') != '' }}
+        working-directory: cloudflare-worker
+        run: node test-image-render-v2-model-router.mjs
+      - name: V2 quality
+        if: ${{ hashFiles('cloudflare-worker/test-image-render-v2-quality.mjs') != '' }}
+        working-directory: cloudflare-worker
+        run: node test-image-render-v2-quality.mjs
+      - name: V2 batch engine
+        if: ${{ hashFiles('cloudflare-worker/test-image-render-v2-batch-engine.mjs') != '' }}
+        working-directory: cloudflare-worker
+        run: node test-image-render-v2-batch-engine.mjs
+      - name: V2 batch state
+        if: ${{ hashFiles('cloudflare-worker/test-image-render-v2-batch-state.mjs') != '' }}
+        working-directory: cloudflare-worker
+        run: node test-image-render-v2-batch-state.mjs
+      - name: V2 handler
+        if: ${{ hashFiles('cloudflare-worker/test-image-render-v2-handler.mjs') != '' }}
+        working-directory: cloudflare-worker
+        run: node test-image-render-v2-handler.mjs
+      - name: V2 export
+        if: ${{ hashFiles('cloudflare-worker/test-image-render-v2-export.mjs') != '' }}
+        working-directory: cloudflare-worker
+        run: node test-image-render-v2-export.mjs
