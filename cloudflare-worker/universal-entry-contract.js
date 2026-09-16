@@ -105,4 +105,11 @@ export function effectiveProfile(canonicalProfile,safetyFloor){
   return PROFILE_RANK[canonical]>=PROFILE_RANK[floor]?canonical:floor;
 }
 
+export function degradedDecision({classification,stableSnapshotAvailable=false}={}){
+  const safe=classification?.safeDegradedAllowed===true&&classification?.highImpact!==true;
+  if(!stableSnapshotAvailable)return Object.freeze({allowed:false,mode:'unavailable',disclosureRequired:true});
+  if(!safe)return Object.freeze({allowed:false,mode:'fail_closed',disclosureRequired:true});
+  return Object.freeze({allowed:true,mode:'last_verified_stable',disclosureRequired:true});
+}
+
 export const UNIVERSAL_ENTRY_PROFILE_RANK=PROFILE_RANK;
