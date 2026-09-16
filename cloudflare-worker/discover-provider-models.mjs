@@ -8,7 +8,7 @@
 // Read-only. Prints provider ids, model ids, HTTP status and counts. Never a
 // key, never an Authorization header, never a response body.
 import fs from 'node:fs';
-import {catalogShape, freeLabel, listedPrice, probeEligibility as catalogProbeEligibility, sanitizeForLog} from './model-mesh/catalog-shape.js';
+import {CHAT_MODALITIES, catalogShape, classifyModality, freeLabel, listedPrice, probeEligibility as catalogProbeEligibility, resolveDisplayNames, sanitizeForLog} from './model-mesh/catalog-shape.js';
 
 const BINDINGS = JSON.parse(fs.readFileSync('AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json', 'utf8')).bindings;
 const MAX_MODELS_SHOWN = 40;
@@ -243,7 +243,8 @@ function freeCatalogFor(providerId) {
   const entry = FREE_CATALOGS.catalogs?.[providerId];
   if (!entry) return {usable: false, reason: 'NO_CATALOG_FOR_PROVIDER'};
   const ids = Array.isArray(entry.free_models) ? entry.free_models.filter(Boolean) : [];
-  if (!ids.length) return {usable: false, reason: `NO_CAPTURE (${entry.state || 'unknown'})`, entry};
+  const displayNames = Array.isArray(entry.free_display_names) ? entry.free_display_names.filter(Boolean) : [];
+  if (!ids.length && !displayNames.length) return {usable: false, reason: `NO_CAPTURE (${entry.state || 'unknown'})`, entry};
   if (policy.requires_account_holder_attestation !== false && !entry.account_holder_attestation) {
     return {usable: false, reason: 'NO_ACCOUNT_HOLDER_ATTESTATION', entry};
   }
@@ -252,7 +253,7 @@ function freeCatalogFor(providerId) {
   const windowDays = Number(policy.revalidate_after_days) > 0 ? Number(policy.revalidate_after_days) : 30;
   const ageDays = (Date.now() - capturedMs) / 86400000;
   if (ageDays > windowDays) return {usable: false, reason: `CAPTURE_STALE age_days=${ageDays.toFixed(1)} window_days=${windowDays}`, entry};
-  return {usable: true, ids, entry, ageDays, windowDays};
+  return {usable: true, ids, displayNames: displayNames.length ? displayNames : ids, entry, ageDays, windowDays};
 }
 
 const probeEligibility = (row) => catalogProbeEligibility(row, { allowUnpriced: ALLOW_UNPRICED, requireFreeLabel: REQUIRE_FREE_LABEL });
@@ -289,13 +290,29 @@ if (String(process.env.PROBE_COMPLETIONS || '') === '1') {
         console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_FREE_CATALOG_EVIDENCE listed=${models.length}`);
         continue;
       }
-      const present = new Set(models);
-      const intersection = catalog.ids.filter((id) => present.has(id));
-      const gone = catalog.ids.filter((id) => !present.has(id));
-      console.log(`PROVIDER_FREE_CATALOG provider=${providerId} verdict=USABLE source=${catalog.entry.source_url} label=${JSON.stringify(catalog.entry.free_tier_label || '')} captured_at=${catalog.entry.captured_at} age_days=${catalog.ageDays.toFixed(1)}/${catalog.windowDays} catalog_models=${catalog.ids.length} in_live_listing=${intersection.length}`);
-      if (gone.length) console.log(`PROVIDER_FREE_CATALOG_GONE provider=${providerId} ids=${JSON.stringify(gone)} (on the vendor catalog but absent from the live API listing)`);
-      if (!intersection.length) { console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_CATALOG_MODEL_IN_LIVE_LISTING listed=${models.length}`); continue; }
-      candidateRows = candidateRows.filter((row) => intersection.includes(String(row?.id || row?.name || '')));
+      console.log(`PROVIDER_FREE_CATALOG provider=${providerId} verdict=USABLE source=${catalog.entry.source_url} label=${JSON.stringify(catalog.entry.free_tier_label || '')} captured_at=${catalog.entry.captured_at} age_days=${catalog.ageDays.toFixed(1)}/${catalog.windowDays}`);
+
+      // Display names are not API ids. Resolve each against the live listing and
+      // report every outcome; an unresolved or ambiguous name is never guessed.
+      const resolutions = resolveDisplayNames(catalog.displayNames, models);
+      const matched = resolutions.filter((row) => row.status === 'matched');
+      for (const row of resolutions.filter((r) => r.status !== 'matched')) {
+        console.log(`PROVIDER_NAME_UNRESOLVED provider=${providerId} display=${JSON.stringify(row.displayName)} status=${row.status} reason=${row.reason} candidates=${JSON.stringify(row.candidates || [])}`);
+      }
+      // Classify before probing: an embedding, speech or video model sent to
+      // /chat/completions returns a meaningless 400 and teaches us nothing.
+      const classified = matched.map((row) => ({...row, modality: classifyModality(row.id)}));
+      const byModality = {};
+      for (const row of classified) (byModality[row.modality] ||= []).push(row.id);
+      console.log(`PROVIDER_NAME_RESOLVED provider=${providerId} matched=${matched.length}/${catalog.displayNames.length} by_modality=${JSON.stringify(byModality)}`);
+      for (const row of classified) {
+        console.log(`PROVIDER_CATALOG_RESOLUTION provider=${providerId} display=${JSON.stringify(row.displayName)} id=${row.id} modality=${row.modality} match=${row.match}`);
+      }
+      const chatIds = classified.filter((row) => CHAT_MODALITIES.includes(row.modality)).map((row) => row.id);
+      const nonChat = classified.filter((row) => !CHAT_MODALITIES.includes(row.modality));
+      if (nonChat.length) console.log(`PROVIDER_NON_CHAT_DEFERRED provider=${providerId} count=${nonChat.length} ids=${JSON.stringify(nonChat.map((row) => `${row.id}:${row.modality}`))} (classified, not probed as chat)`);
+      if (!chatIds.length) { console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_RESOLVED_CHAT_MODEL listed=${models.length} resolved=${matched.length}`); continue; }
+      candidateRows = candidateRows.filter((row) => chatIds.includes(String(row?.id || row?.name || '')));
     }
     if (MODEL_ALLOWLIST.length) {
       const present = new Set(models);

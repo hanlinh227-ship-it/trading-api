@@ -247,6 +247,23 @@ def validate_model_mesh(root: Path) -> list[str]:
             if not isinstance(models, list) or any(not isinstance(item, str) or not item.strip() for item in models):
                 errors.append(f"vendor free catalog free_models must be a list of model ids: {pid}")
             if models and not entry.get("captured_at"): errors.append(f"vendor free catalog lists models with no capture timestamp: {pid}")
+            # Display names are what a human read off a web page; ids are what the
+            # API answers to. Every resolved id has to say which name it came from
+            # and which probe run resolved it, or the mapping is just a guess with
+            # better formatting.
+            names = entry.get("free_display_names")
+            if names is not None and (not isinstance(names, list) or any(not isinstance(item, str) or not item.strip() for item in names)):
+                errors.append(f"vendor free catalog free_display_names must be a list of names: {pid}")
+            resolved = entry.get("resolved_from")
+            if resolved is not None and not isinstance(resolved, dict):
+                errors.append(f"vendor free catalog resolved_from must be a mapping: {pid}")
+            elif isinstance(resolved, dict):
+                for model_id in models or []:
+                    record = resolved.get(model_id)
+                    if not isinstance(record, dict) or not record.get("display_name") or not record.get("probe_run"):
+                        errors.append(f"resolved model lacks display-name and probe-run provenance: {pid}:{model_id}")
+                    elif names and record.get("display_name") not in names:
+                        errors.append(f"resolved model cites a display name that is not in the capture: {pid}:{model_id}")
 
     bindings_doc = documents.get("runtime_bindings", {})
     if bindings_doc:

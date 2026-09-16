@@ -91,3 +91,78 @@ export function catalogShape(rows = []) {
   }
   return { keys: [...keys].sort(), sample: rows.length ? sanitizeForLog(rows[0]) : null };
 }
+
+// --- Display name -> live API id -------------------------------------------
+//
+// A vendor web catalog shows display names; the API speaks ids. Turning one
+// into the other by hand is guessing, which is how two NVIDIA model ids that
+// did not exist got admitted earlier. So the mapping is mechanical and
+// conservative: normalize both sides, require exactly one live id to match, and
+// report anything else as unresolved rather than picking a likely-looking one.
+
+/** Lowercase, drop the vendor prefix, strip every non-alphanumeric character. */
+export function normalizeModelKey(value) {
+  const text = String(value ?? '').toLowerCase().trim();
+  const withoutVendor = text.includes('/') ? text.slice(text.indexOf('/') + 1) : text;
+  return withoutVendor.replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Resolve one display name against the live listing.
+ * `matched` only when exactly one live id normalizes to the same key.
+ */
+export function resolveDisplayName(displayName, liveIds = []) {
+  const key = normalizeModelKey(displayName);
+  if (!key) return {displayName, status: 'unresolved', reason: 'EMPTY_NAME', candidates: []};
+  const exact = liveIds.filter((id) => normalizeModelKey(id) === key);
+  if (exact.length === 1) return {displayName, status: 'matched', id: exact[0], match: 'exact_normalized'};
+  if (exact.length > 1) return {displayName, status: 'ambiguous', reason: 'MULTIPLE_EXACT_MATCHES', candidates: exact};
+  // Deliberately no prefix or fuzzy fallback: "ising-calibration" must not
+  // silently become "ising-calibration-1.5-31b". Near misses are reported so a
+  // human can confirm the real id, never resolved automatically.
+  // Containment, not just a shared prefix: "synthetic-video-detector" should
+  // surface "ai-synthetic-video-detector" as something to confirm, even though
+  // the live id carries an extra prefix.
+  const near = liveIds.filter((id) => {
+    const candidate = normalizeModelKey(id);
+    return candidate.includes(key) || key.includes(candidate);
+  });
+  return {displayName, status: 'unresolved', reason: near.length ? 'NO_EXACT_MATCH' : 'NOT_IN_LIVE_LISTING', candidates: near.slice(0, 5)};
+}
+
+export function resolveDisplayNames(displayNames = [], liveIds = []) {
+  return displayNames.map((name) => resolveDisplayName(name, liveIds));
+}
+
+// --- Modality ---------------------------------------------------------------
+//
+// The mesh needs text chat workers. Sending an embedding, speech or video model
+// to /chat/completions would produce a meaningless 400 and tell us nothing, so
+// each id is classified and only chat candidates are probed for that role. The
+// rest keep their class so a future capability can use them deliberately.
+const MODALITY_PATTERNS = [
+  ['embedding', /(?:^|[-/])(?:embed|embedding|embedqa)|nv-embed|arctic-embed|nemoretriever/],
+  ['rerank', /rerank/],
+  ['reward', /reward/],
+  ['safety', /guard|safety|topic-control|content-safety/],
+  ['audio', /\b(?:tts|asr)\b|[-/](?:tts|asr)[-/]?|voice|speech|magpie|audio|noise/],
+  ['video', /video|cosmos-transfer|streampetr|sparsedrive|bevformer/],
+  ['vision_specialized', /vila|kosmos|deplot|nvclip|paligemma|fuyu|diffusiongemma|detector/],
+];
+
+/**
+ * Classify a model id by modality. `text_chat` is the default because that is
+ * what the mesh routes, and a vision-INSTRUCT model is a chat model that also
+ * takes images -- not a vision-specialized endpoint.
+ */
+export function classifyModality(modelId) {
+  const id = String(modelId ?? '').toLowerCase();
+  if (!id) return 'unknown';
+  if (/vision-instruct|vision-language|-vl-|multimodal-instruct/.test(id)) return 'text_chat';
+  for (const [modality, pattern] of MODALITY_PATTERNS) {
+    if (pattern.test(id)) return modality;
+  }
+  return 'text_chat';
+}
+
+export const CHAT_MODALITIES = Object.freeze(['text_chat']);

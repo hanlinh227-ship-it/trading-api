@@ -28,17 +28,35 @@ assert.equal(nvidia.source_kind, 'vendor_web_catalog');
 assert.ok(nvidia.source_url.startsWith('https://'));
 assert.equal(nvidia.free_tier_label, 'Free Endpoint');
 
-// Nothing may be admitted from an uncaptured catalog. This is the state the
-// entry ships in, and shipping it any other way would assert a list nobody read.
-if (!nvidia.free_models.length) {
-  assert.equal(nvidia.state, 'PENDING_CAPTURE');
+// Nothing may be admitted from an unresolved catalog. Display names are what a
+// human read off a web page; ids are what the API answers to, and until a probe
+// run maps one to the other the resolved list stays empty.
+assert.ok(['PENDING_CAPTURE', 'PENDING_RESOLUTION', 'RESOLVED'].includes(nvidia.state), nvidia.state);
+if (nvidia.state === 'PENDING_CAPTURE') {
+  assert.equal(nvidia.free_models.length, 0);
   assert.equal(nvidia.captured_at, null);
   assert.equal(nvidia.account_holder_attestation, null);
 }
-// A populated capture must carry its provenance, or it is just a list.
-if (nvidia.free_models.length) {
-  assert.ok(nvidia.captured_at, 'a populated catalog needs a capture timestamp');
-  assert.ok(nvidia.account_holder_attestation, 'a populated catalog needs the account-holder attestation');
+if (nvidia.state === 'PENDING_RESOLUTION') {
+  assert.equal(nvidia.free_models.length, 0, 'no id may be admitted before a probe resolves it');
+  assert.ok(nvidia.free_display_names.length > 0);
+  assert.ok(nvidia.captured_at, 'a capture needs a timestamp');
+  assert.ok(nvidia.account_holder_attestation, 'a capture needs the account-holder attestation');
+}
+assert.equal(doc.policy.display_names_are_not_api_ids, true);
+
+// Every resolved id must cite the display name it came from and the probe run
+// that resolved it, and that name must be one the capture actually recorded.
+for (const id of nvidia.free_models) {
+  const record = nvidia.resolved_from?.[id];
+  assert.ok(record, `resolved id without provenance: ${id}`);
+  assert.ok(record.display_name, `resolved id without a display name: ${id}`);
+  assert.ok(record.probe_run, `resolved id without a probe run: ${id}`);
+  assert.ok(nvidia.free_display_names.includes(record.display_name), `display name is not in the capture: ${id}`);
+}
+// A capture goes stale; past the window it admits nothing.
+if (nvidia.captured_at) {
+  assert.ok(nvidia.account_holder_attestation, 'a capture needs the account-holder attestation');
   const ageDays = (Date.now() - Date.parse(nvidia.captured_at)) / 86400000;
   assert.ok(ageDays <= doc.policy.revalidate_after_days, `capture is stale: ${ageDays.toFixed(1)}d`);
   for (const id of nvidia.free_models) assert.equal(typeof id, 'string');
