@@ -115,11 +115,11 @@ This is the same listing-versus-liveness gap proven on Gemini. Re-admitting
 NVIDIA requires a probe-driven selection loop like the Gemini diagnostic - not
 another model id chosen by hand.
 
-**LIVE_HEALTHY: 4** - groq, cloudflare_workers_ai, openrouter,
-alibaba_model_studio. Re-confirmed on release 4.10.0 by deploy run 35047118737:
-the same four at 200, with gemini and mistral in COOLDOWN on 429. A rate limit
-is a cooldown and a rotation, not a loss - both re-enter when their window
-resets.
+**LIVE_HEALTHY: 5** on release 4.10.1 (deploy run 35051343161) - groq, cloudflare_workers_ai,
+openrouter, alibaba_model_studio and now **nvidia_nim** on
+`meta/muse-glimmer-30b` at 200 in 2013ms. gemini and mistral sit in COOLDOWN on
+429; a rate limit is a cooldown and a rotation, not a loss, and both re-enter
+when their window resets.
 
 ### Why entitlement stopped here, and what replaced it
 
@@ -283,20 +283,53 @@ That splits the two providers cleanly:
   model and ends the round there, instead of walking the rest of the list to
   collect the same answer.
 
+### Release 4.10.1: NVIDIA admitted on two-source evidence
+
+Probe run 35050894513 resolved the account holder's Free Endpoint capture
+against the live 82-model listing, and 4.10.1 shipped the one model that cleared
+every condition.
+
+**Resolution: 21 of 36 display names.** Each had to normalize to exactly one
+live id. The 15 that did not are out on purpose: 13 are absent from the API
+listing, and 2 are near misses whose candidates are recorded rather than chosen
+-- `ising-calibration` did not become ising-calibration-1.5-31b, and
+`synthetic-video-detector` did not become ai-synthetic-video-detector. Choosing
+either would repeat the guess that once put two non-existent ids in this
+registry.
+
+**Modality: 16 text_chat, 5 deferred.** One embedding, one vision-specialized
+and three safety models are recorded with their class and kept out of the chat
+pool. Sending them to `/chat/completions` would return a meaningless 400.
+
+**Admitted: `meta/muse-glimmer-30b`,** and only it. All four conditions held at
+once -- on the captured catalog, in the live listing, HTTP 200 on chat
+completions, covered by the attestation. Its provenance splits the evidence:
+`pricing_evidence_source: vendor_web_catalog` with the capture timestamp for
+price, the probe run for liveness, and a 30-day revalidation window so a web
+page cannot vouch for it indefinitely. The other 15 text_chat models are
+resolved and catalogued but unadmitted: the probe stops at its first success, so
+only one carries a completion PASS, and a resolution is not a liveness proof.
+
+Production verified by deploy run 35051343161 with no rollback:
+
+```
+MODEL_MESH_PROBE=PASS probed=7 configured=7 successful=5 unavailable=2
+MODEL_MESH_LIVE_OVERLAY=PASS active=5
+FREE_ONLY_ZERO_COST_GUARD=PASS models=7 zero_price=7 finite_quota=1 hard_stop_missing=0
+  paid_fallback=disabled auto_purchase=false next_quota_expiry=2026-11-21
+  classes={free_quota_hard_stop:1, recurring:3, account_specific:2, temporary_zero_price:1}
+SECRET_EXTERNAL_BOUNDARY=PASS http=403    DATACLASS_FAIL_CLOSED=PASS
+FAST_EXTERNAL_BOUNDARY=PASS external_workers=0 externalRoutingCalls=0
+FINAL_EXACT_SHA_GATE=PASS revision=168ba9cf5a08b51297b453d432198d93e9ecaa62
+```
+
 ### Remaining, in order of what unblocks most
 
-1. **nvidia_nim** — the only provider still open, and the mechanism for it is
-   built. Because the API exposes no free-tier field (0/82), pricing evidence
-   comes from the vendor's Free Endpoint catalog and liveness from the API
-   probe, recorded as two separate sources in
-   `AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json`. A model is
-   admitted only when all four hold: it is on the recorded catalog capture, it
-   is in the live API listing, a completion probe passes, and the account holder
-   attests the account is on the Free Endpoint tier. The capture carries a
-   timestamp and a 30-day revalidation window, so a stale capture quarantines
-   the model the same way a stale price does. The catalog entry is currently
-   `PENDING_CAPTURE`: it needs the Free Endpoint model ids and the attestation,
-   which cannot be read from the API and must not be guessed.
+1. **nvidia_nim** — admitted and LIVE_HEALTHY on `meta/muse-glimmer-30b`. What
+   remains is optional breadth, not a blocker: 15 resolved text_chat models
+   await a probe-all round (the probe stops at its first success), and the
+   Free Endpoint capture revalidates by 2026-10-16 or its model quarantines
+   itself.
 2. **opencode_zen** — closed as discovery-only on a provider restriction, not
    an account gap. Nothing to do here unless Zen opens its free tier to API
    clients.
