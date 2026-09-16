@@ -8,6 +8,8 @@ assert.equal(validateModelVaultEntry({...valid,commercialUseEligible:null}).ok,f
 assert.equal(validateModelVaultEntry({...valid,sourceRevision:''}).ok,false);
 assert.equal(validateModelVaultEntry({...valid,monetaryCost:'unknown'}).ok,false);
 assert.equal(validateModelVaultEntry({...valid,weightsLicense:'NON_COMMERCIAL'}).ok,false);
+assert.equal(validateModelVaultEntry({...valid,approvalStatus:'ACTIVE',runtimeConfigured:false}).ok,false,'ACTIVE model without a configured runtime must fail closed');
+assert.equal(validateModelVaultEntry({...valid,approvalStatus:'ACTIVE',runtimeConfigured:true}).ok,true,'ACTIVE model may validate only after runtime configuration');
 
 const vault=loadApprovedModelVault();
 assert.ok(vault.length>=4);
