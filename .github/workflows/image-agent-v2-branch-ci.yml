@@ -19,12 +19,19 @@ jobs:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: cloudflare-worker/package-lock.json
-      - name: Install
+      - name: Install Node dependencies
         working-directory: cloudflare-worker
         run: npm ci --ignore-scripts
-      - name: Prepare generated model-mesh runtime
+      - name: Compile canonical Brain snapshots
+        run: |
+          python3 -m pip install --disable-pip-version-check -r AI_SKILL_LIBRARY/requirements.txt
+          python3 AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$GITHUB_SHA" --skip-tests
+      - name: Prepare generated Worker contracts
         working-directory: cloudflare-worker
-        run: npm run prepare:model-mesh
+        run: |
+          npm run prepare:universal-fabric
+          npm run prepare:skill-gateway
+          npm run prepare:model-mesh
       - name: V1 regression
         working-directory: cloudflare-worker
         run: npm run test:image-render
