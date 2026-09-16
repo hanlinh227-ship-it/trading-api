@@ -1,0 +1,102 @@
+name: Smoke Free Image Agent
+
+on:
+  push:
+    branches: [smoke/free-image-agent-20260916]
+    paths:
+      - '.github/workflows/smoke-free-image-agent.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: smoke/free-image-agent-20260916
+      - name: Render one public image through production agent
+        env:
+          TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+          BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$TOKEN"
+          mkdir -p artifacts
+          curl -fsS "$BASE_URL/brain/image/health" -o artifacts/health.json
+          python - <<'PY'
+          import json
+          h=json.load(open('artifacts/health.json'))
+          assert h.get('ok') is True, h
+          assert h.get('executionEnabled') is True, h
+          assert h.get('mode') == 'FREE_ONLY', h
+          print('IMAGE_AGENT_HEALTH=PASS provider=', h.get('provider'))
+          PY
+          cat > /tmp/render.json <<'JSON'
+          {
+            "dataClass":"PUBLIC",
+            "prompt":"A charming tiny blue robot watering a single golden sunflower in a whimsical sunny garden, polished 3D animated illustration, soft natural light, expressive friendly pose, clean composition, rich detail, square image, no text, no watermark",
+            "negativePrompt":"blurry, distorted, extra limbs, duplicated objects, text, watermark, logo, low quality",
+            "width":512,
+            "height":512,
+            "steps":12,
+            "n":1
+          }
+          JSON
+          curl -fsS -X POST "$BASE_URL/brain/image/render" \
+            -H "content-type: application/json" \
+            -H "x-model-mesh-token: $TOKEN" \
+            --data-binary @/tmp/render.json -o artifacts/submit.json
+          JOB_ID="$(python - <<'PY'
+          import json
+          x=json.load(open('artifacts/submit.json'))
+          assert x.get('ok') is True, x
+          print(x['jobId'])
+          PY
+          )"
+          echo "JOB_ID=$JOB_ID"
+          done_flag=0
+          for i in $(seq 1 72); do
+            curl -fsS "$BASE_URL/brain/image/check?id=$JOB_ID" \
+              -H "x-model-mesh-token: $TOKEN" -o artifacts/check.json
+            python - <<'PY'
+          import json
+          x=json.load(open('artifacts/check.json'))
+          print('queue=',x.get('queuePosition'),'wait=',x.get('waitTime'),'done=',x.get('done'),'faulted=',x.get('faulted'))
+          assert x.get('faulted') is not True, x
+          PY
+            if python - <<'PY'
+          import json,sys
+          x=json.load(open('artifacts/check.json'))
+          sys.exit(0 if x.get('done') else 1)
+          PY
+            then done_flag=1; break; fi
+            sleep 10
+          done
+          test "$done_flag" = 1
+          curl -fsS "$BASE_URL/brain/image/status?id=$JOB_ID" \
+            -H "x-model-mesh-token: $TOKEN" -o artifacts/status.json
+          IMAGE_URL="$(python - <<'PY'
+          import json
+          x=json.load(open('artifacts/status.json'))
+          assert x.get('ok') is True and x.get('done') is True, x
+          g=x.get('generations') or []
+          assert g and g[0].get('imageUrl'), x
+          print(g[0]['imageUrl'])
+          PY
+          )"
+          curl -fL --retry 3 --retry-delay 2 "$IMAGE_URL" -o artifacts/free-image-agent-smoke.webp
+          file artifacts/free-image-agent-smoke.webp
+          test -s artifacts/free-image-agent-smoke.webp
+      - name: Commit smoke output to temporary branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artifacts/health.json artifacts/submit.json artifacts/check.json artifacts/status.json artifacts/free-image-agent-smoke.webp
+          git commit -m 'test(image): record live free-agent smoke output'
+          git push origin HEAD:smoke/free-image-agent-20260916
