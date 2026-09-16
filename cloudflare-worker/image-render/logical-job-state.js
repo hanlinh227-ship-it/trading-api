@@ -1,5 +1,7 @@
 import {applyLogicalJobEvent,cancelLogicalJob,createLogicalJob,nextLogicalJobActions,retryLogicalJobScenes} from './logical-job-engine.js';
 import {cancelImageBatch,createImageBatch,getImageBatchStatus} from './batch-client.js';
+import {createImageProviderMesh} from './provider-mesh.js';
+import {validateReferenceRoute} from './reference-profile.js';
 
 const STATE_KEY='image-logical-job-state-v3';
 const TERMINAL=new Set(['complete','complete_with_failures','cancelled']);
@@ -8,9 +10,18 @@ const ACTIVE_SCENE_STATES=new Set(['provider_processing']);
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8'}});
 const clone=value=>structuredClone(value);
 
-function v2Eligible(scene){
+const REFERENCE_TASKS=new Set(['REFERENCE_GENERATION','CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY','IMAGE_EDIT_GLOBAL','IMAGE_EDIT_LOCAL','INPAINT','OUTPAINT','BACKGROUND_REPLACE','OBJECT_REPLACE','TEXT_RENDER_EDIT','MULTI_IMAGE_COMPOSE','TARGETED_REPAIR']);
+
+// Eligibility is decided by the provider mesh's own gates (FREE_ONLY, privacy class,
+// reference safety, task capability, resolution, health) rather than a second hardcoded
+// list here, so registering a reference-safe free runtime actually enables it.
+function routeScene(scene,mesh){
   const intent=scene?.intent||{};
-  return intent.privacyClass==='PUBLIC'&&Array.isArray(intent.referenceAssets)&&intent.referenceAssets.length===0&&['TEXT_TO_IMAGE','MULTI_SCENE_BATCH'].includes(intent.taskType);
+  const eligible=mesh.eligible(intent);
+  const needsReferenceSafe=(Array.isArray(intent.referenceAssets)&&intent.referenceAssets.length>0)||REFERENCE_TASKS.has(String(intent.taskType||''));
+  if(needsReferenceSafe)return validateReferenceRoute({intent,providerModel:eligible[0]||null});
+  if(!eligible.length)return {ok:false,state:'WAITING_FOR_FREE_COMPUTE',reason:'no_eligible_free_provider'};
+  return {ok:true,state:'ELIGIBLE',providerModel:eligible[0]};
 }
 
 function physicalManifest(state,chunk){
@@ -123,8 +134,11 @@ export function createImageLogicalJobClass({
         const action=actions[0];
         const chunk=state.chunks.find(item=>item.id===action.chunkId);
         const selected=action.sceneIds.map(id=>state.scenes.find(scene=>scene.id===id)).filter(Boolean);
-        if(!selected.every(v2Eligible)){
-          state=applyLogicalJobEvent(state,{type:'WAITING_FOR_SAFE_FREE_RUNTIME'});
+        const mesh=createImageProviderMesh();
+        const blocked=selected.map(scene=>routeScene(scene,mesh)).find(route=>!route.ok);
+        if(blocked){
+          // Never drop a reference or downgrade privacy to force execution: wait instead.
+          state=applyLogicalJobEvent(state,{type:blocked.state==='WAITING_FOR_FREE_COMPUTE'?'WAITING_FOR_FREE_COMPUTE':'WAITING_FOR_SAFE_FREE_RUNTIME'});
           await this.save(state);await this.schedule(30);return state;
         }
         const manifest=physicalManifest(state,chunk);
