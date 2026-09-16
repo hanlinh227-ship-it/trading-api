@@ -52,6 +52,7 @@ export async function submitAiHordeImage({prompt,negativePrompt='',width=512,hei
   const safeHeight=snap64(clampInt(height,256,1536,512));
   const safeSteps=clampInt(steps,4,40,20);
   const safeN=clampInt(n,1,4,1);
+  const requestedModels=Array.isArray(models)?models.map(value=>String(value).trim()).filter(Boolean).slice(0,4):[];
   const payload={
     prompt:negative?`${positive} ### ${negative}`:positive,
     params:{
@@ -66,7 +67,7 @@ export async function submitAiHordeImage({prompt,negativePrompt='',width=512,hei
       post_processing:[],
       ...(seed!==null&&seed!==undefined&&String(seed).trim()!==''?{seed:String(seed)}:{}),
     },
-    allow_downgrade:true,
+    allow_downgrade:requestedModels.length===0,
     nsfw:false,
     censor_nsfw:true,
     trusted_workers:false,
@@ -76,7 +77,6 @@ export async function submitAiHordeImage({prompt,negativePrompt='',width=512,hei
     slow_workers:true,
     dry_run:false,
   };
-  const requestedModels=Array.isArray(models)?models.map(value=>String(value).trim()).filter(Boolean).slice(0,4):[];
   if(requestedModels.length)payload.models=requestedModels;
   let response;
   try{
