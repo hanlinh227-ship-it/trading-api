@@ -1,16 +1,17 @@
-# Universal Brain Fabric 4.11.0 — Candidate Closure Checkpoint
+# Universal Brain Fabric 4.11.0 — Production Closure Checkpoint
 
 Date: 2026-09-16
 Architecture: GITHUB_BRAIN_V4
-Status: CANDIDATE / NOT YET PRODUCTION KNOWN-GOOD
-Implementation branch: `claude/universal-brain-fabric-design`
+Status: PRODUCTION KNOWN-GOOD / EXACT-SHA VERIFIED
 Target release: `4.11.0`
+Production source SHA: `879020027b99452f8c0af1eb2df014711e95e6d7`
+Production workflow run: `35064421728` attempt 2
 
-## Scope completed on the candidate branch
+## Production-closed scope
 
-The candidate extends the existing V4 Brain instead of creating a second routing or reasoning authority.
+Universal Brain Fabric 4.11.0 extends the existing V4 Brain instead of creating a second routing or reasoning authority.
 
-Implemented surfaces include:
+Production-verified surfaces include:
 
 - Universal Entry contract and Cloudflare Worker routes for shared Brain routing/health/capabilities.
 - Independent adapter identities/scopes for ChatGPT, Claude, Gemini, plus an internal Evergreen principal.
@@ -20,9 +21,9 @@ Implemented surfaces include:
 - Portable Shared Brain State abstraction with namespaced KV baseline and optional vector/object/queue/lock interfaces that remain non-authoritative.
 - Candidate-first memory submission, deterministic review/promotion gates, supersession, provenance, and bounded STANDARD/DEEP context retrieval.
 - Reusable Universal Brain client SDK and public ChatGPT/Claude/Gemini adapter manifests/OpenAPI contract.
-- Upstream Watch capability diff, source gating, Skill Forge triage, failure-driven learning, and bounded A/B autonomous promotion evidence while C/D remain approval-gated.
+- Upstream Watch capability diff, source gating, Skill Forge triage, failure-driven learning, and bounded A/B autonomous promotion while C/D remain approval-gated.
 - Universal Fabric canary validation and deploy-safety checks integrated into the sole production deploy workflow.
-- Release candidate `4.11.0` generated through canonical release tooling with Universal Fabric policy and adapter registry included in the release manifest.
+- Release `4.11.0` generated through canonical release tooling with Universal Fabric policy and adapter registry included in the release manifest.
 
 ## Invariants preserved
 
@@ -35,51 +36,56 @@ Implemented surfaces include:
 - Candidate memory, upstreams, runtime caches, telemetry, and external providers remain non-authoritative until canonical promotion where applicable.
 - Hidden chain-of-thought/raw private chat/secrets/private provider payloads are not persisted.
 
-## Production prerequisites
+## Credential closure
 
-The repository implementation can be reviewed and merged without committing credential values. To claim all three user adapters operational in production, the deployment environment must provide these Worker/GitHub-managed secrets without exposing their values:
+The production workflow verified and synchronized all required Universal Brain credentials without exposing their values:
 
 - `BRAIN_CLIENT_CHATGPT_TOKEN`
 - `BRAIN_CLIENT_CLAUDE_TOKEN`
 - `BRAIN_CLIENT_GEMINI_TOKEN`
-- `BRAIN_EVERGREEN_TOKEN` before automated memory-review operations are considered operational
+- `BRAIN_EVERGREEN_TOKEN`
 
-Secret values must never be stored in repository files, workflow logs, generated config vars, durable memory, or telemetry.
+Secret values remain excluded from repository files, generated config vars, durable memory, telemetry, and unredacted deploy output.
 
-## Platform connection boundary
+## Production evidence
 
-The Brain endpoint and adapter contract can be production-ready, but the repository cannot globally intercept native third-party ChatGPT, Claude, or Gemini consumer UI traffic. Each external product must expose and receive a supported connector, custom integration, application hook, or adapter installation once before its chats can automatically invoke this Brain.
-
-This checkpoint therefore distinguishes:
-
-1. **Brain/adapter runtime readiness** — proven by repository tests, CI, deploy canary, and exact-SHA production verification.
-2. **Per-platform client connection** — a separate supported integration step on ChatGPT/Claude/Gemini or future clients.
-
-## Required verification before known-good
-
-The candidate must not be marked known-good until the reviewed PR head is merged to `main`, the sole production workflow deploys that exact merged SHA, and live evidence confirms at minimum:
+The exact merged SHA `879020027b99452f8c0af1eb2df014711e95e6d7` passed the sole production deployment path. Live evidence confirmed:
 
 - `UNIVERSAL_BRAIN_HEALTH=PASS`
 - `UNIVERSAL_ADAPTER_CANARY=PASS chatgpt claude gemini`
 - `UNIVERSAL_HIGH_RISK_FAIL_CLOSED=PASS`
 - `FAST_EXTERNAL_BOUNDARY=PASS`
 - `SECRET_EXTERNAL_BOUNDARY=PASS`
+- unknown data classes fail closed to SECRET
 - `FREE_ONLY_ZERO_COST_GUARD=PASS`
-- `MODEL_MESH_PROBE=PASS`
+- `MODEL_MESH_PROBE=PASS` with a healthy live-provider subset and bounded failover
+- `TINYFISH` search/fetch evidence canaries PASS
 - `FINAL_EXACT_SHA_GATE=PASS`
+- `SKILL_MANDATORY_FAST_GATEWAY_DEPLOY=PASS`
 
-The deployed runtime revision, Brain snapshot source SHA, and merged `main` SHA must agree. If protected regressions appear, rollback must use the existing deterministic known-good release path rather than a new rollback mechanism.
+The production runtime revision and merged `main` SHA agreed. The deterministic rollback target captured before deployment was `5356c5d320ed020dd19318efa488a94da731bb4b`; rollback was not invoked because mandatory production gates passed.
+
+## Platform connection boundary
+
+The Brain endpoint and adapter contract are production-ready and each ChatGPT/Claude/Gemini backend adapter passed authenticated production canary checks. This does **not** mean the repository can globally intercept every native third-party consumer UI conversation.
+
+A native ChatGPT, Claude, Gemini, or future client must still expose and receive a supported connector, custom integration, application hook, or adapter installation before that client UI can automatically invoke this Brain. Backend readiness and per-platform native-client attachment remain distinct states.
 
 ## Current closure state
 
-- Candidate release prepared: YES (`4.11.0`)
-- Universal implementation present on branch: YES
+- Release prepared: YES (`4.11.0`)
+- Universal implementation merged to `main`: YES
 - Release manifest includes Universal Fabric policy and adapter registry: YES
-- PR CI verification: PENDING
-- Broad code review: PENDING
-- Merge to `main`: PENDING
-- Production deploy exact merged SHA: PENDING
-- Live canary / exact-SHA closure: PENDING
-- Known-good marking: PENDING
+- PR CI verification: PASS
+- Merge to `main`: PASS
+- Production deploy exact merged SHA: PASS
+- Universal Brain health: PASS
+- ChatGPT/Claude/Gemini backend adapter canary: PASS
+- High-risk fail-closed verification: PASS
+- FREE_ONLY / FAST / SECRET boundaries: PASS
+- Model Mesh live-provider canary and bounded failover: PASS
+- TinyFish optional evidence canary: PASS
+- Final exact-SHA gate: PASS
+- Release metadata known-good marking: YES
 
-Until all pending items above are completed, this release remains a candidate and must not be represented as production known-good.
+Universal Brain Fabric 4.11.0 is production known-good at the verified production SHA above. Future source changes still require the normal CI, canary, exact-SHA and rollback gates before a newer SHA can inherit that status.

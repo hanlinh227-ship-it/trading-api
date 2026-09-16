@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
+
 from AI_SKILL_LIBRARY.v4.tools.release import (
     load_release_pointer,
     rollback_release,
@@ -27,6 +29,21 @@ class V4ReleaseTests(unittest.TestCase):
         pointer = load_release_pointer(root)
         self.assertFalse(Path(pointer["manifest_path"]).is_absolute())
         self.assertNotIn("..", Path(pointer["manifest_path"]).parts)
+
+    def test_current_release_history_and_manifest_validation_are_consistent(self):
+        root = Path(__file__).resolve().parents[2]
+        pointer = load_release_pointer(root)
+        version = pointer["version"]
+        history = yaml.safe_load((root / "AI_SKILL_LIBRARY/v4/releases/history.yaml").read_text(encoding="utf-8"))
+        row = next(item for item in history["releases"] if item["version"] == version)
+        manifest = yaml.safe_load((root / pointer["manifest_path"]).read_text(encoding="utf-8"))
+        known_good = row.get("known_good") is True
+        validated = manifest.get("promotion", {}).get("validated") is True
+        self.assertEqual(
+            known_good,
+            validated,
+            f"active release {version} closure drift: history.known_good={known_good} manifest.promotion.validated={validated}",
+        )
 
     def test_rollback_requires_known_good_previous_release(self):
         with tempfile.TemporaryDirectory() as tmp:
