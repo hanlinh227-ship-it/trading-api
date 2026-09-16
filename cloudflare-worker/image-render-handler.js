@@ -1,0 +1,90 @@
+import {timingSafeToken} from './model-mesh/auth.js';
+import {sanitizeDataClass} from './model-mesh/contracts.js';
+import {aiHordeHealth,cancelAiHordeImage,checkAiHordeImage,resolveAiHordeKey,statusAiHordeImage,submitAiHordeImage} from './image-render/ai-horde.js';
+
+const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
+const enabled=env=>String(env?.IMAGE_RENDER_EXECUTION_ENABLED||'0')==='1';
+const configuredToken=env=>String(env?.IMAGE_RENDER_EXECUTION_TOKEN||env?.MODEL_MESH_EXECUTION_TOKEN||'');
+const suppliedToken=request=>String(request.headers.get('x-image-render-token')||request.headers.get('x-model-mesh-token')||'');
+
+async function authorize(request,env){
+  const expected=configuredToken(env);
+  if(!expected)return false;
+  return timingSafeToken(expected,suppliedToken(request));
+}
+
+export function createImageRenderHandler({fetchImpl=fetch}={}){
+  return async function handleImageRender(request,env={}){
+    const url=new URL(request.url);
+    if(!url.pathname.startsWith('/brain/image/'))return null;
+
+    if(url.pathname==='/brain/image/health'){
+      if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
+      const provider=await aiHordeHealth({fetchImpl});
+      return json({
+        ok:true,
+        mode:'FREE_ONLY',
+        routingAuthority:false,
+        reasoningAuthority:false,
+        executionEnabled:enabled(env),
+        executionTokenConfigured:Boolean(configuredToken(env)),
+        provider:{id:'ai_horde',reachable:provider.ok,status:provider.status,anonymousAccess:true,monetaryCost:'zero',queuePriority:'lowest_when_anonymous'},
+        privacy:{allowedDataClasses:['PUBLIC'],explicitDataClassRequired:true,nonPublicAction:'fail_closed',referenceImagesEnabled:false,anonymousRequestsMayBeSharedByProvider:true},
+        paidFallback:false,
+        externalAvailabilityGuarantee:false,
+      });
+    }
+
+    if(!enabled(env))return json({ok:false,error:'image_render_execution_disabled'},503);
+    if(!await authorize(request,env))return json({ok:false,error:'unauthorized'},401);
+    const apiKey=resolveAiHordeKey(env);
+
+    if(url.pathname==='/brain/image/render'){
+      if(request.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
+      let body;try{body=await request.json();}catch{return json({ok:false,error:'invalid_json'},400);}
+      if(body?.dataClass===undefined||body?.dataClass===null||String(body.dataClass).trim()==='')return json({ok:false,error:'data_class_required'},400);
+      const dataClass=sanitizeDataClass(body.dataClass);
+      if(dataClass!=='PUBLIC')return json({ok:false,error:'ai_horde_public_data_only',dataClass},403);
+      if(typeof body?.prompt!=='string'||!body.prompt.trim())return json({ok:false,error:'invalid_prompt'},400);
+      if(body.prompt.length>12000||String(body?.negativePrompt||'').length>6000)return json({ok:false,error:'prompt_too_large'},413);
+      if(body?.referenceImages!==undefined||body?.sourceImage!==undefined)return json({ok:false,error:'reference_images_not_enabled_for_volunteer_provider'},409);
+      const result=await submitAiHordeImage({
+        prompt:body.prompt,
+        negativePrompt:body.negativePrompt,
+        width:body.width,
+        height:body.height,
+        steps:body.steps,
+        n:body.n,
+        seed:body.seed,
+        models:body.models,
+        apiKey,
+        fetchImpl,
+      });
+      if(!result.ok)return json({ok:false,error:result.error,provider:'ai_horde',providerStatus:result.status},result.status>=400&&result.status<600?result.status:502);
+      return json({ok:true,mode:'FREE_ONLY',paidFallback:false,dataClass,provider:'ai_horde',jobId:result.jobId,kudos:result.kudos,anonymous:result.anonymous,anonymousRequestsMayBeSharedByProvider:result.anonymous,request:result.request,statusUrl:`/brain/image/status?id=${encodeURIComponent(result.jobId)}`},202);
+    }
+
+    if(url.pathname==='/brain/image/check'){
+      if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
+      const result=await checkAiHordeImage({jobId:url.searchParams.get('id'),apiKey,fetchImpl});
+      if(!result.ok)return json({ok:false,error:result.error,provider:'ai_horde',providerStatus:result.status},result.status>=400&&result.status<600?result.status:502);
+      return json({...result,mode:'FREE_ONLY',paidFallback:false});
+    }
+
+    if(url.pathname==='/brain/image/status'){
+      if(request.method==='DELETE'){
+        const result=await cancelAiHordeImage({jobId:url.searchParams.get('id'),apiKey,fetchImpl});
+        if(!result.ok)return json({ok:false,error:result.error,provider:'ai_horde',providerStatus:result.status},result.status>=400&&result.status<600?result.status:502);
+        return json({...result,mode:'FREE_ONLY',paidFallback:false});
+      }
+      if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
+      const result=await statusAiHordeImage({jobId:url.searchParams.get('id'),apiKey,fetchImpl});
+      if(!result.ok)return json({ok:false,error:result.error,provider:'ai_horde',providerStatus:result.status},result.status>=400&&result.status<600?result.status:502);
+      return json({...result,mode:'FREE_ONLY',paidFallback:false});
+    }
+
+    return json({ok:false,error:'image_render_endpoint_not_found'},404);
+  };
+}
+
+export const handleImageRender=createImageRenderHandler();

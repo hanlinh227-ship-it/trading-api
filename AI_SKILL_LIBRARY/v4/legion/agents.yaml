@@ -93,6 +93,31 @@ agents:
     verification_required: true
     routing_authority: false
     reasoning_authority: false
+  image_render_agent:
+    agent_id: image_render_agent
+    division: creative
+    domains: [prompt_media, design_2d, adobe]
+    modes: [plan, execute, review]
+    input_contract: legion_task_v1
+    output_contract: legion_worker_result_v1
+    tools: [image_render]
+    sources: [project_authority, creative_skill_library, image_render_policy]
+    permission_ceiling: sandbox_execute
+    risk_ceiling: A
+    model_capabilities: [prompt_media, image_generation, vision]
+    privacy_classes: [PUBLIC]
+    max_retries: 2
+    provenance_required: true
+    verification_required: true
+    routing_authority: false
+    reasoning_authority: false
+    runtime:
+      policy_path: AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml
+      health_path: /brain/image/health
+      submit_path: /brain/image/render
+      status_path: /brain/image/status
+      free_only: true
+      paid_fallback: false
   uxui_reviewer:
     agent_id: uxui_reviewer
     division: uxui
