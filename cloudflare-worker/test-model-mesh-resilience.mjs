@@ -74,6 +74,24 @@ const noDelay=async()=>{};
 }
 
 // ===========================================================================
+// 4b. A QUARANTINED model is not re-called inside its quarantine window
+// ===========================================================================
+{
+  const kv=makeKv();
+  for(let i=0;i<QUARANTINE_FAILURE_THRESHOLD.MODEL_NOT_FOUND;i+=1){
+    await writeProbeHealth(kv,baseModel,{ok:false,category:'MODEL_NOT_FOUND',latencyMs:3},{sourceSha:SHA,nowMs:Date.now(),delay:noDelay});
+  }
+  assert.equal((await readModelHealth(kv,baseModel,{sourceSha:SHA})).state,'QUARANTINED');
+  let calls=0;
+  const probe=createProviderProbe({fetchImpl:async()=>{calls+=1;return new Response(JSON.stringify({choices:[{message:{content:'OK'}}]}),{status:200,headers:{'content-type':'application/json'}});}});
+  const envelope=await probe({GROQ_API_KEY:'k'.repeat(24),TRADING_STATE:kv},{modelSnapshot:{source_sha:SHA,models:[baseModel]}});
+  assert.equal(calls,0,'policy quarantine_before_next_request: a probe is a request');
+  assert.equal(envelope.results[0].state,'QUARANTINED');
+  assert.equal(envelope.results[0].skipped,'quarantine_active');
+  assert.equal(envelope.results[0].evidencePersisted,true);
+}
+
+// ===========================================================================
 // 5. Stale evidence, all providers down, and graceful zero
 // ===========================================================================
 {

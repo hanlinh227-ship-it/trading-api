@@ -5,7 +5,7 @@ import {providerRuntimeStatus} from './model-mesh/runtime-health.js';
 import {selectionCandidate,MODEL_MESH_LIMITS,MODEL_MESH_SELECTION_FILTERS} from './model-mesh/contracts.js';
 import {capabilityEvidenceDiagnostics} from './model-mesh/capability-evidence.js';
 import {timingSafeToken} from './model-mesh/auth.js';
-import {scheduleSelfHeal} from './model-mesh/self-heal.js';
+import {markSelfHealAttempt,scheduleSelfHeal} from './model-mesh/self-heal.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 
@@ -44,6 +44,8 @@ export function createModelMeshHandler({skillSnapshot,modelSnapshot,activeIndex,
       const supplied=String(request.headers.get('x-model-mesh-token')||'');
       if(!await timingSafeToken(expected,supplied))return json({ok:false,error:'unauthorized'},401);
       if(typeof probeProviders!=='function')return json({ok:false,error:'mesh_probe_not_configured'},503);
+      // Same work as the cron/self-heal probe: record the shared claim so they yield to this run.
+      await markSelfHealAttempt(env?.TRADING_STATE);
       const result=await probeProviders(env,{modelSnapshot,ctx});
       return json(result);
     }

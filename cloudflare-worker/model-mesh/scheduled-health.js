@@ -39,8 +39,9 @@ export function assertHealthOnlyCrons(crons) {
 /**
  * Run one bounded health refresh for a scheduled event.
  *
- * Fails closed on an unrecognised cron, shares the self-heal KV lock so a
- * request-triggered probe and this cron can never probe concurrently, and
+ * Fails closed on an unrecognised cron, shares the self-heal KV claim with the
+ * request-triggered self-heal probe and the authenticated manual probe (which
+ * records the same claim), so the three paths do not probe back-to-back, and
  * isolates provider failures: a provider outage must not surface as a failed
  * scheduled invocation.
  */
