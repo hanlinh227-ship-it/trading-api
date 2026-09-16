@@ -1,0 +1,34 @@
+version: 1
+authority: GITHUB_BRAIN_V4
+adapter_authority: false
+routing:
+  FAST:
+    online_brain_required: false
+    external_routing_calls: 0
+    hot_snapshot_required: true
+    synchronous_shared_state: false
+  STANDARD:
+    online_brain_required: true
+    external_routing_calls: bounded
+  DEEP:
+    online_brain_required: true
+    external_routing_calls: bounded
+degraded:
+  safe_mode: last_verified_stable
+  fail_closed_classes:
+    - live_or_trading
+    - deployment_or_runtime_claim
+    - credential_sensitive
+    - financial
+    - destructive
+    - permission_change
+shared_state:
+  canonical_authority: github
+  runtime_authority: false
+  raw_chat_sync: false
+  secrets_allowed: false
+learning:
+  candidate_first: true
+  autonomous_promotion_classes: [A, B]
+  approval_required_classes: [C, D]
+  permission_widening: false
