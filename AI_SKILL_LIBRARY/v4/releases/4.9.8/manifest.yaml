@@ -1,4 +1,4 @@
-version: 4.9.7
+version: 4.9.8
 architecture: GITHUB_BRAIN_V4
 files:
 - path: AI_SKILL_LIBRARY/v4/stable/kernel.yaml
@@ -65,7 +65,7 @@ files:
   sha256: 6e70300c5263aa689084650b00cfa31e31cabb6ce2f9269e19e442d1ad6dcc72
   role: model_mesh_providers
 - path: AI_SKILL_LIBRARY/v4/model_mesh/active.json
-  sha256: 1a6d36e27bab92b11f8e5f63981955efbce522d6ae938f0d8afd6e22f5e59d71
+  sha256: bb4c2ffd33e3c4dfbc034503e3d51815c901f6fc1c97d260dfef19cd316f39ce
   role: model_mesh_active
 - path: AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json
   sha256: 4efe477a98f6e9cdde2fce72ad8c65a91242c09cce3417f98648b070789bb5d7
@@ -155,5 +155,5 @@ compatibility:
   min_architecture: 4.0.0
 promotion:
   class: patch
-  validated: true
-  source: probe_verdict_correction
+  validated: false
+  source: keep_only_passing_providers
