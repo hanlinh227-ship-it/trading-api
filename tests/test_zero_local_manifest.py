@@ -74,20 +74,24 @@ class ZeroLocalManifestTests(unittest.TestCase):
             "deploymentCommitSha",
             "GITHUB_SHA",
             "bybit LONG BTCUSDT ask",
+            "bybit SHORT BTCUSDT bid",
             "Production venue-bound execution smoke",
         ):
             self.assertIn(required, text)
         self.assertNotIn("binance LONG BTCUSDT ask", production)
         self.assertNotIn("binance SHORT SOLUSDT bid", production)
+        self.assertNotIn("bybit SHORT SOLUSDT bid", production)
 
-    def test_production_smoke_does_not_hard_fail_on_optional_research_venue_rate_limits(self):
+    def test_production_smoke_does_not_promote_research_only_symbols_or_optional_venues(self):
         text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
         production = text.split("  production-smoke:", 1)[1]
-        self.assertIn("bybit LONG BTCUSDT ask", production)
-        self.assertIn("bybit SHORT SOLUSDT bid", production)
+        self.assertIn("'bybit LONG BTCUSDT ask'", production)
+        self.assertIn("'bybit SHORT BTCUSDT bid'", production)
+        self.assertNotIn("'bybit SHORT SOLUSDT bid'", production)
         self.assertNotIn("'binance LONG BTCUSDT ask'", production)
         self.assertNotIn("'binance SHORT SOLUSDT bid'", production)
-        self.assertNotIn("required_execution_venues:\n    - bybit\n    - binance", (ROOT / "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml").read_text(encoding="utf-8"))
+        manifest_text = (ROOT / "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml").read_text(encoding="utf-8")
+        self.assertNotIn("required_execution_venues:\n    - bybit\n    - binance", manifest_text)
 
     def test_cloud_runtime_manifest_names_railway_service_root(self):
         manifest = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml").read_text(encoding="utf-8"))
