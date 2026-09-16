@@ -1,0 +1,47 @@
+name: Brain 4.13 Release Maintenance
+
+on:
+  push:
+    branches:
+      - feature/image-agent-v2-multimarket-integration
+    paths:
+      - '.github/workflows/brain-v413-release-maintenance.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild-retrieval-index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/image-agent-v2-multimarket-integration
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deterministic builder dependency
+        run: python -m pip install --disable-pip-version-check 'PyYAML>=6,<7'
+      - name: Rebuild and verify canonical retrieval index
+        run: |
+          set -euo pipefail
+          python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --write
+          python AI_SKILL_LIBRARY/v4/tools/build_retrieval_index.py --check
+      - name: Commit generated retrieval index only
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET='AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml'
+          if git diff --quiet -- "$TARGET"; then
+            echo 'RETRIEVAL_INDEX_ALREADY_FRESH=1'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$TARGET"
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          test "$(git diff --cached --name-only)" = "$TARGET"
+          git commit -m 'chore: rebuild Brain 4.13 retrieval index'
+          git push origin HEAD:feature/image-agent-v2-multimarket-integration
