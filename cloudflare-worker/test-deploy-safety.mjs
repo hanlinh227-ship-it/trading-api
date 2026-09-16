@@ -142,7 +142,7 @@ assert.match(workflow,/FAST_EXTERNAL_BOUNDARY=PASS/,'FAST must be proven to sele
 // primary skill and only passed because verify_live_plan never asserted the skill.
 assert.doesNotMatch(workflow,/Ã|Â|á»/,'workflow canary strings must be valid UTF-8, not mojibake');
 assert.match(workflow,/verify_live_plan 'sửa lỗi API này' debugging STANDARD 2/);
-assert.match(workflow,/verify_live_plan 'quét market BTC live' trading_router DEEP 4/);
+assert.match(workflow,/verify_live_plan 'quét market BTC live' multi_market_analysis DEEP 4/);
 assert.match(workflow,/r\.primarySkill!==process\.env\.EXPECTED_SKILL/,'post-probe plan must assert the primary skill, not only the profile');
 
 // --- Final hardening: deploy lock cannot be evicted by the health cron ------
