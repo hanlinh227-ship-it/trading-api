@@ -1,12 +1,25 @@
-import {BYBIT_TRADE_UNIVERSE,BYBIT_PORTFOLIO_POLICY} from './bybit-coin-profiles.js';
-// BYBIT-MULTI-STATEFLOW-4.4.0 FINAL-CORE-FREEZE + UI-READY configuration.
-// Event-driven authority: no session gate, cooldown, timed pause, cron execution or daily quota.
+import {BYBIT_PORTFOLIO_POLICY} from './bybit-coin-profiles.js';
+import {BYBIT_EXECUTION_SYMBOL,BYBIT_EXECUTION_UNIVERSE} from './bybit-execution-authority.js';
+// Canonical BTCUSDT execution configuration. Read-only market discovery may
+// remain broad elsewhere, but no non-BTC symbol is part of this execution config.
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 export {BYBIT_AUTO_VERSION};
 
+const BTC_EXECUTION_PORTFOLIO_POLICY=Object.freeze({
+  ...BYBIT_PORTFOLIO_POLICY,
+  authority:'BYBIT_BTC_STATEFLOW_SINGLE_EXECUTION_UNIVERSE',
+  maxNewEntriesPerEvent:1,
+  deepScanCount:1,
+  promotionScanCount:0,
+  physicalPositionBuffer:0,
+  maxCorrelatedSmall:1,
+  maxCorrelatedNormal:1,
+  concurrentByEquity:[{equityUsd:0,max:1}],
+});
+
 export const BYBIT_AUTO_CONFIG={
-  symbol:'BTCUSDT',symbols:BYBIT_TRADE_UNIVERSE,multiAsset:true,portfolio:BYBIT_PORTFOLIO_POLICY,category:'linear',settleCoin:'USDT',
-  strategyAuthority:'STATE_FIRST_ULTRAFAST_FLOW_STRUCTURE_LIQUIDITY_DERIVATIVES_PER_SYMBOL',
+  symbol:BYBIT_EXECUTION_SYMBOL,symbols:BYBIT_EXECUTION_UNIVERSE,multiAsset:false,portfolio:BTC_EXECUTION_PORTFOLIO_POLICY,category:'linear',settleCoin:'USDT',
+  strategyAuthority:'BYBIT-BTC-STATEFLOW-2.1',
   trigger:{authority:'VPS_WS_MARKET_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
   leverage:{
     min:3,max:125,authority:'EXCHANGE_CAPPED_CONTINUOUS_CAPITAL_LEVERAGE',holdConstantInsideOpenCluster:true,profitFloorAdaptive:true,profitFloorMax:125,exchangeInstrumentCapRequired:true,
@@ -23,7 +36,6 @@ export const BYBIT_AUTO_CONFIG={
   },
   scalp:{
     authority:'SCALP_FIRST_REALISTIC_TARGET_FAST_TURNOVER_PROFIT_LOCK',
-    // Hard entry floor is >$1 net at low scale. Larger profits come from runners, not by starving valid entries.
     minPlannedNetProfitUsd:.30,
     preferredRunnerNetProfitUsd:1.00,
     minPlannedNetProfitPct:.35,
@@ -66,12 +78,12 @@ export const BYBIT_AUTO_CONFIG={
       timeGate:false
     }
   },
-  scan:{decisionAuthority:'EVENT_DRIVEN_MARKET_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
+  scan:{decisionAuthority:'EVENT_DRIVEN_BTCUSDT_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
   risk:{
     mode:'ADAPTIVE_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',fullAccountAuthority:true,
     baseEntryRiskPct:1.00,strongEntryRiskPct:1.45,aPlusEntryRiskPct:2.00,absoluteSingleEntryRiskPct:2.25,
     maxActiveRiskPct:7.0,temporaryAPlusActiveRiskPct:8.5,maxPortfolioMarginPct:78,maxMarginPerPositionPct:65,minFreeReservePct:12,
-    addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,maxSameDirectionPositions:3,riskRecycleAfterProtection:true,
+    addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,maxSameDirectionPositions:1,riskRecycleAfterProtection:true,
     timedPause:false,lossStreakTimeGate:false,
     priorRiskProtectionThresholdPct:30,
     tierUpgradeMinR:.24,
@@ -125,8 +137,8 @@ export const BYBIT_AUTO_CONFIG={
     ultraFastFlow1s3s:true,marketPulseConsensus:true,orderBook:true,nearTouchDepthBands:true,orderFlowImbalance:true,microprice:true,liquidityFragility:true,
     liquidationFlow:true,openInterest:true,fundingRate:true,basisPremium:true,longShortRatio:true,realizedVolatility:true,
     stateFirst:true,indicatorsSupportingOnly:true,eventDrivenDecision:true,openPositionManagementAlwaysOn:true,
-    shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,multiAssetUniverse:true,perSymbolCognition:true,portfolioCorrelationGuard:true,peakGivebackProtection:true,profitScaleLadder:true,thesisAwareProfitHarvest:true,
-    netProfitFloorAfterFees:true,holdWhileEdgePersists:true,multiStageExitEvidence:true,perSymbolProfitFloor:true,profitFloorRetention:true,priceBasedProfitProtection:true,profitFloorAdaptiveLeverage:true,profileNormalizedQuality:true,peakNetProfitRetention:true,protectedRiskSlotReuse:true,uiReadOnlyContract:true,positiveAntiSweepLock:true,dynamicBybitScalpUniverse:true,momentumFootprint:true,continuousTimeCapitalScale:true,exchangeMaxLeverageCap:true
+    shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,multiAssetUniverse:false,perSymbolCognition:false,portfolioCorrelationGuard:false,peakGivebackProtection:true,profitScaleLadder:true,thesisAwareProfitHarvest:true,
+    netProfitFloorAfterFees:true,holdWhileEdgePersists:true,multiStageExitEvidence:true,perSymbolProfitFloor:true,profitFloorRetention:true,priceBasedProfitProtection:true,profitFloorAdaptiveLeverage:true,profileNormalizedQuality:true,peakNetProfitRetention:true,protectedRiskSlotReuse:true,uiReadOnlyContract:true,positiveAntiSweepLock:true,dynamicBybitScalpUniverse:false,momentumFootprint:true,continuousTimeCapitalScale:true,exchangeMaxLeverageCap:true
   },
   entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true,rangeMicroReclaimScalp:true,transitionWsScalp:true,shortHorizonReversal:true,sampleQualityGuard:true,probeConfirmFull:true},
   execution:{recvWindow:10000,positionIdx:0,adaptiveOrderRouting:true,postOnlyPreferredForPassive:false,iocLimitForPassiveEdge:true,iocBufferTicks:1,marketAllowedForUrgentEdge:true,marketForUrgentMomentum:true,nativeTpAlways:true,requireFreshBook:true,requireFreshTrades:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true,noTimeGate:true,managementEveryMarketStateChange:true}
