@@ -1,4 +1,5 @@
 import { evaluateDomainEvidence } from './domain-evidence.js';
+import { buildResearchLevels } from './research-levels.js';
 import type {
   MarketDomain,
   OpportunityCandidate,
@@ -248,6 +249,17 @@ export function buildCandidateFromObservations(
   const invalidation = direction === 'LONG'
     ? `structure_below_${minLow}`
     : `structure_above_${maxHigh}`;
+  const structuralStop = direction === 'LONG' ? minLow : maxHigh;
+  const levelResult = buildResearchLevels({
+    direction,
+    observations: candidateEvidence,
+    structuralStop,
+    riskReward: 2,
+    invalidationBasis: invalidation,
+  });
+  if (!levelResult.levels) {
+    return { blockedReasons: [levelResult.blockedReason ?? 'INVALID_RISK_GEOMETRY'] };
+  }
 
   const candidate: OpportunityCandidate = {
     id: `${domain}:${symbol}:${direction.toLowerCase()}`,
@@ -279,6 +291,7 @@ export function buildCandidateFromObservations(
       },
     ],
     chart: verifiedChart(bars),
+    levels: levelResult.levels,
   };
 
   return { candidate, blockedReasons: [] };
