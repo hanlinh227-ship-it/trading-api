@@ -3,7 +3,7 @@
   "mode": "FREE_ONLY",
   "routing_authority": false,
   "reasoning_authority": false,
-  "generated_at": "2026-09-16T09:00:00Z",
+  "generated_at": "2026-09-16T03:20:00Z",
   "models": [
     {
       "provider_id": "groq",
@@ -664,6 +664,75 @@
         "free_quota_expires_at": "2026-11-21T00:00:00Z"
       },
       "zero_cost_notes": "finite free quota, Free Quota Only enabled on the account (verified on console 2026-09-16, expires 2026-11-21); rotate among still-free model quotas and fail over to another zero-cost provider on exhaustion or expiry, never PAYG"
+    },
+    {
+      "provider_id": "nvidia_nim",
+      "provider_class": "F1",
+      "model_id": "meta/muse-glimmer-30b",
+      "model_family": "muse-glimmer-30b",
+      "model_variant": "nim-free-endpoint",
+      "endpoint_family": "openai_compatible",
+      "free_status": "temporary_zero_price",
+      "free_verified_at": "2026-09-16T00:00:00Z",
+      "observed_at": "2026-09-16T03:14:07Z",
+      "quota_scope": "account",
+      "quota_dimensions": [
+        "rpm"
+      ],
+      "reset_semantics": "rolling",
+      "capabilities": {
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.75,
+          "evidence": [
+            "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d): meta/muse-glimmer-30b returned HTTP 200 on chat completions"
+          ],
+          "verified_at": "2026-09-16T03:14:07Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.7,
+          "evidence": [
+            "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d): meta/muse-glimmer-30b returned HTTP 200 on chat completions"
+          ],
+          "verified_at": "2026-09-16T03:14:07Z"
+        }
+      },
+      "context_window": 131072,
+      "privacy_class": "restricted",
+      "data_training_allowed_by_provider": null,
+      "retention_policy": "NVIDIA Free Endpoint policy applies; PUBLIC workloads only",
+      "usage_terms": "production_allowed",
+      "health": "degraded",
+      "latency_ema_ms": null,
+      "success_rate_ema": null,
+      "quality_scores": {},
+      "last_benchmark_at": null,
+      "zero_cost": {
+        "price_model": "temporary_zero_price",
+        "input_price_per_million": 0.0,
+        "output_price_per_million": 0.0,
+        "price_verified_at": "2026-09-16T00:00:00Z",
+        "price_revalidate_after_hours": 720,
+        "quota_model": "unknown",
+        "hard_stop_verified": false,
+        "hard_stop_evidence": "",
+        "quota_headroom_ratio": null,
+        "free_quota_expires_at": null,
+        "pricing_evidence_source": "vendor_web_catalog",
+        "evidence": [
+          "https://build.nvidia.com/models",
+          "account-holder verification 2026-09-16: NVIDIA Build shows this model with the official Free Endpoint label; the account is on the Free Endpoint tier",
+          "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d): meta/muse-glimmer-30b returned HTTP 200 on chat completions"
+        ]
+      },
+      "zero_cost_notes": "pricing evidence from the NVIDIA Build Free Endpoint catalog (captured 2026-09-16, revalidates in 30 days); liveness from the API completion probe. The API exposes no free-tier field, so a stale capture quarantines this model rather than letting a web page vouch for it indefinitely.",
+      "entitlement_evidence": "account-holder verification 2026-09-16: NVIDIA Build shows this model with the official Free Endpoint label; the account is on the Free Endpoint tier",
+      "source_evidence": [
+        "https://build.nvidia.com/models",
+        "account-holder verification 2026-09-16: NVIDIA Build shows this model with the official Free Endpoint label; the account is on the Free Endpoint tier",
+        "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d): meta/muse-glimmer-30b returned HTTP 200 on chat completions"
+      ]
     }
   ],
   "policy_schema_version": 2

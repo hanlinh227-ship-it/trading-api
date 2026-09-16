@@ -20,9 +20,31 @@
       "captured_at": "2026-09-16T00:00:00Z",
       "captured_by": "account_holder",
       "account_holder_attestation": "account-holder verification 2026-09-16: reviewed the full NVIDIA Build catalog across multiple screenshots; every model listed in free_display_names carries the official Free Endpoint label, and this account is on the Free Endpoint tier",
-      "free_models": [],
-      "state": "PENDING_RESOLUTION",
-      "state_reason": "The Free Endpoint evidence is captured and attested, but display names are not API ids. free_models stays empty until a probe run resolves each name against the live /models listing and records the resolution here; nothing is admitted from an unresolved name.",
+      "free_models": [
+        "z-ai/glm-5.3",
+        "moonshotai/kimi-k3",
+        "deepseek-ai/deepseek-v4-flash-0731",
+        "nvidia/nemotron-3.5-lightning-30b-a3b",
+        "meta/muse-glimmer-30b",
+        "nvidia/riva-translate-4b-instruct-v2",
+        "nvidia/nemotron-3-embed-1b",
+        "poolside/laguna-xs-2.1",
+        "google/diffusiongemma-26b-a4b-it",
+        "nvidia/nemotron-3-ultra-550b-a55b",
+        "nvidia/nemotron-3.5-content-safety",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+        "google/gemma-4-31b-it",
+        "nvidia/nemotron-3-super-120b-a12b",
+        "nvidia/riva-translate-4b-instruct-v1.1",
+        "nvidia/llama-3.1-nemotron-safety-guard-8b-v3",
+        "openai/gpt-oss-20b",
+        "meta/llama-guard-4-12b",
+        "mistralai/mistral-nemotron",
+        "meta/llama-3.2-11b-vision-instruct",
+        "meta/llama-3.2-90b-vision-instruct"
+      ],
+      "state": "RESOLVED",
+      "state_reason": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d) resolved 21 of 36 captured display names against the live 82-model listing. 15 are unresolved and deliberately left out: 13 are absent from the API listing entirely, and 2 are near misses whose candidates are recorded rather than chosen - 'ising-calibration' must not become ising-calibration-1.5-31b, and 'synthetic-video-detector' must not become ai-synthetic-video-detector. Of the 21 resolved, 16 are text_chat and 5 are non-chat (1 embedding, 1 vision-specialized, 3 safety) recorded with their modality and not admitted as chat workers. Admission additionally requires a completion PASS per model.",
       "free_display_names": [
         "Kumo Relational",
         "glm-5-3",
@@ -61,7 +83,130 @@
         "llama-3.2-90b-vision-instruct",
         "paligemma"
       ],
-      "resolved_from": {}
+      "resolved_from": {
+        "z-ai/glm-5.3": {
+          "display_name": "glm-5-3",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "moonshotai/kimi-k3": {
+          "display_name": "kimi-k3",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "deepseek-ai/deepseek-v4-flash-0731": {
+          "display_name": "deepseek-v4-flash-0731",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "nvidia/nemotron-3.5-lightning-30b-a3b": {
+          "display_name": "nemotron-3.5-lightning-30b-a3b",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "meta/muse-glimmer-30b": {
+          "display_name": "muse-glimmer-30b",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "nvidia/riva-translate-4b-instruct-v2": {
+          "display_name": "riva-translate-4b-instruct-v2",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "nvidia/nemotron-3-embed-1b": {
+          "display_name": "nemotron-3-embed-1b",
+          "modality": "embedding",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "poolside/laguna-xs-2.1": {
+          "display_name": "laguna-xs-2.1",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "google/diffusiongemma-26b-a4b-it": {
+          "display_name": "diffusiongemma-26b-a4b-it",
+          "modality": "vision_specialized",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b": {
+          "display_name": "nemotron-3-ultra-550b-a55b",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "nvidia/nemotron-3.5-content-safety": {
+          "display_name": "nemotron-3.5-content-safety",
+          "modality": "safety",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": {
+          "display_name": "nemotron-3-nano-omni-30b-a3b-reasoning",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "google/gemma-4-31b-it": {
+          "display_name": "gemma-4-31b-it",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "nvidia/nemotron-3-super-120b-a12b": {
+          "display_name": "nemotron-3-super-120b-a12b",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "nvidia/riva-translate-4b-instruct-v1.1": {
+          "display_name": "riva-translate-4b-instruct-v1_1",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "nvidia/llama-3.1-nemotron-safety-guard-8b-v3": {
+          "display_name": "llama-3.1-nemotron-safety-guard-8b-v3",
+          "modality": "safety",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "openai/gpt-oss-20b": {
+          "display_name": "gpt-oss-20b",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "meta/llama-guard-4-12b": {
+          "display_name": "llama-guard-4-12b",
+          "modality": "safety",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "mistralai/mistral-nemotron": {
+          "display_name": "mistral-nemotron",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "meta/llama-3.2-11b-vision-instruct": {
+          "display_name": "llama-3.2-11b-vision-instruct",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        },
+        "meta/llama-3.2-90b-vision-instruct": {
+          "display_name": "llama-3.2-90b-vision-instruct",
+          "modality": "text_chat",
+          "probe_run": "probe run 35050894513 (2026-09-16T03:14:07Z, main 064cf9d)"
+        }
+      },
+      "unresolved": {
+        "Kumo Relational": "NOT_IN_LIVE_LISTING",
+        "cosmos3-nano": "NOT_IN_LIVE_LISTING",
+        "cosmos3-nano-reasoner": "NOT_IN_LIVE_LISTING",
+        "Active Speaker Detection": "NOT_IN_LIVE_LISTING",
+        "nemotron-voicechat": "NOT_IN_LIVE_LISTING",
+        "cosmos-transfer2.5-2b": "NOT_IN_LIVE_LISTING",
+        "streampetr": "NOT_IN_LIVE_LISTING",
+        "Background Noise Removal": "NOT_IN_LIVE_LISTING",
+        "magpie-tts-zeroshot": "NOT_IN_LIVE_LISTING",
+        "sparsedrive": "NOT_IN_LIVE_LISTING",
+        "bevformer": "NOT_IN_LIVE_LISTING",
+        "Studio Voice": "NOT_IN_LIVE_LISTING",
+        "paligemma": "NOT_IN_LIVE_LISTING",
+        "ising-calibration": "NO_EXACT_MATCH candidates=[nvidia/ising-calibration-1.5-31b]",
+        "synthetic-video-detector": "NO_EXACT_MATCH candidates=[nvidia/ai-synthetic-video-detector]"
+      }
     }
   }
 }
