@@ -22,3 +22,13 @@ universal_fabric:
   class_d_auto_promotion: false
   protected_regression_tolerance: 0.0
   upstream_capability_diff_is_candidate_input_only: true
+  failure_driven_learning:
+    ledger_path: AI_SKILL_LIBRARY/v4/learning/failure_ledger.json
+    intake_tool: AI_SKILL_LIBRARY/v4/tools/intake_failure.py
+    evaluator_tool: AI_SKILL_LIBRARY/v4/tools/evaluate_skill_candidate.py
+    sanitized_observable_evidence_only: true
+    hidden_reasoning_persistence: forbidden
+    raw_private_prompt_persistence: forbidden
+    secret_persistence: forbidden
+    stable_direct_write: false
+    permission_widening: false
