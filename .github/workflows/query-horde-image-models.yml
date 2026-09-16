@@ -1,0 +1,34 @@
+name: Query AI Horde Image Models
+
+on:
+  push:
+    branches: [smoke/max-free-image-agent-20260916]
+    paths:
+      - '.github/workflows/query-horde-image-models.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  query:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch active image models
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          curl -fsS 'https://aihorde.net/api/v2/status/models?type=image' -o artifacts/models.json
+          python - <<'PY'
+          import json
+          rows=json.load(open('artifacts/models.json'))
+          rows=sorted(rows,key=lambda x:(x.get('count',0),x.get('performance',0)),reverse=True)
+          for r in rows[:25]:
+              print(r.get('name'), 'count=',r.get('count'),'perf=',r.get('performance'),'eta=',r.get('eta'),'queued=',r.get('queued'))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: horde-active-image-models
+          path: artifacts/models.json
+          retention-days: 1
