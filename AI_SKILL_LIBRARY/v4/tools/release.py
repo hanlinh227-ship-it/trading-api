@@ -36,6 +36,7 @@ RELEASE_FILES: tuple[tuple[str, str], ...] = (
     ("AI_SKILL_LIBRARY/v4/model_mesh/discovery.yaml", "model_mesh_discovery"),
     ("AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml", "model_mesh_domain_capabilities"),
     ("AI_SKILL_LIBRARY/v4/model_mesh/capability_evidence.json", "model_mesh_capability_evidence"),
+    ("AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json", "model_mesh_provider_free_catalogs"),
     ("AI_SKILL_LIBRARY/v4/schemas/capability_evidence_ledger.schema.json", "model_mesh_capability_evidence_schema"),
     ("AI_SKILL_LIBRARY/v4/schemas/model_mesh_active_candidate_index.schema.json", "model_mesh_active_index_schema"),
     ("AI_SKILL_LIBRARY/v4/tools/capability_evidence.py", "model_mesh_capability_evidence_tool"),

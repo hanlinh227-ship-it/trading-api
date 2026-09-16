@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import re
 from pathlib import Path
 
@@ -82,6 +82,7 @@ def validate_model_mesh(root: Path) -> list[str]:
         "active": mesh_root / "active.json",
         "runtime_bindings": mesh_root / "runtime_bindings.json",
         "free_only_policy": mesh_root / "free_only_policy.json",
+        "provider_free_catalogs": mesh_root / "provider_free_catalogs.json",
     }
     documents: dict[str, dict] = {}
     for name, path in required_yaml.items():
@@ -182,6 +183,37 @@ def validate_model_mesh(root: Path) -> list[str]:
                             errors.append(f"finite free quota without a verified hard stop: {pid}:{row.get('model_id')}")
                         if row.get("free_status") == "temporary_zero_price" and not zero_cost.get("price_verified_at"):
                             errors.append(f"temporary zero price without price evidence: {pid}:{row.get('model_id')}")
+                        # A model admitted on a vendor's web catalog carries evidence
+                        # the API cannot confirm, so the capture behind it has to be
+                        # present, attested and fresh, and it has to actually name
+                        # this model. Otherwise the claim rests on nothing checkable.
+                        if zero_cost.get("pricing_evidence_source") == "vendor_web_catalog":
+                            catalog_doc = documents.get("provider_free_catalogs") or {}
+                            catalog_policy = catalog_doc.get("policy", {})
+                            entry = (catalog_doc.get("catalogs") or {}).get(pid)
+                            model_id = row.get("model_id")
+                            if not isinstance(entry, dict):
+                                errors.append(f"vendor-catalog pricing evidence with no recorded catalog: {pid}:{model_id}")
+                            else:
+                                if catalog_policy.get("requires_account_holder_attestation") is not False and not entry.get("account_holder_attestation"):
+                                    errors.append(f"vendor-catalog pricing evidence without account-holder attestation: {pid}:{model_id}")
+                                if model_id not in (entry.get("free_models") or []):
+                                    errors.append(f"model is not on the recorded vendor free catalog: {pid}:{model_id}")
+                                captured = str(entry.get("captured_at") or "").strip()
+                                if not captured:
+                                    errors.append(f"vendor free catalog has no capture timestamp: {pid}")
+                                else:
+                                    try:
+                                        captured_at = datetime.fromisoformat(captured.replace("Z", "+00:00"))
+                                    except ValueError:
+                                        errors.append(f"vendor free catalog capture timestamp is not ISO-8601: {pid}")
+                                    else:
+                                        if captured_at.tzinfo is None:
+                                            captured_at = captured_at.replace(tzinfo=timezone.utc)
+                                        window = catalog_policy.get("revalidate_after_days")
+                                        window = window if isinstance(window, int) and not isinstance(window, bool) and window > 0 else 30
+                                        if datetime.now(timezone.utc) - captured_at > timedelta(days=window):
+                                            errors.append(f"vendor free catalog capture is stale beyond {window} days: {pid} captured_at={captured}")
                         expires = str(zero_cost.get("free_quota_expires_at") or "").strip()
                         if expires:
                             try:
@@ -193,6 +225,45 @@ def validate_model_mesh(root: Path) -> list[str]:
                                     expiry = expiry.replace(tzinfo=timezone.utc)
                                 if expiry <= datetime.now(timezone.utc):
                                     errors.append(f"free quota already expired: {pid}:{row.get('model_id')} expired_at={expires}")
+
+    free_catalogs = documents.get("provider_free_catalogs", {})
+    if free_catalogs:
+        catalog_policy = free_catalogs.get("policy", {})
+        if free_catalogs.get("version") != 1: errors.append("provider free catalog registry must be version 1")
+        # The whole point of this file is that it is NOT API evidence. If that
+        # ever flips, a web page starts standing in for a live check.
+        if catalog_policy.get("authority") != "pricing_evidence_only": errors.append("vendor free catalogs must remain pricing evidence only")
+        if catalog_policy.get("is_api_evidence") is not False: errors.append("vendor free catalogs must never be recorded as API evidence")
+        if catalog_policy.get("liveness_authority") != "api_completion_probe": errors.append("vendor free catalogs must defer liveness to the completion probe")
+        revalidate = catalog_policy.get("revalidate_after_days")
+        if not isinstance(revalidate, int) or isinstance(revalidate, bool) or not 1 <= revalidate <= 365:
+            errors.append("vendor free catalog revalidate_after_days must be an integer in 1..365")
+        for pid, entry in (free_catalogs.get("catalogs") or {}).items():
+            if not isinstance(entry, dict): errors.append(f"invalid vendor free catalog entry: {pid}"); continue
+            if pid not in provider_ids: errors.append(f"vendor free catalog provider is not registered: {pid}")
+            if not str(entry.get("source_url") or "").startswith("https://"): errors.append(f"vendor free catalog source must be https: {pid}")
+            if entry.get("source_kind") != "vendor_web_catalog": errors.append(f"vendor free catalog source_kind must be vendor_web_catalog: {pid}")
+            models = entry.get("free_models")
+            if not isinstance(models, list) or any(not isinstance(item, str) or not item.strip() for item in models):
+                errors.append(f"vendor free catalog free_models must be a list of model ids: {pid}")
+            if models and not entry.get("captured_at"): errors.append(f"vendor free catalog lists models with no capture timestamp: {pid}")
+            # Display names are what a human read off a web page; ids are what the
+            # API answers to. Every resolved id has to say which name it came from
+            # and which probe run resolved it, or the mapping is just a guess with
+            # better formatting.
+            names = entry.get("free_display_names")
+            if names is not None and (not isinstance(names, list) or any(not isinstance(item, str) or not item.strip() for item in names)):
+                errors.append(f"vendor free catalog free_display_names must be a list of names: {pid}")
+            resolved = entry.get("resolved_from")
+            if resolved is not None and not isinstance(resolved, dict):
+                errors.append(f"vendor free catalog resolved_from must be a mapping: {pid}")
+            elif isinstance(resolved, dict):
+                for model_id in models or []:
+                    record = resolved.get(model_id)
+                    if not isinstance(record, dict) or not record.get("display_name") or not record.get("probe_run"):
+                        errors.append(f"resolved model lacks display-name and probe-run provenance: {pid}:{model_id}")
+                    elif names and record.get("display_name") not in names:
+                        errors.append(f"resolved model cites a display name that is not in the capture: {pid}:{model_id}")
 
     bindings_doc = documents.get("runtime_bindings", {})
     if bindings_doc:

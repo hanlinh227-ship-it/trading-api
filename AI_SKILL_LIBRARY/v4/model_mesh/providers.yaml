@@ -73,7 +73,8 @@ providers:
     prefer_labels: ["Free Endpoint"]
     probe_evidence: "probe run 35047130298: listing 200 with 82 models, meta/muse-glimmer-30b returned 200 on chat completions on the first probed candidate. probe run 35048454601 (2026-09-16T02:35:10Z, main aa06e73): catalog rows carry only created/id/object/owned_by and 0 of 82 models expose any free-tier field"
     account_evidence: "account-holder verification 2026-09-16: NVIDIA Build shows models carrying a Free Endpoint label"
-    notes: "Liveness is proven - a listed model does complete - but the API exposes no free-tier field at all (0 of 82 rows), so the Free Endpoint label is a website-only fact the runtime cannot check. Admission requires the catalog own free marking plus a completion PASS, never whichever model answers first; PROBE_REQUIRE_FREE_LABEL enforces that. If the label exists only on the website and not in the API, say so rather than admitting on the website word."
+    free_catalog_ref: AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json
+    notes: "The API exposes no free-tier field at all (0 of 82 rows), so pricing evidence comes from the vendor Free Endpoint catalog and liveness from the API probe - two sources, recorded separately. A model is admitted only when it is on the recorded catalog capture, present in the live API listing, returns a completion PASS, and the account holder attests the account is on the Free Endpoint tier. The capture carries a timestamp and revalidates on a 30-day window; past it the model quarantines itself. Missing any of the four, fail closed."
     evidence:
       developer_access: https://docs.api.nvidia.com/nim/docs/product
   cerebras:
@@ -103,10 +104,11 @@ providers:
   opencode_zen:
     provider_class_hint: F2
     zero_cost_class: temporary_zero_price
-    treatment: mixed_catalog_zero_price_only
-    probe_evidence: "probe run 35047130298: listing 200 with 70 models, muse-spark-1.3 returned 401 on chat completions while the same credential listed models. probe run 35048454601 (2026-09-16T02:35:10Z, main aa06e73) CORRECTS that round: the documented free ids ARE present (big-pickle, mimo-v2.5-free, ling-3.0-flash-fin-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free, muse-spark-1.3-contributor-free, plus deepseek-v4-flash-free and muse-spark-1.2-contributor-free); the earlier absence was a listing printed capped at 40 of 70 ids and read as complete. Catalog rows carry only created/id/object/owned_by and 0 of 70 expose a price or free field"
+    autonomous_use: false
+    treatment: discovery_only
     account_evidence: "account-holder verification 2026-09-16: the Zen workspace still offers Enable billing, so billing is off and no call can become billable"
-    notes: "No-billing is verified, which closes the spillover half: no Zen call can become billable whatever it costs, which is what makes probing here cost-safe. The documented free ids ARE in the live catalog, so the remaining question is only whether completions authorise - the one probed candidate answered 401 while the same credential listed models. Admission needs a live catalog entry priced at input=0 and output=0 plus a completion PASS, classified temporary_zero_price and revalidated every 24h. Never enable billing and never fall back to a paid model."
+    probe_evidence: "probe run 35049301279 (2026-09-16T02:49:45Z, main 3861173): all 8 documented free ids matched the live catalog (8/8). big-pickle returned 400 'OpenCode free tier can only be used in OpenCode'; deepseek-v4-flash-free 400 'Model is unavailable'; muse-spark-1.3-contributor-free 500. Catalog rows carry only created/id/object/owned_by and 0 of 70 expose a price or free field."
+    notes: "Settled, and not on cost. The free models exist, billing is verified off and the credential lists successfully - but the provider restricts its free tier to the OpenCode client, so the mesh cannot use it from an API client at all. That is a provider policy limit, not a pricing or credential gap, and working around it by impersonating the client would be circumvention. Discovery-only. Re-evaluate only if the provider opens the free tier to API clients; never enable billing and never fall back to a paid Zen model."
     evidence:
       models: https://opencode.ai/zen/v1/models
       docs: https://opencode.ai/docs/zen

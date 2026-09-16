@@ -313,6 +313,15 @@
             "string",
             "null"
           ]
+        },
+        "pricing_evidence_source": {
+          "enum": [
+            "api_catalog",
+            "vendor_web_catalog",
+            "account_holder_attestation",
+            "provider_docs",
+            "unknown"
+          ]
         }
       },
       "additionalProperties": false

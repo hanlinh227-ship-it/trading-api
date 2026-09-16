@@ -8,7 +8,7 @@
 // Read-only. Prints provider ids, model ids, HTTP status and counts. Never a
 // key, never an Authorization header, never a response body.
 import fs from 'node:fs';
-import {catalogShape, freeLabel, listedPrice, probeEligibility as catalogProbeEligibility, sanitizeForLog} from './model-mesh/catalog-shape.js';
+import {CHAT_MODALITIES, catalogShape, classifyModality, freeLabel, listedPrice, probeEligibility as catalogProbeEligibility, resolveDisplayNames, sanitizeForLog} from './model-mesh/catalog-shape.js';
 
 const BINDINGS = JSON.parse(fs.readFileSync('AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json', 'utf8')).bindings;
 const MAX_MODELS_SHOWN = 40;
@@ -149,6 +149,12 @@ const PROBE_TIMEOUT_MS = 20000;
 
 // What a failure says about scope. A model-scoped failure means try the next
 // candidate; anything else means the round is over for this provider.
+// Some refusals describe the whole free tier rather than one model. Zen answers
+// "OpenCode's free tier can only be used in OpenCode" on a 400, which is a
+// provider restriction: trying the next free model just repeats the same
+// refusal. Detecting it ends the round instead of walking the list.
+const TIER_SCOPED_REFUSAL = /free tier can only be used|free tier is (?:only )?(?:available|usable)|not available outside|requires the .{0,30}client/i;
+
 function probeVerdict(status) {
   if (status === 200) return { verdict: 'LIVE_OK', scope: 'provider' };
   if (status === 402) return { verdict: 'BILLABLE_402_MODEL_INELIGIBLE', scope: 'model' };
@@ -220,6 +226,36 @@ const REQUIRE_FREE_LABEL = String(process.env.PROBE_REQUIRE_FREE_LABEL || '0') =
 // completion still has to pass before anything is admitted.
 const MODEL_ALLOWLIST = (process.env.PROBE_MODEL_ALLOWLIST || '').split(',').map((s) => s.trim()).filter(Boolean);
 
+// A vendor free-tier catalog, for providers that publish their free models on a
+// web page their API does not expose. It is PRICING evidence and nothing more:
+// it cannot show that a model answers, and it goes stale without warning. So it
+// only ever narrows what gets probed, and a capture that is missing, unattested
+// or past its revalidation window admits nothing at all.
+const USE_FREE_CATALOG = String(process.env.PROBE_FREE_CATALOG || '0') === '1';
+const FREE_CATALOGS = (() => {
+  try { return JSON.parse(fs.readFileSync('AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json', 'utf8')); }
+  catch { return null; }
+})();
+
+function freeCatalogFor(providerId) {
+  if (!FREE_CATALOGS) return {usable: false, reason: 'CATALOG_FILE_MISSING'};
+  const policy = FREE_CATALOGS.policy || {};
+  const entry = FREE_CATALOGS.catalogs?.[providerId];
+  if (!entry) return {usable: false, reason: 'NO_CATALOG_FOR_PROVIDER'};
+  const ids = Array.isArray(entry.free_models) ? entry.free_models.filter(Boolean) : [];
+  const displayNames = Array.isArray(entry.free_display_names) ? entry.free_display_names.filter(Boolean) : [];
+  if (!ids.length && !displayNames.length) return {usable: false, reason: `NO_CAPTURE (${entry.state || 'unknown'})`, entry};
+  if (policy.requires_account_holder_attestation !== false && !entry.account_holder_attestation) {
+    return {usable: false, reason: 'NO_ACCOUNT_HOLDER_ATTESTATION', entry};
+  }
+  const capturedMs = Date.parse(String(entry.captured_at || ''));
+  if (!Number.isFinite(capturedMs)) return {usable: false, reason: 'NO_CAPTURE_TIMESTAMP', entry};
+  const windowDays = Number(policy.revalidate_after_days) > 0 ? Number(policy.revalidate_after_days) : 30;
+  const ageDays = (Date.now() - capturedMs) / 86400000;
+  if (ageDays > windowDays) return {usable: false, reason: `CAPTURE_STALE age_days=${ageDays.toFixed(1)} window_days=${windowDays}`, entry};
+  return {usable: true, ids, displayNames: displayNames.length ? displayNames : ids, entry, ageDays, windowDays};
+}
+
 const probeEligibility = (row) => catalogProbeEligibility(row, { allowUnpriced: ALLOW_UNPRICED, requireFreeLabel: REQUIRE_FREE_LABEL });
 
 // Prefer models the catalog prices at zero, then ids whose name says free.
@@ -246,6 +282,38 @@ if (String(process.env.PROBE_COMPLETIONS || '') === '1') {
     if (!models.length) { console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_LISTING http=${listStatus}`); continue; }
     reportCatalogShape(providerId, rows);
     let candidateRows = rows.length ? rows : models.map((id) => ({ id }));
+    if (USE_FREE_CATALOG) {
+      const catalog = freeCatalogFor(providerId);
+      if (!catalog.usable) {
+        // Fail closed and say exactly which half of the evidence is missing.
+        console.log(`PROVIDER_FREE_CATALOG provider=${providerId} verdict=UNUSABLE reason=${catalog.reason}`);
+        console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_FREE_CATALOG_EVIDENCE listed=${models.length}`);
+        continue;
+      }
+      console.log(`PROVIDER_FREE_CATALOG provider=${providerId} verdict=USABLE source=${catalog.entry.source_url} label=${JSON.stringify(catalog.entry.free_tier_label || '')} captured_at=${catalog.entry.captured_at} age_days=${catalog.ageDays.toFixed(1)}/${catalog.windowDays}`);
+
+      // Display names are not API ids. Resolve each against the live listing and
+      // report every outcome; an unresolved or ambiguous name is never guessed.
+      const resolutions = resolveDisplayNames(catalog.displayNames, models);
+      const matched = resolutions.filter((row) => row.status === 'matched');
+      for (const row of resolutions.filter((r) => r.status !== 'matched')) {
+        console.log(`PROVIDER_NAME_UNRESOLVED provider=${providerId} display=${JSON.stringify(row.displayName)} status=${row.status} reason=${row.reason} candidates=${JSON.stringify(row.candidates || [])}`);
+      }
+      // Classify before probing: an embedding, speech or video model sent to
+      // /chat/completions returns a meaningless 400 and teaches us nothing.
+      const classified = matched.map((row) => ({...row, modality: classifyModality(row.id)}));
+      const byModality = {};
+      for (const row of classified) (byModality[row.modality] ||= []).push(row.id);
+      console.log(`PROVIDER_NAME_RESOLVED provider=${providerId} matched=${matched.length}/${catalog.displayNames.length} by_modality=${JSON.stringify(byModality)}`);
+      for (const row of classified) {
+        console.log(`PROVIDER_CATALOG_RESOLUTION provider=${providerId} display=${JSON.stringify(row.displayName)} id=${row.id} modality=${row.modality} match=${row.match}`);
+      }
+      const chatIds = classified.filter((row) => CHAT_MODALITIES.includes(row.modality)).map((row) => row.id);
+      const nonChat = classified.filter((row) => !CHAT_MODALITIES.includes(row.modality));
+      if (nonChat.length) console.log(`PROVIDER_NON_CHAT_DEFERRED provider=${providerId} count=${nonChat.length} ids=${JSON.stringify(nonChat.map((row) => `${row.id}:${row.modality}`))} (classified, not probed as chat)`);
+      if (!chatIds.length) { console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_RESOLVED_CHAT_MODEL listed=${models.length} resolved=${matched.length}`); continue; }
+      candidateRows = candidateRows.filter((row) => chatIds.includes(String(row?.id || row?.name || '')));
+    }
     if (MODEL_ALLOWLIST.length) {
       const present = new Set(models);
       const missing = MODEL_ALLOWLIST.filter((id) => !present.has(id));
@@ -277,6 +345,10 @@ if (String(process.env.PROBE_COMPLETIONS || '') === '1') {
       attempts.push(`${model}=${status}`);
       console.log(`PROVIDER_PROBE_MODEL provider=${providerId} model=${model} http=${status} verdict=${verdict}${reason ? ` reason=${reason}` : ''}${detail ? ` detail=${JSON.stringify(detail)}` : ''}`);
       if (status === 200) { selected = model; break; }
+      if (detail && TIER_SCOPED_REFUSAL.test(String(detail))) {
+        console.log(`PROVIDER_PROBE_TIER_RESTRICTED provider=${providerId} detail=${JSON.stringify(detail)} (the refusal describes the free tier, not this model)`);
+        break;
+      }
       // Only a model-scoped failure justifies trying the provider's next id.
       if (scope !== 'model') break;
     }
