@@ -1,4 +1,5 @@
 import {validateModelVaultEntry} from './model-vault.js';
+import {requiresReferenceSafeRuntime,validateProviderModelRegistration} from './provider-mesh.js';
 
 const clone=value=>structuredClone(value);
 const taskRecord=(state,modelKey,taskType)=>state?.models?.[modelKey]?.tasks?.[taskType]||{results:[]};
@@ -19,7 +20,9 @@ function stats(results=[]){
 // The policy/runtime gate a benchmarked model must clear before it can be ACTIVE.
 // Benchmark scores alone never promote: the model must also be free, commercially
 // licensed, task-capable, and running on a configured runtime verified healthy.
-export function evaluatePromotionGate({vaultEntry,runtimeConfigured,runtimeHealthy,taskType}={}){
+// Runtime booleans are not sufficient evidence: a provider registration must also
+// pass the canonical FREE_ONLY/privacy/runtime metadata validator.
+export function evaluatePromotionGate({vaultEntry,runtimeConfigured,runtimeHealthy,providerRegistration,taskType}={}){
   const blockers=[];
   if(!vaultEntry)blockers.push('model_vault_entry_required');
   else{
@@ -31,6 +34,14 @@ export function evaluatePromotionGate({vaultEntry,runtimeConfigured,runtimeHealt
   }
   if(runtimeConfigured!==undefined&&runtimeConfigured!==true)blockers.push('runtime_not_configured');
   if(runtimeHealthy!==true)blockers.push('runtime_not_verified_healthy');
+  if(!providerRegistration)blockers.push('provider_registration_required');
+  else{
+    const providerValidation=validateProviderModelRegistration(providerRegistration);
+    if(!providerValidation.ok)blockers.push(...providerValidation.errors);
+    if(vaultEntry&&String(providerRegistration.modelId||'')!==String(vaultEntry.modelId||''))blockers.push('provider_model_mismatch');
+    if(taskType&&!(Array.isArray(providerRegistration.supportedTasks)&&providerRegistration.supportedTasks.includes(taskType)))blockers.push('task_not_supported_by_provider');
+    if(requiresReferenceSafeRuntime({taskType})&&providerRegistration.referenceSafe!==true)blockers.push('reference_safe_runtime_required');
+  }
   return {ok:blockers.length===0,blockers:[...new Set(blockers)],reason:blockers.length?blockers[0]:'promotion_gate_passed'};
 }
 

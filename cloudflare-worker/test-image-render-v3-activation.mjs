@@ -16,13 +16,18 @@ const adapter={
   rateLimitBehavior:'fail_closed',provenance:'https://github.com/Haidra-Org/AI-Horde',
   licenseEvidence:'per-model licenses tracked in the model vault',
 };
+// A realistic vault entry: the canonical promotion gate validates the whole record, so a
+// partial fixture would be testing against a contract the real thing never sees.
 const model={
-  modelId:'sdxl',family:'stable-diffusion',version:'1.0',license:'CreativeML-Open-RAIL++-M',
-  codeLicense:'Apache-2.0',weightsLicense:'CreativeML-Open-RAIL++-M',
-  runtimeProviders:['ai_horde'],supportedTasks:['TEXT_TO_IMAGE'],
+  modelId:'sdxl',family:'stable-diffusion',version:'1.0',
+  canonicalRepo:'stabilityai/stable-diffusion',providerModelId:'@cf/stabilityai/sdxl',
+  license:'CreativeML-Open-RAIL++-M',codeLicense:'CreativeML-Open-RAIL++-M',weightsLicense:'CreativeML-Open-RAIL++-M',
+  commercialUseEligible:true,redistributionEligible:false,
+  runtimeProviders:['ai_horde'],runtimeConfigured:true,supportedTasks:['TEXT_TO_IMAGE'],
   referenceSupport:false,editSupport:false,criticSupport:false,
   minResolution:{width:256,height:256},maxResolution:{width:1536,height:1536},
-  monetaryCost:'zero',status:'CANDIDATE',lastVerifiedAt:'2026-09-16',
+  qualityBenchmarks:{},approvalStatus:'CANDIDATE',
+  monetaryCost:'zero',status:'CANDIDATE',lastVerifiedAt:'2026-09-16',notes:'',
 };
 const base={model,adapter,taskType:'TEXT_TO_IMAGE'};
 
@@ -103,3 +108,28 @@ assert.equal(advanced.activation.evidenceTrail.length,5);
 assert.equal(model.status,'CANDIDATE','input entry must not be mutated');
 
 console.log('image render v3 runtime activation contracts: PASS');
+
+// The activation ladder must not be a second promotion authority: the final ACTIVE step
+// delegates to the canonical promotion gate, so a model cannot slip past it by walking
+// the stages. Reference tasks therefore still need a reference-safe provider.
+{
+  const refModel={...model,supportedTasks:['REFERENCE_GENERATION'],referenceSupport:true};
+  const unsafeAdapter={...adapter,supportedTasks:['REFERENCE_GENERATION'],referenceSafe:false,privacyClasses:['PUBLIC']};
+  const evidence={
+    runtimeDiscovered:{ok:true,at:'2026-09-16',source:'x'},
+    health:{ok:true,at:'2026-09-16',detail:'x'},
+    license:{ok:true,at:'2026-09-16',source:'x'},
+    privacy:{ok:true,at:'2026-09-16',source:'x'},
+    benchmark:{ok:true,at:'2026-09-16',taskType:'REFERENCE_GENERATION',samples:12,average:95},
+  };
+  // A reference task on a provider that is not reference-safe can never reach ACTIVE.
+  const unsafe=evaluateActivation({model:refModel,adapter:unsafeAdapter,taskType:'REFERENCE_GENERATION',evidence});
+  assert.notEqual(unsafe.status,'ACTIVE');
+
+  // The same evidence on a reference-safe provider clears the gate.
+  const safeAdapter={...adapter,supportedTasks:['REFERENCE_GENERATION'],referenceSafe:true,privacyClasses:['PUBLIC','CONFIDENTIAL']};
+  const safe=evaluateActivation({model:refModel,adapter:safeAdapter,taskType:'REFERENCE_GENERATION',evidence});
+  assert.equal(safe.status,'ACTIVE',JSON.stringify(safe.blockers));
+}
+
+console.log('image render v3 activation gate delegation contracts: PASS');

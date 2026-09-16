@@ -40,6 +40,7 @@ export function validateModelVaultEntry(entry={}){
   if(entry.redistributionEligible===true&&!(PERMISSIVE_LICENSES.has(entry.codeLicense)&&PERMISSIVE_LICENSES.has(entry.weightsLicense)))errors.push('redistribution_requires_permissive_license');
   if(typeof entry.runtimeConfigured!=='boolean')errors.push('runtime_configured_required');
   if(!ALLOWED_STATUS.has(entry.approvalStatus))errors.push('approval_status_invalid');
+  if(entry.approvalStatus==='ACTIVE'&&entry.runtimeConfigured!==true)errors.push('active_runtime_must_be_configured');
   if(!Array.isArray(entry.supportedTasks)||entry.supportedTasks.length===0)errors.push('supported_tasks_required');
   if(entry.monetaryCost!=='zero')errors.push('free_only_required');
   return {ok:errors.length===0,errors};

@@ -1,4 +1,5 @@
 import {validateProviderAdapter} from './provider-adapter.js';
+import {evaluatePromotionGate} from './benchmark-registry.js';
 
 // A model becomes usable by walking this ladder, one verified stage at a time. Nothing
 // advances on a claim: each stage needs an evidence record that actually passed.
@@ -57,7 +58,39 @@ export function evaluateActivation({model={},adapter={},taskType,evidence={}}={}
   if(evidence.regression?.degraded===true){
     return {stage:'BENCHMARKED',status:'DEGRADED',taskType:taskType??null,blockers:['benchmark_regression'],evidenceTrail};
   }
-  return {stage:'ACTIVE',status:'ACTIVE',taskType:taskType??null,blockers:[],evidenceTrail};
+
+  // The ladder stages evidence; it is not a second promotion authority. The canonical
+  // promotion gate has the final say on ACTIVE, so a model cannot reach it by walking
+  // the stages past a policy the gate would refuse.
+  const registration={
+    providerId:adapter.id,
+    // The registration describes this provider serving this model.
+    modelId:model.modelId,
+    monetaryCost:adapter.monetaryCost,
+    paidFallback:adapter.paidFallback,
+    autoPurchase:adapter.autoPurchase,
+    supportedDataClasses:[...adapter.privacyClasses],
+    supportedTasks:[...adapter.supportedTasks],
+    referenceSafe:adapter.referenceSafe,
+    maxResolution:{...adapter.maxResolution},
+    baseUrl:adapter.baseUrl,
+    healthEndpoint:adapter.healthEndpoint,
+    queueBehavior:adapter.queueBehavior,
+    timeoutMs:Number(adapter.timeout?.submitMs||0),
+    retryPolicy:{...adapter.retryPolicy},
+    rateLimitBehavior:adapter.rateLimitBehavior,
+    provenance:adapter.provenance,
+    licenseEvidence:adapter.licenseEvidence,
+  };
+  const gate=evaluatePromotionGate({
+    vaultEntry:model,
+    providerRegistration:registration,
+    runtimeConfigured:model.runtimeConfigured===true||undefined,
+    runtimeHealthy:evidence.health?.ok===true,
+    taskType,
+  });
+  if(!gate.ok)return {stage:'BENCHMARKED',status:'BENCHMARKED',taskType:taskType??null,blockers:gate.blockers,evidenceTrail,gate};
+  return {stage:'ACTIVE',status:'ACTIVE',taskType:taskType??null,blockers:[],evidenceTrail,gate};
 }
 
 // Records the outcome on a copy of the vault entry: activation never mutates its input,

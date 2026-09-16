@@ -5,6 +5,11 @@ const REFERENCE_TASKS=new Set(['REFERENCE_GENERATION','IMAGE_EDIT_GLOBAL','IMAGE
 
 const asStringArray=value=>Array.isArray(value)?value.map(item=>String(item).trim()).filter(Boolean):[];
 const positiveInteger=value=>Number.isInteger(Number(value))&&Number(value)>0;
+const nonEmpty=value=>typeof value==='string'&&value.trim().length>0;
+const validHttpsUrl=value=>{
+  if(!nonEmpty(value))return false;
+  try{return new URL(value).protocol==='https:';}catch{return false;}
+};
 
 export function validateProviderModelRegistration(registration={}){
   const errors=[];
@@ -17,10 +22,18 @@ export function validateProviderModelRegistration(registration={}){
   if(asStringArray(registration.supportedTasks).length===0)errors.push('supported_tasks_required');
   if(typeof registration.referenceSafe!=='boolean')errors.push('reference_safe_required');
   if(!registration.maxResolution||!positiveInteger(registration.maxResolution.width)||!positiveInteger(registration.maxResolution.height))errors.push('max_resolution_required');
+  if(!validHttpsUrl(registration.baseUrl))errors.push('base_url_required');
+  if(!nonEmpty(registration.healthEndpoint))errors.push('health_endpoint_required');
+  if(!nonEmpty(registration.queueBehavior))errors.push('queue_behavior_required');
+  if(!positiveInteger(registration.timeoutMs))errors.push('timeout_required');
+  if(!registration.retryPolicy||typeof registration.retryPolicy!=='object'||Array.isArray(registration.retryPolicy))errors.push('retry_policy_required');
+  if(!nonEmpty(registration.rateLimitBehavior))errors.push('rate_limit_behavior_required');
+  if(!nonEmpty(registration.provenance))errors.push('provenance_required');
+  if(!nonEmpty(registration.licenseEvidence))errors.push('license_evidence_required');
   return {ok:errors.length===0,errors};
 }
 
-function needsReferenceSafe(intent={}){
+export function requiresReferenceSafeRuntime(intent={}){
   return (Array.isArray(intent.referenceAssets)&&intent.referenceAssets.length>0)||REFERENCE_TASKS.has(String(intent.taskType||''));
 }
 
@@ -29,7 +42,7 @@ export function filterEligibleProviderModels(intent={},registrations=[]){
   const privacyClass=String(intent.privacyClass||'');
   const targetWidth=Number(intent.target?.width||0);
   const targetHeight=Number(intent.target?.height||0);
-  const requireReferenceSafe=needsReferenceSafe(intent);
+  const requireReferenceSafe=requiresReferenceSafeRuntime(intent);
   return registrations.filter(registration=>{
     if(!validateProviderModelRegistration(registration).ok)return false;
     if(!asStringArray(registration.supportedTasks).includes(taskType))return false;
@@ -43,6 +56,8 @@ export function filterEligibleProviderModels(intent={},registrations=[]){
 
 // Registrations are derived from the adapter registry: the adapters are the single
 // provider authority, so a provider cannot be described differently in two places.
+// Every field the registration contract audits is carried over from the adapter, so a
+// provider that cannot state its runtime behaviour still fails closed here.
 function registrationFromAdapter(adapter){
   return {
     providerId:adapter.id,
@@ -56,10 +71,18 @@ function registrationFromAdapter(adapter){
     supportedTasks:[...adapter.supportedTasks],
     health:'dynamic',
     maxResolution:{...adapter.maxResolution},
+    baseUrl:adapter.baseUrl,
+    healthEndpoint:adapter.healthEndpoint,
+    queueBehavior:adapter.queueBehavior,
+    timeoutMs:Number(adapter.timeout?.submitMs||0),
+    retryPolicy:{...adapter.retryPolicy},
+    rateLimitBehavior:adapter.rateLimitBehavior,
+    provenance:adapter.provenance,
+    licenseEvidence:adapter.licenseEvidence,
     privacyNotes:adapter.referenceSafe
       ?'reference-safe runtime; may receive reference and source images'
       :'PUBLIC_ONLY; reference/private assets forbidden',
-    retentionNotes:adapter.provenance,
+    retentionNotes:'provider-controlled processing; model licenses stay model-specific and are never inferred from provider availability',
   };
 }
 
