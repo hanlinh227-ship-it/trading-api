@@ -72,7 +72,8 @@ providers:
     treatment: probe_and_select_from_live_listing
     prefer_labels: ["Free Endpoint"]
     probe_evidence: "probe run 35047130298 (2026-09-16T02:14:46Z, main 69dd282): listing 200 with 82 models; meta/muse-glimmer-30b returned 200 on chat completions on the first probed candidate"
-    notes: Liveness is proven - a listed model does complete - but the listing publishes no price and no runtime endpoint exposes the account tier, so zero cost is not proven. Admission waits on price or account-tier evidence; a completed call is not evidence that the call was free.
+    account_evidence: "account-holder verification 2026-09-16: NVIDIA Build shows models carrying a Free Endpoint label"
+    notes: "Liveness is proven - a listed model does complete - but the first probe found no price and no free marking in the API listing. Admission requires the catalog own free marking plus a completion PASS, never whichever model answers first; PROBE_REQUIRE_FREE_LABEL enforces that. If the label exists only on the website and not in the API, say so rather than admitting on the website word."
     evidence:
       developer_access: https://docs.api.nvidia.com/nim/docs/product
   cerebras:
@@ -104,7 +105,8 @@ providers:
     zero_cost_class: temporary_zero_price
     treatment: mixed_catalog_zero_price_only
     probe_evidence: "probe run 35047130298 (2026-09-16T02:14:46Z, main 69dd282): listing 200 with 70 models, none carrying a published price; the live catalog contains no id from the documented free set (big-pickle, mimo-v2.5-free, ling-3.0-flash-fin-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free, muse-spark-1.3-contributor-free); muse-spark-1.3 returned 401 on chat completions while the same credential listed models successfully"
-    notes: The documented free model ids are not in the live catalog, so admitting them would have admitted models that do not exist. The credential lists but cannot complete (401), which is a credential scope problem, not a pricing one. Discovery-only until completions authorise and a live catalog price reads input=0 and output=0.
+    account_evidence: "account-holder verification 2026-09-16: the Zen workspace still offers Enable billing, so billing is off and no call can become billable"
+    notes: "No-billing is verified, which closes the spillover half. The pricing half is not. The documented free ids were absent from the live catalog, and the one free-named candidate answered 401 on completions while the same credential listed models. Admission needs a live catalog entry priced at input=0 and output=0 plus a completion PASS, classified temporary_zero_price and revalidated every 24h. Never enable billing and never fall back to a paid model."
     evidence:
       models: https://opencode.ai/zen/v1/models
       docs: https://opencode.ai/docs/zen

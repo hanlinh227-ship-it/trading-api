@@ -8,6 +8,7 @@
 // Read-only. Prints provider ids, model ids, HTTP status and counts. Never a
 // key, never an Authorization header, never a response body.
 import fs from 'node:fs';
+import {catalogShape, freeLabel, listedPrice, probeEligibility as catalogProbeEligibility, sanitizeForLog} from './model-mesh/catalog-shape.js';
 
 const BINDINGS = JSON.parse(fs.readFileSync('AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json', 'utf8')).bindings;
 const MAX_MODELS_SHOWN = 40;
@@ -66,12 +67,16 @@ for (const [providerId, binding] of Object.entries(BINDINGS)) {
     console.log(`PROVIDER_DISCOVERY provider=${providerId} status=SKIPPED_NON_OPENAI_FAMILY family=${binding.endpoint_family}`);
     continue;
   }
-  const { status, models, reason } = await listOpenAiCompatible(binding.endpoint_url, key);
+  const { status, models, rows, reason } = await listOpenAiCompatible(binding.endpoint_url, key);
   const verdict = classify(status);
   const detail = reason ? ` reason=${reason}` : '';
   console.log(`PROVIDER_DISCOVERY provider=${providerId} status=${verdict} http=${status} models=${models.length}${detail} endpoint=${binding.endpoint_url}`);
   if (models.length) {
     console.log(`PROVIDER_MODELS provider=${providerId} ids=${JSON.stringify(models.slice(0, MAX_MODELS_SHOWN))}`);
+    reportCatalogShape(providerId, rows);
+    const labelled = rows.filter((row) => freeLabel(row));
+    console.log(`PROVIDER_FREE_LABELS provider=${providerId} labelled=${labelled.length}/${rows.length}` +
+      (labelled.length ? ` sample=${JSON.stringify(labelled.slice(0, 8).map((row) => `${row.id || row.name}:${freeLabel(row)}`))}` : ' (catalog exposes no free-tier field)'));
   }
 }
 
@@ -163,7 +168,16 @@ async function probeCompletion(url, key, model) {
       body: JSON.stringify({ model, max_tokens: 8, messages: [{ role: 'user', content: 'Reply with OK only.' }] }),
       signal: controller.signal,
     });
-    return { status: res.status };
+    if (res.ok) return { status: res.status };
+    // A 401 that says "billing required" and a 401 that says "bad key" call for
+    // completely different actions, and the status alone cannot tell them apart.
+    let detail = '';
+    try {
+      const body = await res.text();
+      const parsed = (() => { try { return JSON.parse(body); } catch { return null; } })();
+      detail = String(parsed?.error?.message || parsed?.message || parsed?.detail || body || '').slice(0, 160);
+    } catch { detail = ''; }
+    return { status: res.status, detail: sanitizeForLog(detail) };
   } catch (err) {
     const reason = err?.name === 'AbortError' ? `timeout_after_${PROBE_TIMEOUT_MS}ms` : String(err?.cause?.code || err?.code || err?.message || 'unknown').slice(0, 120);
     return { status: 0, reason };
@@ -172,23 +186,14 @@ async function probeCompletion(url, key, model) {
   }
 }
 
-// Read a listed model's price, whichever shape the catalog uses. Returns null
-// when the catalog publishes no price for it.
-function listedPrice(row) {
-  const cost = (row && typeof row.cost === 'object' && row.cost) || (row && typeof row.pricing === 'object' && row.pricing) || {};
-  const read = (...keys) => {
-    for (const key of keys) {
-      const value = cost[key] ?? row?.[key];
-      if (value === null || value === undefined || typeof value === 'boolean') continue;
-      const n = Number(value);
-      if (Number.isFinite(n)) return n;
-    }
-    return null;
-  };
-  const input = read('input', 'input_per_million', 'input_cost', 'prompt', 'input_price_per_million');
-  const output = read('output', 'output_per_million', 'output_cost', 'completion', 'output_price_per_million');
-  if (input === null && output === null) return null;
-  return { input: input ?? 0, output: output ?? 0 };
+// Catalog reading lives in model-mesh/catalog-shape.js so the filters are
+// unit-tested rather than trusted; see that file for why each shape is checked.
+
+function reportCatalogShape(providerId, rows) {
+  if (!rows.length) return;
+  const shape = catalogShape(rows);
+  console.log(`PROVIDER_CATALOG_KEYS provider=${providerId} keys=${JSON.stringify(shape.keys)}`);
+  console.log(`PROVIDER_CATALOG_SAMPLE provider=${providerId} row=${JSON.stringify(shape.sample)}`);
 }
 
 // A completion probe is a real API call. On a mixed catalog that call is
@@ -198,14 +203,13 @@ function listedPrice(row) {
 // on, because most providers publish none and the account itself is free-tier.
 const ALLOW_UNPRICED = String(process.env.PROBE_ALLOW_UNPRICED || '1') === '1';
 
-function probeEligibility(row) {
-  const price = listedPrice(row);
-  if (price === null) {
-    return ALLOW_UNPRICED ? { eligible: true, note: 'unpriced_catalog' } : { eligible: false, note: 'SKIPPED_UNPRICED_MODEL' };
-  }
-  if (price.input > 0 || price.output > 0) return { eligible: false, note: `SKIPPED_PAID_MODEL input=${price.input} output=${price.output}` };
-  return { eligible: true, note: 'zero_price_in_catalog' };
-}
+// When the account holder reports a free tier the website shows but the API may
+// not, this requires the catalog itself to mark the model free. It is the
+// difference between admitting what NVIDIA says is free and admitting whatever
+// answered first.
+const REQUIRE_FREE_LABEL = String(process.env.PROBE_REQUIRE_FREE_LABEL || '0') === '1';
+
+const probeEligibility = (row) => catalogProbeEligibility(row, { allowUnpriced: ALLOW_UNPRICED, requireFreeLabel: REQUIRE_FREE_LABEL });
 
 // Prefer models the catalog prices at zero, then ids whose name says free.
 // A name is a hint for probe ORDER only -- it is never admission evidence, and
@@ -215,7 +219,8 @@ function orderCandidates(rows) {
     const id = String(row?.id || row?.name || '');
     const price = listedPrice(row);
     const zeroPriced = price !== null && price.input === 0 && price.output === 0;
-    return { id, row, rank: zeroPriced ? 0 : (/free|nim|nemotron|mimo|pickle|ling|muse/i.test(id) ? 1 : 2) };
+    const labelled = Boolean(freeLabel(row));
+    return { id, row, rank: zeroPriced || labelled ? 0 : (/free|nim|nemotron|mimo|pickle|ling|muse/i.test(id) ? 1 : 2) };
   }).filter((entry) => entry.id);
   return scored.sort((a, b) => a.rank - b.rank).map((entry) => entry);
 }
@@ -228,6 +233,7 @@ if (String(process.env.PROBE_COMPLETIONS || '') === '1') {
     if (binding.endpoint_family !== 'openai_compatible') { console.log(`PROVIDER_PROBE provider=${providerId} verdict=SKIPPED_NON_OPENAI_FAMILY family=${binding.endpoint_family}`); continue; }
     const { status: listStatus, models, rows } = await listOpenAiCompatible(binding.endpoint_url, key);
     if (!models.length) { console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_LISTING http=${listStatus}`); continue; }
+    reportCatalogShape(providerId, rows);
     const ordered = orderCandidates(rows.length ? rows : models.map((id) => ({ id })));
     const eligible = [];
     let skippedPaid = 0;
@@ -246,10 +252,10 @@ if (String(process.env.PROBE_COMPLETIONS || '') === '1') {
     let selected = null;
     const attempts = [];
     for (const model of candidates) {
-      const { status, reason } = await probeCompletion(binding.endpoint_url, key, model);
+      const { status, reason, detail } = await probeCompletion(binding.endpoint_url, key, model);
       const { verdict, scope } = probeVerdict(status);
       attempts.push(`${model}=${status}`);
-      console.log(`PROVIDER_PROBE_MODEL provider=${providerId} model=${model} http=${status} verdict=${verdict}${reason ? ` reason=${reason}` : ''}`);
+      console.log(`PROVIDER_PROBE_MODEL provider=${providerId} model=${model} http=${status} verdict=${verdict}${reason ? ` reason=${reason}` : ''}${detail ? ` detail=${JSON.stringify(detail)}` : ''}`);
       if (status === 200) { selected = model; break; }
       // Only a model-scoped failure justifies trying the provider's next id.
       if (scope !== 'model') break;
