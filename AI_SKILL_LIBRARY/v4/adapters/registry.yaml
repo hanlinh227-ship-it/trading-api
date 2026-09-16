@@ -2,18 +2,27 @@ version: 1
 authority: false
 adapters:
   - id: chatgpt
+    principal_type: user
     token_binding: BRAIN_CLIENT_CHATGPT_TOKEN
     scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
     routing_authority: false
     reasoning_authority: false
   - id: claude
+    principal_type: user
     token_binding: BRAIN_CLIENT_CLAUDE_TOKEN
     scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
     routing_authority: false
     reasoning_authority: false
   - id: gemini
+    principal_type: user
     token_binding: BRAIN_CLIENT_GEMINI_TOKEN
     scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
+    routing_authority: false
+    reasoning_authority: false
+  - id: evergreen
+    principal_type: internal
+    token_binding: BRAIN_EVERGREEN_TOKEN
+    scopes: [brain.review_candidate_memory, brain.read_context]
     routing_authority: false
     reasoning_authority: false
 future_adapter_contract:
