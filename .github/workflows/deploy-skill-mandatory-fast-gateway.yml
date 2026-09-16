@@ -353,7 +353,7 @@ jobs:
           check_route_eventually 'giải thích bác sĩ nội trú' core_reasoning FAST
           check_route_eventually 'sửa lỗi API này' debugging STANDARD
           check_route_eventually 'viết quảng cáo giày cho quý bà' advertising_copy FAST
-          check_route_eventually 'quét market BTC live' trading_router DEEP
+          check_route_eventually 'quét market BTC live' multi_market_analysis DEEP
 
       # The provider canary runs BEFORE the planner smoke on purpose. On a fresh
       # revision no provider has live evidence yet; a /brain/mesh/plan call then
@@ -390,7 +390,7 @@ jobs:
             printf '%s\n' "$plan" | EXPECTED_SKILL="$expected_skill" EXPECTED_PROFILE="$expected_profile" MAX_WORKERS="$max_workers" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s),r=x.route||{},w=Array.isArray(x.workers)?x.workers:[];if(!x.ok||r.primarySkill!==process.env.EXPECTED_SKILL||r.profile!==process.env.EXPECTED_PROFILE||x.sourceSha!==process.env.EXPECTED_SHA||w.length<1||w.length>Number(process.env.MAX_WORKERS)||x.selectionReason!=='live_healthy_provider_selected'){console.log('MODEL_MESH_POST_PROBE_PLAN=FAIL skill='+r.primarySkill+' profile='+r.profile+' workers='+w.length+' reason='+x.selectionReason);process.exit(2)}console.log('MODEL_MESH_POST_PROBE_PLAN=PASS '+r.primarySkill+' '+r.profile+' workers='+w.length)})"
           }
           verify_live_plan 'sửa lỗi API này' debugging STANDARD 2
-          verify_live_plan 'quét market BTC live' trading_router DEEP 4
+          verify_live_plan 'quét market BTC live' multi_market_analysis DEEP 4
           contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
           printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2)})"
 
