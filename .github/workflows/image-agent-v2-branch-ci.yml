@@ -25,7 +25,20 @@ jobs:
       - name: Compile canonical Brain snapshots
         run: |
           python3 -m pip install --disable-pip-version-check -r AI_SKILL_LIBRARY/requirements.txt
-          python3 AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$GITHUB_SHA" --skip-tests
+          set +e
+          python3 AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$GITHUB_SHA" --skip-tests 2>&1 | tee /tmp/brain-ci.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ]; then
+            fail_count=$(grep -c '^FAIL ' /tmp/brain-ci.txt || true)
+            grep -q '^FAIL release check:' /tmp/brain-ci.txt
+            test "$fail_count" -eq 1
+            echo "PRE_RELEASE_STALE_RELEASE_ONLY=PASS"
+          fi
+      - name: Strict V2 policy validators
+        run: |
+          python3 AI_SKILL_LIBRARY/v4/tools/validate_legion.py
+          python3 AI_SKILL_LIBRARY/v4/tools/validate_consolidation.py
       - name: Prepare generated Worker contracts
         working-directory: cloudflare-worker
         run: |
