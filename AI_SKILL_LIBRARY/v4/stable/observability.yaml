@@ -31,3 +31,11 @@ limits:
   max_event_chars: 1200
   max_trace_chars: 20000
   max_tool_payload_chars: 3000
+universal_fabric:
+  enabled: true
+  authority: false
+  per_client_audit_identity: true
+  fast_synchronous_persistence: false
+  allowed_fields: [event_type, client_id, request_id, profile, domain, primary_skill, capsule_hash, release_id, source_sha, latency_ms, tool_class, provider_id, model_family, cache_outcome, retrieval_outcome, fallback_state, memory_event, promotion_event, recovery_event, failure_category, verification, status, timestamp]
+  forbidden_fields: [raw_private_chat, raw_prompt, prompt, secrets, credentials, authentication_tokens, private_keys, account_data, hidden_chain_of_thought, chain_of_thought, raw_private_tool_payload, private_tool_payload, private_provider_payload]
+  telemetry_failure_blocks_stable: false

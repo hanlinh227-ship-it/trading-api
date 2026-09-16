@@ -1,0 +1,8 @@
+{
+  "name": "universal-brain-adapter",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test-adapter.mjs"
+  }
+}

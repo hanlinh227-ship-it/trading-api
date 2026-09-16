@@ -25,6 +25,10 @@ jobs:
         run: |
           python AI_SKILL_LIBRARY/v4/tools/release.py check --root .
           python AI_SKILL_LIBRARY/validate_v4.py
+      - name: Verify committed upstream capability ledger freshness
+        run: python AI_SKILL_LIBRARY/v4/tools/run_upstream_watch.py --root . --check
+      - name: Build upstream capability watch artifact
+        run: python AI_SKILL_LIBRARY/v4/tools/run_upstream_watch.py --root . --output /tmp/v4-upstream-capability-ledger.json
       - name: Revalidate registered upstream sources
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -41,6 +45,7 @@ jobs:
         run: |
           python -c "import json; d=json.load(open('/tmp/v4-quarantine-scan.json')); print('quarantine candidates=', len(d.get('candidates', [])), 'errors=', len(d.get('errors', [])))"
           python -c "import json; d=json.load(open('/tmp/v4-free-model-mesh-candidates.json')); print('model candidates=', len(d.get('candidates', [])), 'state=', d.get('state'))"
+          python -c "import json; d=json.load(open('/tmp/v4-upstream-capability-ledger.json')); print('upstream sources=', len(d.get('sources', [])), 'candidate actions=', len(d.get('candidate_actions', [])))"
       - name: Upload source refresh artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -49,6 +54,7 @@ jobs:
             /tmp/v4-source-registry-audit.txt
             /tmp/v4-quarantine-scan.json
             /tmp/v4-free-model-mesh-candidates.json
+            /tmp/v4-upstream-capability-ledger.json
             /tmp/v4-intelligence-audit.json
           retention-days: 7
 
@@ -67,6 +73,8 @@ jobs:
         run: python -m unittest AI_SKILL_LIBRARY.tests.test_brain_4_8_continuous_intelligence AI_SKILL_LIBRARY.tests.test_adaptive_free_model_mesh_evergreen -v
       - name: Verify immutable release freshness
         run: python AI_SKILL_LIBRARY/v4/tools/release.py check --root .
+      - name: Verify upstream capability ledger freshness
+        run: python AI_SKILL_LIBRARY/v4/tools/run_upstream_watch.py --root . --check
       - name: Run canonical Brain validation
         run: |
           SOURCE_SHA="$(git rev-parse HEAD)"

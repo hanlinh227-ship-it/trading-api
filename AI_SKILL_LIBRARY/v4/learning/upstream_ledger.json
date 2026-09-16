@@ -1,0 +1,195 @@
+{
+  "authority": false,
+  "candidate_actions": [
+    {
+      "action": "create",
+      "capability": "document_parsing",
+      "domain": "data_docs",
+      "gap_id": "upstream:docling:document_parsing",
+      "promotion_class": "A",
+      "reasoning_authority": false,
+      "routing_authority": false,
+      "source_id": "docling",
+      "stable_write": false,
+      "status": "distinct_candidate",
+      "target_skill_id": null
+    },
+    {
+      "action": "create",
+      "capability": "structure_aware_extraction",
+      "domain": "data_docs",
+      "gap_id": "upstream:docling:structure_aware_extraction",
+      "promotion_class": "A",
+      "reasoning_authority": false,
+      "routing_authority": false,
+      "source_id": "docling",
+      "stable_write": false,
+      "status": "distinct_candidate",
+      "target_skill_id": null
+    },
+    {
+      "action": "improve",
+      "capability": "api",
+      "domain": "engineering",
+      "gap_id": "upstream:mcp_python_sdk:api",
+      "promotion_class": "A",
+      "reasoning_authority": false,
+      "routing_authority": false,
+      "source_id": "mcp_python_sdk",
+      "stable_write": false,
+      "status": "strengthen_existing",
+      "target_skill_id": "api"
+    },
+    {
+      "action": "improve",
+      "capability": "automation",
+      "domain": "engineering",
+      "gap_id": "upstream:mcp_python_sdk:automation",
+      "promotion_class": "A",
+      "reasoning_authority": false,
+      "routing_authority": false,
+      "source_id": "mcp_python_sdk",
+      "stable_write": false,
+      "status": "strengthen_existing",
+      "target_skill_id": "automation"
+    },
+    {
+      "action": "create",
+      "capability": "mcp_protocol_interop",
+      "domain": "engineering",
+      "gap_id": "upstream:mcp_python_sdk:mcp_protocol_interop",
+      "promotion_class": "A",
+      "reasoning_authority": false,
+      "routing_authority": false,
+      "source_id": "mcp_python_sdk",
+      "stable_write": false,
+      "status": "distinct_candidate",
+      "target_skill_id": null
+    }
+  ],
+  "reasoning_authority": false,
+  "routing_authority": false,
+  "source_registry": "AI_SKILL_LIBRARY/v4/learning/upstream_sources.yaml",
+  "sources": [
+    {
+      "approved": true,
+      "block_reasons": [],
+      "capabilities": [
+        "document_parsing",
+        "structure_aware_extraction"
+      ],
+      "capability_results": [
+        {
+          "capability": "document_parsing",
+          "reasoning_authority": false,
+          "routing_authority": false,
+          "stable_write": false,
+          "status": "distinct_candidate",
+          "triage": {
+            "action": "create",
+            "gap_id": "upstream:docling:document_parsing",
+            "promotion_class": "A",
+            "routing_authority": false,
+            "stable_write": false,
+            "target_skill_id": null
+          }
+        },
+        {
+          "capability": "structure_aware_extraction",
+          "reasoning_authority": false,
+          "routing_authority": false,
+          "stable_write": false,
+          "status": "distinct_candidate",
+          "triage": {
+            "action": "create",
+            "gap_id": "upstream:docling:structure_aware_extraction",
+            "promotion_class": "A",
+            "routing_authority": false,
+            "stable_write": false,
+            "target_skill_id": null
+          }
+        }
+      ],
+      "domain": "data_docs",
+      "license": "MIT",
+      "location": "docling-project/docling",
+      "maintenance_status": "active",
+      "pinned_revision": "1aec03f1c3326584e8a7b97b2d0ed2ad95d946b4",
+      "reasoning_authority": false,
+      "routing_authority": false,
+      "source_id": "docling",
+      "source_type": "github",
+      "stable_write": false,
+      "state": "active"
+    },
+    {
+      "approved": true,
+      "block_reasons": [],
+      "capabilities": [
+        "api",
+        "automation",
+        "mcp_protocol_interop"
+      ],
+      "capability_results": [
+        {
+          "capability": "api",
+          "reasoning_authority": false,
+          "routing_authority": false,
+          "stable_write": false,
+          "status": "strengthen_existing",
+          "triage": {
+            "action": "improve",
+            "gap_id": "upstream:mcp_python_sdk:api",
+            "promotion_class": "A",
+            "routing_authority": false,
+            "stable_write": false,
+            "target_skill_id": "api"
+          }
+        },
+        {
+          "capability": "automation",
+          "reasoning_authority": false,
+          "routing_authority": false,
+          "stable_write": false,
+          "status": "strengthen_existing",
+          "triage": {
+            "action": "improve",
+            "gap_id": "upstream:mcp_python_sdk:automation",
+            "promotion_class": "A",
+            "routing_authority": false,
+            "stable_write": false,
+            "target_skill_id": "automation"
+          }
+        },
+        {
+          "capability": "mcp_protocol_interop",
+          "reasoning_authority": false,
+          "routing_authority": false,
+          "stable_write": false,
+          "status": "distinct_candidate",
+          "triage": {
+            "action": "create",
+            "gap_id": "upstream:mcp_python_sdk:mcp_protocol_interop",
+            "promotion_class": "A",
+            "routing_authority": false,
+            "stable_write": false,
+            "target_skill_id": null
+          }
+        }
+      ],
+      "domain": "engineering",
+      "license": "MIT",
+      "location": "modelcontextprotocol/python-sdk",
+      "maintenance_status": "active",
+      "pinned_revision": "9972c21aa42054fb1450c5fc614761ed11847ec6",
+      "reasoning_authority": false,
+      "routing_authority": false,
+      "source_id": "mcp_python_sdk",
+      "source_type": "github",
+      "stable_write": false,
+      "state": "active"
+    }
+  ],
+  "stable_direct_write": false,
+  "version": 1
+}

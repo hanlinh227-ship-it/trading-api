@@ -4,6 +4,23 @@ on:
   schedule:
     - cron: '41 * * * *'
   workflow_dispatch:
+    inputs:
+      failure_ledger_path:
+        description: Optional repository-relative sanitized failure ledger path
+        required: false
+        type: string
+      candidate_json_path:
+        description: Optional repository-relative skill candidate JSON path
+        required: false
+        type: string
+      eval_json_path:
+        description: Optional repository-relative evaluation JSON path
+        required: false
+        type: string
+      immutable_replay_ref:
+        description: Optional immutable replay artifact reference used with candidate evaluation
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -27,6 +44,42 @@ jobs:
         run: |
           python AI_SKILL_LIBRARY/v4/tools/release.py check --root .
           python AI_SKILL_LIBRARY/validate_v4.py
+          python AI_SKILL_LIBRARY/v4/tools/run_upstream_watch.py --root . --check
+      - name: Validate optional sanitized failure ledger input
+        if: github.event_name == 'workflow_dispatch' && inputs.failure_ledger_path != ''
+        env:
+          FAILURE_LEDGER_PATH: ${{ inputs.failure_ledger_path }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path('.').resolve()
+          path = (root / os.environ['FAILURE_LEDGER_PATH']).resolve()
+          path.relative_to(root)
+          data = json.loads(path.read_text(encoding='utf-8'))
+          rows = data.get('failures', []) if isinstance(data, dict) else None
+          if not isinstance(rows, list):
+              raise SystemExit('failure ledger must contain a failures list')
+          print(f"SANITIZED_FAILURE_LEDGER=PASS failures={len(rows)}")
+          PY
+      - name: Evaluate optional bounded skill candidate evidence
+        if: github.event_name == 'workflow_dispatch' && inputs.candidate_json_path != '' && inputs.eval_json_path != '' && inputs.immutable_replay_ref != ''
+        env:
+          CANDIDATE_JSON_PATH: ${{ inputs.candidate_json_path }}
+          EVAL_JSON_PATH: ${{ inputs.eval_json_path }}
+          IMMUTABLE_REPLAY_REF: ${{ inputs.immutable_replay_ref }}
+        run: |
+          python AI_SKILL_LIBRARY/v4/tools/evaluate_skill_candidate.py \
+            --root . \
+            --candidate "$CANDIDATE_JSON_PATH" \
+            --eval "$EVAL_JSON_PATH" \
+            --replay-ref "$IMMUTABLE_REPLAY_REF" \
+            --output /tmp/v4-skill-candidate-evaluation.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/v4-skill-candidate-evaluation.json'))
+          print('SKILL_CANDIDATE_DECISION class=', d.get('promotion_class'), 'eligible=', d.get('eligible'), 'automatic=', d.get('automatic'))
+          PY
       - name: Scan for machine-readable candidate skills
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -47,6 +100,7 @@ jobs:
         run: |
           python -m unittest discover -s AI_SKILL_LIBRARY/tests -v
           python AI_SKILL_LIBRARY/validate_v4.py
+          python AI_SKILL_LIBRARY/v4/tools/run_upstream_watch.py --root . --check
           SOURCE_SHA="$(git rev-parse HEAD)"
           python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA"
       - name: Continuous intelligence audit
@@ -55,7 +109,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: v4-evergreen-candidate-audit
-          path: /tmp/v4-candidate-intelligence-audit.json
+          path: |
+            /tmp/v4-candidate-intelligence-audit.json
+            /tmp/v4-skill-candidate-evaluation.json
+          if-no-files-found: ignore
           retention-days: 14
       - name: Create isolated candidate branch and pull request
         if: steps.promote.outputs.version != 'NO_PROMOTABLE_CLASS_A'

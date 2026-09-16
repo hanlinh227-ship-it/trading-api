@@ -1,0 +1,35 @@
+version: 1
+brain_authority: GITHUB_BRAIN_V4
+routing_authority: false
+reasoning_authority: false
+shared_master_key: false
+adapters:
+  chatgpt:
+    adapter_version: '1.0'
+    credential_binding: BRAIN_CLIENT_CHATGPT_TOKEN
+    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
+    declared_capabilities: [text, files, tools]
+    authority: false
+  claude:
+    adapter_version: '1.0'
+    credential_binding: BRAIN_CLIENT_CLAUDE_TOKEN
+    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
+    declared_capabilities: [text, files, tools]
+    authority: false
+  gemini:
+    adapter_version: '1.0'
+    credential_binding: BRAIN_CLIENT_GEMINI_TOKEN
+    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
+    declared_capabilities: [text, files, tools]
+    authority: false
+scope_catalog:
+  brain.route: read_only
+  brain.read_context: read_only
+  brain.submit_candidate_memory: reversible_write
+  brain.use_research_tools: read_only
+  brain.read_runtime_health: read_only
+  brain.request_deploy_action: reversible_write
+  brain.request_trading_read: read_only
+protected_scopes:
+  - brain.request_deploy_action
+unknown_scope_action: deny

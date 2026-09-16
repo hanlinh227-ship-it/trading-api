@@ -1,0 +1,86 @@
+version: 1
+purpose: universal_multi_client_entry_contract_for_github_brain_v4
+brain_authority: GITHUB_BRAIN_V4
+routing_authority: false
+reasoning_authority: false
+stable_mutation: false
+
+clients:
+  initial: [chatgpt, claude, gemini]
+  future_adapter_without_brain_core_change: true
+  independent_credentials_required: true
+  independent_revoke_required: true
+  scoped_permissions_required: true
+  shared_master_key_forbidden: true
+
+request_contract:
+  schema: AI_SKILL_LIBRARY/v4/schemas/universal_entry_request.schema.json
+  max_text_chars: 20000
+  unknown_data_class: SECRET
+  client_cannot_choose_primary_skill: true
+  client_cannot_override_project_authority: true
+
+response_contract:
+  schema: AI_SKILL_LIBRARY/v4/schemas/universal_entry_response.schema.json
+  expose_hidden_reasoning: false
+  disclose_degraded_state_when_material: true
+
+routing:
+  canonical_router: task_router
+  exactly_one_primary_skill: true
+  validated_execution_capsule_required: true
+  FAST:
+    online_brain_required: false
+    verified_hot_snapshot_only: true
+    synchronous_network_routing_calls: 0
+    synchronous_shared_state_reads: 0
+    synchronous_provider_calls: 0
+  STANDARD:
+    online_brain_required: true
+    safe_degraded_informational_fallback: true
+  DEEP:
+    online_brain_required: true
+    safe_degraded_informational_fallback: conditional
+
+standard_signals:
+  - project_context
+  - ordinary_research
+  - artifact_creation
+  - external_tool
+
+deep_signals:
+  - live_or_trading
+  - deployment_or_runtime_claim
+  - credential_sensitive
+  - financial
+  - destructive
+  - permission_change
+
+mandatory_fail_closed_classes:
+  - live_or_trading
+  - deployment_or_runtime_claim
+  - credential_sensitive
+  - financial
+  - destructive
+  - permission_change
+
+safe_degraded:
+  authority: last_verified_stable_snapshot
+  candidate_state_forbidden: true
+  stale_runtime_cache_cannot_become_authority: true
+  freshness_fabrication_forbidden: true
+  permission_widening_forbidden: true
+
+privacy:
+  raw_chat_shared_by_default: false
+  hidden_reasoning_persistence: false
+  secret_persistence: false
+  credential_persistence: false
+  private_provider_payload_persistence: false
+
+model_mesh:
+  remains_worker_layer: true
+  paid_fallback: false
+  auto_purchase: false
+  trial_credit_as_free: false
+  provider_is_reasoning_authority: false

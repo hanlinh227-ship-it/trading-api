@@ -22,6 +22,19 @@ policy:
   superseded_memory_is_not_authority: true
   durable_write_requires: [reusable, verified, scoped, non_sensitive]
 required_metadata: [source, confidence, created_at, last_verified, superseded_by, scope, domain]
+candidate_lifecycle:
+  enabled: true
+  states: [candidate, confirmed, needs_reverify, rejected, active, superseded, tombstoned, archived]
+  candidate_is_authority: false
+  stable_direct_write: false
+  review_principal: evergreen
+  minimum_confidence_to_promote: 0.55
+  minimum_evidence_refs: 1
+  minimum_review_evidence_count: 1
+  require_current_evidence: true
+  conflict_blocks_promotion: true
+  promotion_requires: [reusable, verified, non_sensitive, evidence_backed, scoped, no_conflicts]
+  supersession_preserves_provenance: true
 layers:
   working: {durable: false, max_items: 12, max_item_tokens: 600}
   project: {durable: true, max_items: 20, max_item_tokens: 500, defers_to: current_project_authority}
@@ -43,6 +56,9 @@ retrieval:
   STANDARD: {layers: [semantic, procedural, episodic], max_items: 4, max_total_tokens: 1800}
   DEEP: {layers: [semantic, procedural, episodic], max_items: 8, max_total_tokens: 4000}
   ranking: [domain_scope, project_scope, semantic_relevance, freshness, verification, confidence]
+  only_active_promoted_memory: true
+  candidate_retrieval: forbidden
+  superseded_retrieval: forbidden
 consolidation:
   enabled: true
   deduplicate: true

@@ -1,0 +1,57 @@
+version: 1
+purpose: portable_subordinate_runtime_state_for_universal_brain_fabric
+canonical_authority: github
+runtime_state_authority: false
+routing_authority: false
+reasoning_authority: false
+
+interfaces:
+  StateKV:
+    required: true
+    first_backend: cloudflare_kv_namespaced
+    preferred_binding: BRAIN_STATE
+    compatible_existing_binding: TRADING_STATE
+    namespace_prefix: 'brain:v1:'
+    never_read_on_fast_route: true
+  MetadataStore:
+    required: true
+    first_backend: cloudflare_kv_json
+    namespace_prefix: 'brain:v1:meta:'
+    future_backends: [d1, postgres]
+  VectorIndex:
+    required: false
+    first_backend: optional_vectorize
+    binding: BRAIN_VECTOR
+    on_unavailable: canonical_ranked_retrieval
+    future_backends: [qdrant, pgvector]
+  ObjectStore:
+    required: false
+    first_backend: optional_r2
+    binding: BRAIN_OBJECTS
+    on_unavailable: inline_bounded_metadata_only
+    future_backends: [s3_compatible]
+  TaskQueue:
+    required: false
+    first_backend: optional_cloudflare_queue
+    binding: BRAIN_QUEUE
+    on_unavailable: existing_evergreen_scheduler
+  LeaseLock:
+    required: false
+    first_backend: optional_durable_object
+    binding: BRAIN_LOCK
+    on_unavailable: existing_update_plane_locks
+
+privacy:
+  forbidden_content: [hidden_reasoning, raw_private_chat, secrets, credentials, private_keys, authentication_tokens, raw_sensitive_tool_payloads]
+  secrets_in_vector_index: false
+  secrets_in_metadata_store: false
+
+fast_path:
+  synchronous_state_reads: 0
+  synchronous_state_writes: 0
+  synchronous_queue_calls: 0
+
+fallback:
+  backend_failure_never_promotes_cache_to_authority: true
+  stable_request_survives_optional_backend_failure: true
+  disclose_degraded_state_when_material: true

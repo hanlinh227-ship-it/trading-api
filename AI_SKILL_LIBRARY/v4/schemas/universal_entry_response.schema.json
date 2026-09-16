@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "universal_entry_response.schema.json",
+  "title": "Universal Brain Entry Response",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["ok", "profile", "online_brain_required", "degraded", "source_sha"],
+  "properties": {
+    "ok": {"type": "boolean"},
+    "profile": {"type": "string", "enum": ["FAST", "STANDARD", "DEEP"]},
+    "domain": {"type": ["string", "null"]},
+    "primary_skill": {"type": ["string", "null"]},
+    "capsule_hash": {"type": ["string", "null"]},
+    "online_brain_required": {"type": "boolean"},
+    "safe_degraded_allowed": {"type": "boolean"},
+    "degraded": {"type": "boolean"},
+    "degraded_reason": {"type": ["string", "null"]},
+    "source_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "release_id": {"type": ["string", "null"]},
+    "result": {},
+    "evidence_refs": {"type": "array", "maxItems": 24, "items": {"type": "string", "maxLength": 500}}
+  }
+}

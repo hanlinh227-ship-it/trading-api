@@ -1,0 +1,92 @@
+openapi: 3.1.0
+info:
+  title: Universal Brain Fabric API
+  version: 1.0.0
+  description: Public adapter contract for the canonical GITHUB_BRAIN_V4 gateway. Credential values are never part of this document.
+servers:
+  - url: https://YOUR_WORKER_HOST
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    BrainClient:
+      name: x-brain-client
+      in: header
+      required: true
+      schema: {type: string, enum: [chatgpt, claude, gemini, evergreen]}
+  schemas:
+    RouteRequest:
+      type: object
+      required: [text, request_id, session_id]
+      properties:
+        text: {type: string}
+        request_id: {type: string}
+        session_id: {type: string}
+        project_hint: {type: [string, 'null']}
+        freshness: {type: string, enum: [none, normal, current, live]}
+        declared_capabilities: {type: array, items: {type: string}}
+        tool_classes: {type: array, items: {type: string}}
+        data_class: {type: string, enum: [PUBLIC, INTERNAL, CONFIDENTIAL, SECRET]}
+        requested_action_class: {type: string}
+    ContextQuery:
+      type: object
+      required: [domain, scope, profile, query]
+      properties:
+        domain: {type: string}
+        scope: {type: string}
+        profile: {type: string, enum: [STANDARD, DEEP]}
+        query: {type: string}
+        limit: {type: integer, minimum: 1, maximum: 8}
+paths:
+  /brain/universal/health:
+    get:
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/BrainClient'}]
+      responses:
+        '200': {description: Universal Brain health contract}
+  /brain/universal/capabilities:
+    get:
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/BrainClient'}]
+      responses:
+        '200': {description: User adapters, internal principals, and routing capabilities}
+  /brain/universal/route:
+    post:
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/BrainClient'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RouteRequest'}
+      responses:
+        '200': {description: Canonical Brain route result}
+        '401': {description: Adapter authentication required}
+        '403': {description: Scope denied}
+  /brain/context/query:
+    post:
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/BrainClient'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ContextQuery'}
+      responses:
+        '200': {description: Bounded active promoted memory context}
+        '400': {description: FAST memory preload or invalid query rejected}
+  /brain/memory/candidates:
+    post:
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/BrainClient'}]
+      responses:
+        '202': {description: Candidate memory accepted for review, not activated}
+  /brain/memory/review:
+    post:
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/BrainClient'}]
+      responses:
+        '200': {description: Evergreen-only candidate review result}
+        '403': {description: Internal review scope required}

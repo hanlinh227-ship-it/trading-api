@@ -14,11 +14,13 @@ allowed_jobs:
   - capability_gap_detection
   - public_source_discovery
   - free_model_discovery
+  - upstream_watch
   - skill_mining
   - skill_mutation
   - replay_eval
   - regression_eval
   - knowledge_dedupe
+  - memory_candidate_review
   - retrieval_benchmark
   - routing_benchmark
 forbidden_jobs:
@@ -35,10 +37,17 @@ priority:
   capability_gap_detection: 80
   regression_eval: 75
   free_model_discovery: 70
+  upstream_watch: 68
   public_source_discovery: 65
   skill_mining: 62
   skill_mutation: 60
   replay_eval: 58
+  memory_candidate_review: 55
   retrieval_benchmark: 50
   routing_benchmark: 48
   knowledge_dedupe: 40
+universal_fabric:
+  second_scheduler_forbidden: true
+  shared_state_jobs_are_candidate_only: true
+  class_c_or_d_auto_promotion: false
+  high_risk_jobs_forbidden: true

@@ -1,0 +1,1 @@
+{"client_id":"gemini","entry":"/brain/universal/route","health":"/brain/universal/health","context":"/brain/context/query","memory_candidate":"/brain/memory/candidates","auth":"bearer+client-header","brain_authority":"GITHUB_BRAIN_V4"}
