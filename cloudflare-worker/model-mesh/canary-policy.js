@@ -21,8 +21,24 @@ export function validateProbeCanary(envelope,{requireHealthy=false,secretValues=
 }
 
 export function validateLiveOverlay(envelope,health){
-  const expected=new Set(envelope.results.filter(row=>row?.configured===true&&row.ok===true&&row.state==='LIVE_HEALTHY').map(row=>row.providerId));
-  const actual=new Set((health?.providers||[]).filter(row=>row?.active===true).map(row=>row.providerId));
-  if(expected.size!==actual.size||[...expected].some(providerId=>!actual.has(providerId)))throw new Error('overlay_active_set_mismatch');
-  return {activeCount:actual.size};
+  const expectedProviderIds=envelope.results
+    .filter(row=>row?.configured===true&&row.ok===true&&row.state==='LIVE_HEALTHY')
+    .map(row=>row.providerId)
+    .sort();
+  const actualProviderIds=(health?.providers||[])
+    .filter(row=>row?.active===true)
+    .map(row=>row.providerId)
+    .sort();
+  const actual=new Set(actualProviderIds);
+  const missingExpectedProviderIds=expectedProviderIds.filter(providerId=>!actual.has(providerId));
+  if(missingExpectedProviderIds.length){
+    throw new Error(`overlay_missing_expected_provider:${missingExpectedProviderIds.join(',')}`);
+  }
+  const expected=new Set(expectedProviderIds);
+  const extraActiveProviderIds=actualProviderIds.filter(providerId=>!expected.has(providerId));
+  return {
+    activeCount:actualProviderIds.length,
+    expectedProviderIds,
+    extraActiveProviderIds,
+  };
 }
