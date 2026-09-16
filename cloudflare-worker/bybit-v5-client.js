@@ -1,14 +1,23 @@
 import {hmacHex} from "./providers/bybit-signed-client.js";
 import {bybitCredentials,bybitAutoConfig} from "./bybit-auto-config.js";
 import {BYBIT_PRIVATE_TRANSPORT,BYBIT_MARKET_TRANSPORT,BYBIT_RUNTIME_CONTRACT_VERSION} from "./bybit-runtime-contract.js";
+import {assertBybitExecutionSymbol} from "./bybit-execution-authority.js";
 
 const DEFAULT_BASES=["https://api.bybit.com","https://api.bytick.com"];
 const BRIDGE_PRIVATE_URL="http://127.0.0.1:8789/bybit/private";
 const BRIDGE_TIMEOUT_MS=25000;
+const TRADING_WRITE_PATHS=new Set(["/v5/order/create","/v5/order/amend","/v5/order/cancel","/v5/order/cancel-all","/v5/position/set-leverage","/v5/position/trading-stop"]);
 const clean=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>v!==undefined&&v!==null&&v!==""));
 const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)])).toString();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const bridgeSecret=env=>String(env?.V11_AI_BRIDGE_SECRET||env?.BYBIT_VPS_BRIDGE_SECRET||"").trim();
+function guardSignedWrite(method,path,paramsOrBody={}){
+  const upper=String(method||"").toUpperCase();
+  if(upper==="GET"||!TRADING_WRITE_PATHS.has(String(path||"")))return null;
+  const raw=String(paramsOrBody?.symbol||"").trim();
+  if(!raw){const error=new Error("BYBIT_EXECUTION_SYMBOL_REQUIRED");error.code="BYBIT_EXECUTION_SYMBOL_REQUIRED";throw error;}
+  return assertBybitExecutionSymbol(raw);
+}
 function bases(env={}){
   const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";
   if(demo)return ["https://api-demo.bybit.com"];
@@ -98,6 +107,7 @@ export function bybitV5(env={}){
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
   }
   async function signed(method,path,paramsOrBody={}){
+    guardSignedWrite(method,path,paramsOrBody);
     if(demo)return signedDirect(method,path,paramsOrBody);
     try{return await signedViaVps(method,path,paramsOrBody);}
     catch(e){
@@ -120,13 +130,14 @@ export function bybitV5(env={}){
     }
   }
   async function createOrder(body={}){
+    guardSignedWrite("POST","/v5/order/create",body);
     const reduceOnly=body.reduceOnly===true||String(body.closeOnTrigger||"").toLowerCase()==="true";
     const enriched={category:"linear",...body};
     if(!reduceOnly){
       const side=String(body.side||"");
       const p=await signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200});
       const rows=p?.result?.list||[],sameDirectionCount=rows.filter(x=>Number(x?.size||0)>0&&String(x?.side||"")===side).length;
-      const maxSameDirection=Math.max(1,Number(cfg?.risk?.maxSameDirectionPositions||3));
+      const maxSameDirection=Math.max(1,Number(cfg?.risk?.maxSameDirectionPositions||1));
       if(side&&sameDirectionCount>=maxSameDirection){
         const e=new Error(`SAME_DIRECTION_EXPOSURE_CAP: ${side} ${sameDirectionCount}/${maxSameDirection}`);
         e.bybit={path:"LOCAL_ORDER_PREFLIGHT",httpStatus:0,retCode:null,retMsg:"SAME_DIRECTION_EXPOSURE_CAP",transport:"LOCAL_FAIL_CLOSED",runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION};
