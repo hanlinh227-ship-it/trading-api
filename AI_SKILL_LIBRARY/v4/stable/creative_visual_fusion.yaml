@@ -1,5 +1,5 @@
-version: 1
-purpose: fuse_creative_image_prompt_script_design_and_edit_patterns_into_native_v4
+version: 2
+purpose: fuse_creative_image_prompt_script_design_edit_and_quality_patterns_into_native_v4
 
 policy:
   single_authority_chain: true
@@ -18,7 +18,7 @@ policy:
 
 modules:
   creative_direction:
-    purpose: translate audience_platform_goal_and_style_constraints_into_visual_direction
+    purpose: translate_audience_platform_goal_and_style_constraints_into_visual_direction
     outputs: [audience, platform, purpose, visual_language, brand_style, deliverable_constraints]
   script_to_shots:
     purpose: convert_script_or_narration_into_beats_scenes_shots_and_transitions
@@ -35,22 +35,19 @@ modules:
   render_quality_critic:
     purpose: check_visual_output_or_prompt_for_render_and_design_failures
     checks: [prompt_fidelity, identity_consistency, scene_continuity, object_count, anatomy_risk, deformation_risk, perspective, lighting, camera_repetition, design_hierarchy, render_suitability]
+  candidate_tournament:
+    purpose: select_the_best_verified_candidate_using_task_specific_quality_dimensions
+    checks: [prompt_adherence, reference_fidelity, anatomy, composition, background_accuracy, wardrobe_accuracy, prop_accuracy, text_accuracy, style_accuracy, continuity]
+  targeted_repair_planner:
+    purpose: preserve_good_regions_and_repair_only_the_smallest_failing_region_when_capabilities_allow
+    stages: [critic_problem, ground_target, segment_target, local_edit, recheck]
 
 continuity:
   max_state_items_standard: 12
   max_state_items_deep: 32
   authority: false
   persist_hidden_reasoning: false
-  allowed_state:
-    - character_identity
-    - wardrobe
-    - props
-    - environment
-    - object_count
-    - time_of_day
-    - light_direction
-    - camera_state
-    - continuity_constraints
+  allowed_state: [character_identity, wardrobe, props, environment, object_count, time_of_day, light_direction, camera_state, continuity_constraints]
   preserve_explicit_facts: true
   on_conflict: prefer_user_and_project_authority_then_reverify
   never_promote_inference_to_locked_fact: true
@@ -77,13 +74,13 @@ profiles:
     continuity_preload_items: 12
     maker_checker: when_material
     independent_grader: false
-    modules: [creative_direction, script_to_shots, visual_prompt_compiler, continuity_engine, visual_edit_reasoning, render_quality_critic]
+    modules: [creative_direction, script_to_shots, visual_prompt_compiler, continuity_engine, visual_edit_reasoning, render_quality_critic, candidate_tournament, targeted_repair_planner]
   DEEP:
     external_framework_required: false
     continuity_preload_items: 32
     maker_checker: true
     independent_grader: required_for_high_impact_or_complex
-    modules: [creative_direction, script_to_shots, visual_prompt_compiler, continuity_engine, visual_edit_reasoning, render_quality_critic]
+    modules: [creative_direction, script_to_shots, visual_prompt_compiler, continuity_engine, visual_edit_reasoning, render_quality_critic, candidate_tournament, targeted_repair_planner]
 
 canonical_skill_bindings:
   prompt: [prompt_engineering, image_prompt, video_prompt, negative_constraints, prompt_debugging, character_consistency, scene_continuity, camera_direction, storyboard]
@@ -92,6 +89,8 @@ canonical_skill_bindings:
   writing: [scriptwriting, screenwriting, voice_over, advertising_copy, hook_retention, storytelling]
 
 # Shared creative logic has exactly one canonical owner skill; other skills reference, never duplicate.
+# V4 modules (render_quality_critic, candidate_tournament, targeted_repair_planner) are execution
+# modules, not canonical skills, so they can never own shared logic.
 shared_logic_owner:
   identity_preservation: character_consistency
   scene_continuity: scene_continuity
@@ -107,6 +106,9 @@ shared_logic_owner:
   timeline_editing: premiere_pro
   layout_hierarchy: layout
   visual_direction: graphic_design
+  candidate_selection: verification
+  targeted_repair_decision: photoshop
+
 legacy_alias_ids_resolved_by_catalog: [image_video_generation, generative_media, adobe_media, design_2d_ux, design_3d_blender]
 budgets_path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
 
@@ -117,7 +119,7 @@ upstream_pattern_map:
   tencent-ailab/IP-Adapter:
     status: approved_reference
     absorbs: [image_reference_conditioning, identity_preservation_patterns, style_reference_patterns]
-  facebookresearch/segment-anything:
+  facebookresearch/sam2:
     status: approved_reference
     absorbs: [mask_first_editing, object_segmentation, precise_edit_scope]
   IDEA-Research/GroundingDINO:
@@ -137,15 +139,29 @@ upstream_pattern_map:
 # Provider/runtime policy is canonical in image_render_policy.yaml.
 image_render_runtime:
   policy_path: AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml
+  # V2 keys stay canonical public contract; V3/V4 keys are additive.
   contract_version: image_render_v2
+  v3_contract_version: image_render_v3
+  v2_compatibility: true
   batch_enabled: true
+  logical_jobs_enabled: true
+  physical_chunk_max_scenes: 100
   free_only: true
+  cloud_only: true
   public_only: true
+  public_execution_only_until_reference_safe_runtime_active: true
   reference_provider_upload: false
+  reference_provider_upload_to_volunteer: false
+  missing_reference_safe_runtime_action: WAITING_FOR_SAFE_FREE_RUNTIME
   quality_profiles: [STRUCTURAL, STRICT]
+  v3_quality_profiles: [STRUCTURAL, STRICT, STRICT_VISUAL]
   strict_without_visual_critic: complete_unverified
+  candidate_tournament: true
+  targeted_repair: true
+  model_vault_path: cloudflare-worker/image-render/model-vault.json
   routing_authority: false
   reasoning_authority: false
+  trading_state_forbidden: true
 
 render_strategy:
   prompt_only_when_sufficient: true
@@ -154,6 +170,8 @@ render_strategy:
   mask_first_when_local_edit_matters: true
   restoration_is_finalization_not_reasoning_authority: true
   choose_strategy_by_task_not_by_provider_preference: true
+  do_not_claim_reference_fidelity_without_reference_safe_runtime: true
+  do_not_claim_visual_verification_without_real_critic: true
 
 invariants:
   - no_duplicate_primary_creative_skill
@@ -163,4 +181,7 @@ invariants:
   - no_silent_reference_identity_change
   - no_external_framework_as_authority
   - no_permission_widening
+  - no_paid_image_fallback
+  - no_private_reference_to_volunteer_provider
+  - no_image_state_in_trading_state
   - verify_output_against_explicit_constraints

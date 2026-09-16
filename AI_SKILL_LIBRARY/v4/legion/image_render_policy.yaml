@@ -1,18 +1,27 @@
-version: 2
-purpose: free_only_cloud_image_rendering_without_new_routing_authority
+version: 4
+purpose: free_only_cloud_image_mesh_without_new_routing_authority
 status: candidate
 routing_authority: false
 reasoning_authority: false
 brain_authority: GITHUB_BRAIN_V4
+# V2 public execution contract stays `async_job`; V3 adds the logical-job plane on top.
 execution_mode: async_job
+v3_execution_mode: async_logical_job
 paid_fallback: false
 auto_purchase: false
 trial_credit_as_free: false
 promo_credit_as_free: false
 
+compatibility:
+  preserve_v1: true
+  preserve_v2: true
+  v2_policy_version: 2
+  v3_control_plane: true
+  v4_quality_plane: true
+
 provider:
   id: ai_horde
-  role: primary_free_image_renderer
+  role: public_only_volunteer_fallback
   provider_class: community_nonprofit_volunteer_compute
   endpoint: https://aihorde.net/api/v2
   anonymous_key_supported: true
@@ -25,18 +34,36 @@ provider:
     integration: https://github.com/Haidra-Org/AI-Horde/blob/main/README_integration.md
   notes: AI Horde publicly commits to free access and no paid-priority tier, but no external service can be technically guaranteed to exist forever. Runtime therefore guarantees FREE_ONLY behavior, not perpetual provider availability.
 
+provider_mesh:
+  free_only: true
+  paid_route_forbidden: true
+  unknown_cost_action: reject
+  no_provider_is_authority: true
+  model_vault_path: cloudflare-worker/image-render/model-vault.json
+  candidate_does_not_imply_runtime_available: true
+
 privacy:
   explicit_data_class_required: true
+  # allowed/denied_data_classes describe the volunteer (AI Horde) execution provider and
+  # remain the canonical V2 fail-closed boundary. A future reference-safe FREE runtime
+  # gets its own provider entry; it never widens these.
   allowed_data_classes: [PUBLIC]
   denied_data_classes: [INTERNAL, CONFIDENTIAL, SECRET]
+  volunteer_allowed_data_classes: [PUBLIC]
   non_public_action: fail_closed
   reference_images_on_volunteer_provider: disabled
   anonymous_requests_may_be_shared_by_provider: true
   anonymous_sharing_note: AI Horde documents that anonymous requests are always shared even when shared=false is requested, so anonymous mode is restricted to explicitly PUBLIC prompts only.
   reason: prompts and generated assets are processed by community volunteer infrastructure; do not send non-public project assets by default.
+  reference_safe_provider_required: true
+  missing_safe_runtime_action: WAITING_FOR_SAFE_FREE_RUNTIME
+  never_strip_reference_to_force_execution: true
 
 runtime:
+  # V2 keys stay canonical public contract; V3 keys are additive.
   contract_version: image_render_v2
+  v2_contract_version: image_render_v2
+  v3_contract_version: image_render_v3
   health_path: /brain/image/health
   submit_path: /brain/image/render
   check_path: /brain/image/check
@@ -46,6 +73,12 @@ runtime:
   batch_retry_path: /brain/image/retry
   models_path: /brain/image/models
   cancel_method: DELETE
+  v3_jobs_path: /brain/image/v3/jobs
+  v3_jobs_status_path: /brain/image/v3/jobs/status
+  v3_jobs_retry_path: /brain/image/v3/jobs/retry
+  v3_edit_path: /brain/image/v3/edit
+  v3_models_path: /brain/image/v3/models
+  v3_capabilities_path: /brain/image/v3/capabilities
   execution_flag: IMAGE_RENDER_EXECUTION_ENABLED
   execution_token: IMAGE_RENDER_EXECUTION_TOKEN
   token_fallback: MODEL_MESH_EXECUTION_TOKEN
@@ -68,18 +101,65 @@ batch:
   state_storage_key: image-render-batch-state-v2
   trading_state_forbidden: true
 
+logical_jobs:
+  enabled: true
+  product_scene_ceiling: none
+  operational_scene_safeguard: 100000
+  physical_chunk_max_scenes: 100
+  resumable: true
+  cancelable: true
+  selective_retry: true
+  state_binding: IMAGE_LOGICAL_JOB
+  state_class: ImageLogicalJobState
+  state_storage_key: image-logical-job-state-v3
+  trading_state_forbidden: true
+  no_free_capacity_action: WAITING_FOR_FREE_COMPUTE
+
+intent:
+  contract: image_intent_v3
+  explicit_user_constraints_override_inference: true
+  silent_subject_add_remove: forbidden
+  destructive_redraw_default_for_reference_or_edit: false
+
+routing:
+  task_specific: true
+  hard_gates_before_scoring: [free_only, privacy, reference_safety, task_capability, resolution, health]
+  universal_default_from_upstream_claims: forbidden
+
 quality:
-  profiles: [STRUCTURAL, STRICT]
+  profiles: [STRUCTURAL, STRICT, STRICT_VISUAL]
   structural:
     purpose: prompt_structure_and_metadata_quality_without_claiming_visual_verification
     verified_completion_allowed_without_visual_critic: false
   strict:
     requires_visual_critic_for_verified_completion: true
     missing_visual_critic_action: complete_unverified
+  strict_visual:
+    real_visual_critic_required_for_verified_completion: true
+    missing_visual_critic_action: complete_unverified
+  candidate_tournament_enabled: true
+  targeted_repair_enabled: true
+  preserve_non_target_content: true
+  repair_attempt_limit: 2
+  total_scene_attempt_limit: 5
   never_fake_verified: true
+
+benchmark_evolution:
+  task_specific_promotion: true
+  candidate_before_active: true
+  regression_demotion: true
+  upstream_claims_are_not_promotion_evidence: true
+
+model_vault:
+  exact_source_revision_required: true
+  separate_code_and_weights_license_required: true
+  preferred_licenses: [Apache-2.0, MIT]
+  commercial_use_must_be_explicit: true
+  runtime_configured_is_separate_from_model_approval: true
 
 constraints:
   max_images_per_request: 4
+  max_images_per_physical_request: 4
   width_range: [256, 1536]
   height_range: [256, 1536]
   dimension_alignment: 64
@@ -88,13 +168,17 @@ constraints:
   censor_nsfw: true
   requested_shared: false
   anonymous_effective_shared: true
+  no_infinite_retry: true
   paid_route_forbidden: true
   unknown_cost_action: reject
+  no_required_local_runtime: true
 
 agent_contract:
   agent_id: image_render_agent
   primary_domain: prompt_media
   capability: image_generation
+  capabilities: [image_generation, image_editing, reference_generation, multi_scene_batch, visual_quality_review, targeted_repair]
   permission_ceiling: sandbox_execute
   privacy_classes: [PUBLIC]
   authority: false
+  trading_authority: false
