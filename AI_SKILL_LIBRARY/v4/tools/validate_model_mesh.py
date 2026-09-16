@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 import re
 from pathlib import Path
 
@@ -137,8 +138,21 @@ def validate_model_mesh(root: Path) -> list[str]:
     free_only_policy = documents.get("free_only_policy", {})
     eligible_statuses = set(free_only_policy.get("eligible_statuses", []))
     if free_only_policy:
-        if free_only_policy.get("schema_version") != 1 or free_only_policy.get("mode") != "FREE_ONLY": errors.append("canonical FREE_ONLY policy metadata invalid")
-        if eligible_statuses != {"recurring", "account_specific"}: errors.append("canonical FREE_ONLY statuses must be recurring and account_specific")
+        if free_only_policy.get("schema_version") != 2 or free_only_policy.get("mode") != "FREE_ONLY": errors.append("canonical FREE_ONLY policy metadata invalid")
+        # FREE_ONLY admits every class that is provably zero-cost at execution
+        # time, and no class that can become billable without a hard stop.
+        if eligible_statuses != {"recurring", "account_specific", "temporary_zero_price", "free_quota_hard_stop"}:
+            errors.append("canonical FREE_ONLY statuses must be the four zero-cost classes")
+        billable = eligible_statuses & {"paid", "trial_credit", "limited_time", "expired", "unknown"}
+        if billable: errors.append(f"canonical FREE_ONLY policy admits billable statuses: {sorted(billable)}")
+        requirements = free_only_policy.get("requirements", {})
+        for flag in ("auto_purchase_forbidden", "paid_fallback_forbidden", "hard_stop_required_for_finite_free_quota", "price_revalidation_required_for_temporary_zero_price"):
+            if requirements.get(flag) is not True: errors.append(f"canonical FREE_ONLY policy must set {flag}")
+        failure_policy = free_only_policy.get("failure_policy", {})
+        for code, action in (("402", "quarantine_model_and_failover"), ("404", "discover_probe_replacement"), ("410", "discover_probe_replacement"), ("429", "cooldown_and_failover")):
+            if failure_policy.get(code) != action: errors.append(f"canonical FREE_ONLY failure policy for {code} must be {action}")
+        if free_only_policy.get("model_level_eligibility", {}).get("provider_blacklist_on_single_model_failure") is not False:
+            errors.append("a single model failure must never blacklist a whole provider")
         if free_only_policy.get("free_verified_at_required") is not True: errors.append("canonical FREE_ONLY policy must require verification evidence")
     if active:
         if active.get("version") != 1 or active.get("mode") != "FREE_ONLY": errors.append("active model registry must be version 1 FREE_ONLY")
@@ -152,7 +166,33 @@ def validate_model_mesh(root: Path) -> list[str]:
                 if pid not in provider_ids: errors.append(f"active model provider is not registered: {pid}")
                 if row.get("provider_class") == "Q": errors.append(f"quarantine provider cannot be active: {pid}")
                 if row.get("free_status") not in eligible_statuses and row.get("registry_state") != "NOT_ELIGIBLE": errors.append(f"ineligible model must be explicitly demoted: {pid}:{row.get('model_id')}")
-                if row.get("free_status") in eligible_statuses and (not row.get("free_verified_at") or not row.get("source_evidence")): errors.append(f"eligible model lacks entitlement evidence: {pid}:{row.get('model_id')}")
+                demoted = row.get("registry_state") == "NOT_ELIGIBLE"
+                if not demoted and row.get("free_status") in eligible_statuses and (not row.get("free_verified_at") or not row.get("source_evidence")): errors.append(f"eligible model lacks entitlement evidence: {pid}:{row.get('model_id')}")
+                if not demoted and row.get("free_status") in eligible_statuses:
+                    zero_cost = row.get("zero_cost")
+                    if not isinstance(zero_cost, dict):
+                        errors.append(f"eligible model lacks zero-cost evidence: {pid}:{row.get('model_id')}")
+                    else:
+                        for field in ("input_price_per_million", "output_price_per_million"):
+                            price = zero_cost.get(field)
+                            if isinstance(price, (int, float)) and not isinstance(price, bool) and price > 0:
+                                errors.append(f"eligible model is not zero-price: {pid}:{row.get('model_id')}")
+                        finite = row.get("free_status") == "free_quota_hard_stop" or zero_cost.get("quota_model") == "finite"
+                        if finite and zero_cost.get("hard_stop_verified") is not True:
+                            errors.append(f"finite free quota without a verified hard stop: {pid}:{row.get('model_id')}")
+                        if row.get("free_status") == "temporary_zero_price" and not zero_cost.get("price_verified_at"):
+                            errors.append(f"temporary zero price without price evidence: {pid}:{row.get('model_id')}")
+                        expires = str(zero_cost.get("free_quota_expires_at") or "").strip()
+                        if expires:
+                            try:
+                                expiry = datetime.fromisoformat(expires.replace("Z", "+00:00"))
+                            except ValueError:
+                                errors.append(f"free quota expiry is not ISO-8601: {pid}:{row.get('model_id')}")
+                            else:
+                                if expiry.tzinfo is None:
+                                    expiry = expiry.replace(tzinfo=timezone.utc)
+                                if expiry <= datetime.now(timezone.utc):
+                                    errors.append(f"free quota already expired: {pid}:{row.get('model_id')} expired_at={expires}")
 
     bindings_doc = documents.get("runtime_bindings", {})
     if bindings_doc:

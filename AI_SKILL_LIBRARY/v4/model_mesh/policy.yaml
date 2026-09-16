@@ -8,6 +8,15 @@ stable_snapshot_only: true
 free_status_unknown_action: exclude
 paid_fallback: disabled
 auto_purchase: false
+zero_cost:
+  semantics: zero_monetary_cost_at_execution_time
+  eligibility_scope: model_level
+  provider_blacklist_on_single_model_failure: false
+  price_revalidate_after_hours: 24
+  quota_safety_reserve_ratio: 0.1
+  hard_stop_required_for_finite_free_quota: true
+  nonzero_price_action: quarantine_before_next_request
+  trial_credit_autonomous_use: false
 max_parallel: {FAST: 0, STANDARD: 2, DEEP: 4}
 provider_voting: forbidden
 same_family_counts_as_independent_reasoning: false
@@ -30,6 +39,17 @@ fallback:
   stable_survives_mesh_failure: true
   no_paid_fallback: true
   serial_on_orchestration_failure: true
+  rotate_to_next_verified_zero_cost_candidate: true
+  failure_actions:
+    "401": credential_scope_failure_no_paid_fallback
+    "402": quarantine_model_and_failover
+    "403": credential_scope_failure_no_paid_fallback
+    "404": discover_probe_replacement
+    "410": discover_probe_replacement
+    "429": cooldown_and_failover
+    "5xx": degrade_and_failover
+    pricing_became_nonzero: quarantine_before_next_request
+    free_quota_near_exhaustion: stop_before_billable_boundary_and_rotate
 trading:
   research_only: true
   financial_execution: false

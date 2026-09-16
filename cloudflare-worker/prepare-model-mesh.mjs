@@ -36,7 +36,23 @@ if(runtimePolicy?.schema_version!==1||runtimePolicy?.mode!=='FREE_ONLY'||runtime
 if(runtimePolicy?.max_parallel?.FAST!==0)throw new Error('Model Mesh policy must forbid external workers on FAST');
 if(!Array.isArray(runtimePolicy?.selection_filters)||!runtimePolicy.selection_filters.length)throw new Error('Model Mesh policy selection filters missing');
 if(runtimePolicy?.capability_evidence?.routing_authority!==false||runtimePolicy?.capability_evidence?.hard_gate?.default_enabled!==false)throw new Error('Model Mesh capability evidence Phase A policy invalid');
-if(freePolicy?.schema_version!==1||freePolicy?.mode!=='FREE_ONLY'||JSON.stringify(freePolicy.eligible_statuses)!=='["recurring","account_specific"]'||freePolicy.free_verified_at_required!==true)throw new Error('Model Mesh FREE_ONLY policy invalid');
+const EXPECTED_ZERO_COST_STATUSES='["account_specific","free_quota_hard_stop","recurring","temporary_zero_price"]';
+if(freePolicy?.schema_version!==2||freePolicy?.mode!=='FREE_ONLY'||JSON.stringify([...(freePolicy.eligible_statuses||[])].sort())!==EXPECTED_ZERO_COST_STATUSES||freePolicy.free_verified_at_required!==true)throw new Error('Model Mesh FREE_ONLY policy invalid');
+// A paid or trial class must never reach the runtime as eligible, and a zero-cost
+// build with auto-purchase or paid fallback allowed is not a zero-cost build.
+for(const forbidden of ['paid','trial_credit','limited_time','expired','unknown'])if((freePolicy.eligible_statuses||[]).includes(forbidden))throw new Error(`Model Mesh FREE_ONLY policy admits a billable status: ${forbidden}`);
+if(freePolicy?.requirements?.auto_purchase_forbidden!==true||freePolicy?.requirements?.paid_fallback_forbidden!==true)throw new Error('Model Mesh FREE_ONLY policy must forbid auto-purchase and paid fallback');
+if(freePolicy?.requirements?.hard_stop_required_for_finite_free_quota!==true)throw new Error('Model Mesh FREE_ONLY policy must require a hard stop for finite free quota');
+for(const model of snapshot.models||[]){
+  const zc=model?.zero_cost;
+  if(!zc||typeof zc!=='object')throw new Error(`Model Mesh model has no zero-cost evidence: ${model?.provider_id}:${model?.model_id}`);
+  for(const field of ['input_price_per_million','output_price_per_million']){
+    const price=Number(zc[field]);
+    if(Number.isFinite(price)&&price>0)throw new Error(`Model Mesh model is not zero-price: ${model.provider_id}:${model.model_id}`);
+  }
+  const finite=model.free_status==='free_quota_hard_stop'||zc.quota_model==='finite';
+  if(finite&&zc.hard_stop_verified!==true)throw new Error(`Model Mesh finite free quota without a verified hard stop: ${model.provider_id}:${model.model_id}`);
+}
 for(const [providerId,row] of Object.entries(bindingRegistry.bindings)){
   if(!row||typeof row!=='object'||typeof row.endpoint_family!=='string'||typeof row.endpoint_url!=='string'||typeof row.secret_name!=='string')throw new Error(`Model Mesh binding invalid: ${providerId}`);
   if(!/^[A-Z0-9_]+$/.test(row.secret_name))throw new Error(`Model Mesh secret name invalid: ${providerId}`);

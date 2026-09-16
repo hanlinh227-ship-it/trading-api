@@ -27,49 +27,296 @@
     "success_rate_ema",
     "quality_scores",
     "last_benchmark_at",
-    "source_evidence"
+    "source_evidence",
+    "zero_cost"
   ],
   "properties": {
-    "provider_id": {"type": "string", "minLength": 1},
-    "provider_class": {"enum": ["F1", "F2", "F3", "Q"]},
-    "model_id": {"type": "string", "minLength": 1},
-    "model_family": {"type": "string", "minLength": 1},
-    "model_variant": {"type": "string"},
-    "endpoint_family": {"enum": ["openai_compatible", "anthropic_compatible", "native", "other"]},
-    "free_status": {"enum": ["recurring", "limited_time", "trial_credit", "account_specific", "unknown", "paid", "expired"]},
-    "free_verified_at": {"type": ["string", "null"]},
-    "observed_at": {"type": "string", "minLength": 1},
-    "quota_scope": {"enum": ["provider", "account", "project", "model", "unknown"]},
-    "quota_dimensions": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-    "reset_semantics": {"enum": ["rolling", "minute", "hour", "daily", "monthly", "none", "unknown"]},
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_class": {
+      "enum": [
+        "F1",
+        "F2",
+        "F3",
+        "Q"
+      ]
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_family": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_variant": {
+      "type": "string"
+    },
+    "endpoint_family": {
+      "enum": [
+        "openai_compatible",
+        "anthropic_compatible",
+        "native",
+        "other"
+      ]
+    },
+    "free_status": {
+      "enum": [
+        "recurring",
+        "limited_time",
+        "trial_credit",
+        "account_specific",
+        "temporary_zero_price",
+        "free_quota_hard_stop",
+        "unknown",
+        "paid",
+        "expired"
+      ]
+    },
+    "free_verified_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "observed_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "quota_scope": {
+      "enum": [
+        "provider",
+        "account",
+        "project",
+        "model",
+        "unknown"
+      ]
+    },
+    "quota_dimensions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "reset_semantics": {
+      "enum": [
+        "rolling",
+        "minute",
+        "hour",
+        "daily",
+        "monthly",
+        "none",
+        "unknown"
+      ]
+    },
     "capabilities": {
       "type": "object",
       "additionalProperties": {
         "type": "object",
-        "required": ["supported", "score", "evidence", "verified_at"],
+        "required": [
+          "supported",
+          "score",
+          "evidence",
+          "verified_at"
+        ],
         "properties": {
-          "supported": {"enum": [true, false, "unknown"]},
-          "score": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-          "evidence": {"type": "array", "items": {"type": "string"}},
-          "verified_at": {"type": ["string", "null"]}
+          "supported": {
+            "enum": [
+              true,
+              false,
+              "unknown"
+            ]
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "verified_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         },
         "additionalProperties": false
       }
     },
-    "context_window": {"type": ["integer", "null"], "minimum": 1},
-    "privacy_class": {"enum": ["public_safe", "restricted", "confidential_safe", "unknown"]},
-    "data_training_allowed_by_provider": {"type": ["boolean", "null"]},
-    "retention_policy": {"type": "string"},
-    "usage_terms": {"enum": ["prototyping", "evaluation", "production_allowed", "unknown"]},
-    "health": {"enum": ["healthy", "degraded", "cooldown", "unavailable"]},
-    "latency_ema_ms": {"type": ["number", "null"], "minimum": 0},
-    "success_rate_ema": {"type": ["number", "null"], "minimum": 0.0, "maximum": 1.0},
+    "context_window": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "privacy_class": {
+      "enum": [
+        "public_safe",
+        "restricted",
+        "confidential_safe",
+        "unknown"
+      ]
+    },
+    "data_training_allowed_by_provider": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "retention_policy": {
+      "type": "string"
+    },
+    "usage_terms": {
+      "enum": [
+        "prototyping",
+        "evaluation",
+        "production_allowed",
+        "unknown"
+      ]
+    },
+    "health": {
+      "enum": [
+        "healthy",
+        "degraded",
+        "cooldown",
+        "unavailable"
+      ]
+    },
+    "latency_ema_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "success_rate_ema": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
     "quality_scores": {
       "type": "object",
-      "additionalProperties": {"type": "number", "minimum": 0.0, "maximum": 1.0}
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0.0,
+        "maximum": 1.0
+      }
     },
-    "last_benchmark_at": {"type": ["string", "null"]},
-    "source_evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+    "last_benchmark_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "zero_cost": {
+      "type": "object",
+      "required": [
+        "price_model",
+        "input_price_per_million",
+        "output_price_per_million",
+        "price_verified_at",
+        "quota_model",
+        "hard_stop_verified",
+        "quota_headroom_ratio",
+        "evidence"
+      ],
+      "properties": {
+        "price_model": {
+          "enum": [
+            "recurring_free",
+            "account_free",
+            "temporary_zero_price",
+            "finite_free_quota",
+            "trial_credit",
+            "paid",
+            "unknown"
+          ]
+        },
+        "input_price_per_million": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "output_price_per_million": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "price_verified_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "price_revalidate_after_hours": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "quota_model": {
+          "enum": [
+            "unlimited",
+            "finite",
+            "unknown"
+          ]
+        },
+        "hard_stop_verified": {
+          "type": "boolean"
+        },
+        "hard_stop_evidence": {
+          "type": "string"
+        },
+        "quota_headroom_ratio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "free_quota_expires_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false
 }

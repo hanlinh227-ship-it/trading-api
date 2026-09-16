@@ -39,11 +39,29 @@ function normalizedResult(worker,route,startedAt,completedAt,result){
 
 export async function providerConfigurationStatus(modelSnapshot,env={}){return providerRuntimeStatus(modelSnapshot,env);}
 
-export function createProviderProbe({fetchImpl=fetch,maxParallel=4}={}){
+// How many models of one provider a single probe round may try before the
+// provider is reported unavailable. A mixed catalog holds paid and free models
+// at once and a listing is not liveness, so one 402 or one retired id must cost
+// the model, never the provider -- the bound is what keeps that from becoming
+// an unbounded sweep.
+const DEFAULT_MAX_CANDIDATES_PER_PROVIDER=3;
+// Failures that say "this model is wrong", not "this provider is unusable".
+// Trying the provider's next candidate is the whole point of admitting several.
+const MODEL_SCOPED_FAILURES=new Set(['MODEL_NOT_FOUND','MODEL_GONE','FREE_ENTITLEMENT_INVALID','REQUEST_INVALID']);
+
+export function createProviderProbe({fetchImpl=fetch,maxParallel=4,maxCandidatesPerProvider=DEFAULT_MAX_CANDIDATES_PER_PROVIDER}={}){
   return async function probeProviders(env,{modelSnapshot}={}){
-    const firstByProvider=[];const seen=new Set();
-    for(const model of modelSnapshot?.models||[]){if(selectionCandidate(model)&&!seen.has(model.provider_id)){seen.add(model.provider_id);firstByProvider.push(model);}}
-    const probeOne=async model=>{
+    // Group by provider so each provider gets a bounded candidate list rather
+    // than a single guessed model id.
+    const byProvider=new Map();
+    for(const model of modelSnapshot?.models||[]){
+      if(!selectionCandidate(model))continue;
+      if(!byProvider.has(model.provider_id))byProvider.set(model.provider_id,[]);
+      const bucket=byProvider.get(model.provider_id);
+      if(bucket.length<Math.max(1,Number(maxCandidatesPerProvider)||DEFAULT_MAX_CANDIDATES_PER_PROVIDER))bucket.push(model);
+    }
+    const providerCandidates=[...byProvider.values()];
+    const probeModel=async model=>{
       const started=Date.now();const worker=resolveRuntimeWorker(model);
       if(!worker)return {providerId:model.provider_id,modelId:model.model_id,configured:false,ok:false,status:0,latencyMs:Date.now()-started,category:'UNKNOWN_SANITIZED',state:'CONFIGURED'};
       const configured=Boolean(worker.secret_name&&env?.[worker.secret_name])&&Boolean(!worker.account_id_env||env?.[worker.account_id_env]);
@@ -64,11 +82,35 @@ export function createProviderProbe({fetchImpl=fetch,maxParallel=4}={}){
       if(result.status===429){row.retryAfter=result.retryAfter||null;row.resetAt=result.resetAt||null;}
       return row;
     };
+    // Probe a provider's candidates in order and stop at the first one that
+    // completes. Every attempt is still recorded, so a 402 on one model is
+    // evidence about that model and never about the provider as a whole.
+    const probeProvider=async candidates=>{
+      const attempts=[];
+      for(const model of candidates){
+        const row=await probeModel(model);
+        attempts.push(row);
+        if(row.ok===true)break;
+        if(row.skipped)break;
+        if(!row.configured)break;
+        if(!MODEL_SCOPED_FAILURES.has(String(row.category||'')))break;
+      }
+      const chosen=attempts.find(row=>row.ok===true)||attempts[attempts.length-1];
+      return {
+        ...chosen,
+        candidatesProbed:attempts.length,
+        candidatesAvailable:candidates.length,
+        attemptedModelIds:attempts.map(row=>row.modelId),
+        // Recorded so an operator can tell "no free model left here" from
+        // "we never looked past the first id".
+        providerExhausted:attempts.length>0&&!attempts.some(row=>row.ok===true)&&attempts.length===candidates.length,
+      };
+    };
     const results=[];const width=Math.max(1,Math.min(4,Number(maxParallel)||4));
-    for(let index=0;index<firstByProvider.length;index+=width){
-      const batch=firstByProvider.slice(index,index+width);
-      const settled=await Promise.allSettled(batch.map(probeOne));
-      settled.forEach((item,offset)=>results.push(item.status==='fulfilled'?item.value:{providerId:batch[offset].provider_id,modelId:batch[offset].model_id,configured:false,ok:false,status:0,latencyMs:0,category:'UNKNOWN_SANITIZED',state:'DEGRADED',evidencePersisted:false}));
+    for(let index=0;index<providerCandidates.length;index+=width){
+      const batch=providerCandidates.slice(index,index+width);
+      const settled=await Promise.allSettled(batch.map(probeProvider));
+      settled.forEach((item,offset)=>results.push(item.status==='fulfilled'?item.value:{providerId:batch[offset][0].provider_id,modelId:batch[offset][0].model_id,configured:false,ok:false,status:0,latencyMs:0,category:'UNKNOWN_SANITIZED',state:'DEGRADED',evidencePersisted:false,candidatesProbed:0,candidatesAvailable:batch[offset].length,attemptedModelIds:[],providerExhausted:false}));
     }
     return {ok:true,mode:'FREE_ONLY',routingAuthority:false,reasoningAuthority:false,probedProviderCount:results.length,successfulProviderCount:results.filter(row=>row.ok).length,results};
   };

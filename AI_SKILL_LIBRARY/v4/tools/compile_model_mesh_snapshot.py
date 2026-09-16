@@ -12,7 +12,7 @@ except ImportError:
 
 _PROVIDER_FIELDS = {
     "provider_class", "model_id", "model_family", "model_variant", "endpoint_family",
-    "free_status", "free_verified_at", "quota_scope", "quota_dimensions", "reset_semantics",
+    "free_status", "free_verified_at", "zero_cost", "quota_scope", "quota_dimensions", "reset_semantics",
     "capabilities", "context_window", "privacy_class", "data_training_allowed_by_provider",
     "retention_policy", "usage_terms", "health", "latency_ema_ms", "success_rate_ema",
     "quality_scores", "last_benchmark_at", "source_evidence",

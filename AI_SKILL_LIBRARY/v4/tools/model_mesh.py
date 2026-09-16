@@ -21,14 +21,32 @@ _FREE_STATUSES = {
     "limited_time",
     "trial_credit",
     "account_specific",
+    "temporary_zero_price",
+    "free_quota_hard_stop",
     "unknown",
     "paid",
     "expired",
 }
+_PRICE_MODELS = {
+    "recurring_free",
+    "account_free",
+    "temporary_zero_price",
+    "finite_free_quota",
+    "trial_credit",
+    "paid",
+    "unknown",
+}
+_QUOTA_MODELS = {"unlimited", "finite", "unknown"}
 _FREE_ONLY_POLICY = json.loads(FREE_ONLY_POLICY_PATH.read_text(encoding="utf-8"))
-if _FREE_ONLY_POLICY.get("schema_version") != 1 or _FREE_ONLY_POLICY.get("mode") != "FREE_ONLY":
+if _FREE_ONLY_POLICY.get("schema_version") != 2 or _FREE_ONLY_POLICY.get("mode") != "FREE_ONLY":
     raise ValueError("invalid canonical FREE_ONLY policy")
 _ELIGIBLE_FREE_STATUSES = frozenset(_FREE_ONLY_POLICY.get("eligible_statuses", []))
+_ZERO_COST_REQUIREMENTS = _FREE_ONLY_POLICY.get("requirements", {})
+_ZERO_COST_GUARDS = _FREE_ONLY_POLICY.get("zero_cost_guards", {})
+# Statuses whose zero price is only true for now and must be re-proven on a timer.
+_REVALIDATED_STATUSES = frozenset({"temporary_zero_price"})
+# Statuses whose free allowance is finite and can spill into billing without a hard stop.
+_FINITE_QUOTA_STATUSES = frozenset({"free_quota_hard_stop"})
 _PROVIDER_CLASSES = {"F1", "F2", "F3", "Q"}
 _ENDPOINT_FAMILIES = {"openai_compatible", "anthropic_compatible", "native", "other"}
 _QUOTA_SCOPES = {"provider", "account", "project", "model", "unknown"}
@@ -126,6 +144,39 @@ def _capabilities(value: object) -> dict[str, dict[str, Any]]:
     return result
 
 
+def _zero_cost(value: object) -> dict[str, Any]:
+    """Normalize the zero-cost evidence block; absent or malformed evidence fails closed."""
+    row = value if isinstance(value, dict) else {}
+    price_model = _enum(row.get("price_model"), _PRICE_MODELS, default="unknown")
+    quota_model = _enum(row.get("quota_model"), _QUOTA_MODELS, default="unknown")
+    evidence_raw = row.get("evidence", [])
+    evidence: list[str] = []
+    if isinstance(evidence_raw, list):
+        for item in evidence_raw:
+            text = _clean_string(item)
+            if text and text not in evidence:
+                evidence.append(text)
+    revalidate_raw = row.get("price_revalidate_after_hours")
+    revalidate = revalidate_raw if isinstance(revalidate_raw, int) and not isinstance(revalidate_raw, bool) and revalidate_raw > 0 else None
+    headroom_raw = _nullable_number(row.get("quota_headroom_ratio"))
+    headroom = None if headroom_raw is None else max(0.0, min(1.0, headroom_raw))
+    input_price = _nullable_number(row.get("input_price_per_million"))
+    output_price = _nullable_number(row.get("output_price_per_million"))
+    return {
+        "price_model": price_model,
+        "input_price_per_million": None if input_price is None else max(0.0, input_price),
+        "output_price_per_million": None if output_price is None else max(0.0, output_price),
+        "price_verified_at": _clean_string(row.get("price_verified_at")) or None,
+        "price_revalidate_after_hours": revalidate,
+        "quota_model": quota_model,
+        "hard_stop_verified": row.get("hard_stop_verified") is True,
+        "hard_stop_evidence": _clean_string(row.get("hard_stop_evidence")),
+        "quota_headroom_ratio": headroom,
+        "free_quota_expires_at": _clean_string(row.get("free_quota_expires_at")) or None,
+        "evidence": evidence,
+    }
+
+
 def classify_free_status(raw: dict) -> str:
     """Classify only explicit free-status evidence; never infer free use from catalog presence."""
     if not isinstance(raw, dict):
@@ -189,6 +240,7 @@ def normalize_candidate(provider_id: str, raw: dict, *, observed_at: str) -> dic
         "endpoint_family": endpoint_family,
         "free_status": classify_free_status(raw),
         "free_verified_at": _clean_string(raw.get("free_verified_at")) or None,
+        "zero_cost": _zero_cost(raw.get("zero_cost")),
         "observed_at": observed,
         "quota_scope": quota_scope,
         "quota_dimensions": quota_dimensions,
@@ -232,7 +284,63 @@ def dedupe_model_families(candidates: list[dict]) -> dict[str, list[dict]]:
     return dict(groups)
 
 
-def eligible_free_candidate(candidate: dict, *, data_class: str) -> bool:
+def zero_cost_rejection(candidate: dict, *, now: str | None = None) -> str | None:
+    """Return why a candidate is not provably zero-cost right now, or None when it is.
+
+    FREE_ONLY means zero monetary cost at execution time. A class that is free
+    only for now (`temporary_zero_price`) has to re-prove its price on a timer,
+    and a class whose free allowance is finite (`free_quota_hard_stop`) may only
+    run while a verified hard stop makes billable spillover impossible.
+    """
+    if not isinstance(candidate, dict):
+        return "not_a_candidate"
+    status = candidate.get("free_status")
+    if status not in _ELIGIBLE_FREE_STATUSES:
+        return "status_not_eligible"
+    zero_cost = candidate.get("zero_cost") if isinstance(candidate.get("zero_cost"), dict) else {}
+
+    # A price that is no longer zero quarantines the model before the next request,
+    # whatever the class says, because the class is a claim and the price is evidence.
+    if zero_cost.get("price_model") in {"paid", "trial_credit"}:
+        return "price_model_not_zero_cost"
+    for field in ("input_price_per_million", "output_price_per_million"):
+        price = _nullable_number(zero_cost.get(field))
+        if price is not None and price > 0:
+            return "nonzero_price"
+
+    reference = _parse_timestamp(now) or datetime.now(timezone.utc)
+
+    if status in _REVALIDATED_STATUSES and _ZERO_COST_REQUIREMENTS.get(
+        "price_revalidation_required_for_temporary_zero_price", True
+    ):
+        verified = _parse_timestamp(zero_cost.get("price_verified_at"))
+        if verified is None:
+            return "price_evidence_missing"
+        window = zero_cost.get("price_revalidate_after_hours")
+        if not isinstance(window, int) or isinstance(window, bool) or window <= 0:
+            window = int(_ZERO_COST_GUARDS.get("price_revalidate_after_hours") or 24)
+        if reference - verified > timedelta(hours=window):
+            return "price_evidence_stale"
+
+    finite = status in _FINITE_QUOTA_STATUSES or zero_cost.get("quota_model") == "finite"
+    if finite:
+        if _ZERO_COST_REQUIREMENTS.get("hard_stop_required_for_finite_free_quota", True) and zero_cost.get("hard_stop_verified") is not True:
+            return "finite_free_quota_without_hard_stop"
+        if _ZERO_COST_REQUIREMENTS.get("quota_headroom_required_when_finite", True):
+            headroom = _nullable_number(zero_cost.get("quota_headroom_ratio"))
+            reserve = _bounded_score(_ZERO_COST_GUARDS.get("quota_safety_reserve_ratio"), default=0.1)
+            if headroom is not None and headroom <= reserve:
+                return "free_quota_below_safety_reserve"
+        # A free allowance with an end date stops being free on that date. Past it
+        # the same call is billable, so the model leaves the pool on the clock
+        # rather than on the first charge.
+        expires = _parse_timestamp(zero_cost.get("free_quota_expires_at"))
+        if expires is not None and reference >= expires:
+            return "free_quota_expired"
+    return None
+
+
+def eligible_free_candidate(candidate: dict, *, data_class: str, now: str | None = None) -> bool:
     """Apply the FREE_ONLY and privacy gate before any scoring or provider selection."""
     if not isinstance(candidate, dict):
         return False
@@ -241,7 +349,7 @@ def eligible_free_candidate(candidate: dict, *, data_class: str) -> bool:
         return False
     if classification == "SECRET":
         return False
-    if candidate.get("free_status") not in _ELIGIBLE_FREE_STATUSES:
+    if zero_cost_rejection(candidate, now=now) is not None:
         return False
     if not _clean_string(candidate.get("free_verified_at")):
         return False

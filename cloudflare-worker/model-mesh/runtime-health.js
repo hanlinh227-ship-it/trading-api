@@ -9,7 +9,7 @@ export function providerConfigured(model,env={}){
 
 export async function resolveLiveModels(modelSnapshot,env={},options={}){
   return Promise.all((modelSnapshot?.models||[]).map(async model=>{
-    if(!selectionCandidate(model))return {...model,runtimeState:'NOT_ELIGIBLE',runtimeCategory:freeOnlyEligible(model)?'SELECTION_POLICY':'FREE_ONLY_POLICY',health:'unavailable',configured:providerConfigured(model,env)};
+    if(!selectionCandidate(model,'PUBLIC',{nowMs:options.nowMs??Date.now()}))return {...model,runtimeState:'NOT_ELIGIBLE',runtimeCategory:freeOnlyEligible(model,{nowMs:options.nowMs??Date.now()})?'SELECTION_POLICY':'FREE_ONLY_POLICY',health:'unavailable',configured:providerConfigured(model,env)};
     const configured=providerConfigured(model,env);
     if(!configured)return {...model,runtimeState:'CONFIGURED',runtimeCategory:'CREDENTIAL_OR_BINDING_MISSING',health:'unavailable',configured:false};
     const evidence=await readModelHealth(env?.TRADING_STATE,model,{sourceSha:modelSnapshot?.source_sha||'',nowMs:options.nowMs});
