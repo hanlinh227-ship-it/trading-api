@@ -1,0 +1,67 @@
+name: Hotfix Autopilot Deploy Matrix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/hotfix-autopilot-deploy-matrix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  patch-and-redeploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch stale production route expectations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/workflows/deploy-skill-mandatory-fast-gateway.yml')
+          text = p.read_text(encoding='utf-8')
+          replacements = {
+              "check_route_eventually 'quét market BTC live' trading_router DEEP":
+                  "check_route_eventually 'quét market BTC live' multi_market_analysis DEEP",
+              "verify_live_plan 'quét market BTC live' trading_router DEEP 4":
+                  "verify_live_plan 'quét market BTC live' multi_market_analysis DEEP 4",
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one stale contract: {old!r}, found={count}')
+              text = text.replace(old, new)
+          p.write_text(text, encoding='utf-8')
+          PY
+          python -m unittest discover -s tests -p 'test_autopilot_deploy_route_matrix.py' -v
+          git diff --check
+      - name: Commit exact hotfix to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/deploy-skill-mandatory-fast-gateway.yml
+          git diff --cached --quiet && { echo 'HOTFIX_NO_CHANGE'; exit 1; }
+          git commit -m 'fix: align production route matrix with autopilot'
+          git push origin HEAD:main
+          echo "HOTFIX_MAIN_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Dispatch corrected exact-main production deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run deploy-skill-mandatory-fast-gateway.yml --ref main -f mode=deploy
+          echo "HOTFIX_DEPLOY_DISPATCH=PASS sha=$HOTFIX_MAIN_SHA"
