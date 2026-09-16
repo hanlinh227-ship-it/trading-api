@@ -288,6 +288,43 @@ def scan_github(root: Path, output: Path, *, token: str | None = None) -> dict:
     return report
 
 
+def _approved_repositories(root: Path) -> set[str]:
+    """Repositories whose skill manifests count as verified provenance.
+
+    discovery.yaml: popularity_is_not_trust, repository_source_allowlist_required_for_code.
+    An empty allowlist means no scanned candidate is verified, which is the fail-closed default.
+    """
+    path = root / "AI_SKILL_LIBRARY/v4/evergreen/discovery.yaml"
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except OSError:
+        return set()
+    rows = data.get("approved_repositories", []) if isinstance(data, dict) else []
+    return {str(row).strip().lower() for row in rows if isinstance(row, str) and row.strip()}
+
+
+def canonical_skill_rows(root: Path) -> list[dict]:
+    """Canonical catalog rows (ids + triggers) used as `existing_skills` for admission.
+
+    Admitting against an empty list made duplicate ids and trigger collisions with the
+    canonical catalog invisible until compile time.
+    """
+    path = root / "AI_SKILL_LIBRARY/skills/catalog.yaml"
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except OSError:
+        return []
+    rows = data.get("skills", []) if isinstance(data, dict) else []
+    out: list[dict] = []
+    for row in rows:
+        if not isinstance(row, dict) or not row.get("id"):
+            continue
+        triggers = [term for term in (row.get("triggers") or []) if isinstance(term, str)]
+        triggers += [term for term in (row.get("alias_triggers") or []) if isinstance(term, str)]
+        out.append({"id": str(row["id"]), "triggers": triggers})
+    return out
+
+
 def materialize_quarantine(root: Path, scan_path: Path) -> list[Path]:
     report = json.loads(scan_path.read_text(encoding="utf-8"))
     destination = root / "AI_SKILL_LIBRARY/v4/evergreen/quarantine"
@@ -300,11 +337,14 @@ def materialize_quarantine(root: Path, scan_path: Path) -> list[Path]:
         skill.pop("_source_manifest_path", None)
         if skill.get("domain") != row.get("domain"):
             continue
-        skill.setdefault("provenance", {"source": row.get("url"), "verified": True})
+        # Provenance is verified only for allowlisted repositories; a scan hit never
+        # verifies itself.
+        approved = str(row.get("repo") or "").strip().lower() in _approved_repositories(root)
+        skill["provenance"] = {"source": row.get("url"), "verified": approved, "repo": row.get("repo")}
         if not skill.get("license") and row.get("license"):
             skill["license"] = row["license"]
         skill.setdefault("compatibility", {"brain": "4.x"})
-        admission = admit_skill(skill, existing_skills=[])
+        admission = admit_skill(skill, existing_skills=canonical_skill_rows(root))
         record = {
             "candidate_id": row.get("candidate_id"),
             "state": "quarantine",
@@ -330,7 +370,7 @@ def promote_class_a(root: Path) -> str | None:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or data.get("promotion_class") != "A" or not isinstance(data.get("skill"), dict):
             continue
-        admission = admit_skill(data["skill"], existing_skills=[])
+        admission = admit_skill(data["skill"], existing_skills=canonical_skill_rows(root))
         if admission["admitted"]:
             candidates.append((path, data["skill"]))
     if not candidates:

@@ -37,6 +37,25 @@ class V4EvergreenWorkflowTests(unittest.TestCase):
         self.assertIn("promotion", text.lower())
         self.assertIn("Class D", text)
 
+    def test_release_workflow_never_merges_its_own_candidate(self):
+        """promotion.yaml: pointer swap only after every gate, canary observed, and
+        Class A/B unattended promotion only when ALL gates pass. The release
+        workflow validated a bot-authored candidate PR and then merged it itself
+        with `gh pr merge`, so a scanned skill.yaml could reach main and move
+        current.json with no human ever looking at it. Merging is a human act."""
+        path, data = self._load(".github/workflows/ai-brain-v4-release.yml")
+        text = path.read_text(encoding="utf-8")
+        self.assertNotIn("pr merge", text)
+        self.assertNotIn("merge_pull_request", text)
+        self.assertNotEqual(data.get("permissions", {}).get("pull-requests"), "write")
+        self.assertIn("human", text.lower())
+
+    def test_release_reaudit_uses_canonical_catalog_as_existing_skills(self):
+        path, _ = self._load(".github/workflows/ai-brain-v4-release.yml")
+        text = path.read_text(encoding="utf-8")
+        self.assertNotIn("existing_skills=[]", text)
+        self.assertIn("canonical_skill_rows", text)
+
 
 if __name__ == "__main__":
     unittest.main()
