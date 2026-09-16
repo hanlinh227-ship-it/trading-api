@@ -154,6 +154,7 @@ describe('chart context', () => {
       symbol: 'BYBIT:BTCUSDT.P',
       timeframe: '15',
       mappingStatus: 'VERIFIED',
+      navigationHint: { mode: 'VERIFIED_SYMBOL', query: 'BYBIT:BTCUSDT.P' },
     });
   });
 
@@ -164,6 +165,7 @@ describe('chart context', () => {
       symbol: null,
       timeframe: null,
       mappingStatus: 'UNVERIFIED',
+      navigationHint: { mode: 'SYMBOL_SEARCH', query: 'BTCUSDT' },
     });
   });
 });
