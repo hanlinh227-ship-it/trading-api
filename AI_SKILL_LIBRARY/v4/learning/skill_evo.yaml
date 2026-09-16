@@ -14,3 +14,11 @@ replay_must_be_frozen: true
 champion_replacement_requires_measured_evidence: true
 permission_widening_by_mutation: forbidden
 risk_downgrade_by_mutation: forbidden
+universal_fabric:
+  orchestration_tool: AI_SKILL_LIBRARY/v4/tools/skill_forge.py
+  class_a_auto_promotion: existing_evergreen_gates_only
+  class_b_auto_promotion: existing_evergreen_gates_plus_sandbox
+  class_c_auto_promotion: false
+  class_d_auto_promotion: false
+  protected_regression_tolerance: 0.0
+  upstream_capability_diff_is_candidate_input_only: true
