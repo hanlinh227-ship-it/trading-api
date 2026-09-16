@@ -5,6 +5,7 @@ import {validateImageBatchRequest,createRenderManifest} from './image-render/ren
 import {createImageBatch,getImageBatchStatus,cancelImageBatch,retryImageBatchScenes} from './image-render/batch-client.js';
 import {createImageProviderRegistry} from './image-render/provider-registry.js';
 import {rankImageModels} from './image-render/model-router.js';
+import {buildRenderReport,buildExportManifest} from './image-render/export-contract.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const enabled=env=>String(env?.IMAGE_RENDER_EXECUTION_ENABLED||'0')==='1';
@@ -13,7 +14,7 @@ const suppliedToken=request=>String(request.headers.get('x-image-render-token')|
 
 async function authorize(request,env){const expected=configuredToken(env);if(!expected)return false;return timingSafeToken(expected,suppliedToken(request));}
 async function responseJson(response){try{return await response.json();}catch{return {ok:false,error:'batch_response_invalid'};}}
-async function proxyBatch(response){const body=await responseJson(response);return json({...body,mode:'FREE_ONLY',paidFallback:false},response.status);}
+async function proxyBatch(response,{includeExport=false}={}){const body=await responseJson(response);const extra={};if(includeExport&&response.ok&&Array.isArray(body?.scenes)){const state={batch_id:body.batchId,status:body?.summary?.status,scenes:body.scenes};extra.renderReport=buildRenderReport(state);const exportManifest=buildExportManifest(state);if(exportManifest.assets.length)extra.exportManifest=exportManifest;}return json({...body,...extra,mode:'FREE_ONLY',paidFallback:false},response.status);}
 const batchIdFrom=url=>String(url.searchParams.get('id')||'').trim();
 
 export function createImageRenderHandler({fetchImpl=fetch}={}){
@@ -35,7 +36,7 @@ export function createImageRenderHandler({fetchImpl=fetch}={}){
     if(url.pathname==='/brain/image/batch/status'){
       if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
       const batchId=batchIdFrom(url);if(!batchId)return json({ok:false,error:'batch_id_required'},400);
-      return proxyBatch(await getImageBatchStatus(env,batchId));
+      return proxyBatch(await getImageBatchStatus(env,batchId),{includeExport:true});
     }
 
     if(url.pathname==='/brain/image/batch'){
