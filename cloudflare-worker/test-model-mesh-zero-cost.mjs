@@ -6,7 +6,7 @@
 // free yesterday and is not today, and an allowance that runs out.
 import assert from 'node:assert/strict';
 import {selectModelWorkers} from './model-mesh/selector.js';
-import {zeroCostRejection} from './model-mesh/zero-cost.js';
+import {zeroCostRejection,zeroCostSummary} from './model-mesh/zero-cost.js';
 import {freeOnlyEligible,selectionRejection} from './model-mesh/contracts.js';
 import {FREE_ONLY_POLICY} from './generated/free-only-policy.js';
 
@@ -91,5 +91,34 @@ assert.equal(FREE_ONLY_POLICY.model_level_eligibility.provider_blacklist_on_sing
 assert.equal(selectModelWorkers({profile:'DEEP',domain:'core',dataClass:'SECRET',models:[zen('big-pickle')],nowMs}).length,0);
 // --- FAST never uses an external worker, whatever is eligible --------------
 assert.equal(selectModelWorkers({profile:'FAST',domain:'core',models:[zen('big-pickle')],nowMs}).length,0);
+
+
+// --- the production guard payload -----------------------------------------
+// The deploy gate asserts zero-cost against the running Worker, so the summary
+// has to report a violation rather than smooth it over.
+{
+  const paid=zen('premium',{input:3,output:15});
+  const finiteUnprotected={...base,provider_id:'p',model_id:'m',model_family:'m',free_status:'free_quota_hard_stop',zero_cost:{price_model:'finite_free_quota',input_price_per_million:0,output_price_per_million:0,price_verified_at:'2026-09-16T11:00:00Z',quota_model:'finite',hard_stop_verified:false,quota_headroom_ratio:null,evidence:['docs']}};
+  const clean=zeroCostSummary([zen('big-pickle')],{nowMs});
+  assert.equal(clean.policySchemaVersion,2);
+  assert.deepEqual(clean.billableStatusesAdmitted,[],'the shipped policy admits no billable class');
+  assert.equal(clean.nonZeroPriceModelCount,0);
+  assert.equal(clean.finiteQuotaWithoutHardStopCount,0);
+  assert.equal(clean.zeroCostRejectedModelCount,0);
+  assert.equal(clean.paidFallback,'disabled');
+  assert.equal(clean.autoPurchase,false);
+
+  const dirty=zeroCostSummary([paid,finiteUnprotected],{nowMs});
+  assert.equal(dirty.nonZeroPriceModelCount,1,'a paid model is counted, not hidden');
+  assert.equal(dirty.finiteQuotaWithoutHardStopCount,1);
+  assert.equal(dirty.zeroCostRejectedModelCount,2,'both would be refused at execution time');
+
+  // The soonest quota expiry is what the gate watches, so it reports the
+  // earliest of them rather than the last one seen.
+  const dated=(id,expiry)=>({...finiteUnprotected,model_id:id,model_family:id,zero_cost:{...finiteUnprotected.zero_cost,hard_stop_verified:true,free_quota_expires_at:expiry}});
+  const expiries=zeroCostSummary([dated('a','2026-12-01T00:00:00Z'),dated('b','2026-11-21T00:00:00Z')],{nowMs});
+  assert.equal(expiries.nextFreeQuotaExpiryAt,'2026-11-21T00:00:00.000Z');
+  assert.equal(expiries.finiteQuotaModelCount,2);
+}
 
 console.log('model mesh zero-cost admission and failover contracts ok');

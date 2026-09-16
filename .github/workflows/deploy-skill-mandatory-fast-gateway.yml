@@ -11,6 +11,22 @@ on:
           - refresh-health
           - discover-providers
         default: deploy
+      probe_completions:
+        description: 'discover-providers only: also probe chat completions to find a live zero-cost model per provider'
+        type: boolean
+        default: false
+      probe_providers:
+        description: 'discover-providers only: comma-separated provider ids to probe (empty = all configured)'
+        type: string
+        default: ''
+      probe_limit:
+        description: 'discover-providers only: max candidate models probed per provider'
+        type: string
+        default: '5'
+      probe_allow_unpriced:
+        description: 'discover-providers only: probe models whose catalog publishes no price (most providers publish none). Models priced above zero are always skipped.'
+        type: boolean
+        default: true
   # Fixed-minute entries, not '*/10'. GitHub sheds high-frequency '*/N'
   # schedules under load and this repository never received a single '*/10'
   # firing; every schedule here that does fire uses fixed minutes. A 20-minute
@@ -325,6 +341,17 @@ jobs:
           contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
           printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2)})"
 
+      # Zero-cost was proven in unit tests and in CI against the compiled
+      # snapshot, never against the running Worker. A deploy that shipped a
+      # paid model, a finite quota with no verified hard stop, or a policy that
+      # quietly re-admitted a trial class would have passed every gate.
+      - name: Production FREE_ONLY zero-cost guard proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health")"
+          printf '%s\n' "$health" | node cloudflare-worker/validate-zero-cost-guard.mjs
+
       # The FAST and SECRET boundaries are the contract the whole Brain-authority
       # model rests on. They were covered by unit tests but never asserted
       # against the running Worker, so they are proven here on production.
@@ -523,6 +550,37 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'discover-providers'
         continue-on-error: true
         env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          node cloudflare-worker/discover-provider-models.mjs
+
+      # A listing proves reachability, not liveness: NVIDIA listed two ids that
+      # answered 410 and 404 on chat completions. This probes a bounded slice of
+      # each provider's own listing and reports the first id that answers, so a
+      # model is admitted on a completed call rather than a guess.
+      #
+      # A completion probe is a billable call if it lands on a paid model, so
+      # the probe skips any model the catalog prices above zero. Advisory: it
+      # reports evidence for admission and never mutates the registry.
+      - name: Probe provider completions and select a live zero-cost model (advisory, on demand)
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'discover-providers' && inputs.probe_completions == true
+        continue-on-error: true
+        env:
+          PROBE_COMPLETIONS: '1'
+          PROBE_LIMIT: ${{ inputs.probe_limit }}
+          PROBE_ALLOW_UNPRICED: ${{ inputs.probe_allow_unpriced && '1' || '0' }}
+          ONLY_PROVIDERS: ${{ inputs.probe_providers }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}

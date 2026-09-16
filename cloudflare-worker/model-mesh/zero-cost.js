@@ -71,3 +71,51 @@ export function zeroCostRejection(model,{nowMs=Date.now()}={}){
 export function zeroCostEligible(model,options={}){return zeroCostRejection(model,options)===null;}
 export const ZERO_COST_GUARDS=GUARDS;
 export const ZERO_COST_REQUIREMENTS=REQUIREMENTS;
+
+const BILLABLE_STATUSES=['paid','trial_credit','limited_time','expired','unknown'];
+
+/**
+ * A production-readable summary of why the admitted pool costs nothing.
+ *
+ * The deploy gate needs to assert zero-cost on the RUNNING Worker, not just in
+ * unit tests, and it cannot do that against a health payload that only counts
+ * providers. Every field here is derived from the compiled snapshot; none of it
+ * is account or credential state.
+ */
+export function zeroCostSummary(models=[],{nowMs=Date.now()}={}){
+  const rows=Array.isArray(models)?models:[];
+  const byClass={};
+  let zeroPrice=0,nonZeroPrice=0,finiteQuota=0,finiteWithoutHardStop=0,rejected=0;
+  let nextExpiryMs=null;
+  for(const model of rows){
+    const status=String(model?.free_status||'unknown');
+    byClass[status]=(byClass[status]||0)+1;
+    const zc=(model?.zero_cost&&typeof model.zero_cost==='object')?model.zero_cost:{};
+    const prices=['input_price_per_million','output_price_per_million']
+      .map(field=>{const n=Number(zc[field]);return zc[field]===null||zc[field]===undefined?null:(Number.isFinite(n)?n:null);})
+      .filter(value=>value!==null);
+    if(prices.some(value=>value>0))nonZeroPrice+=1;else if(prices.length)zeroPrice+=1;
+    if(status==='free_quota_hard_stop'||String(zc.quota_model||'')==='finite'){
+      finiteQuota+=1;
+      if(zc.hard_stop_verified!==true)finiteWithoutHardStop+=1;
+    }
+    const expiresMs=Date.parse(String(zc.free_quota_expires_at||''));
+    if(Number.isFinite(expiresMs)&&(nextExpiryMs===null||expiresMs<nextExpiryMs))nextExpiryMs=expiresMs;
+    if(zeroCostRejection(model,{nowMs})!==null)rejected+=1;
+  }
+  return {
+    policySchemaVersion:FREE_ONLY_POLICY.schema_version??null,
+    eligibleStatuses:[...(FREE_ONLY_POLICY.eligible_statuses||[])],
+    billableStatusesAdmitted:BILLABLE_STATUSES.filter(status=>(FREE_ONLY_POLICY.eligible_statuses||[]).includes(status)),
+    admittedModelCount:rows.length,
+    zeroPriceModelCount:zeroPrice,
+    nonZeroPriceModelCount:nonZeroPrice,
+    finiteQuotaModelCount:finiteQuota,
+    finiteQuotaWithoutHardStopCount:finiteWithoutHardStop,
+    zeroCostRejectedModelCount:rejected,
+    nextFreeQuotaExpiryAt:nextExpiryMs===null?null:new Date(nextExpiryMs).toISOString(),
+    byClass,
+    paidFallback:'disabled',
+    autoPurchase:false,
+  };
+}

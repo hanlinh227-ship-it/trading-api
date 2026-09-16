@@ -37,7 +37,7 @@ async function listOpenAiCompatible(url, key) {
     if (!res.ok) return { status: res.status, models: [], reason: '' };
     const body = await res.json();
     const rows = Array.isArray(body?.data) ? body.data : (Array.isArray(body?.models) ? body.models : []);
-    return { status: res.status, models: rows.map((m) => String(m?.id || m?.name || '')).filter(Boolean), reason: '' };
+    return { status: res.status, models: rows.map((m) => String(m?.id || m?.name || '')).filter(Boolean), rows, reason: '' };
   } catch (err) {
     // Keep the transport reason. Collapsing every failure to status=0 made a
     // DNS error, a TLS error and a timeout indistinguishable, which is exactly
@@ -46,7 +46,7 @@ async function listOpenAiCompatible(url, key) {
     const reason = err?.name === 'AbortError'
       ? `timeout_after_${TIMEOUT_MS}ms`
       : String(err?.cause?.code || err?.code || err?.message || 'unknown').slice(0, 120);
-    return { status: 0, models: [], reason };
+    return { status: 0, models: [], rows: [], reason };
   } finally {
     clearTimeout(timer);
   }
@@ -172,12 +172,52 @@ async function probeCompletion(url, key, model) {
   }
 }
 
-// Prefer ids the provider itself marks free, then ids whose name says free.
-// A name is a hint for probe ORDER only -- it is never admission evidence.
-function orderCandidates(models) {
-  const free = models.filter((id) => /free|nim|nemotron|mimo|pickle|ling|muse/i.test(id));
-  const rest = models.filter((id) => !free.includes(id));
-  return [...free, ...rest];
+// Read a listed model's price, whichever shape the catalog uses. Returns null
+// when the catalog publishes no price for it.
+function listedPrice(row) {
+  const cost = (row && typeof row.cost === 'object' && row.cost) || (row && typeof row.pricing === 'object' && row.pricing) || {};
+  const read = (...keys) => {
+    for (const key of keys) {
+      const value = cost[key] ?? row?.[key];
+      if (value === null || value === undefined || typeof value === 'boolean') continue;
+      const n = Number(value);
+      if (Number.isFinite(n)) return n;
+    }
+    return null;
+  };
+  const input = read('input', 'input_per_million', 'input_cost', 'prompt', 'input_price_per_million');
+  const output = read('output', 'output_per_million', 'output_cost', 'completion', 'output_price_per_million');
+  if (input === null && output === null) return null;
+  return { input: input ?? 0, output: output ?? 0 };
+}
+
+// A completion probe is a real API call. On a mixed catalog that call is
+// billable if it lands on a paid model, so a published price above zero is a
+// hard skip -- probing it would spend money to discover that it costs money.
+// Where the catalog publishes no price, PROBE_ALLOW_UNPRICED decides: default
+// on, because most providers publish none and the account itself is free-tier.
+const ALLOW_UNPRICED = String(process.env.PROBE_ALLOW_UNPRICED || '1') === '1';
+
+function probeEligibility(row) {
+  const price = listedPrice(row);
+  if (price === null) {
+    return ALLOW_UNPRICED ? { eligible: true, note: 'unpriced_catalog' } : { eligible: false, note: 'SKIPPED_UNPRICED_MODEL' };
+  }
+  if (price.input > 0 || price.output > 0) return { eligible: false, note: `SKIPPED_PAID_MODEL input=${price.input} output=${price.output}` };
+  return { eligible: true, note: 'zero_price_in_catalog' };
+}
+
+// Prefer models the catalog prices at zero, then ids whose name says free.
+// A name is a hint for probe ORDER only -- it is never admission evidence, and
+// it never overrides a published price.
+function orderCandidates(rows) {
+  const scored = rows.map((row) => {
+    const id = String(row?.id || row?.name || '');
+    const price = listedPrice(row);
+    const zeroPriced = price !== null && price.input === 0 && price.output === 0;
+    return { id, row, rank: zeroPriced ? 0 : (/free|nim|nemotron|mimo|pickle|ling|muse/i.test(id) ? 1 : 2) };
+  }).filter((entry) => entry.id);
+  return scored.sort((a, b) => a.rank - b.rank).map((entry) => entry);
 }
 
 if (String(process.env.PROBE_COMPLETIONS || '') === '1') {
@@ -186,9 +226,23 @@ if (String(process.env.PROBE_COMPLETIONS || '') === '1') {
     const key = String(process.env[binding.secret_name] || '').trim();
     if (!key) { console.log(`PROVIDER_PROBE provider=${providerId} verdict=USER_CREDENTIAL_BLOCKED`); continue; }
     if (binding.endpoint_family !== 'openai_compatible') { console.log(`PROVIDER_PROBE provider=${providerId} verdict=SKIPPED_NON_OPENAI_FAMILY family=${binding.endpoint_family}`); continue; }
-    const { status: listStatus, models } = await listOpenAiCompatible(binding.endpoint_url, key);
+    const { status: listStatus, models, rows } = await listOpenAiCompatible(binding.endpoint_url, key);
     if (!models.length) { console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_LISTING http=${listStatus}`); continue; }
-    const candidates = orderCandidates(models).slice(0, PROBE_LIMIT);
+    const ordered = orderCandidates(rows.length ? rows : models.map((id) => ({ id })));
+    const eligible = [];
+    let skippedPaid = 0;
+    for (const entry of ordered) {
+      const { eligible: ok, note } = probeEligibility(entry.row);
+      if (!ok) {
+        skippedPaid += 1;
+        console.log(`PROVIDER_PROBE_MODEL provider=${providerId} model=${entry.id} verdict=${note}`);
+        continue;
+      }
+      eligible.push(entry.id);
+      if (eligible.length >= PROBE_LIMIT) break;
+    }
+    if (!eligible.length) { console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_ZERO_PRICE_CANDIDATE listed=${models.length} skipped_paid=${skippedPaid}`); continue; }
+    const candidates = eligible;
     let selected = null;
     const attempts = [];
     for (const model of candidates) {
@@ -201,11 +255,11 @@ if (String(process.env.PROBE_COMPLETIONS || '') === '1') {
       if (scope !== 'model') break;
     }
     if (selected) {
-      console.log(`PROVIDER_PROBE provider=${providerId} verdict=SELECTED model=${selected} probed=${attempts.length} listed=${models.length}`);
+      console.log(`PROVIDER_PROBE provider=${providerId} verdict=SELECTED model=${selected} probed=${attempts.length} listed=${models.length} skipped_paid=${skippedPaid}`);
     } else {
       // "No live free model found in the probed slice" is a bounded statement,
       // not a claim that the provider has none. Say exactly that.
-      console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_LIVE_CANDIDATE_IN_PROBED_SLICE probed=${attempts.length} listed=${models.length} attempts=${JSON.stringify(attempts)}`);
+      console.log(`PROVIDER_PROBE provider=${providerId} verdict=NO_LIVE_CANDIDATE_IN_PROBED_SLICE probed=${attempts.length} listed=${models.length} skipped_paid=${skippedPaid} attempts=${JSON.stringify(attempts)}`);
     }
   }
 }

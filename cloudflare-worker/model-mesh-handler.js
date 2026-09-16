@@ -1,5 +1,6 @@
 import {buildModelMeshPlan} from './model-mesh-runtime.js';
 import {sanitizeDataClass} from './model-mesh/contracts.js';
+import {zeroCostSummary} from './model-mesh/zero-cost.js';
 import {providerRuntimeStatus} from './model-mesh/runtime-health.js';
 import {selectionCandidate,MODEL_MESH_LIMITS,MODEL_MESH_SELECTION_FILTERS} from './model-mesh/contracts.js';
 import {capabilityEvidenceDiagnostics} from './model-mesh/capability-evidence.js';
@@ -31,6 +32,7 @@ export function createModelMeshHandler({skillSnapshot,modelSnapshot,activeIndex,
         executionEnabled:String(env.MODEL_MESH_EXECUTION_ENABLED||'0')==='1',
         executionTokenConfigured:Boolean(env.MODEL_MESH_EXECUTION_TOKEN),
         eligibleModelCount:(modelSnapshot.models||[]).filter(model=>selectionCandidate(model)).length,
+        zeroCost:zeroCostSummary(modelSnapshot.models||[]),
         configuredProviderCount:providers.filter(row=>row.configured).length,
         activeProviderCount:providers.filter(row=>row.active).length,
         providers,
