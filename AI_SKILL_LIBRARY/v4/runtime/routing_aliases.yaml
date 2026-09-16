@@ -23,6 +23,7 @@ aliases:
   deployment: ["triển khai", "deploy", "production", "ci cd"]
   automation: ["tự động hóa", "automation", "workflow"]
   trading_router: ["quét market", "tìm entry", "giao dịch live", "quét thị trường", "market entry"]
+  multi_market_analysis: ["tìm lệnh forex", "quét forex", "tìm setup forex", "quét coin", "tìm lệnh coin", "tìm setup crypto", "quét futures", "tìm lệnh futures", "tìm setup nq futures", "quét forex coin future", "quét forex crypto futures"]
   crypto: ["crypto", "bitcoin", "btc", "altcoin", "coin"]
   forex: ["forex", "ngoại hối", "fx"]
   futures: ["futures", "future", "perpetual"]
