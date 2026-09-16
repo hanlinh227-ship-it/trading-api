@@ -52,6 +52,7 @@ RELEASE_FILES: tuple[tuple[str, str], ...] = (
 CANDIDATE_EXTENSION_FILES: tuple[tuple[str, str], ...] = (
     ("AI_SKILL_LIBRARY/v4/legion/policy.yaml", "legion_policy"),
     ("AI_SKILL_LIBRARY/v4/legion/agents.yaml", "legion_agents"),
+    ("AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml", "image_render_policy"),
     ("AI_SKILL_LIBRARY/v4/learning/policy.yaml", "learning_policy"),
     ("AI_SKILL_LIBRARY/v4/learning/sources.yaml", "learning_sources"),
     ("AI_SKILL_LIBRARY/v4/learning/skill_factory.yaml", "skill_factory"),
