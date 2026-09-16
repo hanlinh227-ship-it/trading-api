@@ -181,6 +181,30 @@ jobs:
           echo "MODEL_MESH_SECRETS_SKIPPED_NO_ELIGIBLE_MODEL=$skipped"
           echo "CLOUDFLARE_ACCOUNT_ID_BINDING=PRESERVE_EXISTING"
 
+      - name: Sync Universal Brain credentials without exposing values
+        working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BRAIN_CLIENT_CHATGPT_TOKEN: ${{ secrets.BRAIN_CLIENT_CHATGPT_TOKEN }}
+          BRAIN_CLIENT_CLAUDE_TOKEN: ${{ secrets.BRAIN_CLIENT_CLAUDE_TOKEN }}
+          BRAIN_CLIENT_GEMINI_TOKEN: ${{ secrets.BRAIN_CLIENT_GEMINI_TOKEN }}
+          BRAIN_EVERGREEN_TOKEN: ${{ secrets.BRAIN_EVERGREEN_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          synced=0
+          for key in BRAIN_CLIENT_CHATGPT_TOKEN BRAIN_CLIENT_CLAUDE_TOKEN BRAIN_CLIENT_GEMINI_TOKEN BRAIN_EVERGREEN_TOKEN; do
+            value="${!key:-}"
+            if [ -z "$value" ]; then
+              echo "UNIVERSAL_BRAIN_SECRET_MISSING=$key"
+              exit 1
+            fi
+            printf '%s' "$value" | npx wrangler secret put "$key" --name trading-v77-scanner >/dev/null
+            synced=$((synced+1))
+          done
+          echo "UNIVERSAL_BRAIN_SECRETS_SYNCED_COUNT=$synced"
+
       - name: Prepare, test and benchmark exact-main Skill Gateway and Model Mesh
         working-directory: cloudflare-worker
         shell: bash
@@ -277,6 +301,17 @@ jobs:
             sleep 8
           done
           exit 1
+
+      - name: Production Universal Brain adapter canary
+        working-directory: cloudflare-worker
+        env:
+          BRAIN_CLIENT_CHATGPT_TOKEN: ${{ secrets.BRAIN_CLIENT_CHATGPT_TOKEN }}
+          BRAIN_CLIENT_CLAUDE_TOKEN: ${{ secrets.BRAIN_CLIENT_CLAUDE_TOKEN }}
+          BRAIN_CLIENT_GEMINI_TOKEN: ${{ secrets.BRAIN_CLIENT_GEMINI_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node validate-universal-canary.mjs
 
       - name: Production brain route matrix with propagation tolerance
         shell: bash
