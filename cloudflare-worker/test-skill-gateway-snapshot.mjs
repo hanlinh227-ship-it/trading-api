@@ -18,7 +18,7 @@ const cases=[
   ['viết quảng cáo giày cho quý bà','advertising_copy','FAST','Viết quảng cáo'],
   ['so sánh hai phương án','comparison','FAST','So sánh'],
   ['dịch đoạn này sang tiếng Anh','translation','FAST','Dịch thuật'],
-  ['quét market BTC live','trading_router','DEEP','Phân tích giao dịch'],
+  ['quét market BTC live','multi_market_analysis','DEEP','Phân tích nhiều thị trường'],
 ];
 for(const [text,skill,profile,name] of cases){
   const route=routeSkillRequest({text},SKILL_GATEWAY_SNAPSHOT);
