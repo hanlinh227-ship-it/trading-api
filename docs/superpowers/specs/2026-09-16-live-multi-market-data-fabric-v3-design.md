@@ -73,6 +73,26 @@ The source-fabric interface must allow future Railway-native Forex/Futures/Indic
 
 This extension point must not be used to fabricate provider coverage during V3 delivery.
 
+## Provider feasibility snapshot — 2026-09-16
+
+Capability discovery and entitlement are separate facts.
+
+Current verified state:
+
+- The installed Massive connector exposes Forex, Futures, and Indices endpoint capability, including Futures and Indices payload fields that explicitly identify `REAL-TIME` versus `DELAYED` data.
+- Live probes against the currently connected Massive account returned `NOT_ENTITLED` for representative Forex, Futures, and Indices requests. Therefore Massive is not currently a usable live source for those domains in this account and must not be treated as active coverage.
+- Twelve Data Basic currently advertises a free tier with 8 API credits/minute, 800 requests/day, and real-time Forex access. Broader global/commodity coverage is plan-dependent and must not be assumed from the free tier.
+- Alpha Vantage currently provides a free API tier, realtime currency exchange-rate access, and live gold/silver spot endpoints; intraday FX time-series access is premium. It is therefore useful as a bounded source but not sufficient by itself for a broad six-domain live scanner.
+
+Design consequence:
+
+- V3 must be provider-agnostic and entitlement-aware.
+- A provider adapter can be `CAPABLE` while its runtime source state is `NOT_ENTITLED`.
+- `NOT_ENTITLED` is a coverage gap, not a transient provider failure and not permission to bypass plan/access controls.
+- No IP rotation, quota reset circumvention, account cycling, or access-control bypass is permitted.
+- `ALL_MARKETS_LIVE` may be claimed only after at least one verified real-time source for each required live domain passes runtime smoke.
+- Until then, V3 may be feature-complete as a fabric while operational coverage explicitly reports unsupported/not-entitled domains.
+
 ## End-to-end request flow
 
 `user command -> task_router -> multi_market_analysis -> live source planner -> verified symbol universe -> provider/connector acquisition -> unified normalization -> freshness/session/entitlement gate -> timeframe bundle -> domain profile -> candidate builder -> conflict challenger -> cross-market ranking -> research levels -> TradingView navigation context -> answer`
@@ -96,14 +116,24 @@ Required fields:
 - `researchOnly: true` for every non-BTC execution domain;
 - `productionExecutionAuthority: false` for the research scan itself.
 
+Source states must distinguish at least:
+
+- `AVAILABLE`;
+- `DEGRADED`;
+- `NOT_ENTITLED`;
+- `RATE_LIMITED`;
+- `UNAVAILABLE`;
+- `UNVERIFIED`.
+
 Source priority rules:
 
 1. Use gateway-native crypto sources for crypto evidence when healthy.
-2. Use an approved connector source for non-crypto evidence when available and permitted.
+2. Use an approved connector source for non-crypto evidence when available, entitled, and permitted.
 3. Use a verified native non-crypto adapter only if runtime configuration and entitlement are explicitly healthy.
 4. Never silently substitute an unrelated asset as a proxy.
 5. If a requested domain has no usable source, mark coverage `GAP` and continue other domains.
 6. Missing source coverage cannot improve another candidate's score.
+7. `NOT_ENTITLED` cannot silently fall back to an access-control workaround.
 
 ## Verified symbol universe
 
@@ -135,13 +165,19 @@ Use product-level intents such as `ES`, `NQ`, `YM`, and `RTY`, then resolve to a
 
 Never hard-code a dated contract as permanently current. An unresolved or expired contract produces a coverage gap.
 
+For Massive Futures specifically, contract resolution may use `product_code`, returned `ticker`, `details.settlement_date`, quote/session activity, and the returned `timeframe` entitlement marker. Select only a non-expired contract supported by current provider evidence; do not infer expiry from symbol text when a settlement date is available.
+
 ### Indices
 
 Initial verified intents may include `SPX`, `NDX`, and `VIX` when the active source confirms the corresponding provider symbol. Unknown mappings remain unverified and are excluded from live ranking.
 
+For Massive Indices, the returned `timeframe` and `market_status` fields are evidence for timeliness/session classification; they must be preserved by normalization.
+
 ### Metals
 
 Initial product intents may include gold, silver, and copper through verified futures products such as `GC`, `SI`, and `HG` when a currently tradable contract is resolved.
+
+Gold/silver spot sources may be added as a separate instrument type when a provider explicitly supports live spot semantics. Spot and futures evidence must never be compared as the same instrument semantics.
 
 ### Commodities
 
@@ -180,14 +216,14 @@ V3 adds explicit source semantics:
 
 - `latencyMs` when derivable;
 - `delayClass: REALTIME|DELAYED|UNKNOWN`;
-- `entitlement: VERIFIED_REALTIME|VERIFIED_DELAYED|UNVERIFIED`;
+- `entitlement: VERIFIED_REALTIME|VERIFIED_DELAYED|NOT_ENTITLED|UNVERIFIED`;
 - `instrumentType`;
 - `providerSymbol`;
 - `canonicalSymbol`;
 - `contractExpiry` for futures when applicable;
 - `evidenceKind: quote|snapshot|bar|trade|session|context`.
 
-A source marked `DELAYED` or `UNVERIFIED` must never be relabeled `FRESH_REALTIME` merely because its HTTP response arrived recently.
+A source marked `DELAYED`, `NOT_ENTITLED`, or `UNVERIFIED` must never be relabeled `FRESH_REALTIME` merely because its HTTP response arrived recently.
 
 ## Freshness and entitlement gate
 
@@ -198,17 +234,20 @@ The gate must distinguish:
 - fresh real-time evidence;
 - fresh-but-delayed evidence;
 - stale evidence;
+- not-entitled evidence;
 - unknown timing/entitlement.
 
 Rules:
 
 - `VERIFIED_REALTIME + age within domain/timeframe tolerance` may authorize a live candidate.
 - `VERIFIED_DELAYED` may be used for context/research but cannot authorize a setup labeled live/current.
+- `NOT_ENTITLED` produces no market observation and a source-coverage gap.
 - `UNVERIFIED` entitlement cannot authorize a live/current candidate.
 - Event times in the future beyond clock-skew tolerance are invalid.
 - `ingestTime < eventTime` beyond clock-skew tolerance is invalid.
 - Bid/ask data must preserve executable-side semantics when present.
 - A market-closed session is not equivalent to stale data; session metadata must be considered before classifying a legitimate last close.
+- Forex providers that expose quote timestamps but no explicit entitlement/timeliness marker remain `UNVERIFIED` unless the connector/runtime provides separate trustworthy entitlement metadata.
 
 V3 tests must use deterministic clocks and avoid assumptions that every market trades 24/7.
 
@@ -244,7 +283,8 @@ Required:
 - structure;
 - session/context;
 - quote quality when available;
-- freshness.
+- freshness;
+- verified timeliness/entitlement for a `LIVE` label.
 
 ### Futures
 
@@ -254,7 +294,8 @@ Required:
 - structure;
 - active session/context;
 - liquidity/price quality;
-- freshness.
+- freshness;
+- provider timeliness/entitlement evidence.
 
 ### Indices
 
@@ -263,7 +304,8 @@ Required:
 - structure;
 - session state;
 - context evidence;
-- freshness.
+- freshness;
+- provider timeliness/entitlement evidence.
 
 Cross-market context such as NQ/ES relationships may strengthen a candidate only when both underlying observations are independently valid and current.
 
@@ -275,7 +317,8 @@ Required:
 - structure;
 - liquidity/price quality;
 - context evidence;
-- freshness.
+- freshness;
+- verified instrument semantics.
 
 ### Commodities
 
@@ -384,12 +427,12 @@ Expected orchestration:
 2. load trading project authority/checkpoint;
 3. resolve the approved market universe;
 4. acquire gateway-native crypto evidence;
-5. acquire approved connector evidence for non-crypto domains when available;
+5. acquire approved connector evidence for non-crypto domains when available and entitled;
 6. normalize evidence locally in the orchestration layer or through a pure normalization contract;
 7. call the research autoscan/ranking path;
 8. return the best supported setup or `NO_TRADE`.
 
-If the connector is unavailable, the system must not ask the user to manually gather market data unless no automated source remains. It should continue covered domains and disclose gaps.
+If a connector is unavailable or not entitled, the system must not ask the user to manually gather market data unless no automated source remains. It should continue covered domains and disclose gaps.
 
 ## Connector/Railway trust boundary
 
@@ -400,7 +443,7 @@ This boundary is mandatory and testable.
 - Railway receives only normalized market observations and non-secret source metadata.
 - Source/provider payloads must be reduced to fields required for research; unnecessary account/plugin metadata is discarded.
 - No connector secret or authentication object may appear in logs, `dataContract`, provenance, tests, or fixtures.
-- A connector being installed in ChatGPT does not imply that Railway can call it independently.
+- A connector being installed in ChatGPT does not imply that Railway can call it independently or that the connected account is entitled to every advertised market.
 
 ## TradingView integration
 
@@ -422,6 +465,10 @@ A future Lightweight Charts UI may render Brain-owned data directly, but it is n
 ### Missing connector
 
 Continue gateway-native domains. Mark uncovered non-crypto domains `GAP: CONNECTOR_UNAVAILABLE`.
+
+### Provider not entitled
+
+Mark the source `NOT_ENTITLED` and the affected domain `GAP: SOURCE_NOT_ENTITLED`. Do not retry through quota/access-control circumvention.
 
 ### Provider entitlement is delayed
 
@@ -462,6 +509,7 @@ V3 adds sanitized research telemetry:
 - domain coverage count;
 - source coverage count;
 - verified real-time vs delayed vs unknown evidence counts;
+- not-entitled source count;
 - unresolved symbol/contract count;
 - blocked candidate reasons;
 - acquisition latency by source class;
@@ -478,30 +526,31 @@ Required tests include:
 
 1. source planner defaults to all six approved domains for broad scans;
 2. gateway-native crypto plan uses current provider registry and remains research-only at autoscan level;
-3. connector plan covers Forex/Futures/Indices when connector capability is available;
-4. Metals/Commodities resolve through verified futures products/contracts;
-5. no connector credential can enter the normalized observation schema;
-6. connector unavailable produces coverage gaps without crashing covered domains;
-7. delayed entitlement cannot authorize a live candidate;
-8. unknown entitlement cannot authorize a live candidate;
-9. future timestamps and invalid ingest/event ordering fail validation;
-10. closed-session evidence is classified session-aware rather than blindly stale;
-11. current-contract resolver rejects expired or unresolved futures contracts;
-12. provider symbol mapping never guesses an unverified symbol;
-13. V3 enforces domain-specific evidence requirements;
-14. multi-timeframe confirmation is distinguished from single-timeframe bar count;
-15. valid LONG levels produce positive risk and mathematically correct target;
-16. valid SHORT levels produce positive risk and mathematically correct target;
-17. verified ask/bid use correct entry semantics;
-18. reference close is labeled non-executable;
-19. stale/conflicting evidence blocks candidates;
-20. ranking returns `TOP_SETUP` or `NO_TRADE` using existing ranking authority;
-21. TradingView mapping remains verified/search-only as appropriate;
-22. `/research/autoscan` rejects order/leverage/credential fields;
-23. all non-BTC outputs remain research-only;
-24. signed Bybit writer still rejects non-BTC order symbols;
-25. all existing Brain/Model Mesh/Image Render/Bybit safety/gateway tests remain green;
-26. production smoke verifies representative evidence for every domain that runtime tooling can actually access, and reports unsupported domains honestly rather than fabricating PASS.
+3. connector plan covers Forex/Futures/Indices only when connector capability and entitlement are available;
+4. `NOT_ENTITLED` connector state creates an explicit coverage gap and cannot authorize ranking;
+5. Metals/Commodities resolve through verified futures products/contracts;
+6. no connector credential can enter the normalized observation schema;
+7. connector unavailable produces coverage gaps without crashing covered domains;
+8. delayed entitlement cannot authorize a live candidate;
+9. unknown entitlement cannot authorize a live candidate;
+10. future timestamps and invalid ingest/event ordering fail validation;
+11. closed-session evidence is classified session-aware rather than blindly stale;
+12. current-contract resolver rejects expired or unresolved futures contracts;
+13. provider symbol mapping never guesses an unverified symbol;
+14. V3 enforces domain-specific evidence requirements;
+15. multi-timeframe confirmation is distinguished from single-timeframe bar count;
+16. valid LONG levels produce positive risk and mathematically correct target;
+17. valid SHORT levels produce positive risk and mathematically correct target;
+18. verified ask/bid use correct entry semantics;
+19. reference close is labeled non-executable;
+20. stale/conflicting evidence blocks candidates;
+21. ranking returns `TOP_SETUP` or `NO_TRADE` using existing ranking authority;
+22. TradingView mapping remains verified/search-only as appropriate;
+23. `/research/autoscan` rejects order/leverage/credential fields;
+24. all non-BTC outputs remain research-only;
+25. signed Bybit writer still rejects non-BTC order symbols;
+26. all existing Brain/Model Mesh/Image Render/Bybit safety/gateway tests remain green;
+27. production smoke verifies representative evidence for every domain that runtime tooling can actually access, and reports unsupported/not-entitled domains honestly rather than fabricating PASS.
 
 ## Implementation boundaries
 
@@ -535,13 +584,16 @@ Do not refactor unrelated systems.
 
 ## Completion criteria
 
-V3 is complete only when all of the following are true:
+### Fabric-complete
+
+V3 fabric implementation is complete only when:
 
 - one user command routes to `multi_market_analysis`;
 - crypto evidence is acquired automatically from gateway-native sources;
-- Forex/Futures/Indices evidence is acquired automatically through the approved connector plane when available;
+- connector evidence can be acquired and normalized automatically when an approved connector is available and entitled;
+- Massive `NOT_ENTITLED` and equivalent states are represented explicitly rather than retried as generic failures;
 - Metals/Commodities use verified current futures contracts and never permanent hard-coded expiries;
-- every source is labeled real-time/delayed/unknown from evidence, not assumption;
+- every source is labeled real-time/delayed/not-entitled/unknown from evidence, not assumption;
 - all six domains either have usable evidence or an explicit coverage gap;
 - domain evidence profiles are enforced;
 - ranked candidates include valid Entry/Stop/Target research levels when derivable;
@@ -552,3 +604,9 @@ V3 is complete only when all of the following are true:
 - Railway/Cloudflare exact-main verification passes where applicable;
 - production smoke does not fabricate provider coverage;
 - the new release is promoted only after production verification.
+
+### All-markets-live operationally ready
+
+The stronger claim `ALL_MARKETS_LIVE` is allowed only when runtime smoke proves at least one verified real-time, permitted source for every domain the product claims as live. A connector that is installed but `NOT_ENTITLED` does not satisfy this criterion.
+
+If this criterion is not met, the system remains operational with explicit domain coverage gaps and must not describe itself as fully live across all markets.
