@@ -3,7 +3,7 @@
   "mode": "FREE_ONLY",
   "routing_authority": false,
   "reasoning_authority": false,
-  "generated_at": "2026-09-15T09:40:00Z",
+  "generated_at": "2026-09-16T01:05:00Z",
   "models": [
     {
       "provider_id": "groq",
@@ -408,64 +408,6 @@
       ]
     },
     {
-      "provider_id": "alibaba_model_studio",
-      "provider_class": "F3",
-      "model_id": "qwen3.8-flash",
-      "model_family": "qwen3.8-flash",
-      "model_variant": "singapore-trial",
-      "endpoint_family": "openai_compatible",
-      "free_status": "trial_credit",
-      "registry_state": "NOT_ELIGIBLE",
-      "free_verified_at": "2026-09-15T09:40:00Z",
-      "observed_at": "2026-09-15T09:40:00Z",
-      "quota_scope": "account",
-      "quota_dimensions": [
-        "free_tokens",
-        "expiry"
-      ],
-      "reset_semantics": "none",
-      "capabilities": {
-        "text_reasoning": {
-          "supported": true,
-          "score": 0.78,
-          "evidence": [
-            "https://www.alibabacloud.com/help/en/model-studio/models"
-          ],
-          "verified_at": "2026-09-15T09:40:00Z"
-        },
-        "multilingual": {
-          "supported": true,
-          "score": 0.85,
-          "evidence": [
-            "https://www.alibabacloud.com/help/en/model-studio/models"
-          ],
-          "verified_at": "2026-09-15T09:40:00Z"
-        },
-        "low_latency": {
-          "supported": true,
-          "score": 0.8,
-          "evidence": [
-            "https://www.alibabacloud.com/help/en/model-studio/models"
-          ],
-          "verified_at": "2026-09-15T09:40:00Z"
-        }
-      },
-      "context_window": 131072,
-      "privacy_class": "restricted",
-      "data_training_allowed_by_provider": null,
-      "retention_policy": "Singapore trial policy; PUBLIC workloads only",
-      "usage_terms": "evaluation",
-      "health": "degraded",
-      "latency_ema_ms": null,
-      "success_rate_ema": null,
-      "quality_scores": {},
-      "last_benchmark_at": null,
-      "source_evidence": [
-        "https://www.alibabacloud.com/help/en/model-studio/new-free-quota",
-        "https://www.alibabacloud.com/help/en/model-studio/get-api-key"
-      ]
-    },
-    {
       "provider_id": "opencode_zen",
       "provider_class": "F2",
       "model_id": "mimo-v2.5-free",
@@ -512,6 +454,238 @@
       "source_evidence": [
         "https://opencode.ai/docs/zen",
         "https://opencode.ai/zen/v1/models"
+      ]
+    },
+    {
+      "provider_id": "nvidia_nim",
+      "provider_class": "F1",
+      "model_id": "meta/llama-3.3-70b-instruct",
+      "model_family": "llama-3.3-70b",
+      "model_variant": "nim-hosted",
+      "endpoint_family": "openai_compatible",
+      "free_status": "account_specific",
+      "free_verified_at": "2026-09-16T01:05:00Z",
+      "observed_at": "2026-09-16T01:05:00Z",
+      "quota_scope": "account",
+      "quota_dimensions": [
+        "rpm",
+        "tpm"
+      ],
+      "reset_semantics": "rolling",
+      "capabilities": {
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.8,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: nvidia_nim listed 82 models"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.75,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: nvidia_nim listed 82 models"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        },
+        "structured_output": {
+          "supported": true,
+          "score": 0.7,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: nvidia_nim listed 82 models"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        }
+      },
+      "context_window": 131072,
+      "privacy_class": "restricted",
+      "data_training_allowed_by_provider": null,
+      "retention_policy": "provider policy applies; PUBLIC workloads only until runtime privacy verification",
+      "usage_terms": "production_allowed",
+      "health": "degraded",
+      "latency_ema_ms": null,
+      "success_rate_ema": null,
+      "quality_scores": {},
+      "last_benchmark_at": null,
+      "entitlement_evidence": "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier",
+      "source_evidence": [
+        "live model listing 2026-09-16T01:05:00Z: nvidia_nim listed 82 models",
+        "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier"
+      ]
+    },
+    {
+      "provider_id": "cerebras",
+      "provider_class": "F1",
+      "model_id": "qwen-3.8-27b",
+      "model_family": "qwen-3.8-27b",
+      "model_variant": "cerebras-hosted",
+      "endpoint_family": "openai_compatible",
+      "free_status": "account_specific",
+      "free_verified_at": "2026-09-16T01:05:00Z",
+      "observed_at": "2026-09-16T01:05:00Z",
+      "quota_scope": "account",
+      "quota_dimensions": [
+        "rpm",
+        "tpm"
+      ],
+      "reset_semantics": "rolling",
+      "capabilities": {
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.8,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: cerebras listed 2 models (gpt-oss-120b, qwen-3.8-27b)"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.75,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: cerebras listed 2 models (gpt-oss-120b, qwen-3.8-27b)"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        },
+        "structured_output": {
+          "supported": true,
+          "score": 0.7,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: cerebras listed 2 models (gpt-oss-120b, qwen-3.8-27b)"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        }
+      },
+      "context_window": 32768,
+      "privacy_class": "restricted",
+      "data_training_allowed_by_provider": null,
+      "retention_policy": "provider policy applies; PUBLIC workloads only until runtime privacy verification",
+      "usage_terms": "production_allowed",
+      "health": "degraded",
+      "latency_ema_ms": null,
+      "success_rate_ema": null,
+      "quality_scores": {},
+      "last_benchmark_at": null,
+      "entitlement_evidence": "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier",
+      "source_evidence": [
+        "live model listing 2026-09-16T01:05:00Z: cerebras listed 2 models (gpt-oss-120b, qwen-3.8-27b)",
+        "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier"
+      ]
+    },
+    {
+      "provider_id": "sambanova",
+      "provider_class": "F1",
+      "model_id": "Meta-Llama-3.3-70B-Instruct",
+      "model_family": "llama-3.3-70b-sambanova",
+      "model_variant": "sambanova-hosted",
+      "endpoint_family": "openai_compatible",
+      "free_status": "account_specific",
+      "free_verified_at": "2026-09-16T01:05:00Z",
+      "observed_at": "2026-09-16T01:05:00Z",
+      "quota_scope": "account",
+      "quota_dimensions": [
+        "rpm",
+        "tpm"
+      ],
+      "reset_semantics": "rolling",
+      "capabilities": {
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.8,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: sambanova listed 7 models"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.75,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: sambanova listed 7 models"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        },
+        "structured_output": {
+          "supported": true,
+          "score": 0.7,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: sambanova listed 7 models"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        }
+      },
+      "context_window": 131072,
+      "privacy_class": "restricted",
+      "data_training_allowed_by_provider": null,
+      "retention_policy": "provider policy applies; PUBLIC workloads only until runtime privacy verification",
+      "usage_terms": "production_allowed",
+      "health": "degraded",
+      "latency_ema_ms": null,
+      "success_rate_ema": null,
+      "quality_scores": {},
+      "last_benchmark_at": null,
+      "entitlement_evidence": "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier",
+      "source_evidence": [
+        "live model listing 2026-09-16T01:05:00Z: sambanova listed 7 models",
+        "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier"
+      ]
+    },
+    {
+      "provider_id": "alibaba_model_studio",
+      "provider_class": "F1",
+      "model_id": "qwen3.8-flash",
+      "model_family": "qwen3.8-flash",
+      "model_variant": "model-studio-hosted",
+      "endpoint_family": "openai_compatible",
+      "free_status": "account_specific",
+      "free_verified_at": "2026-09-16T01:05:00Z",
+      "observed_at": "2026-09-16T01:05:00Z",
+      "quota_scope": "account",
+      "quota_dimensions": [
+        "rpm",
+        "tpm"
+      ],
+      "reset_semantics": "rolling",
+      "capabilities": {
+        "text_reasoning": {
+          "supported": true,
+          "score": 0.8,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: alibaba_model_studio listed 167 models"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        },
+        "coding": {
+          "supported": true,
+          "score": 0.75,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: alibaba_model_studio listed 167 models"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        },
+        "structured_output": {
+          "supported": true,
+          "score": 0.7,
+          "evidence": [
+            "live model listing 2026-09-16T01:05:00Z: alibaba_model_studio listed 167 models"
+          ],
+          "verified_at": "2026-09-16T01:05:00Z"
+        }
+      },
+      "context_window": 131072,
+      "privacy_class": "restricted",
+      "data_training_allowed_by_provider": null,
+      "retention_policy": "provider policy applies; PUBLIC workloads only until runtime privacy verification",
+      "usage_terms": "production_allowed",
+      "health": "degraded",
+      "latency_ema_ms": null,
+      "success_rate_ema": null,
+      "quality_scores": {},
+      "last_benchmark_at": null,
+      "entitlement_evidence": "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier",
+      "source_evidence": [
+        "live model listing 2026-09-16T01:05:00Z: alibaba_model_studio listed 167 models",
+        "account-holder attestation 2026-09-16: user confirms free-recurring or account-specific free access for this account/tier"
       ]
     }
   ]
