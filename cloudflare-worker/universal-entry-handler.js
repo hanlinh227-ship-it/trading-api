@@ -1,5 +1,7 @@
 import {authenticateAdapter,requiredScopeForPath,UNIVERSAL_CLIENT_IDS} from './universal-auth.js';
 import {classifyEntrySafety,effectiveProfile,normalizeUniversalRequest} from './universal-entry-contract.js';
+import {createStateStores} from './universal-state.js';
+import {recordUniversalEvent} from './universal-telemetry.js';
 
 const MAX_BODY_BYTES=64_000;
 const encoder=new TextEncoder();
@@ -35,7 +37,6 @@ export function createUniversalEntryHandler({snapshot,routeSkill}={}){
   if(!snapshot||snapshot.schema_version!==1||typeof snapshot.source_sha!=='string')throw new Error('UNIVERSAL_ENTRY_SNAPSHOT_REQUIRED');
   if(typeof routeSkill!=='function')throw new Error('UNIVERSAL_ENTRY_ROUTE_SKILL_REQUIRED');
   return async function handleUniversalEntry(request,env={},ctx={}){
-    void ctx;
     const url=new URL(request.url);
     const supported=new Set(['/brain/universal/route','/brain/universal/health','/brain/universal/capabilities']);
     if(!supported.has(url.pathname))return null;
@@ -83,6 +84,26 @@ export function createUniversalEntryHandler({snapshot,routeSkill}={}){
     const route={...canonicalRoute,profile,safetyEscalated:profile!==canonicalRoute.profile};
     const capsule=publicCapsule(snapshot.capsules?.[route.primarySkill]);
     if(!capsule)return json({ok:false,error:'brain_capsule_missing'},503);
+
+    // FAST remains zero-persistence/zero-shared-state on the synchronous path.
+    // STANDARD/DEEP audit is best-effort and asynchronous; failure cannot block routing.
+    if(profile!=='FAST'&&typeof ctx?.waitUntil==='function'){
+      const stores=createStateStores(env);
+      ctx.waitUntil(recordUniversalEvent(stores,{
+        event_type:'route',
+        client_id:auth.principal.clientId,
+        request_id:normalized.request_id,
+        profile,
+        domain:route.domain,
+        primary_skill:route.primarySkill,
+        capsule_hash:route.capsuleHash,
+        release_id:snapshot.release_id||null,
+        source_sha:snapshot.source_sha,
+        latency_ms:route.routeLatencyMs,
+        status:'ok',
+      }));
+    }
+
     return json({
       ok:true,
       clientId:auth.principal.clientId,
