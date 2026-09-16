@@ -34,6 +34,8 @@ function boundedStrings(value,maxItems=32,maxChars=80){
   return out;
 }
 
+function actionRank(action){return DEEP_ACTIONS.has(action)?2:STANDARD_ACTIONS.has(action)?1:0;}
+
 function inferAction(text,freshness,toolClasses){
   const lower=` ${String(text||'').toLocaleLowerCase('und')}`;
   if(freshness==='live')return 'live_or_trading';
@@ -61,7 +63,11 @@ export function normalizeUniversalRequest(payload,clientId,adapterVersion='1.0')
   const toolClasses=boundedStrings(payload.tool_classes);
   const declaredCapabilities=boundedStrings(payload.declared_capabilities);
   const explicit=String(payload.requested_action_class||'').trim().toLowerCase();
-  const action=ACTIONS.has(explicit)?explicit:inferAction(text,freshness,toolClasses);
+  // A client may declare a MORE severe action class than the text implies, never a less severe
+  // one: the inferred class is a safety floor, so an explicit 'informational' on live-trading text
+  // cannot unlock safe-degraded serving or a lower profile.
+  const inferred=inferAction(text,freshness,toolClasses);
+  const action=ACTIONS.has(explicit)&&actionRank(explicit)>=actionRank(inferred)?explicit:inferred;
   let projectHint=payload.project_hint??null;
   if(projectHint!==null){
     if(typeof projectHint!=='string'||projectHint.length>160)throw new Error('invalid_project_hint');

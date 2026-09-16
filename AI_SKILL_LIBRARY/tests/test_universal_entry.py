@@ -41,6 +41,27 @@ class UniversalEntryTests(unittest.TestCase):
         self.assertFalse(out["safe_degraded_allowed"])
         self.assertTrue(out["high_impact"])
 
+    def test_explicit_action_class_cannot_downgrade_inferred_high_impact(self) -> None:
+        req = normalize_request(
+            {
+                "text": "giao dịch BTC live, tìm entry ngay",
+                "request_id": "r2b",
+                "session_id": "s1",
+                "freshness": "none",
+                "requested_action_class": "informational",
+            },
+            "chatgpt",
+        )
+        self.assertEqual(req["requested_action_class"], "live_or_trading")
+        out = classify_entry(req)
+        self.assertEqual(out["profile"], "DEEP")
+        self.assertFalse(out["safe_degraded_allowed"])
+        raised = normalize_request(
+            {"text": "giải thích bác sĩ nội trú", "request_id": "r2c", "session_id": "s1", "requested_action_class": "deployment_or_runtime_claim"},
+            "chatgpt",
+        )
+        self.assertEqual(raised["requested_action_class"], "deployment_or_runtime_claim")
+
     def test_deploy_escalates_to_deep(self) -> None:
         req = normalize_request(
             {

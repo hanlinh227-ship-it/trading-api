@@ -77,6 +77,14 @@ def _bounded_string_list(value: Any, *, max_items: int = 32, max_chars: int = 80
     return result
 
 
+def _action_rank(action: str) -> int:
+    if action in _DEEP_ACTIONS:
+        return 2
+    if action in _STANDARD_ACTIONS:
+        return 1
+    return 0
+
+
 def _infer_action(text: str, freshness: str, tool_classes: list[str]) -> str:
     lowered = f" {text.casefold()}"
     if freshness == "live":
@@ -124,7 +132,12 @@ def normalize_request(payload: dict, adapter_id: str) -> dict:
     tool_classes = _bounded_string_list(payload.get("tool_classes"))
 
     explicit_action = str(payload.get("requested_action_class") or "").strip().lower()
-    action = explicit_action if explicit_action in _ACTIONS else _infer_action(text, freshness, tool_classes)
+    inferred_action = _infer_action(text, freshness, tool_classes)
+    # The inferred class is a safety floor: a client may declare a more severe class, never a less severe one.
+    if explicit_action in _ACTIONS and _action_rank(explicit_action) >= _action_rank(inferred_action):
+        action = explicit_action
+    else:
+        action = inferred_action
 
     project_hint = payload.get("project_hint")
     if project_hint is not None:
