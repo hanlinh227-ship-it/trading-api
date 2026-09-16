@@ -567,7 +567,8 @@
       "last_benchmark_at": null,
       "source_evidence": [
         "https://opencode.ai/docs/zen",
-        "https://opencode.ai/zen/v1/models"
+        "https://opencode.ai/zen/v1/models",
+        "probe run 35047130298 (2026-09-16T02:14:46Z, main 69dd282): listing 200 models=70, completions 401 AUTH_OR_SCOPE_FAILED"
       ],
       "zero_cost": {
         "price_model": "temporary_zero_price",
@@ -587,7 +588,7 @@
       },
       "zero_cost_notes": "live catalog price not yet verified from this runtime; pending probe-driven zero-price verification",
       "registry_state": "NOT_ELIGIBLE",
-      "registry_state_reason": "pending_live_zero_price_verification: admit only after the live Zen catalog proves input=0 and output=0 for this model"
+      "registry_state_reason": "probed probe run 35047130298 (2026-09-16T02:14:46Z, main 69dd282): the live Zen catalog lists 70 models and none is this id, none publishes a price, and chat completions answered 401 for the one free-named candidate while listing succeeded on the same credential. Stays NOT_ELIGIBLE: no live zero-price evidence and no authorised completion."
     },
     {
       "provider_id": "alibaba_model_studio",

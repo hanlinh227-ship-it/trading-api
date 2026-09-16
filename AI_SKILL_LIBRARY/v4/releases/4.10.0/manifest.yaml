@@ -62,10 +62,10 @@ files:
   sha256: 3fd9c8533971f2dc47861215c63860353dd1f79c6ab28a669854187c6d70cb41
   role: model_mesh_free_only_policy
 - path: AI_SKILL_LIBRARY/v4/model_mesh/providers.yaml
-  sha256: 48d834f28f8afec67d37b30c3afb81dbce800b17849f666ad589a7acea342eba
+  sha256: ff553ca989b48bfdf5c9ba4011f12515c6718e3c45d4dfa49bcb9c206d8e0780
   role: model_mesh_providers
 - path: AI_SKILL_LIBRARY/v4/model_mesh/active.json
-  sha256: d6393b3645d00ea61a684338b7eb5d9b1d58059f5079847dbf9a3e987162c2c2
+  sha256: 375796f02eb384403bc628a672e8d46cb82fc40960999deaafd0cd17350c28c4
   role: model_mesh_active
 - path: AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json
   sha256: 4efe477a98f6e9cdde2fce72ad8c65a91242c09cce3417f98648b070789bb5d7

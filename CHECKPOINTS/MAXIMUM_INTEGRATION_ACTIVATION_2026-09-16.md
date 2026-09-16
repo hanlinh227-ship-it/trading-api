@@ -116,7 +116,10 @@ NVIDIA requires a probe-driven selection loop like the Gemini diagnostic - not
 another model id chosen by hand.
 
 **LIVE_HEALTHY: 4** - groq, cloudflare_workers_ai, openrouter,
-alibaba_model_studio.
+alibaba_model_studio. Re-confirmed on release 4.10.0 by deploy run 35047118737:
+the same four at 200, with gemini and mistral in COOLDOWN on 429. A rate limit
+is a cooldown and a rotation, not a loss - both re-enter when their window
+resets.
 
 ### Why entitlement stopped here, and what replaced it
 
@@ -197,22 +200,54 @@ verification (Free Quota Only enabled, quota status Enabled, window to
 2026-11-21), so it cannot fall through to PAYG; it leaves the pool by itself on
 expiry or when headroom reaches the safety reserve.
 
-What is left is evidence, not engineering:
+### Probe round 2026-09-16 (run 35047130298, main 69dd282)
 
-1. **Awaiting a live probe run** — nvidia_nim, sambanova and opencode_zen.
-   The engineering is done: the probe walks a bounded slice of each provider's
-   live listing, a 402/404/410 costs the model rather than the provider, and
-   only an id that completed is persisted. Run
-   `PROBE_COMPLETIONS=1 node cloudflare-worker/discover-provider-models.mjs`
-   with the provider credentials to produce the evidence; any candidate that
-   answers is admitted by registry entry, and Zen models are admitted only for
-   the ids whose live catalog price reads input=0 and output=0.
-2. **Discovery-only by evidence** — cerebras (finite free trial, never the paid
-   Developer tier) and cohere (trial/evaluation). Both re-enter automatically if
-   a recurring or account-specific zero-cost tier appears; neither is a code
-   change. `huggingface_inference_providers` is admissible as
-   `free_quota_hard_stop` once remaining included credit is readable at runtime.
-3. Phases 15–17 (auto-recovery scenario matrix, full E2E profile matrix) are
+The live probe ran against nvidia_nim, sambanova and opencode_zen. **No model
+was admitted.** Each provider failed a different half of the test, and the
+distinction is the point: a completed call is not evidence that the call was
+free, and a published price is not evidence that the model answers.
+
+| Provider | Listing | Completion | Zero-cost | Outcome |
+|---|---|---|---|---|
+| nvidia_nim | 200, 82 models | `meta/muse-glimmer-30b` **200 on the first candidate** | **not proven** — no published price, no runtime tier endpoint | fail-closed; liveness recorded |
+| sambanova | 200, 7 models | never attempted | **disproven** — all 7 publish a price above zero | fail-closed; discovery-only |
+| opencode_zen | 200, 70 models | `muse-spark-1.3` **401** | not proven — no published price | fail-closed; credential scope issue |
+
+Three things this round settled:
+
+**The price-aware skip earned its place immediately.** SambaNova's seven models
+are all priced, and the probe skipped every one before making a call. Without
+that skip this round would have spent money on seven billable completions to
+learn that SambaNova has no free tier for this account. The earlier single 402
+was not a fluke of one model: the whole catalog is priced.
+
+**NVIDIA's liveness gap is closed; its cost gap is not.** The probe-driven loop
+found a working model on its first candidate, which is exactly what two
+hand-picked ids failed to do. But NVIDIA publishes no price in `/v1/models` and
+exposes no tier endpoint, so admitting it would assert a zero cost nothing has
+shown. It waits on the same kind of account evidence Alibaba has.
+
+**The documented Zen free models do not exist.** None of `big-pickle`,
+`mimo-v2.5-free`, `ling-3.0-flash-fin-free`, `nemotron-3-ultra-free`,
+`nemotron-3.5-lightning-free` or `muse-spark-1.3-contributor-free` is in the
+live catalog. Hard-coding that list would have admitted six models that are not
+there. Separately, the credential lists models but 401s on completions, which is
+a scope problem to fix before pricing even matters.
+
+### Remaining, in order of what unblocks most
+
+1. **nvidia_nim** — needs account-tier evidence (a console check like the one
+   that admitted Alibaba, or a Free Endpoint label the API exposes). Liveness
+   and a working model id are already proven, so admission is then one registry
+   entry plus a re-probe.
+2. **opencode_zen** — needs a credential that can call completions, not only
+   list. Then a live catalog price read decides admission per model.
+3. **sambanova, cerebras, cohere** — discovery-only on provider evidence
+   (priced catalog; finite free trial; trial/evaluation). None is a code change;
+   all re-enter automatically if a zero-price model or tier appears.
+   `huggingface_inference_providers` is admissible as `free_quota_hard_stop`
+   once remaining included credit is readable at runtime.
+4. Phases 15–17 (auto-recovery scenario matrix, full E2E profile matrix) are
    partially evidenced through production boundary proofs rather than a
    dedicated scenario suite.
 

@@ -71,7 +71,8 @@ providers:
     zero_cost_class: unverified
     treatment: probe_and_select_from_live_listing
     prefer_labels: ["Free Endpoint"]
-    notes: Listing is not liveness. Enumerate the live listing, probe bounded candidates against chat completions, reject 404/410, and persist only a model that completed. Repeat periodically. If no live free endpoint works, classify provider-side unavailable without failing Brain.
+    probe_evidence: "probe run 35047130298 (2026-09-16T02:14:46Z, main 69dd282): listing 200 with 82 models; meta/muse-glimmer-30b returned 200 on chat completions on the first probed candidate"
+    notes: Liveness is proven - a listed model does complete - but the listing publishes no price and no runtime endpoint exposes the account tier, so zero cost is not proven. Admission waits on price or account-tier evidence; a completed call is not evidence that the call was free.
     evidence:
       developer_access: https://docs.api.nvidia.com/nim/docs/product
   cerebras:
@@ -87,7 +88,8 @@ providers:
     provider_class_hint: Q
     zero_cost_class: unverified
     treatment: probe_and_select_from_live_listing
-    notes: A documented free tier exists, so one 402 classifies that model/account pair, not the provider. Probe bounded free-tier candidates; only when every eligible candidate returns 402 is the provider recorded discovered-but-unavailable with a reason.
+    probe_evidence: "probe run 35047130298 (2026-09-16T02:14:46Z, main 69dd282): listing 200 with 7 models; every one publishes a price above zero, so all 7 were skipped before any billable call was made"
+    notes: Model-level evidence is now decisive rather than inferred from one 402 - this account's entire SambaNova catalog is priced, with no zero-price model to admit. Discovery-only until a zero-price model appears in the listing. Never route into the priced tier.
     evidence:
       rate_limits: https://docs.sambanova.ai/docs/en/models/rate-limits
   alibaba_model_studio:
@@ -101,7 +103,8 @@ providers:
     provider_class_hint: F2
     zero_cost_class: temporary_zero_price
     treatment: mixed_catalog_zero_price_only
-    notes: The catalog mixes paid and zero-price models. Admit only models whose live pricing reads input=0 and output=0, classify them temporary_zero_price unless recurring-free status is proven, revalidate price at every health refresh, and quarantine the moment a price rises. Never consume paid Zen balance and never enable auto-reload.
+    probe_evidence: "probe run 35047130298 (2026-09-16T02:14:46Z, main 69dd282): listing 200 with 70 models, none carrying a published price; the live catalog contains no id from the documented free set (big-pickle, mimo-v2.5-free, ling-3.0-flash-fin-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free, muse-spark-1.3-contributor-free); muse-spark-1.3 returned 401 on chat completions while the same credential listed models successfully"
+    notes: The documented free model ids are not in the live catalog, so admitting them would have admitted models that do not exist. The credential lists but cannot complete (401), which is a credential scope problem, not a pricing one. Discovery-only until completions authorise and a live catalog price reads input=0 and output=0.
     evidence:
       models: https://opencode.ai/zen/v1/models
       docs: https://opencode.ai/docs/zen
