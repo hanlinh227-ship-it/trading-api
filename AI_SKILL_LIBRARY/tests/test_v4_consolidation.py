@@ -454,9 +454,16 @@ class CiAndDeploymentTests(unittest.TestCase):
     def test_production_deploy_and_zero_local_observer_use_isolated_locks(self):
         production = yaml.safe_load((WORKFLOWS / "deploy-skill-mandatory-fast-gateway.yml").read_text(encoding="utf-8"))
         observer = yaml.safe_load((WORKFLOWS / "deploy-cloudflare-worker.yml").read_text(encoding="utf-8"))
-        self.assertEqual(production["concurrency"]["group"], "cloudflare-zero-local-runtime-production")
-        self.assertIs(production["concurrency"]["cancel-in-progress"], False)
-        self.assertNotEqual(observer["concurrency"]["group"], production["concurrency"]["group"])
+        # The gated deploy declares concurrency per job so the health-refresh schedule
+        # cannot evict a queued production deploy from a shared group.
+        self.assertNotIn("concurrency", production)
+        deploy_lock = production["jobs"]["deploy-exact-main"]["concurrency"]
+        refresh_lock = production["jobs"]["refresh-model-mesh-health"]["concurrency"]
+        self.assertEqual(deploy_lock["group"], "cloudflare-zero-local-runtime-production")
+        self.assertIs(deploy_lock["cancel-in-progress"], False)
+        self.assertNotEqual(refresh_lock["group"], deploy_lock["group"])
+        self.assertIs(refresh_lock["cancel-in-progress"], False)
+        self.assertNotEqual(observer["concurrency"]["group"], deploy_lock["group"])
         self.assertEqual(observer["concurrency"]["group"], "cloudflare-zero-local-runtime-observer")
         self.assertIs(observer["concurrency"]["cancel-in-progress"], False)
 
