@@ -33,6 +33,17 @@ model_mesh_discovery:
   privacy_terms_revalidation: true
   model_family_dedupe: true
   auto_permission_expansion: false
+upstream_watch:
+  enabled: true
+  policy_path: AI_SKILL_LIBRARY/v4/learning/upstream_watch.yaml
+  scheduler: existing_continuous_intelligence_only
+  whitelisted_source_refresh: true
+  candidate_source_discovery: true
+  candidate_state: quarantine
+  strengthen_existing_skill_first: true
+  routing_authority: false
+  reasoning_authority: false
+  stable_request_dependency: false
 github_queries:
   - {domain: engineering, query: "agent skill manifest yaml stars:>20"}
   - {domain: trading, query: "crypto exchange agent skills SKILL.md market data"}
