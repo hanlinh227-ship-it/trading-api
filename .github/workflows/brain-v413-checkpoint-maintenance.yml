@@ -1,0 +1,64 @@
+name: Brain 4.13 Checkpoint Maintenance
+
+on:
+  push:
+    branches:
+      - feature/image-agent-v2-multimarket-integration
+    paths:
+      - '.github/workflows/brain-v413-checkpoint-maintenance.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update-closure-pointer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/image-agent-v2-multimarket-integration
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Update only latest_closure_path deterministically
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('AI_SKILL_LIBRARY/checkpoint.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          data['latest_closure_path'] = 'CHECKPOINTS/FREE_IMAGE_RENDER_AGENT_V2_4_13_0_CANDIDATE_2026-09-16.md'
+          path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+          PY
+      - name: Verify closure points at active release
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          checkpoint = json.loads(Path('AI_SKILL_LIBRARY/checkpoint.json').read_text(encoding='utf-8'))
+          pointer = json.loads(Path('AI_SKILL_LIBRARY/v4/releases/current.json').read_text(encoding='utf-8'))
+          closure = Path(checkpoint['latest_closure_path']).read_text(encoding='utf-8')
+          assert pointer['version'] == '4.13.0'
+          assert 'Target release: `4.13.0`' in closure
+          assert 'NOT PRODUCTION KNOWN-GOOD' in closure
+          PY
+      - name: Commit checkpoint pointer only
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET='AI_SKILL_LIBRARY/checkpoint.json'
+          if git diff --quiet -- "$TARGET"; then
+            echo 'CHECKPOINT_ALREADY_CURRENT=1'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$TARGET"
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          test "$(git diff --cached --name-only)" = "$TARGET"
+          git commit -m 'chore: point Brain checkpoint at 4.13 candidate closure'
+          git push origin HEAD:feature/image-agent-v2-multimarket-integration
