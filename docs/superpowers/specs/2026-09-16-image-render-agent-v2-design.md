@@ -7,154 +7,161 @@ Canonical repository: hanlinh227-ship-it/trading-api
 
 ## 1. Goal
 
-Upgrade the existing FREE_ONLY image render agent so a user can issue a natural-language render command such as:
+Upgrade the existing FREE_ONLY image render agent so the user can issue one natural-language render command such as:
 
 > Render scene 1–30 from these prompts, one 16:9 image per scene, keep Max consistent, vary camera angles, automatically retry failed images, then package the final results.
 
-The system must translate that command into a render manifest, execute multiple image jobs safely and efficiently, verify output quality, retry failures within bounded limits, and return organized results without requiring the user to manually call APIs or split jobs.
+The system must translate that command into a render manifest, execute many image jobs safely and concurrently, verify output quality, retry failures within bounded limits, and return organized results without requiring the user to manually call APIs, choose models, manage queues, or split jobs.
 
-This upgrade is a system capability change only. The upgrade process itself must not render images unless explicit test fixtures or smoke tests are needed later in the implementation phase.
+This upgrade is a system capability change only. The upgrade process itself must not render images except later implementation smoke tests using explicit PUBLIC test prompts.
 
 ## 2. Non-negotiable invariants
 
 1. FREE_ONLY remains mandatory.
-2. paid_fallback remains false.
-3. auto_purchase remains false.
-4. trial or promo credit must never be treated as an acceptable paid fallback path.
+2. `paid_fallback` remains false.
+3. `auto_purchase` remains false.
+4. Trial or promo credit must never be treated as a paid fallback path.
 5. GITHUB_BRAIN_V4 remains the routing and reasoning authority.
-6. image_render_agent remains a specialist executor, not a routing authority.
+6. `image_render_agent` remains a specialist executor, not a routing authority.
 7. Existing single-image endpoints remain backward compatible.
 8. User constraints and project authority override inferred render preferences.
-9. No silent addition/removal of subjects.
+9. No silent addition or removal of subjects.
 10. No unbounded retry loops.
 11. No hidden permission expansion.
 12. No external image-generation framework becomes system authority.
-13. Reference-image support, if added later, must be explicit and policy-gated; prompt-driven batch rendering is the core V2 requirement.
+13. Prompt-driven batch rendering is the V2 core requirement.
+14. Reference-image support, if added later, must be explicit and policy-gated.
+15. Image batch state must not be stored in trading-specific state.
 
 ## 3. Current limitations
 
-The current image agent has the following constraints:
+The current agent has:
 
-- One provider path: AI Horde.
-- Prompt-only orchestration.
-- At most 4 images per provider request.
-- No first-class batch object spanning many scenes.
-- No dynamic model ranking using live worker/model availability.
-- No per-scene quality score or automated retry policy.
-- No persistent render manifest containing scene-level state.
-- No dedicated natural-language render-command parser.
-- No job-level concurrency manager.
-- No structured packaging/report output.
-- Existing creative continuity and render-quality logic exists in Brain policy, but it is not yet wired into the image execution loop.
+- one provider path: AI Horde;
+- prompt-only execution;
+- at most 4 images per provider request;
+- no first-class multi-scene batch object;
+- no dynamic model ranking using live model/worker status;
+- no durable scene-level batch state;
+- no concurrency manager;
+- no visual QA loop wired into execution;
+- no automatic retry strategy based on failure category;
+- no structured manifest/report/export flow.
+
+Creative continuity and render-quality concepts already exist in Brain policy, but they are not yet connected to image execution.
 
 ## 4. Target architecture
 
 User chat command
 → task_router
-→ image command parser
+→ image command interpretation
+→ typed batch request
 → render manifest compiler
 → prompt compiler
+→ consistency engine
 → adaptive model router
-→ batch scheduler
+→ durable batch coordinator
 → provider adapter(s)
 → render result collector
 → quality critic
-→ retry/repair loop
-→ result packager
+→ bounded retry/repair loop
+→ result packager/export adapter
 → final batch result
 
-The design uses one authority chain. The new modules are implementation components under image_render_agent and do not create a parallel router.
+The design keeps one authority chain. New modules live under `image_render_agent` and do not create a parallel router or creative brain.
 
-## 5. Components
+## 5. Command interpretation
 
-### 5.1 Image Command Parser
+Natural-language interpretation remains a Brain responsibility. The user can write instructions such as:
 
-Purpose: convert a natural-language render instruction into a typed request.
+- "render 20 ảnh theo prompt này"
+- "scene 1 đến 30, mỗi scene một ảnh"
+- "giữ Max giống nhau ở tất cả scene"
+- "ảnh ngang 16:9"
+- "camera các scene liền nhau không trùng"
+- "render lại scene 7"
+- "ảnh lỗi thì tự render lại"
+- "xong nén zip"
 
-Inputs may include:
+Brain converts the instruction into `image_render_batch_request_v2`; the Worker runtime validates and executes the typed request. The Worker must not implement a second free-form LLM router.
 
-- scene range: 1–10, 11–20, 1–30
-- one prompt per scene
-- aspect ratio or dimensions
-- number of images per scene
-- style constraints
-- character consistency constraints
-- background constraints
-- camera diversity constraints
-- negative constraints
-- output naming rules
-- retry tolerance
-- packaging preference
+## 6. Render manifest
 
-Output: `image_render_batch_request_v2`.
+Each logical batch contains:
 
-The parser must not invent missing creative requirements that materially alter the task. Safe defaults may be used only for execution mechanics, such as concurrency limits or retry ceilings.
+- `batch_id`
+- `created_at`
+- `data_class`
+- `user_instruction`
+- `quality_mode`
+- `consistency_mode`
+- `output_format`
+- `global_constraints`
+- `shared_character_state`
+- `shared_style_state`
+- `scenes[]`
+- `scheduler_config`
+- `retry_policy`
+- `qa_policy`
 
-### 5.2 Render Manifest Compiler
+Each scene contains:
 
-Purpose: normalize a batch request into one manifest with independent scene tasks.
+- `scene_id`
+- `original_prompt`
+- `compiled_prompt`
+- `negative_prompt`
+- `dimensions`
+- `aspect_ratio`
+- `seed_strategy`
+- `model_candidates`
+- `expected_subject_count`
+- `locked_identity_facts`
+- `locked_wardrobe_facts`
+- `locked_environment_facts`
+- `camera_constraints`
+- `continuity_inputs`
+- `status`
+- `attempts[]`
 
-Each manifest contains:
+Each attempt records:
 
-- batch_id
-- created_at
-- data_class
-- user_instruction
-- output_format
-- global_constraints
-- shared_character_state
-- shared_style_state
-- scenes[]
-- scheduler_config
-- retry_policy
-- QA_policy
-
-Each scene task contains:
-
-- scene_id
-- original_prompt
-- compiled_prompt
-- negative_prompt
+- attempt number
+- provider
+- model
+- seed
+- prompt hash
 - dimensions
-- aspect_ratio
-- seed_strategy
-- model_candidates
-- expected_subject_count
-- locked_identity_facts
-- locked_wardrobe_facts
-- locked_environment_facts
-- camera_constraints
-- continuity_inputs
-- status
-- attempts[]
+- submit/complete timestamps
+- provider job ID
+- queue/wait time
+- generation state
+- QA level
+- QA result
+- QA reasons
 
-### 5.3 Prompt Compiler
+## 7. Prompt Compiler
 
-Purpose: turn user prompts into render-ready prompts without changing the user's intent.
+The compiler transforms the user prompt into render-ready form while preserving intent.
 
 Compilation layers:
 
 1. explicit subject facts
-2. explicit action
+2. action
 3. environment
 4. composition
 5. camera
 6. lighting
 7. visual style/materials
-8. continuity locks
-9. anatomy and deformation guards
+8. identity/wardrobe/environment locks
+9. anatomy/deformation guards
 10. negative constraints
 11. output constraints
 
-For multi-scene work, the compiler must merge shared state with per-scene state.
+It must not silently substitute characters, wardrobe, props, environments, counts, actions, or requested camera behavior.
 
-The compiler must preserve explicit user facts and must not silently substitute characters, clothing, props, environments, counts, or actions.
+## 8. Consistency Engine
 
-### 5.4 Consistency Engine
-
-Purpose: keep characters, wardrobe, props, backgrounds, style, and continuity stable across scene sequences.
-
-Shared state examples:
+The engine preserves recurring state across scenes:
 
 - character identity
 - fur/hair/skin colors
@@ -166,139 +173,166 @@ Shared state examples:
 - environment family
 - world style
 - time of day
-- lighting direction
+- light direction
 - palette
 - seed family
 
-The engine must support two modes:
+Modes:
 
-- `STRICT`: stronger identity/wardrobe/environment locking for recurring characters.
-- `FLEXIBLE`: preserves identity while allowing more scene variation.
+- `STRICT`: stronger identity/wardrobe/environment locking.
+- `FLEXIBLE`: keeps identity but allows more scene variation.
 
-For the user's recurring animation workflow, `STRICT` should be the default when the instruction includes phrases such as "giữ nhân vật", "đúng ref", "không thay đổi nhân vật", or equivalent intent.
+`STRICT` is selected when the user's instruction means "giữ nhân vật", "đúng ref", "không thay đổi nhân vật", or equivalent intent.
 
-### 5.5 Adaptive Model Router
+Prompt-only consistency improves repeatability but cannot guarantee reference-level identity. The system must not claim exact identity matching unless a policy-approved reference-conditioning path is actually used.
 
-Purpose: choose a suitable free model based on task fit and current provider availability.
+## 9. Adaptive Model Router
 
-The router must retrieve live AI Horde image model status and rank candidates using a weighted score:
+The router retrieves live AI Horde model status and ranks candidate models using:
 
-`score = task_fit + quality_history + availability + performance - queue_penalty - failure_penalty`
+`score = task_fit + live_availability + performance + batch_quality_history - queue_penalty - failure_penalty`
 
-Candidate attributes:
+Inputs include:
 
-- model name
-- model family/baseline when known
 - active worker count
+- live ETA/queue
 - performance
-- queue ETA
-- queued work
-- recent internal success/failure statistics
+- model family/baseline when known
 - style/task suitability
+- success/failure statistics accumulated within the current batch
 
-Routing rules:
+V2 core does not require a new global model-history database. Cross-batch quality history may be added later.
 
-- Do not rely on provider default model selection for production-quality multi-scene jobs.
-- Prefer models appropriate for the target style/task.
-- Avoid models with excessive queue delay when an equivalent free model is available.
-- Record selected model and reason in each attempt.
-- Fallback remains FREE_ONLY.
+Rules:
 
-### 5.6 Batch Scheduler
+- do not rely on provider default model selection for production multi-scene jobs;
+- prefer task-appropriate models;
+- prefer a comparable lower-queue free model when the best candidate is heavily delayed;
+- record selected model and routing reason;
+- all fallback routes remain FREE_ONLY.
 
-Purpose: execute many scene jobs concurrently while respecting provider/community capacity.
+## 10. Durable Batch Coordinator
 
-Default scheduler behavior:
+A multi-scene batch can outlive a single Cloudflare Worker request. Therefore V2 uses a dedicated Durable Object binding:
 
-- logical batch size: configurable, no hard user-facing 4-image ceiling
-- provider request size: respect provider limits
-- default active concurrency: 4
+- binding: `IMAGE_RENDER_BATCH`
+- class: `ImageRenderBatchState`
+- one Durable Object instance per `batch_id`
+- SQLite-backed class migration, matching the repository's existing Durable Object deployment pattern
+
+The Durable Object owns:
+
+- manifest persistence
+- scene state transitions
+- active provider-job references
+- concurrency counters
+- retry queue
+- cancellation state
+- resumable progress
+
+Image batch state must not use `TRADING_STATE` and must not modify financial/trading runtime state.
+
+The batch coordinator may use Durable Object alarms for bounded continuation/polling. This is image-job lifecycle orchestration only; it does not create autonomous Brain or financial cron behavior.
+
+## 11. Batch Scheduler
+
+Initial operational defaults:
+
+- maximum logical scenes per batch: 100
+- default active provider jobs: 4
 - adaptive concurrency ceiling: 8
-- lower concurrency automatically on provider failures, rate pressure, or long queue conditions
-- fair scene ordering
-- support cancellation
-- support partial completion
+- maximum total attempts per scene: 3
+- provider request size: provider-specific; current AI Horde adapter remains max 4 images/request
 
-The scheduler manages many provider requests behind one batch ID.
+Adaptive behavior:
+
+- reduce concurrency on provider pressure/failures;
+- refill worker slots as scenes complete;
+- continue other scenes when one scene fails;
+- support cancellation;
+- preserve already completed scenes on resume.
 
 Example:
 
 30 scenes
 → 30 scene tasks
-→ 4–8 active tasks
-→ as one finishes, the next queued task starts
-→ failed QA tasks re-enter retry queue according to policy
+→ 4 active initially
+→ increase up to 8 if provider health permits
+→ completed slot starts next queued scene
+→ QA failure enters bounded retry queue
 
-### 5.7 Quality Critic
+## 12. Quality Critic
 
-Purpose: determine whether an output is acceptable before the scene is marked complete.
+The critic checks:
 
-Required checks:
-
+- image decode/format validity
+- censor state
 - prompt fidelity
 - expected subject count
 - identity consistency
 - wardrobe consistency
 - scene continuity
 - object count
-- anatomy risk
-- deformation risk
-- duplicate subjects/objects
+- anatomy/deformation risk
+- duplicated subjects/objects
 - background correctness
-- camera compliance when explicit
+- explicit camera constraints
 - text/watermark presence when forbidden
-- image decode/format validity
-- censor state
 
-The critic emits:
+It emits:
 
-- PASS
-- RETRY_PROMPT
-- RETRY_MODEL
-- RETRY_SEED
-- FAIL_TERMINAL
+- `PASS`
+- `RETRY_PROMPT`
+- `RETRY_MODEL`
+- `RETRY_SEED`
+- `FAIL_TERMINAL`
 
-and a structured failure reason.
+plus structured reasons and `qa_confidence`.
 
-V2 implementation may initially use deterministic metadata/prompt checks plus optional visual-review hooks already represented in Brain architecture. Visual QA must be introduced without creating a new reasoning authority.
+### QA levels
 
-### 5.8 Retry and Repair Loop
+`STRUCTURAL`
+- metadata, provider state, prompt/manifest invariants, dimension/format checks.
+
+`VISUAL`
+- routes the generated image through an existing FREE_ONLY vision-capable model-mesh path or approved visual-review capability.
+- must not create a new reasoning authority.
+
+`STRICT` quality mode requires VISUAL QA before a scene may be reported as quality-verified. If no verified free vision critic is available, the scene must be marked `complete_unverified` or retried according to policy; it must not be falsely reported as fully verified.
+
+This prevents metadata-only checks from declaring obviously malformed images "good".
+
+## 13. Retry and Repair Loop
 
 Default maximum: 3 total attempts per scene.
 
-Retry policy:
+Attempt 1:
+- highest-ranked free model + compiled prompt.
 
-Attempt 1: selected model + compiled prompt
-
-If quality failure:
-- targeted prompt repair for the specific failure
-- preserve all locked facts
-
-Attempt 2:
-- same model with repaired prompt and new seed, unless the failure indicates model mismatch
+Attempt 2 after quality failure:
+- targeted prompt repair preserving all locks;
+- new seed;
+- keep model unless failure indicates model mismatch.
 
 Attempt 3:
-- alternate ranked free model with repaired prompt
+- next ranked free model + repaired prompt + new seed.
 
-After maximum attempts:
-- scene status becomes `failed_quality` or `failed_provider`
-- batch continues for other scenes
-- final report clearly identifies failed scenes
+After the maximum:
+- `failed_quality` or `failed_provider`;
+- other scenes continue;
+- final report identifies the failure.
 
-No infinite retries.
+No infinite retry loop is allowed.
 
-### 5.9 Result Packager
+## 14. Result Packager and ZIP export
 
-Purpose: normalize final outputs for user delivery.
+The runtime always produces logical output metadata:
 
-Output structure example:
-
-```
+```text
 render_batch_<batch_id>/
   Scene_01.webp
   Scene_02.webp
   ...
-  Scene_30.webp
   render_report.json
   manifest.json
 ```
@@ -306,23 +340,30 @@ render_batch_<batch_id>/
 `render_report.json` includes:
 
 - batch status
-- total scenes
-- passed scenes
-- failed scenes
-- total provider requests
+- total/passed/failed scenes
+- provider requests
 - model usage
 - seeds
-- retries per scene
-- QA outcomes
+- retries
+- QA levels/results
 - failure reasons
 - FREE_ONLY confirmation
-- monetary cost: zero
+- monetary image-provider cost: zero
 
-ZIP packaging is supported as a delivery layer when requested or when the result contains multiple assets.
+V2 core must not add a paid object-storage dependency merely to create ZIP files.
 
-## 6. API surface
+Therefore ZIP delivery is implemented through a pluggable export adapter:
 
-Existing endpoints remain:
+- runtime returns validated generation URLs plus manifest/report;
+- an approved caller/export layer may fetch and stream/package them into a ZIP;
+- no asset is silently copied into paid storage;
+- if an optional persistent storage backend is added later, it requires a separate FREE_ONLY/cost-policy review.
+
+The user experience can still be one command; packaging mechanics remain hidden from the user.
+
+## 15. API surface
+
+Existing endpoints remain compatible:
 
 - `GET /brain/image/health`
 - `POST /brain/image/render`
@@ -332,37 +373,25 @@ Existing endpoints remain:
 
 V2 adds:
 
-### `POST /brain/image/batch`
+- `POST /brain/image/batch`
+- `GET /brain/image/batch/status?id=<batch_id>`
+- `DELETE /brain/image/batch?id=<batch_id>`
+- `GET /brain/image/models`
+- `POST /brain/image/retry`
 
-Creates a batch from a typed render request or precompiled scene manifest.
+`POST /brain/image/batch` returns `batch_id`, accepted scene count, mode `FREE_ONLY`, and status endpoint.
 
-Returns:
+`GET /brain/image/batch/status` returns aggregate and scene-level states.
 
-- batch_id
-- scene_count
-- accepted_count
-- mode: FREE_ONLY
-- status path
+`DELETE /brain/image/batch` cancels queued work and requests active provider-job cancellation where supported.
 
-### `GET /brain/image/batch/status?id=<batch_id>`
+`GET /brain/image/models` returns normalized live free-model data and routing metadata.
 
-Returns aggregate progress and scene-level states.
+`POST /brain/image/retry` retries selected failed scenes under the same locks.
 
-### `DELETE /brain/image/batch?id=<batch_id>`
+## 16. State model
 
-Cancels queued work and requests cancellation for active provider jobs when supported.
-
-### `GET /brain/image/models`
-
-Returns normalized live free-model availability and ranking metadata.
-
-### `POST /brain/image/retry`
-
-Retries specific failed scenes under the same batch while preserving locked constraints.
-
-## 7. Data model
-
-### Batch states
+Batch states:
 
 - queued
 - running
@@ -372,7 +401,7 @@ Retries specific failed scenes under the same batch while preserving locked cons
 - cancelled
 - failed
 
-### Scene states
+Scene states:
 
 - queued
 - submitting
@@ -381,110 +410,57 @@ Retries specific failed scenes under the same batch while preserving locked cons
 - qa_pending
 - retry_pending
 - complete
+- complete_unverified
 - failed_quality
 - failed_provider
 - cancelled
 
-### Attempt record
+State transitions must be idempotent enough that a resumed batch does not duplicate already-complete scene outputs.
 
-Each attempt records:
+## 17. Provider strategy
 
-- attempt_number
-- provider
-- model
-- seed
-- prompt_hash
-- width
-- height
-- submit_time
-- complete_time
-- provider_job_id
-- provider_wait_time
-- generation_state
-- QA_result
-- QA_reasons
+AI Horde remains the first execution provider because it is already integrated and verified.
 
-## 8. Natural-language command behavior
+V2 introduces a provider-neutral adapter interface:
 
-The Brain should route render-related commands to the image domain when the user intent is clearly execution, for example:
+- `health`
+- `listModels`
+- `submit`
+- `check`
+- `status`
+- `cancel`
 
-- "render 20 ảnh theo prompt này"
-- "tạo scene 1 đến 30"
-- "mỗi scene một ảnh"
-- "render lại scene 7"
-- "giữ Max giống nhau ở tất cả scene"
-- "ảnh ngang 16:9"
-- "xong nén zip"
+Additional providers can be added later only when cost semantics are verified and the route is FREE_ONLY-safe.
 
-The user should not need to know provider names, model names, API routes, queue mechanics, or retry strategy.
+## 18. Reference-image extension point
 
-The Brain remains responsible for interpreting the instruction and producing the structured request. The image_render_agent remains responsible for execution.
+Reference images are not required for the core V2 prompt-and-command batch upgrade.
 
-## 9. Provider strategy
-
-### Phase 1 provider
-
-AI Horde remains the first free execution provider because it is already integrated and verified in production.
-
-### Multi-provider readiness
-
-V2 interfaces must be provider-neutral so additional verified free providers can be added later without changing the batch contract.
-
-Provider adapters expose the same minimal interface:
-
-- health
-- listModels
-- submit
-- check
-- status
-- cancel
-
-No provider may be added unless its cost semantics are known and FREE_ONLY-safe.
-
-## 10. Reference-image strategy
-
-Reference-image support is not required to deliver the core prompt-and-command batch upgrade.
-
-V2 should prepare an extension point for:
+The architecture reserves extension points for:
 
 - img2img
 - remix
 - inpainting
 - outpainting
-- future identity conditioning adapters
+- future identity conditioning
 
-However, AI Horde volunteer infrastructure may expose prompt/assets to community workers. Therefore reference images must remain disabled by default until a dedicated policy explicitly defines allowed data classes and opt-in behavior.
+Because AI Horde volunteer infrastructure may expose submitted assets to community workers, reference images remain disabled by default until a separate policy explicitly defines allowed data classes and opt-in behavior.
 
-The core V2 batch system must work correctly with prompt-only input.
-
-## 11. Security and privacy
+## 19. Security and privacy
 
 - Explicit data class remains required.
-- Current AI Horde execution remains PUBLIC-only unless policy is separately changed.
-- INTERNAL, CONFIDENTIAL, and SECRET must fail closed for volunteer-provider execution.
+- AI Horde execution remains PUBLIC-only unless separately changed.
+- INTERNAL, CONFIDENTIAL, and SECRET fail closed for volunteer execution.
 - Execution tokens remain required.
-- No model/provider response may widen permissions.
-- Provider URLs returned to clients should be treated as untrusted external assets and validated before download/packaging.
-- Batch identifiers must be generated server-side and validated.
-- Prompt size and batch-size limits must be bounded to prevent abuse.
+- Provider responses cannot widen permissions.
+- Generation URLs are treated as untrusted external assets and validated before fetch/export.
+- Batch IDs are generated server-side and validated.
+- Prompt size, batch size, and concurrency are bounded.
+- No hidden chain-of-thought is persisted.
 
-## 12. Operational limits
+## 20. Observability
 
-Recommended initial limits:
-
-- maximum scenes per batch: 100
-- default scenes per batch: user-defined
-- maximum active provider jobs: 8
-- default active provider jobs: 4
-- maximum attempts per scene: 3
-- maximum images per individual provider request: provider-specific, current AI Horde adapter max 4
-- maximum total generated images per logical batch: 100 unless policy overrides
-
-These are safety/operational limits, not paid quota limits.
-
-## 13. Observability
-
-Add structured batch metrics:
+Structured events:
 
 - batch_created
 - scene_submitted
@@ -496,155 +472,166 @@ Add structured batch metrics:
 - batch_completed
 - batch_cancelled
 
-Metrics should track:
+Metrics:
 
-- queue time
+- provider queue time
 - provider processing time
-- total scene time
-- retries
-- model success rate
-- model failure rate
+- scene wall-clock time
+- retry count
+- per-batch model success/failure rate
 - QA failure categories
+- current concurrency
 
-No hidden chain-of-thought is stored.
-
-## 14. Failure handling
+## 21. Failure handling
 
 Provider unavailable:
-- mark provider health degraded
-- pause new submissions briefly
-- retry within bounded backoff
-- use an alternate verified free provider only if one exists and is allowed
-- never route to paid service
+- mark degraded;
+- bounded backoff;
+- lower concurrency;
+- use another verified free provider only if one exists;
+- never use a paid route.
 
 Model unavailable:
-- select next ranked free model
+- select next ranked free model.
 
 One scene fails:
-- continue other scenes
-- report partial success
+- continue the batch;
+- report partial success.
 
-Batch process restart:
-- manifest and scene states must allow safe resumption without duplicating already-completed scene results
+Worker/process restart:
+- resume from Durable Object state;
+- do not resubmit completed scenes.
 
-Malformed user batch:
-- reject before provider submission with a clear validation error
+Malformed batch:
+- reject before provider submission.
 
-## 15. Backward compatibility
+Vision critic unavailable in STRICT mode:
+- do not claim full visual verification;
+- mark `complete_unverified` or retry according to configured policy.
 
-`POST /brain/image/render` continues to support existing single-image calls.
+## 22. Backward compatibility
 
-Internally, V2 may implement single-image rendering as a one-scene batch, but the external response contract must remain compatible unless a versioned response is explicitly requested.
+`POST /brain/image/render` continues to support the current single-image contract.
 
-Existing `FREE_ONLY`, privacy, auth, and provider behavior remains valid.
+Internally, V2 may eventually treat one image as a one-scene batch, but external compatibility must be preserved unless a versioned response is explicitly requested.
 
-## 16. Testing strategy
+Existing FREE_ONLY, auth, privacy, and provider rules remain valid.
+
+## 23. Testing strategy
 
 ### Unit tests
 
-- natural-language command normalization helpers
 - manifest validation
 - prompt compilation
 - consistency merge rules
-- model scoring/ranking
+- model ranking
 - concurrency bounds
 - retry transitions
-- batch state transitions
+- batch/scene state transitions
+- Durable Object idempotency
 - FREE_ONLY guard
 - privacy/data-class guard
 - provider adapter normalization
+- structural QA rules
+- STRICT visual-QA fallback behavior
 
-### Integration tests
-
-Using mocked provider responses:
+### Integration tests with mocked providers
 
 - 20-scene batch
+- 100-scene manifest validation
 - partial provider failure
 - model unavailable fallback
 - QA retry
 - cancellation
-- restart/resume
-- backward-compatible single-image call
+- Durable Object resume
+- duplicate-completion prevention
+- backward-compatible single-image request
+- ZIP/export manifest handoff
 
-### Production smoke tests
+### Production smoke tests after implementation tests pass
 
-Only after implementation tests pass:
-
-- health
+- image health
 - live model list
 - one small PUBLIC single-image render
 - one small PUBLIC multi-scene batch
 
-Smoke tests must not use user-private reference assets.
+Smoke tests must not use private user reference assets.
 
-## 17. Files expected to change during implementation
+## 24. Expected implementation files
 
 Likely existing files:
 
 - `cloudflare-worker/image-render-handler.js`
 - `cloudflare-worker/image-render/ai-horde.js`
+- `cloudflare-worker/index.js`
+- `cloudflare-worker/prepare-wrangler.mjs`
+- `cloudflare-worker/wrangler.example.jsonc`
 - `AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml`
 - `AI_SKILL_LIBRARY/v4/legion/agents.yaml`
 - `AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml`
 
 Likely new focused modules:
 
+- `cloudflare-worker/image-render/batch-state.js`
 - `cloudflare-worker/image-render/batch-manager.js`
 - `cloudflare-worker/image-render/model-router.js`
 - `cloudflare-worker/image-render/render-manifest.js`
 - `cloudflare-worker/image-render/prompt-compiler.js`
 - `cloudflare-worker/image-render/quality-policy.js`
 - `cloudflare-worker/image-render/provider-registry.js`
+- `cloudflare-worker/image-render/export-contract.js`
 
-Likely tests:
+Likely new Durable Object:
 
-- unit tests for each focused module
-- handler integration tests
-- FREE_ONLY policy tests
-- batch lifecycle tests
+- `ImageRenderBatchState`
+- binding `IMAGE_RENDER_BATCH`
+- a new SQLite Durable Object migration tag
 
-Final filenames may be adjusted to match existing repository conventions during implementation planning.
+Final filenames may be adjusted to existing repository conventions during implementation planning.
 
-## 18. Acceptance criteria
+## 25. Acceptance criteria
 
-The upgrade is accepted only when all of the following are true:
+The upgrade is accepted only when:
 
-1. A natural-language render request can be converted into a structured batch request.
-2. A single command can represent at least 20 independent scene renders.
-3. The scheduler executes multiple scenes concurrently with a bounded maximum.
-4. The system dynamically ranks active free image models.
-5. Each scene records model, seed, provider job ID, attempt count, and QA result.
-6. Failed scenes retry automatically up to the configured limit.
-7. One scene failure does not terminate the full batch.
-8. Character/wardrobe/environment locks are preserved in prompt compilation.
-9. Batch status can be queried at aggregate and scene levels.
-10. Batch cancellation works.
-11. Results can be packaged with manifest and render report.
-12. Existing single-image API remains compatible.
-13. All production execution paths remain FREE_ONLY.
-14. There is no paid fallback or automatic purchase path.
-15. No private reference assets are sent to volunteer providers by default.
-16. Tests cover the core scheduler, retry, routing, policy, and backward-compatibility paths.
+1. One natural-language user instruction can become one typed batch request.
+2. One command can represent at least 20 independent scene renders.
+3. The logical API accepts up to 100 scenes under bounded policy.
+4. Batch state survives beyond one Worker request using a dedicated Durable Object.
+5. Scheduler runs multiple scenes concurrently with a bounded ceiling.
+6. Live free models are ranked dynamically.
+7. Every scene records provider, model, seed, job ID, attempt count, and QA result.
+8. Failed scenes retry automatically up to the limit.
+9. One scene failure does not terminate the rest of the batch.
+10. Character/wardrobe/environment locks are preserved during prompt repair.
+11. STRICT mode never reports metadata-only QA as full visual verification.
+12. Batch status is queryable at aggregate and scene level.
+13. Cancellation works.
+14. Resume does not duplicate completed scene results.
+15. Manifest/report are exportable and ZIP packaging can be performed without adding an unreviewed paid storage dependency.
+16. Existing single-image API remains compatible.
+17. All generation routes remain FREE_ONLY.
+18. There is no paid fallback or auto-purchase path.
+19. Private reference assets are not sent to volunteer providers by default.
+20. Core scheduler, retry, routing, Durable Object, policy, QA, and compatibility paths are covered by tests.
 
-## 19. Explicitly out of scope for this V2 core implementation
+## 26. Explicitly out of scope for V2 core
 
-- Building or hosting our own GPU cluster.
-- Paid image APIs.
-- Unlimited unbounded concurrency.
-- Training a custom Max model.
-- Automatic publication of private reference assets.
-- Video generation.
-- Replacing GITHUB_BRAIN_V4 routing authority.
-- Rewriting the entire creative skill system.
+- building/hosting a custom GPU cluster;
+- paid image APIs;
+- unlimited concurrency;
+- training a custom Max model;
+- automatic publication of private reference assets;
+- video generation;
+- replacing GITHUB_BRAIN_V4 routing authority;
+- rewriting the entire creative skill system;
+- adding persistent paid asset storage.
 
-These can be addressed by later versions without changing the V2 batch contract.
+## 27. Implementation principle
 
-## 20. Implementation principle
+Prefer small focused modules with validated contracts. Reuse existing canonical creative logic rather than duplicating it.
 
-The implementation should prefer small, focused modules with typed/validated contracts. Existing creative logic remains canonical where it already exists; V2 wires that logic into execution rather than duplicating a second creative brain.
+Target user experience:
 
-The system should optimize for this user experience:
+> User gives one render instruction. Brain interprets it. Image Render Agent V2 compiles the batch, chooses suitable free models, executes scenes concurrently, performs quality checks, retries failures, and returns organized results.
 
-> User gives one render instruction. Brain interprets it. Image Agent V2 plans the batch, selects free models, executes scenes in parallel, checks quality, retries failures, and returns organized results.
-
-The user should not need to manually manage models, provider queues, API calls, retries, or scene-by-scene execution.
+The user should not need to manually manage model names, provider queues, API calls, retries, or scene-by-scene execution.
