@@ -1,6 +1,6 @@
 const AI_HORDE_BASE='https://aihorde.net/api/v2';
 const ANONYMOUS_KEY='0000000000';
-const CLIENT_AGENT='github-brain-free-image-render:1:hanlinh227-ship-it/trading-api';
+const CLIENT_AGENT='github-brain-free-image-render:2:hanlinh227-ship-it/trading-api';
 
 const clampInt=(value,min,max,fallback)=>{
   const parsed=Number(value);
@@ -25,6 +25,23 @@ function headers(apiKey,{json=false}={}){
 export function resolveAiHordeKey(env={}){
   const configured=String(env?.AI_HORDE_API_KEY||'').trim();
   return configured||ANONYMOUS_KEY;
+}
+
+export async function listAiHordeModels({fetchImpl=fetch}={}){
+  let response;
+  try{
+    response=await fetchImpl(`${AI_HORDE_BASE}/status/models?type=image`,{headers:{accept:'application/json','Client-Agent':CLIENT_AGENT}});
+  }catch{return {ok:false,status:0,provider:'ai_horde',error:'provider_unreachable',models:[]};}
+  const body=await readJson(response);
+  if(!response.ok||!Array.isArray(body))return {ok:false,status:Number(response.status||0),provider:'ai_horde',error:'provider_rejected',models:[]};
+  const models=body.map(item=>({
+    name:String(item?.name||'').trim(),
+    workerCount:Math.max(0,Number(item?.count||0)),
+    performance:Math.max(0,Number(item?.performance||0)),
+    eta:Math.max(0,Number(item?.eta||0)),
+    queued:Math.max(0,Number(item?.queued||0)),
+  })).filter(item=>item.name);
+  return {ok:true,status:Number(response.status||200),provider:'ai_horde',models};
 }
 
 export async function submitAiHordeImage({prompt,negativePrompt='',width=512,height=512,steps=20,n=1,seed=null,models=[],apiKey=ANONYMOUS_KEY,fetchImpl=fetch}={}){
