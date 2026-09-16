@@ -66,6 +66,15 @@ class ZeroLocalManifestTests(unittest.TestCase):
         ):
             self.assertIn(required, text)
 
+    def test_research_provider_smoke_tolerates_one_degraded_optional_source(self):
+        text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
+        validate = text.split("  production-smoke:", 1)[0]
+        self.assertNotIn("required_unrestricted - healthy", validate)
+        self.assertNotIn("public provider probes failed: {missing}", validate)
+        self.assertIn("research_sources = {'binance', 'okx', 'gate', 'kucoin'}", validate)
+        self.assertIn("if len(healthy_research) < 2:", validate)
+        self.assertIn("public research redundancy insufficient", validate)
+
     def test_main_ci_verifies_exact_connector_managed_source_sha_and_authoritative_execution_venue(self):
         text = (ROOT / ".github/workflows/zero-local-cloud-runtime.yml").read_text(encoding="utf-8")
         production = text.split("  production-smoke:", 1)[1]
