@@ -5,6 +5,7 @@ on:
     branches: [feature/free-image-render-agent]
     paths:
       - 'AI_SKILL_LIBRARY/checkpoint.json'
+      - 'AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md'
       - 'AI_SKILL_LIBRARY/v4/legion/agents.yaml'
       - 'AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml'
       - 'CHECKPOINTS/FREE_IMAGE_RENDER_AGENT_4_12_0_CANDIDATE_2026-09-16.md'
@@ -36,6 +37,20 @@ jobs:
 
       - name: Install Brain dependencies
         run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+
+      - name: Align global handoff with candidate closure
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md')
+          text = path.read_text(encoding='utf-8')
+          old = 'Latest closure record: `CHECKPOINTS/FINAL_HARDENING_4_11_1_2026-09-16.md`'
+          new = 'Latest closure record: `CHECKPOINTS/FREE_IMAGE_RENDER_AGENT_4_12_0_CANDIDATE_2026-09-16.md`'
+          if old not in text and new not in text:
+              raise SystemExit('expected latest closure marker not found')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
 
       - name: Build candidate release metadata and fresh retrieval index
         run: |
@@ -84,7 +99,8 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add AI_SKILL_LIBRARY/v4/releases/current.json \
+          git add AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md \
+                  AI_SKILL_LIBRARY/v4/releases/current.json \
                   AI_SKILL_LIBRARY/v4/releases/history.yaml \
                   AI_SKILL_LIBRARY/v4/releases/4.12.0/manifest.yaml \
                   AI_SKILL_LIBRARY/v4/index/retrieval_index.yaml
