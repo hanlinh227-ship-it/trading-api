@@ -37,12 +37,13 @@ jobs:
           cat > /tmp/render.json <<'JSON'
           {
             "dataClass":"PUBLIC",
-            "prompt":"SOLO CHARACTER ONLY. One single cute preschool cartoon monkey named Max, full body, centered, standing alone. Bright red-orange soft fur. Cream rounded face. Cream inner ears. Very large glossy black eyes. Two small red hair tufts. Large childlike head, small toddler body, short arms and legs, one slim red tail. Outfit locked: sky-blue short sleeve T-shirt, golden-yellow short overalls, blue-and-white sneakers. Friendly gentle smile, one hand raised in a small wave. Simple clean pastel studio background with soft pale yellow floor and pale sky-blue backdrop. No scenery characters. No people. No animals. No props. Modern polished 3D preschool CGI, soft rounded shapes, clean fabric, soft daylight, highly readable silhouette, exactly one character, exactly two arms, exactly two legs, exactly two ears, exactly one tail.",
-            "negativePrompt":"more than one character, second character, extra character, person, human, child, baby, other monkey, animal, crowd, duplicate, twins, cropped body, extra arms, extra legs, extra ears, extra tail, missing tail, deformed hands, malformed face, brown fur, black fur, red shirt, blue overalls, bare feet, hat, backpack, bow, toy, cup, prop, text, watermark, logo, photorealistic, anime, blurry, low quality",
-            "width":512,
+            "prompt":"ONE SINGLE CHARACTER ONLY, portrait of Max, an adorable preschool 3D CGI baby monkey. Medium close-up from chest upward, centered. Bright red-orange soft fur, rounded cream face, cream inner ears, very large glossy black eyes, short rounded muzzle, two tiny red hair tufts, gentle friendly smile. Childlike proportions, large head and small shoulders. Outfit identity lock: sky-blue short-sleeve T-shirt visible at the shoulders and chest, warm golden-yellow overall bib and straps visible over the blue shirt. No hands in frame, no lower body in frame. Soft blurred pastel playground background, warm daylight, polished modern preschool animation, soft rounded forms, clean materials, expressive but natural face, high character readability, appealing 3D cartoon render, exactly one monkey, no other subjects.",
+            "negativePrompt":"second character, extra character, duplicate, twins, person, human, baby human, child, other monkey, animal, crowd, multiple faces, extra face, extra eyes, extra ears, extra arms, hands, malformed face, deformed anatomy, brown fur, black fur, white shirt, red shirt, blue overalls, hat, backpack, bow, prop, toy, text, watermark, logo, photorealistic human skin, anime, blurry, low quality, horror, creepy",
+            "width":768,
             "height":768,
-            "steps":24,
-            "n":1
+            "steps":26,
+            "n":1,
+            "models":["AlbedoBase XL (SDXL)"]
           }
           JSON
           curl -fsS -X POST "$BASE_URL/brain/image/render" \
@@ -58,7 +59,7 @@ jobs:
           )"
           echo "JOB_ID=$JOB_ID"
           done_flag=0
-          for i in $(seq 1 72); do
+          for i in $(seq 1 120); do
             curl -fsS "$BASE_URL/brain/image/check?id=$JOB_ID" \
               -H "x-model-mesh-token: $TOKEN" -o artifacts/check.json
             python - <<'PY'
@@ -78,20 +79,25 @@ jobs:
           test "$done_flag" = 1
           curl -fsS "$BASE_URL/brain/image/status?id=$JOB_ID" \
             -H "x-model-mesh-token: $TOKEN" -o artifacts/status.json
-          IMAGE_URL="$(python - <<'PY'
+          python - <<'PY'
           import json
           x=json.load(open('artifacts/status.json'))
           assert x.get('ok') is True and x.get('done') is True, x
           g=x.get('generations') or []
           assert g and g[0].get('imageUrl'), x
-          print(g[0]['imageUrl'])
+          print('MODEL_USED=',g[0].get('model'))
+          PY
+          IMAGE_URL="$(python - <<'PY'
+          import json
+          x=json.load(open('artifacts/status.json'))
+          print(x['generations'][0]['imageUrl'])
           PY
           )"
-          curl -fL --retry 3 --retry-delay 2 "$IMAGE_URL" -o artifacts/max-free-agent-v2.webp
-          file artifacts/max-free-agent-v2.webp
-          test -s artifacts/max-free-agent-v2.webp
+          curl -fL --retry 3 --retry-delay 2 "$IMAGE_URL" -o artifacts/max-free-agent-v3.webp
+          file artifacts/max-free-agent-v3.webp
+          test -s artifacts/max-free-agent-v3.webp
       - uses: actions/upload-artifact@v4
         with:
-          name: max-free-agent-render-v2
-          path: artifacts/max-free-agent-v2.webp
+          name: max-free-agent-render-v3
+          path: artifacts/max-free-agent-v3.webp
           retention-days: 7
