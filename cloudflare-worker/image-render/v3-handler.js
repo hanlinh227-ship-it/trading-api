@@ -7,6 +7,7 @@ import {evaluateActivation} from './activation.js';
 import {BENCHMARK_SUITES} from './benchmark-suite.js';
 import {visualCriticAvailability} from './critic-runtime.js';
 import {workersAiHealth} from './workers-ai.js';
+import {probeImageRuntimes} from './runtime-probe.js';
 import {cancelImageLogicalJob,createImageLogicalJob,getImageLogicalJobStatus,retryImageLogicalJobScenes} from './logical-job-client.js';
 
 // Tasks that can only run on a runtime allowed to receive the reference/source image.
@@ -107,6 +108,10 @@ export async function handleImageRenderV3Authorized(request,env={}){
   if(url.pathname==='/brain/image/v3/activation'){
     if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
     const adapters=listProviderAdapters();
+    // ?probe=1 collects live runtime evidence. It costs a tiny amount of free allocation,
+    // so it is opt-in rather than run on every read of the report.
+    const probe=url.searchParams.get('probe')==='1'?await probeImageRuntimes(env):null;
+    const probedEvidence=new Map((probe?.providers||[]).map(entry=>[entry.providerId,entry]));
     const summary={CANDIDATE:0,RUNTIME_DISCOVERED:0,HEALTH_VERIFIED:0,LICENSE_VERIFIED:0,PRIVACY_VERIFIED:0,BENCHMARKED:0,ACTIVE:0,DEGRADED:0,DISABLED:0};
     const blockerCounts={};
     const models=loadApprovedModelVault().map(model=>{
@@ -116,7 +121,11 @@ export async function handleImageRenderV3Authorized(request,env={}){
         const adapter=adapters.find(item=>(model.runtimeProviders||[]).includes(item.id)&&item.supportedTasks.includes(taskType))
           ||getProviderAdapter((model.runtimeProviders||[])[0])
           ||adapters[0];
-        const evaluation=evaluateActivation({model,adapter,taskType,evidence:model.activationEvidence?.[taskType]||{}});
+        // Recorded evidence, plus whatever this probe just verified for that provider.
+        const recorded=model.activationEvidence?.[taskType]||{};
+        const probed=probedEvidence.get(adapter?.id);
+        const evidence=probed?{...recorded,runtimeDiscovered:probed.runtimeDiscovered,health:probed.health}:recorded;
+        const evaluation=evaluateActivation({model,adapter,taskType,evidence});
         if(summary[evaluation.status]!==undefined)summary[evaluation.status]+=1;
         for(const blocker of evaluation.blockers)blockerCounts[blocker]=(blockerCounts[blocker]||0)+1;
         return {taskType,status:evaluation.status,stage:evaluation.stage,blockers:evaluation.blockers,evidenceTrail:evaluation.evidenceTrail};
@@ -134,6 +143,7 @@ export async function handleImageRenderV3Authorized(request,env={}){
       models,
       summary,
       nextBottleneck,
+      probe:probe?{at:probe.at,providers:probe.providers}:null,
       benchmarkSuites:Object.values(BENCHMARK_SUITES).map(suite=>({taskType:suite.taskType,purpose:suite.purpose,dimensions:suite.dimensions.map(d=>d.id)})),
     });
   }

@@ -22,7 +22,16 @@ export function validateModelVaultEntry(entry={}){
   const errors=[];
   if(!String(entry.modelId||'').trim())errors.push('model_id_required');
   if(!String(entry.canonicalRepo||'').includes('/'))errors.push('canonical_repo_required');
-  if(!SHA40.test(String(entry.sourceRevision||'')))errors.push('exact_source_revision_required');
+  // A model we could self-host or redistribute must pin an exact revision. A model reached
+  // only through a hosted provider has no revision we control, so it is identified by the
+  // provider's model id instead; inventing a git SHA for it would be a fabricated fact.
+  const hasRevision=SHA40.test(String(entry.sourceRevision||''));
+  const hasProviderModelId=/^@?[a-z0-9_.-]+\/[a-z0-9_.\/-]+$/i.test(String(entry.providerModelId||''));
+  if(entry.redistributionEligible===true){
+    if(!hasRevision)errors.push('exact_source_revision_required');
+  }else if(!hasRevision&&!hasProviderModelId){
+    errors.push('exact_source_revision_or_provider_model_id_required');
+  }
   if(!ALLOWED_LICENSES.has(entry.codeLicense))errors.push('code_license_not_approved');
   if(!ALLOWED_LICENSES.has(entry.weightsLicense))errors.push('weights_license_not_approved');
   if(entry.commercialUseEligible!==true)errors.push('commercial_use_must_be_explicitly_allowed');

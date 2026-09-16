@@ -41,4 +41,10 @@ assert.match(workflow,/WAITING_FOR_SAFE_FREE_RUNTIME/);
 // The smoke still renders nothing and uploads nothing.
 assert.doesNotMatch(workflow,/"referenceAssets"\s*:/);
 
+// Production must collect live runtime evidence and print the per-model activation state,
+// so the gap between "registered" and "actually runnable" is visible on every deploy.
+assert.match(workflow,/v3\/activation\?probe=1/);
+assert.match(workflow,/IMAGE_RUNTIME_PROBE provider=/);
+assert.match(workflow,/IMAGE_ACTIVATION model=/);
+
 console.log('IMAGE_RENDER_V2_PRODUCTION_SMOKE_CONTRACT_TEST=PASS');

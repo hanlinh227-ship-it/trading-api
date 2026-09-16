@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "lastVerifiedDate": "2026-09-17",
+  "version": 3,
+  "lastVerifiedDate": "2026-09-16",
   "entries": [
     {
       "modelId": "flux2-klein-4b",
@@ -156,6 +156,161 @@
       "lastVerifiedAt": "2026-09-17",
       "licenseEvidence": "official Step1X-Edit README and model repository license",
       "notes": "Source-image editing and object replacement."
+    },
+    {
+      "modelId": "flux-1-schnell",
+      "family": "FLUX.1",
+      "version": "schnell",
+      "canonicalRepo": "black-forest-labs/FLUX.1-schnell",
+      "providerModelId": "@cf/black-forest-labs/flux-1-schnell",
+      "license": "Apache-2.0",
+      "codeLicense": "Apache-2.0",
+      "weightsLicense": "Apache-2.0",
+      "commercialUseEligible": true,
+      "redistributionEligible": false,
+      "runtimeProviders": [
+        "cloudflare_workers_ai"
+      ],
+      "runtimeConfigured": true,
+      "supportedTasks": [
+        "TEXT_TO_IMAGE",
+        "MULTI_SCENE_BATCH"
+      ],
+      "referenceSupport": false,
+      "editSupport": false,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1024,
+        "height": 1024
+      },
+      "qualityBenchmarks": {},
+      "approvalStatus": "CANDIDATE",
+      "status": "CANDIDATE",
+      "monetaryCost": "zero",
+      "lastVerifiedAt": "2026-09-16",
+      "licenseEvidence": "FLUX.1 [schnell] is released under Apache-2.0 by Black Forest Labs.",
+      "notes": "Primary free text-to-image model. The dev and pro variants are non-commercial and deliberately absent."
+    },
+    {
+      "modelId": "stable-diffusion-v1-5-img2img",
+      "family": "Stable Diffusion",
+      "version": "1.5-img2img",
+      "canonicalRepo": "runwayml/stable-diffusion-v1-5",
+      "providerModelId": "@cf/runwayml/stable-diffusion-v1-5-img2img",
+      "license": "CreativeML-Open-RAIL-M",
+      "codeLicense": "CreativeML-Open-RAIL-M",
+      "weightsLicense": "CreativeML-Open-RAIL-M",
+      "commercialUseEligible": true,
+      "redistributionEligible": false,
+      "runtimeProviders": [
+        "cloudflare_workers_ai"
+      ],
+      "runtimeConfigured": true,
+      "supportedTasks": [
+        "IMAGE_EDIT_GLOBAL",
+        "STYLE_TRANSFER",
+        "REFERENCE_GENERATION"
+      ],
+      "referenceSupport": true,
+      "editSupport": true,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1024,
+        "height": 1024
+      },
+      "qualityBenchmarks": {},
+      "approvalStatus": "CANDIDATE",
+      "status": "CANDIDATE",
+      "monetaryCost": "zero",
+      "lastVerifiedAt": "2026-09-16",
+      "licenseEvidence": "CreativeML Open RAIL-M permits commercial use with use restrictions; not a free redistribution licence.",
+      "notes": "Whole-image editing and reference-conditioned generation on the reference-safe runtime."
+    },
+    {
+      "modelId": "stable-diffusion-v1-5-inpainting",
+      "family": "Stable Diffusion",
+      "version": "1.5-inpainting",
+      "canonicalRepo": "runwayml/stable-diffusion-inpainting",
+      "providerModelId": "@cf/runwayml/stable-diffusion-v1-5-inpainting",
+      "license": "CreativeML-Open-RAIL-M",
+      "codeLicense": "CreativeML-Open-RAIL-M",
+      "weightsLicense": "CreativeML-Open-RAIL-M",
+      "commercialUseEligible": true,
+      "redistributionEligible": false,
+      "runtimeProviders": [
+        "cloudflare_workers_ai"
+      ],
+      "runtimeConfigured": true,
+      "supportedTasks": [
+        "INPAINT",
+        "IMAGE_EDIT_LOCAL",
+        "BACKGROUND_REPLACE",
+        "OBJECT_REPLACE",
+        "TARGETED_REPAIR"
+      ],
+      "referenceSupport": true,
+      "editSupport": true,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1024,
+        "height": 1024
+      },
+      "qualityBenchmarks": {},
+      "approvalStatus": "CANDIDATE",
+      "status": "CANDIDATE",
+      "monetaryCost": "zero",
+      "lastVerifiedAt": "2026-09-16",
+      "licenseEvidence": "CreativeML Open RAIL-M permits commercial use with use restrictions; not a free redistribution licence.",
+      "notes": "Masked local editing; the model targeted repair uses so a defect is fixed without redrawing the scene."
+    },
+    {
+      "modelId": "llama-3.2-11b-vision-instruct",
+      "family": "Llama",
+      "version": "3.2-11B-Vision-Instruct",
+      "canonicalRepo": "meta-llama/Llama-3.2-11B-Vision-Instruct",
+      "providerModelId": "@cf/meta/llama-3.2-11b-vision-instruct",
+      "license": "Llama-3.2-Community-License",
+      "codeLicense": "Llama-3.2-Community-License",
+      "weightsLicense": "Llama-3.2-Community-License",
+      "commercialUseEligible": true,
+      "redistributionEligible": false,
+      "runtimeProviders": [
+        "cloudflare_workers_ai"
+      ],
+      "runtimeConfigured": true,
+      "supportedTasks": [
+        "TARGETED_REPAIR"
+      ],
+      "referenceSupport": false,
+      "editSupport": false,
+      "criticSupport": true,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1024,
+        "height": 1024
+      },
+      "qualityBenchmarks": {},
+      "approvalStatus": "CANDIDATE",
+      "status": "CANDIDATE",
+      "monetaryCost": "zero",
+      "lastVerifiedAt": "2026-09-16",
+      "licenseEvidence": "Llama 3.2 Community License permits commercial use below the stated monthly-active-user threshold.",
+      "notes": "Visual critic runtime. Judges renders against the per-task benchmark dimensions."
     }
   ]
 }

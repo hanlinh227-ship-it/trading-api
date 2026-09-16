@@ -49,3 +49,29 @@ assert.ok(Array.isArray(payload.benchmarkSuites));
 assert.ok(payload.benchmarkSuites.some(s=>s.taskType==='REFERENCE_GENERATION'&&s.dimensions.includes('identitySimilarity')));
 
 console.log('image render v3 activation report contracts: PASS');
+
+// ?probe=1 folds live runtime evidence into the report, so a model backed by a runtime
+// that actually answered advances past runtime_not_discovered.
+const probed=await (await handleImageRenderV3(
+  new Request('https://x/brain/image/v3/activation?probe=1',{headers:auth}),
+  {...env,AI:{run:async()=>({image:'ZmFrZQ=='})}},
+)).json();
+assert.ok(probed.probe,'probe evidence must be reported');
+const cfModels=probed.models.filter(m=>m.runtimeProviders.includes('cloudflare_workers_ai'));
+assert.ok(cfModels.length>=4);
+for(const model of cfModels){
+  const task=model.tasks[0];
+  assert.ok(!task.blockers.includes('runtime_not_discovered'),`${model.modelId} should be discovered`);
+  assert.ok(!task.blockers.includes('runtime_health_not_verified'),`${model.modelId} should be health verified`);
+  // Licence, privacy and benchmark evidence still gate ACTIVE.
+  assert.notEqual(task.status,'ACTIVE');
+  assert.ok(task.blockers.length>0);
+  assert.ok(task.evidenceTrail.some(e=>e.stage==='HEALTH_VERIFIED'));
+}
+// A provider that never answered must not have its models advanced.
+const unprobed=await (await handleImageRenderV3(new Request('https://x/brain/image/v3/activation?probe=1',{headers:auth}),env)).json();
+for(const model of unprobed.models.filter(m=>m.runtimeProviders.includes('cloudflare_workers_ai'))){
+  assert.ok(model.tasks[0].blockers.includes('runtime_not_discovered'),model.modelId);
+}
+
+console.log('image render v3 activation probe contracts: PASS');
