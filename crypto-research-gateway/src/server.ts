@@ -131,6 +131,7 @@ const sourceCapabilitySchema = z.object({
   domains: z.array(marketDomainSchema).min(1).max(6),
   entitlement: z.enum(['VERIFIED_REALTIME', 'VERIFIED_DELAYED', 'UNVERIFIED', 'NOT_ENTITLED']),
   available: z.boolean(),
+  state: z.enum(['AVAILABLE', 'DEGRADED', 'RATE_LIMITED', 'UNAVAILABLE', 'UNVERIFIED']).optional(),
 }).strict();
 const acquisitionContextSchema = z.object({
   sources: z.array(sourceCapabilitySchema).max(64).default([]),
@@ -384,6 +385,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       dataAcquisitionPlan,
       sourceCoverage,
       entitlementSummary: dataAcquisitionPlan.entitlementStateBySource,
+      sourceStateSummary: dataAcquisitionPlan.sourceStateBySource,
       coverage,
       candidatesBuilt: batch.candidates.length,
       providers,
