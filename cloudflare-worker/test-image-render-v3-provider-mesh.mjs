@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createImageProviderMesh,filterEligibleProviderModels,validateProviderModelRegistration} from './image-render/provider-mesh.js';
 
 const aiHorde={providerId:'ai_horde',modelId:'sdxl',monetaryCost:'zero',paidFallback:false,autoPurchase:false,supportedDataClasses:['PUBLIC'],referenceSafe:false,supportedTasks:['TEXT_TO_IMAGE'],health:'healthy',maxResolution:{width:1536,height:1536}};
-const safeRef={providerId:'safe_free',modelId:'qwen-edit',monetaryCost:'zero',paidFallback:false,autoPurchase:false,supportedDataClasses:['PUBLIC','INTERNAL','CONFIDENTIAL'],referenceSafe:true,supportedTasks:['REFERENCE_GENERATION','IMAGE_EDIT_LOCAL'],health:'healthy',maxResolution:{width:2048,height:2048}};
+const safeRef={providerId:'safe_free',modelId:'qwen-edit',monetaryCost:'zero',paidFallback:false,autoPurchase:false,supportedDataClasses:['PUBLIC','INTERNAL','CONFIDENTIAL'],referenceSafe:true,supportedTasks:['TEXT_TO_IMAGE','REFERENCE_GENERATION','IMAGE_EDIT_LOCAL'],health:'healthy',maxResolution:{width:2048,height:2048}};
 const paid={...safeRef,providerId:'paid',monetaryCost:'paid'};
 const unknownCost={...safeRef,providerId:'unknown',monetaryCost:'unknown'};
 const autoPurchase={...safeRef,providerId:'auto',autoPurchase:true};
