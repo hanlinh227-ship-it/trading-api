@@ -67,3 +67,7 @@ jobs:
         if: ${{ hashFiles('cloudflare-worker/test-image-render-v2-export.mjs') != '' }}
         working-directory: cloudflare-worker
         run: node test-image-render-v2-export.mjs
+      - name: V2 deploy wiring
+        if: ${{ hashFiles('cloudflare-worker/test-image-render-v2-deploy-wiring.mjs') != '' }}
+        working-directory: cloudflare-worker
+        run: node test-image-render-v2-deploy-wiring.mjs
