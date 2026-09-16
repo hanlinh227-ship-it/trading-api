@@ -63,6 +63,12 @@ export function createMemoryContextHandler(){
       const candidate=await stores.metadata.get(`candidate:${candidateId}`);
       if(candidate?.unavailable)return json({ok:false,error:'shared_state_unavailable'},503);
       if(!candidate)return json({ok:false,error:'candidate_not_found'},404);
+      // Lifecycle: only candidate -> {confirmed, rejected, needs_reverify} and
+      // needs_reverify -> {confirmed, rejected} are reviewer transitions. A confirmed record is
+      // never re-reviewed (it would either re-promote or flip to rejected while its promoted
+      // memory stays active) and a rejected one is never resurrected.
+      const reviewableStates=new Set(['candidate','needs_reverify']);
+      if(!reviewableStates.has(String(candidate.state||'candidate')))return json({ok:false,error:'candidate_not_reviewable',candidateId,state:String(candidate.state)},409);
       const evidenceCount=Number(body.evidence_count);
       if(!Number.isInteger(evidenceCount)||evidenceCount<0||evidenceCount>1000||typeof body.current!=='boolean'||typeof body.conflict!=='boolean')return json({ok:false,error:'invalid_memory_review'},400);
       const review=reviewMemoryCandidate(candidate,{evidence_count:evidenceCount,current:body.current,conflict:body.conflict,reviewed_at:typeof body.reviewed_at==='string'?body.reviewed_at:undefined});
@@ -103,7 +109,7 @@ export function createMemoryContextHandler(){
           const memoryKey=String(match?.metadata?.memory_key||'');
           if(!memoryKey.startsWith(prefix))continue;
           const row=await stores.metadata.get(memoryKey);
-          if(row&&row.active===true&&row.state==='active'&&row.domain===domain&&row.scope===scopeName&&row.non_sensitive===true&&row.verified===true)resolved.push(row);
+          if(row&&row.active===true&&row.state==='active'&&row.domain===domain&&row.scope===scopeName&&row.non_sensitive===true&&row.verified===true&&Number(row.confidence)>=0.55)resolved.push(row);
           if(resolved.length>=limit)break;
         }
         selected=resolved;retrievalMode=selected.length?'vector':'none';

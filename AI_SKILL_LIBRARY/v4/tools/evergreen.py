@@ -14,10 +14,10 @@ import yaml
 
 try:
     from .admission import admit_skill
-    from .release import load_release_manifest, load_release_pointer, set_release_pointer, sha256_file
+    from .release import atomic_write_text, load_release_manifest, load_release_pointer, set_release_pointer, sha256_file
 except ImportError:
     from admission import admit_skill
-    from release import load_release_manifest, load_release_pointer, set_release_pointer, sha256_file
+    from release import atomic_write_text, load_release_manifest, load_release_pointer, set_release_pointer, sha256_file
 
 REQUIRED_GATES = ("provenance", "license", "security", "authority", "evals", "canary")
 ALLOWED_DOMAINS = {"core", "engineering", "trading", "game", "design_2d", "design_3d", "adobe", "prompt_media", "writing", "academic", "data_docs", "business"}
@@ -288,6 +288,43 @@ def scan_github(root: Path, output: Path, *, token: str | None = None) -> dict:
     return report
 
 
+def _approved_repositories(root: Path) -> set[str]:
+    """Repositories whose skill manifests count as verified provenance.
+
+    discovery.yaml: popularity_is_not_trust, repository_source_allowlist_required_for_code.
+    An empty allowlist means no scanned candidate is verified, which is the fail-closed default.
+    """
+    path = root / "AI_SKILL_LIBRARY/v4/evergreen/discovery.yaml"
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except OSError:
+        return set()
+    rows = data.get("approved_repositories", []) if isinstance(data, dict) else []
+    return {str(row).strip().lower() for row in rows if isinstance(row, str) and row.strip()}
+
+
+def canonical_skill_rows(root: Path) -> list[dict]:
+    """Canonical catalog rows (ids + triggers) used as `existing_skills` for admission.
+
+    Admitting against an empty list made duplicate ids and trigger collisions with the
+    canonical catalog invisible until compile time.
+    """
+    path = root / "AI_SKILL_LIBRARY/skills/catalog.yaml"
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except OSError:
+        return []
+    rows = data.get("skills", []) if isinstance(data, dict) else []
+    out: list[dict] = []
+    for row in rows:
+        if not isinstance(row, dict) or not row.get("id"):
+            continue
+        triggers = [term for term in (row.get("triggers") or []) if isinstance(term, str)]
+        triggers += [term for term in (row.get("alias_triggers") or []) if isinstance(term, str)]
+        out.append({"id": str(row["id"]), "triggers": triggers})
+    return out
+
+
 def materialize_quarantine(root: Path, scan_path: Path) -> list[Path]:
     report = json.loads(scan_path.read_text(encoding="utf-8"))
     destination = root / "AI_SKILL_LIBRARY/v4/evergreen/quarantine"
@@ -300,11 +337,14 @@ def materialize_quarantine(root: Path, scan_path: Path) -> list[Path]:
         skill.pop("_source_manifest_path", None)
         if skill.get("domain") != row.get("domain"):
             continue
-        skill.setdefault("provenance", {"source": row.get("url"), "verified": True})
+        # Provenance is verified only for allowlisted repositories; a scan hit never
+        # verifies itself.
+        approved = str(row.get("repo") or "").strip().lower() in _approved_repositories(root)
+        skill["provenance"] = {"source": row.get("url"), "verified": approved, "repo": row.get("repo")}
         if not skill.get("license") and row.get("license"):
             skill["license"] = row["license"]
         skill.setdefault("compatibility", {"brain": "4.x"})
-        admission = admit_skill(skill, existing_skills=[])
+        admission = admit_skill(skill, existing_skills=canonical_skill_rows(root))
         record = {
             "candidate_id": row.get("candidate_id"),
             "state": "quarantine",
@@ -330,7 +370,7 @@ def promote_class_a(root: Path) -> str | None:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or data.get("promotion_class") != "A" or not isinstance(data.get("skill"), dict):
             continue
-        admission = admit_skill(data["skill"], existing_skills=[])
+        admission = admit_skill(data["skill"], existing_skills=canonical_skill_rows(root))
         if admission["admitted"]:
             candidates.append((path, data["skill"]))
     if not candidates:
@@ -360,7 +400,7 @@ def promote_class_a(root: Path) -> str | None:
         "promotion": {"class": "A", "validated": False, "source": "evergreen_quarantine"},
     }
     manifest_path = release_dir / "manifest.yaml"
-    manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
+    atomic_write_text(manifest_path, yaml.safe_dump(manifest, sort_keys=False))
     set_release_pointer(root, new_version, sha256_file(manifest_path))
     history_path = root / "AI_SKILL_LIBRARY/v4/releases/history.yaml"
     history = yaml.safe_load(history_path.read_text(encoding="utf-8")) or {"version": 4, "releases": []}
@@ -373,7 +413,7 @@ def promote_class_a(root: Path) -> str | None:
             "previous": current,
         }
     )
-    history_path.write_text(yaml.safe_dump(history, sort_keys=False), encoding="utf-8")
+    atomic_write_text(history_path, yaml.safe_dump(history, sort_keys=False))
     return new_version
 
 
@@ -383,7 +423,7 @@ def mark_known_good(root: Path) -> str:
     manifest_path = root / pointer["manifest_path"]
     manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
     manifest.setdefault("promotion", {})["validated"] = True
-    manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
+    atomic_write_text(manifest_path, yaml.safe_dump(manifest, sort_keys=False))
     set_release_pointer(root, version, sha256_file(manifest_path))
     history_path = root / "AI_SKILL_LIBRARY/v4/releases/history.yaml"
     history = yaml.safe_load(history_path.read_text(encoding="utf-8")) or {}
@@ -394,7 +434,7 @@ def mark_known_good(root: Path) -> str:
             found = True
     if not found:
         raise ValueError("active release missing from history")
-    history_path.write_text(yaml.safe_dump(history, sort_keys=False), encoding="utf-8")
+    atomic_write_text(history_path, yaml.safe_dump(history, sort_keys=False))
     return version
 
 

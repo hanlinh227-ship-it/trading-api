@@ -75,6 +75,16 @@ export function createProviderProbe({fetchImpl=fetch,maxParallel=4,maxCandidates
           resetAt:existing.cooldownUntil};
       }
 
+      // policy.yaml: quarantine_before_next_request -- a probe is a request. A model
+      // quarantined for an entitlement/auth/pricing failure is not re-called until its
+      // quarantine window expires (selection already excludes it).
+      const quarantineUntilMs=existing?.expiresAt?Date.parse(String(existing.expiresAt)):NaN;
+      if(existing?.state==='QUARANTINED'&&Number.isFinite(quarantineUntilMs)&&quarantineUntilMs>started){
+        return {providerId:model.provider_id,modelId:model.model_id,configured:true,ok:false,status:0,latencyMs:0,
+          category:existing.category||'UNKNOWN_SANITIZED',state:'QUARANTINED',evidencePersisted:true,skipped:'quarantine_active',
+          resetAt:existing.expiresAt};
+      }
+
       const result=await callProvider(worker,env,[{role:'user',content:'Reply with OK only.'}],fetchImpl);
       const latencyMs=Math.max(0,Date.now()-started),category=result.ok?null:(result.category||classifyProviderFailure({status:result.status}));
       const health=await writeProbeHealth(env?.TRADING_STATE,model,{ok:Boolean(result.ok),category,latencyMs,retryAfter:result.retryAfter,resetAt:result.resetAt},{sourceSha:modelSnapshot?.source_sha||''});

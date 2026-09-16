@@ -20,6 +20,10 @@ cloudflare-worker/generated/model-mesh-bindings.js
 cloudflare-worker/generated/model-mesh-policy.js
 cloudflare-worker/generated/free-only-policy.js
 cloudflare-worker/generated/model-mesh-active-candidate-index.js
+cloudflare-worker/generated/universal-adapters.js
+# Atomic-write temp files from release tooling must never be committed.
+AI_SKILL_LIBRARY/v4/releases/**/*.tmp
+AI_SKILL_LIBRARY/v4/releases/*.tmp
 
 # Secrets / runtime configuration
 .env

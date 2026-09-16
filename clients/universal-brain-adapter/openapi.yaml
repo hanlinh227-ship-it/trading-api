@@ -83,6 +83,8 @@ paths:
       parameters: [{$ref: '#/components/parameters/BrainClient'}]
       responses:
         '202': {description: Candidate memory accepted for review, not activated}
+        '400': {description: Invalid candidate (identifier charset, missing field) or credential-shaped content in any field}
+        '409': {description: candidate_id already owned by another client or already reviewed; resubmission never resets a reviewed candidate}
   /brain/memory/review:
     post:
       security: [{bearerAuth: []}]
@@ -90,3 +92,4 @@ paths:
       responses:
         '200': {description: Evergreen-only candidate review result}
         '403': {description: Internal review scope required}
+        '409': {description: Candidate is not in a reviewable state (only candidate and needs_reverify are reviewable)}

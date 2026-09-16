@@ -12,7 +12,7 @@
 1. **Repository:** `hanlinh227-ship-it/trading-api`, canonical branch `main`.
 2. **Production-verified baseline:** `99359b1720a28614749d53615fe2b740044de40e` — the revision at which the full production contract was verified (run 34987419682).
 3. **`main` and production advance together** on every merge through the gated deploy. Documentation-only merges after the baseline advance `main` without changing runtime behaviour, so `main` may legitimately be ahead of the SHA above. **Always re-verify current parity per §12.7 — trust the repository, not this number.**
-4. **Release:** `4.9.1`, `KNOWN_GOOD = YES` (`AI_SKILL_LIBRARY/v4/releases/history.yaml`).
+4. **Release:** `4.9.1` at time of writing, `KNOWN_GOOD = YES` then. The current release is whatever `AI_SKILL_LIBRARY/v4/releases/current.json` points at; re-read `history.yaml` for its `known_good` state.
 5. **Worker:** `trading-v77-scanner` on Cloudflare Workers.
 6. **Model Mesh state:** PRODUCTION VERIFIED. FREE_ONLY, 5 eligible providers, **3 ACTIVE**. STANDARD→2 workers, DEEP→3.
 7. **Model Mesh Production Stabilization is COMPLETE.** Do not re-open or redesign it without regression evidence.
@@ -61,7 +61,7 @@ Verification vocabulary used throughout this document:
 | Production-verified baseline SHA | `99359b1720a28614749d53615fe2b740044de40e` | PRODUCTION VERIFIED |
 | `main` when this document was written | `99359b1720a28614749d53615fe2b740044de40e` | SOURCE VERIFIED |
 | `main` after this document was merged | advances by the handoff merge commit — documentation only, no runtime change | SOURCE VERIFIED |
-| Release / version | `4.9.1` | SOURCE VERIFIED |
+| Release / version | `4.9.1` at time of writing — current value: `AI_SKILL_LIBRARY/v4/releases/current.json` | SOURCE VERIFIED |
 | `KNOWN_GOOD` | **YES** | PRODUCTION VERIFIED |
 | Cloudflare Worker | `trading-v77-scanner` | SOURCE VERIFIED |
 | Worker base URL | `https://trading-v77-scanner.hanlinh227.workers.dev` | CI VERIFIED |

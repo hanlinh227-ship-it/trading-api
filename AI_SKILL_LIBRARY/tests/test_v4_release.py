@@ -6,8 +6,11 @@ from pathlib import Path
 import yaml
 
 from AI_SKILL_LIBRARY.v4.tools.release import (
+    atomic_write_text,
+    load_history,
     load_release_pointer,
     rollback_release,
+    verify_history_chain,
     verify_release,
 )
 
@@ -44,6 +47,37 @@ class V4ReleaseTests(unittest.TestCase):
             validated,
             f"active release {version} closure drift: history.known_good={known_good} manifest.promotion.validated={validated}",
         )
+
+    def test_history_chain_is_structurally_valid(self):
+        root = Path(__file__).resolve().parents[2]
+        self.assertEqual(verify_history_chain(load_history(root)), [])
+
+    def test_history_chain_rejects_hand_edit_drift(self):
+        history = {
+            "releases": [
+                {"version": "4.0.0", "known_good": True, "architecture": "GITHUB_BRAIN_V4", "manifest": "AI_SKILL_LIBRARY/v4/releases/4.0.0/manifest.yaml", "previous": None},
+                {"version": "4.0.1", "known_good": True, "architecture": "GITHUB_BRAIN_V4", "manifest": "AI_SKILL_LIBRARY/v4/releases/4.0.0/manifest.yaml", "previous": "4.0.0"},
+                {"version": "4.0.2", "known_good": "yes", "architecture": "GITHUB_BRAIN_V4", "manifest": "AI_SKILL_LIBRARY/v4/releases/4.0.2/manifest.yaml", "previous": "4.0.0"},
+            ]
+        }
+        errors = verify_history_chain(history)
+        self.assertTrue(any("4.0.1 manifest" in e for e in errors), errors)
+        self.assertTrue(any("4.0.2 known_good" in e for e in errors), errors)
+        self.assertTrue(any("4.0.2 previous" in e for e in errors), errors)
+
+    def test_atomic_write_leaves_no_temp_file_and_replaces_content(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "releases" / "history.yaml"
+            atomic_write_text(target, "a: 1\n")
+            atomic_write_text(target, "a: 2\n")
+            self.assertEqual(target.read_text(encoding="utf-8"), "a: 2\n")
+            self.assertEqual([p.name for p in target.parent.iterdir()], ["history.yaml"])
+
+    def test_release_temp_files_are_gitignored(self):
+        root = Path(__file__).resolve().parents[2]
+        ignore = (root / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn("AI_SKILL_LIBRARY/v4/releases/**/*.tmp", ignore)
+        self.assertIn("AI_SKILL_LIBRARY/v4/releases/*.tmp", ignore)
 
     def test_rollback_requires_known_good_previous_release(self):
         with tempfile.TemporaryDirectory() as tmp:

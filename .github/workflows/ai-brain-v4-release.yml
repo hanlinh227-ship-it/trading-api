@@ -7,9 +7,11 @@ on:
       - 'AI_SKILL_LIBRARY/v4/**'
   workflow_dispatch:
 
+# contents: write is needed only to push validated release metadata back to the
+# candidate branch. Merging is a human act: this workflow never merges its own PR.
 permissions:
   contents: write
-  pull-requests: write
+  pull-requests: read
 
 jobs:
   validate-and-promote:
@@ -34,6 +36,7 @@ jobs:
           from pathlib import Path
           import yaml
           from AI_SKILL_LIBRARY.v4.tools.admission import admit_skill
+          from AI_SKILL_LIBRARY.v4.tools.evergreen import canonical_skill_rows
           from AI_SKILL_LIBRARY.v4.tools.release import load_release_manifest, load_release_pointer
           root = Path('.').resolve()
           pointer = load_release_pointer(root)
@@ -44,7 +47,7 @@ jobs:
               if not role.startswith('skill:'):
                   continue
               skill = yaml.safe_load((root / row['path']).read_text(encoding='utf-8'))
-              result = admit_skill(skill, existing_skills=[])
+              result = admit_skill(skill, existing_skills=canonical_skill_rows(root))
               if not result['admitted'] or result['promotion_class'] != 'A':
                   raise SystemExit(f"release-side admission blocked {row['path']}: {result}")
               checked += 1
@@ -76,9 +79,9 @@ jobs:
           git add AI_SKILL_LIBRARY/v4/releases
           git commit -m "evergreen: validate V4 release canary"
           git push origin "HEAD:${HEAD_REF}"
-      - name: Merge verified automated capability PR
+      # Unattended Class A promotion ends here. A human reviews and merges the
+      # candidate PR; the gated production deploy then revalidates every contract
+      # at the exact merged SHA before the release can become known-good.
+      - name: Candidate validated; human merge required
         if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge "$PR_URL" --squash --delete-branch
+        run: echo "EVERGREEN_CANDIDATE=VALIDATED merge_requires_human_review=true"

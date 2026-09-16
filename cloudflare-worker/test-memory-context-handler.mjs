@@ -31,6 +31,29 @@ const active=await stores.metadata.get('memory:coding:project:trading-api:m-123'
 assert.equal(active.state,'active');
 assert.equal(active.active,true);
 
+// State machine: a confirmed candidate cannot be re-reviewed (no flip to rejected leaving an
+// orphan active memory, no unlimited re-promotion); a rejected one cannot later be confirmed.
+res=await handler(request('evergreen','evergreen-token','/brain/memory/review',{candidate_id:'m-123',evidence_count:2,current:true,conflict:true,reviewed_at:'2026-09-16T02:00:00Z'}),env);
+assert.equal(res.status,409,'confirmed candidate must not be reviewable again');
+assert.equal((await res.json()).error,'candidate_not_reviewable');
+assert.equal((await stores.metadata.get('memory:coding:project:trading-api:m-123')).active,true,'active memory must be untouched');
+await stores.metadata.put('candidate:m-rej',{...candidate,candidate_id:'m-rej',conflicts_with:['m-123']});
+res=await handler(request('evergreen','evergreen-token','/brain/memory/review',{candidate_id:'m-rej',evidence_count:2,current:true,conflict:false,reviewed_at:'2026-09-16T02:00:00Z'}),env);
+assert.equal((await res.json()).decision,'rejected');
+res=await handler(request('evergreen','evergreen-token','/brain/memory/review',{candidate_id:'m-rej',evidence_count:2,current:true,conflict:false,reviewed_at:'2026-09-16T02:00:00Z'}),env);
+assert.equal(res.status,409,'rejected candidate must not become confirmed');
+assert.equal(await stores.metadata.get('memory:coding:project:trading-api:m-rej'),null);
+// needs_reverify stays reviewable.
+await stores.metadata.put('candidate:m-rv',{...candidate,candidate_id:'m-rv',state:'needs_reverify',content:'zzz unrelated reverified fact'});
+res=await handler(request('evergreen','evergreen-token','/brain/memory/review',{candidate_id:'m-rv',evidence_count:2,current:true,conflict:false,reviewed_at:'2026-09-16T02:00:00Z'}),env);
+assert.equal(res.status,200);
+assert.equal((await res.json()).decision,'confirmed');
+// Secrets stored in non-content fields of a legacy candidate never reach promoted memory.
+await stores.metadata.put('candidate:m-leak',{...candidate,candidate_id:'m-leak',source:'Authorization: Bearer eyJleaked.token.value'});
+res=await handler(request('evergreen','evergreen-token','/brain/memory/review',{candidate_id:'m-leak',evidence_count:2,current:true,conflict:false,reviewed_at:'2026-09-16T02:00:00Z'}),env);
+assert.equal((await res.json()).decision,'rejected');
+assert.equal(await stores.metadata.get('memory:coding:project:trading-api:m-leak'),null);
+
 res=await handler(request('chatgpt','chatgpt-token','/brain/context/query',{domain:'coding',scope:'project:trading-api',profile:'FAST',query:'canonical brain',limit:1}),env);
 assert.equal(res.status,400);
 body=await res.json();
@@ -51,6 +74,15 @@ res=await handler(request('chatgpt','chatgpt-token','/brain/context/query',{doma
 body=await res.json();
 assert.equal(body.items.some(item=>item.memory_id==='m-old'),false);
 assert.equal(body.items.some(item=>item.memory_id==='not-active'),false);
+
+// Vector retrieval must honour the same confidence floor as lexical retrieval.
+await stores.metadata.put('memory:coding:project:trading-api:m-low',{...active,memory_id:'m-low',confidence:0.2,content:'zzz unrelated'});
+const vectorEnv={...env,BRAIN_VECTOR:{async query(){return {matches:[{id:'m-low',score:0.99,metadata:{memory_key:'memory:coding:project:trading-api:m-low'}},{id:'m-123',score:0.9,metadata:{memory_key:'memory:coding:project:trading-api:m-123'}}]};}}};
+res=await handler(request('chatgpt','chatgpt-token','/brain/context/query',{domain:'coding',scope:'project:trading-api',profile:'DEEP',query:'qqq-no-lexical-hit',query_vector:[0.1,0.2],limit:4}),vectorEnv);
+body=await res.json();
+assert.equal(body.retrievalMode,'vector');
+assert.equal(body.items.some(item=>item.memory_id==='m-low'),false,'vector path must apply minimum_confidence_to_retrieve');
+assert.equal(body.items.some(item=>item.memory_id==='m-123'),true);
 
 res=await handler(new Request('https://example.test/not-memory'),env);
 assert.equal(res,null);

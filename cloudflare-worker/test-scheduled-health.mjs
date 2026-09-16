@@ -11,6 +11,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {HEALTH_REFRESH_CRON, assertHealthOnlyCrons, handleScheduledHealthRefresh} from './model-mesh/scheduled-health.js';
+import {markSelfHealAttempt} from './model-mesh/self-heal.js';
 
 // Owned here, not by the module, so the module never names what it must not touch.
 const FORBIDDEN_CRON_INTENTS = ['bybit', 'order', 'wallet', 'withdraw', 'transfer', 'deploy', 'wrangler', 'autoHub', 'liveAck'];
@@ -67,6 +68,24 @@ const waitUntilCtx = () => {
   assert.equal(res.ran, false);
   assert.equal(res.reason, 'unexpected_cron');
   assert.equal(probed, 0, 'unrecognised cron must never probe');
+}
+
+// A manual (deploy / refresh-job) probe marks the same claim, so a cron firing right after
+// it does not probe again inside the interval.
+{
+  let probed = 0;
+  const env = {TRADING_STATE: kv()};
+  const marked = await markSelfHealAttempt(env.TRADING_STATE, {nowMs: Date.now()});
+  assert.equal(marked.marked, true);
+  const {ctx, settle} = waitUntilCtx();
+  const res = await handleScheduledHealthRefresh({
+    event: {cron: HEALTH_REFRESH_CRON}, env, ctx,
+    probeProviders: async () => {probed += 1;}, modelSnapshot: {models: []},
+  });
+  await settle();
+  assert.equal(res.ran, false, 'cron must yield to a probe that just ran');
+  assert.equal(res.reason, 'recently_attempted');
+  assert.equal(probed, 0);
 }
 
 // Overlap guard: a second invocation inside the min interval does not re-probe.

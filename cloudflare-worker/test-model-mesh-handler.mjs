@@ -38,8 +38,12 @@ assert.equal(JSON.stringify(body).includes('provider-declaration'),false);
 
 response=await handler(new Request('https://example.com/brain/mesh/probe',{method:'POST'}),{MODEL_MESH_EXECUTION_TOKEN:'token'});
 assert.equal(response.status,401);
-response=await handler(new Request('https://example.com/brain/mesh/probe',{method:'POST',headers:{'x-model-mesh-token':'token'}}),{MODEL_MESH_EXECUTION_TOKEN:'token'});
+response=await handler(new Request('https://example.com/brain/mesh/probe',{method:'POST',headers:{'x-model-mesh-token':'token'}}),{MODEL_MESH_EXECUTION_TOKEN:'token',TRADING_STATE});
 assert.equal(response.status,200);
+// The manual/deploy probe is the same work as the cron and self-heal probes, so it must
+// record the shared claim: otherwise the Worker cron fires right after a deploy probe,
+// re-spends free quota and races the deploy's health writes (last-writer-wins per key).
+assert.ok(rows.has('brain:model-mesh:self-heal:v1:lock'),'manual probe must record the shared self-heal claim');
 body=await response.json();
 assert.equal(body.ok,true);
 assert.equal(body.results[0].providerId,'groq');

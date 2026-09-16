@@ -137,4 +137,65 @@ assert.match(workflow,/SECRET_EXTERNAL_BOUNDARY=PASS/,'SECRET must be proven clo
 assert.match(workflow,/DATACLASS_FAIL_CLOSED=PASS/,'an unknown data class must fail closed to SECRET on production');
 assert.match(workflow,/FAST_EXTERNAL_BOUNDARY=PASS/,'FAST must be proven to select zero external workers on production');
 
+// --- Final hardening: canary text integrity ---------------------------------
+// Three canary literals were mojibake ('sá»­a lá»—i API nÃ y'); they routed to a different
+// primary skill and only passed because verify_live_plan never asserted the skill.
+assert.doesNotMatch(workflow,/Ã|Â|á»/,'workflow canary strings must be valid UTF-8, not mojibake');
+assert.match(workflow,/verify_live_plan 'sửa lỗi API này' debugging STANDARD 2/);
+assert.match(workflow,/verify_live_plan 'quét market BTC live' trading_router DEEP 4/);
+assert.match(workflow,/r\.primarySkill!==process\.env\.EXPECTED_SKILL/,'post-probe plan must assert the primary skill, not only the profile');
+
+// --- Final hardening: deploy lock cannot be evicted by the health cron ------
+// GitHub keeps one running + one pending run per concurrency group and cancels the
+// older pending run. With the 20-minute refresh cron in the same group as the deploy,
+// a queued production deploy could be cancelled by a health refresh and main would
+// silently never deploy.
+{
+  const yamlText=workflow;
+  assert.doesNotMatch(yamlText,/^concurrency:/m,'concurrency must be per job, not per workflow');
+  assert.match(yamlText,/deploy-exact-main:[\s\S]*?concurrency:\n\s+group: cloudflare-zero-local-runtime-production\n\s+cancel-in-progress: false/);
+  assert.match(yamlText,/refresh-model-mesh-health:[\s\S]*?concurrency:\n\s+group: cloudflare-model-mesh-health-refresh\n\s+cancel-in-progress: false/);
+}
+
+// --- Final hardening: ordering and gate shape --------------------------------
+const idx=name=>{const i=workflow.indexOf(name);assert.ok(i>=0,`missing step: ${name}`);return i;};
+assert.ok(idx('Capture currently-live revision for deterministic rollback')<idx('name: Deploy exact-main Worker'),'rollback target must be captured before the deploy');
+assert.ok(idx('Capture currently-live revision for deterministic rollback')<idx('Sync configured Model Mesh secrets'),'secrets (a production mutation) are synced only after the rollback target is captured');
+assert.ok(idx('Sync Universal Brain credentials')<idx('name: Deploy exact-main Worker'));
+assert.equal((workflow.match(/npx wrangler deploy 2>&1 \| node redact-deploy-output\.mjs/g)||[]).length,2,'both real deploys (forward and rollback) must be piped through redaction');
+assert.match(workflow,/x\.keep_vars!==true/,'generated config must keep dashboard vars');
+assert.match(wranglerPrep,/keep_vars:true/);
+assert.match(workflow,/runtime_switch_must_not_be_generated/);
+assert.match(workflow,/provider_secret_must_not_be_generated/);
+assert.match(workflow,/^permissions:\n\s+contents: read$/m);
+assert.match(workflow,/test "\$SOURCE_SHA" = "\$GITHUB_SHA"/,'the locked SHA must be the SHA that triggered the run');
+assert.doesNotMatch(workflow,/FAST_EXTERNAL_BOUNDARY=SKIPPED/,'the FAST boundary proof must not pass vacuously');
+assert.match(workflow,/FINAL_EXACT_SHA_GATE=UNVERIFIED/,'a core-gate failure with no rollback target must not read as PASS');
+assert.match(workflow,/CORE_GATE_FAILED=1/);
+{
+  const probeTimeouts=[...workflow.matchAll(/--max-time (\d+) -X POST -H "x-model-mesh-token: \$MODEL_MESH_EXECUTION_TOKEN" "\$WORKER_BASE_URL\/brain\/mesh\/probe"/g)].map(m=>Number(m[1]));
+  assert.ok(probeTimeouts.length>=2,'probe curls present');
+  for(const t of probeTimeouts)assert.ok(t>=180,`probe --max-time ${t}s must cover 2 batches x 3 candidates x 30s`);
+}
+{
+  // Every provider secret visible to the job is exported on the real deploy step so
+  // value-based redaction covers it.
+  const deployStep=workflow.slice(idx('name: Deploy exact-main Worker'),idx('Verify exact deployed revision'));
+  for(const key of ['GROQ_API_KEY','GEMINI_API_KEY','CLOUDFLARE_AI_API_TOKEN','OPENROUTER_API_KEY','MISTRAL_API_KEY','COHERE_API_KEY','HF_TOKEN','NVIDIA_API_KEY','CEREBRAS_API_KEY','SAMBANOVA_API_KEY','DASHSCOPE_API_KEY','OPENCODE_ZEN_API_KEY','MODEL_MESH_EXECUTION_TOKEN','TINY_FISH_API'])assert.match(deployStep,new RegExp(`${key}: \\$\\{\\{ secrets\\.${key} \\}\\}`),`${key} must be in scope of the deploy step for redaction`);
+}
+
+// --- Final hardening: npm run check must reach every test file ---------------
+{
+  const listed=new Set([...JSON.stringify(packageJson.scripts).matchAll(/node (test-[\w-]+\.mjs)/g)].map(m=>m[1]));
+  for(const file of fs.readdirSync('.').filter(f=>/^test-.*\.mjs$/.test(f)))assert.ok(listed.has(file),`${file} is not reachable from npm run check`);
+  assert.match(packageJson.scripts.check,/npm run test:universal-fabric/);
+}
+
+// --- Final hardening: no other workflow may really deploy trading-v77-scanner --
+for(const file of fs.readdirSync('../.github/workflows').filter(f=>/\.ya?ml$/.test(f))){
+  if(file==='deploy-skill-mandatory-fast-gateway.yml')continue;
+  const text=fs.readFileSync(path.join('../.github/workflows',file),'utf8');
+  if(realDeploy.test(text))assert.doesNotMatch(text,/trading-v77-scanner/,`${file} performs a real wrangler deploy and must not target trading-v77-scanner`);
+}
+
 console.log('deployment secret, rollback, authority, boundary and live-canary contracts ok');

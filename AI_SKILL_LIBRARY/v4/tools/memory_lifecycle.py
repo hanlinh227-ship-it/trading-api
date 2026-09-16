@@ -10,8 +10,14 @@ _FORBIDDEN_FIELDS = {
 _SENSITIVE_MARKERS = (
     "api_key=", "api key:", "private_key", "private key:", "bearer ",
     "seed phrase", "authentication_token", "authorization: bearer",
+    "password:", "password=", "passphrase:", "passphrase=", "sk-live-",
 )
-_ALLOWED_STATES = {"candidate", "pending", "confirmed", "active", "superseded", "archived", "tombstoned"}
+# States declared by v4/stable/memory.yaml plus the transitional 'pending' alias.
+ALLOWED_STATES = frozenset({
+    "candidate", "pending", "confirmed", "needs_reverify", "rejected",
+    "active", "superseded", "archived", "tombstoned",
+})
+_ALLOWED_STATES = ALLOWED_STATES
 
 
 def _text(value: Any) -> str:
@@ -21,8 +27,15 @@ def _text(value: Any) -> str:
 def _sensitive(candidate: dict) -> bool:
     if any(key in candidate for key in _FORBIDDEN_FIELDS):
         return True
-    content = _text(candidate.get("content")).casefold()
-    return any(marker.casefold() in content for marker in _SENSITIVE_MARKERS)
+    # Scan every string field: a secret in `source` or `evidence_refs` is persisted and echoed
+    # to every client exactly like one in `content`.
+    texts: list[str] = []
+    for value in candidate.values():
+        if isinstance(value, str):
+            texts.append(value.casefold())
+        elif isinstance(value, list):
+            texts.extend(str(item).casefold() for item in value if isinstance(item, str))
+    return any(marker.casefold() in text for text in texts for marker in _SENSITIVE_MARKERS)
 
 
 def evaluate_candidate(candidate: dict, active_records: list[dict]) -> dict:
@@ -86,9 +99,13 @@ def transition(record: dict, target_state: str, evidence: dict) -> dict:
     if current not in _ALLOWED_STATES or target not in _ALLOWED_STATES:
         raise ValueError("invalid_memory_state")
 
+    # candidate -> (pending) -> confirmed -> active: nothing may skip the review states, and a
+    # rejected or tombstoned record is never resurrected.
     allowed = {
-        "candidate": {"pending", "confirmed", "active", "archived", "tombstoned"},
-        "pending": {"confirmed", "active", "archived", "tombstoned"},
+        "candidate": {"pending", "confirmed", "needs_reverify", "rejected", "archived", "tombstoned"},
+        "pending": {"confirmed", "needs_reverify", "rejected", "archived", "tombstoned"},
+        "needs_reverify": {"confirmed", "rejected", "archived", "tombstoned"},
+        "rejected": {"archived", "tombstoned"},
         "confirmed": {"active", "archived", "tombstoned"},
         "active": {"superseded", "archived", "tombstoned"},
         "superseded": {"archived", "tombstoned"},

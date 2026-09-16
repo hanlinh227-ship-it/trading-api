@@ -62,10 +62,12 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: cloudflare-zero-local-runtime-production
-  cancel-in-progress: false
-
+# Concurrency is declared per job on purpose. GitHub keeps one running and one
+# pending run per group and cancels the older pending run; with the 20-minute
+# health-refresh schedule in the same group as the deploy, a queued production
+# deploy could be evicted by a health refresh and main would silently never ship.
+# The refresh only POSTs /brain/mesh/probe (health evidence is keyed by the live
+# revision), so it needs no deploy lock.
 env:
   WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
 
@@ -73,6 +75,9 @@ jobs:
   deploy-exact-main:
     if: github.event_name != 'schedule' && !(github.event_name == 'workflow_dispatch' && (inputs.mode == 'refresh-health' || inputs.mode == 'discover-providers'))
     runs-on: ubuntu-latest
+    concurrency:
+      group: cloudflare-zero-local-runtime-production
+      cancel-in-progress: false
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -94,6 +99,10 @@ jobs:
           set -euo pipefail
           SOURCE_SHA="$(git rev-parse HEAD)"
           test -n "$SOURCE_SHA"
+          # The checkout is `ref: main`; if main moved between trigger and checkout the
+          # newer push has its own run, so this one must not deploy a revision it was
+          # not triggered for.
+          test "$SOURCE_SHA" = "$GITHUB_SHA" || { echo "EXACT_MAIN_SHA_DRIFT triggered=$GITHUB_SHA checked_out=$SOURCE_SHA"; exit 1; }
           echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           echo "EXACT_MAIN_SHA=$SOURCE_SHA"
 
@@ -125,6 +134,62 @@ jobs:
         working-directory: cloudflare-worker
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Prepare, test and benchmark exact-main Skill Gateway and Model Mesh
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
+          npm run prepare:skill-gateway
+          npm run prepare:model-mesh
+          npm run check
+          node benchmark-skill-gateway.mjs
+
+      - name: Prepare safe exact-revision Wrangler config
+        working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+          AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
+          V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
+          npm run prepare:wrangler
+          node - <<'NODE'
+          const fs=require('fs');const x=JSON.parse(fs.readFileSync('wrangler.jsonc','utf8'));
+          const expected=process.env.SKILL_GATEWAY_SOURCE_SHA;
+          if(x.name!=='trading-v77-scanner'||x.keep_vars!==true||x.vars?.RUNTIME_REVISION!==expected)throw new Error('unsafe_skill_gateway_deploy_config');
+          for(const key of ['BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_AUTO_ENABLED'])if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('runtime_switch_must_not_be_generated:'+key);
+          const forbiddenSecretKeys=['MODEL_MESH_EXECUTION_TOKEN','TINY_FISH_API','GROQ_API_KEY','GEMINI_API_KEY','CLOUDFLARE_AI_API_TOKEN','OPENROUTER_API_KEY','MISTRAL_API_KEY','COHERE_API_KEY','HF_TOKEN','NVIDIA_API_KEY','CEREBRAS_API_KEY','SAMBANOVA_API_KEY','DASHSCOPE_API_KEY','OPENCODE_ZEN_API_KEY'];
+          for(const key of forbiddenSecretKeys)if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('provider_secret_must_not_be_generated:'+key);
+          console.log('SKILL_GATEWAY_DEPLOY_CONFIG=PASS revision='+expected);
+          NODE
+          npx wrangler deploy --dry-run --outdir .wrangler-skill-gateway-prod-dry-run
+
+      - name: Capture currently-live revision for deterministic rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Recorded BEFORE production is mutated. If a core canary fails after
+          # deploy, this is the exact SHA production is restored to -- so a
+          # failed verification can no longer leave new code live with the
+          # exact-SHA gate skipped.
+          live="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract" 2>/dev/null || true)"
+          previous="$(printf '%s\n' "$live" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);const r=String(x.runtimeRevision||'');process.stdout.write(/^[a-f0-9]{40}$/.test(r)?r:'')}catch{process.stdout.write('')}})" || true)"
+          if [ -n "$previous" ] && git cat-file -e "$previous^{commit}" 2>/dev/null; then
+            echo "PREVIOUS_GOOD_SHA=$previous" >> "$GITHUB_ENV"
+            echo "ROLLBACK_TARGET=$previous"
+          else
+            echo "PREVIOUS_GOOD_SHA=" >> "$GITHUB_ENV"
+            echo "ROLLBACK_TARGET=NONE_RESOLVABLE"
+          fi
+
+      # Secrets are a production mutation (each `secret put` creates a new live
+      # version), so they are synced only after the rollback target is captured
+      # and immediately before the deploy that needs them.
       - name: Sync configured Model Mesh secrets without exposing values
         working-directory: cloudflare-worker
         env:
@@ -205,59 +270,6 @@ jobs:
           done
           echo "UNIVERSAL_BRAIN_SECRETS_SYNCED_COUNT=$synced"
 
-      - name: Prepare, test and benchmark exact-main Skill Gateway and Model Mesh
-        working-directory: cloudflare-worker
-        shell: bash
-        run: |
-          set -euo pipefail
-          export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
-          npm run prepare:skill-gateway
-          npm run prepare:model-mesh
-          npm run check
-          node benchmark-skill-gateway.mjs
-
-      - name: Prepare safe exact-revision Wrangler config
-        working-directory: cloudflare-worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
-          AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
-          V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          export GITHUB_SHA="$SKILL_GATEWAY_SOURCE_SHA"
-          npm run prepare:wrangler
-          node - <<'NODE'
-          const fs=require('fs');const x=JSON.parse(fs.readFileSync('wrangler.jsonc','utf8'));
-          const expected=process.env.SKILL_GATEWAY_SOURCE_SHA;
-          if(x.name!=='trading-v77-scanner'||x.keep_vars!==true||x.vars?.RUNTIME_REVISION!==expected)throw new Error('unsafe_skill_gateway_deploy_config');
-          for(const key of ['BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_AUTO_ENABLED'])if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('runtime_switch_must_not_be_generated:'+key);
-          const forbiddenSecretKeys=['MODEL_MESH_EXECUTION_TOKEN','TINY_FISH_API','GROQ_API_KEY','GEMINI_API_KEY','CLOUDFLARE_AI_API_TOKEN','OPENROUTER_API_KEY','MISTRAL_API_KEY','COHERE_API_KEY','HF_TOKEN','NVIDIA_API_KEY','CEREBRAS_API_KEY','SAMBANOVA_API_KEY','DASHSCOPE_API_KEY','OPENCODE_ZEN_API_KEY'];
-          for(const key of forbiddenSecretKeys)if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('provider_secret_must_not_be_generated:'+key);
-          console.log('SKILL_GATEWAY_DEPLOY_CONFIG=PASS revision='+expected);
-          NODE
-          npx wrangler deploy --dry-run --outdir .wrangler-skill-gateway-prod-dry-run
-
-      - name: Capture currently-live revision for deterministic rollback
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Recorded BEFORE production is mutated. If a core canary fails after
-          # deploy, this is the exact SHA production is restored to -- so a
-          # failed verification can no longer leave new code live with the
-          # exact-SHA gate skipped.
-          live="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract" 2>/dev/null || true)"
-          previous="$(printf '%s\n' "$live" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);const r=String(x.runtimeRevision||'');process.stdout.write(/^[a-f0-9]{40}$/.test(r)?r:'')}catch{process.stdout.write('')}})" || true)"
-          if [ -n "$previous" ] && git cat-file -e "$previous^{commit}" 2>/dev/null; then
-            echo "PREVIOUS_GOOD_SHA=$previous" >> "$GITHUB_ENV"
-            echo "ROLLBACK_TARGET=$previous"
-          else
-            echo "PREVIOUS_GOOD_SHA=" >> "$GITHUB_ENV"
-            echo "ROLLBACK_TARGET=NONE_RESOLVABLE"
-          fi
-
       - name: Deploy exact-main Worker
         working-directory: cloudflare-worker
         env:
@@ -270,6 +282,12 @@ jobs:
           CLOUDFLARE_AI_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
           OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
           TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
           AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
@@ -368,7 +386,8 @@ jobs:
           # Probing first would overwrite exactly the evidence we want to read.
           pre="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
           printf '%s\n' "$pre" | node cloudflare-worker/report-mesh-health.mjs
-          result="$(curl -fsS --connect-timeout 5 --max-time 90 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
+          # Worst case: 2 provider batches x 3 candidates x 30s provider timeout = 180s.
+          result="$(curl -fsS --connect-timeout 5 --max-time 200 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
           printf '%s\n' "$result" | node cloudflare-worker/validate-model-mesh-probe.mjs --require-healthy
           for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
             health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
@@ -378,13 +397,13 @@ jobs:
             sleep 5
           done
           verify_live_plan() {
-            text="$1" expected_profile="$2" max_workers="$3"
+            text="$1" expected_skill="$2" expected_profile="$3" max_workers="$4"
             body="$(TEXT="$text" node -e "process.stdout.write(JSON.stringify({text:process.env.TEXT,dataClass:'PUBLIC'}))")"
             plan="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' -d "$body" "$WORKER_BASE_URL/brain/mesh/plan")"
-            printf '%s\n' "$plan" | EXPECTED_PROFILE="$expected_profile" MAX_WORKERS="$max_workers" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s),w=Array.isArray(x.workers)?x.workers:[];if(!x.ok||x.route?.profile!==process.env.EXPECTED_PROFILE||x.sourceSha!==process.env.EXPECTED_SHA||w.length<1||w.length>Number(process.env.MAX_WORKERS)||x.selectionReason!=='live_healthy_provider_selected')process.exit(2);console.log('MODEL_MESH_POST_PROBE_PLAN=PASS '+x.route.profile+' workers='+w.length)})"
+            printf '%s\n' "$plan" | EXPECTED_SKILL="$expected_skill" EXPECTED_PROFILE="$expected_profile" MAX_WORKERS="$max_workers" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s),r=x.route||{},w=Array.isArray(x.workers)?x.workers:[];if(!x.ok||r.primarySkill!==process.env.EXPECTED_SKILL||r.profile!==process.env.EXPECTED_PROFILE||x.sourceSha!==process.env.EXPECTED_SHA||w.length<1||w.length>Number(process.env.MAX_WORKERS)||x.selectionReason!=='live_healthy_provider_selected'){console.log('MODEL_MESH_POST_PROBE_PLAN=FAIL skill='+r.primarySkill+' profile='+r.profile+' workers='+w.length+' reason='+x.selectionReason);process.exit(2)}console.log('MODEL_MESH_POST_PROBE_PLAN=PASS '+r.primarySkill+' '+r.profile+' workers='+w.length)})"
           }
-          verify_live_plan 'sá»­a lá»—i API nÃ y' STANDARD 2
-          verify_live_plan 'quÃ©t market BTC live' DEEP 4
+          verify_live_plan 'sửa lỗi API này' debugging STANDARD 2
+          verify_live_plan 'quét market BTC live' trading_router DEEP 4
           contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
           printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2)})"
 
@@ -426,7 +445,7 @@ jobs:
           # FAST must select zero external workers and make zero routing calls.
           fast="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' \
             -d '{"text":"giải thích bác sĩ nội trú","dataClass":"PUBLIC"}' "$WORKER_BASE_URL/brain/mesh/plan")"
-          printf '%s\n' "$fast" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);const w=Array.isArray(x.workers)?x.workers:[];if(x.ok!==true||x.route?.profile!=='FAST'){console.log('FAST_EXTERNAL_BOUNDARY=SKIPPED profile='+x.route?.profile);return}if(w.length!==0||x.selectionReason!=='fast_external_mesh_forbidden'||x.route?.externalRoutingCalls!==0){console.log('FAST_EXTERNAL_BOUNDARY=FAIL workers='+w.length+' reason='+x.selectionReason);process.exit(2)}console.log('FAST_EXTERNAL_BOUNDARY=PASS external_workers=0 externalRoutingCalls=0')})"
+          printf '%s\n' "$fast" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);const w=Array.isArray(x.workers)?x.workers:[];if(x.ok!==true||x.route?.profile!=='FAST'){console.log('FAST_EXTERNAL_BOUNDARY=FAIL reason=probe_text_not_routed_fast profile='+x.route?.profile);process.exit(2)}if(w.length!==0||x.selectionReason!=='fast_external_mesh_forbidden'||x.route?.externalRoutingCalls!==0){console.log('FAST_EXTERNAL_BOUNDARY=FAIL workers='+w.length+' reason='+x.selectionReason);process.exit(2)}console.log('FAST_EXTERNAL_BOUNDARY=PASS external_workers=0 externalRoutingCalls=0')})"
 
       # Diagnose provider model availability from live evidence rather than
       # guessing a model id. A 404 here means the configured model is not
@@ -469,7 +488,7 @@ jobs:
           result="$(curl -fsS --connect-timeout 5 --max-time 45 -X POST -H 'content-type: application/json' -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" -d "$body" "$WORKER_BASE_URL/brain/evidence/probe")"
           printf '%s\n' "$result" | node cloudflare-worker/validate-evidence-canary.mjs --operation=search
           sleep 3
-          fetch_body='{"text":"sá»­a lá»—i API nÃ y","operation":"fetch","urls":["https://docs.tinyfish.ai/fetch-api"],"dataClass":"PUBLIC"}'
+          fetch_body='{"text":"sửa lỗi API này","operation":"fetch","urls":["https://docs.tinyfish.ai/fetch-api"],"dataClass":"PUBLIC"}'
           fetch_result="$(curl -fsS --connect-timeout 5 --max-time 180 -X POST -H 'content-type: application/json' -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" -d "$fetch_body" "$WORKER_BASE_URL/brain/evidence/query")"
           printf '%s\n' "$fetch_result" | node cloudflare-worker/validate-evidence-canary.mjs --operation=fetch --require-evidence
 
@@ -478,6 +497,11 @@ jobs:
       # canary) -- the optional TinyFish canary above cannot reach it. Restores
       # production to the exact revision captured before this deploy, rebuilt
       # from that SHA rather than from a stored artifact.
+      - name: Record core gate failure
+        if: failure()
+        shell: bash
+        run: echo "CORE_GATE_FAILED=1" >> "$GITHUB_ENV"
+
       - name: Roll back to previously live exact revision
         if: failure()
         working-directory: cloudflare-worker
@@ -528,7 +552,7 @@ jobs:
         run: |
           set -euo pipefail
           contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
-          printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" PREVIOUS="${PREVIOUS_GOOD_SHA:-}" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);const live=String(x.runtimeRevision||'');if(!x.ok){console.log('FINAL_EXACT_SHA_GATE=FAIL reason=contract_not_ok');process.exit(2)}if(live===process.env.EXPECTED){console.log('FINAL_EXACT_SHA_GATE=PASS revision='+live);process.exit(0)}if(process.env.PREVIOUS&&live===process.env.PREVIOUS){console.log('FINAL_EXACT_SHA_GATE=ROLLED_BACK revision='+live+' rejected='+process.env.EXPECTED);process.exit(2)}console.log('FINAL_EXACT_SHA_GATE=FAIL revision='+live+' expected='+process.env.EXPECTED);process.exit(2)})"
+          printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" PREVIOUS="${PREVIOUS_GOOD_SHA:-}" CORE_GATE_FAILED="${CORE_GATE_FAILED:-0}" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);const live=String(x.runtimeRevision||'');if(!x.ok){console.log('FINAL_EXACT_SHA_GATE=FAIL reason=contract_not_ok');process.exit(2)}if(live===process.env.EXPECTED&&process.env.CORE_GATE_FAILED==='1'){console.log('FINAL_EXACT_SHA_GATE=UNVERIFIED revision='+live+' reason=core_gate_failed_and_no_rollback_target');process.exit(2)}if(live===process.env.EXPECTED){console.log('FINAL_EXACT_SHA_GATE=PASS revision='+live);process.exit(0)}if(process.env.PREVIOUS&&live===process.env.PREVIOUS){console.log('FINAL_EXACT_SHA_GATE=ROLLED_BACK revision='+live+' rejected='+process.env.EXPECTED);process.exit(2)}console.log('FINAL_EXACT_SHA_GATE=FAIL revision='+live+' expected='+process.env.EXPECTED);process.exit(2)})"
 
       - name: Deployment record
         if: always()
@@ -562,6 +586,9 @@ jobs:
   refresh-model-mesh-health:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'refresh-health' || inputs.mode == 'discover-providers'))
     runs-on: ubuntu-latest
+    concurrency:
+      group: cloudflare-model-mesh-health-refresh
+      cancel-in-progress: false
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
@@ -586,7 +613,8 @@ jobs:
           # Probing first would overwrite exactly the evidence we want to read.
           pre="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
           printf '%s\n' "$pre" | node cloudflare-worker/report-mesh-health.mjs
-          result="$(curl -fsS --connect-timeout 5 --max-time 90 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
+          # Worst case: 2 provider batches x 3 candidates x 30s provider timeout = 180s.
+          result="$(curl -fsS --connect-timeout 5 --max-time 200 -X POST -H "x-model-mesh-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/mesh/probe")"
           printf '%s\n' "$result" | node cloudflare-worker/validate-model-mesh-probe.mjs
       # Advisory, read-only. Never gates the refresh: a provider diagnosis
       # failing must not turn a good health refresh into a failed run.

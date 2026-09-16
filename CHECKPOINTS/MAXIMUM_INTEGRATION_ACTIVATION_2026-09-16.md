@@ -12,7 +12,7 @@
 
 | Field | Value | Status |
 |---|---|---|
-| Release | `4.9.8` | SOURCE VERIFIED |
+| Release | `4.9.8` at time of writing (this document later records 4.10.1 shipping) — current value: `AI_SKILL_LIBRARY/v4/releases/current.json` | SOURCE VERIFIED |
 | `KNOWN_GOOD` | **YES** | PRODUCTION VERIFIED |
 | Previous release | `4.9.7`, known-good (single-step rollback target) | SOURCE VERIFIED |
 | Worker | `trading-v77-scanner` | SOURCE VERIFIED |
@@ -349,7 +349,8 @@ FINAL_EXACT_SHA_GATE=PASS revision=168ba9cf5a08b51297b453d432198d93e9ecaa62
 `AGENTS.md` → `AI_SKILL_LIBRARY/checkpoint.json` →
 `AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md` →
 `CHECKPOINTS/GITHUB_BRAIN_MASTER_HANDOFF_2026-09-15.md` →
-`CHECKPOINTS/GITHUB_BRAIN_VNEXT_CLOSURE_2026-09-15.md` → this file.
+`CHECKPOINTS/GITHUB_BRAIN_VNEXT_CLOSURE_2026-09-15.md` → this file →
+`AI_SKILL_LIBRARY/checkpoint.json` `latest_closure_path` (the newest production closure record).
 
 Re-verify `main`, release, `known_good` and production `runtimeRevision`
 parity before trusting any number written here.

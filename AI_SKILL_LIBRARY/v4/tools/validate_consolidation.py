@@ -284,9 +284,18 @@ def check_workflows(root: Path) -> list[str]:
             errors.append(f"missing production deploy workflow {name}")
             continue
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        concurrency = data.get("concurrency", {})
-        if concurrency.get("cancel-in-progress") is not False:
-            errors.append(f"{name}: production deploys must queue (cancel-in-progress: false) to avoid mutual cancellation")
+        # Concurrency may be declared at workflow level or per job (the gated deploy
+        # declares it per job so its health-refresh schedule cannot evict a queued
+        # deploy). Either way every lock must queue, never cancel.
+        scopes = [("workflow", data.get("concurrency"))] if isinstance(data.get("concurrency"), dict) else [
+            (job_name, job.get("concurrency")) for job_name, job in (data.get("jobs") or {}).items() if isinstance(job, dict)
+        ]
+        if not scopes or any(not isinstance(conc, dict) for _, conc in scopes):
+            errors.append(f"{name}: every production deploy job must declare a concurrency group")
+            continue
+        for scope, conc in scopes:
+            if conc.get("cancel-in-progress") is not False:
+                errors.append(f"{name} ({scope}): production deploys must queue (cancel-in-progress: false) to avoid mutual cancellation")
     archive = root / ".github/workflows-archive"
     if not (archive / "README.md").is_file():
         errors.append(".github/workflows-archive/README.md missing")
@@ -305,6 +314,7 @@ def check_release_and_index(root: Path) -> list[str]:
         errors.append(f"release history does not contain current release {pointer.get('version')}")
     elif versions[-1] != pointer.get("version"):
         errors.append("current release must be the last entry in history.yaml")
+    errors.extend(release_tool.verify_history_chain(history))
     on_disk = release_tool.load_release_manifest(root, pointer["version"])
     stale = release_tool.manifest_is_fresh(root, on_disk)
     if stale:

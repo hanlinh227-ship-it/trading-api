@@ -59,8 +59,11 @@ class ZeroLocalCloudRuntimePolicyTests(unittest.TestCase):
         zero_local = yaml.safe_load((ROOT / ".github/workflows/deploy-cloudflare-worker.yml").read_text(encoding="utf-8"))
         gated = yaml.safe_load((ROOT / ".github/workflows/deploy-skill-mandatory-fast-gateway.yml").read_text(encoding="utf-8"))
         zero_group = zero_local.get("concurrency", {}).get("group")
-        gated_group = gated.get("concurrency", {}).get("group")
+        deploy_job = gated["jobs"]["deploy-exact-main"]
+        refresh_job = gated["jobs"]["refresh-model-mesh-health"]
+        gated_group = deploy_job.get("concurrency", {}).get("group")
         self.assertEqual(gated_group, "cloudflare-zero-local-runtime-production")
+        self.assertIs(deploy_job["concurrency"].get("cancel-in-progress"), False)
         self.assertIsInstance(zero_group, str)
         self.assertTrue(zero_group)
         self.assertNotEqual(
@@ -68,6 +71,21 @@ class ZeroLocalCloudRuntimePolicyTests(unittest.TestCase):
             gated_group,
             "the non-mutating Zero-Local Worker observer must not hold the sole production deploy lock while waiting for that deploy",
         )
+        # The scheduled health refresh must not share the deploy lock: GitHub cancels
+        # the older pending run in a group, so a 20-minute cron in the same group
+        # could evict a queued production deploy.
+        self.assertNotIn("concurrency", gated, "concurrency must be declared per job")
+        refresh_group = refresh_job.get("concurrency", {}).get("group")
+        self.assertIsInstance(refresh_group, str)
+        self.assertNotEqual(refresh_group, gated_group)
+        self.assertIs(refresh_job["concurrency"].get("cancel-in-progress"), False)
+
+    def test_pr_ci_runs_repository_policy_tests_for_deploy_workflow_changes(self):
+        """A change to the deploy workflow or the Worker must run this module in PR CI,
+        not only post-merge inside the deploy job."""
+        ci = (ROOT / ".github/workflows/skill-mandatory-fast-gateway-ci.yml").read_text(encoding="utf-8")
+        self.assertIn("deploy-skill-mandatory-fast-gateway.yml", ci)
+        self.assertIn("unittest discover -s tests", ci)
 
 
 if __name__ == "__main__":

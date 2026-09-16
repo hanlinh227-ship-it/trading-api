@@ -21,6 +21,25 @@ class SkillMandatoryPolicyTests(unittest.TestCase):
             self.assertIs(runtime["profiles"][name]["skill_capsule_required"], True)
         self.assertEqual(runtime["profiles"]["FAST"]["max_supporting_skills"], 0)
 
+    def test_deep_escalation_covers_security_risk_vocabulary(self):
+        """security.yaml risk classes (financial, destructive, credential) and
+        runtime.yaml DEEP triggers must be represented in the canonical compiled
+        escalation list, in English and Vietnamese (accented and unaccented).
+        4.11.0 routed 'withdraw', 'rút tiền', 'seed phrase' FAST without authority."""
+        aliases = load("AI_SKILL_LIBRARY/v4/runtime/routing_aliases.yaml")
+        deep = {" ".join(str(t).lower().split()) for t in aliases["profile_escalation"]["DEEP"]}
+        required = {
+            "financial": ["withdraw", "rút tiền", "rut tien", "chuyển tiền", "chuyen tien", "transfer funds", "send money", "payment", "thanh toán", "thanh toan", "wallet", "sign transaction", "broadcast transaction", "swap token", "bridge asset", "financial action"],
+            "credential_sensitive": ["private key", "seed phrase", "cụm từ khôi phục", "passphrase", "api key", "secret", "credential", "mật khẩu", "mat khau"],
+            "destructive": ["xóa", "xoa", "delete", "drop table", "rm -rf", "destroy", "destructive", "xóa dữ liệu"],
+            "permission_change": ["permission", "phân quyền", "cấp quyền", "revoke scope"],
+            "deployment_or_runtime": ["deploy", "triển khai", "production", "runtime"],
+            "live_or_trading": ["live", "trading", "giao dịch", "market entry"],
+        }
+        missing = {cls: [t for t in terms if t not in deep] for cls, terms in required.items()}
+        missing = {cls: terms for cls, terms in missing.items() if terms}
+        self.assertEqual(missing, {}, f"routing_aliases DEEP escalation missing risk vocabulary: {missing}")
+
 
 if __name__ == "__main__":
     unittest.main()

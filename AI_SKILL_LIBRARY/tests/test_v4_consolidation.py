@@ -66,6 +66,36 @@ class AuthorityChainTests(unittest.TestCase):
         self.assertNotIn("activation key is `GITHUB_BRAIN_V2`", readme)
         self.assertFalse((LIB / "LEGACY_CLEANUP.md").exists(), "stale V2 cleanup doc must be archived")
 
+    def test_checkpoint_registered_authority_docs_do_not_claim_stale_current_release(self):
+        """Docs the checkpoint registers as current authority must not carry a
+        prose 'current release' that disagrees with current.json.
+
+        4.11.0 shipped while AI_GLOBAL_CHECKPOINT.md still said 4.9.1 (and, two
+        paragraphs later, 4.8.1); a successor following AGENTS.md reads those
+        docs before the pointer. Historical figures are allowed only when the
+        line is explicitly marked 'at time of writing'.
+        """
+        import re
+
+        checkpoint = _json("AI_SKILL_LIBRARY/checkpoint.json")
+        version = _json("AI_SKILL_LIBRARY/v4/releases/current.json")["version"]
+        keys = ("global_checkpoint_path", "master_handoff_path", "vnext_closure_path", "max_activation_closure_path", "latest_closure_path")
+        release_line = re.compile(r"(?:Current capability release: `|^\| Release(?: / version)? \| `)(\d+\.\d+\.\d+)`")
+        for key in keys:
+            rel = checkpoint.get(key)
+            self.assertIsInstance(rel, str, key)
+            path = ROOT / rel
+            self.assertTrue(path.is_file(), f"{key} -> {rel} missing")
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("Active stable release pointer therefore remains", text, rel)
+            for line in text.splitlines():
+                match = release_line.search(line)
+                if match and match.group(1) != version:
+                    self.assertIn("at time of writing", line, f"{rel}: stale current-release claim {match.group(1)!r} (pointer is {version}): {line.strip()}")
+        latest = (ROOT / checkpoint["latest_closure_path"]).read_text(encoding="utf-8")
+        self.assertIn(f"Target release: `{version}`", latest, "latest_closure_path must describe the active release")
+        self.assertIn(checkpoint["latest_closure_path"], (ROOT / checkpoint["global_checkpoint_path"]).read_text(encoding="utf-8"), "global checkpoint must point successors at the latest closure record")
+
     def test_exactly_one_router_has_routing_authority(self):
         legacy = _yaml("AI_SKILL_LIBRARY/router.yaml")
         stable = _yaml("AI_SKILL_LIBRARY/v4/stable/router.yaml")
@@ -337,8 +367,18 @@ class ReleaseTests(unittest.TestCase):
         on_disk = yaml.safe_load((ROOT / pointer["manifest_path"]).read_text(encoding="utf-8"))
         rebuilt = build_manifest(ROOT, pointer["version"], promotion=on_disk["promotion"])
         on_disk_rows = {row["path"]: row["sha256"] for row in on_disk["files"]}
-        for row in rebuilt["files"]:
-            self.assertEqual(on_disk_rows.get(row["path"]), row["sha256"], f"manifest hash stale for {row['path']}: run release.py build")
+        rebuilt_rows = {row["path"]: row["sha256"] for row in rebuilt["files"]}
+        # Bidirectional: the builder must reproduce exactly the committed row set.
+        # A row present on disk but absent from RELEASE_FILES means the next
+        # `release.py build` would silently drop that file from the immutable
+        # hash set while the runtime still loads it (4.11.0 shipped two such rows).
+        self.assertEqual(
+            sorted(on_disk_rows),
+            sorted(rebuilt_rows),
+            "release.py RELEASE_FILES drifted from the active manifest row set",
+        )
+        for path, digest in rebuilt_rows.items():
+            self.assertEqual(on_disk_rows.get(path), digest, f"manifest hash stale for {path}: run release.py build")
         roles = {row["role"] for row in on_disk["files"]}
         for role in ("budgets", "retrieval", "router", "runtime", "memory", "harmonization", "capability_fusion", "creative_visual_fusion"):
             self.assertIn(role, roles, role)
@@ -414,9 +454,16 @@ class CiAndDeploymentTests(unittest.TestCase):
     def test_production_deploy_and_zero_local_observer_use_isolated_locks(self):
         production = yaml.safe_load((WORKFLOWS / "deploy-skill-mandatory-fast-gateway.yml").read_text(encoding="utf-8"))
         observer = yaml.safe_load((WORKFLOWS / "deploy-cloudflare-worker.yml").read_text(encoding="utf-8"))
-        self.assertEqual(production["concurrency"]["group"], "cloudflare-zero-local-runtime-production")
-        self.assertIs(production["concurrency"]["cancel-in-progress"], False)
-        self.assertNotEqual(observer["concurrency"]["group"], production["concurrency"]["group"])
+        # The gated deploy declares concurrency per job so the health-refresh schedule
+        # cannot evict a queued production deploy from a shared group.
+        self.assertNotIn("concurrency", production)
+        deploy_lock = production["jobs"]["deploy-exact-main"]["concurrency"]
+        refresh_lock = production["jobs"]["refresh-model-mesh-health"]["concurrency"]
+        self.assertEqual(deploy_lock["group"], "cloudflare-zero-local-runtime-production")
+        self.assertIs(deploy_lock["cancel-in-progress"], False)
+        self.assertNotEqual(refresh_lock["group"], deploy_lock["group"])
+        self.assertIs(refresh_lock["cancel-in-progress"], False)
+        self.assertNotEqual(observer["concurrency"]["group"], deploy_lock["group"])
         self.assertEqual(observer["concurrency"]["group"], "cloudflare-zero-local-runtime-observer")
         self.assertIs(observer["concurrency"]["cancel-in-progress"], False)
 

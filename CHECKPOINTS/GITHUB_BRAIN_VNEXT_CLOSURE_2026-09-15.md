@@ -14,7 +14,7 @@
 
 | Field | Value | Status |
 |---|---|---|
-| Release | `4.9.3` | SOURCE VERIFIED |
+| Release | `4.9.3` at time of writing — current value: `AI_SKILL_LIBRARY/v4/releases/current.json` | SOURCE VERIFIED |
 | `KNOWN_GOOD` | **YES** | PRODUCTION VERIFIED |
 | Previous release | `4.9.2`, `known_good: true` (single-step rollback target) | SOURCE VERIFIED |
 | vNext feature SHA on `main` | `4dfd012bac218f685b91ef40eaa45222b58ef9c9` | PRODUCTION VERIFIED |
