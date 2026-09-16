@@ -165,4 +165,4 @@ compatibility:
 promotion:
   class: feature
   validated: false
-  source: free_image_render_agent_pr385
+  source: free_image_render_agent_pr385_synced_main
