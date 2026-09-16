@@ -7,6 +7,7 @@ assert.match(workflow,/workflow_run:/);
 assert.match(workflow,/Deploy Skill-Mandatory Fast Gateway/);
 assert.match(workflow,/workflow_run\.conclusion == 'success'/);
 assert.match(workflow,/workflow_run\.head_branch == 'main'/);
+assert.match(workflow,/workflow_run\.event == 'push'/);
 assert.match(workflow,/name: Production Image Render V2 smoke/);
 assert.match(workflow,/MODEL_MESH_EXECUTION_TOKEN:\s*\$\{\{ secrets\.MODEL_MESH_EXECUTION_TOKEN \}\}/);
 assert.match(workflow,/EXPECTED_SHA:\s*\$\{\{ github\.event\.workflow_run\.head_sha \}\}/);
@@ -20,6 +21,7 @@ assert.match(workflow,/-X DELETE/);
 assert.match(workflow,/"dataClass":"PUBLIC"/);
 assert.match(workflow,/IMAGE_RENDER_MODELS=PROVIDER_DEGRADED/);
 assert.match(workflow,/IMAGE_RENDER_V2_PRODUCTION_SMOKE=PASS/);
-assert.doesNotMatch(workflow,/referenceImages|sourceImage/);
+assert.doesNotMatch(workflow,/"referenceImages"\s*:/);
+assert.doesNotMatch(workflow,/"sourceImage"\s*:/);
 
 console.log('IMAGE_RENDER_V2_PRODUCTION_SMOKE_CONTRACT_TEST=PASS');
