@@ -11,12 +11,18 @@ def load(rel: str) -> dict:
 
 
 class UniversalFabricPolicyTests(unittest.TestCase):
-    def test_three_initial_adapters_are_non_authoritative(self):
+    def test_initial_user_adapters_and_internal_evergreen_are_non_authoritative(self):
         rows = load("AI_SKILL_LIBRARY/v4/adapters/registry.yaml")["adapters"]
-        self.assertEqual({r["id"] for r in rows}, {"chatgpt", "claude", "gemini"})
+        users = {r["id"] for r in rows if r.get("principal_type", "user") == "user"}
+        internal = {r["id"] for r in rows if r.get("principal_type") == "internal"}
+        self.assertEqual(users, {"chatgpt", "claude", "gemini"})
+        self.assertEqual(internal, {"evergreen"})
         self.assertTrue(all(r["routing_authority"] is False for r in rows))
         self.assertTrue(all(r["reasoning_authority"] is False for r in rows))
         self.assertEqual(len({r["token_binding"] for r in rows}), len(rows))
+        evergreen = next(r for r in rows if r["id"] == "evergreen")
+        self.assertNotIn("brain.route", evergreen["scopes"])
+        self.assertIn("brain.review_candidate_memory", evergreen["scopes"])
 
     def test_fast_is_zero_rtt_and_high_risk_never_degrades(self):
         policy = load("AI_SKILL_LIBRARY/v4/stable/universal_fabric.yaml")
