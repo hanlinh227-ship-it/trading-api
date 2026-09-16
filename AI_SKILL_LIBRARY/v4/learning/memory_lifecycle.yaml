@@ -1,0 +1,50 @@
+version: 1
+purpose: candidate_first_shared_memory_lifecycle_under_v4_authority
+routing_authority: false
+reasoning_authority: false
+stable_direct_write: false
+memory_authority: false
+canonical_memory_policy: AI_SKILL_LIBRARY/v4/stable/memory.yaml
+
+states: [candidate, pending, confirmed, active, superseded, archived, tombstoned]
+initial_state: candidate
+
+candidate_required:
+  - candidate_id
+  - domain
+  - scope
+  - content
+  - source
+  - confidence
+  - created_at
+  - evidence_refs
+
+review_gate:
+  require: [reusable, verified, scoped, non_sensitive, evidence]
+  unresolved_conflict: block
+  current_project_authority_wins: true
+  current_runtime_wins: true
+  majority_vote: false
+  silent_averaging: false
+
+promotion:
+  candidate_to_active_direct_api: forbidden
+  active_requires_verified_gate: true
+  stable_catalog_write: promotion_pipeline_only
+  user_confirmation_required_when_policy_demands: true
+
+supersession:
+  verified_newer_only: true
+  superseded_is_not_retrieval_authority: true
+  preserve_provenance: true
+
+privacy:
+  forbidden_fields: [raw_private_chat, hidden_reasoning, chain_of_thought, secrets, credentials, api_keys, private_keys, authentication_tokens, seed_phrases, raw_private_tool_payload]
+  forbidden_content_markers: [api_key, private_key, bearer_token, seed_phrase, authentication_token]
+  sensitive_content_action: reject
+
+retention:
+  candidate_default: bounded
+  active: policy_controlled
+  superseded: bounded_audit_only
+  tombstoned: metadata_only
