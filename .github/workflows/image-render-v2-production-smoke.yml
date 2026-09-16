@@ -44,6 +44,15 @@ jobs:
           const x=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
           if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.provider!=='ai_horde'||!Array.isArray(x.models))process.exit(4);
           console.log('IMAGE_RENDER_MODELS=PASS count='+x.models.length);
+          // Runtime discovery evidence: which models the free provider actually serves
+          // right now, and with how many workers. The model vault may only record a
+          // runtime provider for a model that appears here with capacity.
+          const served=x.models
+            .map(m=>({name:String(m&&m.name||''),workers:Number(m&&m.workerCount||0),queued:Number(m&&m.queued||0),eta:Number(m&&m.eta||0)}))
+            .filter(m=>m.name)
+            .sort((a,b)=>b.workers-a.workers);
+          for(const m of served)console.log('IMAGE_RUNTIME_DISCOVERED model='+m.name+' workers='+m.workers+' queued='+m.queued+' eta='+m.eta);
+          console.log('IMAGE_RUNTIME_DISCOVERY=PASS serving='+served.filter(m=>m.workers>0).length+'/'+served.length);
           NODE
           else
             MODELS_FILE="$models_file" MODELS_CODE="$models_code" node - <<'NODE'
@@ -64,5 +73,20 @@ jobs:
 
           status="$(curl -fsS --connect-timeout 5 --max-time 20 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/batch/status?id=$batch_id")"
           printf '%s\n' "$status" | BATCH_ID="$batch_id" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.state?.batch_id!==process.env.BATCH_ID||x.summary?.status!=='cancelled')process.exit(8);console.log('IMAGE_RENDER_BATCH_STATUS=PASS '+x.state.batch_id)})"
+
+          activation="$(curl -fsS --connect-timeout 5 --max-time 20 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/v3/activation")"
+          printf '%s\n' "$activation" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);
+          if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.autoPurchase!==false)process.exit(9);
+          if(!Array.isArray(x.models)||!Array.isArray(x.providers))process.exit(10);
+          // A model reported ACTIVE in production must have a runtime provider behind it.
+          for(const m of x.models){if(m.tasks.some(t=>t.status==='ACTIVE')&&(!m.runtimeProviders||m.runtimeProviders.length===0))process.exit(11);}
+          console.log('IMAGE_V3_ACTIVATION=PASS active='+x.summary.ACTIVE+' candidate='+x.summary.CANDIDATE+' bottleneck='+x.nextBottleneck);})"
+
+          capabilities="$(curl -fsS --connect-timeout 5 --max-time 20 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/v3/capabilities")"
+          printf '%s\n' "$capabilities" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);
+          if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.localRuntimeRequired!==false)process.exit(12);
+          // Reference work must stay fail-closed until a reference-safe free runtime exists.
+          if(x.referenceSafeRuntime!=='AVAILABLE'&&x.taskAvailability.REFERENCE_GENERATION!=='WAITING_FOR_SAFE_FREE_RUNTIME')process.exit(13);
+          console.log('IMAGE_V3_CAPABILITIES=PASS t2i='+x.taskAvailability.TEXT_TO_IMAGE+' ref='+x.taskAvailability.REFERENCE_GENERATION+' critic='+x.visualCriticRuntime);})"
 
           echo 'IMAGE_RENDER_V2_PRODUCTION_SMOKE=PASS'

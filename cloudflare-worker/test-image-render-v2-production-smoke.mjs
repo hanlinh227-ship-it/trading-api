@@ -24,4 +24,21 @@ assert.match(workflow,/IMAGE_RENDER_V2_PRODUCTION_SMOKE=PASS/);
 assert.doesNotMatch(workflow,/"referenceImages"\s*:/);
 assert.doesNotMatch(workflow,/"sourceImage"\s*:/);
 
+// Runtime discovery evidence: production must report which models the free provider
+// actually serves, so the vault can only record a runtime for a model seen with capacity.
+assert.match(workflow,/IMAGE_RUNTIME_DISCOVERED model=/);
+assert.match(workflow,/IMAGE_RUNTIME_DISCOVERY=PASS/);
+
+// The V3 planes are verified in production too, not just V2.
+assert.match(workflow,/\/brain\/image\/v3\/activation/);
+assert.match(workflow,/\/brain\/image\/v3\/capabilities/);
+assert.match(workflow,/IMAGE_V3_ACTIVATION=PASS/);
+assert.match(workflow,/IMAGE_V3_CAPABILITIES=PASS/);
+// An ACTIVE model with no runtime provider must fail the smoke.
+assert.match(workflow,/runtimeProviders/);
+// Reference work must stay fail-closed in production until a safe free runtime exists.
+assert.match(workflow,/WAITING_FOR_SAFE_FREE_RUNTIME/);
+// The smoke still renders nothing and uploads nothing.
+assert.doesNotMatch(workflow,/"referenceAssets"\s*:/);
+
 console.log('IMAGE_RENDER_V2_PRODUCTION_SMOKE_CONTRACT_TEST=PASS');
