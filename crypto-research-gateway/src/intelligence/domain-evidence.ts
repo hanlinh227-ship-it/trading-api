@@ -15,6 +15,8 @@ export type DomainEvidenceEvaluation = {
   qualitySummary: DomainEvidenceQualitySummary;
 };
 
+const MATERIAL_PRICE_DIVERGENCE_BPS = 30;
+
 function addReason(reasons: string[], reason: string): void {
   if (!reasons.includes(reason)) reasons.push(reason);
 }
@@ -25,6 +27,53 @@ function sessionRequired(domain: MarketDomain): boolean {
 
 function contractRequired(domain: MarketDomain): boolean {
   return domain === 'futures' || domain === 'metals' || domain === 'commodities';
+}
+
+function validateInstrumentSemantics(
+  observations: readonly NormalizedMarketObservation[],
+  reasons: string[],
+): void {
+  const instrumentTypes = new Set(
+    observations
+      .map((item) => item.instrumentType)
+      .filter((value): value is NonNullable<NormalizedMarketObservation['instrumentType']> => value !== undefined),
+  );
+  if (instrumentTypes.size > 1) addReason(reasons, 'DATA_CONFLICT');
+}
+
+function validateEquivalentBarPrices(
+  observations: readonly NormalizedMarketObservation[],
+  reasons: string[],
+): void {
+  const groups = new Map<string, NormalizedMarketObservation[]>();
+  for (const observation of observations) {
+    if ((observation.evidenceKind ?? 'bar') !== 'bar') continue;
+    const key = [
+      observation.timeframe,
+      observation.eventTime,
+      observation.instrumentType ?? 'unknown',
+      observation.canonicalSymbol ?? observation.symbol,
+    ].join('|');
+    const current = groups.get(key) ?? [];
+    current.push(observation);
+    groups.set(key, current);
+  }
+
+  for (const equivalent of groups.values()) {
+    if (equivalent.length < 2) continue;
+    const closes = equivalent.map((item) => item.close).filter((value) => Number.isFinite(value));
+    if (closes.length !== equivalent.length) continue;
+    const high = Math.max(...closes);
+    const low = Math.min(...closes);
+    const reference = (high + low) / 2;
+    const divergenceBps = reference > 0
+      ? ((high - low) / reference) * 10_000
+      : Number.POSITIVE_INFINITY;
+    if (divergenceBps > MATERIAL_PRICE_DIVERGENCE_BPS) {
+      addReason(reasons, 'DATA_CONFLICT');
+      return;
+    }
+  }
 }
 
 function validateContractMetadata(
@@ -88,6 +137,9 @@ export function evaluateDomainEvidence(
 
   if (relevant.length === 0) addReason(reasons, 'NO_USABLE_EVIDENCE');
   if (selected.length === 0 && relevant.length > 0) addReason(reasons, 'NO_LIVE_EVIDENCE');
+
+  validateInstrumentSemantics(selected, reasons);
+  validateEquivalentBarPrices(selected, reasons);
 
   const context = selected.filter((item) => item.timeframe === '1h');
   const entry = selected.filter((item) => item.timeframe === '15m');
