@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { classifyEvidenceQuality } from '../src/intelligence/evidence-quality.js';
+import { resolveCurrentContract } from '../src/intelligence/contract-resolver.js';
 import { DEFAULT_MARKET_UNIVERSE, resolveUniverse } from '../src/intelligence/market-universe.js';
 import { buildDataAcquisitionPlan } from '../src/intelligence/source-planner.js';
 import type { NormalizedMarketObservation } from '../src/intelligence/autonomous-scan.js';
@@ -198,5 +199,45 @@ describe('live multi-market V3 evidence quality', () => {
     expect(q.liveEligible).toBe(false);
     expect(q.state).toBe('DELAYED_CONTEXT');
     expect(q.reasons).toContain('MARKET_CLOSED_CONTEXT');
+  });
+});
+
+describe('live multi-market V3 futures contract resolution', () => {
+  const nowMs = Date.parse('2026-09-16T12:00:00.000Z');
+
+  it('selects the nearest active non-expired verified realtime contract', () => {
+    const result = resolveCurrentContract('NQ', [
+      { productCode: 'NQ', ticker: 'NQU26', expiry: '2026-09-18T21:00:00Z', active: true, entitlement: 'VERIFIED_REALTIME' },
+      { productCode: 'NQ', ticker: 'NQZ26', expiry: '2026-12-18T21:00:00Z', active: true, entitlement: 'VERIFIED_REALTIME' },
+    ], nowMs);
+
+    expect(result.status).toBe('RESOLVED');
+    if (result.status === 'RESOLVED') expect(result.contract.ticker).toBe('NQU26');
+  });
+
+  it('does not select a delayed nearer contract over a verified realtime contract', () => {
+    const result = resolveCurrentContract('GC', [
+      { productCode: 'GC', ticker: 'GCV26', expiry: '2026-09-28T21:00:00Z', active: true, entitlement: 'VERIFIED_DELAYED' },
+      { productCode: 'GC', ticker: 'GCZ26', expiry: '2026-12-28T21:00:00Z', active: true, entitlement: 'VERIFIED_REALTIME' },
+    ], nowMs);
+
+    expect(result.status).toBe('RESOLVED');
+    if (result.status === 'RESOLVED') expect(result.contract.ticker).toBe('GCZ26');
+  });
+
+  it('blocks rather than guessing when no valid contract exists', () => {
+    expect(resolveCurrentContract('GC', [], nowMs)).toEqual({ status: 'BLOCKED', reason: 'CONTRACT_UNRESOLVED' });
+  });
+
+  it('distinguishes expired evidence from no contract evidence', () => {
+    expect(resolveCurrentContract('CL', [
+      { productCode: 'CL', ticker: 'CLU26', expiry: '2026-09-10T21:00:00Z', active: true, entitlement: 'VERIFIED_REALTIME' },
+    ], nowMs)).toEqual({ status: 'BLOCKED', reason: 'CONTRACT_EXPIRED' });
+  });
+
+  it('ignores candidates belonging to another product', () => {
+    expect(resolveCurrentContract('ES', [
+      { productCode: 'NQ', ticker: 'NQU26', expiry: '2026-09-18T21:00:00Z', active: true, entitlement: 'VERIFIED_REALTIME' },
+    ], nowMs)).toEqual({ status: 'BLOCKED', reason: 'CONTRACT_UNRESOLVED' });
   });
 });
