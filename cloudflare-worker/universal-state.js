@@ -7,6 +7,16 @@ function validKey(key){
   if(!value||value.length>240||value.includes('..')||/[\r\n\0]/.test(value))throw new Error('invalid_state_key');
   return value;
 }
+function validListPrefix(value=''){
+  const text=String(value||'');
+  if(text.length>200||text.includes('..')||/[\r\n\0]/.test(text))throw new Error('invalid_state_prefix');
+  return text;
+}
+function validLimit(limit=50){
+  const value=Number(limit);
+  if(!Number.isInteger(value)||value<1||value>100)throw new Error('invalid_state_limit');
+  return value;
+}
 
 function jsonKvStore(binding,prefix){
   if(!binding||typeof binding.get!=='function'||typeof binding.put!=='function'){
@@ -15,6 +25,7 @@ function jsonKvStore(binding,prefix){
       async get(){return unavailable();},
       async put(){return unavailable();},
       async delete(){return unavailable();},
+      async list(){return unavailable({items:[],cursor:null});},
     };
   }
   return {
@@ -42,6 +53,23 @@ function jsonKvStore(binding,prefix){
       if(typeof binding.delete!=='function')return unavailable();
       await binding.delete(prefix+key);
       return {ok:true};
+    },
+    async list(keyPrefix='',limit=50){
+      keyPrefix=validListPrefix(keyPrefix);limit=validLimit(limit);
+      if(typeof binding.list!=='function')return unavailable({items:[],cursor:null});
+      try{
+        const listed=await binding.list({prefix:prefix+keyPrefix,limit});
+        const keys=Array.isArray(listed?.keys)?listed.keys.slice(0,limit):[];
+        const items=[];
+        for(const row of keys){
+          const name=String(row?.name||'');
+          if(!name.startsWith(prefix))continue;
+          const raw=await binding.get(name,'json');
+          const value=raw===null?null:raw;
+          items.push({key:name.slice(prefix.length),value});
+        }
+        return {unavailable:false,items,cursor:listed?.list_complete===false?String(listed?.cursor||''):null};
+      }catch{return unavailable({items:[],cursor:null});}
     },
   };
 }
@@ -78,8 +106,6 @@ function taskQueue(binding){
 }
 
 function leaseLock(binding){
-  // A distributed lock requires a dedicated atomic Durable Object contract.
-  // Until that binding implements the contract, existing update-plane locks remain authoritative.
   if(!binding||typeof binding.withLease!=='function')return {available:false,async withLease(){return unavailable();}};
   return {
     available:true,
@@ -107,3 +133,4 @@ export function createStateStores(env={}){
 }
 
 export const UNIVERSAL_STATE_PREFIX=PREFIX;
+export const UNIVERSAL_STATE_META_PREFIX=META_PREFIX;
