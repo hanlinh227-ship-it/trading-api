@@ -116,6 +116,15 @@ agents:
       health_path: /brain/image/health
       submit_path: /brain/image/render
       status_path: /brain/image/status
+      batch_submit_path: /brain/image/batch
+      batch_status_path: /brain/image/batch/status
+      models_path: /brain/image/models
+      retry_path: /brain/image/retry
+      max_scenes: 100
+      default_concurrency: 4
+      max_concurrency: 8
+      max_attempts_per_scene: 3
+      state_binding: IMAGE_RENDER_BATCH
       free_only: true
       paid_fallback: false
   uxui_reviewer:
