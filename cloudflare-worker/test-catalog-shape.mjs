@@ -62,4 +62,21 @@ assert.deepEqual(shape.keys, ['id', 'owned_by', 'tier']);
 assert.deepEqual(shape.sample, {id: 'a', tier: 'free'});
 assert.deepEqual(catalogShape([]), {keys: [], sample: null});
 
+// --- the shape both NVIDIA and Zen actually return -------------------------
+// Confirmed by probe run 35048454601: a bare OpenAI listing, no price, no free
+// marking. This is the case that must fail closed rather than read as free.
+const bareRow = {id: 'meta/muse-glimmer-30b', object: 'model', created: 735790403, owned_by: 'meta'};
+assert.equal(listedPrice(bareRow), null);
+assert.equal(freeLabel(bareRow), null);
+assert.equal(probeEligibility(bareRow, {requireFreeLabel: true}).eligible, false);
+assert.equal(probeEligibility(bareRow, {requireFreeLabel: true}).note, 'SKIPPED_NO_FREE_LABEL_IN_CATALOG');
+assert.deepEqual(catalogShape([bareRow]).keys, ['created', 'id', 'object', 'owned_by']);
+
+// A documented free id is still just an id: the suffix proves nothing, so the
+// allowlist narrows what gets probed and never substitutes for the probe.
+const documentedFree = {id: 'mimo-v2.5-free', object: 'model', created: 1, owned_by: 'opencode'};
+assert.equal(freeLabel(documentedFree), null, 'a -free suffix is not a catalog free marking');
+assert.equal(probeEligibility(documentedFree, {requireFreeLabel: true}).eligible, false);
+assert.equal(probeEligibility(documentedFree, {allowUnpriced: true}).eligible, true);
+
 console.log('provider catalog shape and probe-eligibility contracts ok');

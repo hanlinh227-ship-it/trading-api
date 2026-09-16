@@ -71,9 +71,9 @@ providers:
     zero_cost_class: unverified
     treatment: probe_and_select_from_live_listing
     prefer_labels: ["Free Endpoint"]
-    probe_evidence: "probe run 35047130298 (2026-09-16T02:14:46Z, main 69dd282): listing 200 with 82 models; meta/muse-glimmer-30b returned 200 on chat completions on the first probed candidate"
+    probe_evidence: "probe run 35047130298: listing 200 with 82 models, meta/muse-glimmer-30b returned 200 on chat completions on the first probed candidate. probe run 35048454601 (2026-09-16T02:35:10Z, main aa06e73): catalog rows carry only created/id/object/owned_by and 0 of 82 models expose any free-tier field"
     account_evidence: "account-holder verification 2026-09-16: NVIDIA Build shows models carrying a Free Endpoint label"
-    notes: "Liveness is proven - a listed model does complete - but the first probe found no price and no free marking in the API listing. Admission requires the catalog own free marking plus a completion PASS, never whichever model answers first; PROBE_REQUIRE_FREE_LABEL enforces that. If the label exists only on the website and not in the API, say so rather than admitting on the website word."
+    notes: "Liveness is proven - a listed model does complete - but the API exposes no free-tier field at all (0 of 82 rows), so the Free Endpoint label is a website-only fact the runtime cannot check. Admission requires the catalog own free marking plus a completion PASS, never whichever model answers first; PROBE_REQUIRE_FREE_LABEL enforces that. If the label exists only on the website and not in the API, say so rather than admitting on the website word."
     evidence:
       developer_access: https://docs.api.nvidia.com/nim/docs/product
   cerebras:
@@ -104,9 +104,9 @@ providers:
     provider_class_hint: F2
     zero_cost_class: temporary_zero_price
     treatment: mixed_catalog_zero_price_only
-    probe_evidence: "probe run 35047130298 (2026-09-16T02:14:46Z, main 69dd282): listing 200 with 70 models, none carrying a published price; the live catalog contains no id from the documented free set (big-pickle, mimo-v2.5-free, ling-3.0-flash-fin-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free, muse-spark-1.3-contributor-free); muse-spark-1.3 returned 401 on chat completions while the same credential listed models successfully"
+    probe_evidence: "probe run 35047130298: listing 200 with 70 models, muse-spark-1.3 returned 401 on chat completions while the same credential listed models. probe run 35048454601 (2026-09-16T02:35:10Z, main aa06e73) CORRECTS that round: the documented free ids ARE present (big-pickle, mimo-v2.5-free, ling-3.0-flash-fin-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free, muse-spark-1.3-contributor-free, plus deepseek-v4-flash-free and muse-spark-1.2-contributor-free); the earlier absence was a listing printed capped at 40 of 70 ids and read as complete. Catalog rows carry only created/id/object/owned_by and 0 of 70 expose a price or free field"
     account_evidence: "account-holder verification 2026-09-16: the Zen workspace still offers Enable billing, so billing is off and no call can become billable"
-    notes: "No-billing is verified, which closes the spillover half. The pricing half is not. The documented free ids were absent from the live catalog, and the one free-named candidate answered 401 on completions while the same credential listed models. Admission needs a live catalog entry priced at input=0 and output=0 plus a completion PASS, classified temporary_zero_price and revalidated every 24h. Never enable billing and never fall back to a paid model."
+    notes: "No-billing is verified, which closes the spillover half: no Zen call can become billable whatever it costs, which is what makes probing here cost-safe. The documented free ids ARE in the live catalog, so the remaining question is only whether completions authorise - the one probed candidate answered 401 while the same credential listed models. Admission needs a live catalog entry priced at input=0 and output=0 plus a completion PASS, classified temporary_zero_price and revalidated every 24h. Never enable billing and never fall back to a paid model."
     evidence:
       models: https://opencode.ai/zen/v1/models
       docs: https://opencode.ai/docs/zen

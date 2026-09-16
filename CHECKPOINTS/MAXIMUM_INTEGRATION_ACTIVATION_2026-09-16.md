@@ -227,21 +227,61 @@ hand-picked ids failed to do. But NVIDIA publishes no price in `/v1/models` and
 exposes no tier endpoint, so admitting it would assert a zero cost nothing has
 shown. It waits on the same kind of account evidence Alibaba has.
 
-**The documented Zen free models do not exist.** None of `big-pickle`,
-`mimo-v2.5-free`, `ling-3.0-flash-fin-free`, `nemotron-3-ultra-free`,
-`nemotron-3.5-lightning-free` or `muse-spark-1.3-contributor-free` is in the
-live catalog. Hard-coding that list would have admitted six models that are not
-there. Separately, the credential lists models but 401s on completions, which is
-a scope problem to fix before pricing even matters.
+**~~The documented Zen free models do not exist.~~ CORRECTED by probe run
+35048454601.** They do exist. The first round printed the catalog capped at 40
+of 70 ids and that capped list was read as the whole catalog, so six models
+present in it were reported absent. `big-pickle`, `mimo-v2.5-free`,
+`ling-3.0-flash-fin-free`, `nemotron-3-ultra-free`,
+`nemotron-3.5-lightning-free` and `muse-spark-1.3-contributor-free` are all in
+the live listing, alongside `deepseek-v4-flash-free` and
+`muse-spark-1.2-contributor-free`. The listing now announces when it truncates,
+so a capped list cannot be mistaken for a complete one again. The 401 on
+completions was real and is still open.
+
+### Probe round 2 (run 35048454601): what the APIs actually expose
+
+The account holder verified that NVIDIA Build marks models Free Endpoint and
+that Zen's pricing page lists six Free models. Round 2 asked whether either API
+exposes that, by dumping the catalog row shape instead of guessing field names.
+
+Both are bare OpenAI listings. Every row carries exactly
+`created, id, object, owned_by` — **no price, no free marking**:
+
+```
+PROVIDER_FREE_LABELS provider=nvidia_nim    labelled=0/82 (catalog exposes no free-tier field)
+PROVIDER_FREE_LABELS provider=opencode_zen  labelled=0/70 (catalog exposes no free-tier field)
+```
+
+So the free marking is a **website-only fact** for both. With
+`probe_require_free_label` on, all 152 candidates were skipped and **not one
+completion call was made** — the round cost nothing and admitted nothing, which
+is the correct outcome when the evidence a rule requires is absent.
+
+That splits the two providers cleanly:
+
+- **nvidia_nim** stays fail-closed on a provider-side evidence gap. The API
+  offers no way to tell a Free Endpoint model from a paid one, and admitting on
+  the website's word would assert a fact the runtime cannot check. Closing this
+  needs NVIDIA to expose the tier, or an account-holder attestation of the kind
+  that admitted Alibaba, recorded as attestation rather than as provider
+  evidence.
+- **opencode_zen** has a usable path. Its six documented Free ids are present
+  in the live catalog, and billing is verified off, so no Zen call can become
+  billable whatever it costs. That makes a completion probe cost-safe, and the
+  documented id list a legitimate probe *input* — never admission evidence. A
+  model is admitted only when it also returns a completion PASS, classified
+  `temporary_zero_price` against the pricing page with a 24h revalidation.
 
 ### Remaining, in order of what unblocks most
 
-1. **nvidia_nim** — needs account-tier evidence (a console check like the one
-   that admitted Alibaba, or a Free Endpoint label the API exposes). Liveness
-   and a working model id are already proven, so admission is then one registry
+1. **nvidia_nim** — the API exposes no free-tier field (confirmed, 0/82), so
+   admission needs an account-holder attestation recorded as such. Liveness and
+   a working model id are already proven, so admission is then one registry
    entry plus a re-probe.
-2. **opencode_zen** — needs a credential that can call completions, not only
-   list. Then a live catalog price read decides admission per model.
+2. **opencode_zen** — the documented free ids are present and billing is off,
+   so the remaining question is only whether completions authorise. Probe the
+   documented set with `probe_models`; if the 401 persists and names billing as
+   the reason, that is a fail-closed account blocker and billing stays off.
 3. **sambanova, cerebras, cohere** — discovery-only on provider evidence
    (priced catalog; finite free trial; trial/evaluation). None is a code change;
    all re-enter automatically if a zero-price model or tier appears.
