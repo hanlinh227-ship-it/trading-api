@@ -26,10 +26,13 @@ provider:
   notes: AI Horde publicly commits to free access and no paid-priority tier, but no external service can be technically guaranteed to exist forever. Runtime therefore guarantees FREE_ONLY behavior, not perpetual provider availability.
 
 privacy:
+  explicit_data_class_required: true
   allowed_data_classes: [PUBLIC]
   denied_data_classes: [INTERNAL, CONFIDENTIAL, SECRET]
   non_public_action: fail_closed
   reference_images_on_volunteer_provider: disabled
+  anonymous_requests_may_be_shared_by_provider: true
+  anonymous_sharing_note: AI Horde documents that anonymous requests are always shared even when shared=false is requested, so anonymous mode is restricted to explicitly PUBLIC prompts only.
   reason: prompts and generated assets are processed by community volunteer infrastructure; do not send non-public project assets by default.
 
 runtime:
@@ -52,7 +55,8 @@ constraints:
   steps_range: [4, 40]
   nsfw: false
   censor_nsfw: true
-  shared: false
+  requested_shared: false
+  anonymous_effective_shared: true
   paid_route_forbidden: true
   unknown_cost_action: reject
 
