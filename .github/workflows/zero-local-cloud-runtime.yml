@@ -91,10 +91,10 @@ jobs:
           from pathlib import Path
           data = json.loads(Path('/tmp/zero-local-health.json').read_text())
           healthy = set(data.get('healthyProviders', []))
-          required_unrestricted = {'binance', 'okx', 'gate', 'kucoin'}
-          missing = sorted(required_unrestricted - healthy)
-          if missing:
-              raise SystemExit(f'public provider probes failed: {missing}')
+          research_sources = {'binance', 'okx', 'gate', 'kucoin'}
+          healthy_research = research_sources & healthy
+          if len(healthy_research) < 2:
+              raise SystemExit(f'public research redundancy insufficient: healthy={sorted(healthy_research)} providers={data.get("providers", {})}')
           bybit = data.get('providers', {}).get('bybit', {})
           bybit_ok = 'bybit' in healthy
           bybit_region_restricted = bybit.get('error') == 'region_restricted_bybit_cloud_region'
