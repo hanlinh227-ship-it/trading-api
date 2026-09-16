@@ -37,6 +37,9 @@ const authHeaders={'x-image-render-token':TOKEN,'content-type':'application/json
   assert.equal(body.paidFallback,false);
   assert.equal(body.provider.id,'ai_horde');
   assert.deepEqual(body.privacy.allowedDataClasses,['PUBLIC']);
+  assert.equal(body.privacy.explicitDataClassRequired,true);
+  assert.equal(body.privacy.referenceImagesEnabled,false);
+  assert.equal(body.privacy.anonymousRequestsMayBeSharedByProvider,true);
 }
 
 {
@@ -47,6 +50,12 @@ const authHeaders={'x-image-render-token':TOKEN,'content-type':'application/json
 {
   const response=await handler(new Request('https://brain.test/brain/image/render',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:'cat',dataClass:'PUBLIC'})}),enabledEnv);
   assert.equal(response.status,401);
+}
+
+{
+  const response=await handler(new Request('https://brain.test/brain/image/render',{method:'POST',headers:authHeaders,body:JSON.stringify({prompt:'unclassified cat'})}),enabledEnv);
+  assert.equal(response.status,400);
+  assert.equal((await response.json()).error,'data_class_required');
 }
 
 {
@@ -67,6 +76,7 @@ const authHeaders={'x-image-render-token':TOKEN,'content-type':'application/json
   const body=await response.json();
   assert.equal(body.jobId,JOB_ID);
   assert.equal(body.anonymous,true);
+  assert.equal(body.anonymousRequestsMayBeSharedByProvider,true);
   assert.equal(body.paidFallback,false);
 }
 
