@@ -1,6 +1,7 @@
 import {MODEL_MESH_BINDINGS} from '../generated/model-mesh-bindings.js';
 import {freeOnlyEligible,selectionCandidate} from './contracts.js';
 import {readModelHealth} from './health-store.js';
+import {resolveModelHealthStore} from './health-state.js';
 
 export function providerConfigured(model,env={}){
   const binding=MODEL_MESH_BINDINGS?.[model?.provider_id];
@@ -8,11 +9,12 @@ export function providerConfigured(model,env={}){
 }
 
 export async function resolveLiveModels(modelSnapshot,env={},options={}){
+  const healthStore=resolveModelHealthStore(env);
   return Promise.all((modelSnapshot?.models||[]).map(async model=>{
     if(!selectionCandidate(model,'PUBLIC',{nowMs:options.nowMs??Date.now()}))return {...model,runtimeState:'NOT_ELIGIBLE',runtimeCategory:freeOnlyEligible(model,{nowMs:options.nowMs??Date.now()})?'SELECTION_POLICY':'FREE_ONLY_POLICY',health:'unavailable',configured:providerConfigured(model,env)};
     const configured=providerConfigured(model,env);
     if(!configured)return {...model,runtimeState:'CONFIGURED',runtimeCategory:'CREDENTIAL_OR_BINDING_MISSING',health:'unavailable',configured:false};
-    const evidence=await readModelHealth(env?.TRADING_STATE,model,{sourceSha:modelSnapshot?.source_sha||'',nowMs:options.nowMs});
+    const evidence=await readModelHealth(healthStore,model,{sourceSha:modelSnapshot?.source_sha||'',nowMs:options.nowMs});
     return {...model,runtimeState:evidence.state,runtimeCategory:evidence.category||null,health:evidence.state==='LIVE_HEALTHY'?'healthy':'unavailable',configured:true,liveEvidence:evidence};
   }));
 }
