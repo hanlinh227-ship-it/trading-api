@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml"
 AGENTS_PATH = ROOT / "AI_SKILL_LIBRARY/v4/legion/agents.yaml"
 CREATIVE_PATH = ROOT / "AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml"
+RELEASE_TOOL_PATH = ROOT / "AI_SKILL_LIBRARY/v4/tools/release.py"
 
 
 def load_yaml(path: Path):
@@ -74,6 +75,13 @@ class ImageRenderV2BrainIntegrationTests(unittest.TestCase):
         self.assertEqual(runtime["strict_without_visual_critic"], "complete_unverified")
         self.assertFalse(runtime["routing_authority"])
         self.assertFalse(runtime["reasoning_authority"])
+
+    def test_release_tool_pins_canonical_image_render_policy(self):
+        release_tool = RELEASE_TOOL_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            '("AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml", "image_render_policy")',
+            release_tool,
+        )
 
 
 if __name__ == "__main__":
