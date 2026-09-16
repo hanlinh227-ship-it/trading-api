@@ -27,6 +27,21 @@ export function resolveAiHordeKey(env={}){
   return configured||ANONYMOUS_KEY;
 }
 
+export async function listAiHordeModels({fetchImpl=fetch}={}){
+  let response;
+  try{response=await fetchImpl(`${AI_HORDE_BASE}/status/models?type=image`,{headers:{'accept':'application/json','Client-Agent':CLIENT_AGENT}});}catch{return {ok:false,status:0,provider:'ai_horde',error:'provider_unreachable',models:[]};}
+  const body=await readJson(response);
+  if(!response.ok||!Array.isArray(body))return {ok:false,status:Number(response.status||0),provider:'ai_horde',error:'provider_rejected',models:[]};
+  const models=body.map(item=>({
+    name:String(item?.name||''),
+    workerCount:Number(item?.count||0),
+    performance:Number(item?.performance||0),
+    eta:Number(item?.eta||0),
+    queued:Number(item?.queued||0),
+  })).filter(item=>item.name);
+  return {ok:true,status:Number(response.status||200),provider:'ai_horde',models};
+}
+
 export async function submitAiHordeImage({prompt,negativePrompt='',width=512,height=512,steps=20,n=1,seed=null,models=[],apiKey=ANONYMOUS_KEY,fetchImpl=fetch}={}){
   const positive=String(prompt||'').trim();
   if(!positive)return {ok:false,status:400,error:'invalid_prompt'};
