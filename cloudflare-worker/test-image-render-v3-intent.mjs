@@ -57,3 +57,23 @@ assert.throws(()=>compileImageIntent({taskType:'REFERENCE_GENERATION',prompt:'Ma
 assert.throws(()=>compileImageIntent({taskType:'TEXT_TO_IMAGE',prompt:'',dataClass:'PUBLIC'}),/invalid_prompt/);
 
 console.log('image render v3 intent contracts: PASS');
+
+// Every task that edits an existing image needs that image. Accepting one without a
+// source would silently turn a targeted edit into a prompt-only render.
+for(const taskType of ['INPAINT','OUTPAINT','BACKGROUND_REPLACE','OBJECT_REPLACE','TEXT_RENDER_EDIT','TARGETED_REPAIR']){
+  assert.throws(
+    ()=>compileImageIntent({prompt:'edit this',taskType,dataClass:'PUBLIC'}),
+    /source_image_required/,
+    `${taskType} must require a source image`,
+  );
+  const intent=compileImageIntent({prompt:'edit this',taskType,dataClass:'PUBLIC',sourceImage:{id:'src'}});
+  assert.equal(validateImageIntent(intent).ok,true,taskType);
+  assert.equal(intent.referenceAssets.length,1);
+  assert.equal(intent.destructiveRedrawAllowed,false,`${taskType} must not default to a full redraw`);
+}
+
+// A source-image task that loses its reference must fail validation, never pass silently.
+const strippedEdit=compileImageIntent({prompt:'edit this',taskType:'INPAINT',dataClass:'PUBLIC',sourceImage:{id:'src'}});
+assert.equal(validateImageIntent({...strippedEdit,referenceAssets:[]}).ok,false);
+
+console.log('image render v3 intent source-image contracts: PASS');

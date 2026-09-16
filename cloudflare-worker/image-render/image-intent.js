@@ -4,6 +4,10 @@ const TASKS=new Set([
   'CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY','MULTI_SCENE_BATCH','TARGETED_REPAIR',
 ]);
 const PRIVACY=new Set(['PUBLIC','INTERNAL','CONFIDENTIAL','SECRET']);
+// Tasks that must be given the image they operate on. Accepting one without a source
+// would silently turn a targeted edit into a prompt-only render.
+const SOURCE_IMAGE_TASKS=new Set(['IMAGE_EDIT_GLOBAL','IMAGE_EDIT_LOCAL','INPAINT','OUTPAINT','BACKGROUND_REPLACE','OBJECT_REPLACE','TEXT_RENDER_EDIT','TARGETED_REPAIR']);
+const REFERENCE_TASKS=new Set(['REFERENCE_GENERATION','CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY']);
 const QUALITY=new Set(['STRUCTURAL','STRICT','STRICT_VISUAL']);
 const asList=value=>Array.isArray(value)?value.map(v=>String(v).trim()).filter(Boolean):[];
 const cleanObject=value=>value&&typeof value==='object'&&!Array.isArray(value)?value:null;
@@ -38,8 +42,8 @@ export function compileImageIntent(input={}){
   const refs=[];
   if(Array.isArray(input.referenceAssets))refs.push(...input.referenceAssets.filter(Boolean));
   if(cleanObject(input.sourceImage))refs.push(input.sourceImage);
-  if(['REFERENCE_GENERATION','CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY'].includes(taskType)&&refs.length===0)throw new Error('reference_assets_required');
-  if(taskType.startsWith('IMAGE_EDIT')&&refs.length===0)throw new Error('source_image_required');
+  if(REFERENCE_TASKS.has(taskType)&&refs.length===0)throw new Error('reference_assets_required');
+  if(SOURCE_IMAGE_TASKS.has(taskType)&&refs.length===0)throw new Error('source_image_required');
 
   const explicit=cleanObject(input.explicit)||{};
   const width=Number(input.width??input.target?.width??1024);
@@ -85,7 +89,7 @@ export function validateImageIntent(intent={}){
   const preserve=new Set(asList(intent.preserveRegions));
   const editable=asList(intent.editableRegions);
   if(editable.some(region=>preserve.has(region)))errors.push('preserve_edit_region_conflict');
-  const needsReference=['REFERENCE_GENERATION','CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY','IMAGE_EDIT_GLOBAL','IMAGE_EDIT_LOCAL'].includes(intent.taskType);
+  const needsReference=REFERENCE_TASKS.has(intent.taskType)||SOURCE_IMAGE_TASKS.has(intent.taskType);
   if(needsReference&&(!Array.isArray(intent.referenceAssets)||intent.referenceAssets.length===0))errors.push('reference_assets_required');
   if(!intent.target||!Number.isInteger(intent.target.width)||!Number.isInteger(intent.target.height)||intent.target.width<=0||intent.target.height<=0)errors.push('invalid_target_dimensions');
   return {ok:errors.length===0,errors};
