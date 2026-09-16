@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+PRINCIPAL_TYPES = {"user", "internal"}
 
 
 def _load_registry(root: Path) -> dict:
@@ -35,17 +36,22 @@ def compile_registry(root: Path, source_sha: str) -> dict:
         if not isinstance(raw, dict):
             raise ValueError("adapter_row_must_be_mapping")
         adapter_id = str(raw.get("id") or "").strip().lower()
+        principal_type = str(raw.get("principal_type") or "user").strip().lower()
         binding = str(raw.get("token_binding") or "").strip()
         scopes_raw = raw.get("scopes")
         if not adapter_id or adapter_id in seen_ids:
             raise ValueError(f"invalid_or_duplicate_adapter_id:{adapter_id}")
+        if principal_type not in PRINCIPAL_TYPES:
+            raise ValueError(f"invalid_principal_type:{adapter_id}:{principal_type}")
         if not binding or binding in seen_bindings:
             raise ValueError(f"invalid_or_duplicate_token_binding:{binding}")
         if not isinstance(scopes_raw, list) or not scopes_raw:
             raise ValueError(f"adapter_scopes_required:{adapter_id}")
         scopes = sorted({str(scope).strip() for scope in scopes_raw if str(scope).strip()})
-        if "brain.route" not in scopes:
+        if principal_type == "user" and "brain.route" not in scopes:
             raise ValueError(f"brain_route_scope_required:{adapter_id}")
+        if principal_type == "internal" and "brain.route" in scopes:
+            raise ValueError(f"internal_route_scope_forbidden:{adapter_id}")
         if raw.get("routing_authority") is not False or raw.get("reasoning_authority") is not False:
             raise ValueError(f"adapter_authority_forbidden:{adapter_id}")
         seen_ids.add(adapter_id)
@@ -53,6 +59,7 @@ def compile_registry(root: Path, source_sha: str) -> dict:
         adapters.append(
             {
                 "id": adapter_id,
+                "principal_type": principal_type,
                 "token_binding": binding,
                 "scopes": scopes,
                 "routing_authority": False,
