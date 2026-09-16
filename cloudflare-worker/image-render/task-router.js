@@ -1,3 +1,5 @@
+import {requiresReferenceSafeRuntime} from './provider-mesh.js';
+
 const isHealthy=candidate=>!['down','unhealthy','disabled'].includes(String(candidate.health||'').toLowerCase());
 const numberOr=(value,fallback=0)=>Number.isFinite(Number(value))?Number(value):fallback;
 
@@ -13,7 +15,7 @@ function taskHistory(history,candidate,taskType){
 
 export function rankImageModels({intent={},candidates=[],history={}}={}){
   const taskType=String(intent.taskType||'');
-  const needsReference=Array.isArray(intent.referenceAssets)&&intent.referenceAssets.length>0;
+  const needsReference=requiresReferenceSafeRuntime(intent);
   const width=numberOr(intent.target?.width,0);
   const height=numberOr(intent.target?.height,0);
 
