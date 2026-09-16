@@ -355,24 +355,11 @@ jobs:
           check_route_eventually 'viết quảng cáo giày cho quý bà' advertising_copy FAST
           check_route_eventually 'quét market BTC live' trading_router DEEP
 
-      - name: Production Model Mesh planner smoke
-        shell: bash
-        run: |
-          set -euo pipefail
-          check_plan() {
-            text="$1" expected_profile="$2" max_workers="$3"
-            health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
-            min_workers="$(printf '%s\n' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);process.stdout.write(String(Number(x.activeProviderCount)>0?1:0))})")"
-            body="$(TEXT="$text" node -e "process.stdout.write(JSON.stringify({text:process.env.TEXT,dataClass:'PUBLIC'}))")"
-            result="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' -d "$body" "$WORKER_BASE_URL/brain/mesh/plan" || true)"
-            printf '%s\n' "$result" | EXPECTED_PROFILE="$expected_profile" MIN_WORKERS="$min_workers" MAX_WORKERS="$max_workers" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),r=x.route||{},w=Array.isArray(x.workers)?x.workers:[];if(x.ok!==true||r.profile!==process.env.EXPECTED_PROFILE||r.sourceSha!==process.env.EXPECTED_SHA||r.externalRoutingCalls!==0||w.length<Number(process.env.MIN_WORKERS)||w.length>Number(process.env.MAX_WORKERS)||(w.length===0&&x.selectionReason!=='no_live_healthy_provider'))process.exit(2);console.log('MODEL_MESH_PLAN=PASS '+r.profile+' workers='+w.length+' reason='+x.selectionReason)}catch{process.exit(2)}})"
-          }
-          for attempt in 1 2 3 4 5 6; do
-            if check_plan 'sửa lỗi API này' STANDARD 2 && check_plan 'quét market BTC live' DEEP 4; then exit 0; fi
-            sleep 5
-          done
-          exit 1
-
+      # The provider canary runs BEFORE the planner smoke on purpose. On a fresh
+      # revision no provider has live evidence yet; a /brain/mesh/plan call then
+      # schedules the Worker's background self-heal probe, which raced this
+      # canary's probe (per-model last-writer-wins turned LIVE_HEALTHY into
+      # COOLDOWN and the overlay gate failed closed, run 35072895068).
       - name: Production Model Mesh provider canary
         env:
           MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
@@ -406,6 +393,24 @@ jobs:
           verify_live_plan 'quét market BTC live' trading_router DEEP 4
           contract="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/runtime/contract")"
           printf '%s\n' "$contract" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.EXPECTED)process.exit(2)})"
+
+      - name: Production Model Mesh planner smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_plan() {
+            text="$1" expected_profile="$2" max_workers="$3"
+            health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
+            min_workers="$(printf '%s\n' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);process.stdout.write(String(Number(x.activeProviderCount)>0?1:0))})")"
+            body="$(TEXT="$text" node -e "process.stdout.write(JSON.stringify({text:process.env.TEXT,dataClass:'PUBLIC'}))")"
+            result="$(curl -fsS --connect-timeout 5 --max-time 20 -H 'content-type: application/json' -d "$body" "$WORKER_BASE_URL/brain/mesh/plan" || true)"
+            printf '%s\n' "$result" | EXPECTED_PROFILE="$expected_profile" MIN_WORKERS="$min_workers" MAX_WORKERS="$max_workers" EXPECTED_SHA="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),r=x.route||{},w=Array.isArray(x.workers)?x.workers:[];if(x.ok!==true||r.profile!==process.env.EXPECTED_PROFILE||r.sourceSha!==process.env.EXPECTED_SHA||r.externalRoutingCalls!==0||w.length<Number(process.env.MIN_WORKERS)||w.length>Number(process.env.MAX_WORKERS)||(w.length===0&&x.selectionReason!=='no_live_healthy_provider'))process.exit(2);console.log('MODEL_MESH_PLAN=PASS '+r.profile+' workers='+w.length+' reason='+x.selectionReason)}catch{process.exit(2)}})"
+          }
+          for attempt in 1 2 3 4 5 6; do
+            if check_plan 'sửa lỗi API này' STANDARD 2 && check_plan 'quét market BTC live' DEEP 4; then exit 0; fi
+            sleep 5
+          done
+          exit 1
 
       # Zero-cost was proven in unit tests and in CI against the compiled
       # snapshot, never against the running Worker. A deploy that shipped a
