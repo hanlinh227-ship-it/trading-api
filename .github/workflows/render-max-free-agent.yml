@@ -37,11 +37,11 @@ jobs:
           cat > /tmp/render.json <<'JSON'
           {
             "dataClass":"PUBLIC",
-            "prompt":"Exactly one adorable preschool 3D CGI baby monkey character named Max, bright red-orange soft fur, rounded cream face and cream inner ears, very large glossy black eyes, short red hair tuft, childlike proportions with a large head and small body, short arms and legs, slim red tail curving naturally behind him. Max wears a sky-blue short-sleeve shirt, warm golden-yellow short overalls, and blue-and-white sneakers. He is standing happily on a sunny pastel playground path, gently waving with one hand, natural friendly smile, not looking directly into the camera. Modern polished preschool animation, soft rounded forms, clean materials, bright but balanced pastel colors, soft daylight, cinematic medium-full shot, high character readability, consistent anatomy, exactly two arms, two legs, two ears, one tail, no text, no watermark.",
-            "negativePrompt":"photorealistic, anime, human, ape realism, brown fur, black fur, extra arms, extra legs, extra tail, missing tail, duplicate character, duplicated limbs, deformed hands, malformed face, crossed eyes, mutated body, adult proportions, hat, backpack, bow, logo, text, watermark, blurry, low quality, harsh shadows",
-            "width":768,
+            "prompt":"SOLO CHARACTER ONLY. One single cute preschool cartoon monkey named Max, full body, centered, standing alone. Bright red-orange soft fur. Cream rounded face. Cream inner ears. Very large glossy black eyes. Two small red hair tufts. Large childlike head, small toddler body, short arms and legs, one slim red tail. Outfit locked: sky-blue short sleeve T-shirt, golden-yellow short overalls, blue-and-white sneakers. Friendly gentle smile, one hand raised in a small wave. Simple clean pastel studio background with soft pale yellow floor and pale sky-blue backdrop. No scenery characters. No people. No animals. No props. Modern polished 3D preschool CGI, soft rounded shapes, clean fabric, soft daylight, highly readable silhouette, exactly one character, exactly two arms, exactly two legs, exactly two ears, exactly one tail.",
+            "negativePrompt":"more than one character, second character, extra character, person, human, child, baby, other monkey, animal, crowd, duplicate, twins, cropped body, extra arms, extra legs, extra ears, extra tail, missing tail, deformed hands, malformed face, brown fur, black fur, red shirt, blue overalls, bare feet, hat, backpack, bow, toy, cup, prop, text, watermark, logo, photorealistic, anime, blurry, low quality",
+            "width":512,
             "height":768,
-            "steps":20,
+            "steps":24,
             "n":1
           }
           JSON
@@ -87,11 +87,11 @@ jobs:
           print(g[0]['imageUrl'])
           PY
           )"
-          curl -fL --retry 3 --retry-delay 2 "$IMAGE_URL" -o artifacts/max-free-agent.webp
-          file artifacts/max-free-agent.webp
-          test -s artifacts/max-free-agent.webp
+          curl -fL --retry 3 --retry-delay 2 "$IMAGE_URL" -o artifacts/max-free-agent-v2.webp
+          file artifacts/max-free-agent-v2.webp
+          test -s artifacts/max-free-agent-v2.webp
       - uses: actions/upload-artifact@v4
         with:
-          name: max-free-agent-render
-          path: artifacts/max-free-agent.webp
+          name: max-free-agent-render-v2
+          path: artifacts/max-free-agent-v2.webp
           retention-days: 7
