@@ -28,7 +28,7 @@
       "target_skill_id": null
     },
     {
-      "action": "create",
+      "action": "improve",
       "capability": "api",
       "domain": "engineering",
       "gap_id": "upstream:mcp_python_sdk:api",
@@ -37,11 +37,11 @@
       "routing_authority": false,
       "source_id": "mcp_python_sdk",
       "stable_write": false,
-      "status": "distinct_candidate",
-      "target_skill_id": null
+      "status": "strengthen_existing",
+      "target_skill_id": "api"
     },
     {
-      "action": "create",
+      "action": "improve",
       "capability": "automation",
       "domain": "engineering",
       "gap_id": "upstream:mcp_python_sdk:automation",
@@ -50,8 +50,8 @@
       "routing_authority": false,
       "source_id": "mcp_python_sdk",
       "stable_write": false,
-      "status": "distinct_candidate",
-      "target_skill_id": null
+      "status": "strengthen_existing",
+      "target_skill_id": "automation"
     },
     {
       "action": "create",
@@ -136,14 +136,14 @@
           "reasoning_authority": false,
           "routing_authority": false,
           "stable_write": false,
-          "status": "distinct_candidate",
+          "status": "strengthen_existing",
           "triage": {
-            "action": "create",
+            "action": "improve",
             "gap_id": "upstream:mcp_python_sdk:api",
             "promotion_class": "A",
             "routing_authority": false,
             "stable_write": false,
-            "target_skill_id": null
+            "target_skill_id": "api"
           }
         },
         {
@@ -151,14 +151,14 @@
           "reasoning_authority": false,
           "routing_authority": false,
           "stable_write": false,
-          "status": "distinct_candidate",
+          "status": "strengthen_existing",
           "triage": {
-            "action": "create",
+            "action": "improve",
             "gap_id": "upstream:mcp_python_sdk:automation",
             "promotion_class": "A",
             "routing_authority": false,
             "stable_write": false,
-            "target_skill_id": null
+            "target_skill_id": "automation"
           }
         },
         {
