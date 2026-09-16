@@ -1,0 +1,30 @@
+version: 1
+policy:
+  authority: false
+  stable_direct_write: false
+  candidate_first: true
+  require_pinned_revision: true
+  require_license: true
+  require_maintenance_status: true
+  source_registry_authority: AI_SKILL_LIBRARY/sources.yaml
+sources:
+  - source_id: mcp_python_sdk
+    source_type: github
+    location: modelcontextprotocol/python-sdk
+    pinned_revision: 9972c21aa42054fb1450c5fc614761ed11847ec6
+    license: MIT
+    maintenance_status: active
+    approved: true
+    domain: engineering
+    risk_class: A
+    capabilities: [api, automation, mcp_protocol_interop]
+  - source_id: docling
+    source_type: github
+    location: docling-project/docling
+    pinned_revision: 1aec03f1c3326584e8a7b97b2d0ed2ad95d946b4
+    license: MIT
+    maintenance_status: active
+    approved: true
+    domain: data_docs
+    risk_class: A
+    capabilities: [document_parsing, structure_aware_extraction]
