@@ -61,12 +61,18 @@ export type ChallengeResult = {
   reasons: string[];
 };
 
+export type TradingViewNavigationHint = {
+  mode: 'VERIFIED_SYMBOL' | 'SYMBOL_SEARCH';
+  query: string;
+};
+
 export type ChartContext = {
   provider: 'tradingview';
   requestedSymbol: string;
   symbol: string | null;
   timeframe: string | null;
   mappingStatus: 'VERIFIED' | 'UNVERIFIED';
+  navigationHint: TradingViewNavigationHint;
 };
 
 export type RankedOpportunity = OpportunityCandidate & {
@@ -200,6 +206,7 @@ export function buildChartContext(candidate: OpportunityCandidate): ChartContext
       symbol: mapping.symbol,
       timeframe: mapping.timeframe ?? null,
       mappingStatus: 'VERIFIED',
+      navigationHint: { mode: 'VERIFIED_SYMBOL', query: mapping.symbol },
     };
   }
   return {
@@ -208,6 +215,7 @@ export function buildChartContext(candidate: OpportunityCandidate): ChartContext
     symbol: null,
     timeframe: null,
     mappingStatus: 'UNVERIFIED',
+    navigationHint: { mode: 'SYMBOL_SEARCH', query: candidate.symbol },
   };
 }
 

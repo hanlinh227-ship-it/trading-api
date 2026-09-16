@@ -3,6 +3,12 @@ import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { listenPort, RUNTIME_MODE, SERVICE_NAME, SERVICE_VERSION } from './config.js';
 import {
+  buildCandidatesFromObservations,
+  buildTimeframePlan,
+  validateObservationSemantics,
+  type NormalizedMarketObservation,
+} from './intelligence/autonomous-scan.js';
+import {
   rankOpportunities,
   resolveMarketScope,
   type MarketDomain,
@@ -75,6 +81,44 @@ const opportunityRequestSchema = z.object({
   candidates: z.array(opportunityCandidateSchema).min(1).max(100),
 }).strict();
 
+const observationMetadataValueSchema = z.union([z.string(), z.number().finite(), z.boolean(), z.null()]);
+const normalizedObservationSchema = z.object({
+  id: z.string().min(1).max(120),
+  domain: marketDomainSchema,
+  symbol: z.string().min(1).max(80),
+  source: z.string().min(1).max(160),
+  sourceType: z.enum(['connector', 'gateway']),
+  eventTime: z.string().min(1).max(80),
+  ingestTime: z.string().min(1).max(80),
+  freshness: freshnessSchema,
+  timeframe: z.string().min(1).max(20),
+  open: z.number().finite(),
+  high: z.number().finite(),
+  low: z.number().finite(),
+  close: z.number().finite(),
+  bid: z.number().finite().optional(),
+  ask: z.number().finite().optional(),
+  volume: z.number().finite().optional(),
+  session: z.string().min(1).max(80).optional(),
+  metadata: z.record(z.string(), observationMetadataValueSchema).optional(),
+  chart: chartSchema.optional(),
+}).strict();
+const symbolSelectionSchema = z.object({
+  crypto: z.array(z.string().min(1).max(80)).min(1).max(50).optional(),
+  forex: z.array(z.string().min(1).max(80)).min(1).max(50).optional(),
+  futures: z.array(z.string().min(1).max(80)).min(1).max(50).optional(),
+  indices: z.array(z.string().min(1).max(80)).min(1).max(50).optional(),
+  metals: z.array(z.string().min(1).max(80)).min(1).max(50).optional(),
+  commodities: z.array(z.string().min(1).max(80)).min(1).max(50).optional(),
+}).strict();
+const autoscanRequestSchema = z.object({
+  intent: z.string().min(1).max(240).optional(),
+  requestedDomains: z.array(marketDomainSchema).min(1).max(6).optional(),
+  symbols: symbolSelectionSchema.optional(),
+  externalObservations: z.array(normalizedObservationSchema).max(500).optional(),
+  maxResults: z.number().int().min(1).max(10).default(3),
+}).strict();
+
 function responseEventTime(result: Record<string, unknown>, fallback: Date): string {
   const observations = Array.isArray(result.observations) ? result.observations : [];
   const timestamps = observations
@@ -109,6 +153,14 @@ function attachDataContract(
     provenance,
   });
   return { ...result, dataContract };
+}
+
+function symbolAllowed(
+  observation: NormalizedMarketObservation,
+  symbols: Partial<Record<MarketDomain, string[]>> | undefined,
+): boolean {
+  const requested = symbols?.[observation.domain];
+  return !requested || requested.includes(observation.symbol);
 }
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -149,7 +201,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     runtimeMode: RUNTIME_MODE,
     localInstallRequired: false,
     tools: READ_ONLY_TOOL_NAMES,
-    researchSurfaces: ['multi_market_opportunity_ranking'],
+    researchSurfaces: ['multi_market_opportunity_ranking', 'autonomous_multi_market_research'],
   }));
 
   app.post('/research/market', async (request, reply) => {
@@ -187,6 +239,81 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       excludedOutOfScope,
       ...ranking,
     }, 'multi_market_research');
+    return reply.code(200).send(result);
+  });
+
+  app.post('/research/autoscan', async (request, reply) => {
+    const parsed = autoscanRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ ok: false, degraded: false, error: 'invalid_autoscan_request' });
+    }
+
+    const observations = (parsed.data.externalObservations ?? []) as NormalizedMarketObservation[];
+    const invalidObservations = observations
+      .map((observation) => ({ id: observation.id, reasons: validateObservationSemantics(observation) }))
+      .filter((item) => item.reasons.length > 0);
+    if (invalidObservations.length > 0) {
+      return reply.code(400).send({
+        ok: false,
+        degraded: false,
+        error: 'invalid_autoscan_observation',
+        invalidObservations,
+      });
+    }
+
+    const scope = resolveMarketScope(parsed.data.requestedDomains as MarketDomain[] | undefined);
+    const scopedObservations = observations.filter((observation) =>
+      scope.includes(observation.domain) && symbolAllowed(observation, parsed.data.symbols as Partial<Record<MarketDomain, string[]>> | undefined));
+
+    const coverage = scope.map((domain) => {
+      const domainObservations = scopedObservations.filter((item) => item.domain === domain);
+      const usable = domainObservations.filter((item) => item.freshness === 'FRESH' || item.freshness === 'DEGRADED');
+      if (usable.length > 0) {
+        return {
+          domain,
+          requested: true,
+          usableObservationCount: usable.length,
+          status: 'COVERED' as const,
+          reasons: [] as string[],
+        };
+      }
+      return {
+        domain,
+        requested: true,
+        usableObservationCount: 0,
+        status: 'GAP' as const,
+        reasons: [domainObservations.length > 0 ? 'NO_FRESH_EVIDENCE' : 'NO_USABLE_EVIDENCE'],
+      };
+    });
+
+    const batch = buildCandidatesFromObservations(scopedObservations);
+    const ranking = rankOpportunities(batch.candidates);
+    const blocked = [
+      ...batch.blocked.map((item) => ({ id: `${item.domain}:${item.symbol}`, reasons: item.reasons })),
+      ...ranking.blocked,
+    ];
+    const providers = [...new Set(scopedObservations.map((item) => `${item.sourceType}:${item.source}`))];
+    const degraded = coverage.some((item) => item.status === 'GAP')
+      || blocked.length > 0
+      || ranking.decision === 'NO_TRADE';
+
+    const result = attachDataContract({
+      ok: true,
+      degraded,
+      capability: 'autonomous_multi_market_research',
+      researchOnly: true,
+      productionExecutionAuthority: false,
+      intent: parsed.data.intent ?? null,
+      scope,
+      timeframePlan: buildTimeframePlan(),
+      coverage,
+      candidatesBuilt: batch.candidates.length,
+      providers,
+      decision: ranking.decision,
+      ranked: ranking.ranked.slice(0, parsed.data.maxResults),
+      blocked,
+    }, 'autonomous_multi_market_research');
+
     return reply.code(200).send(result);
   });
 

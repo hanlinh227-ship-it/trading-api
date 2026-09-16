@@ -27,7 +27,8 @@ class SkillGatewayCompilerTests(unittest.TestCase):
         snapshot = compile_snapshot(ROOT, SHA, generated_at="2026-09-12T00:00:00Z")
         self.assertIn("sửa lỗi", snapshot["skills"]["debugging"]["aliases"])
         self.assertIn("viết quảng cáo", snapshot["skills"]["advertising_copy"]["aliases"])
-        self.assertIn("quét market", snapshot["skills"]["trading_router"]["aliases"])
+        self.assertIn("quét market", snapshot["skills"]["multi_market_analysis"]["triggers"])
+        self.assertNotIn("quét market", snapshot["skills"]["trading_router"]["aliases"])
         self.assertEqual(validate_snapshot(snapshot, ROOT), [])
 
     def test_validator_rejects_unknown_alias_skill(self):
