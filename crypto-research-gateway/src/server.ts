@@ -8,6 +8,7 @@ import {
   validateObservationSemantics,
   type NormalizedMarketObservation,
 } from './intelligence/autonomous-scan.js';
+import { buildCoverageReport } from './intelligence/coverage-report.js';
 import {
   rankOpportunities,
   resolveMarketScope,
@@ -202,6 +203,18 @@ function sourceCoverageFromPlan(
   return coverage;
 }
 
+function usesV3CoverageSemantics(
+  observations: readonly NormalizedMarketObservation[],
+  acquisitionCapabilities: readonly SourceCapability[],
+): boolean {
+  return acquisitionCapabilities.length > 0 || observations.some((observation) =>
+    observation.entitlement !== undefined
+    || observation.delayClass !== undefined
+    || observation.instrumentType !== undefined
+    || observation.providerSymbol !== undefined
+    || observation.contractExpiry !== undefined);
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: 256_000 });
   const runtime = new ResearchRuntime({ forceAllProvidersDown: options.forceAllProvidersDown });
@@ -320,29 +333,31 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       requestedSymbols,
       capabilities: acquisitionCapabilities,
     });
-
-    const coverage = scope.map((domain) => {
-      const domainObservations = scopedObservations.filter((item) => item.domain === domain);
-      const usable = domainObservations.filter((item) => item.freshness === 'FRESH' || item.freshness === 'DEGRADED');
-      if (usable.length > 0) {
+    const requestNowMs = options.nowMs ?? Date.now();
+    const v3Coverage = usesV3CoverageSemantics(scopedObservations, acquisitionCapabilities);
+    const coverage = v3Coverage
+      ? buildCoverageReport(scope, scopedObservations, dataAcquisitionPlan.gaps, requestNowMs)
+      : scope.map((domain) => {
+        const domainObservations = scopedObservations.filter((item) => item.domain === domain);
+        const usable = domainObservations.filter((item) => item.freshness === 'FRESH' || item.freshness === 'DEGRADED');
+        if (usable.length > 0) {
+          return {
+            domain,
+            requested: true,
+            usableObservationCount: usable.length,
+            status: 'COVERED' as const,
+            reasons: [] as string[],
+          };
+        }
         return {
           domain,
           requested: true,
-          usableObservationCount: usable.length,
-          status: 'COVERED' as const,
-          reasons: [] as string[],
+          usableObservationCount: 0,
+          status: 'GAP' as const,
+          reasons: [domainObservations.length > 0 ? 'NO_FRESH_EVIDENCE' : 'NO_USABLE_EVIDENCE'],
         };
-      }
-      return {
-        domain,
-        requested: true,
-        usableObservationCount: 0,
-        status: 'GAP' as const,
-        reasons: [domainObservations.length > 0 ? 'NO_FRESH_EVIDENCE' : 'NO_USABLE_EVIDENCE'],
-      };
-    });
+      });
 
-    const requestNowMs = options.nowMs ?? Date.now();
     const batch = buildCandidatesFromObservations(scopedObservations, requestNowMs);
     const ranking = rankOpportunities(batch.candidates);
     const blocked = [
@@ -351,7 +366,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     ];
     const providers = [...new Set(scopedObservations.map((item) => `${item.sourceType}:${item.source}`))];
     const sourceCoverage = sourceCoverageFromPlan(scope, dataAcquisitionPlan.sourcesByDomain);
-    const degraded = coverage.some((item) => item.status === 'GAP')
+    const degraded = coverage.some((item) => v3Coverage ? item.status !== 'LIVE' : item.status === 'GAP')
       || dataAcquisitionPlan.gaps.length > 0
       || blocked.length > 0
       || ranking.decision === 'NO_TRADE';
