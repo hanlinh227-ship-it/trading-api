@@ -22,6 +22,13 @@ function pushUnique(target: string[], value: string): void {
   if (!target.includes(value)) target.push(value);
 }
 
+function isActionableLiveEvidence(observation: NormalizedMarketObservation): boolean {
+  if (observation.timeframe === '15m' || observation.timeframe === '5m') return true;
+  return observation.evidenceKind === 'quote'
+    || observation.evidenceKind === 'snapshot'
+    || observation.evidenceKind === 'trade';
+}
+
 export function buildCoverageReport(
   domains: readonly MarketDomain[],
   observations: readonly NormalizedMarketObservation[],
@@ -51,9 +58,10 @@ export function buildCoverageReport(
     const planReasons = acquisitionGaps
       .filter((gap) => gap.domain === domain)
       .map((gap) => gap.reason);
+    const hasActionableLiveEvidence = live.some(isActionableLiveEvidence);
 
     let status: CoverageStatus;
-    if (live.length > 0) {
+    if (hasActionableLiveEvidence) {
       status = 'LIVE';
     } else if (relevant.length > 0) {
       status = 'CONTEXT_ONLY';
