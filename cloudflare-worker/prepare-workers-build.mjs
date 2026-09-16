@@ -26,11 +26,11 @@ if(process.env.WORKERS_CI==='1'){
   command(python,['-m','pip','install','--disable-pip-version-check','-r',path.join(root,'AI_SKILL_LIBRARY','requirements.txt')]);
   command(python,[path.join(root,'AI_SKILL_LIBRARY','v4','tools','ci_validate.py'),'--source-sha',sourceSha,'--skip-tests']);
   const exactEnv=canonicalPreparationEnv(process.env,root,sourceSha);
-  for(const script of ['prepare-skill-gateway.mjs','prepare-model-mesh.mjs','prepare-wrangler.mjs'])command(process.execPath,[path.join(here,script)],{cwd:here,env:exactEnv});
+  for(const script of ['prepare-universal-fabric.mjs','prepare-skill-gateway.mjs','prepare-model-mesh.mjs','prepare-wrangler.mjs'])command(process.execPath,[path.join(here,script)],{cwd:here,env:exactEnv});
   console.log(`WORKERS_BUILD_EXACT_SNAPSHOT=PASS source_sha=${sourceSha}`);
 }else{
   const here=path.dirname(fileURLToPath(import.meta.url));
-  const required=['model-mesh-snapshot.js','model-mesh-active-candidate-index.js','model-mesh-bindings.js','model-mesh-policy.js','free-only-policy.js','skill-gateway-snapshot.js'];
+  const required=['model-mesh-snapshot.js','model-mesh-active-candidate-index.js','model-mesh-bindings.js','model-mesh-policy.js','free-only-policy.js','skill-gateway-snapshot.js','universal-adapters.js'];
   const missing=required.filter(name=>!existsSync(path.join(here,'generated',name)));
-  if(missing.length)throw new Error(`Generated contracts missing: ${missing.join(', ')}. Run: python3 ../AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha $(git rev-parse HEAD) --skip-tests && npm run prepare:skill-gateway && npm run prepare:model-mesh`);
+  if(missing.length)throw new Error(`Generated contracts missing: ${missing.join(', ')}. Run: python3 ../AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha $(git rev-parse HEAD) --skip-tests && npm run prepare:universal-fabric && npm run prepare:skill-gateway && npm run prepare:model-mesh`);
 }
