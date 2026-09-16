@@ -1,0 +1,82 @@
+name: Patch BTC Authority Feature Branch
+
+on:
+  push:
+    branches:
+      - fix/bybit-btc-authority-reconcile-20260916
+    paths:
+      - '.github/workflows/patch-btc-authority-feature.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/bybit-btc-authority-reconcile-20260916
+          fetch-depth: 0
+      - name: Apply exact BTC-only execution guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=1):
+              p=Path(path)
+              text=p.read_text(encoding='utf-8')
+              found=text.count(old)
+              if found != count:
+                  raise SystemExit(f'{path}: expected {count} occurrence(s), found {found}: {old[:100]!r}')
+              p.write_text(text.replace(old,new,count),encoding='utf-8')
+
+          control='cloudflare-worker/bybit-control-plane.js'
+          replace(control,
+              "import {getBybitSymbolState} from './bybit-symbol-engine.js';",
+              "import {getBtcHyperscaleState,runBtcHyperscale} from './bybit-symbol-engine.js';")
+          replace(control,
+              "import {runBybitMultiAssetControlled,getMultiAssetControllerState} from './bybit-multi-asset-controller.js';",
+              "import {getMultiAssetControllerState} from './bybit-multi-asset-controller.js';")
+          replace(control,
+              "import {BYBIT_TRADE_UNIVERSE,BYBIT_PORTFOLIO_POLICY,isSupportedTradeSymbol,normalizeBybitSymbol} from './bybit-coin-profiles.js';",
+              "import {BYBIT_TRADE_UNIVERSE,BYBIT_PORTFOLIO_POLICY,isSupportedTradeSymbol,normalizeBybitSymbol} from './bybit-coin-profiles.js';\nimport {BYBIT_EXECUTION_AUTHORITY,BYBIT_EXECUTION_SYMBOL,BYBIT_EXECUTION_UNIVERSE,BYBIT_NON_BTC_EXECUTION_ERROR,isBybitExecutionSymbol,normalizeBybitExecutionSymbol} from './bybit-execution-authority.js';")
+          replace(control,"const unmanaged=positions.filter(x=>!isSupportedTradeSymbol(x.symbol))","const unmanaged=positions.filter(x=>!isBybitExecutionSymbol(x.symbol))")
+          replace(control,"multiAsset:true,universe:BYBIT_TRADE_UNIVERSE","multiAsset:false,universe:BYBIT_EXECUTION_UNIVERSE")
+          replace(control,"status:p.ok?'BYBIT_MULTI_ENTRY_INFRA_READY':'BYBIT_MULTI_ENTRY_BLOCKED',strategyAuthority:'PER_SYMBOL_STATEFLOW_COGNITION'","status:p.ok?'BYBIT_BTC_ENTRY_INFRA_READY':'BYBIT_BTC_ENTRY_BLOCKED',strategyAuthority:BYBIT_EXECUTION_AUTHORITY")
+          old_state="if(u.pathname==='/bybit/auto/state'&&req.method==='GET'){if(!authState(req,env).ok)return unauthorized(req,env);const symbol=normalizeBybitSymbol(u.searchParams.get('symbol')||'BTCUSDT');return json({ok:true,exchange:'BYBIT',version:BYBIT_AUTO_VERSION,symbol,state:await getBybitSymbolState(env,symbol),controller:await getMultiAssetControllerState(env)})}"
+          new_state="if(u.pathname==='/bybit/auto/state'&&req.method==='GET'){if(!authState(req,env).ok)return unauthorized(req,env);const symbol=normalizeBybitExecutionSymbol(u.searchParams.get('symbol')||BYBIT_EXECUTION_SYMBOL);if(!isBybitExecutionSymbol(symbol))return json({ok:false,reason:BYBIT_NON_BTC_EXECUTION_ERROR,symbol,executionAuthority:BYBIT_EXECUTION_AUTHORITY},409);return json({ok:true,exchange:'BYBIT',version:BYBIT_AUTO_VERSION,symbol:BYBIT_EXECUTION_SYMBOL,state:await getBtcHyperscaleState(env),controller:await getMultiAssetControllerState(env)})}"
+          replace(control,old_state,new_state)
+          old_run="if(u.pathname==='/bybit/auto/run'&&req.method==='POST'){const a=authState(req,env);if(!a.ok)return unauthorized(req,env);if(a.source!=='VPS_BRIDGE_SECRET')return json({ok:false,reason:'BYBIT_ENTRY_TRIGGER_REQUIRES_VPS_WS_DRIVER'},409);if(!on(env.BYBIT_AUTO_ENABLED))return json({ok:false,reason:'BYBIT_ENGINE_DISABLED'},409);const symbol=normalizeBybitSymbol(req.headers.get('x-bybit-symbol')||'BTCUSDT'),managementOnly=String(req.headers.get('x-bybit-management-only')||'').toLowerCase()==='true';try{return json({exchange:'BYBIT',triggerSource:a.source,eventDriven:true,managementOnly,...(await runBybitMultiAssetControlled(env,{symbol,managementOnly}))})}catch(e){return json({ok:false,exchange:'BYBIT',reason:'BYBIT_MULTI_AUTO_RUN_FAILED',error:String(e?.message||e)},502)}}"
+          new_run="if(u.pathname==='/bybit/auto/run'&&req.method==='POST'){const a=authState(req,env);if(!a.ok)return unauthorized(req,env);if(a.source!=='VPS_BRIDGE_SECRET')return json({ok:false,reason:'BYBIT_ENTRY_TRIGGER_REQUIRES_VPS_WS_DRIVER'},409);if(!on(env.BYBIT_AUTO_ENABLED))return json({ok:false,reason:'BYBIT_ENGINE_DISABLED'},409);const symbol=normalizeBybitExecutionSymbol(req.headers.get('x-bybit-symbol')||BYBIT_EXECUTION_SYMBOL),managementOnly=String(req.headers.get('x-bybit-management-only')||'').toLowerCase()==='true';if(!isBybitExecutionSymbol(symbol))return json({ok:false,exchange:'BYBIT',reason:BYBIT_NON_BTC_EXECUTION_ERROR,symbol,executionAuthority:BYBIT_EXECUTION_AUTHORITY},409);try{return json({exchange:'BYBIT',triggerSource:a.source,eventDriven:true,managementOnly,executionAuthority:BYBIT_EXECUTION_AUTHORITY,...(await runBtcHyperscale(env,{entryBlockReason:managementOnly?'MANAGEMENT_ONLY_BTCUSDT':null}))})}catch(e){return json({ok:false,exchange:'BYBIT',reason:'BYBIT_BTC_AUTO_RUN_FAILED',error:String(e?.message||e)},502)}}"
+          replace(control,old_run,new_run)
+          replace(control,"replacement:'BYBIT_MULTI_ASSET_STATEFLOW'","replacement:BYBIT_EXECUTION_AUTHORITY")
+
+          engine='cloudflare-worker/bybit-symbol-engine.js'
+          replace(engine,
+              'import {bybitAutoConfig} from "./bybit-auto-config.js";',
+              'import {bybitAutoConfig} from "./bybit-auto-config.js";\nimport {BYBIT_EXECUTION_AUTHORITY,BYBIT_EXECUTION_SYMBOL,BYBIT_NON_BTC_EXECUTION_ERROR,assertBybitExecutionSymbol} from "./bybit-execution-authority.js";')
+          old_exports="export async function runBybitSymbolEngine(env,opts={}){const symbol=norm(opts.symbol||'BTCUSDT'),rest={...opts};delete rest.symbol;return engineFor(symbol).runSymbol(env,rest);}\nexport async function getBybitSymbolState(env,symbol='BTCUSDT'){return engineFor(norm(symbol)).getState(env);}\nexport async function runBtcHyperscale(env,opts={}){return runBybitSymbolEngine(env,{...opts,symbol:'BTCUSDT'});}\nexport async function getBtcHyperscaleState(env){return getBybitSymbolState(env,'BTCUSDT');}\nexport const BTC_HYPERSCALE_ENGINE_VERSION='BYBIT-MULTI-ASSET-ENGINE-4.9.0-SCALP-FIRST-FAST-TURNOVER';"
+          new_exports="export async function runBybitSymbolEngine(env,opts={}){const requested=norm(opts.symbol||BYBIT_EXECUTION_SYMBOL);let symbol;try{symbol=assertBybitExecutionSymbol(requested);}catch(error){return {ok:false,executed:false,mode:'BLOCKED',reason:BYBIT_NON_BTC_EXECUTION_ERROR,symbol:requested,executionAuthority:BYBIT_EXECUTION_AUTHORITY};}const rest={...opts};delete rest.symbol;return engineFor(symbol).runSymbol(env,rest);}\nexport async function getBybitSymbolState(env,symbol=BYBIT_EXECUTION_SYMBOL){const requested=norm(symbol);assertBybitExecutionSymbol(requested);return engineFor(BYBIT_EXECUTION_SYMBOL).getState(env);}\nexport async function runBtcHyperscale(env,opts={}){return runBybitSymbolEngine(env,{...opts,symbol:BYBIT_EXECUTION_SYMBOL});}\nexport async function getBtcHyperscaleState(env){return getBybitSymbolState(env,BYBIT_EXECUTION_SYMBOL);}\nexport const BTC_HYPERSCALE_ENGINE_VERSION=BYBIT_EXECUTION_AUTHORITY;"
+          replace(engine,old_exports,new_exports)
+
+          index='cloudflare-worker/index.js'
+          replace(index,"import {BYBIT_TRADE_UNIVERSE} from './bybit-coin-profiles.js';","import {BYBIT_EXECUTION_UNIVERSE} from './bybit-execution-authority.js';")
+          replace(index,"SERVICE='Bybit Major-Cap Multi-Asset StateFlow'","SERVICE='Bybit BTCUSDT StateFlow 2.1'")
+          replace(index,"multiAsset:true,symbols:BYBIT_TRADE_UNIVERSE","multiAsset:false,symbols:BYBIT_EXECUTION_UNIVERSE")
+          replace(index,"strategyAuthority:'PER_SYMBOL_COGNITION_STATEFLOW'","strategyAuthority:BYBIT_EXECUTION_AUTHORITY")
+          replace(index,"replacement:'BYBIT_MULTI_ASSET_STATEFLOW'","replacement:BYBIT_EXECUTION_AUTHORITY")
+          PY
+          git diff --check
+      - name: Commit feature patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-control-plane.js cloudflare-worker/bybit-symbol-engine.js cloudflare-worker/index.js
+          git diff --cached --quiet && { echo 'NO_PATCH'; exit 1; }
+          git commit -m 'fix: fail closed outside BTCUSDT execution authority'
+          git push origin HEAD:fix/bybit-btc-authority-reconcile-20260916
