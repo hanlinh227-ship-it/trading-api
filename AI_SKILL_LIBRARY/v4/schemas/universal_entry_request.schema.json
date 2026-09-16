@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "universal_entry_request.schema.json",
+  "title": "Universal Brain Entry Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["client_id", "adapter_version", "session_id", "request_id", "text", "declared_capabilities", "tool_classes", "data_class", "requested_action_class"],
+  "properties": {
+    "client_id": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9_-]*$"},
+    "adapter_version": {"type": "string", "minLength": 1, "maxLength": 32},
+    "session_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "request_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "text": {"type": "string", "minLength": 1, "maxLength": 20000},
+    "project_hint": {"type": ["string", "null"], "maxLength": 160},
+    "freshness": {"type": "string", "enum": ["none", "normal", "current", "live"]},
+    "declared_capabilities": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 80}},
+    "tool_classes": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 80}},
+    "data_class": {"type": "string", "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "SECRET"]},
+    "requested_action_class": {
+      "type": "string",
+      "enum": [
+        "informational",
+        "ordinary_research",
+        "artifact_creation",
+        "project_context",
+        "external_tool",
+        "live_or_trading",
+        "deployment_or_runtime_claim",
+        "credential_sensitive",
+        "financial",
+        "destructive",
+        "permission_change"
+      ]
+    }
+  }
+}
