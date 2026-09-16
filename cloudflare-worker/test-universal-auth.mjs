@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {authenticateAdapter,requiredScopeForPath} from './universal-auth.js';
+import {authenticateAdapter,requiredScopeForPath,UNIVERSAL_ADAPTER_SOURCE_SHA,UNIVERSAL_CLIENT_IDS} from './universal-auth.js';
 
 const env={
   BRAIN_CLIENT_CHATGPT_TOKEN:'chatgpt-token',
@@ -10,6 +10,9 @@ const env={
 function req(client,token,path='/brain/universal/route',method='POST'){
   return new Request(`https://example.test${path}`,{method,headers:{'x-brain-client':client,authorization:`Bearer ${token}`}});
 }
+
+assert.match(UNIVERSAL_ADAPTER_SOURCE_SHA,/^[0-9a-f]{40}$/);
+assert.deepEqual([...UNIVERSAL_CLIENT_IDS].sort(),['chatgpt','claude','gemini']);
 
 let out=await authenticateAdapter(req('chatgpt','chatgpt-token'),env,'brain.route');
 assert.equal(out.ok,true);
