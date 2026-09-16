@@ -12,13 +12,13 @@
 
 | Field | Value | Status |
 |---|---|---|
-| Release | `4.9.5` | SOURCE VERIFIED |
+| Release | `4.9.8` | SOURCE VERIFIED |
 | `KNOWN_GOOD` | **YES** | PRODUCTION VERIFIED |
-| Previous release | `4.9.4`, known-good (single-step rollback target) | SOURCE VERIFIED |
+| Previous release | `4.9.7`, known-good (single-step rollback target) | SOURCE VERIFIED |
 | Worker | `trading-v77-scanner` | SOURCE VERIFIED |
 | Deployment authority | `deploy-skill-mandatory-fast-gateway.yml` (**sole**) | SOURCE VERIFIED |
 
-Merged: PRs #356, #357, #358, #359, #360, #361, #362, #363, #364.
+Merged: PRs #356-#369.
 
 ---
 
@@ -87,6 +87,36 @@ The original `NETWORK_ERROR http=0` was undiagnosable because the listing
 helper collapsed every thrown error to status 0. With the transport reason
 retained, SambaNova resolves and lists 7 models: the original failure was
 transient reachability, not a wrong endpoint.
+
+### Account-holder attestation round — outcome
+
+The account holder attested free-recurring or account-specific free access for
+nvidia_nim, cerebras, sambanova and alibaba_model_studio. All four were admitted
+on that attestation (recorded as `entitlement_evidence`, explicitly an
+attestation and never dressed as provider evidence) and then probed live.
+**Only one survived the probe.**
+
+| Provider | Probe | Outcome |
+|---|---|---|
+| alibaba_model_studio | `qwen3.8-flash` 200 | ADMITTED, LIVE_HEALTHY |
+| cerebras | `qwen-3.8-27b` 402 | REMOVED - `FREE_ENTITLEMENT_INVALID` |
+| sambanova | `Meta-Llama-3.3-70B-Instruct` 402 | REMOVED - `FREE_ENTITLEMENT_INVALID` |
+| nvidia_nim | 410 then 404 on two listed models | REMOVED - listing is not liveness |
+
+The operating rule this established, and the one to keep: **an attestation is
+good evidence where the provider is silent, and is overridden where the provider
+itself answers.** Cerebras and SambaNova both returned 402 Payment Required,
+which is the provider directly contradicting the attested free access, so they
+were removed rather than retained.
+
+NVIDIA is a different failure: two models that the live `/v1/models` listing
+returned both failed on chat completions (410 Gone, then 404 MODEL_NOT_FOUND).
+This is the same listing-versus-liveness gap proven on Gemini. Re-admitting
+NVIDIA requires a probe-driven selection loop like the Gemini diagnostic - not
+another model id chosen by hand.
+
+**LIVE_HEALTHY: 4** - groq, cloudflare_workers_ai, openrouter,
+alibaba_model_studio.
 
 ### Why entitlement stops here
 

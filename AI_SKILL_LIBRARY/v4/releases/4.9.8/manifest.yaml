@@ -155,5 +155,5 @@ compatibility:
   min_architecture: 4.0.0
 promotion:
   class: patch
-  validated: false
+  validated: true
   source: keep_only_passing_providers
