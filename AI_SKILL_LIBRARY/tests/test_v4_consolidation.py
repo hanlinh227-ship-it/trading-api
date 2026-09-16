@@ -66,6 +66,36 @@ class AuthorityChainTests(unittest.TestCase):
         self.assertNotIn("activation key is `GITHUB_BRAIN_V2`", readme)
         self.assertFalse((LIB / "LEGACY_CLEANUP.md").exists(), "stale V2 cleanup doc must be archived")
 
+    def test_checkpoint_registered_authority_docs_do_not_claim_stale_current_release(self):
+        """Docs the checkpoint registers as current authority must not carry a
+        prose 'current release' that disagrees with current.json.
+
+        4.11.0 shipped while AI_GLOBAL_CHECKPOINT.md still said 4.9.1 (and, two
+        paragraphs later, 4.8.1); a successor following AGENTS.md reads those
+        docs before the pointer. Historical figures are allowed only when the
+        line is explicitly marked 'at time of writing'.
+        """
+        import re
+
+        checkpoint = _json("AI_SKILL_LIBRARY/checkpoint.json")
+        version = _json("AI_SKILL_LIBRARY/v4/releases/current.json")["version"]
+        keys = ("global_checkpoint_path", "master_handoff_path", "vnext_closure_path", "max_activation_closure_path", "latest_closure_path")
+        release_line = re.compile(r"(?:Current capability release: `|^\| Release(?: / version)? \| `)(\d+\.\d+\.\d+)`")
+        for key in keys:
+            rel = checkpoint.get(key)
+            self.assertIsInstance(rel, str, key)
+            path = ROOT / rel
+            self.assertTrue(path.is_file(), f"{key} -> {rel} missing")
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("Active stable release pointer therefore remains", text, rel)
+            for line in text.splitlines():
+                match = release_line.search(line)
+                if match and match.group(1) != version:
+                    self.assertIn("at time of writing", line, f"{rel}: stale current-release claim {match.group(1)!r} (pointer is {version}): {line.strip()}")
+        latest = (ROOT / checkpoint["latest_closure_path"]).read_text(encoding="utf-8")
+        self.assertIn(f"Target release: `{version}`", latest, "latest_closure_path must describe the active release")
+        self.assertIn(checkpoint["latest_closure_path"], (ROOT / checkpoint["global_checkpoint_path"]).read_text(encoding="utf-8"), "global checkpoint must point successors at the latest closure record")
+
     def test_exactly_one_router_has_routing_authority(self):
         legacy = _yaml("AI_SKILL_LIBRARY/router.yaml")
         stable = _yaml("AI_SKILL_LIBRARY/v4/stable/router.yaml")

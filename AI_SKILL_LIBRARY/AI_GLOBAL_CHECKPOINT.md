@@ -13,9 +13,9 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Mandatory routing contract: exactly one primary skill + validated execution capsule for every GitHub Brain request
 - FAST routing: exact-SHA hot snapshot, zero GitHub/provider/network calls for route selection
 - Fallback primary skill: `core_reasoning`
-- Current capability release: `4.9.1` Adaptive Free Model Mesh — **production verified known-good** at exact SHA `99359b1720a28614749d53615fe2b740044de40e` (deploy run 34987419682), preserving the canonical routed skill/capsule authority chain
+- Current capability release: **resolve from `AI_SKILL_LIBRARY/v4/releases/current.json`** (never trust a version number written in prose; verify `known_good` in `history.yaml` and `promotion.validated` in the pointed manifest). Latest production closure record: `CHECKPOINTS/UNIVERSAL_BRAIN_FABRIC_4_11_0_CLOSURE_2026-09-16.md`. Historical figure at time of writing of this paragraph: `4.9.1` at `99359b1720a28614749d53615fe2b740044de40e` (deploy run 34987419682).
 - Master cross-session handoff: `CHECKPOINTS/GITHUB_BRAIN_MASTER_HANDOFF_2026-09-15.md` — read this after the checkpoint for current production truth, Model Mesh architecture, unresolved items and the next-phase boundary
-- Model Mesh production state: FREE_ONLY, 5 eligible providers, 3 ACTIVE; `gemini_developer_api` quarantined on an unresolved 404 and `mistral` rate-limited (both non-blocking, see the master handoff)
+- Model Mesh production state: FREE_ONLY; provider health is runtime evidence — read it from `/brain/mesh/health` (or the latest gated deploy run log), never from this document. Provider counts written here go stale within one deploy.
 - Continuous Intelligence rule: the Evergreen Update Plane may autonomously refresh sources, detect evidence-backed gaps, generate/test candidates, and prepare bounded improvements; Stable remains immutable during request execution and changes only through validated release promotion.
 - Autonomous promotion boundary: Class A/B may promote only after all required gates (and sandbox for B); Class C/D require explicit human authorization and cannot unattended-promote.
 - Open-source fusion rule: upstream repositories are reference/evidence only; strengthen existing canonical skills first; no parallel reasoning authority; no permission widening; no mandatory local runtime
@@ -44,7 +44,7 @@ This implementation exists on isolated branch `github-brain-v4-afmm-implementati
 - Checkpoint paths for Legion/learning policies are registered in `AI_SKILL_LIBRARY/checkpoint.json`.
 - Candidate release packaging is non-promoting. `release.py build_candidate_manifest()` hashes Stable + Legion contracts without mutating `current.json`.
 - Stable promotion is intentionally blocked until AFMM release/snapshot/runtime dependency verification is complete and all canonical release hashes are reconciled.
-- Active stable release pointer therefore remains `4.8.1`; do not represent the Legion candidate as active production.
+- The Legion candidate never moved the active stable release pointer; the active release is whatever `AI_SKILL_LIBRARY/v4/releases/current.json` says. Do not represent the Legion candidate as active production.
 - Implementation audit: `AI_SKILL_LIBRARY/v4/audit/PEER_TRI_LAYER_AI_LEGION_IMPLEMENTATION_REPORT.md`.
 - Approved spec: `docs/superpowers/specs/2026-09-15-peer-tri-layer-ai-legion-design.md`.
 - Implementation plan: `docs/superpowers/plans/2026-09-15-peer-tri-layer-ai-legion.md`.

@@ -1,5 +1,7 @@
 # Universal Brain Fabric 4.11.0 — Production Closure Checkpoint
 
+This record was drafted under the filename `UNIVERSAL_BRAIN_FABRIC_4_11_0_CANDIDATE_2026-09-16.md` and renamed once 4.11.0 was production-verified; it is registered as `latest_closure_path` in `AI_SKILL_LIBRARY/checkpoint.json`.
+
 Date: 2026-09-16
 Architecture: GITHUB_BRAIN_V4
 Status: PRODUCTION KNOWN-GOOD / EXACT-SHA VERIFIED
