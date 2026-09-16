@@ -19,8 +19,11 @@ assert.equal(state.scenes.find(x=>x.scene_id==='1').status,'retry_pending');
 assert.deepEqual(nextSubmissionSceneIds(state),['1']);
 assert.equal(summarizeBatch(state).activeScenes,3);
 
-state=markSceneProviderResult(state,{sceneId:'2',generation:{imageUrl:'https://x/2.webp',model:'M',state:'ok'},completedAt:'t2'});
-assert.equal(state.scenes.find(x=>x.scene_id==='2').status,'qa_pending');
+state=markSceneProviderResult(state,{sceneId:'2',generation:{imageUrl:'https://x/2.webp',model:'Observed M',state:'ok'},completedAt:'t2'});
+const scene2=state.scenes.find(x=>x.scene_id==='2');
+assert.equal(scene2.status,'qa_pending');
+assert.equal(scene2.attempts.at(-1).model,'M','requested model provenance must remain immutable');
+assert.equal(scene2.attempts.at(-1).observed_model,'Observed M','provider-returned model must be recorded separately');
 state=applySceneQualityDecision(state,{sceneId:'2',quality:{decision:'PASS',verified:true,reasons:[]},completedAt:'t3'});
 assert.equal(state.scenes.find(x=>x.scene_id==='2').status,'complete');
 
