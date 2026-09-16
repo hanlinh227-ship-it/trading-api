@@ -34,8 +34,8 @@ assert.equal(rows.unavailable,false);
 assert.deepEqual(rows.items.map(x=>x.key),['candidate:a','candidate:b']);
 assert.deepEqual(rows.items[0].value,{state:'candidate'});
 assert.equal(rows.cursor,null);
-assert.throws(()=>stores.metadata.list('candidate:',0),/invalid_state_limit/);
-assert.throws(()=>stores.metadata.list('candidate:',101),/invalid_state_limit/);
+await assert.rejects(stores.metadata.list('candidate:',0),/invalid_state_limit/);
+await assert.rejects(stores.metadata.list('candidate:',101),/invalid_state_limit/);
 
 await stores.kv.delete('health');
 assert.equal(await stores.kv.get('health'),null);
