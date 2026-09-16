@@ -37,13 +37,13 @@ jobs:
           cat > /tmp/render.json <<'JSON'
           {
             "dataClass":"PUBLIC",
-            "prompt":"ONE SINGLE CHARACTER ONLY, portrait of Max, an adorable preschool 3D CGI baby monkey. Medium close-up from chest upward, centered. Bright red-orange soft fur, rounded cream face, cream inner ears, very large glossy black eyes, short rounded muzzle, two tiny red hair tufts, gentle friendly smile. Childlike proportions, large head and small shoulders. Outfit identity lock: sky-blue short-sleeve T-shirt visible at the shoulders and chest, warm golden-yellow overall bib and straps visible over the blue shirt. No hands in frame, no lower body in frame. Soft blurred pastel playground background, warm daylight, polished modern preschool animation, soft rounded forms, clean materials, expressive but natural face, high character readability, appealing 3D cartoon render, exactly one monkey, no other subjects.",
+            "prompt":"ONE SINGLE CHARACTER ONLY. Medium close-up portrait of Max, an adorable preschool 3D CGI baby monkey, centered from chest upward. Bright red-orange soft fur. Rounded cream face and cream inner ears. Very large glossy black eyes. Short rounded muzzle. Two tiny red hair tufts. Gentle friendly smile. Childlike proportions, large head and small shoulders. Outfit identity lock: sky-blue short-sleeve T-shirt, warm golden-yellow overall bib and straps over the blue shirt. No hands visible, no lower body visible. Soft blurred pastel playground background, warm daylight, polished modern preschool animation, soft rounded forms, clean materials, high character readability, exactly one monkey, no other subjects.",
             "negativePrompt":"second character, extra character, duplicate, twins, person, human, baby human, child, other monkey, animal, crowd, multiple faces, extra face, extra eyes, extra ears, extra arms, hands, malformed face, deformed anatomy, brown fur, black fur, white shirt, red shirt, blue overalls, hat, backpack, bow, prop, toy, text, watermark, logo, photorealistic human skin, anime, blurry, low quality, horror, creepy",
-            "width":768,
-            "height":768,
-            "steps":26,
+            "width":512,
+            "height":512,
+            "steps":20,
             "n":1,
-            "models":["AlbedoBase XL (SDXL)"]
+            "models":["Deliberate"]
           }
           JSON
           curl -fsS -X POST "$BASE_URL/brain/image/render" \
@@ -59,7 +59,7 @@ jobs:
           )"
           echo "JOB_ID=$JOB_ID"
           done_flag=0
-          for i in $(seq 1 120); do
+          for i in $(seq 1 72); do
             curl -fsS "$BASE_URL/brain/image/check?id=$JOB_ID" \
               -H "x-model-mesh-token: $TOKEN" -o artifacts/check.json
             python - <<'PY'
@@ -93,11 +93,11 @@ jobs:
           print(x['generations'][0]['imageUrl'])
           PY
           )"
-          curl -fL --retry 3 --retry-delay 2 "$IMAGE_URL" -o artifacts/max-free-agent-v3.webp
-          file artifacts/max-free-agent-v3.webp
-          test -s artifacts/max-free-agent-v3.webp
+          curl -fL --retry 3 --retry-delay 2 "$IMAGE_URL" -o artifacts/max-free-agent-v4.webp
+          file artifacts/max-free-agent-v4.webp
+          test -s artifacts/max-free-agent-v4.webp
       - uses: actions/upload-artifact@v4
         with:
-          name: max-free-agent-render-v3
-          path: artifacts/max-free-agent-v3.webp
+          name: max-free-agent-render-v4
+          path: artifacts/max-free-agent-v4.webp
           retention-days: 7
