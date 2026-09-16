@@ -6,6 +6,10 @@ import type {
 } from './multi-market.js';
 
 export type ObservationSourceType = 'connector' | 'gateway';
+export type ObservationDelayClass = 'REALTIME' | 'DELAYED' | 'UNKNOWN';
+export type ObservationEntitlement = 'VERIFIED_REALTIME' | 'VERIFIED_DELAYED' | 'UNVERIFIED';
+export type ObservationInstrumentType = 'spot' | 'perpetual' | 'forex' | 'future' | 'index';
+export type ObservationEvidenceKind = 'quote' | 'snapshot' | 'bar' | 'trade' | 'session' | 'context';
 
 export type NormalizedMarketObservation = {
   id: string;
@@ -27,6 +31,14 @@ export type NormalizedMarketObservation = {
   session?: string;
   metadata?: Record<string, string | number | boolean | null>;
   chart?: VerifiedChartMapping;
+  latencyMs?: number;
+  delayClass?: ObservationDelayClass;
+  entitlement?: ObservationEntitlement;
+  instrumentType?: ObservationInstrumentType;
+  providerSymbol?: string;
+  canonicalSymbol?: string;
+  contractExpiry?: string;
+  evidenceKind?: ObservationEvidenceKind;
 };
 
 export type TimeframePlan = {
