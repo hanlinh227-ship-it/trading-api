@@ -41,7 +41,7 @@ files:
   sha256: ef53f9549238f7079baa941ae8a777bd6511d163947d277d636bc7a4a550a9e5
   role: capability_fusion
 - path: AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml
-  sha256: e850d3db5cc0acbe9dc9d64e7289d61883eb0b9f9bc2fdde0b4835204183fd07
+  sha256: e7307ddfba858f1a2c2d41334f313aec0a8009f239927462705ce7c7c6fa12ec
   role: creative_visual_fusion
 - path: AI_SKILL_LIBRARY/v4/stable/presentation.yaml
   sha256: cb48174cf6e85b459a8c92dfce6bb4115dc3bbae7cd00b899de466eee2519cf2
@@ -116,10 +116,10 @@ files:
   sha256: b7f8624a0d65760c7e914a91acf29acd3d68274f1dbb9f524117e11e2ae9fd95
   role: legion_policy
 - path: AI_SKILL_LIBRARY/v4/legion/agents.yaml
-  sha256: b3eda7da75f1ed55a60d7fac1678e67a41b0506bec05e08c459254ef585973bc
+  sha256: b6e82059077e89cb7f5b6f845959b3f3baa1c31e4eab231e6af402ef0952da7d
   role: legion_agents
 - path: AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml
-  sha256: aa05f3ceedc7aa6abe89db9832e9c9a4fe15b437b5b9947bc79d210caf187330
+  sha256: b0df42d7d93e5578b0450059c35513a426a24953b849c435576f65edb357f033
   role: image_render_policy
 - path: AI_SKILL_LIBRARY/v4/learning/policy.yaml
   sha256: 83eeac085f3af5b3d1468d3972e1a730928927c11c16c261961e28fa3f0f59c7
@@ -168,4 +168,4 @@ compatibility:
 promotion:
   class: feature
   validated: false
-  source: image_render_v2_pr396_ci
+  source: image_render_agent_v2_v3_v4_multimodel_mesh
