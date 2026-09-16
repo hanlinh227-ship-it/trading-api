@@ -337,8 +337,18 @@ class ReleaseTests(unittest.TestCase):
         on_disk = yaml.safe_load((ROOT / pointer["manifest_path"]).read_text(encoding="utf-8"))
         rebuilt = build_manifest(ROOT, pointer["version"], promotion=on_disk["promotion"])
         on_disk_rows = {row["path"]: row["sha256"] for row in on_disk["files"]}
-        for row in rebuilt["files"]:
-            self.assertEqual(on_disk_rows.get(row["path"]), row["sha256"], f"manifest hash stale for {row['path']}: run release.py build")
+        rebuilt_rows = {row["path"]: row["sha256"] for row in rebuilt["files"]}
+        # Bidirectional: the builder must reproduce exactly the committed row set.
+        # A row present on disk but absent from RELEASE_FILES means the next
+        # `release.py build` would silently drop that file from the immutable
+        # hash set while the runtime still loads it (4.11.0 shipped two such rows).
+        self.assertEqual(
+            sorted(on_disk_rows),
+            sorted(rebuilt_rows),
+            "release.py RELEASE_FILES drifted from the active manifest row set",
+        )
+        for path, digest in rebuilt_rows.items():
+            self.assertEqual(on_disk_rows.get(path), digest, f"manifest hash stale for {path}: run release.py build")
         roles = {row["role"] for row in on_disk["files"]}
         for role in ("budgets", "retrieval", "router", "runtime", "memory", "harmonization", "capability_fusion", "creative_visual_fusion"):
             self.assertIn(role, roles, role)

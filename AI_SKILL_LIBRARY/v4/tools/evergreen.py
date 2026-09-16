@@ -14,10 +14,10 @@ import yaml
 
 try:
     from .admission import admit_skill
-    from .release import load_release_manifest, load_release_pointer, set_release_pointer, sha256_file
+    from .release import atomic_write_text, load_release_manifest, load_release_pointer, set_release_pointer, sha256_file
 except ImportError:
     from admission import admit_skill
-    from release import load_release_manifest, load_release_pointer, set_release_pointer, sha256_file
+    from release import atomic_write_text, load_release_manifest, load_release_pointer, set_release_pointer, sha256_file
 
 REQUIRED_GATES = ("provenance", "license", "security", "authority", "evals", "canary")
 ALLOWED_DOMAINS = {"core", "engineering", "trading", "game", "design_2d", "design_3d", "adobe", "prompt_media", "writing", "academic", "data_docs", "business"}
@@ -360,7 +360,7 @@ def promote_class_a(root: Path) -> str | None:
         "promotion": {"class": "A", "validated": False, "source": "evergreen_quarantine"},
     }
     manifest_path = release_dir / "manifest.yaml"
-    manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
+    atomic_write_text(manifest_path, yaml.safe_dump(manifest, sort_keys=False))
     set_release_pointer(root, new_version, sha256_file(manifest_path))
     history_path = root / "AI_SKILL_LIBRARY/v4/releases/history.yaml"
     history = yaml.safe_load(history_path.read_text(encoding="utf-8")) or {"version": 4, "releases": []}
@@ -373,7 +373,7 @@ def promote_class_a(root: Path) -> str | None:
             "previous": current,
         }
     )
-    history_path.write_text(yaml.safe_dump(history, sort_keys=False), encoding="utf-8")
+    atomic_write_text(history_path, yaml.safe_dump(history, sort_keys=False))
     return new_version
 
 
@@ -383,7 +383,7 @@ def mark_known_good(root: Path) -> str:
     manifest_path = root / pointer["manifest_path"]
     manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
     manifest.setdefault("promotion", {})["validated"] = True
-    manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
+    atomic_write_text(manifest_path, yaml.safe_dump(manifest, sort_keys=False))
     set_release_pointer(root, version, sha256_file(manifest_path))
     history_path = root / "AI_SKILL_LIBRARY/v4/releases/history.yaml"
     history = yaml.safe_load(history_path.read_text(encoding="utf-8")) or {}
@@ -394,7 +394,7 @@ def mark_known_good(root: Path) -> str:
             found = True
     if not found:
         raise ValueError("active release missing from history")
-    history_path.write_text(yaml.safe_dump(history, sort_keys=False), encoding="utf-8")
+    atomic_write_text(history_path, yaml.safe_dump(history, sort_keys=False))
     return version
 
 

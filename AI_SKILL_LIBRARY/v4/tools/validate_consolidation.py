@@ -305,6 +305,7 @@ def check_release_and_index(root: Path) -> list[str]:
         errors.append(f"release history does not contain current release {pointer.get('version')}")
     elif versions[-1] != pointer.get("version"):
         errors.append("current release must be the last entry in history.yaml")
+    errors.extend(release_tool.verify_history_chain(history))
     on_disk = release_tool.load_release_manifest(root, pointer["version"])
     stale = release_tool.manifest_is_fresh(root, on_disk)
     if stale:

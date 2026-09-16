@@ -10,6 +10,34 @@ import yaml
 from AI_SKILL_LIBRARY.v4.tools.compile_universal_adapters import compile_registry, write_payload
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+class GeneratedAdapterArtifactHygieneTests(unittest.TestCase):
+    """The compiled Worker adapter snapshot carries an exact source_sha.
+
+    A committed copy goes stale on the next commit and prepare-workers-build
+    only regenerates it when absent, so it must be ignored like every other
+    generated Worker artifact.
+    """
+
+    def test_generated_universal_adapters_is_gitignored(self):
+        ignore = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn("cloudflare-worker/generated/universal-adapters.js", ignore)
+
+    def test_no_generated_worker_artifact_is_tracked(self):
+        import subprocess
+
+        tracked = subprocess.run(
+            ["git", "ls-files", "cloudflare-worker/generated"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.split()
+        self.assertEqual(tracked, ["cloudflare-worker/generated/.gitkeep"], tracked)
+
+
 class CompileUniversalAdaptersTests(unittest.TestCase):
     def _root(self, rows: list[dict]) -> tuple[tempfile.TemporaryDirectory, Path]:
         temp = tempfile.TemporaryDirectory()

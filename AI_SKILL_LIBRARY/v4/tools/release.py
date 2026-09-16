@@ -69,7 +69,21 @@ VNEXT_INTEGRATION_FILES: tuple[tuple[str, str], ...] = (
     ("AI_SKILL_LIBRARY/v4/tools/admission.py", "evergreen_admission_tool"),
 )
 
-RELEASE_FILES = RELEASE_FILES + CANDIDATE_EXTENSION_FILES + VNEXT_INTEGRATION_FILES
+UNIVERSAL_FABRIC_FILES: tuple[tuple[str, str], ...] = (
+    ("AI_SKILL_LIBRARY/v4/stable/universal_fabric.yaml", "universal_fabric"),
+    ("AI_SKILL_LIBRARY/v4/adapters/registry.yaml", "universal_adapter_registry"),
+)
+
+RELEASE_FILES = RELEASE_FILES + CANDIDATE_EXTENSION_FILES + VNEXT_INTEGRATION_FILES + UNIVERSAL_FABRIC_FILES
+
+
+def atomic_write_text(path: Path, text: str) -> None:
+    """Write via temp file + rename so a crash can never leave a half-written release file."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(path.name + ".tmp")
+    temp.write_text(text, encoding="utf-8", newline="\n")
+    temp.replace(path)
 
 
 def sha256_file(path: Path) -> str:
@@ -157,9 +171,7 @@ def set_release_pointer(root: Path, version: str, manifest_sha256: str) -> None:
     path = inside(root, "AI_SKILL_LIBRARY/v4/releases/current.json")
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"version": version, "manifest_path": manifest_path, "manifest_sha256": manifest_sha256}
-    temp = path.with_suffix(".json.tmp")
-    temp.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
-    temp.replace(path)
+    atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
 def verify_active_pointer(root: Path) -> tuple[list[str], list[str]]:
@@ -293,6 +305,36 @@ def _dump_history(history: dict) -> str:
     return yaml.safe_dump(history, sort_keys=False, allow_unicode=True, width=200)
 
 
+def verify_history_chain(history: dict) -> list[str]:
+    """Structural checks a hand edit of history.yaml can break silently.
+
+    Every row must point at its own manifest path and link `previous` to the
+    row immediately before it, so the rollback walk is deterministic.
+    """
+    errors: list[str] = []
+    rows = [row for row in history.get("releases", []) if isinstance(row, dict)]
+    seen: set[str] = set()
+    for index, row in enumerate(rows):
+        version = row.get("version")
+        if not isinstance(version, str) or not version:
+            errors.append(f"history row {index} has no version")
+            continue
+        if version in seen:
+            errors.append(f"history row {version} is duplicated")
+        seen.add(version)
+        expected_manifest = f"AI_SKILL_LIBRARY/v4/releases/{version}/manifest.yaml"
+        if row.get("manifest") != expected_manifest:
+            errors.append(f"history row {version} manifest must be {expected_manifest}")
+        if row.get("architecture") != "GITHUB_BRAIN_V4":
+            errors.append(f"history row {version} architecture must be GITHUB_BRAIN_V4")
+        if not isinstance(row.get("known_good"), bool):
+            errors.append(f"history row {version} known_good must be boolean")
+        expected_previous = rows[index - 1].get("version") if index > 0 else None
+        if row.get("previous") != expected_previous:
+            errors.append(f"history row {version} previous must be {expected_previous!r}")
+    return errors
+
+
 def record_history(root: Path, version: str, *, known_good: bool) -> dict:
     history = load_history(root)
     rows = [row for row in history["releases"] if isinstance(row, dict)]
@@ -301,7 +343,7 @@ def record_history(root: Path, version: str, *, known_good: bool) -> dict:
     entry = {"version": version, "known_good": known_good, "architecture": "GITHUB_BRAIN_V4", "manifest": f"AI_SKILL_LIBRARY/v4/releases/{version}/manifest.yaml", "previous": previous}
     rows = [row for row in rows if row["version"] != version] + [entry]
     history["releases"] = rows
-    (root / RELEASE_ROOT / "history.yaml").write_text(_dump_history(history), encoding="utf-8", newline="\n")
+    atomic_write_text(root / RELEASE_ROOT / "history.yaml", _dump_history(history))
     return history
 
 
@@ -309,8 +351,7 @@ def build_release(root: Path, version: str, *, source: str, validated: bool, kno
     root = Path(root);version = str(version)
     manifest = build_manifest(root, version, promotion={"class": promotion_class, "validated": validated, "source": source})
     manifest_path = inside(root, f"AI_SKILL_LIBRARY/v4/releases/{version}/manifest.yaml")
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(_dump_manifest(manifest), encoding="utf-8", newline="\n")
+    atomic_write_text(manifest_path, _dump_manifest(manifest))
     errors, _ = verify_release(root, version)
     if errors: raise ValueError("release build produced an invalid manifest: " + "; ".join(errors))
     set_release_pointer(root, version, sha256_file(manifest_path))
