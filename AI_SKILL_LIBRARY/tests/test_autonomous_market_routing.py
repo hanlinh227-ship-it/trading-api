@@ -45,6 +45,21 @@ class AutonomousMarketRoutingTests(unittest.TestCase):
         self.assertIn("research-only", normalized)
         self.assertIn("btc", normalized)
 
+    def test_execution_capsule_defines_v3_one_command_orchestration(self):
+        capsule = (ROOT / "AI_SKILL_LIBRARY/skills/trading/multi_market_analysis.md").read_text(encoding="utf-8")
+        normalized = capsule.lower()
+
+        self.assertIn("one-command autonomous workflow", normalized)
+        self.assertIn("resolve requested domains", normalized)
+        self.assertIn("acquire gateway-native crypto evidence", normalized)
+        self.assertIn("acquire connector-plane evidence", normalized)
+        self.assertIn("normalize all acquired evidence", normalized)
+        self.assertIn("/research/autoscan", normalized)
+        self.assertIn("live / context_only / gap", normalized)
+        self.assertIn("top_setup", normalized)
+        self.assertIn("no_trade", normalized)
+        self.assertIn("do not ask the caller to choose a provider", normalized)
+
     def test_legacy_trading_router_aliases_yield_to_canonical_trigger_owner(self):
         snapshot = compile_snapshot(ROOT, "0" * 40, generated_at="2026-09-16T00:00:00Z")
         trading_router_aliases = set(snapshot["routing_aliases"].get("trading_router", []))
