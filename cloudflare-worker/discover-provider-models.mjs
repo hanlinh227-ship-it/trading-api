@@ -34,12 +34,19 @@ async function listOpenAiCompatible(url, key) {
       headers: { authorization: `Bearer ${key}` },
       signal: controller.signal,
     });
-    if (!res.ok) return { status: res.status, models: [] };
+    if (!res.ok) return { status: res.status, models: [], reason: '' };
     const body = await res.json();
     const rows = Array.isArray(body?.data) ? body.data : (Array.isArray(body?.models) ? body.models : []);
-    return { status: res.status, models: rows.map((m) => String(m?.id || m?.name || '')).filter(Boolean) };
+    return { status: res.status, models: rows.map((m) => String(m?.id || m?.name || '')).filter(Boolean), reason: '' };
   } catch (err) {
-    return { status: err?.name === 'AbortError' ? 0 : 0, models: [] };
+    // Keep the transport reason. Collapsing every failure to status=0 made a
+    // DNS error, a TLS error and a timeout indistinguishable, which is exactly
+    // what is needed to tell a wrong endpoint from a slow one. The key travels
+    // in a header, never in the URL, so this text cannot carry it.
+    const reason = err?.name === 'AbortError'
+      ? `timeout_after_${TIMEOUT_MS}ms`
+      : String(err?.cause?.code || err?.code || err?.message || 'unknown').slice(0, 120);
+    return { status: 0, models: [], reason };
   } finally {
     clearTimeout(timer);
   }
@@ -59,10 +66,61 @@ for (const [providerId, binding] of Object.entries(BINDINGS)) {
     console.log(`PROVIDER_DISCOVERY provider=${providerId} status=SKIPPED_NON_OPENAI_FAMILY family=${binding.endpoint_family}`);
     continue;
   }
-  const { status, models } = await listOpenAiCompatible(binding.endpoint_url, key);
+  const { status, models, reason } = await listOpenAiCompatible(binding.endpoint_url, key);
   const verdict = classify(status);
-  console.log(`PROVIDER_DISCOVERY provider=${providerId} status=${verdict} http=${status} models=${models.length}`);
+  const detail = reason ? ` reason=${reason}` : '';
+  console.log(`PROVIDER_DISCOVERY provider=${providerId} status=${verdict} http=${status} models=${models.length}${detail} endpoint=${binding.endpoint_url}`);
   if (models.length) {
     console.log(`PROVIDER_MODELS provider=${providerId} ids=${JSON.stringify(models.slice(0, MAX_MODELS_SHOWN))}`);
+  }
+}
+
+// --- Entitlement verification ------------------------------------------------
+//
+// A model listing proves reachability, never that the account's access is
+// RECURRING free rather than trial credit or paid. free_only_policy.json turns
+// on exactly that distinction, so it must come from evidence, not assumption.
+//
+// Only some providers expose entitlement to the credential at runtime. Where
+// they do, verify it. Where they do not, say so explicitly rather than guess:
+// ACCOUNT_ENTITLEMENT_UNAVAILABLE means no runtime endpoint exposes it, and the
+// answer has to come from the account holder.
+const ENTITLEMENT_PROBES = {
+  // HuggingFace exposes the authenticated identity and plan.
+  huggingface_inference_providers: async (key) => {
+    const res = await fetch('https://huggingface.co/api/whoami-v2', {
+      headers: { authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) return { verdict: 'ENTITLEMENT_PROBE_FAILED', detail: `http=${res.status}` };
+    const me = await res.json();
+    // Report only plan-shaped fields; never the name, email or token metadata.
+    const plan = String(me?.plan || me?.type || 'unknown');
+    const isPro = me?.isPro === true;
+    const periodEnd = me?.periodEnd ? 'has_billing_period' : 'no_billing_period';
+    return {
+      verdict: isPro ? 'PAID_OR_PRO_PLAN' : 'NON_PRO_PLAN',
+      detail: `plan=${plan} isPro=${isPro} ${periodEnd}`,
+    };
+  },
+};
+
+for (const [providerId, binding] of Object.entries(BINDINGS)) {
+  if (only.length && !only.includes(providerId)) continue;
+  const key = String(process.env[binding.secret_name] || '').trim();
+  if (!key) {
+    console.log(`PROVIDER_ENTITLEMENT provider=${providerId} verdict=USER_CREDENTIAL_BLOCKED`);
+    continue;
+  }
+  const probe = ENTITLEMENT_PROBES[providerId];
+  if (!probe) {
+    console.log(`PROVIDER_ENTITLEMENT provider=${providerId} verdict=ACCOUNT_ENTITLEMENT_UNAVAILABLE detail=no_runtime_entitlement_endpoint`);
+    continue;
+  }
+  try {
+    const { verdict, detail } = await probe(key);
+    console.log(`PROVIDER_ENTITLEMENT provider=${providerId} verdict=${verdict} detail=${detail}`);
+  } catch (err) {
+    const reason = String(err?.cause?.code || err?.code || err?.message || 'unknown').slice(0, 80);
+    console.log(`PROVIDER_ENTITLEMENT provider=${providerId} verdict=ENTITLEMENT_PROBE_ERROR detail=${reason}`);
   }
 }
