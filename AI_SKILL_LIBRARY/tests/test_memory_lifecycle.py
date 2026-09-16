@@ -59,8 +59,36 @@ class MemoryLifecycleTests(unittest.TestCase):
         self.assertFalse(out["eligible_for_review"])
         self.assertIn("forbidden_field", out["reasons"])
 
+    def test_candidate_cannot_skip_review_to_active(self) -> None:
+        gate = {"verified": True, "scoped": True, "reusable": True, "non_sensitive": True, "conflict_free": True, "verified_at": "2026-09-16T04:00:00Z"}
+        for state in ("candidate", "pending", "needs_reverify", "rejected"):
+            with self.assertRaises(ValueError, msg=state):
+                transition(dict(BASE, state=state), "active", gate)
+        with self.assertRaises(ValueError):
+            transition(dict(BASE, state="tombstoned"), "active", gate)
+        with self.assertRaises(ValueError):
+            transition(dict(BASE, state="rejected"), "confirmed", gate)
+
+    def test_states_match_stable_memory_contract(self) -> None:
+        import yaml
+        from pathlib import Path
+
+        from AI_SKILL_LIBRARY.v4.tools.memory_lifecycle import ALLOWED_STATES
+
+        contract = yaml.safe_load((Path(__file__).resolve().parents[2] / "AI_SKILL_LIBRARY/v4/stable/memory.yaml").read_text(encoding="utf-8"))
+        declared = set(contract["candidate_first"]["states"]) if "candidate_first" in contract else None
+        if declared is None:
+            declared = {s for section in contract.values() if isinstance(section, dict) for s in section.get("states", [])}
+        self.assertTrue(declared <= ALLOWED_STATES, declared - ALLOWED_STATES)
+        transition(dict(BASE, state="needs_reverify"), "confirmed", {})
+
+    def test_sensitive_scan_covers_every_string_field(self) -> None:
+        for patch in ({"source": "Authorization: Bearer eyJabc.def"}, {"evidence_refs": ["api_key=sk-live-1"]}, {"content": "password: hunter2"}, {"scope": "seed phrase: abc"}):
+            out = evaluate_candidate(dict(BASE, **patch), [])
+            self.assertIn("sensitive_content", out["reasons"], patch)
+
     def test_active_transition_requires_verified_gate(self) -> None:
-        candidate = dict(BASE, state="candidate")
+        candidate = transition(dict(BASE, state="candidate"), "confirmed", {})
         with self.assertRaises(ValueError):
             transition(candidate, "active", {"verified": False})
         active = transition(candidate, "active", {
@@ -75,7 +103,7 @@ class MemoryLifecycleTests(unittest.TestCase):
         self.assertEqual(active["last_verified"], "2026-09-16T04:00:00Z")
 
     def test_verified_newer_can_supersede(self) -> None:
-        active = transition(dict(BASE, state="candidate"), "active", {
+        active = transition(dict(BASE, state="confirmed"), "active", {
             "verified": True,
             "scoped": True,
             "reusable": True,

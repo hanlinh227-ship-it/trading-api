@@ -1,4 +1,6 @@
-const SENSITIVE_PATTERNS=[
+// Single credential-pattern list shared by candidate intake and review so the two stages can
+// never disagree about what counts as a secret.
+export const SENSITIVE_PATTERNS=Object.freeze([
   /api[_ -]?key\s*[:=]/i,
   /private[_ -]?key\s*[:=]/i,
   /authorization\s*:\s*bearer/i,
@@ -6,7 +8,19 @@ const SENSITIVE_PATTERNS=[
   /seed\s+phrase\s*[:=]/i,
   /authentication[_ -]?token\s*[:=]/i,
   /password\s*[:=]/i,
-];
+  /passphrase\s*[:=]/i,
+  /sk-[a-z0-9_-]{8,}/i,
+]);
+// Every top-level string (and string-array item) of a candidate is scanned: a token in `source`
+// or `evidence_refs` is stored and echoed to every client exactly like one in `content`.
+export function sensitiveStrings(value){
+  const out=[];
+  for(const item of Object.values(value||{})){
+    if(typeof item==='string')out.push(item);
+    else if(Array.isArray(item))for(const inner of item)if(typeof inner==='string')out.push(inner);
+  }
+  return out;
+}
 const FORBIDDEN_FIELDS=new Set(['raw_private_chat','hidden_reasoning','chain_of_thought','secrets','credentials','api_keys','private_keys','authentication_tokens','seed_phrases','raw_private_tool_payload']);
 
 function cleanString(value,name,max=4000){
@@ -21,8 +35,7 @@ function cleanArray(value,name,max=24){
 export function isSensitiveMemoryContent(value){
   if(!value||typeof value!=='object')return true;
   if(Object.keys(value).some(key=>FORBIDDEN_FIELDS.has(key)))return true;
-  const content=String(value.content||'');
-  return SENSITIVE_PATTERNS.some(pattern=>pattern.test(content));
+  return sensitiveStrings(value).some(text=>SENSITIVE_PATTERNS.some(pattern=>pattern.test(text)));
 }
 
 function candidateGate(candidate){
