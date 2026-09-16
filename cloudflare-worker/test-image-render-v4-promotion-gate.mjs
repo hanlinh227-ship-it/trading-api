@@ -18,6 +18,26 @@ const entry={
   supportedTasks:['TEXT_TO_IMAGE'],
   monetaryCost:'zero',
 };
+const providerRegistration={
+  providerId:'safe_free',
+  modelId:'demo',
+  monetaryCost:'zero',
+  paidFallback:false,
+  autoPurchase:false,
+  supportedDataClasses:['PUBLIC'],
+  referenceSafe:false,
+  supportedTasks:['TEXT_TO_IMAGE'],
+  health:'healthy',
+  maxResolution:{width:2048,height:2048},
+  baseUrl:'https://example.invalid',
+  healthEndpoint:'/health',
+  queueBehavior:'provider_managed',
+  timeoutMs:120000,
+  retryPolicy:{maxAttempts:3,backoff:'bounded_exponential'},
+  rateLimitBehavior:'provider_declared',
+  provenance:'verified test fixture',
+  licenseEvidence:'verified test fixture',
+};
 assert.equal(validateModelVaultEntry(entry).ok,true,'BENCHMARKED must be a valid vault status');
 
 let state={models:{}};
@@ -30,40 +50,50 @@ assert.equal(result.status,'BENCHMARKED');
 assert.equal(result.gate.ok,false);
 
 // A model whose runtime is not configured stays BENCHMARKED, however good the scores.
-result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:{...entry,runtimeConfigured:false},runtimeConfigured:false,runtimeHealthy:true}});
+result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:{...entry,runtimeConfigured:false},runtimeConfigured:false,runtimeHealthy:true,providerRegistration}});
 assert.equal(result.status,'BENCHMARKED');
 assert.ok(result.gate.blockers.includes('runtime_not_configured'));
 
 // Nor does a configured runtime that has not been verified healthy.
-result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:false}});
+result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:false,providerRegistration}});
 assert.equal(result.status,'BENCHMARKED');
 assert.ok(result.gate.blockers.includes('runtime_not_verified_healthy'));
 
-// Nor a non-free or non-commercial license, whatever the runtime says.
-result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:{...entry,weightsLicense:'NON_COMMERCIAL'},runtimeConfigured:true,runtimeHealthy:true}});
+// A configured/healthy boolean pair without a validated provider registration is not enough.
+result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:true}});
 assert.equal(result.status,'BENCHMARKED');
-result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:{...entry,monetaryCost:'unknown'},runtimeConfigured:true,runtimeHealthy:true}});
+assert.ok(result.gate.blockers.includes('provider_registration_required'));
+
+// Invalid or paid provider registration blocks promotion even if runtime health says true.
+result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:true,providerRegistration:{...providerRegistration,monetaryCost:'paid'}}});
+assert.equal(result.status,'BENCHMARKED');
+assert.ok(result.gate.blockers.includes('non_zero_or_unknown_cost'));
+
+// Nor a non-free or non-commercial model license, whatever the runtime says.
+result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:{...entry,weightsLicense:'NON_COMMERCIAL'},runtimeConfigured:true,runtimeHealthy:true,providerRegistration}});
+assert.equal(result.status,'BENCHMARKED');
+result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:{...entry,monetaryCost:'unknown'},runtimeConfigured:true,runtimeHealthy:true,providerRegistration}});
 assert.equal(result.status,'BENCHMARKED');
 
 // A DISABLED model can never be promoted back by benchmark evidence alone.
-result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:{...entry,approvalStatus:'DISABLED'},runtimeConfigured:true,runtimeHealthy:true}});
+result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:{...entry,approvalStatus:'DISABLED'},runtimeConfigured:true,runtimeHealthy:true,providerRegistration}});
 assert.equal(result.status,'BENCHMARKED');
 assert.ok(result.gate.blockers.includes('model_disabled'));
 
 // Promotion is task-specific: a model may not go ACTIVE for a task it does not support.
-result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:true},taskType:'TEXT_TO_IMAGE'});
+result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:true,providerRegistration},taskType:'TEXT_TO_IMAGE'});
 assert.equal(result.status,'ACTIVE');
-const otherTaskGate=evaluatePromotionGate({vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:true,taskType:'CHARACTER_CONSISTENCY'});
+const otherTaskGate=evaluatePromotionGate({vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:true,providerRegistration,taskType:'CHARACTER_CONSISTENCY'});
 assert.equal(otherTaskGate.ok,false);
 assert.ok(otherTaskGate.blockers.includes('task_not_supported_by_model'));
 
 // Insufficient evidence still holds the model at CANDIDATE even with a clean gate.
-result=evaluateModelPromotion({models:{}},{...options,gate:{vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:true}});
+result=evaluateModelPromotion({models:{}},{...options,gate:{vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:true,providerRegistration}});
 assert.equal(result.status,'CANDIDATE');
 assert.equal(result.reason,'insufficient_benchmark_evidence');
 
 // A proposal is evidence for a human/CI gate, never a self-applied mutation.
-const proposal=proposeModelPromotion(state,{...options,currentStatus:'CANDIDATE',gate:{vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:true}});
+const proposal=proposeModelPromotion(state,{...options,currentStatus:'CANDIDATE',gate:{vaultEntry:entry,runtimeConfigured:true,runtimeHealthy:true,providerRegistration}});
 assert.equal(proposal.currentStatus,'CANDIDATE');
 assert.equal(proposal.proposedStatus,'ACTIVE');
 assert.equal(proposal.applied,false);
