@@ -69,6 +69,15 @@ result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:entry,runtimeCo
 assert.equal(result.status,'BENCHMARKED');
 assert.ok(result.gate.blockers.includes('non_zero_or_unknown_cost'));
 
+// Reference/edit tasks require an explicitly reference-safe runtime; task support alone is insufficient.
+const referenceEntry={...entry,supportedTasks:['REFERENCE_GENERATION']};
+const unsafeReferenceProvider={...providerRegistration,supportedTasks:['REFERENCE_GENERATION'],referenceSafe:false};
+let referenceGate=evaluatePromotionGate({vaultEntry:referenceEntry,runtimeConfigured:true,runtimeHealthy:true,providerRegistration:unsafeReferenceProvider,taskType:'REFERENCE_GENERATION'});
+assert.equal(referenceGate.ok,false);
+assert.ok(referenceGate.blockers.includes('reference_safe_runtime_required'));
+referenceGate=evaluatePromotionGate({vaultEntry:referenceEntry,runtimeConfigured:true,runtimeHealthy:true,providerRegistration:{...unsafeReferenceProvider,referenceSafe:true},taskType:'REFERENCE_GENERATION'});
+assert.equal(referenceGate.ok,true);
+
 // Nor a non-free or non-commercial model license, whatever the runtime says.
 result=evaluateModelPromotion(state,{...options,gate:{vaultEntry:{...entry,weightsLicense:'NON_COMMERCIAL'},runtimeConfigured:true,runtimeHealthy:true,providerRegistration}});
 assert.equal(result.status,'BENCHMARKED');
