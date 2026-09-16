@@ -1,3 +1,5 @@
+import type { ResearchLevels } from './research-levels.js';
+
 export const ALL_MARKET_DOMAINS = [
   'crypto',
   'forex',
@@ -54,6 +56,7 @@ export type OpportunityCandidate = {
   provenance: string[];
   evidence: CandidateEvidence[];
   chart?: VerifiedChartMapping;
+  levels?: ResearchLevels;
 };
 
 export type ChallengeResult = {
