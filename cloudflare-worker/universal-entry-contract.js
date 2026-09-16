@@ -113,3 +113,6 @@ export function degradedDecision({classification,stableSnapshotAvailable=false}=
 }
 
 export const UNIVERSAL_ENTRY_PROFILE_RANK=PROFILE_RANK;
+// Exposed for the snapshot-consistency test only: every adapter-side DEEP floor term must also
+// exist in the canonical compiled escalation list so /brain/route and /brain/universal agree.
+export const UNIVERSAL_ENTRY_DEEP_TERMS=DEEP_TERMS;
