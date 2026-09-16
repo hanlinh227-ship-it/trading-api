@@ -1,8 +1,9 @@
-const CLIENTS=Object.freeze({
-  chatgpt:Object.freeze({binding:'BRAIN_CLIENT_CHATGPT_TOKEN',scopes:Object.freeze(['brain.route','brain.read_context','brain.submit_candidate_memory','brain.use_research_tools','brain.read_runtime_health'])}),
-  claude:Object.freeze({binding:'BRAIN_CLIENT_CLAUDE_TOKEN',scopes:Object.freeze(['brain.route','brain.read_context','brain.submit_candidate_memory','brain.use_research_tools','brain.read_runtime_health'])}),
-  gemini:Object.freeze({binding:'BRAIN_CLIENT_GEMINI_TOKEN',scopes:Object.freeze(['brain.route','brain.read_context','brain.submit_candidate_memory','brain.use_research_tools','brain.read_runtime_health'])}),
-});
+import {UNIVERSAL_ADAPTERS} from './generated/universal-adapters.js';
+
+const CLIENTS=Object.freeze(Object.fromEntries((UNIVERSAL_ADAPTERS.adapters||[]).map(row=>[
+  row.id,
+  Object.freeze({binding:row.token_binding,scopes:Object.freeze([...(row.scopes||[])])}),
+])));
 
 const encoder=new TextEncoder();
 
@@ -46,3 +47,4 @@ export async function authenticateAdapter(request,env={},requiredScope='brain.ro
 }
 
 export const UNIVERSAL_CLIENT_IDS=Object.freeze(Object.keys(CLIENTS));
+export const UNIVERSAL_ADAPTER_SOURCE_SHA=UNIVERSAL_ADAPTERS.source_sha;
