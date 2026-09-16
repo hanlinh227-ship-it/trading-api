@@ -1,3 +1,5 @@
+import { evaluateDomainEvidence } from './domain-evidence.js';
+import { buildResearchLevels } from './research-levels.js';
 import type {
   MarketDomain,
   OpportunityCandidate,
@@ -5,7 +7,13 @@ import type {
   VerifiedChartMapping,
 } from './multi-market.js';
 
+export { evaluateDomainEvidence } from './domain-evidence.js';
+
 export type ObservationSourceType = 'connector' | 'gateway';
+export type ObservationDelayClass = 'REALTIME' | 'DELAYED' | 'UNKNOWN';
+export type ObservationEntitlement = 'VERIFIED_REALTIME' | 'VERIFIED_DELAYED' | 'UNVERIFIED';
+export type ObservationInstrumentType = 'spot' | 'perpetual' | 'forex' | 'future' | 'index';
+export type ObservationEvidenceKind = 'quote' | 'snapshot' | 'bar' | 'trade' | 'session' | 'context';
 
 export type NormalizedMarketObservation = {
   id: string;
@@ -27,6 +35,14 @@ export type NormalizedMarketObservation = {
   session?: string;
   metadata?: Record<string, string | number | boolean | null>;
   chart?: VerifiedChartMapping;
+  latencyMs?: number;
+  delayClass?: ObservationDelayClass;
+  entitlement?: ObservationEntitlement;
+  instrumentType?: ObservationInstrumentType;
+  providerSymbol?: string;
+  canonicalSymbol?: string;
+  contractExpiry?: string;
+  evidenceKind?: ObservationEvidenceKind;
 };
 
 export type TimeframePlan = {
@@ -160,25 +176,50 @@ function verifiedChart(observations: readonly NormalizedMarketObservation[]): Ve
   return undefined;
 }
 
+function hasV3Semantics(observation: NormalizedMarketObservation): boolean {
+  return observation.entitlement !== undefined
+    || observation.delayClass !== undefined
+    || observation.instrumentType !== undefined
+    || observation.providerSymbol !== undefined
+    || observation.contractExpiry !== undefined;
+}
+
+function deriveEvaluationNow(observations: readonly NormalizedMarketObservation[]): number | null {
+  const timestamps = observations
+    .map((item) => Date.parse(item.ingestTime))
+    .filter((value) => Number.isFinite(value));
+  return timestamps.length > 0 ? Math.max(...timestamps) : null;
+}
+
 export function buildCandidateFromObservations(
   domain: MarketDomain,
   symbol: string,
   observations: readonly NormalizedMarketObservation[],
+  nowMs?: number,
 ): CandidateBuildResult {
   const relevant = observations.filter((item) => item.domain === domain && item.symbol === symbol);
   if (relevant.length === 0) {
     return { blockedReasons: ['NO_USABLE_EVIDENCE'] };
   }
 
-  if (relevant.some((item) => item.freshness === 'STALE' || item.freshness === 'UNKNOWN')) {
+  let candidateEvidence = relevant;
+  if (relevant.some(hasV3Semantics)) {
+    const evaluationNow = nowMs ?? deriveEvaluationNow(relevant);
+    if (evaluationNow === null) return { blockedReasons: ['INVALID_OBSERVATION'] };
+    const evaluation = evaluateDomainEvidence(domain, relevant, evaluationNow);
+    if (!evaluation.eligible) return { blockedReasons: evaluation.reasons };
+    candidateEvidence = evaluation.selected;
+  }
+
+  if (candidateEvidence.some((item) => item.freshness === 'STALE' || item.freshness === 'UNKNOWN')) {
     return { blockedReasons: ['STALE_OR_UNKNOWN_EVIDENCE'] };
   }
 
-  if (relevant.some((item) => validateObservationSemantics(item).length > 0)) {
+  if (candidateEvidence.some((item) => validateObservationSemantics(item).length > 0)) {
     return { blockedReasons: ['INVALID_OBSERVATION'] };
   }
 
-  const bars = selectStructureBars(relevant);
+  const bars = selectStructureBars(candidateEvidence);
   if (!bars) {
     return { blockedReasons: ['INSUFFICIENT_STRUCTURE_EVIDENCE'] };
   }
@@ -208,6 +249,17 @@ export function buildCandidateFromObservations(
   const invalidation = direction === 'LONG'
     ? `structure_below_${minLow}`
     : `structure_above_${maxHigh}`;
+  const structuralStop = direction === 'LONG' ? minLow : maxHigh;
+  const levelResult = buildResearchLevels({
+    direction,
+    observations: candidateEvidence,
+    structuralStop,
+    riskReward: 2,
+    invalidationBasis: invalidation,
+  });
+  if (!levelResult.levels) {
+    return { blockedReasons: [levelResult.blockedReason ?? 'INVALID_RISK_GEOMETRY'] };
+  }
 
   const candidate: OpportunityCandidate = {
     id: `${domain}:${symbol}:${direction.toLowerCase()}`,
@@ -239,6 +291,7 @@ export function buildCandidateFromObservations(
       },
     ],
     chart: verifiedChart(bars),
+    levels: levelResult.levels,
   };
 
   return { candidate, blockedReasons: [] };
@@ -246,6 +299,7 @@ export function buildCandidateFromObservations(
 
 export function buildCandidatesFromObservations(
   observations: readonly NormalizedMarketObservation[],
+  nowMs?: number,
 ): CandidateBatchResult {
   const candidates: OpportunityCandidate[] = [];
   const blocked: CandidateBatchResult['blocked'] = [];
@@ -254,7 +308,7 @@ export function buildCandidatesFromObservations(
     const [domainToken, ...symbolParts] = key.split(':');
     const domain = domainToken as MarketDomain;
     const symbol = symbolParts.join(':');
-    const result = buildCandidateFromObservations(domain, symbol, grouped);
+    const result = buildCandidateFromObservations(domain, symbol, grouped, nowMs);
     if (result.candidate) {
       candidates.push(result.candidate);
     } else {

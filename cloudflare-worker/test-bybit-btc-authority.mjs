@@ -54,12 +54,14 @@ assert.deepEqual(bootstrap.coreUniverse,['BTCUSDT']);
 assert.equal(bootstrap.portfolio.authority,'BYBIT_BTC_STATEFLOW_SINGLE_EXECUTION_UNIVERSE');
 assert.deepEqual(bootstrap.portfolio.concurrentByEquity,[{equityUsd:0,max:1}]);
 
-// Final signed-write barrier: non-BTC must fail before credentials/network.
+// Final signed-write barrier: research symbols from every non-BTC domain must fail before credentials/network.
 const client=bybitV5({});
-await assert.rejects(
-  ()=>client.order({symbol:'ETHUSDT',side:'Buy',orderType:'Market',qty:'1'}),
-  error=>error?.code===NON_BTC&&error?.symbol==='ETHUSDT'
-);
+for(const symbol of ['ETHUSDT','SOLUSDT','EURUSD','NQ','GC']){
+  await assert.rejects(
+    ()=>client.order({symbol,side:'Buy',orderType:'Market',qty:'1'}),
+    error=>error?.code===NON_BTC&&error?.symbol===symbol
+  );
+}
 await assert.rejects(
   ()=>client.signed('POST','/v5/order/create',{category:'linear',symbol:'SOLUSDT',side:'Buy',orderType:'Market',qty:'1'}),
   error=>error?.code===NON_BTC&&error?.symbol==='SOLUSDT'

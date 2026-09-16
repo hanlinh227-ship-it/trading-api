@@ -1,3 +1,5 @@
+import type { ResearchLevels } from './research-levels.js';
+
 export const ALL_MARKET_DOMAINS = [
   'crypto',
   'forex',
@@ -54,6 +56,7 @@ export type OpportunityCandidate = {
   provenance: string[];
   evidence: CandidateEvidence[];
   chart?: VerifiedChartMapping;
+  levels?: ResearchLevels;
 };
 
 export type ChallengeResult = {
@@ -91,37 +94,37 @@ const PROFILES: Record<MarketDomain, MarketProfile> = {
     domain: 'crypto',
     researchOnly: true,
     productionExecutionAuthority: false,
-    requiredEvidence: ['structure', 'liquidity', 'execution', 'freshness'],
+    requiredEvidence: ['structure', 'price_quality', 'freshness', 'conflict_check'],
   },
   forex: {
     domain: 'forex',
     researchOnly: true,
     productionExecutionAuthority: false,
-    requiredEvidence: ['structure', 'session', 'macro_context', 'freshness'],
+    requiredEvidence: ['structure', 'session_context', 'freshness'],
   },
   futures: {
     domain: 'futures',
     researchOnly: true,
     productionExecutionAuthority: false,
-    requiredEvidence: ['structure', 'session', 'liquidity', 'freshness'],
+    requiredEvidence: ['current_contract', 'structure', 'session_context', 'price_quality', 'freshness'],
   },
   indices: {
     domain: 'indices',
     researchOnly: true,
     productionExecutionAuthority: false,
-    requiredEvidence: ['structure', 'session', 'cross_market_context', 'freshness'],
+    requiredEvidence: ['structure', 'session_state', 'context', 'freshness'],
   },
   metals: {
     domain: 'metals',
     researchOnly: true,
     productionExecutionAuthority: false,
-    requiredEvidence: ['structure', 'liquidity', 'macro_context', 'freshness'],
+    requiredEvidence: ['resolved_instrument', 'structure', 'price_quality', 'context', 'freshness'],
   },
   commodities: {
     domain: 'commodities',
     researchOnly: true,
     productionExecutionAuthority: false,
-    requiredEvidence: ['structure', 'liquidity', 'macro_context', 'freshness'],
+    requiredEvidence: ['resolved_instrument', 'structure', 'price_quality', 'context', 'freshness'],
   },
 };
 
