@@ -34,6 +34,7 @@ describe('V3 autoscan HTTP coverage quality', () => {
     expect(body.coverage[0]).toEqual(expect.objectContaining({
       domain: 'forex', status: 'LIVE', liveObservationCount: 4, contextObservationCount: 0, totalObservationCount: 4,
     }));
+    expect(body.dataContract.event_time).toBe('2026-09-16T11:45:00.000Z');
     await app.close();
   });
 
@@ -49,6 +50,7 @@ describe('V3 autoscan HTTP coverage quality', () => {
     expect(body.coverage[0].status).toBe('CONTEXT_ONLY');
     expect(body.coverage[0].reasons).toContain('NO_LIVE_EVIDENCE');
     expect(body.degraded).toBe(true);
+    expect(body.dataContract.event_time).toBe('2026-09-16T11:45:00.000Z');
     await app.close();
   });
 });
