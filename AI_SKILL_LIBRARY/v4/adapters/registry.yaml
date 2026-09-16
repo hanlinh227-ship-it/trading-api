@@ -1,0 +1,22 @@
+version: 1
+authority: false
+adapters:
+  - id: chatgpt
+    token_binding: BRAIN_CLIENT_CHATGPT_TOKEN
+    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
+    routing_authority: false
+    reasoning_authority: false
+  - id: claude
+    token_binding: BRAIN_CLIENT_CLAUDE_TOKEN
+    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
+    routing_authority: false
+    reasoning_authority: false
+  - id: gemini
+    token_binding: BRAIN_CLIENT_GEMINI_TOKEN
+    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
+    routing_authority: false
+    reasoning_authority: false
+future_adapter_contract:
+  brain_core_change_required: false
+  default_state: disabled
+  default_scopes: [brain.route]
