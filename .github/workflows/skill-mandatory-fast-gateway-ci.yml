@@ -45,6 +45,12 @@ jobs:
           python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA" --skip-tests
           echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
 
+      # The deploy-workflow shape tests (concurrency groups, deploy authority) live in
+      # tests/; without this step a PR touching only the deploy workflow or the Worker
+      # would first hit them post-merge inside the deploy job.
+      - name: Repository policy tests (deploy workflow shape, zero-local runtime)
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
