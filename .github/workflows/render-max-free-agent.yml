@@ -1,0 +1,97 @@
+name: Render Max With Free Image Agent
+
+on:
+  push:
+    branches: [smoke/max-free-image-agent-20260916]
+    paths:
+      - '.github/workflows/render-max-free-agent.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  render-max:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: smoke/max-free-image-agent-20260916
+      - name: Render Max through production free image agent
+        env:
+          TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+          BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$TOKEN"
+          mkdir -p artifacts
+          curl -fsS "$BASE_URL/brain/image/health" -o artifacts/health.json
+          python - <<'PY'
+          import json
+          h=json.load(open('artifacts/health.json'))
+          assert h.get('ok') is True, h
+          assert h.get('executionEnabled') is True, h
+          assert h.get('mode') == 'FREE_ONLY', h
+          PY
+          cat > /tmp/render.json <<'JSON'
+          {
+            "dataClass":"PUBLIC",
+            "prompt":"Exactly one adorable preschool 3D CGI baby monkey character named Max, bright red-orange soft fur, rounded cream face and cream inner ears, very large glossy black eyes, short red hair tuft, childlike proportions with a large head and small body, short arms and legs, slim red tail curving naturally behind him. Max wears a sky-blue short-sleeve shirt, warm golden-yellow short overalls, and blue-and-white sneakers. He is standing happily on a sunny pastel playground path, gently waving with one hand, natural friendly smile, not looking directly into the camera. Modern polished preschool animation, soft rounded forms, clean materials, bright but balanced pastel colors, soft daylight, cinematic medium-full shot, high character readability, consistent anatomy, exactly two arms, two legs, two ears, one tail, no text, no watermark.",
+            "negativePrompt":"photorealistic, anime, human, ape realism, brown fur, black fur, extra arms, extra legs, extra tail, missing tail, duplicate character, duplicated limbs, deformed hands, malformed face, crossed eyes, mutated body, adult proportions, hat, backpack, bow, logo, text, watermark, blurry, low quality, harsh shadows",
+            "width":768,
+            "height":768,
+            "steps":20,
+            "n":1
+          }
+          JSON
+          curl -fsS -X POST "$BASE_URL/brain/image/render" \
+            -H "content-type: application/json" \
+            -H "x-model-mesh-token: $TOKEN" \
+            --data-binary @/tmp/render.json -o artifacts/submit.json
+          JOB_ID="$(python - <<'PY'
+          import json
+          x=json.load(open('artifacts/submit.json'))
+          assert x.get('ok') is True, x
+          print(x['jobId'])
+          PY
+          )"
+          echo "JOB_ID=$JOB_ID"
+          done_flag=0
+          for i in $(seq 1 72); do
+            curl -fsS "$BASE_URL/brain/image/check?id=$JOB_ID" \
+              -H "x-model-mesh-token: $TOKEN" -o artifacts/check.json
+            python - <<'PY'
+          import json
+          x=json.load(open('artifacts/check.json'))
+          print('queue=',x.get('queuePosition'),'wait=',x.get('waitTime'),'done=',x.get('done'),'faulted=',x.get('faulted'))
+          assert x.get('faulted') is not True, x
+          PY
+            if python - <<'PY'
+          import json,sys
+          x=json.load(open('artifacts/check.json'))
+          sys.exit(0 if x.get('done') else 1)
+          PY
+            then done_flag=1; break; fi
+            sleep 10
+          done
+          test "$done_flag" = 1
+          curl -fsS "$BASE_URL/brain/image/status?id=$JOB_ID" \
+            -H "x-model-mesh-token: $TOKEN" -o artifacts/status.json
+          IMAGE_URL="$(python - <<'PY'
+          import json
+          x=json.load(open('artifacts/status.json'))
+          assert x.get('ok') is True and x.get('done') is True, x
+          g=x.get('generations') or []
+          assert g and g[0].get('imageUrl'), x
+          print(g[0]['imageUrl'])
+          PY
+          )"
+          curl -fL --retry 3 --retry-delay 2 "$IMAGE_URL" -o artifacts/max-free-agent.webp
+          file artifacts/max-free-agent.webp
+          test -s artifacts/max-free-agent.webp
+      - uses: actions/upload-artifact@v4
+        with:
+          name: max-free-agent-render
+          path: artifacts/max-free-agent.webp
+          retention-days: 7
