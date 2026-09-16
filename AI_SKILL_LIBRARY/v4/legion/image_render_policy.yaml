@@ -30,20 +30,21 @@ privacy:
   allowed_data_classes: [PUBLIC]
   denied_data_classes: [INTERNAL, CONFIDENTIAL, SECRET]
   non_public_action: fail_closed
-  reference_images_on_volunteer_provider: disabled
+  reference_images_on_volunteer_provider: false
   anonymous_requests_may_be_shared_by_provider: true
   anonymous_sharing_note: AI Horde documents that anonymous requests are always shared even when shared=false is requested, so anonymous mode is restricted to explicitly PUBLIC prompts only.
   reason: prompts and generated assets are processed by community volunteer infrastructure; do not send non-public project assets by default.
 
 runtime:
+  contract_version: image_render_v2
   health_path: /brain/image/health
   submit_path: /brain/image/render
   check_path: /brain/image/check
   status_path: /brain/image/status
   batch_submit_path: /brain/image/batch
   batch_status_path: /brain/image/batch/status
+  batch_retry_path: /brain/image/retry
   models_path: /brain/image/models
-  retry_path: /brain/image/retry
   cancel_method: DELETE
   execution_flag: IMAGE_RENDER_EXECUTION_ENABLED
   execution_token: IMAGE_RENDER_EXECUTION_TOKEN
@@ -54,18 +55,28 @@ runtime:
 batch:
   enabled: true
   max_scenes: 100
-  default_concurrency: 4
-  max_concurrency: 8
+  concurrency:
+    default: 4
+    maximum: 8
+    minimum: 1
   max_attempts_per_scene: 3
+  partial_success_allowed: true
+  cancel_resume_safe: true
+  durable_state_required: true
   state_binding: IMAGE_RENDER_BATCH
   state_class: ImageRenderBatchState
+  state_storage_key: image-render-batch-state-v2
   trading_state_forbidden: true
 
 quality:
-  modes: [STRUCTURAL, STRICT]
-  strict_requires_visual_verification_for_verified_label: true
-  visual_critic_unavailable_state: complete_unverified
-  metadata_only_may_report_verified: false
+  profiles: [STRUCTURAL, STRICT]
+  structural:
+    purpose: prompt_structure_and_metadata_quality_without_claiming_visual_verification
+    verified_completion_allowed_without_visual_critic: false
+  strict:
+    requires_visual_critic_for_verified_completion: true
+    missing_visual_critic_action: complete_unverified
+  never_fake_verified: true
 
 constraints:
   max_images_per_request: 4
