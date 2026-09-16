@@ -6,6 +6,7 @@ import {classifyProviderFailure,sanitizeDataClass,selectionCandidate} from './co
 import {applyCapabilityEvidence,enabledHardCapabilities} from './capability-evidence.js';
 import {MODEL_MESH_BINDINGS} from '../generated/model-mesh-bindings.js';
 import {readModelHealth,recordModelExecutionHealth,writeProbeHealth} from './health-store.js';
+import {resolveModelHealthStore} from './health-state.js';
 import {providerRuntimeStatus,resolveLiveModels} from './runtime-health.js';
 import {timingSafeToken} from './auth.js';
 import {scheduleSelfHeal} from './self-heal.js';
@@ -39,20 +40,12 @@ function normalizedResult(worker,route,startedAt,completedAt,result){
 
 export async function providerConfigurationStatus(modelSnapshot,env={}){return providerRuntimeStatus(modelSnapshot,env);}
 
-// How many models of one provider a single probe round may try before the
-// provider is reported unavailable. A mixed catalog holds paid and free models
-// at once and a listing is not liveness, so one 402 or one retired id must cost
-// the model, never the provider -- the bound is what keeps that from becoming
-// an unbounded sweep.
 const DEFAULT_MAX_CANDIDATES_PER_PROVIDER=3;
-// Failures that say "this model is wrong", not "this provider is unusable".
-// Trying the provider's next candidate is the whole point of admitting several.
 const MODEL_SCOPED_FAILURES=new Set(['MODEL_NOT_FOUND','MODEL_GONE','FREE_ENTITLEMENT_INVALID','REQUEST_INVALID']);
 
 export function createProviderProbe({fetchImpl=fetch,maxParallel=4,maxCandidatesPerProvider=DEFAULT_MAX_CANDIDATES_PER_PROVIDER}={}){
   return async function probeProviders(env,{modelSnapshot}={}){
-    // Group by provider so each provider gets a bounded candidate list rather
-    // than a single guessed model id.
+    const healthStore=resolveModelHealthStore(env);
     const byProvider=new Map();
     for(const model of modelSnapshot?.models||[]){
       if(!selectionCandidate(model))continue;
@@ -67,7 +60,7 @@ export function createProviderProbe({fetchImpl=fetch,maxParallel=4,maxCandidates
       const configured=Boolean(worker.secret_name&&env?.[worker.secret_name])&&Boolean(!worker.account_id_env||env?.[worker.account_id_env]);
       if(!configured)return {providerId:model.provider_id,modelId:model.model_id,configured:false,ok:false,status:0,latencyMs:Date.now()-started,category:'UNKNOWN_SANITIZED',state:'CONFIGURED'};
 
-      const existing=await readModelHealth(env?.TRADING_STATE,model,{sourceSha:modelSnapshot?.source_sha||'',nowMs:started});
+      const existing=await readModelHealth(healthStore,model,{sourceSha:modelSnapshot?.source_sha||'',nowMs:started});
       const cooldownUntilMs=existing?.cooldownUntil?Date.parse(String(existing.cooldownUntil)):NaN;
       if(existing?.state==='COOLDOWN'&&Number.isFinite(cooldownUntilMs)&&cooldownUntilMs>started){
         return {providerId:model.provider_id,modelId:model.model_id,configured:true,ok:false,status:0,latencyMs:0,
@@ -75,9 +68,6 @@ export function createProviderProbe({fetchImpl=fetch,maxParallel=4,maxCandidates
           resetAt:existing.cooldownUntil};
       }
 
-      // policy.yaml: quarantine_before_next_request -- a probe is a request. A model
-      // quarantined for an entitlement/auth/pricing failure is not re-called until its
-      // quarantine window expires (selection already excludes it).
       const quarantineUntilMs=existing?.expiresAt?Date.parse(String(existing.expiresAt)):NaN;
       if(existing?.state==='QUARANTINED'&&Number.isFinite(quarantineUntilMs)&&quarantineUntilMs>started){
         return {providerId:model.provider_id,modelId:model.model_id,configured:true,ok:false,status:0,latencyMs:0,
@@ -87,14 +77,11 @@ export function createProviderProbe({fetchImpl=fetch,maxParallel=4,maxCandidates
 
       const result=await callProvider(worker,env,[{role:'user',content:'Reply with OK only.'}],fetchImpl);
       const latencyMs=Math.max(0,Date.now()-started),category=result.ok?null:(result.category||classifyProviderFailure({status:result.status}));
-      const health=await writeProbeHealth(env?.TRADING_STATE,model,{ok:Boolean(result.ok),category,latencyMs,retryAfter:result.retryAfter,resetAt:result.resetAt},{sourceSha:modelSnapshot?.source_sha||''});
+      const health=await writeProbeHealth(healthStore,model,{ok:Boolean(result.ok),category,latencyMs,retryAfter:result.retryAfter,resetAt:result.resetAt},{sourceSha:modelSnapshot?.source_sha||''});
       const row={providerId:model.provider_id,modelId:model.model_id,configured:true,ok:Boolean(result.ok),status:Number(result.status||0),latencyMs,category,state:health.state,evidencePersisted:Boolean(health.persisted)};
       if(result.status===429){row.retryAfter=result.retryAfter||null;row.resetAt=result.resetAt||null;}
       return row;
     };
-    // Probe a provider's candidates in order and stop at the first one that
-    // completes. Every attempt is still recorded, so a 402 on one model is
-    // evidence about that model and never about the provider as a whole.
     const probeProvider=async candidates=>{
       const attempts=[];
       for(const model of candidates){
@@ -111,8 +98,6 @@ export function createProviderProbe({fetchImpl=fetch,maxParallel=4,maxCandidates
         candidatesProbed:attempts.length,
         candidatesAvailable:candidates.length,
         attemptedModelIds:attempts.map(row=>row.modelId),
-        // Recorded so an operator can tell "no free model left here" from
-        // "we never looked past the first id".
         providerExhausted:attempts.length>0&&!attempts.some(row=>row.ok===true)&&attempts.length===candidates.length,
       };
     };
@@ -146,12 +131,13 @@ export function createMeshExecutor({fetchImpl=fetch,selfHealProbe=null}={}){
       scheduleSelfHeal({env,ctx,probeProviders:selfHealProbe,modelSnapshot});
       return json({ok:false,error:'no_eligible_free_worker'},503);
     }
+    const healthStore=resolveModelHealthStore(env);
     const messages=[{role:'user',content:body.text}];
     const run=async selectedWorker=>{
       const startedAt=nowIso();const worker=resolveRuntimeWorker(selectedWorker);
       const result=worker?await callProvider(worker,env,messages,fetchImpl):{ok:false,status:0,category:'UNKNOWN_SANITIZED'};
       const completedAt=nowIso(),normalized=normalizedResult(worker||selectedWorker,route,startedAt,completedAt,result);
-      const persist=recordModelExecutionHealth(env?.TRADING_STATE,selectedWorker,{ok:Boolean(result.ok),category:result.category,latencyMs:normalized.latency_ms,retryAfter:result.retryAfter,resetAt:result.resetAt},{sourceSha:modelSnapshot?.source_sha||''});
+      const persist=recordModelExecutionHealth(healthStore,selectedWorker,{ok:Boolean(result.ok),category:result.category,latencyMs:normalized.latency_ms,retryAfter:result.retryAfter,resetAt:result.resetAt},{sourceSha:modelSnapshot?.source_sha||''});
       await persist;
       return normalized;
     };
