@@ -37,6 +37,7 @@ _PRICE_MODELS = {
     "unknown",
 }
 _QUOTA_MODELS = {"unlimited", "finite", "unknown"}
+_PRICING_EVIDENCE_SOURCES = {"api_catalog", "vendor_web_catalog", "account_holder_attestation", "provider_docs", "unknown"}
 _FREE_ONLY_POLICY = json.loads(FREE_ONLY_POLICY_PATH.read_text(encoding="utf-8"))
 if _FREE_ONLY_POLICY.get("schema_version") != 2 or _FREE_ONLY_POLICY.get("mode") != "FREE_ONLY":
     raise ValueError("invalid canonical FREE_ONLY policy")
@@ -173,6 +174,7 @@ def _zero_cost(value: object) -> dict[str, Any]:
         "hard_stop_evidence": _clean_string(row.get("hard_stop_evidence")),
         "quota_headroom_ratio": headroom,
         "free_quota_expires_at": _clean_string(row.get("free_quota_expires_at")) or None,
+        "pricing_evidence_source": _enum(row.get("pricing_evidence_source"), _PRICING_EVIDENCE_SOURCES, default="unknown"),
         "evidence": evidence,
     }
 

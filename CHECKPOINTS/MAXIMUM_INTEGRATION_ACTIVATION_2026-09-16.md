@@ -265,23 +265,41 @@ That splits the two providers cleanly:
   needs NVIDIA to expose the tier, or an account-holder attestation of the kind
   that admitted Alibaba, recorded as attestation rather than as provider
   evidence.
-- **opencode_zen** has a usable path. Its six documented Free ids are present
-  in the live catalog, and billing is verified off, so no Zen call can become
-  billable whatever it costs. That makes a completion probe cost-safe, and the
-  documented id list a legitimate probe *input* — never admission evidence. A
-  model is admitted only when it also returns a completion PASS, classified
-  `temporary_zero_price` against the pricing page with a 24h revalidation.
+- **opencode_zen** turned out to be settled, and not on cost. Probe run
+  35049301279 matched all 8 documented free ids against the live catalog (8/8)
+  and probed them. The answer came back from the provider itself:
+
+  ```
+  big-pickle  400  "OpenCode's free tier can only be used in OpenCode"
+  ```
+
+  Zen restricts its free tier to the OpenCode client. The models exist, billing
+  is off, the credential lists fine — the tier simply cannot be reached from an
+  API client. That is a provider policy limit, not a pricing or credential gap,
+  and impersonating the client to get around it would be circumvention. Zen is
+  discovery-only until the provider opens the tier to API clients.
+
+  The probe now recognises a refusal that describes the tier rather than the
+  model and ends the round there, instead of walking the rest of the list to
+  collect the same answer.
 
 ### Remaining, in order of what unblocks most
 
-1. **nvidia_nim** — the API exposes no free-tier field (confirmed, 0/82), so
-   admission needs an account-holder attestation recorded as such. Liveness and
-   a working model id are already proven, so admission is then one registry
-   entry plus a re-probe.
-2. **opencode_zen** — the documented free ids are present and billing is off,
-   so the remaining question is only whether completions authorise. Probe the
-   documented set with `probe_models`; if the 401 persists and names billing as
-   the reason, that is a fail-closed account blocker and billing stays off.
+1. **nvidia_nim** — the only provider still open, and the mechanism for it is
+   built. Because the API exposes no free-tier field (0/82), pricing evidence
+   comes from the vendor's Free Endpoint catalog and liveness from the API
+   probe, recorded as two separate sources in
+   `AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json`. A model is
+   admitted only when all four hold: it is on the recorded catalog capture, it
+   is in the live API listing, a completion probe passes, and the account holder
+   attests the account is on the Free Endpoint tier. The capture carries a
+   timestamp and a 30-day revalidation window, so a stale capture quarantines
+   the model the same way a stale price does. The catalog entry is currently
+   `PENDING_CAPTURE`: it needs the Free Endpoint model ids and the attestation,
+   which cannot be read from the API and must not be guessed.
+2. **opencode_zen** — closed as discovery-only on a provider restriction, not
+   an account gap. Nothing to do here unless Zen opens its free tier to API
+   clients.
 3. **sambanova, cerebras, cohere** — discovery-only on provider evidence
    (priced catalog; finite free trial; trial/evaluation). None is a code change;
    all re-enter automatically if a zero-price model or tier appears.

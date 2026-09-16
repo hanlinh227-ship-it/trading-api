@@ -35,6 +35,10 @@ on:
         description: 'discover-providers only: comma-separated model ids to probe, intersected with the live catalog. For providers that document their free models on a pricing page their API does not expose. The list is a probe input, never admission evidence.'
         type: string
         default: ''
+      probe_free_catalog:
+        description: 'discover-providers only: probe the intersection of the recorded vendor free-tier catalog (provider_free_catalogs.json) with the live API listing. Fails closed when the capture is missing, unattested or past its revalidation window.'
+        type: boolean
+        default: false
   # Fixed-minute entries, not '*/10'. GitHub sheds high-frequency '*/N'
   # schedules under load and this repository never received a single '*/10'
   # firing; every schedule here that does fire uses fixed minutes. A 20-minute
@@ -590,6 +594,7 @@ jobs:
           PROBE_ALLOW_UNPRICED: ${{ inputs.probe_allow_unpriced && '1' || '0' }}
           PROBE_REQUIRE_FREE_LABEL: ${{ inputs.probe_require_free_label && '1' || '0' }}
           PROBE_MODEL_ALLOWLIST: ${{ inputs.probe_models }}
+          PROBE_FREE_CATALOG: ${{ inputs.probe_free_catalog && '1' || '0' }}
           ONLY_PROVIDERS: ${{ inputs.probe_providers }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

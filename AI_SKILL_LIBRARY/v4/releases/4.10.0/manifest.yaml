@@ -62,10 +62,10 @@ files:
   sha256: 3fd9c8533971f2dc47861215c63860353dd1f79c6ab28a669854187c6d70cb41
   role: model_mesh_free_only_policy
 - path: AI_SKILL_LIBRARY/v4/model_mesh/providers.yaml
-  sha256: 68d3548c06c339a789eaa124a7d839a34cd3652a7ed611b32a1d9d79c7664d22
+  sha256: 4c44bb5a731d68077e7121dac2656e82820017369ccd3e77a8474d59431985c3
   role: model_mesh_providers
 - path: AI_SKILL_LIBRARY/v4/model_mesh/active.json
-  sha256: 375796f02eb384403bc628a672e8d46cb82fc40960999deaafd0cd17350c28c4
+  sha256: 183a4705ff2672967d1de6d1ef45090bbee6a0209bf528012050591b6214cd86
   role: model_mesh_active
 - path: AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json
   sha256: 4efe477a98f6e9cdde2fce72ad8c65a91242c09cce3417f98648b070789bb5d7
@@ -79,6 +79,9 @@ files:
 - path: AI_SKILL_LIBRARY/v4/model_mesh/capability_evidence.json
   sha256: 945673addae34ac46ad0c040d25ff9f540ed81e3623c82e4bb0d3182e982d50b
   role: model_mesh_capability_evidence
+- path: AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json
+  sha256: 9b3780c603bf1d14add0c6d0d5d716955bd068fdfda854e44077a9f663b8f10d
+  role: model_mesh_provider_free_catalogs
 - path: AI_SKILL_LIBRARY/v4/schemas/capability_evidence_ledger.schema.json
   sha256: cb0a9184a72bca90c1dbb10990651b690634ffc4cb5388aa529ec0ecf4b16d41
   role: model_mesh_capability_evidence_schema

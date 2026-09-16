@@ -41,6 +41,7 @@
   "model_mesh_snapshot_compiler_path": "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_snapshot.py",
   "model_mesh_snapshot_validator_path": "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_snapshot.py",
   "model_mesh_capability_evidence_path": "AI_SKILL_LIBRARY/v4/model_mesh/capability_evidence.json",
+  "model_mesh_provider_free_catalogs_path": "AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json",
   "model_mesh_capability_evidence_schema_path": "AI_SKILL_LIBRARY/v4/schemas/capability_evidence_ledger.schema.json",
   "model_mesh_active_index_schema_path": "AI_SKILL_LIBRARY/v4/schemas/model_mesh_active_candidate_index.schema.json",
   "model_mesh_active_index_compiler_path": "AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_active_index.py",
