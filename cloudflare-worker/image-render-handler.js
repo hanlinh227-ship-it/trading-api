@@ -13,6 +13,7 @@ import {compileScenePrompt} from './image-render/prompt-compiler.js';
 import {createImageProviderRegistry} from './image-render/provider-registry.js';
 import {rankImageModels} from './image-render/model-router.js';
 import {cancelImageBatch,createImageBatch,getImageBatchStatus,retryImageBatchScenes} from './image-render/batch-client.js';
+import {buildExportManifest,buildRenderReport} from './image-render/export-contract.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const enabled=env=>String(env?.IMAGE_RENDER_EXECUTION_ENABLED||'0')==='1';
@@ -38,6 +39,13 @@ function compileManifest(manifest){
     return {...scene,compiled_prompt:compiled.prompt,negative_prompt:compiled.negativePrompt,prompt_locks:compiled.locks};
   });
   return manifest;
+}
+
+function withExportMetadata(result){
+  if(!result?.ok||!result?.state||!Array.isArray(result.state.scenes))return result;
+  const exportManifest=buildExportManifest(result.state);
+  const renderReport=buildRenderReport(result.state);
+  return exportManifest.assets.length?{...result,renderReport,exportManifest}:{...result,renderReport};
 }
 
 export function createImageRenderHandler({fetchImpl=fetch}={}){
@@ -116,7 +124,7 @@ export function createImageRenderHandler({fetchImpl=fetch}={}){
       const batchId=String(url.searchParams.get('id')||'').trim();
       if(!batchId)return json({ok:false,error:'image_render_batch_id_required'},400);
       try{
-        const result=await getImageBatchStatus(env,batchId);
+        const result=withExportMetadata(await getImageBatchStatus(env,batchId));
         return json(result,result.status&&result.status>=400?result.status:200);
       }catch(error){return batchErrorResponse(error);}
     }
