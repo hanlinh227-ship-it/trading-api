@@ -61,7 +61,19 @@ ponytail:
     - widen_permissions
 
 omniroute:
-  enabled: false
+  # STAGE A - discovery/catalog adapter ON.
+  # Enabled means the adapter may normalise provider/model candidate rows into
+  # the quarantine pipeline. It is NOT on by default for any flow, performs no
+  # network execution, and holds no authority: Brain and the Model Mesh still
+  # select the candidate, OmniRoute never routes.
+  #
+  # Stage B (sandbox network execution) and Stage C (production gateway) are
+  # NOT reachable today: executable_dependency_added is false, so there is no
+  # OmniRoute dependency in the runtime to execute through. Reaching Stage B
+  # means adding an upstream executable dependency, which is a supply-chain
+  # decision and is deliberately not taken here.
+  enabled: true
+  stage: A_discovery_catalog
   enabled_by_default: false
   sandbox_only: true
   mode: optional_provider_discovery_adapter
