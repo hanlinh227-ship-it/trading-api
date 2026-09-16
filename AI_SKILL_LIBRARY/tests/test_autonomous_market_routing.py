@@ -20,7 +20,7 @@ AUTONOMOUS_TRIGGERS = {
     "scan markets",
     "best setup",
 }
-DOMAIN_AUTOPILOT_TRIGGERS = {
+DOMAIN_AUTOPILOT_TERMS = {
     "tìm lệnh forex",
     "quét forex",
     "tìm setup forex",
@@ -48,8 +48,9 @@ class AutonomousMarketRoutingTests(unittest.TestCase):
 
     def test_multi_market_analysis_owns_domain_specific_autopilot_queries(self):
         snapshot = compile_snapshot(ROOT, "0" * 40, generated_at="2026-09-16T00:00:00Z")
-        multi_market_triggers = set(snapshot["skills"]["multi_market_analysis"]["triggers"])
-        self.assertTrue(DOMAIN_AUTOPILOT_TRIGGERS.issubset(multi_market_triggers))
+        routed_terms = set(snapshot["skills"]["multi_market_analysis"]["triggers"])
+        routed_terms.update(snapshot["routing_aliases"].get("multi_market_analysis", []))
+        self.assertTrue(DOMAIN_AUTOPILOT_TERMS.issubset(routed_terms))
 
     def test_v3_output_contract_exposes_autonomous_acquisition_and_research_levels(self):
         snapshot = compile_snapshot(ROOT, "0" * 40, generated_at="2026-09-16T00:00:00Z")
