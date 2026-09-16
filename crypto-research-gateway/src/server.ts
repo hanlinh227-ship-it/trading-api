@@ -154,9 +154,18 @@ function responseEventTime(result: Record<string, unknown>, fallback: Date): str
   return new Date(Math.max(...timestamps)).toISOString();
 }
 
+function normalizedEvidenceEventTime(observations: readonly NormalizedMarketObservation[]): string | undefined {
+  const timestamps = observations
+    .map((item) => Date.parse(item.eventTime))
+    .filter((value) => Number.isFinite(value));
+  if (timestamps.length === 0) return undefined;
+  return new Date(Math.max(...timestamps)).toISOString();
+}
+
 function attachDataContract(
   result: Record<string, unknown>,
   kind = 'crypto_market_research',
+  eventTimeOverride?: string,
 ): Record<string, unknown> {
   const now = new Date();
   const degraded = result.degraded === true;
@@ -172,7 +181,7 @@ function attachDataContract(
     kind,
     source: SERVICE_NAME,
     sourceSha,
-    eventTime: responseEventTime(result, now),
+    eventTime: eventTimeOverride ?? responseEventTime(result, now),
     ingestTime: now.toISOString(),
     freshness,
     payload: result,
@@ -392,7 +401,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       decision: ranking.decision,
       ranked: ranking.ranked.slice(0, parsed.data.maxResults),
       blocked,
-    }, 'autonomous_multi_market_research');
+    }, 'autonomous_multi_market_research', normalizedEvidenceEventTime(scopedObservations));
 
     return reply.code(200).send(result);
   });
