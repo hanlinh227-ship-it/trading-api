@@ -19,6 +19,13 @@ export type EvidenceQualityResult = {
   reasons: string[];
 };
 
+export function evidenceMaxAgeMs(timeframe: string): number {
+  if (timeframe === '5m') return 20 * 60 * 1000;
+  if (timeframe === '15m') return 60 * 60 * 1000;
+  if (timeframe === '1h') return 4 * 60 * 60 * 1000;
+  return 4 * 60 * 60 * 1000;
+}
+
 function closedSession(session: string | undefined): boolean {
   if (!session) return false;
   const normalized = session.trim().toLowerCase().replace(/[\s-]+/g, '_');

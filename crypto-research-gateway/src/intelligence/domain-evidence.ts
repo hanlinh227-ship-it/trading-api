@@ -1,4 +1,4 @@
-import { classifyEvidenceQuality } from './evidence-quality.js';
+import { classifyEvidenceQuality, evidenceMaxAgeMs } from './evidence-quality.js';
 import type { NormalizedMarketObservation } from './autonomous-scan.js';
 import type { MarketDomain } from './multi-market.js';
 
@@ -17,13 +17,6 @@ export type DomainEvidenceEvaluation = {
 
 function addReason(reasons: string[], reason: string): void {
   if (!reasons.includes(reason)) reasons.push(reason);
-}
-
-function maxAgeForTimeframe(timeframe: string): number {
-  if (timeframe === '5m') return 20 * 60 * 1000;
-  if (timeframe === '15m') return 60 * 60 * 1000;
-  if (timeframe === '1h') return 4 * 60 * 60 * 1000;
-  return 4 * 60 * 60 * 1000;
 }
 
 function sessionRequired(domain: MarketDomain): boolean {
@@ -80,7 +73,7 @@ export function evaluateDomainEvidence(
   for (const observation of relevant) {
     const quality = classifyEvidenceQuality(observation, {
       nowMs,
-      maxAgeMs: maxAgeForTimeframe(observation.timeframe),
+      maxAgeMs: evidenceMaxAgeMs(observation.timeframe),
       clockSkewMs: 5_000,
     });
     if (quality.liveEligible) {
@@ -98,6 +91,10 @@ export function evaluateDomainEvidence(
 
   const context = selected.filter((item) => item.timeframe === '1h');
   const entry = selected.filter((item) => item.timeframe === '15m');
+  const hasEntryEvidence = relevant.some(
+    (item) => item.timeframe === '15m' && (item.evidenceKind ?? 'bar') === 'bar',
+  );
+  if (entry.length === 0 && hasEntryEvidence) addReason(reasons, 'NO_LIVE_EVIDENCE');
   if (context.length === 0) addReason(reasons, 'MISSING_CONTEXT_TIMEFRAME');
   if (entry.length < 3) addReason(reasons, 'MISSING_ENTRY_TIMEFRAME');
 
