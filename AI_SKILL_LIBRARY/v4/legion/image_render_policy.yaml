@@ -1,0 +1,65 @@
+version: 1
+purpose: free_only_cloud_image_rendering_without_new_routing_authority
+status: candidate
+routing_authority: false
+reasoning_authority: false
+brain_authority: GITHUB_BRAIN_V4
+execution_mode: async_job
+paid_fallback: false
+auto_purchase: false
+trial_credit_as_free: false
+promo_credit_as_free: false
+
+provider:
+  id: ai_horde
+  role: primary_free_image_renderer
+  provider_class: community_nonprofit_volunteer_compute
+  endpoint: https://aihorde.net/api/v2
+  anonymous_key_supported: true
+  anonymous_key_value: '0000000000'
+  monetary_cost: zero
+  external_availability_guarantee: false
+  free_commitment_evidence:
+    mission: https://aihorde.net/mission/
+    api: https://aihorde.net/api/
+    integration: https://github.com/Haidra-Org/AI-Horde/blob/main/README_integration.md
+  notes: AI Horde publicly commits to free access and no paid-priority tier, but no external service can be technically guaranteed to exist forever. Runtime therefore guarantees FREE_ONLY behavior, not perpetual provider availability.
+
+privacy:
+  allowed_data_classes: [PUBLIC]
+  denied_data_classes: [INTERNAL, CONFIDENTIAL, SECRET]
+  non_public_action: fail_closed
+  reference_images_on_volunteer_provider: disabled
+  reason: prompts and generated assets are processed by community volunteer infrastructure; do not send non-public project assets by default.
+
+runtime:
+  health_path: /brain/image/health
+  submit_path: /brain/image/render
+  check_path: /brain/image/check
+  status_path: /brain/image/status
+  cancel_method: DELETE
+  execution_flag: IMAGE_RENDER_EXECUTION_ENABLED
+  execution_token: IMAGE_RENDER_EXECUTION_TOKEN
+  token_fallback: MODEL_MESH_EXECUTION_TOKEN
+  optional_provider_key: AI_HORDE_API_KEY
+  anonymous_without_provider_key: true
+
+constraints:
+  max_images_per_request: 4
+  width_range: [256, 1536]
+  height_range: [256, 1536]
+  dimension_alignment: 64
+  steps_range: [4, 40]
+  nsfw: false
+  censor_nsfw: true
+  shared: false
+  paid_route_forbidden: true
+  unknown_cost_action: reject
+
+agent_contract:
+  agent_id: image_render_agent
+  primary_domain: prompt_media
+  capability: image_generation
+  permission_ceiling: sandbox_execute
+  privacy_classes: [PUBLIC]
+  authority: false
