@@ -27,6 +27,10 @@ on:
         description: 'discover-providers only: probe models whose catalog publishes no price (most providers publish none). Models priced above zero are always skipped.'
         type: boolean
         default: true
+      probe_require_free_label:
+        description: 'discover-providers only: probe ONLY models the catalog itself marks free (e.g. a Free Endpoint tier). Use when the provider advertises a free tier and you want its marking, not whatever answers first.'
+        type: boolean
+        default: false
   # Fixed-minute entries, not '*/10'. GitHub sheds high-frequency '*/N'
   # schedules under load and this repository never received a single '*/10'
   # firing; every schedule here that does fire uses fixed minutes. A 20-minute
@@ -580,6 +584,7 @@ jobs:
           PROBE_COMPLETIONS: '1'
           PROBE_LIMIT: ${{ inputs.probe_limit }}
           PROBE_ALLOW_UNPRICED: ${{ inputs.probe_allow_unpriced && '1' || '0' }}
+          PROBE_REQUIRE_FREE_LABEL: ${{ inputs.probe_require_free_label && '1' || '0' }}
           ONLY_PROVIDERS: ${{ inputs.probe_providers }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
