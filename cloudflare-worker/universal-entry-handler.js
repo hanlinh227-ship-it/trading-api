@@ -1,4 +1,4 @@
-import {authenticateAdapter,requiredScopeForPath,UNIVERSAL_CLIENT_IDS} from './universal-auth.js';
+import {authenticateAdapter,requiredScopeForPath,UNIVERSAL_INTERNAL_CLIENT_IDS,UNIVERSAL_USER_CLIENT_IDS} from './universal-auth.js';
 import {classifyEntrySafety,effectiveProfile,normalizeUniversalRequest} from './universal-entry-contract.js';
 import {createStateStores} from './universal-state.js';
 import {recordUniversalEvent} from './universal-telemetry.js';
@@ -63,7 +63,9 @@ export function createUniversalEntryHandler({snapshot,routeSkill}={}){
       return json({
         ok:true,
         brainAuthority:'GITHUB_BRAIN_V4',
-        adapters:[...UNIVERSAL_CLIENT_IDS],
+        adapters:[...UNIVERSAL_USER_CLIENT_IDS],
+        userAdapters:[...UNIVERSAL_USER_CLIENT_IDS],
+        internalPrincipals:[...UNIVERSAL_INTERNAL_CLIENT_IDS],
         profiles:['FAST','STANDARD','DEEP'],
         futureAdapterWithoutBrainCoreChange:true,
         paidFallback:false,
@@ -85,8 +87,6 @@ export function createUniversalEntryHandler({snapshot,routeSkill}={}){
     const capsule=publicCapsule(snapshot.capsules?.[route.primarySkill]);
     if(!capsule)return json({ok:false,error:'brain_capsule_missing'},503);
 
-    // FAST remains zero-persistence/zero-shared-state on the synchronous path.
-    // STANDARD/DEEP audit is best-effort and asynchronous; failure cannot block routing.
     if(profile!=='FAST'&&typeof ctx?.waitUntil==='function'){
       const stores=createStateStores(env);
       ctx.waitUntil(recordUniversalEvent(stores,{
