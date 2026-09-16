@@ -46,7 +46,7 @@ export function compileImageIntent(input={}){
   const height=Number(input.height??input.target?.height??1024);
   if(!Number.isInteger(width)||!Number.isInteger(height)||width<=0||height<=0)throw new Error('invalid_target_dimensions');
 
-  const destructiveDefault=['TEXT_TO_IMAGE','REFERENCE_GENERATION','STYLE_TRANSFER','MULTI_IMAGE_COMPOSE'].includes(taskType);
+  const destructiveDefault=['TEXT_TO_IMAGE','STYLE_TRANSFER','MULTI_IMAGE_COMPOSE'].includes(taskType)&&refs.length===0;
   const destructiveRedrawAllowed=input.destructiveRedrawAllowed===undefined?destructiveDefault:Boolean(input.destructiveRedrawAllowed);
 
   return {
