@@ -1,5 +1,5 @@
 import {validateModelVaultEntry} from './model-vault.js';
-import {validateProviderModelRegistration} from './provider-mesh.js';
+import {requiresReferenceSafeRuntime,validateProviderModelRegistration} from './provider-mesh.js';
 
 const clone=value=>structuredClone(value);
 const taskRecord=(state,modelKey,taskType)=>state?.models?.[modelKey]?.tasks?.[taskType]||{results:[]};
@@ -40,6 +40,7 @@ export function evaluatePromotionGate({vaultEntry,runtimeConfigured,runtimeHealt
     if(!providerValidation.ok)blockers.push(...providerValidation.errors);
     if(vaultEntry&&String(providerRegistration.modelId||'')!==String(vaultEntry.modelId||''))blockers.push('provider_model_mismatch');
     if(taskType&&!(Array.isArray(providerRegistration.supportedTasks)&&providerRegistration.supportedTasks.includes(taskType)))blockers.push('task_not_supported_by_provider');
+    if(requiresReferenceSafeRuntime({taskType})&&providerRegistration.referenceSafe!==true)blockers.push('reference_safe_runtime_required');
   }
   return {ok:blockers.length===0,blockers:[...new Set(blockers)],reason:blockers.length?blockers[0]:'promotion_gate_passed'};
 }
