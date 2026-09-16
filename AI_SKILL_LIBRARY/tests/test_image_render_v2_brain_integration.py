@@ -24,7 +24,7 @@ class ImageRenderV2BrainIntegrationTests(unittest.TestCase):
         self.assertFalse(policy["auto_purchase"])
         self.assertEqual(policy["privacy"]["allowed_data_classes"], ["PUBLIC"])
         self.assertEqual(policy["privacy"]["non_public_action"], "fail_closed")
-        self.assertFalse(policy["privacy"]["reference_images_on_volunteer_provider"])
+        self.assertEqual(policy["privacy"]["reference_images_on_volunteer_provider"], "disabled")
         self.assertTrue(policy["constraints"]["paid_route_forbidden"])
         self.assertEqual(policy["constraints"]["unknown_cost_action"], "reject")
 
