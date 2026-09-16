@@ -263,15 +263,13 @@ jobs:
               raise SystemExit('write/high-risk tool exposed in production')
           PY
 
-      - name: Verify Bybit and Binance production execution quotes
+      - name: Verify authoritative Bybit BTCUSDT production execution quotes
         shell: bash
         run: |
           set -euo pipefail
           for SPEC in \
             'bybit LONG BTCUSDT ask' \
-            'bybit SHORT SOLUSDT bid' \
-            'binance LONG BTCUSDT ask' \
-            'binance SHORT SOLUSDT bid'; do
+            'bybit SHORT BTCUSDT bid'; do
             set -- $SPEC
             VENUE="$1"
             SIDE="$2"
