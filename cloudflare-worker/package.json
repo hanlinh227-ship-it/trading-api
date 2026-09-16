@@ -14,7 +14,7 @@
     "deploy": "npm run prepare:universal-fabric && npm run prepare:skill-gateway && npm run prepare:model-mesh && npm run check && npm run prepare:wrangler && wrangler deploy --dry-run",
     "preview": "npm run prepare:universal-fabric && npm run prepare:skill-gateway && npm run prepare:model-mesh && npm run check && npm run prepare:wrangler && wrangler versions upload",
     "prepare:all": "python3 ../AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha \"$(git rev-parse HEAD)\" --skip-tests && GITHUB_SHA=\"$(git rev-parse HEAD)\" npm run prepare:universal-fabric && GITHUB_SHA=\"$(git rev-parse HEAD)\" npm run prepare:skill-gateway && GITHUB_SHA=\"$(git rev-parse HEAD)\" npm run prepare:model-mesh",
-    "test:image-render": "node test-image-render-agent.mjs && node test-image-render-v2-contracts.mjs && node test-image-render-v2-provider.mjs && node test-image-render-v2-model-router.mjs && node test-image-render-v2-quality.mjs"
+    "test:image-render": "node test-image-render-agent.mjs && node test-image-render-v2-contracts.mjs && node test-image-render-v2-provider.mjs && node test-image-render-v2-model-router.mjs && node test-image-render-v2-quality.mjs && node test-image-render-v2-batch-engine.mjs"
   },
   "devDependencies": {
     "wrangler": "4.124.0"
