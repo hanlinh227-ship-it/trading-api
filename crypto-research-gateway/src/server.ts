@@ -13,6 +13,10 @@ import {
   resolveMarketScope,
   type MarketDomain,
 } from './intelligence/multi-market.js';
+import {
+  buildDataAcquisitionPlan,
+  type SourceCapability,
+} from './intelligence/source-planner.js';
 import { READ_ONLY_TOOL_NAMES, registerMcpRoute } from './mcp/server.js';
 import { buildDataEnvelope, type DataFreshness } from './normalization/data-contract.js';
 import { ResearchRuntime } from './research.js';
@@ -20,6 +24,7 @@ import { ResearchRuntime } from './research.js';
 export type BuildAppOptions = {
   probeOnStart?: boolean;
   forceAllProvidersDown?: boolean;
+  nowMs?: number;
 };
 
 const marketRequestSchema = z.object({
@@ -102,6 +107,14 @@ const normalizedObservationSchema = z.object({
   session: z.string().min(1).max(80).optional(),
   metadata: z.record(z.string(), observationMetadataValueSchema).optional(),
   chart: chartSchema.optional(),
+  latencyMs: z.number().finite().min(0).optional(),
+  delayClass: z.enum(['REALTIME', 'DELAYED', 'UNKNOWN']).optional(),
+  entitlement: z.enum(['VERIFIED_REALTIME', 'VERIFIED_DELAYED', 'UNVERIFIED']).optional(),
+  instrumentType: z.enum(['spot', 'perpetual', 'forex', 'future', 'index']).optional(),
+  providerSymbol: z.string().min(1).max(120).optional(),
+  canonicalSymbol: z.string().min(1).max(120).optional(),
+  contractExpiry: z.string().min(1).max(80).optional(),
+  evidenceKind: z.enum(['quote', 'snapshot', 'bar', 'trade', 'session', 'context']).optional(),
 }).strict();
 const symbolSelectionSchema = z.object({
   crypto: z.array(z.string().min(1).max(80)).min(1).max(50).optional(),
@@ -111,11 +124,22 @@ const symbolSelectionSchema = z.object({
   metals: z.array(z.string().min(1).max(80)).min(1).max(50).optional(),
   commodities: z.array(z.string().min(1).max(80)).min(1).max(50).optional(),
 }).strict();
+const sourceCapabilitySchema = z.object({
+  source: z.string().min(1).max(160),
+  sourceType: z.enum(['gateway', 'connector']),
+  domains: z.array(marketDomainSchema).min(1).max(6),
+  entitlement: z.enum(['VERIFIED_REALTIME', 'VERIFIED_DELAYED', 'UNVERIFIED', 'NOT_ENTITLED']),
+  available: z.boolean(),
+}).strict();
+const acquisitionContextSchema = z.object({
+  sources: z.array(sourceCapabilitySchema).max(64).default([]),
+}).strict();
 const autoscanRequestSchema = z.object({
   intent: z.string().min(1).max(240).optional(),
   requestedDomains: z.array(marketDomainSchema).min(1).max(6).optional(),
   symbols: symbolSelectionSchema.optional(),
   externalObservations: z.array(normalizedObservationSchema).max(500).optional(),
+  acquisitionContext: acquisitionContextSchema.optional(),
   maxResults: z.number().int().min(1).max(10).default(3),
 }).strict();
 
@@ -163,6 +187,21 @@ function symbolAllowed(
   return !requested || requested.includes(observation.symbol);
 }
 
+function sourceCoverageFromPlan(
+  scope: readonly MarketDomain[],
+  sourcesByDomain: Partial<Record<MarketDomain, string[]>>,
+): Partial<Record<MarketDomain, { sources: string[]; status: 'COVERED' | 'GAP' }>> {
+  const coverage: Partial<Record<MarketDomain, { sources: string[]; status: 'COVERED' | 'GAP' }>> = {};
+  for (const domain of scope) {
+    const sources = sourcesByDomain[domain] ?? [];
+    coverage[domain] = {
+      sources,
+      status: sources.length > 0 ? 'COVERED' : 'GAP',
+    };
+  }
+  return coverage;
+}
+
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: 256_000 });
   const runtime = new ResearchRuntime({ forceAllProvidersDown: options.forceAllProvidersDown });
@@ -202,6 +241,16 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     localInstallRequired: false,
     tools: READ_ONLY_TOOL_NAMES,
     researchSurfaces: ['multi_market_opportunity_ranking', 'autonomous_multi_market_research'],
+    capabilityVersions: {
+      autonomous_multi_market_research: 3,
+    },
+    autonomousMultiMarketResearch: {
+      capabilityVersion: 3,
+      researchOnly: true,
+      productionExecutionAuthority: false,
+      providerCalls: 'external-tool-plane-only',
+      entitlementRequiredForLive: true,
+    },
   }));
 
   app.post('/research/market', async (request, reply) => {
@@ -262,8 +311,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     }
 
     const scope = resolveMarketScope(parsed.data.requestedDomains as MarketDomain[] | undefined);
+    const requestedSymbols = parsed.data.symbols as Partial<Record<MarketDomain, string[]>> | undefined;
     const scopedObservations = observations.filter((observation) =>
-      scope.includes(observation.domain) && symbolAllowed(observation, parsed.data.symbols as Partial<Record<MarketDomain, string[]>> | undefined));
+      scope.includes(observation.domain) && symbolAllowed(observation, requestedSymbols));
+    const acquisitionCapabilities = (parsed.data.acquisitionContext?.sources ?? []) as SourceCapability[];
+    const dataAcquisitionPlan = buildDataAcquisitionPlan({
+      requestedDomains: scope,
+      requestedSymbols,
+      capabilities: acquisitionCapabilities,
+    });
 
     const coverage = scope.map((domain) => {
       const domainObservations = scopedObservations.filter((item) => item.domain === domain);
@@ -286,14 +342,17 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       };
     });
 
-    const batch = buildCandidatesFromObservations(scopedObservations);
+    const requestNowMs = options.nowMs ?? Date.now();
+    const batch = buildCandidatesFromObservations(scopedObservations, requestNowMs);
     const ranking = rankOpportunities(batch.candidates);
     const blocked = [
       ...batch.blocked.map((item) => ({ id: `${item.domain}:${item.symbol}`, reasons: item.reasons })),
       ...ranking.blocked,
     ];
     const providers = [...new Set(scopedObservations.map((item) => `${item.sourceType}:${item.source}`))];
+    const sourceCoverage = sourceCoverageFromPlan(scope, dataAcquisitionPlan.sourcesByDomain);
     const degraded = coverage.some((item) => item.status === 'GAP')
+      || dataAcquisitionPlan.gaps.length > 0
       || blocked.length > 0
       || ranking.decision === 'NO_TRADE';
 
@@ -301,11 +360,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       ok: true,
       degraded,
       capability: 'autonomous_multi_market_research',
+      capabilityVersion: 3,
       researchOnly: true,
       productionExecutionAuthority: false,
       intent: parsed.data.intent ?? null,
       scope,
       timeframePlan: buildTimeframePlan(),
+      dataAcquisitionPlan,
+      sourceCoverage,
+      entitlementSummary: dataAcquisitionPlan.entitlementStateBySource,
       coverage,
       candidatesBuilt: batch.candidates.length,
       providers,
