@@ -3,6 +3,7 @@ import {cancelImageBatch,createImageBatch,getImageBatchStatus} from './batch-cli
 
 const STATE_KEY='image-logical-job-state-v3';
 const TERMINAL=new Set(['complete','complete_with_failures','cancelled']);
+const RETRYABLE_SCENE_STATES=new Set(['failed_quality','failed_provider','cancelled']);
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8'}});
 const clone=value=>structuredClone(value);
 
@@ -71,10 +72,15 @@ export function createImageLogicalJobClass({
         let body;try{body=await request.json();}catch{return json({ok:false,error:'invalid_json'},400);}
         let state=await this.load();if(!state)return json({ok:false,error:'image_logical_job_not_found'},404);
         const ids=Array.isArray(body?.sceneIds)?body.sceneIds.map(String).filter(Boolean):[];
-        state=retryLogicalJobScenes(state,ids);
-        const selected=new Set(ids);
-        for(const chunk of state.chunks){if(chunk.sceneIds.some(id=>selected.has(id))){chunk.status='queued';delete chunk.physicalBatchId;}}
-        await this.save(state);await this.schedule(2);return this.response(state);
+        const retryableIds=new Set(state.scenes.filter(scene=>ids.includes(scene.id)&&RETRYABLE_SCENE_STATES.has(scene.status)).map(scene=>scene.id));
+        state=retryLogicalJobScenes(state,[...retryableIds]);
+        if(retryableIds.size){
+          for(const chunk of state.chunks){
+            if(chunk.sceneIds.some(id=>retryableIds.has(id))){chunk.status='queued';delete chunk.physicalBatchId;}
+          }
+          await this.schedule(2);
+        }
+        await this.save(state);return this.response(state);
       }
       if(url.pathname==='/tick'&&request.method==='POST'){
         const state=await this.cycle();return state?this.response(state):json({ok:false,error:'image_logical_job_not_found'},404);
