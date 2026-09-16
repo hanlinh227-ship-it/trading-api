@@ -18,10 +18,14 @@
     }
   ],
   "durable_objects": {
-    "bindings": [{"name": "TINYFISH_CIRCUIT", "class_name": "TinyFishCircuit"}]
+    "bindings": [
+      {"name": "TINYFISH_CIRCUIT", "class_name": "TinyFishCircuit"},
+      {"name": "MODEL_MESH_HEALTH", "class_name": "ModelMeshHealthState"}
+    ]
   },
   "migrations": [
-    {"tag": "tinyfish-circuit-v1", "new_sqlite_classes": ["TinyFishCircuit"]}
+    {"tag": "tinyfish-circuit-v1", "new_sqlite_classes": ["TinyFishCircuit"]},
+    {"tag": "model-mesh-health-v1", "new_sqlite_classes": ["ModelMeshHealthState"]}
   ],
   // Read-only Model Mesh health maintenance only. Financial, trading, deploy
   // and autonomous Brain crons remain forbidden and are rejected by
