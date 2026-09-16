@@ -14,6 +14,7 @@ PROTECTED_CLASSES = {
     "permission_change",
 }
 ALLOWED_AUTONOMOUS_PROMOTION = {"A", "B"}
+PRINCIPAL_TYPES = {"user", "internal"}
 
 
 def _load_yaml(path: Path) -> dict:
@@ -38,11 +39,14 @@ def validate(root: Path) -> list[str]:
 
     ids: set[str] = set()
     bindings: set[str] = set()
+    user_ids: set[str] = set()
+    internal_ids: set[str] = set()
     for row in adapters:
         if not isinstance(row, dict):
             errors.append("adapter_row_must_be_mapping")
             continue
         adapter_id = str(row.get("id") or "").strip()
+        principal_type = str(row.get("principal_type") or "user").strip().lower()
         binding = str(row.get("token_binding") or "").strip()
         scopes = row.get("scopes")
         if not adapter_id:
@@ -50,17 +54,33 @@ def validate(root: Path) -> list[str]:
         elif adapter_id in ids:
             errors.append(f"duplicate_adapter_id:{adapter_id}")
         ids.add(adapter_id)
+        if principal_type not in PRINCIPAL_TYPES:
+            errors.append(f"invalid_principal_type:{adapter_id or 'unknown'}")
+        elif principal_type == "user":
+            user_ids.add(adapter_id)
+        else:
+            internal_ids.add(adapter_id)
         if not binding:
             errors.append(f"token_binding_required:{adapter_id or 'unknown'}")
         elif binding in bindings:
             errors.append(f"duplicate_token_binding:{binding}")
         bindings.add(binding)
-        if not isinstance(scopes, list) or "brain.route" not in scopes:
+        if not isinstance(scopes, list) or not scopes:
+            errors.append(f"scopes_required:{adapter_id or 'unknown'}")
+            scopes = []
+        if principal_type == "user" and "brain.route" not in scopes:
             errors.append(f"brain_route_scope_required:{adapter_id or 'unknown'}")
+        if principal_type == "internal" and "brain.route" in scopes:
+            errors.append(f"internal_route_scope_forbidden:{adapter_id or 'unknown'}")
         if row.get("routing_authority") is not False:
             errors.append(f"adapter_routing_authority_forbidden:{adapter_id or 'unknown'}")
         if row.get("reasoning_authority") is not False:
             errors.append(f"adapter_reasoning_authority_forbidden:{adapter_id or 'unknown'}")
+
+    if user_ids != {"chatgpt", "claude", "gemini"}:
+        errors.append("initial_user_adapter_set_must_be_chatgpt_claude_gemini")
+    if internal_ids and internal_ids != {"evergreen"}:
+        errors.append("unexpected_internal_principal")
 
     if policy.get("authority") != "GITHUB_BRAIN_V4":
         errors.append("universal_fabric_authority_must_be_github_brain_v4")
