@@ -52,6 +52,12 @@ class FreeImageRenderAgentPolicyTests(unittest.TestCase):
         self.assertEqual(runtime["execution_token"], "IMAGE_RENDER_EXECUTION_TOKEN")
         self.assertEqual(runtime["token_fallback"], "MODEL_MESH_EXECUTION_TOKEN")
 
+    def test_worker_build_enables_authenticated_public_image_renderer(self):
+        prepare = (ROOT / "cloudflare-worker/prepare-wrangler.mjs").read_text(encoding="utf-8")
+        self.assertIn("IMAGE_RENDER_EXECUTION_ENABLED:'1'", prepare)
+        self.assertIn("IMAGE_RENDER_EXECUTION=ENABLED_AUTHENTICATED_PUBLIC_ONLY", prepare)
+        self.assertNotIn("AI_HORDE_API_KEY:", prepare, "provider credentials must never be generated into Worker vars")
+
 
 if __name__ == "__main__":
     unittest.main()
