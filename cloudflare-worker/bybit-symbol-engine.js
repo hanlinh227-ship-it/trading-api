@@ -1,4 +1,5 @@
 import {bybitAutoConfig} from "./bybit-auto-config.js";
+import {BYBIT_EXECUTION_AUTHORITY,BYBIT_EXECUTION_SYMBOL,BYBIT_NON_BTC_EXECUTION_ERROR,assertBybitExecutionSymbol} from "./bybit-execution-authority.js";
 import {bybitV5,normalizeBybitFilter,roundTick} from "./bybit-v5-client.js";
 import {buildBtcMarketState} from "./bybit-btc-market-state.js";
 import {selectBybitSymbolSetup as selectBtcSetup} from "./bybit-symbol-strategy.js";
@@ -69,8 +70,8 @@ async function getState(env){return get(env);}
 const ENGINE_CACHE=new Map();
 function norm(s){const x=String(s||'BTCUSDT').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');if(!x.endsWith('USDT'))throw new Error('BYBIT_SYMBOL_INVALID');return x;}
 function engineFor(symbol){const s=norm(symbol);if(!ENGINE_CACHE.has(s))ENGINE_CACHE.set(s,createSymbolEngine(s));return ENGINE_CACHE.get(s);}
-export async function runBybitSymbolEngine(env,opts={}){const symbol=norm(opts.symbol||'BTCUSDT'),rest={...opts};delete rest.symbol;return engineFor(symbol).runSymbol(env,rest);}
-export async function getBybitSymbolState(env,symbol='BTCUSDT'){return engineFor(norm(symbol)).getState(env);}
-export async function runBtcHyperscale(env,opts={}){return runBybitSymbolEngine(env,{...opts,symbol:'BTCUSDT'});}
-export async function getBtcHyperscaleState(env){return getBybitSymbolState(env,'BTCUSDT');}
-export const BTC_HYPERSCALE_ENGINE_VERSION='BYBIT-MULTI-ASSET-ENGINE-4.9.0-SCALP-FIRST-FAST-TURNOVER';
+export async function runBybitSymbolEngine(env,opts={}){const requested=norm(opts.symbol||BYBIT_EXECUTION_SYMBOL);let symbol;try{symbol=assertBybitExecutionSymbol(requested);}catch(error){return {ok:false,executed:false,mode:'BLOCKED',reason:BYBIT_NON_BTC_EXECUTION_ERROR,symbol:requested,executionAuthority:BYBIT_EXECUTION_AUTHORITY};}const rest={...opts};delete rest.symbol;return engineFor(symbol).runSymbol(env,rest);}
+export async function getBybitSymbolState(env,symbol=BYBIT_EXECUTION_SYMBOL){const requested=norm(symbol);assertBybitExecutionSymbol(requested);return engineFor(BYBIT_EXECUTION_SYMBOL).getState(env);}
+export async function runBtcHyperscale(env,opts={}){return runBybitSymbolEngine(env,{...opts,symbol:BYBIT_EXECUTION_SYMBOL});}
+export async function getBtcHyperscaleState(env){return getBybitSymbolState(env,BYBIT_EXECUTION_SYMBOL);}
+export const BTC_HYPERSCALE_ENGINE_VERSION=BYBIT_EXECUTION_AUTHORITY;
