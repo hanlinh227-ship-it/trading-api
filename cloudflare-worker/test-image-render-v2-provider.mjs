@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {listAiHordeModels} from './image-render/ai-horde.js';
+import {listAiHordeModels,submitAiHordeImage} from './image-render/ai-horde.js';
 import {createImageProviderRegistry} from './image-render/provider-registry.js';
 
 const requests=[];
@@ -12,6 +12,7 @@ const fetchImpl=async(url,init={})=>{
     ]),{status:200,headers:{'content-type':'application/json'}});
   }
   if(String(url).endsWith('/status/heartbeat'))return new Response(JSON.stringify({ok:true}),{status:200,headers:{'content-type':'application/json'}});
+  if(String(url).endsWith('/generate/async'))return new Response(JSON.stringify({id:'12345678-1234-1234-1234-123456789abc',kudos:1}),{status:202,headers:{'content-type':'application/json'}});
   return new Response(JSON.stringify({message:'not found'}),{status:404,headers:{'content-type':'application/json'}});
 };
 
@@ -33,5 +34,25 @@ assert.equal(provider.paidFallback,false);
 const registryModels=await provider.listModels();
 assert.equal(registryModels.models.length,2);
 assert.equal((await provider.health()).ok,true);
+
+// When the router names a concrete model, the volunteer provider must not silently
+// downgrade to an unselected model because that would invalidate routing/benchmark evidence.
+requests.length=0;
+let submitted=await submitAiHordeImage({prompt:'test',models:['Model A'],fetchImpl});
+assert.equal(submitted.ok,true);
+let generationRequest=requests.find(row=>row.url.endsWith('/generate/async'));
+let payload=JSON.parse(generationRequest.init.body);
+assert.deepEqual(payload.models,['Model A']);
+assert.equal(payload.allow_downgrade,false);
+
+// When no concrete model is selected, provider-managed fallback remains allowed so
+// PUBLIC prompt-only work can still use available volunteer capacity.
+requests.length=0;
+submitted=await submitAiHordeImage({prompt:'test',models:[],fetchImpl});
+assert.equal(submitted.ok,true);
+generationRequest=requests.find(row=>row.url.endsWith('/generate/async'));
+payload=JSON.parse(generationRequest.init.body);
+assert.ok(!('models' in payload));
+assert.equal(payload.allow_downgrade,true);
 
 console.log('IMAGE_RENDER_V2_PROVIDER_TEST=PASS');
