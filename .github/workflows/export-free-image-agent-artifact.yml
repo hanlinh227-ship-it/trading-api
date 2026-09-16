@@ -1,0 +1,24 @@
+name: Export Free Image Agent Artifact
+on:
+  push:
+    branches: [smoke/free-image-agent-20260916]
+    paths:
+      - '.github/workflows/export-free-image-agent-artifact.yml'
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: smoke/free-image-agent-20260916
+      - name: Verify image
+        run: |
+          test -s artifacts/free-image-agent-smoke.webp
+          file artifacts/free-image-agent-smoke.webp
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-image-agent-smoke
+          path: artifacts/free-image-agent-smoke.webp
+          if-no-files-found: error
