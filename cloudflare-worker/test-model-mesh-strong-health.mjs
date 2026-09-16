@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {resolveModelHealthStore} from './model-mesh/health-state.js';
 import {writeProbeHealth} from './model-mesh/health-store.js';
 import {resolveLiveModels} from './model-mesh/runtime-health.js';
@@ -76,5 +77,18 @@ assert.equal(live[0].health,'healthy');
 // Local tests and old deployments remain fail-closed/backward compatible when
 // the new binding is absent; this fallback is not the production strong path.
 assert.equal(resolveModelHealthStore({TRADING_STATE:staleKv}),staleKv);
+
+// Deploy wiring is part of the regression contract. A unit-only fix that omits
+// the binding/export/migration would pass locally and reproduce the production
+// canary failure after deploy.
+const wranglerPrep=fs.readFileSync('prepare-wrangler.mjs','utf8');
+const wranglerExample=fs.readFileSync('wrangler.example.jsonc','utf8');
+const workerEntry=fs.readFileSync('index.js','utf8');
+for(const text of [wranglerPrep,wranglerExample]){
+  assert.match(text,/MODEL_MESH_HEALTH/,'strong Model Mesh health binding must be deployed');
+  assert.match(text,/ModelMeshHealthState/,'strong health Durable Object class must be configured');
+  assert.match(text,/model-mesh-health-v1/,'strong health Durable Object migration must be declared');
+}
+assert.match(workerEntry,/export \{ModelMeshHealthState\}/,'Durable Object class must be exported from Worker entrypoint');
 
 console.log('model mesh strong health store defeats stale KV read-after-write regression');
