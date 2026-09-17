@@ -21,6 +21,8 @@ CREDENTIAL_VALUE = re.compile(
     r"(?:sk-[A-Za-z0-9_-]{8,}|AIza[A-Za-z0-9_-]{12,}|hf_[A-Za-z0-9_-]{8,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[A-Z0-9]{16}|Bearer\s+\S+|-----BEGIN [A-Z ]*PRIVATE KEY-----)",
     re.IGNORECASE,
 )
+IMMUTABLE_REVISION = re.compile(r"^[0-9a-f]{40}$")
+FLOATING_REVISIONS = {"main", "master", "latest", "head", "trunk", "dev", "stable"}
 SENSITIVE_QUERY_KEYS = {"access_token", "api_key", "apikey", "auth", "authorization", "password", "secret", "token"}
 URL_FIELDS = ("official_upstream", "weights_source", "license_url")
 
@@ -55,6 +57,57 @@ def _unsafe_https_url(value: object) -> bool:
     if parsed.scheme != "https" or not parsed.hostname or parsed.username is not None or parsed.password is not None:
         return True
     return any(key.lower() in SENSITIVE_QUERY_KEYS for key, _ in parse_qsl(parsed.query, keep_blank_values=True))
+
+
+def _validate_local_runtime_record(model: dict, index: int) -> list[str]:
+    """Validate the immutable, fail-closed admission boundary for local weights.
+
+    This proves that a record is safe to hand to acquisition. It deliberately
+    does not claim that the model is loaded, healthy, benchmarked, or physically
+    admissible on any particular host.
+    """
+    errors: list[str] = []
+    if model.get("local_runtime_possible") is not True:
+        return errors
+
+    revision = str(model.get("immutable_revision") or "").strip().lower()
+    upstream_revision = str(model.get("upstream_revision") or "").strip().lower()
+    if not IMMUTABLE_REVISION.fullmatch(revision) or revision in FLOATING_REVISIONS:
+        errors.append(f"local runtime immutable revision is missing or floating at models[{index}]")
+    if upstream_revision != revision:
+        errors.append(f"local runtime upstream_revision must equal immutable_revision at models[{index}]")
+
+    artifact = model.get("artifact") if isinstance(model.get("artifact"), dict) else {}
+    filename = str(artifact.get("filename") or "").strip()
+    quantization = str(artifact.get("quantization") or "").strip()
+    if quantization and quantization != str(model.get("quantization") or "").strip():
+        errors.append(f"artifact quantization must match model quantization at models[{index}]")
+
+    source = str(model.get("weights_source") or "")
+    if revision and revision not in source:
+        errors.append(f"local runtime weights_source must pin immutable_revision at models[{index}]")
+    if filename and filename not in source:
+        errors.append(f"local runtime weights_source must identify artifact filename at models[{index}]")
+
+    if model.get("paid_token_required") is not False or model.get("zero_cost_eligible") is not True:
+        errors.append(f"local runtime record must be zero-cost eligible with no paid token at models[{index}]")
+    if model.get("self_hostable") is not True:
+        errors.append(f"local runtime record must be self-hostable at models[{index}]")
+
+    admission = model.get("safe_admission") if isinstance(model.get("safe_admission"), dict) else {}
+    if admission.get("provenance_verified") is not True:
+        errors.append(f"local runtime admission requires verified provenance at models[{index}]")
+    if model.get("license_verified") is not True or admission.get("license_verified") is not True:
+        errors.append(f"local runtime admission requires verified license at models[{index}]")
+    if admission.get("digest_verified") is not True and admission.get("isolated_first_load_required") is not True:
+        errors.append(f"unverified local artifact digest requires isolated first load at models[{index}]")
+
+    for evidence_index, evidence in enumerate(model.get("admission_evidence") or []):
+        if _unsafe_https_url(evidence):
+            errors.append(
+                f"unsafe or invalid admission evidence URL at models[{index}].admission_evidence[{evidence_index}]"
+            )
+    return errors
 
 
 def validate_document(document: object, schema: dict | None = None) -> list[str]:
@@ -110,6 +163,7 @@ def validate_document(document: object, schema: dict | None = None) -> list[str]
         for evidence_index, evidence in enumerate(model.get("source_evidence") or []):
             if _unsafe_https_url(evidence):
                 errors.append(f"unsafe or invalid provenance URL at models[{index}].source_evidence[{evidence_index}]")
+        errors.extend(_validate_local_runtime_record(model, index))
 
     forbidden = _forbidden_paths(document)
     if forbidden:
