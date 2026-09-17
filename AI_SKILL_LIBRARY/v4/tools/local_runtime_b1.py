@@ -124,7 +124,7 @@ def run(root: Path, cache: Path, prompt: str, max_tokens: int,
 
     recorder = EvidenceRecorder(admitted_at=time.monotonic())
     recorder.describe(
-        worker_id="local", request_id=f"b1-{identity.fingerprint[:12]}",
+        worker_id="local", request_id=f"b1-{identity.fingerprint[:12]}", task_id="b1-cold",
         model_id=identity.model_id, model_revision=identity.immutable_revision,
         artifact_sha256=identity.artifact_sha256, artifact_fingerprint=identity.fingerprint,
         actual_quantization=identity.quantization, runtime_id=backend.name,
