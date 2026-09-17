@@ -29,6 +29,19 @@ writes:
   raw_private_chat_allowed: false
   unreviewed_runtime_state_allowed: false
 
+writeback:
+  enabled: true
+  trigger: verified_foreground_project_handoff
+  required_after_verified_foreground_state_change: true
+  tool_path: AI_SKILL_LIBRARY/v4/tools/memory_continuity_writeback.py
+  focus_path: AI_SKILL_LIBRARY/v4/memory_continuity/focus.json
+  current_project_authority_gate_required: true
+  background_may_take_focus: false
+  protected_running_project_may_be_replaced: false
+  same_protected_project_may_refresh: true
+  persist_only_when_builder_accepted: true
+  on_rejection: preserve_existing_focus
+
 privacy:
   reject_sensitive_data: true
   forbidden: [credentials, api_keys, private_keys, secrets, seed_phrases, session_tokens, raw_private_chat]
