@@ -68,6 +68,10 @@ VNEXT_INTEGRATION_FILES: tuple[tuple[str, str], ...] = (
     ("AI_SKILL_LIBRARY/v4/tools/discover_free_models.py", "free_model_discovery_tool"),
     ("AI_SKILL_LIBRARY/v4/tools/legion.py", "legion_runtime_tool"),
     ("AI_SKILL_LIBRARY/v4/tools/admission.py", "evergreen_admission_tool"),
+    ("AI_SKILL_LIBRARY/v4/integrations/brain_expansion_architecture.yaml", "brain_expansion_architecture"),
+    ("AI_SKILL_LIBRARY/v4/integrations/brain_expansion_adapters.yaml", "brain_expansion_adapter_registry"),
+    ("AI_SKILL_LIBRARY/v4/tools/brain_expansion_adapters.py", "brain_expansion_adapter_tool"),
+    ("AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py", "brain_expansion_adapter_validator"),
 )
 
 UNIVERSAL_FABRIC_FILES: tuple[tuple[str, str], ...] = (

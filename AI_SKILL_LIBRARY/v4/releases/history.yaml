@@ -131,10 +131,15 @@ releases:
   manifest: AI_SKILL_LIBRARY/v4/releases/4.12.0/manifest.yaml
   previous: 4.11.1
 - version: 4.13.0
-  known_good: false
+  known_good: true
   architecture: GITHUB_BRAIN_V4
   manifest: AI_SKILL_LIBRARY/v4/releases/4.13.0/manifest.yaml
   previous: 4.12.0
+- version: 4.14.0
+  known_good: false
+  architecture: GITHUB_BRAIN_V4
+  manifest: AI_SKILL_LIBRARY/v4/releases/4.14.0/manifest.yaml
+  previous: 4.13.0
 rollback:
   pointer_only: true
   require_known_good: true

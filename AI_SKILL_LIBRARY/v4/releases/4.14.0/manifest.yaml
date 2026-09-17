@@ -1,4 +1,4 @@
-version: 4.13.0
+version: 4.14.0
 architecture: GITHUB_BRAIN_V4
 files:
 - path: AI_SKILL_LIBRARY/v4/stable/kernel.yaml
@@ -157,6 +157,18 @@ files:
 - path: AI_SKILL_LIBRARY/v4/tools/admission.py
   sha256: 48ad1de400c456391f42cfd2480343bc5b276460be71577633b63330941df0d9
   role: evergreen_admission_tool
+- path: AI_SKILL_LIBRARY/v4/integrations/brain_expansion_architecture.yaml
+  sha256: 0603b13b51947b3b500d9c23326a89e49ca09cf30126c2e8caa9e7341b4ec92c
+  role: brain_expansion_architecture
+- path: AI_SKILL_LIBRARY/v4/integrations/brain_expansion_adapters.yaml
+  sha256: 6c8d35a4f0638bbe66774faa39352b4431bc166e5efbe5bbd6e6ab8c5622f923
+  role: brain_expansion_adapter_registry
+- path: AI_SKILL_LIBRARY/v4/tools/brain_expansion_adapters.py
+  sha256: 1e31047f574c862795f80ddb64c285110f73f5e11b4924fc33d83006e19849bb
+  role: brain_expansion_adapter_tool
+- path: AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py
+  sha256: 28b40c4e8fe91e6411775092e25c0c44883e7edc6b3bec52500ba5bfde58e25d
+  role: brain_expansion_adapter_validator
 - path: AI_SKILL_LIBRARY/v4/stable/universal_fabric.yaml
   sha256: d7b065cccd774b47ca780677e1c2063f6dcda0a82a4a8dc7da8747bc20d558b0
   role: universal_fabric
@@ -167,5 +179,5 @@ compatibility:
   min_architecture: 4.0.0
 promotion:
   class: feature
-  validated: true
-  source: image_render_agent_v2_v3_v4_multimodel_mesh
+  validated: false
+  source: brain_expansion_integrations
