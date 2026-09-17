@@ -83,7 +83,7 @@ export function proposeModelPromotion(state,{currentStatus='CANDIDATE',...option
 
 export function evaluateModelRegression(state,{modelKey,taskType,window=10,minAverage=70,minVerifiedRate=0.6}={}){
   const all=taskRecord(state,modelKey,taskType).results;
-  const current=stats(all.slice(-Math.max(1,Number(window)||10));
+  const current=stats(all.slice(-Math.max(1,Number(window)||10)));
   if(!current.samples)return {status:'CANDIDATE',reason:'insufficient_benchmark_evidence',stats:current};
   if(current.average<minAverage||current.verifiedRate<minVerifiedRate)return {status:'DEGRADED',reason:'benchmark_regression',stats:current};
   return {status:'ACTIVE',reason:'benchmark_stable',stats:current};
