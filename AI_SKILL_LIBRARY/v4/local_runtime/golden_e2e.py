@@ -30,6 +30,7 @@ so neither is a constant here:
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import time
 from pathlib import Path
@@ -129,6 +130,130 @@ def gate_identity(identity: Any) -> dict[str, Any]:
         "format": identity.artifact_format,
         "quantization": identity.quantization,
     }
+
+
+def make_legion(root: Path):
+    """Assign an AI Legion specialist role for the routed skill.
+
+    Reads `control_plane/specialists.yaml` through the control plane's own
+    loader rather than deciding what a specialist is. The role follows from the
+    routed primary skill, which is why this runs after the router and before
+    the mesh: the mesh selects a model *for* a role, so a role chosen afterwards
+    would just be a label on a decision already made.
+
+    It states `orchestration_authority: False` and the gate rejects anything
+    else. Legion orchestrates specialists; it does not route and does not select
+    models, and a run that let it claim either would be evidence of the wrong
+    architecture rather than of a working one.
+    """
+    from AI_SKILL_LIBRARY.v4.control_plane.federation import load_specialists
+
+    def legion(route: Mapping[str, Any], prepared: Mapping[str, Any]) -> Mapping[str, Any]:
+        groups = load_specialists(Path(root))
+        skill = str(route.get("primary_skill") or "")
+        # Match the routed skill to a declared group; fall back to the general
+        # reasoning group rather than inventing one.
+        wanted = skill.upper()
+        chosen = wanted if wanted in groups else None
+        if chosen is None:
+            for name, spec in groups.items():
+                if skill in (spec.get("capabilities") or []):
+                    chosen = name
+                    break
+        chosen = chosen or "GENERAL_REASONING"
+        contract = groups.get(chosen) or {}
+        return {
+            "specialist_group": chosen,
+            "matched_routed_skill": skill,
+            "matched_exactly": wanted in groups,
+            "capabilities": list(contract.get("capabilities") or []),
+            "evidence_requirements": list(contract.get("evidence_requirements") or []),
+            "verification_strategy": contract.get("verification_strategy"),
+            "fallback_behavior": contract.get("fallback_behavior"),
+            "routed_by": "task_router",
+            "orchestration_authority": False,
+            "model_selection_authority": "model_mesh",
+        }
+
+    return legion
+
+
+def make_memory(root: Path, *, checkpoint_dir: Path | None = None):
+    """Write a resumable checkpoint through Memory Continuity's own contract.
+
+    Uses `normalize_work_state`, so a checkpoint this writes is one
+    `select_continuation` can later resume - rather than a bespoke file that
+    happens to look like state. If normalisation rejects it, nothing is written
+    and the gate fails: an unresumable checkpoint that exists is worse than
+    none, because it looks like continuity.
+
+    Memory stays context-only. The record carries `memory_authority: False` and
+    the gate refuses a checkpoint claiming otherwise.
+    """
+    from AI_SKILL_LIBRARY.v4.tools.memory_continuity import (
+        _is_resumable,
+        normalize_work_state,
+    )
+
+    target = Path(checkpoint_dir) if checkpoint_dir else Path(root) / "CHECKPOINTS/evidence/sessions"
+
+    def memory(prepared: Mapping[str, Any], response: Mapping[str, Any],
+               verification: Mapping[str, Any]) -> Mapping[str, Any]:
+        request_id = str(prepared.get("request_id"))
+        # `verified` is the run's actual verifier result, not a constant. Memory
+        # Continuity treats an unverified state as unresumable, so a failed run
+        # writes a checkpoint that correctly refuses to be picked up rather than
+        # one that resumes a wrong answer.
+        verified = verification.get("passed") is True
+        now = _now()
+        state = {
+            "project_id": "personal-ai-core",
+            "domain": "engineering",
+            "focus": "primary",
+            "lifecycle": "active",
+            "phase": "operational_e2e",
+            "last_completed": f"golden_e2e:{request_id}",
+            "next_actions": ["verify_cross_session_resume"],
+            "status": "in_progress",
+            "verified": verified,
+            "resume_eligible": verified,
+            "last_verified": now,
+            "updated_at": now,
+            "source": "AI_SKILL_LIBRARY/v4/tools/local_runtime_ai_core_e2e.py",
+            "canonical_refs": [
+                "AI_SKILL_LIBRARY/checkpoint.json",
+                "AI_SKILL_LIBRARY/v4/control_plane/e2e.py",
+                "AI_SKILL_LIBRARY/v4/memory_continuity/policy.yaml",
+            ],
+        }
+        result = normalize_work_state(state)
+        if not result.get("accepted"):
+            return {"checkpoint_id": "", "resumable": False,
+                    # Authority is declared on every path, including refusal: a
+                    # rejected checkpoint that omits it reads as one claiming it.
+                    "memory_authority": False,
+                    "reason": result.get("reason") or "memory continuity rejected the state",
+                    "missing": result.get("missing")}
+
+        target.mkdir(parents=True, exist_ok=True)
+        path = target / f"{request_id}.json"
+        record = {
+            "checkpoint_id": request_id,
+            # Resumable is what Memory Continuity would actually accept back,
+            # asked of its own predicate rather than asserted here.
+            "resumable": _is_resumable(result["state"]),
+            "memory_authority": False,
+            "routing_authority": False,
+            "written_at": _now(),
+            "work_state": result["state"],
+            "answer": response.get("answer"),
+            "verified": verification.get("passed") is True,
+            "evidence_refs": list(verification.get("evidence_refs") or []),
+        }
+        path.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return {**record, "path": str(path)}
+
+    return memory
 
 
 def make_selector(identities: Mapping[str, Mapping[str, Any]]):
