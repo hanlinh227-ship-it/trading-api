@@ -34,7 +34,7 @@ runtime_projection:
     recommended_ram_gb: null
     minimum_vram_gb: null
     recommended_vram_gb: null
-    cpu_viable: true
+    cpu_viable: unknown
     apple_silicon_viable: unknown
   privacy: local_offline_private
   zero_cost: true
