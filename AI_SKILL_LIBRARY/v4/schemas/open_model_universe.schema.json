@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "open_model_universe.schema.json",
-  "title": "Open Model Universe authority-free metadata registry",
+  "title": "Open Model Universe authority-free governance and admission registry",
   "type": "object",
-  "required": ["version", "registry_id", "policy", "authority", "models"],
+  "required": ["version", "registry_id", "policy", "authority", "integration", "models"],
   "properties": {
     "version": {"const": 1},
     "registry_id": {"const": "OPEN_MODEL_UNIVERSE"},
@@ -31,14 +31,77 @@
       },
       "additionalProperties": false
     },
-    "models": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/model"}
-    }
+    "integration": {
+      "type": "object",
+      "required": ["brain_authority", "routed_by", "model_selection_authority", "activation_source", "registry_membership_is_activation", "ingress_hardcodes_model", "runtime_residency_contract"],
+      "properties": {
+        "brain_authority": {"const": "GITHUB_BRAIN_V4"},
+        "routed_by": {"const": "task_router"},
+        "model_selection_authority": {"const": "model_mesh"},
+        "activation_source": {"const": "AI_SKILL_LIBRARY/v4/model_mesh/active.json"},
+        "registry_membership_is_activation": {"const": false},
+        "ingress_hardcodes_model": {"const": false},
+        "runtime_residency_contract": {
+          "type": "object",
+          "required": ["owner", "governance_state_source", "open_model_universe_has_runtime_residency_authority"],
+          "properties": {
+            "owner": {"const": "claude_local_runtime"},
+            "governance_state_source": {"const": "Open Model Universe"},
+            "open_model_universe_has_runtime_residency_authority": {"const": false}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "models": {"type": "array", "items": {"$ref": "#/$defs/model"}}
   },
   "additionalProperties": false,
   "$defs": {
     "truth": {"enum": [true, false, "unknown"]},
+    "artifact_identity": {
+      "type": "object",
+      "required": ["model_id", "family", "variant", "immutable_revision", "sha256", "size_bytes", "format", "quantization"],
+      "properties": {
+        "model_id": {"type": "string", "minLength": 1},
+        "family": {"type": "string", "minLength": 1},
+        "variant": {"type": "string", "minLength": 1},
+        "immutable_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "format": {"enum": ["gguf", "safetensors", "mlx", "other"]},
+        "quantization": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "admission_evidence": {
+      "type": "object",
+      "required": ["license_verified", "provenance_verified", "safe_format_verified", "pickle_safe", "trust_remote_code_required", "custom_code_required", "malware_scan_status", "isolated_first_load_required", "first_load_egress_allowed", "quarantine_status"],
+      "properties": {
+        "license_verified": {"type": "boolean"},
+        "provenance_verified": {"type": "boolean"},
+        "safe_format_verified": {"type": "boolean"},
+        "pickle_safe": {"enum": [true, false, "unknown"]},
+        "trust_remote_code_required": {"enum": [true, false, "unknown"]},
+        "custom_code_required": {"enum": [true, false, "unknown"]},
+        "malware_scan_status": {"enum": ["pass", "fail", "not_run", "unknown"]},
+        "isolated_first_load_required": {"type": "boolean"},
+        "first_load_egress_allowed": {"type": "boolean"},
+        "quarantine_status": {"enum": ["clear", "quarantined", "blocked", "unknown"]}
+      },
+      "additionalProperties": false
+    },
+    "lineage": {
+      "type": "object",
+      "required": ["source_model_id", "source_revision", "conversion_owner", "conversion_verified"],
+      "properties": {
+        "source_model_id": {"type": "string", "minLength": 1},
+        "source_revision": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "conversion_owner": {"type": "string", "minLength": 1},
+        "conversion_verified": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
     "model": {
       "type": "object",
       "required": [
@@ -47,10 +110,10 @@
         "license_name", "license_url", "license_class", "license_verified",
         "commercial_use", "self_hostable", "redistribution", "derivative_training",
         "open_weight", "api_required", "paid_token_required", "local_runtime_possible",
-        "capabilities", "hardware_profile", "runtime_support", "context_window",
-        "benchmark_profile", "quality_class", "latency_class", "privacy_class",
-        "cost_class", "lifecycle_state", "health", "last_verified", "authority",
-        "source_evidence"
+        "capabilities", "hardware_profile", "runtime_support", "offline_eligible", "lineage",
+        "context_window", "benchmark_profile", "quality_class", "latency_class", "privacy_class",
+        "cost_class", "lifecycle_state", "health", "last_verified", "authority", "source_evidence",
+        "artifact_identity", "admission_evidence", "model_mesh_local_candidate_eligible"
       ],
       "properties": {
         "model_id": {"type": "string", "minLength": 1},
@@ -61,7 +124,7 @@
         "runtime_build": {"type": "string", "minLength": 1},
         "official_upstream": {"type": "string", "pattern": "^https://", "format": "uri"},
         "weights_source": {"type": "string", "pattern": "^https://", "format": "uri"},
-        "upstream_revision": {"type": "string", "minLength": 1},
+        "upstream_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "release_date": {"type": ["string", "null"], "format": "date"},
         "license_name": {"type": "string", "minLength": 1},
         "license_url": {"type": "string", "pattern": "^https://", "format": "uri"},
@@ -75,10 +138,7 @@
         "api_required": {"type": "boolean"},
         "paid_token_required": {"type": "boolean"},
         "local_runtime_possible": {"type": "boolean"},
-        "capabilities": {
-          "type": "object",
-          "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
-        },
+        "capabilities": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
         "hardware_profile": {
           "type": "object",
           "required": ["minimum_ram_gb", "recommended_ram_gb", "minimum_vram_gb", "recommended_vram_gb", "quantization_options", "cpu_viable", "apple_silicon_viable"],
@@ -93,24 +153,23 @@
           },
           "additionalProperties": false
         },
-        "runtime_support": {
-          "type": "array",
-          "items": {"enum": ["llama_cpp", "vllm", "sglang", "ollama", "transformers", "mlx", "tgi", "lmdeploy", "other"]},
-          "uniqueItems": true
-        },
+        "runtime_support": {"type": "array", "items": {"enum": ["llama_cpp", "vllm", "sglang", "ollama", "transformers", "mlx", "tgi", "lmdeploy", "other"]}, "uniqueItems": true},
+        "offline_eligible": {"$ref": "#/$defs/truth"},
+        "lineage": {"$ref": "#/$defs/lineage"},
         "context_window": {"type": ["integer", "null"], "minimum": 1},
         "benchmark_profile": {"type": "string", "minLength": 1},
         "quality_class": {"type": "string", "minLength": 1},
         "latency_class": {"type": "string", "minLength": 1},
         "privacy_class": {"type": "string", "minLength": 1},
         "cost_class": {"enum": ["zero_paid_token_candidate", "owned_hardware_zero_marginal", "verified_recurring_free", "verified_free_quota_hard_stop", "unknown"]},
-        "lifecycle_state": {
-          "enum": ["DISCOVERED", "QUARANTINED", "REGISTERED", "APPROVED", "AVAILABLE", "DOWNLOADING", "CACHED", "WARM", "RUNNING", "SLEEPING", "DEGRADED", "BROKEN", "EVICTED", "SUPERSEDED", "RETIRED", "BLOCKED", "QUARANTINED_UPDATE"]
-        },
+        "lifecycle_state": {"enum": ["DISCOVERED", "QUARANTINED", "QUARANTINED_UPDATE", "REGISTERED", "APPROVED", "AVAILABLE", "BLOCKED", "SUPERSEDED", "RETIRED"]},
         "health": {"enum": ["unknown", "healthy", "degraded", "broken", "blocked"]},
         "last_verified": {"type": ["string", "null"], "format": "date-time"},
         "authority": {"const": false},
-        "source_evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^https://", "format": "uri"}, "uniqueItems": true}
+        "source_evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^https://", "format": "uri"}, "uniqueItems": true},
+        "artifact_identity": {"$ref": "#/$defs/artifact_identity"},
+        "admission_evidence": {"$ref": "#/$defs/admission_evidence"},
+        "model_mesh_local_candidate_eligible": {"type": "boolean"}
       },
       "additionalProperties": false
     }
