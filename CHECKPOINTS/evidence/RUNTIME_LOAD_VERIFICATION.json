@@ -1,7 +1,7 @@
 {
   "load_verification": "RAN",
   "runtime": "llama-cpp-python/0.3.35",
-  "loadable": 5,
+  "loadable": 7,
   "not_loadable": 2,
   "undetermined": 0,
   "records_nothing_in_the_registry": true,
@@ -55,6 +55,18 @@
       "engine_diagnostics": [],
       "artifact_is_intact": true,
       "note": "the bytes verified against their digest and passed the structural scan; this runtime build cannot read them"
+    },
+    {
+      "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+      "loadable": true,
+      "artifact_sha256": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+      "runtime": "llama-cpp-python/0.3.35"
+    },
+    {
+      "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "loadable": true,
+      "artifact_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+      "runtime": "llama-cpp-python/0.3.35"
     }
   ]
 }

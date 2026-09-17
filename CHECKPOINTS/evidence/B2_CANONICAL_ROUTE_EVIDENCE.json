@@ -2,7 +2,7 @@
   "b2_status": "PASS",
   "prompt": "What is the capital of France?",
   "model_named_at_ingress": false,
-  "request_id": "b2-1789640294",
+  "request_id": "b2-1789643770",
   "canonical_route_ok": true,
   "reason": "canonical route completed with real inference",
   "stages": [
@@ -29,13 +29,16 @@
     {
       "stage": "governance_admission",
       "ok": true,
-      "detail": "4 admitted",
+      "detail": "7 admitted",
       "data": {
         "model_ids": [
           "Qwen/Qwen3-0.6B-GGUF",
           "Qwen/Qwen3-1.7B-GGUF",
           "ibm-granite/granite-3.3-2b-instruct-GGUF",
-          "Qwen/Qwen3-4B-GGUF"
+          "Qwen/Qwen3-4B-GGUF",
+          "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+          "ibm-granite/granite-4.2-3b-GGUF",
+          "microsoft/Phi-3-mini-4k-instruct-gguf"
         ]
       }
     },
@@ -71,7 +74,7 @@
       "ok": true,
       "detail": "real tokens generated",
       "data": {
-        "inference_latency_ms": 5279.947,
+        "inference_latency_ms": 5342.465,
         "tokens_output": 24,
         "residency": [
           "READY",
@@ -84,8 +87,8 @@
   "output": " \n\nThe capital of France is Paris. Paris is not only the capital of France but also a major cultural and historical center",
   "execution_evidence": {
     "authority": false,
-    "request_id": "b2-1789640294",
-    "task_id": "b2-1789640294",
+    "request_id": "b2-1789643770",
+    "task_id": "b2-1789643770",
     "worker_id": "local",
     "model_id": "Qwen/Qwen3-4B-GGUF",
     "model_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
@@ -99,15 +102,15 @@
     "placement_action": "LOAD_FROM_CACHE",
     "cold_or_warm_start": "COLD",
     "timing": {
-      "queue_wait_ms": 0.067,
-      "load_latency_ms": 3432.171,
-      "inference_latency_ms": 5280.348,
-      "total_latency_ms": 8712.522,
-      "start_time": "2026-09-17T10:18:17.169+00:00",
-      "end_time": "2026-09-17T10:18:25.881+00:00"
+      "queue_wait_ms": 0.075,
+      "load_latency_ms": 3961.511,
+      "inference_latency_ms": 5342.909,
+      "total_latency_ms": 9304.424,
+      "start_time": "2026-09-17T11:16:21.321+00:00",
+      "end_time": "2026-09-17T11:16:30.625+00:00"
     },
     "resources": {
-      "peak_ram_mb": 5465.14,
+      "peak_ram_mb": 5465.48,
       "peak_vram_mb": 0.0
     },
     "tokens": {

@@ -1,11 +1,10 @@
 {
-  "observed_at": "2026-09-17T11:05:04+00:00",
-  "gap_count": 7,
+  "observed_at": "2026-09-17T11:16:09+00:00",
+  "gap_count": 5,
   "by_kind": {
     "capability_unmeasured": 2,
     "model_not_admitted": 2,
-    "no_signature_scan": 1,
-    "staged_not_admitted": 2
+    "no_signature_scan": 1
   },
   "gaps": [
     {
@@ -46,22 +45,6 @@
       "detail": "no capability measurement bound to this artifact's digest",
       "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml",
       "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_wave0.py",
-      "is_a_proposal_not_a_change": true
-    },
-    {
-      "kind": "staged_not_admitted",
-      "subject": "granite-4.2-3b-gguf-q4-k-m",
-      "detail": "staged and verified in transport, but not yet a registry record",
-      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json",
-      "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_admit.py",
-      "is_a_proposal_not_a_change": true
-    },
-    {
-      "kind": "staged_not_admitted",
-      "subject": "phi-3-mini-4k-instruct-gguf-q4",
-      "detail": "staged and verified in transport, but not yet a registry record",
-      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json",
-      "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_admit.py",
       "is_a_proposal_not_a_change": true
     }
   ],

@@ -111,10 +111,26 @@ def run(root: Path, cache: Path, model_id: str | None = None) -> dict[str, Any]:
         if not ranked:
             return {"baseline_status": "REFUSED",
                     "reason": "no governance-admitted local model carries a measured capability"}
-        ranked.sort(key=lambda pair: pair[0], reverse=True)
+        # Deterministic on ties: model_id ascending. Python's sort is stable, so
+        # without the secondary key a tie was silently broken by whichever model
+        # happened to be written into the registry first - arbitrary, and
+        # invisible in the recorded reason.
+        ranked.sort(key=lambda pair: (-pair[0], str(pair[1].get("model_id"))))
+        top = ranked[0][0]
+        tied = [str(candidate.get("model_id")) for score, candidate in ranked if score == top]
         record = ranked[0][1]
-        selected_reason = (f"highest measured capability {ranked[0][0]} of "
-                           f"{len(ranked)} admitted and measured models")
+        if len(tied) > 1:
+            # Say it. Two models scoring identically is information about the
+            # suite as much as about the models, and a reason that reads
+            # "highest measured capability" would conceal it.
+            selected_reason = (
+                f"measured capability {top}, tied with {len(tied) - 1} other model(s) "
+                f"({', '.join(tied)}); tie broken by model_id for determinism, "
+                f"not by any measured advantage"
+            )
+        else:
+            selected_reason = (f"highest measured capability {top} of "
+                               f"{len(ranked)} admitted and measured models")
 
     identity, reasons = from_record(record)
     if identity is None:

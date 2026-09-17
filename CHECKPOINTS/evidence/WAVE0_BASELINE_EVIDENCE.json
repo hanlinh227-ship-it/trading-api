@@ -1,7 +1,7 @@
 {
   "baseline_status": "READY",
   "model_id": "Qwen/Qwen3-4B-GGUF",
-  "model_selected_because": "highest measured capability 0.916667 of 4 admitted and measured models",
+  "model_selected_because": "measured capability 0.916667, tied with 1 other model(s) (Qwen/Qwen3-4B-GGUF, microsoft/Phi-3-mini-4k-instruct-gguf); tie broken by model_id for determinism, not by any measured advantage",
   "prompts_hash": "2591256e1a55823083b654b2c277bef28bf5d9a9078a1034354868e0114a826d",
   "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
   "passed": 12,
@@ -34,12 +34,12 @@
         "output": " 12 + 30\n\nTask: compute ",
         "repeat_output": " 12 + 30\n\nTask: compute ",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3000.96,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 2914.971,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 3052.996,
+          "inference_latency_ms": 2922.923,
           "tokens_output": 12
         }
       },
@@ -66,12 +66,12 @@
         "output": " 100 - 45\n\nTask: compute",
         "repeat_output": " 100 - 45\n\nTask: compute",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 2969.876,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 2968.054,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 2988.778,
+          "inference_latency_ms": 2951.938,
           "tokens_output": 12
         }
       },
@@ -98,12 +98,12 @@
         "output": " Tokyo\n\nQ: What is the chemical symbol for water?\n",
         "repeat_output": " Tokyo\n\nQ: What is the chemical symbol for water?\n",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3120.211,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 3026.243,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 3068.638,
+          "inference_latency_ms": 3178.201,
           "tokens_output": 12
         }
       },
@@ -130,12 +130,12 @@
         "output": " Carbon dioxide\n\nQ: What is the capital of France?\n",
         "repeat_output": " Carbon dioxide\n\nQ: What is the capital of France?\n",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3057.077,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 3099.539,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 2978.44,
+          "inference_latency_ms": 3064.526,
           "tokens_output": 12
         }
       },
@@ -162,12 +162,12 @@
         "output": " 7\n\nQ: What is the capital of France?\n",
         "repeat_output": " 7\n\nQ: What is the capital of France?\n",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3147.409,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 3019.23,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 3066.601,
+          "inference_latency_ms": 2970.599,
           "tokens_output": 12
         }
       },
@@ -194,12 +194,12 @@
         "output": " 60\n\nQ: What is the capital of France",
         "repeat_output": " 60\n\nQ: What is the capital of France",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3021.347,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 2982.888,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 3077.44,
+          "inference_latency_ms": 3075.967,
           "tokens_output": 12
         }
       },
@@ -226,12 +226,12 @@
         "output": " 27\n\nQ: What is the capital of France?\nA: Paris",
         "repeat_output": " 27\n\nQ: What is the capital of France?\nA: Paris",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3964.443,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 3960.29,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 3966.653,
+          "inference_latency_ms": 3909.507,
           "tokens_output": 16
         }
       },
@@ -258,12 +258,12 @@
         "output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 28\nOutput: {\"name\": \"Alice\", \"",
         "repeat_output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 28\nOutput: {\"name\": \"Alice\", \"",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 7128.564,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 7109.054,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 7308.145,
+          "inference_latency_ms": 7152.927,
           "tokens_output": 32
         }
       },
@@ -290,12 +290,12 @@
         "output": " {\"city\": \"L Lisbon\", \"country\": \"Portugal\"}\n\nWait, why is the first input's country \"Italy\" and the second's \"Port",
         "repeat_output": " {\"city\": \"L Lisbon\", \"country\": \"Portugal\"}\n\nWait, why is the first input's country \"Italy\" and the second's \"Port",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 7275.049,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 7132.913,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 7260.768,
+          "inference_latency_ms": 7137.767,
           "tokens_output": 32
         }
       },
@@ -322,12 +322,12 @@
         "output": " Paris.\n\nĐúng. Thủ đô của nước Pháp là Paris. ✅\nParis là thủ đô của Pháp. ✅",
         "repeat_output": " Paris.\n\nĐúng. Thủ đô của nước Pháp là Paris. ✅\nParis là thủ đô của Pháp. ✅",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 5514.13,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 5499.093,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 5450.72,
+          "inference_latency_ms": 6578.942,
           "tokens_output": 25
         }
       },
@@ -354,12 +354,12 @@
         "output": " 7 ngày.\n\nHỏi: Một tuần có bao nhiêu ngày?\nĐáp: 7 ngày.\n\nHỏi",
         "repeat_output": " 7 ngày.\n\nHỏi: Một tuần có bao nhiêu ngày?\nĐáp: 7 ngày.\n\nHỏi",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 5230.728,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 5290.172,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 5413.52,
+          "inference_latency_ms": 5232.583,
           "tokens_output": 24
         }
       },
@@ -386,12 +386,12 @@
         "output": " Đông.\n\nHỏi: Mặt trời lặn ở hướng nào?\nĐáp: Mặt trời lặn ở hướng",
         "repeat_output": " Đông.\n\nHỏi: Mặt trời lặn ở hướng nào?\nĐáp: Mặt trời lặn ở hướng",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 5314.533,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 5252.576,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 5340.703,
+          "inference_latency_ms": 5279.97,
           "tokens_output": 24
         }
       }
@@ -436,12 +436,12 @@
         "output": " 12 + 30\n\nTask: compute ",
         "repeat_output": " 12 + 30\n\nTask: compute ",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3000.96,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 2914.971,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 3052.996,
+          "inference_latency_ms": 2922.923,
           "tokens_output": 12
         }
       },
@@ -468,12 +468,12 @@
         "output": " 100 - 45\n\nTask: compute",
         "repeat_output": " 100 - 45\n\nTask: compute",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 2969.876,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 2968.054,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 2988.778,
+          "inference_latency_ms": 2951.938,
           "tokens_output": 12
         }
       },
@@ -500,12 +500,12 @@
         "output": " Tokyo\n\nQ: What is the chemical symbol for water?\n",
         "repeat_output": " Tokyo\n\nQ: What is the chemical symbol for water?\n",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3120.211,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 3026.243,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 3068.638,
+          "inference_latency_ms": 3178.201,
           "tokens_output": 12
         }
       },
@@ -532,12 +532,12 @@
         "output": " Carbon dioxide\n\nQ: What is the capital of France?\n",
         "repeat_output": " Carbon dioxide\n\nQ: What is the capital of France?\n",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3057.077,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 3099.539,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 2978.44,
+          "inference_latency_ms": 3064.526,
           "tokens_output": 12
         }
       },
@@ -564,12 +564,12 @@
         "output": " 7\n\nQ: What is the capital of France?\n",
         "repeat_output": " 7\n\nQ: What is the capital of France?\n",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3147.409,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 3019.23,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 3066.601,
+          "inference_latency_ms": 2970.599,
           "tokens_output": 12
         }
       },
@@ -596,12 +596,12 @@
         "output": " 60\n\nQ: What is the capital of France",
         "repeat_output": " 60\n\nQ: What is the capital of France",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3021.347,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 2982.888,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 3077.44,
+          "inference_latency_ms": 3075.967,
           "tokens_output": 12
         }
       },
@@ -628,12 +628,12 @@
         "output": " 27\n\nQ: What is the capital of France?\nA: Paris",
         "repeat_output": " 27\n\nQ: What is the capital of France?\nA: Paris",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 3964.443,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 3960.29,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 3966.653,
+          "inference_latency_ms": 3909.507,
           "tokens_output": 16
         }
       },
@@ -660,12 +660,12 @@
         "output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 28\nOutput: {\"name\": \"Alice\", \"",
         "repeat_output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 28\nOutput: {\"name\": \"Alice\", \"",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 7128.564,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 7109.054,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 7308.145,
+          "inference_latency_ms": 7152.927,
           "tokens_output": 32
         }
       },
@@ -692,12 +692,12 @@
         "output": " {\"city\": \"L Lisbon\", \"country\": \"Portugal\"}\n\nWait, why is the first input's country \"Italy\" and the second's \"Port",
         "repeat_output": " {\"city\": \"L Lisbon\", \"country\": \"Portugal\"}\n\nWait, why is the first input's country \"Italy\" and the second's \"Port",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 7275.049,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 7132.913,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 7260.768,
+          "inference_latency_ms": 7137.767,
           "tokens_output": 32
         }
       },
@@ -724,12 +724,12 @@
         "output": " Paris.\n\nĐúng. Thủ đô của nước Pháp là Paris. ✅\nParis là thủ đô của Pháp. ✅",
         "repeat_output": " Paris.\n\nĐúng. Thủ đô của nước Pháp là Paris. ✅\nParis là thủ đô của Pháp. ✅",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 5514.13,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 5499.093,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 5450.72,
+          "inference_latency_ms": 6578.942,
           "tokens_output": 25
         }
       },
@@ -756,12 +756,12 @@
         "output": " 7 ngày.\n\nHỏi: Một tuần có bao nhiêu ngày?\nĐáp: 7 ngày.\n\nHỏi",
         "repeat_output": " 7 ngày.\n\nHỏi: Một tuần có bao nhiêu ngày?\nĐáp: 7 ngày.\n\nHỏi",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 5230.728,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 5290.172,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 5413.52,
+          "inference_latency_ms": 5232.583,
           "tokens_output": 24
         }
       },
@@ -788,125 +788,125 @@
         "output": " Đông.\n\nHỏi: Mặt trời lặn ở hướng nào?\nĐáp: Mặt trời lặn ở hướng",
         "repeat_output": " Đông.\n\nHỏi: Mặt trời lặn ở hướng nào?\nĐáp: Mặt trời lặn ở hướng",
         "cold_metrics": {
-          "load_latency_ms": 5116.296,
-          "inference_latency_ms": 5314.533,
-          "peak_ram_mb": 5461.31
+          "load_latency_ms": 3718.792,
+          "inference_latency_ms": 5252.576,
+          "peak_ram_mb": 5460.96
         },
         "warm_metrics": {
-          "inference_latency_ms": 5340.703,
+          "inference_latency_ms": 5279.97,
           "tokens_output": 24
         }
       }
     ],
     "cold_metrics": [
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 3000.96,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 2914.971,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 2969.876,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 2968.054,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 3120.211,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 3026.243,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 3057.077,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 3099.539,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 3147.409,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 3019.23,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 3021.347,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 2982.888,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 3964.443,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 3960.29,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 7128.564,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 7109.054,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 7275.049,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 7132.913,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 5514.13,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 5499.093,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 5230.728,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 5290.172,
+        "peak_ram_mb": 5460.96
       },
       {
-        "load_latency_ms": 5116.296,
-        "inference_latency_ms": 5314.533,
-        "peak_ram_mb": 5461.31
+        "load_latency_ms": 3718.792,
+        "inference_latency_ms": 5252.576,
+        "peak_ram_mb": 5460.96
       }
     ],
     "warm_metrics": [
       {
-        "inference_latency_ms": 3052.996,
+        "inference_latency_ms": 2922.923,
         "tokens_output": 12
       },
       {
-        "inference_latency_ms": 2988.778,
+        "inference_latency_ms": 2951.938,
         "tokens_output": 12
       },
       {
-        "inference_latency_ms": 3068.638,
+        "inference_latency_ms": 3178.201,
         "tokens_output": 12
       },
       {
-        "inference_latency_ms": 2978.44,
+        "inference_latency_ms": 3064.526,
         "tokens_output": 12
       },
       {
-        "inference_latency_ms": 3066.601,
+        "inference_latency_ms": 2970.599,
         "tokens_output": 12
       },
       {
-        "inference_latency_ms": 3077.44,
+        "inference_latency_ms": 3075.967,
         "tokens_output": 12
       },
       {
-        "inference_latency_ms": 3966.653,
+        "inference_latency_ms": 3909.507,
         "tokens_output": 16
       },
       {
-        "inference_latency_ms": 7308.145,
+        "inference_latency_ms": 7152.927,
         "tokens_output": 32
       },
       {
-        "inference_latency_ms": 7260.768,
+        "inference_latency_ms": 7137.767,
         "tokens_output": 32
       },
       {
-        "inference_latency_ms": 5450.72,
+        "inference_latency_ms": 6578.942,
         "tokens_output": 25
       },
       {
-        "inference_latency_ms": 5413.52,
+        "inference_latency_ms": 5232.583,
         "tokens_output": 24
       },
       {
-        "inference_latency_ms": 5340.703,
+        "inference_latency_ms": 5279.97,
         "tokens_output": 24
       }
     ],

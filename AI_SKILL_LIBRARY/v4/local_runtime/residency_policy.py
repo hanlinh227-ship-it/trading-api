@@ -160,8 +160,16 @@ def plan_residency(candidates: Sequence[ResidencyCandidate], *,
 
     # Fastest first: a hot worker exists to remove the load from the common
     # request, and the common request wants an answer, not the best answer.
-    fastest = sorted(measured, key=lambda c: (c.warm_inference_ms, -(c.capability or 0.0)))
-    strongest = sorted(measured, key=lambda c: (-(c.capability or 0.0), c.warm_inference_ms))
+    #
+    # Ties break on model_id, not on the other measurement. Breaking the
+    # capability tie on latency flipped the plan between Qwen3-4B and Phi-3-mini
+    # on a 28 ms difference in a ~5100 ms inference - half a percent, inside
+    # measurement noise - so the chosen model changed run to run for no reason
+    # anyone could act on. A deterministic, admittedly arbitrary tie-break is
+    # better than an unstable one dressed as a measured preference, and the
+    # assignment reason says which it was.
+    fastest = sorted(measured, key=lambda c: (c.warm_inference_ms, c.model_id))
+    strongest = sorted(measured, key=lambda c: (-(c.capability or 0.0), c.model_id))
 
     order: list[ResidencyCandidate] = []
     for candidate in (fastest[:1] + strongest[:1]):
@@ -174,10 +182,16 @@ def plan_residency(candidates: Sequence[ResidencyCandidate], *,
             continue
         committed += candidate.peak_ram_mb
         role = "fastest measured worker" if candidate is fastest[0] else "strongest measured worker"
+        tied = [c.model_id for c in measured if c.capability == candidate.capability] \
+            if candidate is strongest[0] else []
+        note = ""
+        if len(tied) > 1:
+            note = (f"; tied on capability with {', '.join(m for m in tied if m != candidate.model_id)}"
+                    f", broken by model_id rather than by a latency difference inside noise")
         assign(candidate, HOT,
                f"{role}: capability {candidate.capability}, warm inference "
                f"{candidate.warm_inference_ms} ms, {candidate.peak_ram_mb} MB within the "
-               f"{budget} MB budget")
+               f"{budget} MB budget{note}")
         promoted.add(candidate.model_id)
 
     for candidate in measured:
