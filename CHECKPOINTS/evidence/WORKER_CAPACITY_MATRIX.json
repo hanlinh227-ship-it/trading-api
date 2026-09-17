@@ -13,11 +13,11 @@
         "source": "MEASURED"
       },
       "ram_available_mb": {
-        "value": 9635,
+        "value": 15304,
         "source": "MEASURED"
       },
       "disk_free_mb": {
-        "value": 11050,
+        "value": 11047,
         "source": "MEASURED"
       },
       "gpus": {
@@ -32,9 +32,9 @@
       },
       "keeps_a_model_warm": true,
       "concurrent_resident_models": {
-        "value": null,
-        "source": "UNKNOWN",
-        "basis": "no measured model peak to divide by"
+        "value": 1,
+        "source": "ESTIMATED",
+        "basis": "(15304 MB available - 1500 MB host reserve) / 8655 MB, the largest MEASURED peak in the fabric"
       }
     },
     {
@@ -74,9 +74,9 @@
       },
       "keeps_a_model_warm": false,
       "concurrent_resident_models": {
-        "value": null,
-        "source": "UNKNOWN",
-        "basis": "no measured model peak to divide by"
+        "value": 1,
+        "source": "ESTIMATED",
+        "basis": "(16384 MB available - 1500 MB host reserve) / 8655 MB, the largest MEASURED peak in the fabric"
       }
     },
     {
@@ -132,31 +132,45 @@
       "cloudflare_workers_ai"
     ],
     "single_point_of_failure": "one host holds every local weight. If this container dies, exact-model execution stops and only the hosted catalog answers - under a different model's name.",
-    "largest_measured_model_peak_mb": null,
-    "measured_model_peaks_mb": {},
-    "host_reserve_mb": 1500
+    "largest_measured_model_peak_mb": 8655,
+    "measured_model_peaks_mb": {
+      "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF": 641,
+      "Qwen/Qwen3-0.6B-GGUF": 1157,
+      "Qwen/Qwen3-1.7B-GGUF": 2302,
+      "Qwen/Qwen3-4B-GGUF": 5468,
+      "Qwen/Qwen3-8B-GGUF": 8655,
+      "ibm-granite/granite-3.3-2b-instruct-GGUF": 3009,
+      "ibm-granite/granite-4.2-3b-GGUF": 4008,
+      "microsoft/Phi-3-mini-4k-instruct-gguf": 5175
+    },
+    "host_reserve_mb": 1500,
+    "host_ram_total_mb": 16095,
+    "host_ram_available_mb_at_read_time": 15304,
+    "reading_is_a_moment": "ram_available_mb is a live reading and drops while work is running. satisfied_by_host_alone is computed from total RAM, which is a property of the machine; satisfiable_right_now is computed from available RAM, which is a property of this instant."
   },
   "CAPACITY_SCENARIOS": {
     "MINIMUM_OPERATIONAL": {
       "shape": "one request at a time, nothing else resident",
       "executors_required": 1,
       "ram_required_mb": {
-        "value": null,
+        "value": 8655,
         "source": "MEASURED",
         "basis": "the largest measured peak RSS in the fabric"
       },
-      "satisfied_by_host_alone": false,
+      "satisfied_by_host_alone": true,
+      "satisfiable_right_now": true,
       "evidence": "every Wave 0 baseline run took exactly this shape"
     },
     "NORMAL_CONCURRENT": {
       "shape": "a maker and a checker at once - the shape every federation round takes",
       "executors_required": 2,
       "ram_required_mb": {
-        "value": null,
+        "value": 9296,
         "source": "ESTIMATED",
-        "basis": "largest measured peak 0 MB + smallest measured peak 0 MB. The federation proof ran this pairing sequentially, not concurrently, so the sum is arithmetic and not an observation."
+        "basis": "largest measured peak 8655 MB + smallest measured peak 641 MB. The federation proof ran this pairing sequentially, not concurrently, so the sum is arithmetic and not an observation."
       },
-      "satisfied_by_host_alone": false,
+      "satisfied_by_host_alone": true,
+      "satisfiable_right_now": true,
       "evidence": "WAVE3_FEDERATION_PROOF ran nine maker/checker rounds. Concurrency of the pair is ESTIMATED; the rounds themselves are MEASURED."
     },
     "PEAK_FEDERATION": {
@@ -169,6 +183,7 @@
       },
       "binding_constraint": "the hosted catalog's daily free quota and the runner's cold start, not RAM",
       "satisfied_by_host_alone": false,
+      "satisfiable_right_now": false,
       "evidence": "never executed as a single concurrent burst. Recorded as a planned shape with no measurement behind it, which is why it carries no RAM figure."
     }
   },

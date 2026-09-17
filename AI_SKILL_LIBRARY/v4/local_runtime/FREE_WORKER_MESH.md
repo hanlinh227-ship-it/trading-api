@@ -196,6 +196,63 @@ credentials.
 | Recorded zero-cost paths and their verified facts | `../open_model_universe/free_execution_paths.yaml` |
 | Invariant tests | `../../tests/test_free_worker_mesh.py` |
 | Scenario + live proof | `../tools/free_worker_mesh_proof.py` |
+| What the fabric can hold, and under three named loads | `../tools/worker_capacity_matrix.py` |
+| Whether a capability wave may close | `../tools/wave_closure_gate.py` |
+| Whether the whole core has converged | `../tools/ai_core_convergence.py` |
+
+## Capacity, and the three loads it is planned against
+
+`worker_capacity_matrix.py` reads the same worker contract and the same
+recorded provider paths this mesh reads, and prints what they add up to. Every
+figure carries how it was obtained — `MEASURED` from this machine or a recorded
+run, `DECLARED` by a provider, `ESTIMATED` with the arithmetic shown — and an
+estimate never becomes a measurement by being copied.
+
+| Load | Shape | Binding constraint |
+|---|---|---|
+| `MINIMUM_OPERATIONAL` | one request at a time | the largest measured model peak |
+| `NORMAL_CONCURRENT` | a maker and a checker | host RAM, and the concurrency is arithmetic rather than an observation |
+| `PEAK_FEDERATION` | every eligible executor busy | the hosted catalog's daily quota and the runner's cold start, not RAM |
+
+`PEAK_FEDERATION` deliberately carries no RAM figure. One executor is this
+host, one is a runner with its own memory, and one is a catalog bounded by
+quota rather than by memory; adding them would invent a number.
+
+Two fields answer two different questions and must not be read as one:
+`satisfied_by_host_alone` is computed from total RAM and is a property of the
+machine; `satisfiable_right_now` is computed from available RAM and is a
+property of this instant. A matrix read while a benchmark is running reads low,
+and that is the reading being correct rather than the fabric shrinking.
+
+**Capacity is not permission.** A worker with room is still subject to
+attestation, its privacy ceiling, its quota and everything under "Four things
+exclude a worker" above before it may be handed anything.
+
+## How a wave closes
+
+`wave_closure_gate.py --wave N` decides whether a capability wave may close,
+and the rule is not "every capability covered". It is **nothing measurable is
+left undone**. Each uncovered capability carries a `blocker_class`:
+
+| Class | Meaning | Blocks closure |
+|---|---|---|
+| `NO_SUITE_YET` | nobody wrote the task; it could be run at zero cost | **yes** |
+| `NO_MODEL_IN_VERIFIED_CATALOG` | every verified free path was read and none serves it | no |
+| `HUMAN_GATE_REQUIRED` | a licence or account only the operator may accept | no |
+| `OUT_OF_SCOPE_THIS_WAVE` | deliberately deferred, reason stated | no |
+| `PLACEHOLDER_TAG` | a forward-looking name, not a requirement | excluded from the denominator |
+
+`NO_SUITE_YET` blocking closure is the whole point: the honest response to "we
+have not measured this" is to go and measure it, not to write the gap down
+neatly. Three Wave 5 tags blocked closure and then stopped blocking it — because
+they were measured, not because they were reclassified.
+
+Each gate reports three flags and none may stand in for another: operationally
+closed, all capabilities covered, all exact models available. The first is
+expected true and the other two false. `ai_core_convergence.py` combines the
+three wave gates, the release gate and the fabric proofs under the same
+discipline: `AI_CORE_DONE` means nothing measurable is left, and never that
+everything is covered.
 
 ## For a future session
 
@@ -203,3 +260,9 @@ Do not create a second Brain, router, Model Mesh, registry, scheduler,
 lifecycle manager, admission authority or evidence authority. A new wave
 declares capability requirements and, where genuinely needed, a provider
 adapter. Everything else already exists here.
+
+A new wave needs one YAML — `wave{N}_capability_requirements.yaml` — and one
+line in `WAVE_CLOSURE_GATES` in `ci_validate.py`. It does not need a new gate,
+a new proof harness or a new vocabulary: `CAPABILITY_TAGS` in
+`free_worker_mesh.py` is wave-independent and adding a tag to it grants
+nothing, because only `measured_capabilities` makes a worker eligible.

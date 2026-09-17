@@ -163,5 +163,20 @@
   "wave3_candidates_path": "AI_SKILL_LIBRARY/v4/open_model_universe/wave3_knowledge_candidates.yaml",
   "wave4_capability_requirements_path": "AI_SKILL_LIBRARY/v4/open_model_universe/wave4_capability_requirements.yaml",
   "wave3_operational_closed": true,
-  "wave3_all_exact_models_available": false
+  "wave3_all_exact_models_available": false,
+  "wave_closure_gate_path": "AI_SKILL_LIBRARY/v4/tools/wave_closure_gate.py",
+  "wave5_capability_requirements_path": "AI_SKILL_LIBRARY/v4/open_model_universe/wave5_capability_requirements.yaml",
+  "worker_capacity_matrix_path": "AI_SKILL_LIBRARY/v4/tools/worker_capacity_matrix.py",
+  "ai_core_convergence_path": "AI_SKILL_LIBRARY/v4/tools/ai_core_convergence.py",
+  "advanced_intelligence_suite_path": "AI_SKILL_LIBRARY/v4/local_runtime/benchmarks/local_advanced_intelligence_v1.json",
+  "ai_core_convergence_handoff_path": "CHECKPOINTS/AI_CORE_CONVERGENCE_HANDOFF_2026-09-17.md",
+  "wave4_operational_closed": true,
+  "wave4_all_capabilities_covered": false,
+  "wave4_all_exact_models_available": false,
+  "wave5_operational_closed": true,
+  "wave5_all_capabilities_covered": false,
+  "wave5_all_exact_models_available": false,
+  "ai_core_done": true,
+  "ai_core_all_capabilities_covered": false,
+  "ai_core_all_exact_models_available": false
 }

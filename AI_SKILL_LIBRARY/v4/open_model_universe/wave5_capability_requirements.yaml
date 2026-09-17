@@ -8,6 +8,7 @@ evidence:
   - CHECKPOINTS/evidence/WAVE4_MULTIMODAL_BENCHMARK.json
   - CHECKPOINTS/evidence/WORKERS_AI_FREE_TIER_PROBE.json
   - CHECKPOINTS/evidence/WAVE5_ADVINT_QWEN3_8B.json
+  - CHECKPOINTS/evidence/WAVE5_ADVINT_QWEN3_4B.json
 
 # Wave 5 is advanced intelligence. Every row below is filled from a recorded
 # run against a frozen suite or a real completion on a verified zero-cost path.
@@ -115,6 +116,9 @@ capability_requirements:
     measured_model: "Qwen/Qwen3-8B-GGUF"
     evidence_class: MEASURED
     score: 0.833
+    second_model: "Qwen/Qwen3-4B-GGUF scored 3/6 on the same items - half the
+      8B's result. The two models disagree sharply here and the weaker figure is
+      kept rather than dropped in favour of the better one."
     note: >-
       5 of 6 on arithmetic posed in Spanish, French, German, Japanese,
       Indonesian and Portuguese - six languages, none of them Vietnamese, so
@@ -127,6 +131,10 @@ capability_requirements:
     measured_model: "Qwen/Qwen3-8B-GGUF"
     evidence_class: MEASURED
     score: 0.833
+    second_model: "Qwen/Qwen3-4B-GGUF scored 6/6 on the same items, at the same
+      16384 ceiling. The smaller model beat the larger one here, which is worth
+      recording precisely because it is not the expected direction and the
+      coverage does not rest on one model."
     measured_at_tokens: 6100
     note: >-
       5 of 6 clearance codes recalled from a 400-record ledger of roughly 6,000
@@ -146,6 +154,7 @@ capability_requirements:
     measured_model: "Qwen/Qwen3-8B-GGUF"
     evidence_class: MEASURED
     score: 1.0
+    second_model: "Qwen/Qwen3-4B-GGUF also scored 6/6 on the same items."
     note: >-
       6 of 6: well-formed argument shapes against a declared schema, the right
       response to a rate-limit error, refusing to invent a tool that does not
@@ -161,6 +170,7 @@ capability_requirements:
     measured_model: "Qwen/Qwen3-8B-GGUF"
     evidence_class: MEASURED
     score: 1.0
+    second_model: "Qwen/Qwen3-4B-GGUF also scored 6/6 on the same items."
     note: >-
       6 of 6: dependency ordering, stopping when a result contradicts the
       assumption the rest of the plan rests on, treating a verifier's failure as
@@ -197,6 +207,7 @@ capability_requirements:
     measured_model: "Qwen/Qwen3-8B-GGUF"
     evidence_class: MEASURED
     score: 1.0
+    second_model: "Qwen/Qwen3-4B-GGUF scored 5/6 on the same items."
     note: >-
       6 of 6 on items written so the intuitive answer is wrong: what a catalyst
       does at equilibrium, why a sunlit thermometer stops measuring air
@@ -254,6 +265,26 @@ capability_requirements:
     measured_ceiling_is_the_claim: >-
       Six documents. A recall figure at that size says nothing about six
       million and must not be cited as though it did.
+
+two_models_not_one:
+  suite: local_advanced_intelligence_v1
+  suite_hash: 7b7c361cbfe9
+  runs:
+    - model: "Qwen/Qwen3-8B-GGUF"
+      score: 0.933
+      passed: "28/30"
+      context_limit: 16384
+    - model: "Qwen/Qwen3-4B-GGUF"
+      score: 0.867
+      passed: "26/30"
+      context_limit: 16384
+  why_both: >-
+    A capability covered by exactly one model is a single point of failure the
+    coverage table does not show. Running the same frozen suite on a second
+    admitted model says which of these capabilities the fleet holds twice.
+    tool_calling and agentic_planning are 6/6 on both. long_context is held by
+    both and the 4B is the better of the two. multilingual is held by the 8B
+    alone at any useful level, and that is the thinnest row in this file.
 
 rules_carried_forward:
   declared_never_qualifies: >-
