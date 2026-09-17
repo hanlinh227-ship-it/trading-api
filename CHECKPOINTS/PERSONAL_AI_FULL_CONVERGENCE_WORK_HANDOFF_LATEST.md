@@ -5,8 +5,8 @@ Updated: 2026-09-17
 STATUS: CONTROL_PLANE_IMPLEMENTED_RUNTIME_EVIDENCE_BLOCKED
 CURRENT_MAIN: `6341fd682588d22640d5642e1e7174cd47785e20`
 BRANCH: `work/personal-ai-full-convergence-20260917`
-WORK_HEAD: pending final verification commit
-PR: pending branch publication
+WORK_HEAD: implementation content published at `23d9a799c78b740e186cbab5ecff59722603b9ef`; resolve PR #436 for the latest metadata-only tip
+PR: `#436` — https://github.com/hanlinh227-ship-it/trading-api/pull/436
 
 B2_READY: true — canonical ingress, Model Mesh selection, Claude runtime evidence boundary, verifier, and synthesis harness implemented; no real B2 PASS claimed.
 B3_READY: true — exact golden trace and real-evidence gate implemented; no real B3 PASS claimed.
@@ -17,7 +17,7 @@ BASELINE_READY: false — freeze code is ready, but `PERSONAL_AI_BASELINE_001` c
 MULTI_MODEL: MULTI_MODEL_FEDERATION_V1_CONTROL_PLANE_READY — FAST/STANDARD/DEEP caps, 26 specialist groups, lineage diversity, resource-aware selection, champion/challenger governance, and routing metrics are implemented. No mass model activation occurred.
 SELF_DEVELOPMENT: CONTROLLED_SELF_DEVELOPMENT_V1_CONTROL_PLANE_READY — isolated branch, ordered states, tests/benchmark/security/authority/PR gates, scorecard, protected dimensions, and rollback target are enforced. It has no main-write or self-approval authority.
 
-CI: focused tests pass; canonical `ci_validate.py` pending final exact-HEAD run.
+CI: local canonical `ci_validate.py` PASS at `cf49304ddb35cad60dfad1376b68f9ea8184844a` with 674 Brain tests (3 skipped), 46 repo tests, and zero failures. Remote PR #436 required workflows are running on the equivalent published tree and must be green before merge.
 BLOCKER: Claude B1 cannot obtain the exact complete GGUF artifact because current environment egress to Hugging Face/CDN is denied. No synthetic runtime may substitute.
 CLAUDE_DEPENDENCY: PR #428 branch `claude/magical-euler-uu98r8`; consume a real artifact-bound execution evidence envelope when `REAL_RUNTIME_READY=true`.
 NEXT_WORK_ACTION: re-fetch Claude and main; if real evidence remains unavailable, publish this merge-ready control-plane PR and wait only on the external artifact boundary. When evidence exists, immediately run B2 -> B3 -> B4 -> Wave 0 -> baseline freeze.
