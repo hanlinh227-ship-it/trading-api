@@ -1,1 +1,177 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"open_model_universe.schema.json","title":"Open Model Universe authority-free metadata registry","type":"object","required":["version","registry_id","policy","authority","models"],"properties":{"version":{"const":1},"registry_id":{"const":"OPEN_MODEL_UNIVERSE"},"policy":{"type":"object","required":["cost_policy","paid_fallback","registry_implies_activation","auto_download"],"properties":{"cost_policy":{"const":"OPEN_MODEL_ZERO_TOKEN_FIRST"},"paid_fallback":{"const":"NO_PAID_FALLBACK"},"registry_implies_activation":{"const":false},"auto_download":{"const":false}},"additionalProperties":false},"authority":{"type":"object","required":["routing","reasoning","permission","memory","project_truth","final_answer"],"properties":{"routing":{"const":false},"reasoning":{"const":false},"permission":{"const":false},"memory":{"const":false},"project_truth":{"const":false},"final_answer":{"const":false}},"additionalProperties":false},"models":{"type":"array","items":{"$ref":"#/$defs/model"}}},"additionalProperties":false,"$defs":{"truth":{"enum":[true,false,"unknown"]},"model":{"type":"object","required":["model_id","family","variant","base_model","quantization","runtime_build","official_upstream","weights_source","upstream_revision","immutable_revision","artifact","release_date","license_name","license_url","license_class","license_verified","commercial_use","self_hostable","redistribution","derivative_training","open_weight","api_required","paid_token_required","zero_cost_eligible","offline_ready","local_runtime_possible","capabilities","hardware_profile","runtime_support","context_window","benchmark_profile","quality_class","latency_class","privacy_class","cost_class","lineage_id","admission_evidence","safe_admission","lifecycle_state","health","last_verified","authority","source_evidence"],"properties":{"model_id":{"type":"string","minLength":1},"family":{"type":"string","minLength":1},"variant":{"type":"string","minLength":1},"base_model":{"type":"string","minLength":1},"quantization":{"type":"string","minLength":1},"runtime_build":{"type":"string","minLength":1},"official_upstream":{"type":"string","pattern":"^https://","format":"uri"},"weights_source":{"type":"string","pattern":"^https://","format":"uri"},"upstream_revision":{"type":"string","pattern":"^[0-9a-f]{40}$"},"immutable_revision":{"type":"string","pattern":"^[0-9a-f]{40}$"},"artifact":{"type":"object","required":["filename","format","sha256","size_bytes","quantization"],"properties":{"filename":{"type":"string","minLength":1},"format":{"enum":["gguf","safetensors","mlx","other"]},"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"size_bytes":{"type":"integer","minimum":1},"quantization":{"type":"string","minLength":1}},"additionalProperties":false},"release_date":{"type":["string","null"],"format":"date"},"license_name":{"type":"string","minLength":1},"license_url":{"type":"string","pattern":"^https://","format":"uri"},"license_class":{"enum":["permissive","open_weight_custom","research_only","restricted","unclear"]},"license_verified":{"type":"boolean"},"commercial_use":{"$ref":"#/$defs/truth"},"self_hostable":{"type":"boolean"},"redistribution":{"enum":["allowed","restricted","unknown"]},"derivative_training":{"enum":["allowed","restricted","unknown"]},"open_weight":{"type":"boolean"},"api_required":{"type":"boolean"},"paid_token_required":{"type":"boolean"},"zero_cost_eligible":{"type":"boolean"},"offline_ready":{"type":"boolean"},"local_runtime_possible":{"type":"boolean"},"capabilities":{"type":"object","additionalProperties":{"type":"number","minimum":0,"maximum":1}},"hardware_profile":{"type":"object","required":["minimum_ram_gb","recommended_ram_gb","minimum_vram_gb","recommended_vram_gb","quantization_options","cpu_viable","apple_silicon_viable"],"properties":{"minimum_ram_gb":{"type":["number","null"],"minimum":0},"recommended_ram_gb":{"type":["number","null"],"minimum":0},"minimum_vram_gb":{"type":["number","null"],"minimum":0},"recommended_vram_gb":{"type":["number","null"],"minimum":0},"quantization_options":{"type":"array","items":{"type":"string"},"uniqueItems":true},"cpu_viable":{"$ref":"#/$defs/truth"},"apple_silicon_viable":{"$ref":"#/$defs/truth"}},"additionalProperties":false},"runtime_support":{"type":"array","items":{"enum":["llama_cpp","vllm","sglang","ollama","transformers","mlx","tgi","lmdeploy","other"]},"uniqueItems":true},"context_window":{"type":["integer","null"],"minimum":1},"benchmark_profile":{"type":"string","minLength":1},"quality_class":{"type":"string","minLength":1},"latency_class":{"type":"string","minLength":1},"privacy_class":{"type":"string","minLength":1},"cost_class":{"enum":["zero_paid_token_candidate","owned_hardware_zero_marginal","verified_recurring_free","verified_free_quota_hard_stop","unknown"]},"lineage_id":{"type":"string","minLength":1},"admission_evidence":{"type":"array","minItems":1,"items":{"type":"string","pattern":"^https://","format":"uri"},"uniqueItems":true},"safe_admission":{"type":"object","required":["safe_format","pickle_risk","trust_remote_code_required","custom_code_required","provenance_verified","license_verified","digest_verified","isolated_first_load_required","egress_required","quarantine_policy"],"properties":{"safe_format":{"type":"boolean"},"pickle_risk":{"type":"boolean"},"trust_remote_code_required":{"type":"boolean"},"custom_code_required":{"type":"boolean"},"provenance_verified":{"type":"boolean"},"license_verified":{"type":"boolean"},"digest_verified":{"type":"boolean"},"isolated_first_load_required":{"type":"boolean"},"egress_required":{"type":"boolean"},"quarantine_policy":{"type":"string","minLength":1}},"additionalProperties":false},"lifecycle_state":{"enum":["DISCOVERED","QUARANTINED","REGISTERED","APPROVED","AVAILABLE","DOWNLOADING","CACHED","WARM","RUNNING","SLEEPING","DEGRADED","BROKEN","EVICTED","SUPERSEDED","RETIRED","BLOCKED","QUARANTINED_UPDATE"]},"health":{"enum":["unknown","healthy","degraded","broken","blocked"]},"last_verified":{"type":["string","null"],"format":"date-time"},"authority":{"const":false},"source_evidence":{"type":"array","minItems":1,"items":{"type":"string","pattern":"^https://","format":"uri"},"uniqueItems":true}},"additionalProperties":false}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "open_model_universe.schema.json",
+  "title": "Open Model Universe authority-free governance and admission registry",
+  "type": "object",
+  "required": ["version", "registry_id", "policy", "authority", "integration", "models"],
+  "properties": {
+    "version": {"const": 1},
+    "registry_id": {"const": "OPEN_MODEL_UNIVERSE"},
+    "policy": {
+      "type": "object",
+      "required": ["cost_policy", "paid_fallback", "registry_implies_activation", "auto_download"],
+      "properties": {
+        "cost_policy": {"const": "OPEN_MODEL_ZERO_TOKEN_FIRST"},
+        "paid_fallback": {"const": "NO_PAID_FALLBACK"},
+        "registry_implies_activation": {"const": false},
+        "auto_download": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "authority": {
+      "type": "object",
+      "required": ["routing", "reasoning", "permission", "memory", "project_truth", "final_answer"],
+      "properties": {
+        "routing": {"const": false},
+        "reasoning": {"const": false},
+        "permission": {"const": false},
+        "memory": {"const": false},
+        "project_truth": {"const": false},
+        "final_answer": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "integration": {
+      "type": "object",
+      "required": ["brain_authority", "routed_by", "model_selection_authority", "activation_source", "registry_membership_is_activation", "ingress_hardcodes_model", "runtime_residency_contract"],
+      "properties": {
+        "brain_authority": {"const": "GITHUB_BRAIN_V4"},
+        "routed_by": {"const": "task_router"},
+        "model_selection_authority": {"const": "model_mesh"},
+        "activation_source": {"const": "AI_SKILL_LIBRARY/v4/model_mesh/active.json"},
+        "registry_membership_is_activation": {"const": false},
+        "ingress_hardcodes_model": {"const": false},
+        "runtime_residency_contract": {
+          "type": "object",
+          "required": ["owner", "governance_state_source", "open_model_universe_has_runtime_residency_authority"],
+          "properties": {
+            "owner": {"const": "claude_local_runtime"},
+            "governance_state_source": {"const": "Open Model Universe"},
+            "open_model_universe_has_runtime_residency_authority": {"const": false}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "models": {"type": "array", "items": {"$ref": "#/$defs/model"}}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "truth": {"enum": [true, false, "unknown"]},
+    "artifact_identity": {
+      "type": "object",
+      "required": ["model_id", "family", "variant", "immutable_revision", "sha256", "size_bytes", "format", "quantization"],
+      "properties": {
+        "model_id": {"type": "string", "minLength": 1},
+        "family": {"type": "string", "minLength": 1},
+        "variant": {"type": "string", "minLength": 1},
+        "immutable_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "format": {"enum": ["gguf", "safetensors", "mlx", "other"]},
+        "quantization": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "admission_evidence": {
+      "type": "object",
+      "required": ["license_verified", "provenance_verified", "safe_format_verified", "pickle_safe", "trust_remote_code_required", "custom_code_required", "malware_scan_status", "isolated_first_load_required", "first_load_egress_allowed", "quarantine_status"],
+      "properties": {
+        "license_verified": {"type": "boolean"},
+        "provenance_verified": {"type": "boolean"},
+        "safe_format_verified": {"type": "boolean"},
+        "pickle_safe": {"enum": [true, false, "unknown"]},
+        "trust_remote_code_required": {"enum": [true, false, "unknown"]},
+        "custom_code_required": {"enum": [true, false, "unknown"]},
+        "malware_scan_status": {"enum": ["pass", "fail", "not_run", "unknown"]},
+        "isolated_first_load_required": {"type": "boolean"},
+        "first_load_egress_allowed": {"type": "boolean"},
+        "quarantine_status": {"enum": ["clear", "quarantined", "blocked", "unknown"]}
+      },
+      "additionalProperties": false
+    },
+    "lineage": {
+      "type": "object",
+      "required": ["source_model_id", "source_revision", "conversion_owner", "conversion_verified"],
+      "properties": {
+        "source_model_id": {"type": "string", "minLength": 1},
+        "source_revision": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "conversion_owner": {"type": "string", "minLength": 1},
+        "conversion_verified": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "model": {
+      "type": "object",
+      "required": [
+        "model_id", "family", "variant", "base_model", "quantization", "runtime_build",
+        "official_upstream", "weights_source", "upstream_revision", "release_date",
+        "license_name", "license_url", "license_class", "license_verified",
+        "commercial_use", "self_hostable", "redistribution", "derivative_training",
+        "open_weight", "api_required", "paid_token_required", "local_runtime_possible",
+        "capabilities", "hardware_profile", "runtime_support", "offline_eligible", "lineage",
+        "context_window", "benchmark_profile", "quality_class", "latency_class", "privacy_class",
+        "cost_class", "lifecycle_state", "health", "last_verified", "authority", "source_evidence",
+        "artifact_identity", "admission_evidence", "model_mesh_local_candidate_eligible"
+      ],
+      "properties": {
+        "model_id": {"type": "string", "minLength": 1},
+        "family": {"type": "string", "minLength": 1},
+        "variant": {"type": "string", "minLength": 1},
+        "base_model": {"type": "string", "minLength": 1},
+        "quantization": {"type": "string", "minLength": 1},
+        "runtime_build": {"type": "string", "minLength": 1},
+        "official_upstream": {"type": "string", "pattern": "^https://", "format": "uri"},
+        "weights_source": {"type": "string", "pattern": "^https://", "format": "uri"},
+        "upstream_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "release_date": {"type": ["string", "null"], "format": "date"},
+        "license_name": {"type": "string", "minLength": 1},
+        "license_url": {"type": "string", "pattern": "^https://", "format": "uri"},
+        "license_class": {"enum": ["permissive", "open_weight_custom", "research_only", "restricted", "unclear"]},
+        "license_verified": {"type": "boolean"},
+        "commercial_use": {"$ref": "#/$defs/truth"},
+        "self_hostable": {"type": "boolean"},
+        "redistribution": {"enum": ["allowed", "restricted", "unknown"]},
+        "derivative_training": {"enum": ["allowed", "restricted", "unknown"]},
+        "open_weight": {"type": "boolean"},
+        "api_required": {"type": "boolean"},
+        "paid_token_required": {"type": "boolean"},
+        "local_runtime_possible": {"type": "boolean"},
+        "capabilities": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
+        "hardware_profile": {
+          "type": "object",
+          "required": ["minimum_ram_gb", "recommended_ram_gb", "minimum_vram_gb", "recommended_vram_gb", "quantization_options", "cpu_viable", "apple_silicon_viable"],
+          "properties": {
+            "minimum_ram_gb": {"type": ["number", "null"], "minimum": 0},
+            "recommended_ram_gb": {"type": ["number", "null"], "minimum": 0},
+            "minimum_vram_gb": {"type": ["number", "null"], "minimum": 0},
+            "recommended_vram_gb": {"type": ["number", "null"], "minimum": 0},
+            "quantization_options": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+            "cpu_viable": {"$ref": "#/$defs/truth"},
+            "apple_silicon_viable": {"$ref": "#/$defs/truth"}
+          },
+          "additionalProperties": false
+        },
+        "runtime_support": {"type": "array", "items": {"enum": ["llama_cpp", "vllm", "sglang", "ollama", "transformers", "mlx", "tgi", "lmdeploy", "other"]}, "uniqueItems": true},
+        "offline_eligible": {"$ref": "#/$defs/truth"},
+        "lineage": {"$ref": "#/$defs/lineage"},
+        "context_window": {"type": ["integer", "null"], "minimum": 1},
+        "benchmark_profile": {"type": "string", "minLength": 1},
+        "quality_class": {"type": "string", "minLength": 1},
+        "latency_class": {"type": "string", "minLength": 1},
+        "privacy_class": {"type": "string", "minLength": 1},
+        "cost_class": {"enum": ["zero_paid_token_candidate", "owned_hardware_zero_marginal", "verified_recurring_free", "verified_free_quota_hard_stop", "unknown"]},
+        "lifecycle_state": {"enum": ["DISCOVERED", "QUARANTINED", "QUARANTINED_UPDATE", "REGISTERED", "APPROVED", "AVAILABLE", "BLOCKED", "SUPERSEDED", "RETIRED"]},
+        "health": {"enum": ["unknown", "healthy", "degraded", "broken", "blocked"]},
+        "last_verified": {"type": ["string", "null"], "format": "date-time"},
+        "authority": {"const": false},
+        "source_evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^https://", "format": "uri"}, "uniqueItems": true},
+        "artifact_identity": {"$ref": "#/$defs/artifact_identity"},
+        "admission_evidence": {"$ref": "#/$defs/admission_evidence"},
+        "model_mesh_local_candidate_eligible": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

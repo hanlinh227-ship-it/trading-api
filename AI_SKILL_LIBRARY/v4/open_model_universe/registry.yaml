@@ -1,10 +1,12 @@
 version: 1
 registry_id: OPEN_MODEL_UNIVERSE
+
 policy:
   cost_policy: OPEN_MODEL_ZERO_TOKEN_FIRST
   paid_fallback: NO_PAID_FALLBACK
   registry_implies_activation: false
   auto_download: false
+
 authority:
   routing: false
   reasoning: false
@@ -12,79 +14,90 @@ authority:
   memory: false
   project_truth: false
   final_answer: false
+
+integration:
+  brain_authority: GITHUB_BRAIN_V4
+  routed_by: task_router
+  model_selection_authority: model_mesh
+  activation_source: AI_SKILL_LIBRARY/v4/model_mesh/active.json
+  registry_membership_is_activation: false
+  ingress_hardcodes_model: false
+  runtime_residency_contract:
+    owner: claude_local_runtime
+    governance_state_source: Open Model Universe
+    open_model_universe_has_runtime_residency_authority: false
+
 models:
-- model_id: qwen3-0.6b-q8_0-gguf
-  family: Qwen3
-  variant: 0.6B-Q8_0-GGUF
-  base_model: Qwen/Qwen3-0.6B
-  quantization: Q8_0
-  runtime_build: llama.cpp>=b5092
-  official_upstream: https://huggingface.co/Qwen/Qwen3-0.6B
-  weights_source: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
-  upstream_revision: 1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
-  immutable_revision: 1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
-  artifact:
-    filename: Qwen3-0.6B-Q8_0.gguf
-    format: gguf
-    sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
-    size_bytes: 639446688
+  - model_id: Qwen/Qwen3-0.6B-GGUF
+    family: Qwen3
+    variant: 0.6B-Q8_0-GGUF
+    base_model: Qwen/Qwen3-0.6B
     quantization: Q8_0
-  release_date: null
-  license_name: Apache-2.0
-  license_url: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/LICENSE
-  license_class: permissive
-  license_verified: true
-  commercial_use: true
-  self_hostable: true
-  redistribution: allowed
-  derivative_training: allowed
-  open_weight: true
-  api_required: false
-  paid_token_required: false
-  zero_cost_eligible: true
-  offline_ready: false
-  local_runtime_possible: true
-  capabilities: {}
-  hardware_profile:
-    minimum_ram_gb: null
-    recommended_ram_gb: null
-    minimum_vram_gb: null
-    recommended_vram_gb: null
-    quantization_options:
-    - Q8_0
-    cpu_viable: true
-    apple_silicon_viable: unknown
-  runtime_support:
-  - llama_cpp
-  context_window: 32768
-  benchmark_profile: unbenchmarked
-  quality_class: unknown
-  latency_class: unknown
-  privacy_class: local_only
-  cost_class: owned_hardware_zero_marginal
-  lineage_id: Qwen/Qwen3-0.6B::Qwen/Qwen3-0.6B-GGUF::Q8_0::1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
-  admission_evidence:
-  - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/commit/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
-  - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/README.md
-  - https://qwenlm.github.io/blog/qwen3/
-  - https://github.com/QwenLM/Qwen3/blob/main/docs/source/run_locally/llama.cpp.md
-  safe_admission:
-    safe_format: true
-    pickle_risk: false
-    trust_remote_code_required: false
-    custom_code_required: false
-    provenance_verified: true
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
+    weights_source: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
+    upstream_revision: 1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
+    release_date: null
+    license_name: Apache-2.0
+    license_url: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
+    license_class: permissive
     license_verified: true
-    digest_verified: false
-    isolated_first_load_required: true
-    egress_required: true
-    quarantine_policy: admit_metadata_only; acquire_by_pinned_revision_and_sha256; isolated_first_load; promote_after_runtime_probe_and_empirical_resource_measurement
-  lifecycle_state: APPROVED
-  health: unknown
-  last_verified: null
-  authority: false
-  source_evidence:
-  - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/commit/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
-  - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/README.md
-  - https://qwenlm.github.io/blog/qwen3/
-  - https://github.com/QwenLM/Qwen3/blob/main/docs/source/run_locally/llama.cpp.md
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      text_reasoning: 0.0
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [Q8_0]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp, ollama]
+    offline_eligible: true
+    lineage:
+      source_model_id: Qwen/Qwen3-0.6B
+      source_revision: null
+      conversion_owner: Qwen
+      conversion_verified: false
+    context_window: 40960
+    benchmark_profile: unverified
+    quality_class: unverified
+    latency_class: unverified
+    privacy_class: local_candidate_pending_security_admission
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: QUARANTINED
+    health: unknown
+    last_verified: '2026-09-17T05:00:00Z'
+    authority: false
+    artifact_identity:
+      model_id: Qwen/Qwen3-0.6B-GGUF
+      family: Qwen3
+      variant: 0.6B-Q8_0-GGUF
+      immutable_revision: 1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
+      sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+      size_bytes: 639446688
+      format: gguf
+      quantization: Q8_0
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: not_run
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: quarantined
+    model_mesh_local_candidate_eligible: false
+    source_evidence:
+      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
+      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
