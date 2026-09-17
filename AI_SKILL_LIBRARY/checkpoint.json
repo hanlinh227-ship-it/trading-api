@@ -141,5 +141,15 @@
   "memory_continuity_resolver_path": "AI_SKILL_LIBRARY/v4/tools/memory_continuity.py",
   "memory_continuity_focus_path": "AI_SKILL_LIBRARY/v4/memory_continuity/focus.json",
   "memory_continuity_writeback_path": "AI_SKILL_LIBRARY/v4/tools/memory_continuity_writeback.py",
-  "memory_continuity_bootstrap_path": "AI_SKILL_LIBRARY/v4/tools/memory_continuity_bootstrap.py"
+  "memory_continuity_bootstrap_path": "AI_SKILL_LIBRARY/v4/tools/memory_continuity_bootstrap.py",
+  "personal_ai_control_plane_path": "AI_SKILL_LIBRARY/v4/control_plane/__init__.py",
+  "personal_ai_ingress_path": "AI_SKILL_LIBRARY/v4/control_plane/ingress.py",
+  "personal_ai_verifier_path": "AI_SKILL_LIBRARY/v4/control_plane/verifier.py",
+  "personal_ai_e2e_path": "AI_SKILL_LIBRARY/v4/control_plane/e2e.py",
+  "personal_ai_wave0_path": "AI_SKILL_LIBRARY/v4/control_plane/wave0.json",
+  "personal_ai_benchmark_path": "AI_SKILL_LIBRARY/v4/control_plane/benchmark.py",
+  "personal_ai_federation_path": "AI_SKILL_LIBRARY/v4/control_plane/federation.py",
+  "personal_ai_specialists_path": "AI_SKILL_LIBRARY/v4/control_plane/specialists.yaml",
+  "personal_ai_self_development_path": "AI_SKILL_LIBRARY/v4/control_plane/self_development.py",
+  "personal_ai_convergence_handoff_path": "CHECKPOINTS/PERSONAL_AI_FULL_CONVERGENCE_WORK_HANDOFF_LATEST.md"
 }

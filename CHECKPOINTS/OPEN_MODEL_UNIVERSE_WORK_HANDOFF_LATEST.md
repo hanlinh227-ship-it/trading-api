@@ -129,6 +129,10 @@ This is intentional and fail-closed.
 
 Claude should consume this identity/admission contract, perform runtime-side security evidence and first-load work, and return evidence without changing governance ownership.
 
+## Full convergence continuation
+
+The non-runtime continuation is checkpoint-resolved at `CHECKPOINTS/PERSONAL_AI_FULL_CONVERGENCE_WORK_HANDOFF_LATEST.md`. It adds generic local-candidate projection, ingress, verifier, golden E2E, Wave 0/baseline, multi-model federation, and controlled self-development control-plane contracts. These contracts are readiness infrastructure only and do not change this record's quarantine state or make a runtime LIVE claim.
+
 ## Tests and reconciliation evidence
 
 - RED contract commit: `441b19559f554d999e6df17357c31a6e9387de6d`.
