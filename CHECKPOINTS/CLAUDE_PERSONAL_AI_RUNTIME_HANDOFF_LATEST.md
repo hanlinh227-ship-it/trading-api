@@ -29,80 +29,73 @@ rewriting its history would invalidate every existing checkout and review anchor
 
 ## Verified state
 
-Re-verified at exact HEAD, not carried forward from an earlier run:
-
 | Check | Result |
 |---|---|
-| HEAD | `c8820612c3ffaae9170c08aa34e36666e6d44331` |
-| origin/main | `bc83f70f16de40be833f83702538479ede8157b1` |
-| behind_by / ahead_by | **0** / 14 |
-| `ci_validate.py --source-sha $(git rev-parse HEAD)` | **CI_VALIDATE=PASS failures=0** |
-| Brain suite | 1000 passed, 4 skipped |
+| HEAD | `6fd06cfb5dc0b724bdcd7d9b245e3f417e350dd7` |
+| origin/main | `6341fd682588d22640d5642e1e7174cd47785e20` |
+| behind_by / ahead_by | **0** / 19 |
+| `ci_validate.py` at exact head | **CI_VALIDATE=PASS failures=0** |
+| Brain suite | 1094 passed, 4 skipped |
 | Repo suite | 46 passed |
-| Canonical registry rows | 1 — `qwen3-0.6b-q8_0-gguf` |
-| `huggingface.co:443` | **403 CONNECT (denied)** |
-| `cdn-lfs.huggingface.co:443` | **403 CONNECT (denied)** |
-| Staged GGUF anywhere on host | none (`find / -name '*.gguf' -size +10M` → empty) |
-| `LOCAL_RUNTIME_TEST_GGUF` | unset |
-
-The one skipped lane test is the real-generation hook, waiting on an artifact.
+| Lane suite | 454 passed, 1 skipped (real-generation hook) |
+| Secret scan | 0 findings |
+| `huggingface.co:443` / `cdn-lfs.huggingface.co:443` | **403 CONNECT — denied** |
+| Canonical registry row | `Qwen/Qwen3-0.6B-GGUF` — **QUARANTINED** |
+| Staged GGUF on host | none |
 
 ---
 
 ## Blocker status
 
-| ID | Status | Note |
+| ID | Status | Evidence |
 |---|---|---|
-| **B6 RUNTIME_MAIN_RECONCILIATION** | **CLOSED** | behind_by=0; lifecycle split landed; CI_VALIDATE=PASS |
-| **B5 SAFE_MODEL_ADMISSION** | **CLOSED (runtime side)** | format allowlist, pickle refusal, remote-code policy gate, first-load sandbox + egress deny, quarantine |
-| **B1 REAL_LOCAL_RUNTIME** | **PARTIAL** | real llama.cpp engine installed and driven; no canonical artifact to load |
-| **B2 REAL_CANONICAL_INFERENCE** | **BLOCKED** | see *The one blocker* below |
-| B3 GOLDEN_E2E / B4 OFFLINE_E2E | blocked behind B2 | |
+| **B6 RUNTIME_MAIN_RECONCILIATION** | **CLOSED** | behind_by=0; `artifact_identity` lossless; policy-driven gates; 39 seam tests |
+| **B5 SAFE_MODEL_ADMISSION** | **CLOSED (runtime side)** | policy consumed, never manufactured; `assert_not_relaxed` blocks self-weakening |
+| B1 REAL_LOCAL_RUNTIME | **BLOCKED** | llama.cpp real and ready; no artifact obtainable |
+| B2 / B3 / B4 / Wave 0 / baseline | BLOCKED behind B1 | require real weights |
+
+### B6 — what closed it
+
+* `artifact_identity` read losslessly: model_id, family, variant,
+  immutable_revision, sha256, size_bytes, format, quantization all survive
+  registry → ArtifactIdentity → ModelProfile → AcquisitionRequest.
+* Revision stated in several places; disagreement is a corrupt row, not a
+  preference to resolve.
+* `admission_policy.yaml` drives governance state, evidence and identity
+  completeness — no hardcoded list. The file requires `AVAILABLE` and blocks
+  `APPROVED`, and the runtime follows the file.
+* `local_candidate_pending_security_admission` handled explicitly as a
+  fail-closed pending state, distinct from an unrecognised class.
+* Governance and residency remain separate vocabularies; `QUARANTINED` yields
+  no candidate and no residency.
+
+Two deliberate tightenings, both policy-driven: a row missing sha256 or
+size_bytes is not a candidate at all (previously RESTRICTED-but-placeable), and
+a legacy flat row reads losslessly for identity while being refused for
+candidacy.
+
+### B5 — runtime side
+
+Format allowlist with declaration/extension cross-check, pickle refusal,
+`trust_remote_code` denied unless policy-granted as an input, first-load sandbox
+and egress denial, quarantine on contradiction. `assert_not_relaxed()` re-reads
+the canonical policy and refuses any in-memory policy weaker than it, so a
+future edit cannot soften the gate to make a stubborn model pass.
+
+### Added beyond the blockers
+
+* **`scanner.py`** — bounded, non-executing GGUF structural scan. Deliberately
+  does *not* set `malware_scan_status`; it reports
+  `satisfies_malware_scan_status: false` so a structural PASS cannot be read as
+  a malware clearance. Verified against a real GGUF on this host.
+* **`selfdev.py`** — controlled self-development state machine. Protected
+  branches refused, unrun gates block like failed ones, failed gates terminal,
+  no `MERGED` state, and the automation cannot approve itself.
 
 ---
 
-## Canonical model record: MERGED and consumed
+## The one blocker
 
-The first canonical row landed on main via PR #433 and is consumed end to end
-through the normal contracts — no value copied from chat, all read from
-`AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml`.
-
-| Field | Value (read from main) |
-|---|---|
-| model_id | `qwen3-0.6b-q8_0-gguf` |
-| family / variant | `Qwen3` / `0.6B-Q8_0-GGUF` |
-| immutable_revision | `1eaf4d9657fe65ad10a51eab76a8db5b363bddaa` |
-| artifact.filename | `Qwen3-0.6B-Q8_0.gguf` |
-| artifact.sha256 | `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031` |
-| artifact.size_bytes | `639446688` |
-| artifact.format / quantization | `gguf` / `Q8_0` |
-| runtime_support | `llama_cpp` → `llama.cpp` |
-| context_window | `32768` |
-| lifecycle_state | `APPROVED` |
-
-Measured result of running the seam against it:
-
-```
-projection        ADMITTED     acquisition_eligible=true
-identity          complete     fingerprint=6c8e7c1b87fbc658c806a49440bc5426
-artifact_admitted true         (safe format, no pickle, no remote code)
-preconditions     ()           all acquisition gates pass
-acquisition       FAILED_TRANSPORT
-                  "URLError: Tunnel connection failed: 403 Forbidden"
-```
-
-Two findings worth the Work lane's attention, both fail-closed and both correct:
-
-* `capabilities: {}` means placement refuses **any** stated capability
-  requirement. The runtime will not assume a text model does text.
-* `minimum_ram_gb: null` blocks ordinary placement entirely. That is the
-  first-load chicken-and-egg the record's own `quarantine_policy` describes —
-  measurement comes from a separate budgeted run. The fix is never to let the
-  scheduler guess a RAM figure, and a test pins both behaviours.
-
-PR #434 is superseded and was not used.
-
-## The one blocker: no model artifact is reachable from this environment
 
 This is environmental, not a code gap. Measured, not inferred:
 
