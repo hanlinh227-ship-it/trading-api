@@ -15,7 +15,101 @@ authority:
   project_truth: false
   final_answer: false
 
-# Population is a separate, evidence-heavy phase. A row may be added only after
-# official-source, per-release licence, revision, and provenance review.
-models: []
-
+# P0 population begins with one evidence-backed isolated E2E candidate only.
+# This metadata does not activate, download, route to, or run the model.
+models:
+  - model_id: qwen/qwen2.5-1.5b-instruct-gguf-q4_k_m
+    family: Qwen2.5
+    variant: 1.5B-Instruct-GGUF-Q4_K_M
+    base_model: Qwen/Qwen2.5-1.5B-Instruct
+    quantization: Q4_K_M
+    runtime_build: llama.cpp-compatible-gguf
+    official_upstream: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct
+    weights_source: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF
+    upstream_revision: dd26da440ef0330c47919d1ecae0966d24022222
+    immutable_revision: dd26da440ef0330c47919d1ecae0966d24022222
+    artifact_url: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/dd26da440ef0330c47919d1ecae0966d24022222/qwen2.5-1.5b-instruct-q4_k_m.gguf
+    artifact_hash: sha256:6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e
+    artifact_size_bytes: 1117320736
+    artifact_format: GGUF
+    release_date: 2024-09-18
+    license_name: Apache-2.0
+    license_url: https://www.apache.org/licenses/LICENSE-2.0
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    zero_cost_eligible: true
+    offline_ready: true
+    capabilities: {}
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options:
+        - Q4_K_M
+      cpu_viable: true
+      apple_silicon_viable: unknown
+      gpu_viable: unknown
+    runtime_support:
+      - llama_cpp
+    context_window: 32768
+    benchmark_profile: unverified
+    quality_class: unverified
+    latency_class: unverified
+    privacy_class: secret
+    cost_class: zero_paid_token_candidate
+    lifecycle_state: APPROVED
+    health: unknown
+    last_verified: 2026-09-17T04:59:00Z
+    lineage:
+      lineage_id: qwen2.5-1.5b-instruct
+      family: Qwen2.5
+      base_model: Qwen/Qwen2.5-1.5B
+      fine_tune_parent: Qwen/Qwen2.5-1.5B
+      distillation_parent: null
+      quantization_parent: Qwen/Qwen2.5-1.5B-Instruct
+      lora_parent: null
+    admission_status: E2E_CANDIDATE
+    artifact_security:
+      revision_pinned: true
+      digest_verified: true
+      safe_format: true
+      pickle_risk: false
+      trust_remote_code_required: false
+      custom_code_required: false
+      license_verified: true
+      provenance_verified: true
+      malware_scan_status: not_scanned
+      isolated_load_required: true
+      egress_required: false
+      rollback_artifact_available: true
+    runtime_projection:
+      model_id: qwen/qwen2.5-1.5b-instruct-gguf-q4_k_m
+      family: Qwen2.5
+      revision: dd26da440ef0330c47919d1ecae0966d24022222
+      artifact_hash: sha256:6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e
+      artifact_size_bytes: 1117320736
+      quantization: Q4_K_M
+      runtime_support:
+        - llama_cpp
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      cpu_viable: true
+      privacy_class: secret
+      zero_cost_eligible: true
+      admission_status: E2E_CANDIDATE
+    authority: false
+    source_evidence:
+      - https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/commit/dd26da440ef0330c47919d1ecae0966d24022222
+      - https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/blob/dd26da440ef0330c47919d1ecae0966d24022222/qwen2.5-1.5b-instruct-q4_k_m.gguf
+      - https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/775b11afaf83e0dc75bd5abaf90133e47b3ec082/config.json
