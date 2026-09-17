@@ -89,6 +89,7 @@ jobs:
         run: |
           set -uo pipefail
           FILE="$(find staged -type f -name "$FILENAME" -print -quit)"
+          export SCAN_TARGET="$FILE"
           test -n "$FILE" || { echo "::error::$FILENAME not in artifact"; exit 1; }
 
           SHA=$(sha256sum "$FILE" | awk '{print $1}')
@@ -99,10 +100,43 @@ jobs:
           fi
 
           ENGINE=$(clamscan --version)
-          # A GGUF is far larger than clamscan's defaults; raising the limits is
-          # what makes this a scan of the whole file instead of its first 100MB.
+          LIMIT=2147483647   # libclamav cannot read a file larger than this
+
+          # Oversized artifacts are scanned in chunks rather than not at all.
+          # libclamav skips a file over 2 GiB - 1 while still printing "OK" and
+          # "Scanned files: 1", so the naive path records a clean scan of bytes
+          # nothing ever looked at. Chunks overlap by 1 MiB so a signature
+          # straddling a boundary is still seen in one of them.
+          CHUNKED=false
+          OVERLAP=1048576
+          if [ "$SIZE" -gt "$LIMIT" ]; then
+            CHUNKED=true
+            mkdir -p chunks
+            python - <<'PY'
+          import os, pathlib
+          src = pathlib.Path(os.environ["SCAN_TARGET"])
+          size = src.stat().st_size
+          chunk, overlap = 1_000_000_000, 1_048_576
+          out = pathlib.Path("chunks")
+          offset, index = 0, 0
+          with src.open("rb") as handle:
+              while offset < size:
+                  handle.seek(offset)
+                  data = handle.read(chunk)
+                  if not data:
+                      break
+                  (out / f"chunk{index:03d}.bin").write_bytes(data)
+                  index += 1
+                  offset += chunk - overlap
+          print(f"wrote {index} chunks covering {size} bytes")
+          PY
+            TARGET=chunks
+          else
+            TARGET="$FILE"
+          fi
+
           set +e
-          clamscan --max-filesize=4000M --max-scansize=4000M --stdout "$FILE" > scan.txt 2>&1
+          clamscan -r --max-filesize=4000M --max-scansize=4000M --stdout "$TARGET" > scan.txt 2>&1
           CODE=$?
           set -e
           cat scan.txt
@@ -112,6 +146,27 @@ jobs:
             1) STATUS=fail ;;
             *) STATUS=error ;;
           esac
+
+          # The check that decides whether this is a scan or theatre. "Scanned
+          # files: 1" is printed even for a file that was skipped - the 4B
+          # reported exactly that with "ratio 0.00:1", meaning zero bytes were
+          # actually examined. Data scanned is the honest measure.
+          SCANNED=$(awk -F': *' '/^Scanned files:/{print $2; exit}' scan.txt)
+          SCANNED="${SCANNED:-0}"
+          DATA_SCANNED=$(awk -F': *' '/^Data scanned:/{print $2; exit}' scan.txt)
+          DATA_SCANNED="${DATA_SCANNED:-0}"
+          COVERAGE_OK=true
+          case "$DATA_SCANNED" in
+            0|0.00*|"") COVERAGE_OK=false ;;
+          esac
+          [ "$SCANNED" -ge 1 ] || COVERAGE_OK=false
+          if [ "$CHUNKED" != "true" ] && grep -q "is not supported" scan.txt && [ "$SIZE" -gt "$LIMIT" ]; then
+            COVERAGE_OK=false
+          fi
+          if [ "$COVERAGE_OK" != "true" ] && [ "$STATUS" = "pass" ]; then
+            echo "::warning::engine scanned no data - refusing to record a pass"
+            STATUS=not_run
+          fi
 
           SIGS=$(sudo sigtool --info /var/lib/clamav/daily.cvd 2>/dev/null | awk -F': ' '/^Version:/{print $2; exit}')
           SIGS="${SIGS:-unknown}"
@@ -128,6 +183,11 @@ jobs:
             "scan_exit_code": int("$CODE"),
             "engine": """$ENGINE""".strip().splitlines()[0],
             "signature_database_version": "$SIGS",
+            "engine_scanned_file_count": int("$SCANNED"),
+            "engine_data_scanned": "$DATA_SCANNED",
+            "engine_read_whole_artifact": "$COVERAGE_OK" == "true",
+            "chunked": "$CHUNKED" == "true",
+            "chunk_overlap_bytes": int("$OVERLAP") if "$CHUNKED" == "true" else None,
             "scanned_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
             "scanned_by": "github-actions",
             "scan_kind": "signature_based",
