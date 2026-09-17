@@ -1,0 +1,32 @@
+version: 1
+defaults:
+  evidence_requirements: [benchmark, health, resource]
+  fallback_behavior: return_to_primary_or_fail_closed
+  verification_strategy: task_specific_verifier
+groups:
+  GENERAL_REASONING: [text_reasoning]
+  DEEP_REASONING: [text_reasoning, planning]
+  FAST_RESPONSE: [low_latency]
+  CODING: [coding]
+  DEBUGGING: [coding, debugging]
+  CODE_REVIEW: [coding, code_review]
+  TESTING: [coding, testing]
+  MATH: [math_quant]
+  SCIENCE: [science]
+  VIETNAMESE: [vietnamese]
+  MULTILINGUAL: [multilingual]
+  LONG_CONTEXT: [long_context]
+  RESEARCH: [research_synthesis]
+  RERANKING: [reranking]
+  EMBEDDING: [embedding]
+  VISION: [vision]
+  OCR: [ocr]
+  DOCUMENT: [document]
+  AUDIO: [audio]
+  SPEECH: [speech]
+  TRADING_RESEARCH: [trading_research]
+  TRADING_CODE: [trading_code]
+  CREATIVE: [creative]
+  ANIMATION: [animation]
+  VERIFIER: [verification]
+  PLANNING: [planning]

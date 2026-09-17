@@ -1,0 +1,17 @@
+{
+  "benchmark_version": "wave0-v1",
+  "tasks": [
+    {"task_id": "gr-01", "category": "GENERAL_REASONING", "verifier": "RESEARCH"},
+    {"task_id": "gr-02", "category": "GENERAL_REASONING", "verifier": "RESEARCH"},
+    {"task_id": "gr-03", "category": "GENERAL_REASONING", "verifier": "RESEARCH"},
+    {"task_id": "vi-01", "category": "VIETNAMESE", "verifier": "VIETNAMESE"},
+    {"task_id": "vi-02", "category": "VIETNAMESE", "verifier": "VIETNAMESE"},
+    {"task_id": "vi-03", "category": "VIETNAMESE", "verifier": "VIETNAMESE"},
+    {"task_id": "so-01", "category": "STRUCTURED_OUTPUT", "verifier": "STRUCTURED_OUTPUT"},
+    {"task_id": "so-02", "category": "STRUCTURED_OUTPUT", "verifier": "STRUCTURED_OUTPUT"},
+    {"task_id": "code-01", "category": "CODING", "verifier": "CODING"},
+    {"task_id": "code-02", "category": "CODING", "verifier": "CODING"},
+    {"task_id": "math-01", "category": "MATH", "verifier": "MATH"},
+    {"task_id": "math-02", "category": "MATH", "verifier": "MATH"}
+  ]
+}
