@@ -1,4 +1,4 @@
-"""Validate the authority-free Open Model Universe metadata registry."""
+"""Validate the authority-free Open Model Universe governance/admission registry."""
 from __future__ import annotations
 
 import argparse
@@ -11,7 +11,10 @@ from jsonschema import Draft202012Validator, FormatChecker
 import yaml
 
 
-RUNTIME_STATES = {"AVAILABLE", "DOWNLOADING", "CACHED", "WARM", "RUNNING", "SLEEPING", "DEGRADED", "EVICTED"}
+RUNTIME_ONLY_STATES = {
+    "COLD", "ACQUIRING", "DOWNLOADING", "LOADING", "CACHED", "READY", "WARM",
+    "RUNNING", "SLEEPING", "DEGRADED", "BROKEN", "EVICTED",
+}
 FORBIDDEN_KEYS = {
     "api_key", "apikey", "access_token", "auth_token", "bearer_token", "password",
     "private_key", "wallet_seed", "credential", "authorization", "secret", "secret_value",
@@ -23,6 +26,7 @@ CREDENTIAL_VALUE = re.compile(
 )
 SENSITIVE_QUERY_KEYS = {"access_token", "api_key", "apikey", "auth", "authorization", "password", "secret", "token"}
 URL_FIELDS = ("official_upstream", "weights_source", "license_url")
+IDENTITY_FIELDS = ("model_id", "family", "variant", "quantization")
 
 
 def _schema_path() -> Path:
@@ -57,6 +61,34 @@ def _unsafe_https_url(value: object) -> bool:
     return any(key.lower() in SENSITIVE_QUERY_KEYS for key, _ in parse_qsl(parsed.query, keep_blank_values=True))
 
 
+def _admission_refusals(model: dict, index: int) -> list[str]:
+    errors: list[str] = []
+    if not model.get("model_mesh_local_candidate_eligible"):
+        return errors
+
+    if model.get("lifecycle_state") != "AVAILABLE":
+        errors.append(f"model mesh local candidate requires governance state AVAILABLE at models[{index}]")
+
+    admission = model.get("admission_evidence") if isinstance(model.get("admission_evidence"), dict) else {}
+    required_true = ("license_verified", "provenance_verified", "safe_format_verified")
+    for field in required_true:
+        if admission.get(field) is not True:
+            errors.append(f"admission blocks local candidate: {field} must be true at models[{index}]")
+    if admission.get("pickle_safe") is not True:
+        errors.append(f"admission blocks local candidate: pickle_safe must be true at models[{index}]")
+    if admission.get("trust_remote_code_required") is not False:
+        errors.append(f"admission blocks local candidate: trust_remote_code_required must be false at models[{index}]")
+    if admission.get("custom_code_required") is not False:
+        errors.append(f"admission blocks local candidate: custom_code_required must be false at models[{index}]")
+    if admission.get("malware_scan_status") != "pass":
+        errors.append(f"admission blocks local candidate: malware_scan_status must be pass at models[{index}]")
+    if admission.get("quarantine_status") != "clear":
+        errors.append(f"admission blocks local candidate: quarantine_status must be clear at models[{index}]")
+    if model.get("artifact_identity", {}).get("format") == "other":
+        errors.append(f"admission blocks local candidate: safe artifact format is not established at models[{index}]")
+    return errors
+
+
 def validate_document(document: object, schema: dict | None = None) -> list[str]:
     errors: list[str] = []
     if schema is None:
@@ -84,13 +116,25 @@ def validate_document(document: object, schema: dict | None = None) -> list[str]
     if authority and any(value is not False for value in authority.values()):
         errors.append("Open Model Universe must have zero authority")
 
+    integration = document.get("integration") if isinstance(document.get("integration"), dict) else {}
+    runtime_contract = integration.get("runtime_residency_contract") if isinstance(integration.get("runtime_residency_contract"), dict) else {}
+    if integration.get("registry_membership_is_activation") is not False:
+        errors.append("Open Model Universe registry membership must not activate a runtime")
+    if integration.get("ingress_hardcodes_model") is not False:
+        errors.append("ingress must not hardcode a model")
+    if runtime_contract.get("owner") not in (None, "claude_local_runtime"):
+        errors.append("runtime residency ownership must remain Claude-owned")
+    if runtime_contract.get("open_model_universe_has_runtime_residency_authority") not in (None, False):
+        errors.append("Open Model Universe must not hold runtime residency authority")
+
     identities: set[tuple[str, ...]] = set()
     model_ids: set[str] = set()
     models = document.get("models") if isinstance(document.get("models"), list) else []
     for index, model in enumerate(models):
         if not isinstance(model, dict):
             continue
-        identity = tuple(str(model.get(field) or "") for field in ("family", "base_model", "variant", "quantization", "runtime_build"))
+        artifact = model.get("artifact_identity") if isinstance(model.get("artifact_identity"), dict) else {}
+        identity = tuple(str(artifact.get(field) or "") for field in ("model_id", "family", "variant", "immutable_revision", "sha256", "format", "quantization"))
         if identity in identities:
             errors.append(f"duplicate model identity at models[{index}]: {identity}")
         identities.add(identity)
@@ -98,12 +142,26 @@ def validate_document(document: object, schema: dict | None = None) -> list[str]
         if model_id in model_ids:
             errors.append(f"duplicate model_id at models[{index}]: {model_id}")
         model_ids.add(model_id)
+
         if model.get("authority") is not False:
             errors.append(f"model authority must remain false at models[{index}]")
         if model.get("paid_token_required") is True:
             errors.append(f"paid-token model cannot enter zero-token registry at models[{index}]")
-        if model.get("lifecycle_state") in RUNTIME_STATES:
-            errors.append(f"runtime state is forbidden in Phase A/B registry without Claude runtime approval/transition evidence at models[{index}]")
+        if model.get("lifecycle_state") in RUNTIME_ONLY_STATES:
+            errors.append(f"runtime state is forbidden as Open Model Universe governance state at models[{index}]")
+
+        for field in IDENTITY_FIELDS:
+            if str(model.get(field) or "") != str(artifact.get(field) or ""):
+                errors.append(f"artifact identity drift for {field} at models[{index}]")
+        if str(model.get("upstream_revision") or "") != str(artifact.get("immutable_revision") or ""):
+            errors.append(f"artifact identity drift for immutable_revision at models[{index}]")
+        if artifact.get("immutable_revision") and artifact.get("immutable_revision") not in str(model.get("weights_source") or ""):
+            errors.append(f"weights_source must pin artifact identity immutable_revision at models[{index}]")
+        if model.get("license_verified") is not (model.get("admission_evidence") or {}).get("license_verified"):
+            errors.append(f"license verification must agree with admission evidence at models[{index}]")
+
+        errors.extend(_admission_refusals(model, index))
+
         for field in URL_FIELDS:
             if _unsafe_https_url(model.get(field)):
                 errors.append(f"unsafe or invalid provenance URL at models[{index}].{field}")
@@ -121,19 +179,28 @@ def validate_open_model_universe(root: Path) -> list[str]:
     root = Path(root).resolve()
     schema_path = root / "AI_SKILL_LIBRARY/v4/schemas/open_model_universe.schema.json"
     registry_path = root / "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml"
+    admission_path = root / "AI_SKILL_LIBRARY/v4/open_model_universe/admission_policy.yaml"
     errors: list[str] = []
-    if not schema_path.is_file():
-        errors.append(f"missing Open Model Universe schema: {schema_path.relative_to(root)}")
-    if not registry_path.is_file():
-        errors.append(f"missing Open Model Universe registry: {registry_path.relative_to(root)}")
+    for path, label in ((schema_path, "schema"), (registry_path, "registry"), (admission_path, "admission policy")):
+        if not path.is_file():
+            errors.append(f"missing Open Model Universe {label}: {path.relative_to(root)}")
     if errors:
         return errors
     try:
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
         registry = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+        admission = yaml.safe_load(admission_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, json.JSONDecodeError, yaml.YAMLError) as exc:
         return [f"cannot load Open Model Universe contract: {exc}"]
-    return validate_document(registry, schema)
+    errors.extend(validate_document(registry, schema))
+    expected_flow = ["open_model_universe", "admission_gate", "model_mesh_local_candidate", "claude_runtime_projection"]
+    if admission.get("flow") != expected_flow:
+        errors.append("admission boundary flow must remain registry -> admission -> Model Mesh -> Claude runtime")
+    if admission.get("registry_membership_implies_activation") is not False:
+        errors.append("admission policy must not make registry membership activation")
+    if admission.get("ingress_hardcodes_model") is not False:
+        errors.append("admission policy must forbid ingress model hardcoding")
+    return errors
 
 
 def main(argv: list[str] | None = None) -> int:
