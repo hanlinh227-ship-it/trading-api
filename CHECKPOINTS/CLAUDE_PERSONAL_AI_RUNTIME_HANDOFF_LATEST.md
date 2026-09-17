@@ -12,7 +12,7 @@
 |---|---|
 | Repository | `hanlinh227-ship-it/trading-api` |
 | Branch | `claude/magical-euler-uu98r8` |
-| HEAD SHA | `PLACEHOLDER_HEAD` |
+| HEAD SHA | `e899887a52f3cbead5b94bd7fbfb2c52ddfcda2a` |
 | Base main SHA | `c5ad9112de60223ef9e1175bb5bcc1fcdfdf163f` |
 | PR number | none opened yet — not requested |
 | Rollback point | `c5ad9112de60223ef9e1175bb5bcc1fcdfdf163f` (branch is additive; deleting `AI_SKILL_LIBRARY/v4/local_runtime/` and the six `test_local_runtime_*.py` files restores main exactly) |
