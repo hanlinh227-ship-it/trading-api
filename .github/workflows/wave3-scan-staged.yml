@@ -48,6 +48,7 @@ jobs:
       - name: Fetch and reassemble the staged artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           CANDIDATE: ${{ github.event.inputs.candidate }}
           EXPECTED_SHA: ${{ github.event.inputs.expected_sha256 }}
         shell: bash
@@ -176,6 +177,7 @@ jobs:
       - name: Publish the scan result beside the artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           CANDIDATE: ${{ github.event.inputs.candidate }}
         shell: bash
         run: |

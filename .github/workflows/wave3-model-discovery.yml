@@ -188,6 +188,7 @@ jobs:
       - name: Publish the discovery report where the runtime can read it
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
@@ -312,6 +313,7 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           CANDIDATE: ${{ matrix.candidate_id }}
         shell: bash
         run: |
