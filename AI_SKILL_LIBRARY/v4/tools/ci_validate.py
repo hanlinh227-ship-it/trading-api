@@ -41,6 +41,11 @@ VALIDATORS = (
     # still hold together - which is what silently stops being true as the
     # evidence around them changes.
     "AI_SKILL_LIBRARY/v4/tools/ai_core_release_gate.py",
+    # A closed wave is a claim that goes stale silently: a candidate state edited
+    # later, or a proof that stops holding, would leave the closure flag saying
+    # something no longer true. Re-checking it on every CI run is what keeps the
+    # flag honest rather than historical.
+    "AI_SKILL_LIBRARY/v4/tools/wave3_closure_gate.py",
 )
 
 

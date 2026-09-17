@@ -41,45 +41,49 @@ container's RAM is not operator hardware, not a GitHub limit, and not a property
 of any model. A model that does not fit here is `REMOTE_WORKER_REQUIRED` with
 the shortfall named — never "infeasible". Do not re-collapse these.
 
-## Wave 3 state at this handoff
+## Wave 3 — CLOSED
 
-| Candidate | State | Blocker |
+`WAVE3_OPERATIONAL_CLOSED = true`
+`WAVE3_ALL_EXACT_MODELS_AVAILABLE = false`
+
+**These are different facts and neither implies the other.** Wave 3 closed
+because every candidate reached a terminal state with an exact, evidenced
+blocker, no authorized zero-cost path was left unexplored, and the wave's
+capabilities are covered by measured models. It did **not** close by making
+every candidate available — three end with no executable exact path, and that
+is recorded rather than smoothed over.
+
+| Candidate | Terminal state | Exact model executable |
 |---|---|---|
-| Qwen/Qwen3-8B-GGUF | `AVAILABLE_LOCAL` | none; admitted and measured |
-| microsoft/Phi-4-mini-instruct | `ADMISSION_PENDING_WORKER_AVAILABLE` | artifact provenance; a worker meets its ~5000 MB |
-| deepseek-ai/DeepSeek-R1-Distill-Qwen-7B | `ADMISSION_PENDING_WORKER_AVAILABLE` | artifact provenance; a worker meets its ~9360 MB |
-| openai/gpt-oss-20b | `PROVIDER_PATH_PENDING_VERIFICATION` | **exact model** is on Workers AI as `@cf/openai/gpt-oss-20b`; blocked on token scope |
-| Qwen/Qwen3-Coder-30B-A3B-Instruct | `PROVIDER_PATH_PENDING_VERIFICATION` | **capability fallback only** — `@cf/qwen/qwen2.5-coder-32b-instruct`, not the same model |
-| google/gemma-3-4b-it | `HUMAN_LICENSE_GATE_REQUIRED` | a licence only the operator can accept; deferred to Wave 4 |
+| Qwen/Qwen3-8B-GGUF | `AVAILABLE_LOCAL` | yes |
+| openai/gpt-oss-20b | `AVAILABLE_SERVERLESS` | yes |
+| Qwen/Qwen3-Coder-30B-A3B-Instruct | `REMOTE_WORKER_REQUIRED` | **no** |
+| microsoft/Phi-4-mini-instruct | `QUARANTINED_PROVENANCE` | **no** |
+| deepseek-ai/DeepSeek-R1-Distill-Qwen-7B | `QUARANTINED_PROVENANCE` | **no** |
+| google/gemma-3-4b-it | `DEFERRED_TO_WAVE4` | **no** |
 
-Cloudflare's entire Qwen catalog is three models and Qwen3-Coder-30B-A3B is none
-of them. Do not record the qwen2.5-coder substitute as availability of the
-Qwen3-Coder candidate.
+**Why the three closed unavailable.**
 
-## Cloudflare Workers AI — VERIFIED_AVAILABLE
+*Qwen3-Coder-30B* needs ~37,200 MB, which no attached worker meets. Cloudflare's
+whole Qwen catalog is three models and this is none of them; the NVIDIA NIM free
+catalog holds 21 models and no Qwen; SambaNova's catalog is entirely priced. The
+remaining providers are non-autonomous or have no recorded catalog, so they are
+**UNVERIFIED and deliberately not called absent**. Cloudflare does serve
+`@cf/qwen/qwen2.5-coder-32b-instruct` — a **separate fact**, carried as
+`capability_fallback`, never as this model's state.
 
-Settled on 2026-09-17. Probe run 35254843871 with the operator's Workers-AI-scoped
-token: the token verifies (200), reads the Workers AI catalog on the configured
-account (200), and **all three recorded models returned HTTP 200 carrying a real
-completion**. `@cf/openai/gpt-oss-20b` — the exact model the Open Model Universe
-named — served a completion on the Workers Free plan.
+*Phi-4-mini and DeepSeek-R1-Distill-Qwen-7B* are quarantined on provenance. The
+final search read the artifacts' own GGUF metadata rather than their READMEs.
+Across five conversions, **not one names a base revision**. The unsloth Phi-4
+build comes closest — its GGUF carries `general.quantized_by: Unsloth` — and it
+still cannot say which commit of the base weights it converted. Capacity was
+never the blocker for either; a worker meets both comfortably.
 
-This is execution proof, which is the only thing that earns `VERIFIED_AVAILABLE`.
-No paid feature was enabled and no plan changed; Workers Free has no billing path.
+*Gemma-3-4B* is gated on a licence only the operator can accept.
 
-**The credential lives in GitHub Actions secrets, not in this container.** A
-request therefore reaches Workers AI by dispatching a job. That is a routing fact,
-not an absence of access, and the model records it as `credential_held_by_worker`
-rather than as a blocker — the probe proved the federation reaches the provider
-while this runtime held no token at all. If no worker held one, it would be a
-blocker again; `test_no_credential_anywhere_is_still_a_blocker` holds that line.
-
-**A defect this run exposed.** The probe's diagnosis checked account visibility
-before checking success, and listing accounts needs Account Settings Read — which
-a correctly minimal Workers-AI-only token does not carry. So a fully working token
-was reported as an account mismatch. The diagnosis now checks success first, and
-zero visible accounts is never on its own evidence of a mismatch. The model
-results were always right; only the narrative line was wrong.
+**None of these rules was relaxed to close the wave.** One was tightened mid-work:
+`provenance_complete` had been checking base model and converter only, omitting
+the base revision that pins *which* weights were converted.
 
 ## Evidence
 

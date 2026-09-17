@@ -1,0 +1,92 @@
+version: 1
+purpose: wave4_capability_requirements_declared_only
+status: PREPARED_NOT_STARTED
+generated_at: "2026-09-17"
+
+# Wave 4 is declared here as capability requirements and nothing else. No model
+# is named, discovered, staged, admitted or measured by this file. It exists so
+# that starting Wave 4 is a measurement exercise rather than an architecture
+# exercise, which is the property the Free Worker Mesh was built to have.
+
+architecture:
+  unchanged: true
+  # The same authorities, in the same order. Wave 4 adds no orchestration.
+  flow: >-
+    USER -> GITHUB_BRAIN_V4 -> task_router -> AI Legion -> Model Mesh
+    -> existing runtime scheduler -> Free Worker Mesh -> worker/provider
+    -> inference -> verifier -> evidence -> synthesis
+  forbidden_additions:
+    - another Brain
+    - another router
+    - another Model Mesh
+    - another model registry
+    - another scheduler
+    - another worker registry
+    - another admission authority
+    - another evidence authority
+  why_no_new_infrastructure_is_needed: >-
+    A capability is a string matched against a worker's measured capability tags.
+    Every tag below already exists in the mesh vocabulary, and
+    test_a_future_capability_needs_no_new_authority places a worker for vision,
+    ocr, audio_understanding and long_context today without a line of router,
+    scheduler or Brain changing. What Wave 4 needs is models measured for these
+    tags, not machinery to express them.
+
+capability_requirements:
+  - tag: vision
+    declared: true
+    measured_on_any_worker: false
+  - tag: image_understanding
+    declared: true
+    measured_on_any_worker: false
+  - tag: ocr
+    declared: true
+    measured_on_any_worker: false
+  - tag: document_understanding
+    declared: true
+    measured_on_any_worker: false
+  - tag: audio_understanding
+    declared: true
+    measured_on_any_worker: false
+  - tag: speech_to_text
+    declared: true
+    measured_on_any_worker: false
+  - tag: text_to_speech
+    declared: true
+    measured_on_any_worker: false
+  - tag: future_multimodal
+    declared: true
+    measured_on_any_worker: false
+
+rules_carried_forward:
+  declared_never_qualifies: >-
+    Every tag above is declared and none is measured. A declared capability
+    advertises; only a measured one makes a worker eligible. Nothing in this
+    file makes any worker eligible for anything.
+  provenance_unchanged: >-
+    A third-party conversion must name its base model, its base revision and the
+    converter that produced it. Wave 3 closed two candidates as
+    QUARANTINED_PROVENANCE under this rule. Wave 4 does not relax it.
+  exact_versus_capability_unchanged: >-
+    A provider serving a different model covers a capability under its own name
+    and is never recorded as the requested model being available.
+  execution_proof_unchanged: >-
+    A provider is VERIFIED_AVAILABLE only after a real request returns a real
+    completion on a zero-cost tier. Documentation is not execution proof.
+
+carried_in_from_wave3:
+  - candidate: google/gemma-3-4b-it
+    state: DEFERRED_TO_WAVE4
+    gate: HUMAN_LICENSE_GATE_REQUIRED
+    note: >-
+      Enters Wave 4 only through the same human licence gate. It was never
+      staged, downloaded or admitted during Wave 3, and nothing here changes
+      that. Only the operator may accept the publisher's terms.
+
+not_started:
+  models_named: 0
+  models_discovered: 0
+  models_staged: 0
+  models_admitted: 0
+  note: >-
+    Preparation only. Starting Wave 4 is a separate, explicit decision.

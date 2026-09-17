@@ -1,0 +1,51 @@
+{
+  "observed_at": "2026-09-17T18:15:48+00:00",
+  "gap_count": 0,
+  "resolved_count": 2,
+  "resolved": [
+    {
+      "subject": "microsoft/bitnet-b1.58-2B-4T-gguf",
+      "artifact_sha256": "4221b252fdd5fd25e15847adfeb5ee88886506ba50b8a34548374492884c2162",
+      "verdict": "INCOMPATIBLE_WITH_AVAILABLE_RUNTIMES",
+      "detail": "artifact intact, but llama_cpp_python 0.3.35 cannot load it: The artifact stores tensors under a type id this llama.cpp build maps to a removed quantization. BitNet's I2_S ternary format is served by the BitNet fork of llama.cpp, not by upstream llama-cpp-python.",
+      "evidence_ref": "CHECKPOINTS/evidence/RUNTIME_INCOMPATIBILITY_EVIDENCE.json",
+      "revisit_if": [
+        "a BitNet-capable backend (upstream I2_S support, or the microsoft/BitNet fork) is added to AI_SKILL_LIBRARY/v4/local_runtime/backends",
+        "the upstream publishes a re-quantized artifact under a different digest"
+      ],
+      "suppresses": [
+        "model_not_admitted",
+        "capability_unmeasured"
+      ],
+      "is_resolved_not_available": true
+    },
+    {
+      "subject": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
+      "artifact_sha256": "7e9516cc01a039bb3e2d41227cdf388849bc1c942c4624c84567b1684cd9c0fc",
+      "verdict": "INCOMPATIBLE_WITH_AVAILABLE_RUNTIMES",
+      "detail": "artifact intact, but llama_cpp_python 0.3.35 cannot load it: The architecture is mistral3 and the tokenizer stores ggml.scores under a gguf type this llama.cpp build rejects. The tensor data itself parsed: the loader read 53 f32, 156 q4_K and 27 q6_K tensors before refusing the vocabulary. This is a newer model format than the available build supports.",
+      "evidence_ref": "CHECKPOINTS/evidence/RUNTIME_INCOMPATIBILITY_EVIDENCE.json",
+      "revisit_if": [
+        "llama-cpp-python is upgraded to a build whose gguf vocabulary reader accepts the mistral3 tokenizer.ggml.scores type",
+        "the upstream publishes a re-converted artifact under a different digest"
+      ],
+      "suppresses": [
+        "model_not_admitted",
+        "capability_unmeasured"
+      ],
+      "is_resolved_not_available": true
+    }
+  ],
+  "by_kind": {},
+  "gaps": [],
+  "capabilities": {
+    "reads_evidence": true,
+    "writes_code": false,
+    "edits_registry": false,
+    "runs_models": false,
+    "starts_autodev_runs": false,
+    "approves_anything": false,
+    "ranks_by_importance": false
+  },
+  "note": "Proposals only. Ordering these is a judgement about what the system should do next, and that belongs to the Brain and the operator, not to the component that noticed."
+}

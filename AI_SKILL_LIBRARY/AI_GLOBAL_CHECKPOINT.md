@@ -234,3 +234,13 @@ Do not reconstruct current runtime state from old conversation memory when GitHu
 - Idle learning may create bounded low-risk background jobs but yields immediately to active user work and cannot execute live financial actions, access secrets outside scope, or widen permissions.
 - Trading specialists remain research/backtest/evidence workers only; real order execution is outside this release authority.
 - Brain 4.9 is not known-good until canonical CI, Worker checks, Wrangler dry-run, exact-SHA deployment, `/brain/health`, `/brain/mesh/health`, route/planner smoke and post-deploy verification all pass.
+
+## Wave 3 operational closure + Free Worker Mesh (2026-09-17)
+
+- `WAVE3_OPERATIONAL_CLOSED = true` and `WAVE3_ALL_EXACT_MODELS_AVAILABLE = false` are **separate facts recorded separately**. Wave 3 closed on terminal states with exact, evidenced blockers; it did not close by making every candidate available. Three candidates end with no executable exact path. Do not read either flag as the other.
+- Terminal states: Qwen3-8B `AVAILABLE_LOCAL`; gpt-oss-20b `AVAILABLE_SERVERLESS` (exact model, real inference proven on Cloudflare Workers AI free tier); Qwen3-Coder-30B-A3B `REMOTE_WORKER_REQUIRED`; Phi-4-mini and DeepSeek-R1-Distill-Qwen-7B `QUARANTINED_PROVENANCE`; gemma-3-4b-it `DEFERRED_TO_WAVE4` behind its human licence gate.
+- **Free Worker Mesh** (`AI_SKILL_LIBRARY/v4/local_runtime/free_worker_mesh.py`, spec `FREE_WORKER_MESH.md`) is execution capacity only and holds none of the six authorities. Worker, provider and mesh authority flags are class attributes fixed at False; passing one is a `TypeError`.
+- Three rules that must not be relaxed by a later wave: a capability qualifies a worker only when **measured**, never when merely declared; a provider serving a **different** model covers a capability under its own name and is never the requested model's availability; a provider is `VERIFIED_AVAILABLE` only after a real completion on a zero-cost tier, because documentation is not execution proof.
+- Third-party GGUF conversions must name base model, **base revision** and converter tool. Provenance is read from the artifact's own GGUF metadata first, the model card second, README prose last, and the source of each field is recorded.
+- Resource measurements are scoped to the machine they were taken on. This container's RAM is not operator hardware, not a GitHub limit and not a property of any model.
+- Wave 4 is **prepared, not started**: `wave4_capability_requirements.yaml` declares capability tags only — zero models named, discovered, staged or admitted — and adds no orchestration authority.

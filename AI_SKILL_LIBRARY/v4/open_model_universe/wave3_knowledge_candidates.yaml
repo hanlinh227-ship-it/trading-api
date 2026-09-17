@@ -58,7 +58,12 @@ candidates:
   - synthesis_generalist
   local_artifact_strategy: prefer_official_GGUF_Q4_K_M_if_exact_digest_and_revision_are_verified
   runtime_hint: official model page documents llama.cpp use
-  state: DISCOVERY_CANDIDATE
+  state: AVAILABLE_LOCAL
+  wave3_terminal: true
+  terminal_finding: >-
+    Author-published GGUF, admitted, measured and resident. Runs on the
+    local worker at a measured 8655 MB peak. No provenance question arises:
+    the publisher of the weights published the artifact.
   requires_before_staging:
   - resolve immutable revision
   - resolve exact selected GGUF filename
@@ -84,7 +89,24 @@ candidates:
   architecture_observed: qwen3_moe
   max_position_embeddings_observed: 262144
   local_artifact_strategy: discover_verified_local_quantization_only_if_hardware_feasible_and_provenance_is_clear
-  state: DISCOVERY_CANDIDATE_RESOURCE_HEAVY
+  state: REMOTE_WORKER_REQUIRED
+  wave3_terminal: true
+  terminal_finding: >-
+    EXACT MODEL: not executable on any verified zero-cost path. Needs ~37200 MB,
+    which no attached worker meets. Cloudflare's entire Qwen catalog is three
+    models - qwen2.5-coder-32b-instruct, qwen3-30b-a3b-fp8, qwen3-embedding-0.6b -
+    and this is none of them. The NVIDIA NIM free catalog capture holds 21 models
+    and no Qwen at all. SambaNova's catalog is entirely priced. Remaining providers
+    are either non-autonomous (cohere, cerebras, huggingface, opencode_zen) or
+    have no recorded catalog, so they are UNVERIFIED and deliberately not called
+    absent. The state is about the machines and paths currently verified, never
+    about the model.
+  capability_fallback: >-
+    SEPARATE FACT, never a substitute for the line above: Cloudflare serves
+    @cf/qwen/qwen2.5-coder-32b-instruct at zero cost, free tier proven by real
+    completion. It covers the coding capability under its own name. It is a
+    different generation and a dense 32B rather than a 30B MoE. No measurement
+    taken on it may be recorded against Qwen3-Coder-30B-A3B-Instruct.
   requires_before_staging:
   - prove local hardware feasibility
   - identify a trusted immutable local artifact or official supported local format
@@ -110,7 +132,15 @@ candidates:
   - verifier_checker
   - synthesis_generalist
   local_artifact_strategy: discover_existing_supported_local_backend_or_verified_quantized_artifact
-  state: DISCOVERY_CANDIDATE_RESOURCE_HEAVY
+  state: AVAILABLE_SERVERLESS
+  wave3_terminal: true
+  terminal_finding: >-
+    The exact model runs at zero cost on Cloudflare Workers AI as
+    @cf/openai/gpt-oss-20b, proven by a real completion on the Workers Free
+    plan (probe run 35254843871). Its 25600 MB local requirement never bound
+    there because the provider holds the weights. A second exact zero-cost
+    path is recorded but unproven: openai/gpt-oss-20b appears in the NVIDIA
+    NIM free catalog capture. Cloudflare is the proven one.
   requires_before_staging:
   - prove runtime/backend compatibility using existing adapters
   - prove hardware feasibility
@@ -136,8 +166,24 @@ candidates:
   - fast_low_resource_worker
   - multilingual
   local_artifact_strategy: discover_verified_local_quantization_or_existing_supported_backend
-  state: ARTIFACT_PROVENANCE_INCOMPLETE
-  provenance_finding: >-
+  state: QUARANTINED_PROVENANCE
+  wave3_terminal: true
+  terminal_finding: >-
+    Final provenance search read the artifacts' own GGUF metadata, which is
+    where a converter records what it built from - stronger evidence than any
+    README claim. Microsoft publishes no GGUF. Two conversions exist and neither
+    is complete: unsloth records its converter in GGUF metadata
+    (general.quantized_by: Unsloth) but no base revision; lmstudio-community
+    records neither converter nor base revision. Both name the base model only
+    via a hub tag. Without the base revision nothing pins WHICH weights were
+    converted, so the artifact is quarantined rather than admitted. Capacity was
+    never the blocker: a worker meets its ~5000 MB comfortably.
+  clears_when: >-
+    Microsoft publishes a GGUF, or a converter records general.base_model.0.version
+    alongside its quantized_by. Nothing here may be relaxed to admit it.
+  superseded_interim_finding: >-
+    Replaced by terminal_finding above, which reads the artifact metadata
+    rather than the README.
     Discovery run 2026-09-17T17:49:36Z. The author publishes no GGUF, and every
     community conversion found names a base model but neither a base revision nor
     the converter that produced it, so provenance_complete is not satisfied for any
@@ -170,8 +216,25 @@ candidates:
   - deep_reasoning
   - verifier_checker
   local_artifact_strategy: discover_verified_GGUF_or_existing_supported_backend_with_conversion_provenance
-  state: ARTIFACT_PROVENANCE_INCOMPLETE
-  provenance_finding: >-
+  state: QUARANTINED_PROVENANCE
+  wave3_terminal: true
+  terminal_finding: >-
+    Same search, same rule, worse result. DeepSeek publishes no GGUF, and all
+    three conversions - bartowski, unsloth, lmstudio-community - record neither
+    a converter tool nor a base revision in their GGUF metadata; each names the
+    base model only through a hub tag. Quarantined rather than admitted. A
+    worker meets its ~9360 MB, so capacity was never the blocker.
+  capability_note: >-
+    The reasoning capability is separately covered: Cloudflare serves
+    @cf/deepseek-ai/deepseek-r1-distill-qwen-32b at zero cost, free tier proven.
+    That is the 32B distill, a different model from this 7B candidate, and is
+    recorded as a capability fallback only.
+  clears_when: >-
+    DeepSeek publishes a GGUF, or a converter records both base revision and
+    converter tool. Nothing here may be relaxed to admit it.
+  superseded_interim_finding: >-
+    Replaced by terminal_finding above, which reads the artifact metadata
+    rather than the README.
     Discovery run 2026-09-17T17:49:36Z. The author publishes no GGUF, and every
     community conversion found names a base model but neither a base revision nor
     the converter that produced it, so provenance_complete is not satisfied for any
@@ -203,7 +266,14 @@ candidates:
   - multilingual
   - multimodal_future_candidate
   local_artifact_strategy: knowledge_only_until_human_license_acceptance_and_existing_runtime_support_are_both_available
-  state: HUMAN_LICENSE_GATE_REQUIRED
+  state: DEFERRED_TO_WAVE4
+  wave3_terminal: true
+  human_license_gate_required: true
+  terminal_finding: >-
+    Deferred to Wave 4 and gated on a licence only the operator can accept.
+    Never staged, downloaded or admitted during Wave 3. Capacity is irrelevant:
+    a worker meets its ~5200 MB. It may enter Wave 4 only through this same
+    human licence gate.
   auto_acquire: false
   auto_stage: false
   blocking_reason: Hugging Face access requires reviewing and accepting Google's Gemma usage license

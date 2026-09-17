@@ -226,23 +226,24 @@ def build(root: Path) -> dict[str, Any]:
         # The manifest keys this as `state`; `status` is read too so a rename
         # upstream degrades into the licence gate holding rather than silently
         # lapsing into a capacity answer.
+        fallback = None
         status = str(candidate.get("state") or candidate.get("status") or "")
-        if status == "ARTIFACT_PROVENANCE_INCOMPLETE":
+        if status in ("QUARANTINED_PROVENANCE", "ARTIFACT_PROVENANCE_INCOMPLETE"):
             # A worker meets its memory requirement, so reporting capacity here
             # would say the remaining work is a machine. It is not: every
             # artifact on offer fails the provenance rule, and that is refused
             # rather than waived.
-            state = "ARTIFACT_PROVENANCE_INCOMPLETE"
+            state = status
             note = ("a worker meets this candidate's memory requirement, so capacity is "
                     "not the blocker. No artifact exists whose conversion names both its "
                     "base revision and the tool that produced it, and a build that cannot "
                     "say what it was made from is refused whoever published it.")
-        elif status == "HUMAN_LICENSE_GATE_REQUIRED":
+        elif status in ("DEFERRED_TO_WAVE4", "HUMAN_LICENSE_GATE_REQUIRED"):
             # Capacity is not this candidate's blocker and reporting one would
             # imply the remaining work is technical. It is not: a person has to
             # accept the publisher's terms, and nothing here may do that for
             # them.
-            state = "HUMAN_LICENSE_GATE_REQUIRED"
+            state = status
             note = ("a worker's capacity is irrelevant here. The blocker is a licence "
                     "only the operator can accept; this candidate is deferred and is "
                     "not staged, downloaded or admitted.")
@@ -259,11 +260,25 @@ def build(root: Path) -> dict[str, Any]:
             note = (f"{provider_id} serves this exact model as {offering.provider_model_id} "
                     f"on a zero-cost path, so the {ram_mb} MB requirement does not bind")
         elif hosted.capability:
+            # Two facts, and collapsing them is the error this whole file guards
+            # against. The EXACT model still runs nowhere, so that is its state.
+            # A provider covering the capability with a different model is
+            # carried alongside, never as the state, because a reader scanning
+            # states would otherwise come away believing this model is served.
             provider_id, offering = hosted.capability[0]
-            state = "PROVIDER_CAPABILITY_FALLBACK"
-            note = (f"this model still runs nowhere. {provider_id} serves "
-                    f"{offering.provider_model_id}, which covers the capability under its "
-                    f"own name and must not be measured as this one")
+            state = "REMOTE_WORKER_REQUIRED"
+            fallback = {
+                "provider_id": provider_id,
+                "executed_model": offering.provider_model_id,
+                "is_the_requested_model": False,
+                "substitution_reason": offering.substitution_reason,
+                "note": ("covers the capability under its own name; no measurement "
+                         "taken on it may be recorded against " + upstream),
+            }
+            note = (f"the exact model runs nowhere: needs {ram_mb} MB RAM and no attached "
+                    f"worker or verified zero-cost provider serves it. Separately, "
+                    f"{provider_id} serves {offering.provider_model_id}, which is a "
+                    f"different model covering the capability - see capability_fallback")
         elif hosted.pending:
             # A provider does serve it; what is missing is proof that its free
             # tier will. That is one probe, not a machine, and saying "needs a
@@ -283,6 +298,7 @@ def build(root: Path) -> dict[str, Any]:
                     f"and the paths currently recorded, not about the model.")
         unadmitted.append({
             "candidate_id": candidate.get("id"),
+            "capability_fallback": fallback,
             "upstream": upstream,
             "placement_state": state,
             "worker_class_required": req.get("worker_class_min"),
