@@ -231,12 +231,29 @@ def gate(root: Path) -> dict[str, Any]:
         or isinstance(m.get("operator_risk_acceptance"), dict)
         for m in admitted
     )
+    # A passing scan beside a *live* acceptance is a row asserting that no scan
+    # ran and that one did. A *superseded* acceptance is not that: it records a
+    # decision taken before the scan existed, which the repository owner asked
+    # to keep as history rather than delete. So the contradiction being checked
+    # is two live claims, and a preserved one must say what replaced it.
+    def _live_acceptance(model: dict) -> bool:
+        acceptance = model.get("operator_risk_acceptance")
+        if not isinstance(acceptance, dict):
+            return False
+        return not str(acceptance.get("superseded_by") or "").strip()
+
     never_both = all(
         not (
             (m.get("admission_evidence") or {}).get("malware_scan_status") == "pass"
-            and isinstance(m.get("operator_risk_acceptance"), dict)
+            and _live_acceptance(m)
         )
         for m in models
+    )
+    supersession_named = all(
+        str((m.get("artifact_identity") or {}).get("sha256") or "")
+        in str((m.get("operator_risk_acceptance") or {}).get("superseded_by") or "")
+        for m in models
+        if isinstance(m.get("operator_risk_acceptance"), dict) and not _live_acceptance(m)
     )
     scan_bound = all(
         str((m.get("malware_scan_reference") or {}).get("artifact_sha256") or "")
@@ -245,11 +262,12 @@ def gate(root: Path) -> dict[str, Any]:
     )
     checks.append(_check(
         "model_admission",
-        "every mesh-eligible model holds a scan or an acceptance, never both, bound to its own bytes",
+        "every mesh-eligible model holds a scan or a live acceptance, never both, bound to its own bytes",
         ("the registry could not be read", bool(models)),
         ("no model is mesh-eligible", bool(admitted)),
         ("a mesh-eligible model has neither a scan nor an acceptance", scanned_or_accepted),
-        ("a row records both a passing scan and an acceptance saying none ran", never_both),
+        ("a row records a passing scan beside a live acceptance saying none ran", never_both),
+        ("a superseded acceptance does not name the evidence that replaced it", supersession_named),
         ("a scan reference names bytes other than the row's own", scan_bound),
     ))
 

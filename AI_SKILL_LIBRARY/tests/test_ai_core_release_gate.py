@@ -78,6 +78,16 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "FAIL")
         self.assertIn(check_name, result["failed_checks"])
 
+    def _assert_passes(self, check_name: str, edit) -> None:
+        """The other half: an edit the gate must NOT refuse.
+
+        A gate tested only with breakages drifts toward refusing everything,
+        which is as useless as one that passes everything and much harder to
+        notice.
+        """
+        result = self._gate_after(edit)
+        self.assertNotIn(check_name, result["failed_checks"])
+
     def test_a_missing_evidence_file_is_not_a_pass(self):
         """Absent evidence blocks exactly like failed evidence."""
         self._assert_fails(
@@ -163,7 +173,7 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
                               lambda d: d.__setitem__("gap_count", 1)),
         )
 
-    def test_a_row_holding_both_a_scan_and_an_acceptance_is_refused(self):
+    def test_a_row_holding_a_scan_and_a_live_acceptance_is_refused(self):
         def damage(tmp):
             path = tmp / REGISTRY
             registry = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -175,6 +185,53 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
                 "covers": ["malware_scan_status"],
                 "scope": "single_artifact",
                 "is_a_scan_result": False,
+            }
+            path.write_text(yaml.safe_dump(registry), encoding="utf-8")
+
+        self._assert_fails("model_admission", damage)
+
+    def test_a_superseded_acceptance_beside_a_scan_is_accepted(self):
+        """The record the owner asked to keep must not fail the release gate.
+
+        The contradiction is two live claims. An acceptance marked superseded
+        by the scan that closed its gap is history, and the gate passes it -
+        otherwise preserving it and releasing would be mutually exclusive.
+        """
+        def keep(tmp):
+            path = tmp / REGISTRY
+            registry = yaml.safe_load(path.read_text(encoding="utf-8"))
+            row = registry["models"][0]
+            digest = row["artifact_identity"]["sha256"]
+            row["admission_evidence"]["malware_scan_status"] = "pass"
+            row["operator_risk_acceptance"] = {
+                "accepted_by": "operator",
+                "artifact_sha256": digest,
+                "covers": ["malware_scan_status"],
+                "scope": "single_artifact",
+                "is_a_scan_result": False,
+                "superseded_by": f"malware_scan_reference against artifact_sha256 {digest}",
+                "superseded_at": "2026-09-17T11:19:31Z",
+            }
+            path.write_text(yaml.safe_dump(registry), encoding="utf-8")
+
+        self._assert_passes("model_admission", keep)
+
+    def test_a_supersession_naming_other_evidence_is_refused(self):
+        """A supersession that names nothing checkable is a deletion with
+        extra steps."""
+        def damage(tmp):
+            path = tmp / REGISTRY
+            registry = yaml.safe_load(path.read_text(encoding="utf-8"))
+            row = registry["models"][0]
+            row["admission_evidence"]["malware_scan_status"] = "pass"
+            row["operator_risk_acceptance"] = {
+                "accepted_by": "operator",
+                "artifact_sha256": row["artifact_identity"]["sha256"],
+                "covers": ["malware_scan_status"],
+                "scope": "single_artifact",
+                "is_a_scan_result": False,
+                "superseded_by": "a scan of some other artifact entirely",
+                "superseded_at": "2026-09-17T11:19:31Z",
             }
             path.write_text(yaml.safe_dump(registry), encoding="utf-8")
 
