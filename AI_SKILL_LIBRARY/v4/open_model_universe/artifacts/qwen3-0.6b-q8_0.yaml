@@ -1,0 +1,65 @@
+version: 1
+artifact_id: qwen/qwen3-0.6b-q8_0-gguf@1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
+model_id: qwen/qwen3-0.6b-q8_0-gguf
+family: qwen3
+variant: 0.6b-instruct-q8_0-gguf
+base_model: Qwen/Qwen3-0.6B
+lineage_id: qwen3-0.6b-posttrain
+parent_model: Qwen/Qwen3-0.6B
+base_lineage: Qwen/Qwen3-0.6B-Base
+
+artifact:
+  immutable_revision: 1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
+  filename: Qwen3-0.6B-Q8_0.gguf
+  sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+  size_bytes: 639446688
+  format: GGUF
+  quantization: Q8_0
+  download_url: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
+
+license:
+  name: Apache-2.0
+  class: permissive
+  verified: true
+  url: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/LICENSE
+
+runtime_projection:
+  runtime_support:
+    - llama_cpp
+    - ollama
+    - vllm
+  context_window: 32768
+  hardware_profile:
+    minimum_ram_gb: null
+    recommended_ram_gb: null
+    minimum_vram_gb: null
+    recommended_vram_gb: null
+    cpu_viable: true
+    apple_silicon_viable: unknown
+  privacy: local_offline_private
+  zero_cost: true
+  offline_eligible: true
+  admission_status: APPROVED_FOR_ISOLATED_ACQUISITION_ONLY
+
+safe_admission:
+  safe_format_verified: true
+  pickle_safe: true
+  trust_remote_code_required: false
+  custom_code_required: false
+  provenance_verified: true
+  license_verified: true
+  quarantine_status: FIRST_LOAD_QUARANTINE_REQUIRED
+  isolated_first_load_required: true
+  egress_required: false
+  acquisition_egress_required: true
+  activation_blockers:
+    - runtime_backend_version_unverified
+    - empirical_hardware_envelope_unverified
+    - first_real_generation_not_yet_observed
+
+source_evidence:
+  official_model_repo: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
+  immutable_artifact_commit: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/commit/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
+  immutable_artifact_page: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
+  parent_model: https://huggingface.co/Qwen/Qwen3-0.6B
+  base_model: https://huggingface.co/Qwen/Qwen3-0.6B-Base
