@@ -117,35 +117,47 @@ jobs:
 
           repo = os.environ["HF_REPO"]
           filename = os.environ["FILENAME"]
-          expected = os.environ["EXPECTED_SHA"]
+          expected = os.environ["EXPECTED_SHA"].lower()
 
           def get(url):
-              with urllib.request.urlopen(url, timeout=60) as r:
+              req = urllib.request.Request(url, headers={"User-Agent": "staged-model-republish"})
+              with urllib.request.urlopen(req, timeout=60) as r:
                   return json.load(r)
 
-          revision, status = "", "unresolved"
+          revision, status, observed = "", "unresolved", ""
           try:
-              # files_metadata gives each sibling's LFS OID, which for these
-              # repos is the file's SHA-256. Matching it proves this commit
-              # really serves the bytes we staged, rather than assuming it.
-              info = get(f"https://huggingface.co/api/models/{repo}?files_metadata=true")
-              commit = str(info.get("sha") or "")
-              for sib in info.get("siblings") or []:
-                  if sib.get("rfilename") != filename:
+              # The commit currently at the head of the branch the staging run
+              # used. `?files_metadata=true` on the model endpoint does not
+              # reliably carry LFS OIDs, which is why the first attempt came
+              # back unresolved for all three models; the tree endpoint does.
+              head = get(f"https://huggingface.co/api/models/{repo}/revision/main")
+              commit = str(head.get("sha") or "")
+              tree = get(f"https://huggingface.co/api/models/{repo}/tree/main?recursive=true")
+              for entry in tree if isinstance(tree, list) else []:
+                  if entry.get("path") != filename:
                       continue
-                  oid = ((sib.get("lfs") or {}).get("oid") or "").lower()
-                  if oid == expected and commit:
-                      revision, status = commit, "verified_by_lfs_oid"
-                  elif oid:
-                      status = "digest_differs_from_current_head"
+                  # For LFS-stored files the OID *is* the SHA-256, so matching
+                  # it proves this commit serves the exact bytes we staged
+                  # rather than assuming the ref has not moved.
+                  observed = str((entry.get("lfs") or {}).get("oid") or "").lower()
                   break
+              if not observed:
+                  status = "file_not_listed_or_not_lfs"
+              elif not commit:
+                  status = "head_commit_unavailable"
+              elif observed == expected:
+                  revision, status = commit, "verified_by_lfs_oid"
               else:
-                  status = "file_not_listed_in_repo"
+                  # The mutable ref moved after staging. The bytes are still
+                  # digest-pinned, but no revision here can be shown to contain
+                  # them, so none is recorded.
+                  status = "digest_differs_from_current_head"
           except Exception as exc:
-              status = f"lookup_failed: {type(exc).__name__}"
+              status = f"lookup_failed:{type(exc).__name__}"
 
           print(f"revision={revision}")
           print(f"status={status}")
+          print(f"observed_head_oid={observed}")
           PY
           echo "resolved: $(grep '^revision=' "$GITHUB_OUTPUT" | tail -1)"
 
@@ -184,5 +196,20 @@ jobs:
           else
             gh release create "$TAG" --title "Staged model: ${FILENAME}" --notes "$NOTES" --prerelease
           fi
-          gh release upload "$TAG" "$FILE" --clobber
+          # Release assets are capped at 2 GiB. A model over that is split into
+          # parts here and reassembled by the runtime, which then verifies the
+          # SHA-256 of the whole reassembled file - so splitting changes the
+          # transport and not the verification. Parts are never verified
+          # individually in place of the whole.
+          LIMIT=2147483648
+          if [ "$SIZE" -le "$LIMIT" ]; then
+            gh release upload "$TAG" "$FILE" --clobber
+          else
+            echo "size ${SIZE} exceeds the 2GiB asset limit - splitting"
+            SPLIT_DIR=$(mktemp -d)
+            split -b 1900000000 -d -a 2 "$FILE" "${SPLIT_DIR}/${FILENAME}.part"
+            ( cd "$SPLIT_DIR" && sha256sum ${FILENAME}.part* > "${FILENAME}.parts.sha256" )
+            ls -l "$SPLIT_DIR"
+            gh release upload "$TAG" "$SPLIT_DIR"/* --clobber
+          fi
           gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size)"'
