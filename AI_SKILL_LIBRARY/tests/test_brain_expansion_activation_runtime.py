@@ -49,9 +49,30 @@ class ProbeRegistry(unittest.TestCase):
                     self.assertTrue(callable(probes[condition]))
 
     def test_dependency_probe_reflects_real_import_state(self):
+        """The probe must agree with the interpreter, in either direction.
+
+        Asserting that a particular optional package *is* installed would make
+        this a test of the image rather than of the probe: the validator CI
+        deliberately does not install the extras, so the adapters are absent
+        there and present in an activation run. Compare against ground truth
+        instead, so the test holds in both.
+        """
         rt = runtime()
-        self.assertTrue(rt.dependency_available("baml"))  # installed in this environment
+        for adapter_id, module in rt.ADAPTER_MODULES.items():
+            with self.subTest(adapter=adapter_id):
+                expected = importlib.util.find_spec(module) is not None
+                self.assertIs(rt.dependency_available(adapter_id), expected)
         self.assertFalse(rt.dependency_available("definitely_not_a_real_adapter"))
+
+    def test_dependency_probe_is_false_for_an_unmapped_or_missing_module(self):
+        rt = runtime()
+        original = rt.ADAPTER_MODULES.get("baml")
+        rt.ADAPTER_MODULES["baml"] = "a_module_that_is_not_installed_anywhere"
+        try:
+            self.assertFalse(rt.dependency_available("baml"))
+        finally:
+            if original is not None:
+                rt.ADAPTER_MODULES["baml"] = original
 
     def test_credential_probe_reports_names_never_values(self):
         rt = runtime()
