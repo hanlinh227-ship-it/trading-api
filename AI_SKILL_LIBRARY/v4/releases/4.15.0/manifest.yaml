@@ -179,7 +179,7 @@ files:
   sha256: d7b065cccd774b47ca780677e1c2063f6dcda0a82a4a8dc7da8747bc20d558b0
   role: universal_fabric
 - path: AI_SKILL_LIBRARY/v4/adapters/registry.yaml
-  sha256: 975726409095f0b783e9428544dcb000f7c29de3b957d9210a35c8dfb2c2b3d9
+  sha256: 3a7426d7a9d81a242f67a5324238da496188ad3f23b7f6484ca69c8404841445
   role: universal_adapter_registry
 compatibility:
   min_architecture: 4.0.0

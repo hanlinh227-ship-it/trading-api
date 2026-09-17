@@ -29,6 +29,9 @@ export function requiredScopeForPath(pathname,method='GET'){
   if(pathname==='/brain/memory/candidates'&&methodUpper==='POST')return 'brain.submit_candidate_memory';
   if(pathname==='/brain/memory/review'&&methodUpper==='POST')return 'brain.review_candidate_memory';
   if(pathname==='/brain/context/query'&&methodUpper==='POST')return 'brain.read_context';
+  if(pathname==='/brain/bootstrap'&&methodUpper==='GET')return 'brain.bootstrap';
+  if(pathname==='/brain/project/state'&&methodUpper==='GET')return 'brain.read_project_state';
+  if(pathname==='/brain/project/state'&&methodUpper==='PUT')return 'brain.write_project_state';
   return null;
 }
 

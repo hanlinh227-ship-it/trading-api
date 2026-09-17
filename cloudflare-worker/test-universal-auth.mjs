@@ -32,12 +32,25 @@ out=await authenticateAdapter(req('gemini','gemini-token'),env,'brain.route');
 assert.equal(out.ok,true);
 assert.equal(out.principal.clientId,'gemini');
 
+const userTokens={chatgpt:'chatgpt-token',claude:'claude-token',gemini:'gemini-token'};
+for(const [id,token] of Object.entries(userTokens)){
+  for(const scope of ['brain.bootstrap','brain.read_project_state','brain.write_project_state']){
+    out=await authenticateAdapter(req(id,token,'/brain/bootstrap','GET'),env,scope);
+    assert.equal(out.ok,true,`${id} must receive ${scope}`);
+    assert.ok(out.principal.scopes.includes(scope));
+  }
+}
+
 out=await authenticateAdapter(req('evergreen','evergreen-token','/brain/memory/review'),env,'brain.review_candidate_memory');
 assert.equal(out.ok,true);
 assert.equal(out.principal.principalType,'internal');
 assert.equal(out.principal.scopes.includes('brain.route'),false);
 
 out=await authenticateAdapter(req('evergreen','evergreen-token'),env,'brain.route');
+assert.equal(out.ok,false);
+assert.equal(out.status,403);
+
+out=await authenticateAdapter(req('evergreen','evergreen-token','/brain/bootstrap','GET'),env,'brain.bootstrap');
 assert.equal(out.ok,false);
 assert.equal(out.status,403);
 
@@ -65,6 +78,10 @@ assert.equal(requiredScopeForPath('/brain/universal/health','GET'),'brain.read_r
 assert.equal(requiredScopeForPath('/brain/memory/candidates','POST'),'brain.submit_candidate_memory');
 assert.equal(requiredScopeForPath('/brain/memory/review','POST'),'brain.review_candidate_memory');
 assert.equal(requiredScopeForPath('/brain/context/query','POST'),'brain.read_context');
+assert.equal(requiredScopeForPath('/brain/bootstrap','GET'),'brain.bootstrap');
+assert.equal(requiredScopeForPath('/brain/project/state','GET'),'brain.read_project_state');
+assert.equal(requiredScopeForPath('/brain/project/state','PUT'),'brain.write_project_state');
+assert.equal(requiredScopeForPath('/brain/project/state','POST'),null);
 assert.equal(requiredScopeForPath('/brain/unknown','GET'),null);
 
 console.log('UNIVERSAL_AUTH_TESTS=PASS');
