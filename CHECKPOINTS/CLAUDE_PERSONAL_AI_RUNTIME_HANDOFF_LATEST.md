@@ -1,7 +1,6 @@
 # Claude Personal AI Runtime — Handoff
 
-**Role:** Claude Code — PRIMARY IMPLEMENTATION WORKER (single Web Commander coordination)
-**Project:** Open Model Universe / Personal AI Federation
+**Role:** Claude Code — PRIMARY IMPLEMENTATION WORKER
 **Updated:** 2026-09-17
 
 ---
@@ -10,273 +9,129 @@
 
 | Field | Value |
 |---|---|
-| Repository | `hanlinh227-ship-it/trading-api` |
-| Branch | `claude/magical-euler-uu98r8` |
-| HEAD SHA | `51d2afcb2a3b8dc0da7a13a2ae2add4a7930ee73` |
-| Base main SHA | `bc83f70f16de40be833f83702538479ede8157b1` |
-| behind_by | **0** |
-| ahead_by | 9 |
-| PR | [#428](https://github.com/hanlinh227-ship-it/trading-api/pull/428) — open, mergeable, not for automatic merge |
-| Rollback point | `063c6217d00800a497ffd6b2e118d2cf5f72e5e8` |
-
-Main moved twice during this session (`c5ad9112` → `2e3a8f6e` → `063c6217`).
-The coordinator's quoted `8acafcf2` was already stale on arrival; the branch is
-reconciled against the newest `origin/main` above, not that SHA. Integration was
-by **merge**, not rebase: the branch is published and PR #428 references it, so
-rewriting its history would invalidate every existing checkout and review anchor.
-
----
-
-## Verified state
-
-| Check | Result |
-|---|---|
-| HEAD | `6fd06cfb5dc0b724bdcd7d9b245e3f417e350dd7` |
-| origin/main | `6341fd682588d22640d5642e1e7174cd47785e20` |
-| behind_by / ahead_by | **0** / 19 |
-| `ci_validate.py` at exact head | **CI_VALIDATE=PASS failures=0** |
-| Brain suite | 1094 passed, 4 skipped |
+| origin/main | `94f302eaabfc7b365e2986c701d9549a2be5566e` (PR #428 merged) |
+| Branch | `claude/magical-euler-uu98r8`, restarted from main after the merge |
+| HEAD | `435ac4fb13677f5ea7547329e4981c42d5b01819` |
+| behind_by / ahead_by | **0** / 1 |
+| CI at exact head | **CI_VALIDATE=PASS failures=0** |
+| Brain suite | 1154 passed, 4 skipped |
 | Repo suite | 46 passed |
-| Lane suite | 454 passed, 1 skipped (real-generation hook) |
 | Secret scan | 0 findings |
-| `huggingface.co:443` / `cdn-lfs.huggingface.co:443` | **403 CONNECT — denied** |
-| Canonical registry row | `Qwen/Qwen3-0.6B-GGUF` — **QUARANTINED** |
-| Staged GGUF on host | none |
 
 ---
 
-## Blocker status
+## B1 REAL_LOCAL_RUNTIME — BLOCKED, path fully operational
 
-| ID | Status | Evidence |
-|---|---|---|
-| **B6 RUNTIME_MAIN_RECONCILIATION** | **CLOSED** | behind_by=0; `artifact_identity` lossless; policy-driven gates; 39 seam tests |
-| **B5 SAFE_MODEL_ADMISSION** | **CLOSED (runtime side)** | policy consumed, never manufactured; `assert_not_relaxed` blocks self-weakening |
-| B1 REAL_LOCAL_RUNTIME | **BLOCKED** | llama.cpp real and ready; no artifact obtainable |
-| B2 / B3 / B4 / Wave 0 / baseline | BLOCKED behind B1 | require real weights |
+Everything downstream of the artifact is built, tested and exercised. B1 is
+blocked on one external fact and nothing else.
 
-### B6 — what closed it
+### Canonical state, read from main
 
-* `artifact_identity` read losslessly: model_id, family, variant,
-  immutable_revision, sha256, size_bytes, format, quantization all survive
-  registry → ArtifactIdentity → ModelProfile → AcquisitionRequest.
-* Revision stated in several places; disagreement is a corrupt row, not a
-  preference to resolve.
-* `admission_policy.yaml` drives governance state, evidence and identity
-  completeness — no hardcoded list. The file requires `AVAILABLE` and blocks
-  `APPROVED`, and the runtime follows the file.
-* `local_candidate_pending_security_admission` handled explicitly as a
-  fail-closed pending state, distinct from an unrecognised class.
-* Governance and residency remain separate vocabularies; `QUARANTINED` yields
-  no candidate and no residency.
-
-Two deliberate tightenings, both policy-driven: a row missing sha256 or
-size_bytes is not a candidate at all (previously RESTRICTED-but-placeable), and
-a legacy flat row reads losslessly for identity while being refused for
-candidacy.
-
-### B5 — runtime side
-
-Format allowlist with declaration/extension cross-check, pickle refusal,
-`trust_remote_code` denied unless policy-granted as an input, first-load sandbox
-and egress denial, quarantine on contradiction. `assert_not_relaxed()` re-reads
-the canonical policy and refuses any in-memory policy weaker than it, so a
-future edit cannot soften the gate to make a stubborn model pass.
-
-### Added beyond the blockers
-
-* **`scanner.py`** — bounded, non-executing GGUF structural scan. Deliberately
-  does *not* set `malware_scan_status`; it reports
-  `satisfies_malware_scan_status: false` so a structural PASS cannot be read as
-  a malware clearance. Verified against a real GGUF on this host.
-* **`selfdev.py`** — controlled self-development state machine. Protected
-  branches refused, unrun gates block like failed ones, failed gates terminal,
-  no `MERGED` state, and the automation cannot approve itself.
-
----
-
-## The one blocker
-
-
-This is environmental, not a code gap. Measured, not inferred:
-
-```
-huggingface.co:443      CONNECT -> 403  (agent proxy: "policy denial")
-cdn-lfs.huggingface.co  unreachable
-hf-mirror.com           unreachable
-modelscope.cn           unreachable
-github.com release assets -> 403
-raw.githubusercontent.com -> 200  (works, but hosts no complete GGUF)
-pypi.org / files.pythonhosted.org -> 200 (allow-listed)
-```
-
-The proxy's own status endpoint reports the denial explicitly:
-`{"kind":"connect_rejected","detail":"gateway answered 403 to CONNECT (policy
-denial or upstream failure)","host":"huggingface.co:443"}`.
-
-What that permitted, and what it did not:
-
-* **Permitted.** A genuine llama.cpp was built from source via PyPI
-  (`llama-cpp-python 0.3.35`, compiled with cmake/gcc on this host). It reports
-  real CPU feature detection from the compiled library:
-  `AVX512 = 1 | AVX512_VNNI = 1 | AMX_INT8 = 1 | LLAMAFILE = 1 | OPENMP = 1`.
-  A real GGUF was fetched from `raw.githubusercontent.com` and verified by magic
-  bytes, and real llama.cpp was driven against it.
-* **Not permitted.** Any complete, generative model. The only GGUF files
-  reachable are llama.cpp's committed *vocab-only* fixtures, which carry no
-  tensors. Loading one produces a real, correctly-normalized failure
-  (`ValueError: Failed to load model` → `CAPABILITY_MISMATCH`) — genuine
-  evidence that the guard works, and not generation.
-
-**A tiny randomly-initialised GGUF was deliberately not built.** It would have
-produced a green "real inference" line, but random weights are synthetic bytes
-and the output would be meaningless. That would be a fabricated milestone, which
-is worse than a blocked one.
-
-### FIRST_VALID_MODEL_RECORD_REQUIRED
-
-**Egress was requested twice in-session and is still denied.** The gateway
-answered 403 to CONNECT for both `huggingface.co:443` and
-`cdn-lfs.huggingface.co:443` after each request. This cannot be lifted from
-inside the session: the policy is enforced by the environment's egress gateway,
-chosen when the environment was created, and no code in this repository can
-reach it. (Note the correct host is `cdn-lfs.huggingface.co` — `.co`, not
-`.com`.)
-
-Unblocking needs either an egress allowance applied to the **environment's
-network policy**, or the artifact securely staged into the filesystem by another
-route. Either path works: the runtime verifies size and SHA-256 against the
-bytes it actually has, so a staged artifact is accepted on identical evidence to
-a downloaded one. The registry row is no longer a gap — it carries:
-
-```
-model_id, family, variant, upstream_revision (immutable, not main/latest/head),
-artifact_filename, artifact_format, artifact_sha256, artifact_size_bytes,
-quantization, runtime_support, hardware_profile, context_window,
-privacy_class, cost_class, license_verified, source_evidence
-```
-
-The candidate named by the integration lane (Qwen3-0.6B, Q8_0, GGUF) and the
-SHA-256 quoted in chat are **recorded here as unverified** and are deliberately
-not written into any code path. Per instruction, that value is not canonical
-evidence; the runtime will consume whatever the Work record publishes and will
-verify the digest itself against the bytes it downloads.
-
-### Zero code change needed when it arrives
-
-The activation hook is live: set `LOCAL_RUNTIME_TEST_GGUF` to a complete GGUF
-and `AI_SKILL_LIBRARY/tests/test_local_runtime_real_backend.py::RealGenerationTests`
-loads it, generates, asserts on real output, proves warm residency on the second
-call, and emits a populated evidence envelope. It currently reports
-`skipped: no real GGUF artifact available`.
-
----
-
-## What landed this session
-
-| § | Item | Module | Status |
-|---|---|---|---|
-| B6 | Governance/residency split | `residency.py` | done |
-| B6 | Plane boundary, one entry door | `reconciliation.py` | done |
-| 3 | Immutable artifact identity | `identity.py` | done |
-| B5 | Safe-artifact admission | `admission.py` | done |
-| 5 | Acquisition contract extension | `acquisition.py` | done |
-| 2/4 | Registry projection seam | `projection.py` | done |
-| 3/5 | Projection + placement plan CLI | `v4/tools/local_runtime_plan.py` | done |
-| 4 | Execution evidence envelope | `evidence.py` | done |
-| 9 | Observation envelope | `telemetry.py` | done |
-| 8 | llama.cpp CLI adapter | `backends/llama_cpp.py` | done |
-| 2 | llama.cpp in-process adapter | `backends/llama_cpp_python.py` | **real engine driven** |
-
-### Evaluator gap status
-
-| Gap | Status |
+| Field | Value |
 |---|---|
-| 001 genuine adapter + real generation | adapter real and driven; **generation blocked on artifact** |
-| 002 worker binding | done — `worker_id` on the envelope |
-| 003 revision + sha256 binding | done — carried from identity through to evidence |
-| 004 actual quantization | done — `actual_quantization` is the loaded one; the probe advertises an empty supported-set on purpose |
-| 005 backend version identity | **done with real data** — `llama-cpp-python/0.3.35` |
-| 006 queue_wait_ms | done — measured from admission, not estimated |
-| 007 load_latency_ms | done — measured around the real load |
-| 008 inference_latency_ms | done — measured around the real call |
-| 009 start/end/total | done — monotonic durations, UTC stamps, separately |
-| 010 peak RAM/VRAM | done — `PeakSampler` threads RSS sampling; a snapshot pair is not a peak |
-| 011 normalized failures | done — full evaluator vocabulary, `fallback_used`, `attempted_runtimes` |
+| model_id | `Qwen/Qwen3-0.6B-GGUF` |
+| immutable_revision | `1eaf4d9657fe65ad10a51eab76a8db5b363bddaa` |
+| sha256 | `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031` |
+| size_bytes | `639446688` |
+| format / quantization | `gguf` / `Q8_0` |
+| lifecycle_state | **QUARANTINED** |
+| malware_scan_status | **not_run** |
+| quarantine_status | **quarantined** |
+| model_mesh_local_candidate_eligible | **false** |
+
+### Two independent blockers
+
+**1. Transport.** Re-probed this session: `huggingface.co:443` and
+`cdn-lfs.huggingface.co:443` both answer **403 CONNECT** at the environment
+gateway. `hf-mirror.com` unreachable. No staged GGUF anywhere on the host. No
+local AV engine (`clamscan`, `clamdscan`, `yara` all absent).
+
+**2. Governance.** Even with the bytes, the row is `QUARANTINED` with
+`malware_scan_status: not_run`, so `admission_policy.yaml` refuses it. Clearing
+that is governance's act, not this lane's. The runtime will not relax it, and
+`local_runtime_b1.py` has no flag to skip the check.
+
+### Exact external action needed
+
+Either transport route, **plus** the governance clearance:
+
+```bash
+# A. supply the artifact (either one)
+#    - allow huggingface.co + cdn-lfs.huggingface.co in the ENVIRONMENT network policy, or
+#    - place the file on disk by any other route, then:
+python AI_SKILL_LIBRARY/v4/tools/local_runtime_intake.py \
+    --staged /path/to/Qwen3-0.6B-Q8_0.gguf
+
+# B. governance clears the row (Work lane, not this lane):
+#    malware_scan_status: pass, quarantine_status: clear,
+#    lifecycle_state: AVAILABLE, model_mesh_local_candidate_eligible: true
+
+# C. then B1 runs itself:
+python AI_SKILL_LIBRARY/v4/tools/local_runtime_b1.py --evidence /tmp/b1.json
+```
+
+No code change is needed at any step.
 
 ---
 
-## Tests
+## What is operational now
+
+### Staged-artifact intake (`staging.py`, `local_runtime_intake.py`)
+
+Verifies against the canonical record, never against the file's own claims:
+exact size, SHA-256 recomputed from the bytes on disk, GGUF magic, bounded
+structural scan, format/filename consistency. Mismatches quarantine the file
+(moved aside, not deleted — it is evidence) and stop. Cache is keyed by full
+artifact identity, so two quantizations cannot collide.
+
+**Proven on this host** against a real 1.7 MB GGUF:
 
 ```
-python -m unittest discover -s AI_SKILL_LIBRARY/tests -p "test_local_runtime_*.py"
-  -> 353 passed, 1 skipped (the real-generation hook, awaiting an artifact)
-
-python -m unittest discover -s AI_SKILL_LIBRARY/tests -p "test_*.py"
-  -> 988 passed, 4 skipped
-
-python -m unittest discover -s tests -p "test_*.py"     -> 46 passed
-
-python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --root . --source-sha $(git rev-parse HEAD)
-  -> CI_VALIDATE=PASS failures=0
-     (authority, router, security, runtime, V4, Model Mesh, Legion,
-      Open Model Universe, Brain Expansion, skill gateway, release,
-      retrieval index, consolidation all PASS)
+status VERIFIED · digest_match true
+expected   cedc56ca6e2e89f63e781696d1fd76b4b1d49e6720dee86463e915f6e90016ac
+recomputed cedc56ca6e2e89f63e781696d1fd76b4b1d49e6720dee86463e915f6e90016ac
+size 1766807 / 1766807 · structural_scan pass (v3, 0 tensors)
+one-bit corruption of the same file -> DIGEST_MISMATCH, quarantined
 ```
 
-The lane adds no dependency to the repository. `llama-cpp-python` was installed
-into this session's interpreter to prove the backend and is deliberately **not**
-added to `requirements.txt`: the adapter degrades to unhealthy without it, and
-every test skips rather than substituting a fake.
+**Defect found and fixed during that run:** staging a corrupt file over an
+already-good cache returned `ALREADY_CACHED` without examining the staged
+bytes — an operator handing over a bad file would have been told it was fine.
+The staged file is now always verified when present.
+
+### B1 runner (`local_runtime_b1.py`)
+
+Enforced order: governance clearance → verified cached artifact → real backend
+with proxy environment stripped (load and both inferences run with no egress).
+Emits machine-readable evidence for artifact identity, backend identity, load
+and inference latency, RAM/VRAM, residency, outputs, failure and fallback.
+
+Current output against main:
+
+```
+b1_status REFUSED · refused_at governance_admission · real_generation false
+reason: the canonical record is not cleared for placement
+```
+
+That is the tool working correctly.
+
+### Backend
+
+`llama-cpp-python 0.3.35`, built from source on this host, health PASS, real
+CPU feature detection. Not added to `requirements.txt` — the adapter degrades
+to unhealthy without it and every real-engine test skips rather than faking.
 
 ---
 
-## Design decisions worth carrying forward
+## B6 / B5 — unchanged, no regression
 
-1. **Governance and residency are different questions.** A model can be
-   `APPROVED` and `COLD` at once. One enum forced a choice between facts that
-   were both true.
-2. **A registry row is a claim; a claim is not evidence.** Rows start
-   INELIGIBLE and earn admission. A row claiming `RUNNING` means somebody typed
-   `RUNNING` into YAML.
-3. **Identity is a tuple, never a name.** `model_id` does not say which bytes
-   ran; revision + quantization + content hash do.
-4. **Null is unknown; zero is a measurement.** `peak_vram_mb: 0.0` means measured
-   and unused. `null` means nobody looked.
-5. **Measured, never estimated.** The scheduler's `estimated_start_s` is a
-   planning figure and never reaches evidence.
-6. **A checksum proves identity, not safety.** Hence the first-load sandbox and
-   egress denial, independent of provenance review.
-7. **Absent evidence is a refusal.** An unreadable format field is exactly where
-   guessing is worst.
-
----
-
-## Boundaries held
-
-* No registry, catalog or governance file was modified. `registry.yaml` remains
-  the research lane's, with `models: []` untouched.
-* `AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml` was **not** changed. Its
-  `local_install_required: false` / `local_cli_execution: false` still sit in
-  tension with a local-first federation; that policy belongs to the canonical
-  Brain. This plane stays non-authoritative, opt-in and unresolvable from the
-  checkpoint, so nothing depends on the answer.
-* No fabricated model rows, revisions or checksums were written anywhere.
-* `task_router` remains sole routing authority; every new class declares
-  `routing_authority = False` and a test asserts it.
+Re-verified against current main: 1154 brain tests and CI green. Not revisited.
 
 ---
 
 ## Next exact task
 
-Blocked on the artifact, not on code. When a model record and reachable artifact
-exist:
-
-```bash
-git fetch origin && git checkout claude/magical-euler-uu98r8
-export LOCAL_RUNTIME_TEST_GGUF=/path/to/<artifact>.gguf
-python -m unittest AI_SKILL_LIBRARY.tests.test_local_runtime_real_backend -v
-python AI_SKILL_LIBRARY/v4/tools/local_runtime_plan.py --root . --output /tmp/plan.json
-```
-
-The first command produces the real generation and the populated evidence
-envelope. The second shows the registry row projecting into a placement plan.
+Blocked. When transport **and** governance clearance are both supplied, run the
+three commands above; `b1_status: PASS` closes B1 and B2 follows immediately
+(canonical route: ingress → task_router → Model Mesh → projection → scheduler →
+llama.cpp → Qwen), which is wired and waiting on the same artifact.
