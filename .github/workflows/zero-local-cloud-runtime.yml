@@ -197,11 +197,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Full history so the deployed revision can be resolved back to its gateway source.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Wait for exact Railway deployment
         shell: bash
         run: |
           set -euo pipefail
+          # Railway redeploys this service only when its own source changes, so the running
+          # deployment is not expected to carry the repository HEAD commit. The exact check
+          # is therefore against the gateway source tree: the deployed revision must contain
+          # byte-identical crypto-research-gateway/ content to the commit under test. This
+          # stays an exact comparison -- a real gateway change that has not rolled out still
+          # fails -- it just stops failing on commits that never touch the service.
+          GATEWAY_TREE="$(git rev-parse "$GITHUB_SHA:crypto-research-gateway")"
+          GATEWAY_SOURCE_COMMIT="$(git log -1 --format=%H "$GITHUB_SHA" -- crypto-research-gateway)"
+          echo "Expected gateway source tree: $GATEWAY_TREE (last touched by $GATEWAY_SOURCE_COMMIT)"
           READY=0
+          DEPLOYED_SHA=""
+          DEPLOYED_TREE=""
           for i in $(seq 1 90); do
             if curl --silent --show-error \
               -H 'X-Railway-Debug: 1' \
@@ -218,7 +233,9 @@ jobs:
               print('')
           PY
           )"
-              if [ "$DEPLOYED_SHA" = "$GITHUB_SHA" ]; then
+              # An unknown revision resolves to nothing and is never accepted.
+              DEPLOYED_TREE="$(git rev-parse --quiet --verify "${DEPLOYED_SHA}:crypto-research-gateway" 2>/dev/null || true)"
+              if [ -n "$DEPLOYED_TREE" ] && [ "$DEPLOYED_TREE" = "$GATEWAY_TREE" ]; then
                 READY=1
                 break
               fi
@@ -226,10 +243,12 @@ jobs:
             sleep 5
           done
           if [ "$READY" != "1" ]; then
-            echo "Railway production did not reach exact commit $GITHUB_SHA" >&2
+            echo "production gateway source mismatch: deployed commit '${DEPLOYED_SHA}' (tree '${DEPLOYED_TREE}') does not carry the gateway source '${GATEWAY_TREE}' expected at ${GITHUB_SHA}" >&2
             cat /tmp/prod-health.json 2>/dev/null || true
             exit 1
           fi
+          echo "GATEWAY_TREE=$GATEWAY_TREE" >> "$GITHUB_ENV"
+          echo "DEPLOYED_SHA=$DEPLOYED_SHA" >> "$GITHUB_ENV"
           cat /tmp/prod-health.json
           grep -Eiq 'x-railway-upstream-zone:.*(sin|asia-southeast1-eqsg3a)' /tmp/prod-health.headers || {
             echo 'Production request was not served from Railway Southeast Asia.' >&2
@@ -237,11 +256,20 @@ jobs:
             exit 1
           }
           python - <<'PY'
-          import json, os
+          import json, os, subprocess
           from pathlib import Path
           data = json.loads(Path('/tmp/prod-health.json').read_text())
-          if data.get('deploymentCommitSha') != os.environ['GITHUB_SHA']:
-              raise SystemExit('production commit mismatch')
+          deployed = data.get('deploymentCommitSha') or ''
+          if not deployed:
+              raise SystemExit('production gateway source mismatch: health reported no deploymentCommitSha')
+          expected_tree = subprocess.run(
+              ['git', 'rev-parse', f"{os.environ['GITHUB_SHA']}:crypto-research-gateway"],
+              capture_output=True, text=True, check=True).stdout.strip()
+          deployed_tree = subprocess.run(
+              ['git', 'rev-parse', '--quiet', '--verify', f'{deployed}:crypto-research-gateway'],
+              capture_output=True, text=True).stdout.strip()
+          if deployed_tree != expected_tree:
+              raise SystemExit(f'production gateway source mismatch: {deployed} -> {deployed_tree!r} != {expected_tree!r}')
           if data.get('localInstallRequired') is not False:
               raise SystemExit('production unexpectedly requires local install')
           PY

@@ -145,3 +145,58 @@ class ZeroLocalManifestTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RailwayProductionGateTests(unittest.TestCase):
+    """The production gate must verify the exact gateway revision that is actually running.
+
+    Railway only redeploys when its own service source changes, so comparing the deployed
+    commit to the repository HEAD fails on every main commit that does not touch
+    ``crypto-research-gateway/``. The gate must compare against the gateway source instead,
+    without ever becoming a gate that always passes.
+    """
+
+    WORKFLOW = ROOT / ".github/workflows/zero-local-cloud-runtime.yml"
+
+    def setUp(self):
+        self.workflow = self.WORKFLOW.read_text(encoding="utf-8")
+
+    def test_gate_does_not_compare_deployment_to_global_repo_head(self):
+        self.assertNotIn(
+            'if [ "$DEPLOYED_SHA" = "$GITHUB_SHA" ]',
+            self.workflow,
+            "the deployed gateway must not be compared to the repository HEAD",
+        )
+        self.assertNotIn(
+            "data.get('deploymentCommitSha') != os.environ['GITHUB_SHA']",
+            self.workflow,
+            "the deployed gateway must not be compared to the repository HEAD",
+        )
+
+    def test_gate_compares_against_the_gateway_source_revision(self):
+        # The gate resolves what the gateway source actually is, rather than assuming the
+        # whole repository redeploys on every push.
+        self.assertIn("crypto-research-gateway", self.workflow)
+        self.assertIn("GATEWAY_TREE", self.workflow)
+        # It needs repository history available to resolve that revision.
+        self.assertIn("fetch-depth: 0", self.workflow)
+
+    def test_gate_still_fails_closed(self):
+        # Exact verification is preserved: an unknown or mismatched deployment still fails.
+        self.assertIn("production gateway source mismatch", self.workflow)
+        self.assertIn("exit 1", self.workflow)
+        # The gate must never be reduced to an unconditional pass.
+        self.assertNotIn("exit 0  # always pass", self.workflow)
+
+    def test_gate_keeps_region_and_local_install_assertions(self):
+        self.assertIn("x-railway-upstream-zone", self.workflow)
+        self.assertIn("localInstallRequired", self.workflow)
+
+    def test_gate_does_not_touch_trading_execution_authority(self):
+        # The workflow legitimately names write verbs inside a negative assertion that
+        # production must not expose them, so absence of the words is the wrong check.
+        # What matters is that the gate never enables live execution.
+        for forbidden in ("BYBIT_AUTO_LIVE", "BYBIT_BTC_LIVE_ACK", "BYBIT_AUTO_ENABLED"):
+            self.assertNotIn(forbidden, self.workflow)
+        # The existing guard that production exposes no write/high-risk tool stays.
+        self.assertIn("write/high-risk tool exposed in production", self.workflow)

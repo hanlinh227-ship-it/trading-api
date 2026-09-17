@@ -30,6 +30,34 @@ const NEEDS_SOURCE_IMAGE=new Set([
 ]);
 const NEEDS_MASK=new Set([WORKERS_AI_MODELS.inpainting]);
 
+// Each model accepts a different input schema, and sending a parameter a model does not
+// declare gets the whole request rejected. flux-1-schnell takes only prompt and steps
+// (steps capped at 8); the stable-diffusion models take the image shaping parameters.
+const MODEL_INPUT_SCHEMA=Object.freeze({
+  [WORKERS_AI_MODELS.textToImage]:{accepts:new Set(['prompt','steps']),stepsMax:8,stepsDefault:4},
+  [WORKERS_AI_MODELS.imageToImage]:{accepts:new Set(['prompt','negative_prompt','width','height','image','strength','seed','num_steps'])},
+  [WORKERS_AI_MODELS.inpainting]:{accepts:new Set(['prompt','negative_prompt','width','height','image','mask','strength','seed','num_steps'])},
+});
+
+const clampInt=(value,min,max)=>Math.min(max,Math.max(min,Math.round(Number(value))));
+
+function buildInput(model,{prompt,image,mask,width,height,negativePrompt,strength,seed,steps}){
+  const schema=MODEL_INPUT_SCHEMA[model]||{accepts:new Set(['prompt'])};
+  const candidate={prompt:String(prompt)};
+  if(negativePrompt)candidate.negative_prompt=String(negativePrompt);
+  if(Number.isInteger(width)&&width>0)candidate.width=width;
+  if(Number.isInteger(height)&&height>0)candidate.height=height;
+  if(image)candidate.image=image;
+  if(mask)candidate.mask=mask;
+  if(Number.isFinite(strength))candidate.strength=strength;
+  if(Number.isInteger(seed))candidate.seed=seed;
+  if(schema.stepsMax!==undefined){
+    candidate.steps=clampInt(Number.isFinite(Number(steps))?steps:schema.stepsDefault,1,schema.stepsMax);
+  }
+  // Drop anything this model does not declare rather than letting the provider reject it.
+  return Object.fromEntries(Object.entries(candidate).filter(([key])=>schema.accepts.has(key)));
+}
+
 export function selectWorkersAiModel(taskType){
   return TASK_MODEL[String(taskType||'')]||null;
 }
@@ -55,7 +83,7 @@ export async function workersAiHealth(env={}){
 
 export function createWorkersAiClient(){
   return {
-    async generate(env,{taskType,prompt,image,mask,width,height,negativePrompt,strength,seed}={}){
+    async generate(env,{taskType,prompt,image,mask,width,height,negativePrompt,strength,seed,steps}={}){
       const ai=binding(env);
       if(!ai)return {ok:false,provider:'cloudflare_workers_ai',error:'workers_ai_binding_unavailable'};
       const model=selectWorkersAiModel(taskType);
@@ -65,14 +93,7 @@ export function createWorkersAiClient(){
       if(NEEDS_SOURCE_IMAGE.has(model)&&!image)return {ok:false,provider:'cloudflare_workers_ai',error:'source_image_required'};
       if(NEEDS_MASK.has(model)&&!mask)return {ok:false,provider:'cloudflare_workers_ai',error:'mask_required'};
 
-      const input={prompt:String(prompt)};
-      if(negativePrompt)input.negative_prompt=String(negativePrompt);
-      if(Number.isInteger(width)&&width>0)input.width=width;
-      if(Number.isInteger(height)&&height>0)input.height=height;
-      if(image)input.image=image;
-      if(mask)input.mask=mask;
-      if(Number.isFinite(strength))input.strength=strength;
-      if(Number.isInteger(seed))input.seed=seed;
+      const input=buildInput(model,{prompt,image,mask,width,height,negativePrompt,strength,seed,steps});
 
       try{
         const output=await ai.run(model,input);

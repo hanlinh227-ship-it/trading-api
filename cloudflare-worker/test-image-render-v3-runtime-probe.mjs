@@ -20,7 +20,8 @@ assert.ok(ok.health.at);
 assert.ok(ok.health.detail.includes('@cf/'));
 // The probe must be bounded: one tiny generation, not a render of real work.
 assert.equal(calls.length,1);
-assert.ok(calls[0].input.width<=256&&calls[0].input.height<=256,'probe must stay small');
+assert.equal(calls[0].input.steps,1,'probe must use the fewest diffusion steps');
+assert.equal(calls[0].input.width,undefined,'probe must not send parameters the model rejects');
 
 // A failing runtime is reported as failing, and never advances discovery to health.
 const broken={AI:{async run(){throw new Error('nope');}}};

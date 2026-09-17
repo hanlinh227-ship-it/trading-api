@@ -46,5 +46,10 @@ assert.doesNotMatch(workflow,/"referenceAssets"\s*:/);
 assert.match(workflow,/v3\/activation\?probe=1/);
 assert.match(workflow,/IMAGE_RUNTIME_PROBE provider=/);
 assert.match(workflow,/IMAGE_ACTIVATION model=/);
+// Capabilities must be read with a probe, and a runtime may only read AVAILABLE when that
+// probe verified it in the same request.
+assert.match(workflow,/v3\/capabilities\?probe=1/);
+assert.match(workflow,/runtimeVerifiedThisRequest/);
+assert.match(workflow,/refRuntime=/);
 
 console.log('IMAGE_RENDER_V2_PRODUCTION_SMOKE_CONTRACT_TEST=PASS');

@@ -44,8 +44,15 @@ console.log('image render v3 capability availability contracts: PASS');
 
 // With the AI binding present the critic and inference runtimes report AVAILABLE, and the
 // reference-safe runtime follows the registered providers rather than a hardcoded answer.
-const withAi={...env,AI:{run:async()=>({})}};
-const live=await (await handleImageRenderV3(new Request('https://x/brain/image/v3/capabilities',{headers:auth}),withAi)).json();
+// Only a runtime that answered a probe may be reported AVAILABLE; a bound but unprobed
+// runtime is UNVERIFIED, which is what production would have shown had this been right.
+const withAi={...env,AI:{run:async()=>({image:'x'})}};
+const unprobed=await (await handleImageRenderV3(new Request('https://x/brain/image/v3/capabilities',{headers:auth}),withAi)).json();
+assert.equal(unprobed.visualCriticRuntime,'UNVERIFIED');
+assert.equal(unprobed.runtimeVerifiedThisRequest,false);
+
+const live=await (await handleImageRenderV3(new Request('https://x/brain/image/v3/capabilities?probe=1',{headers:auth}),withAi)).json();
+assert.equal(live.runtimeVerifiedThisRequest,true);
 assert.equal(live.visualCriticRuntime,'AVAILABLE');
 assert.equal(live.visualCriticProvider,'cloudflare_workers_ai');
 assert.match(live.visualCriticModel,/^@cf\//);

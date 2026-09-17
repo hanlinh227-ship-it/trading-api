@@ -3,9 +3,9 @@ import {listProviderAdapters} from './provider-adapter-registry.js';
 
 // Live runtime evidence. The build sandbox has no egress, so this runs in the deployed
 // Worker: it is the only place that can honestly answer whether a runtime responds.
-// The probe is deliberately tiny — a 256x256 generation — so collecting evidence never
-// eats the free allocation that real work needs.
-const PROBE_SIZE=256;
+// The probe is deliberately minimal — the fewest diffusion steps the model allows — so
+// collecting evidence never eats the free allocation that real work needs.
+const PROBE_STEPS=1;
 
 export async function probeImageRuntimes(env={},{now=()=>new Date().toISOString()}={}){
   const at=now();
@@ -24,7 +24,7 @@ export async function probeImageRuntimes(env={},{now=()=>new Date().toISOString(
       }
       const model=selectWorkersAiModel('TEXT_TO_IMAGE');
       const result=await createWorkersAiClient().generate(env,{
-        taskType:'TEXT_TO_IMAGE',prompt:'probe',width:PROBE_SIZE,height:PROBE_SIZE,
+        taskType:'TEXT_TO_IMAGE',prompt:'probe',steps:PROBE_STEPS,
       });
       providers.push({
         providerId:adapter.id,
