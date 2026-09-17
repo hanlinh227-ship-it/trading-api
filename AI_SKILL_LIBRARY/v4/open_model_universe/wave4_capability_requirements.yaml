@@ -1,16 +1,16 @@
 version: 1
-purpose: wave4_capability_requirements_declared_only
-status: PREPARED_NOT_STARTED
-generated_at: "2026-09-17"
+purpose: wave4_capability_requirements_and_measured_coverage
+status: MEASUREMENT_STARTED_NOT_CLOSED
+measured_at: "2026-09-17T18:38:16Z"
+evidence: CHECKPOINTS/evidence/WAVE4_MULTIMODAL_BENCHMARK.json
 
-# Wave 4 is declared here as capability requirements and nothing else. No model
-# is named, discovered, staged, admitted or measured by this file. It exists so
-# that starting Wave 4 is a measurement exercise rather than an architecture
-# exercise, which is the property the Free Worker Mesh was built to have.
+# Coverage below is MEASURED by real inference against a provider that is
+# VERIFIED_AVAILABLE, with inputs built inside the job so the answers have one
+# correct value. A tag with measured_covered false is an honest gap, not an
+# omission, and no catalog row or provider claim may fill it.
 
 architecture:
   unchanged: true
-  # The same authorities, in the same order. Wave 4 adds no orchestration.
   flow: >-
     USER -> GITHUB_BRAIN_V4 -> task_router -> AI Legion -> Model Mesh
     -> existing runtime scheduler -> Free Worker Mesh -> worker/provider
@@ -24,69 +24,155 @@ architecture:
     - another worker registry
     - another admission authority
     - another evidence authority
-  why_no_new_infrastructure_is_needed: >-
-    A capability is a string matched against a worker's measured capability tags.
-    Every tag below already exists in the mesh vocabulary, and
-    test_a_future_capability_needs_no_new_authority places a worker for vision,
-    ocr, audio_understanding and long_context today without a line of router,
-    scheduler or Brain changing. What Wave 4 needs is models measured for these
-    tags, not machinery to express them.
 
 capability_requirements:
   - tag: vision
     declared: true
-    measured_on_any_worker: false
+    measured_covered: true
+    measured_model: "@cf/llava-hf/llava-1.5-7b-hf"
+    evidence_class: MEASURED
+    note: >-
+      GROUNDED. Answered 'a red circle with a black outline' for an image
+      rendered in the job with a known shape and colour.
   - tag: image_understanding
     declared: true
-    measured_on_any_worker: false
+    measured_covered: true
+    measured_model: "@cf/llava-hf/llava-1.5-7b-hf"
+    evidence_class: MEASURED
+    note: >-
+      Same measurement as vision; the model described the rendered scene
+      correctly.
+  - tag: visual_reasoning
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      Not measured. Describing a rendered shape is perception, not reasoning
+      over an image, and the two must not be conflated.
   - tag: ocr
     declared: true
-    measured_on_any_worker: false
+    measured_covered: true
+    measured_model: "@cf/llava-hf/llava-1.5-7b-hf"
+    evidence_class: MEASURED
+    note: >-
+      READ_CORRECTLY. Returned 'Harmony' for HARMONY rendered at 120px. Reading
+      rendered text is the OCR task, so this is measured rather than assumed.
   - tag: document_understanding
     declared: true
-    measured_on_any_worker: false
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      Not measured. Only the embedding half has evidence (bge-m3 returned 1024
+      real dimensions). Layout and table extraction were not tested and must not
+      be inferred from an OCR pass.
+  - tag: layout_understanding
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      Not measured.
+  - tag: table_understanding
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      Not measured.
   - tag: audio_understanding
     declared: true
-    measured_on_any_worker: false
+    measured_covered: false
+    measured_model: "@cf/openai/whisper-large-v3-turbo"
+    evidence_class: MEASURED
+    note: >-
+      Only transcription is measured. Broader audio understanding - events,
+      speaker, sentiment - was not tested, so this stays uncovered.
   - tag: speech_to_text
     declared: true
-    measured_on_any_worker: false
+    measured_covered: true
+    measured_model: "@cf/openai/whisper-large-v3-turbo"
+    evidence_class: MEASURED
+    note: >-
+      TRANSCRIBED at 0.875 word recall on audio synthesised in the job from a
+      sentence the ASR model never saw. It misheard 'dog' as 'dot', recorded
+      rather than rounded away.
   - tag: text_to_speech
     declared: true
-    measured_on_any_worker: false
+    measured_covered: true
+    measured_model: "@cf/deepgram/aura-1"
+    evidence_class: MEASURED
+    note: >-
+      PRODUCED_AUDIO. Reached only after melotts returned HTTP 500 twice across
+      two runs and a retry - a real failure - so the fallback that followed is
+      itself a failover measured in practice.
+  - tag: multimodal_reasoning
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      Not measured as a single capability. Composition across a vision worker
+      and a text reasoner is an AI Legion orchestration question and has no
+      measurement yet.
+  - tag: image_embedding
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      No image embedding model exists in the verified catalog. A real gap,
+      recorded as one.
+  - tag: document_embedding
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/baai/bge-m3"
+    evidence_class: MEASURED
+    note: >-
+      EMBEDDED. Returned 2 vectors of 1024 real dimensions.
   - tag: future_multimodal
     declared: true
-    measured_on_any_worker: false
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      Not measured.
 
 rules_carried_forward:
   declared_never_qualifies: >-
-    Every tag above is declared and none is measured. A declared capability
-    advertises; only a measured one makes a worker eligible. Nothing in this
-    file makes any worker eligible for anything.
+    A declared capability advertises; only a measured one makes a worker
+    eligible. Every tag above with measured_covered false is ineligible.
   provenance_unchanged: >-
-    A third-party conversion must name its base model, its base revision and the
-    converter that produced it. Wave 3 closed two candidates as
+    A third-party conversion must name its base model, its base revision and
+    the converter that produced it. Wave 3 closed two candidates as
     QUARANTINED_PROVENANCE under this rule. Wave 4 does not relax it.
   exact_versus_capability_unchanged: >-
-    A provider serving a different model covers a capability under its own name
-    and is never recorded as the requested model being available.
+    A provider serving a different model covers a capability under its own
+    name and is never recorded as the requested model being available.
   execution_proof_unchanged: >-
     A provider is VERIFIED_AVAILABLE only after a real request returns a real
     completion on a zero-cost tier. Documentation is not execution proof.
+
+observed_failures:
+  - model: "@cf/myshell-ai/melotts"
+    result: HTTP 500 twice, across two runs and a retry
+    treatment: >-
+      Recorded as a real failure, not a flake. One model failing is not the
+      capability failing, so an alternative was tried and text_to_speech is
+      covered by @cf/deepgram/aura-1 instead.
+  - model: "@cf/moondream/moondream3.1-9B-A2B"
+    result: HTTP 200 with an empty result object
+    treatment: >-
+      EMPTY_RESPONSE, which is not a wrong answer and is not a capability
+      claim in either direction. llava answered the same prompts correctly,
+      so vision and OCR coverage rests on llava and not on this.
 
 carried_in_from_wave3:
   - candidate: google/gemma-3-4b-it
     state: DEFERRED_TO_WAVE4
     gate: HUMAN_LICENSE_GATE_REQUIRED
     note: >-
-      Enters Wave 4 only through the same human licence gate. It was never
-      staged, downloaded or admitted during Wave 3, and nothing here changes
-      that. Only the operator may accept the publisher's terms.
-
-not_started:
-  models_named: 0
-  models_discovered: 0
-  models_staged: 0
-  models_admitted: 0
-  note: >-
-    Preparation only. Starting Wave 4 is a separate, explicit decision.
+      Enters Wave 4 only through the same human licence gate. Never staged,
+      downloaded or admitted. Only the operator may accept the terms, and
+      Wave 4 coverage above does not depend on it.

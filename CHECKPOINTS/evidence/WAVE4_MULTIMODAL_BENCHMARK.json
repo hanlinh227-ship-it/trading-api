@@ -1,0 +1,112 @@
+{
+  "benchmark": "wave4_multimodal_v1",
+  "ran_at": "2026-09-17T18:38:16Z",
+  "provider": "cloudflare_workers_ai",
+  "plan_can_bill": false,
+  "evidence_class": "MEASURED",
+  "method": "inputs built in this job, not fetched: speech synthesised from text the ASR model never saw, and an image rendered with a known word and shape. Scored strictly against those known answers.",
+  "results": [
+    {
+      "capability": "text_to_speech",
+      "model": "@cf/myshell-ai/melotts",
+      "verdict": "FAILED",
+      "evidence_class": "MEASURED",
+      "http": 500,
+      "latency_ms": 962.2,
+      "error": "{\"errors\":[{\"message\":\"AiError: AiError: Internal server error (aab92da1-c442-4773-a44e-b0a3e6566abb)\",\"code\":3043}],\"success\":false,\"result\":{},\"messages\":[]}",
+      "note": "two attempts, both 5xx; recorded as a real failure, not a flake"
+    },
+    {
+      "capability": "text_to_speech",
+      "model": "@cf/deepgram/aura-1",
+      "verdict": "PRODUCED_AUDIO",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 675.5,
+      "audio_bytes": 15046,
+      "note": "fallback TTS after melotts failed twice"
+    },
+    {
+      "capability": "speech_to_text",
+      "model": "@cf/openai/whisper-large-v3-turbo",
+      "verdict": "TRANSCRIBED",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 2485.1,
+      "transcript": "The quick brown fox jumps over the lazy dot.",
+      "words_matched": "7/8",
+      "word_recall": 0.875,
+      "round_trip": "audio produced by melotts from text the ASR never saw"
+    },
+    {
+      "capability": "ocr_text_in_image",
+      "model": "@cf/moondream/moondream3.1-9B-A2B",
+      "verdict": "EMPTY_RESPONSE",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 118.9,
+      "answer": "",
+      "expected": "HARMONY",
+      "input_form": "base64",
+      "result_keys": []
+    },
+    {
+      "capability": "vision_grounding",
+      "model": "@cf/moondream/moondream3.1-9B-A2B",
+      "verdict": "NOT_GROUNDED",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 137.9,
+      "answer": "",
+      "expected": "red circle",
+      "saw_colour": false,
+      "saw_shape": false,
+      "input_form": "base64"
+    },
+    {
+      "capability": "ocr_text_in_image",
+      "model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "verdict": "READ_CORRECTLY",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 848.7,
+      "answer": " Harmony",
+      "expected": "HARMONY",
+      "input_form": "byte_array",
+      "result_keys": [
+        "description"
+      ]
+    },
+    {
+      "capability": "vision_grounding",
+      "model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "verdict": "GROUNDED",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 3798.8,
+      "answer": " The shape in the image is a red circle with a black outline. It is a simple and bold design, likely representing a logo or symbol. The red color is vibrant and stands out against the white background",
+      "expected": "red circle",
+      "saw_colour": true,
+      "saw_shape": true,
+      "input_form": "byte_array"
+    },
+    {
+      "capability": "document_embedding",
+      "model": "@cf/baai/bge-m3",
+      "verdict": "EMBEDDED",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 734.8,
+      "vectors": 2,
+      "dimensions": 1024
+    }
+  ],
+  "capabilities_measured_covered": [
+    "document_embedding",
+    "ocr_text_in_image",
+    "speech_to_text",
+    "text_to_speech",
+    "vision_grounding"
+  ],
+  "status": "RAN"
+}
