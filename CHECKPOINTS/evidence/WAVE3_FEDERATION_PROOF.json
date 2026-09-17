@@ -26,13 +26,13 @@
         {
           "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 22873.528,
+          "latency_ms": 21995.807,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 12471.52,
+          "latency_ms": 11905.361,
           "error": null
         }
       ],
@@ -40,7 +40,7 @@
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
       "answer": "<think>\nOkay, let's see. The question is: If every A is a B, and every B is a C, is every A a C? I need to answer yes or no and explain briefly. Alright, let's break",
-      "wall_ms": 65490.038
+      "wall_ms": 63386.018
     },
     {
       "round": "B",
@@ -57,13 +57,13 @@
         {
           "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 19943.666,
+          "latency_ms": 20171.856,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 12096.764,
+          "latency_ms": 11441.708,
           "error": null
         }
       ],
@@ -71,7 +71,7 @@
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
       "answer": "<think>\nOkay, I need to write a Python function that finds the second largest distinct value in a list. If there's no such value, return None. Let me think about how to approach this.\n\nFirst, I should understand what \"",
-      "wall_ms": 61671.243
+      "wall_ms": 61286.759
     },
     {
       "round": "C",
@@ -88,13 +88,13 @@
         {
           "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 21510.597,
+          "latency_ms": 23616.773,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 8429.529,
+          "latency_ms": 8541.182,
           "error": null
         }
       ],
@@ -102,7 +102,7 @@
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
       "answer": "<think>\nOkay, let's look at this Python function. The goal is to calculate the total of a list of values. The function is called total and takes a parameter values. Let me step through it.\n\nFirst, it initializes s to",
-      "wall_ms": 59628.511
+      "wall_ms": 61735.171
     },
     {
       "round": "D",
@@ -119,13 +119,13 @@
         {
           "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 21916.455,
+          "latency_ms": 21131.068,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 10485.81,
+          "latency_ms": 10124.365,
           "error": null
         }
       ],
@@ -133,7 +133,7 @@
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
       "answer": "<think>\nOkay, the user is asking if a scanner's report of \"Scanned files: 1\" and \"Data scanned: 0.00 MB\" proves the file is clean. Let me think about this.\n\nFirst,",
-      "wall_ms": 62525.908
+      "wall_ms": 60933.074
     },
     {
       "round": "E",
@@ -150,13 +150,13 @@
         {
           "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 20268.423,
+          "latency_ms": 22193.716,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 13680.291,
+          "latency_ms": 12787.684,
           "error": null
         }
       ],
@@ -164,7 +164,7 @@
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
       "answer": "<think>\nOkay, the user is asking in Vietnamese: \"Mặt trời mọc ở hướng nào?\" which translates to \"Where does the sun rise?\" I need to answer briefly in Vietnamese.\n\nFirst, I recall that the sun appears to",
-      "wall_ms": 63942.39
+      "wall_ms": 64460.042
     },
     {
       "round": "F",
@@ -181,13 +181,13 @@
         {
           "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 20147.796,
+          "latency_ms": 19931.048,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 11680.445,
+          "latency_ms": 11427.824,
           "error": null
         }
       ],
@@ -195,7 +195,7 @@
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
       "answer": "<think>\nOkay, the user is asking about what a capability benchmark can and cannot establish about a model. Let me start by recalling what a capability benchmark is. It's a set of tasks or metrics used to evaluate a model's performance.",
-      "wall_ms": 62048.544
+      "wall_ms": 60989.779
     },
     {
       "round": "G",
@@ -212,13 +212,13 @@
         {
           "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 20653.402,
+          "latency_ms": 22919.77,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 10746.766,
+          "latency_ms": 10796.071,
           "error": null
         }
       ],
@@ -226,7 +226,7 @@
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
       "answer": "<think>\nOkay, the user is asking whether a reviewer is right in saying that a function returning None on an empty list is a bug because the caller never checks. Let me think about this.\n\nFirst, I need to understand the context.",
-      "wall_ms": 61418.624
+      "wall_ms": 63474.047
     },
     {
       "round": "H",
@@ -236,8 +236,8 @@
       "placement_state": "REMOTE_WORKER_REQUIRED",
       "blockers": {
         "ephemeral-local-0": [
-          "has 15172 MB RAM available, needs 37200 MB",
-          "has 11087 MB disk free, needs 21600 MB"
+          "has 15227 MB RAM available, needs 37200 MB",
+          "has 11082 MB disk free, needs 21600 MB"
         ]
       },
       "required_ram_mb": 37200,
