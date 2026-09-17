@@ -78,16 +78,3 @@ maintenance:
 privacy:
   durable_exclusions: [secrets, credentials, private_keys, account_data, sensitive_personal_data, raw_private_chat, authentication_tokens, unreviewed_runtime_state]
   redact_before_trace_eval_or_evergreen: true
-continuity:
-  enabled: true
-  policy_path: AI_SKILL_LIBRARY/v4/memory_continuity/policy.yaml
-  resolver_path: AI_SKILL_LIBRARY/v4/tools/memory_continuity.py
-  role: context_only
-  authority: false
-  routing_authority: false
-  reasoning_authority: false
-  execution_authority: false
-  current_project_authority_gate_required: true
-  cross_project_read: false
-  cross_project_write: false
-  ambiguity_action: no_resume
