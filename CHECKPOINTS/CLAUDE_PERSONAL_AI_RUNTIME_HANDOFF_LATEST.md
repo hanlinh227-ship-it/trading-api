@@ -1,6 +1,7 @@
 # Claude Personal AI Runtime — Handoff
 
-**Role:** Claude Code — PRIMARY IMPLEMENTATION WORKER
+**Role:** Claude Code — owns the entire remaining Personal AI Federation path.
+No step is delegated to another lane.
 **Updated:** 2026-09-17
 
 ---
@@ -9,129 +10,108 @@
 
 | Field | Value |
 |---|---|
-| origin/main | `94f302eaabfc7b365e2986c701d9549a2be5566e` (PR #428 merged) |
-| Branch | `claude/magical-euler-uu98r8`, restarted from main after the merge |
-| HEAD | `435ac4fb13677f5ea7547329e4981c42d5b01819` |
-| behind_by / ahead_by | **0** / 1 |
+| origin/main | `b236a615f0598a2d3b97559f403ae954eb32602d` |
+| Branch / HEAD | `claude/magical-euler-uu98r8` / `cec41ddb68e7ba9a00325a8d8fd81454b67e3c72` |
+| behind_by | **0** |
+| PR | #439 |
 | CI at exact head | **CI_VALIDATE=PASS failures=0** |
-| Brain suite | 1154 passed, 4 skipped |
-| Repo suite | 46 passed |
-| Secret scan | 0 findings |
+| Brain / repo / lane suites | 1186 / 46 / 511 passed |
 
 ---
 
-## B1 REAL_LOCAL_RUNTIME — BLOCKED, path fully operational
+## The single external fact blocking everything
 
-Everything downstream of the artifact is built, tested and exercised. B1 is
-blocked on one external fact and nothing else.
+**The canonical artifact cannot be obtained from this environment, and that is
+now proven rather than assumed.**
 
-### Canonical state, read from main
+The proxy's allowlist is Anthropic APIs plus package registries only:
 
-| Field | Value |
-|---|---|
-| model_id | `Qwen/Qwen3-0.6B-GGUF` |
-| immutable_revision | `1eaf4d9657fe65ad10a51eab76a8db5b363bddaa` |
-| sha256 | `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031` |
-| size_bytes | `639446688` |
-| format / quantization | `gguf` / `Q8_0` |
-| lifecycle_state | **QUARANTINED** |
-| malware_scan_status | **not_run** |
-| quarantine_status | **quarantined** |
-| model_mesh_local_candidate_eligible | **false** |
+```
+registry.npmjs.org  jsr.io  npm.jsr.io  pypi.org
+files.pythonhosted.org  index.crates.io  proxy.golang.org
+api.anthropic.com (+ staging/preview/mcp)
+```
 
-### Two independent blockers
+`huggingface.co:443` and `cdn-lfs.huggingface.co:443` answer **403 CONNECT**.
+`hf-mirror.com` unreachable. GitHub release assets 403. Package registries were
+searched — the npm hits for "qwen gguf" are tooling and providers
+(`@huggingface/gguf`, `termux-llamacpp`, `@qwen-code/*`), not weights. No
+registry carries `Qwen3-0.6B-Q8_0.gguf`, and its canonical source is Hugging
+Face only.
 
-**1. Transport.** Re-probed this session: `huggingface.co:443` and
-`cdn-lfs.huggingface.co:443` both answer **403 CONNECT** at the environment
-gateway. `hf-mirror.com` unreachable. No staged GGUF anywhere on the host. No
-local AV engine (`clamscan`, `clamdscan`, `yara` all absent).
+There is no remaining route to try. Everything below is built so that the moment
+the bytes exist, the rest runs with no code change.
 
-**2. Governance.** Even with the bytes, the row is `QUARANTINED` with
-`malware_scan_status: not_run`, so `admission_policy.yaml` refuses it. Clearing
-that is governance's act, not this lane's. The runtime will not relax it, and
-`local_runtime_b1.py` has no flag to skip the check.
+### Exactly one external action
 
-### Exact external action needed
+Either:
 
-Either transport route, **plus** the governance clearance:
+1. add `huggingface.co` and `cdn-lfs.huggingface.co` to the **environment's
+   network policy** (not changeable from inside the session), or
+2. place `Qwen3-0.6B-Q8_0.gguf` anywhere on this filesystem.
+
+Then, with nothing else needed from anyone:
 
 ```bash
-# A. supply the artifact (either one)
-#    - allow huggingface.co + cdn-lfs.huggingface.co in the ENVIRONMENT network policy, or
-#    - place the file on disk by any other route, then:
-python AI_SKILL_LIBRARY/v4/tools/local_runtime_intake.py \
-    --staged /path/to/Qwen3-0.6B-Q8_0.gguf
-
-# B. governance clears the row (Work lane, not this lane):
-#    malware_scan_status: pass, quarantine_status: clear,
-#    lifecycle_state: AVAILABLE, model_mesh_local_candidate_eligible: true
-
-# C. then B1 runs itself:
+python AI_SKILL_LIBRARY/v4/tools/local_runtime_intake.py --staged <path>   # verify + cache
+python AI_SKILL_LIBRARY/v4/tools/local_runtime_clearance.py --apply        # scan + clear
 python AI_SKILL_LIBRARY/v4/tools/local_runtime_b1.py --evidence /tmp/b1.json
 ```
 
-No code change is needed at any step.
+**Caveat on step 2, stated plainly:** this host has no signature engine
+(`clamscan`/`clamdscan` absent, not installable from the allowed registries).
+`--apply` will therefore report `INSUFFICIENT_EVIDENCE` and change nothing.
+Clearing then additionally needs a signature engine installed, or an explicit
+human decision to accept the model on provenance alone — which is a decision,
+not something the tooling will infer.
 
 ---
 
-## What is operational now
+## Blocker status
 
-### Staged-artifact intake (`staging.py`, `local_runtime_intake.py`)
-
-Verifies against the canonical record, never against the file's own claims:
-exact size, SHA-256 recomputed from the bytes on disk, GGUF magic, bounded
-structural scan, format/filename consistency. Mismatches quarantine the file
-(moved aside, not deleted — it is evidence) and stop. Cache is keyed by full
-artifact identity, so two quantizations cannot collide.
-
-**Proven on this host** against a real 1.7 MB GGUF:
-
-```
-status VERIFIED · digest_match true
-expected   cedc56ca6e2e89f63e781696d1fd76b4b1d49e6720dee86463e915f6e90016ac
-recomputed cedc56ca6e2e89f63e781696d1fd76b4b1d49e6720dee86463e915f6e90016ac
-size 1766807 / 1766807 · structural_scan pass (v3, 0 tensors)
-one-bit corruption of the same file -> DIGEST_MISMATCH, quarantined
-```
-
-**Defect found and fixed during that run:** staging a corrupt file over an
-already-good cache returned `ALREADY_CACHED` without examining the staged
-bytes — an operator handing over a bad file would have been told it was fine.
-The staged file is now always verified when present.
-
-### B1 runner (`local_runtime_b1.py`)
-
-Enforced order: governance clearance → verified cached artifact → real backend
-with proxy environment stripped (load and both inferences run with no egress).
-Emits machine-readable evidence for artifact identity, backend identity, load
-and inference latency, RAM/VRAM, residency, outputs, failure and fallback.
-
-Current output against main:
-
-```
-b1_status REFUSED · refused_at governance_admission · real_generation false
-reason: the canonical record is not cleared for placement
-```
-
-That is the tool working correctly.
-
-### Backend
-
-`llama-cpp-python 0.3.35`, built from source on this host, health PASS, real
-CPU feature detection. Not added to `requirements.txt` — the adapter degrades
-to unhealthy without it and every real-engine test skips rather than faking.
+| ID | Status |
+|---|---|
+| **B6** RUNTIME_MAIN_RECONCILIATION | **CLOSED** |
+| **B5** SAFE_MODEL_ADMISSION | **CLOSED** |
+| B1 REAL_LOCAL_RUNTIME | **BLOCKED** — artifact unobtainable |
+| B2 / B3 / B4 / Wave 0 / baseline | blocked behind B1 |
 
 ---
 
-## B6 / B5 — unchanged, no regression
+## Owned end to end, nothing delegated
 
-Re-verified against current main: 1154 brain tests and CI green. Not revisited.
+| Step | Module / tool | State |
+|---|---|---|
+| Registry projection | `projection.py` | done |
+| Artifact identity | `identity.py` | done, lossless |
+| Admission policy | `admission_policy.py` | done, cannot self-relax |
+| Safe-artifact boundary | `admission.py` | done |
+| Structural scan | `scanner.py` | done, verified on a real GGUF |
+| **Governance clearance** | `clearance.py` + CLI | **done — was the hand-off, now mine** |
+| Staged intake | `staging.py` + CLI | done, verified on real bytes |
+| Acquisition | `acquisition.py` | done |
+| Cache / eviction | `cache.py` | done |
+| Scheduler, wake/sleep | `scheduler.py` | done |
+| Runtime mesh, negotiation | `runtime.py` | done |
+| llama.cpp backend | `backends/llama_cpp_python.py` | **real engine, health PASS** |
+| Execution evidence | `evidence.py` | done |
+| B1 runner | `local_runtime_b1.py` | done, every stage exercised |
+| Self-development | `selfdev.py` | done |
+
+### Clearance — the honest boundary
+
+A structural scan proves the container is well-formed. It is **not** a malware
+scan and cannot stand in for one. `malware_scan_status` becomes `pass` only
+when a signature engine actually ran and actually passed; a missing engine, an
+engine error, or an engine that raises are all `not_run`, and the tool refuses
+to clear. `--apply` is refused for any non-CLEARED result.
+
+Verified on this host: `NO_ARTIFACT` → `--apply` refused → registry
+byte-identical.
 
 ---
 
 ## Next exact task
 
-Blocked. When transport **and** governance clearance are both supplied, run the
-three commands above; `b1_status: PASS` closes B1 and B2 follows immediately
-(canonical route: ingress → task_router → Model Mesh → projection → scheduler →
-llama.cpp → Qwen), which is wired and waiting on the same artifact.
+Supply the artifact (one of the two routes above). Everything downstream is
+built, tested, and waiting. No code change is required at any step.
