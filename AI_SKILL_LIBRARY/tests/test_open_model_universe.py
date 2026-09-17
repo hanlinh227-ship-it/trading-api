@@ -109,14 +109,16 @@ class OpenModelUniverseContractTests(unittest.TestCase):
         self.assertIn("AI_SKILL_LIBRARY/v4/tools/validate_open_model_universe.py", text)
         self.assertIn('"validate_open_model_universe.py"', text)
 
-    def test_checked_in_registry_is_empty_authority_free_and_not_active(self):
+    def test_checked_in_registry_is_authority_free_and_not_automatically_active(self):
         data = yaml.safe_load(REGISTRY.read_text(encoding="utf-8"))
         self.assertEqual(data["registry_id"], "OPEN_MODEL_UNIVERSE")
-        self.assertEqual(data["models"], [])
+        self.assertEqual(len(data["models"]), 1)
         self.assertEqual(data["policy"]["cost_policy"], "OPEN_MODEL_ZERO_TOKEN_FIRST")
         self.assertEqual(data["policy"]["paid_fallback"], "NO_PAID_FALLBACK")
         self.assertIs(data["policy"]["registry_implies_activation"], False)
+        self.assertIs(data["policy"]["auto_download"], False)
         self.assertTrue(all(value is False for value in data["authority"].values()))
+        self.assertTrue(all(model.get("authority") is False for model in data["models"]))
 
     def test_lifecycle_vocabulary_and_safe_transitions_are_explicit(self):
         universe = load_tool("open_model_universe")
