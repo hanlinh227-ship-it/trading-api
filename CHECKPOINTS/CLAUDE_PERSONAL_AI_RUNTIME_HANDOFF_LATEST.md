@@ -12,8 +12,8 @@
 |---|---|
 | Repository | `hanlinh227-ship-it/trading-api` |
 | Branch | `claude/magical-euler-uu98r8` |
-| HEAD SHA | `3c805aeeaa2b90811611b254aaea2c7a8c68a261` |
-| Base main SHA | `063c6217d00800a497ffd6b2e118d2cf5f72e5e8` |
+| HEAD SHA | `51d2afcb2a3b8dc0da7a13a2ae2add4a7930ee73` |
+| Base main SHA | `bc83f70f16de40be833f83702538479ede8157b1` |
 | behind_by | **0** |
 | ahead_by | 9 |
 | PR | [#428](https://github.com/hanlinh227-ship-it/trading-api/pull/428) — open, mergeable, not for automatic merge |
@@ -38,6 +38,47 @@ rewriting its history would invalidate every existing checkout and review anchor
 | B3 GOLDEN_E2E / B4 OFFLINE_E2E | blocked behind B2 | |
 
 ---
+
+## Canonical model record: MERGED and consumed
+
+The first canonical row landed on main via PR #433 and is consumed end to end
+through the normal contracts — no value copied from chat, all read from
+`AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml`.
+
+| Field | Value (read from main) |
+|---|---|
+| model_id | `qwen3-0.6b-q8_0-gguf` |
+| family / variant | `Qwen3` / `0.6B-Q8_0-GGUF` |
+| immutable_revision | `1eaf4d9657fe65ad10a51eab76a8db5b363bddaa` |
+| artifact.filename | `Qwen3-0.6B-Q8_0.gguf` |
+| artifact.sha256 | `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031` |
+| artifact.size_bytes | `639446688` |
+| artifact.format / quantization | `gguf` / `Q8_0` |
+| runtime_support | `llama_cpp` → `llama.cpp` |
+| context_window | `32768` |
+| lifecycle_state | `APPROVED` |
+
+Measured result of running the seam against it:
+
+```
+projection        ADMITTED     acquisition_eligible=true
+identity          complete     fingerprint=6c8e7c1b87fbc658c806a49440bc5426
+artifact_admitted true         (safe format, no pickle, no remote code)
+preconditions     ()           all acquisition gates pass
+acquisition       FAILED_TRANSPORT
+                  "URLError: Tunnel connection failed: 403 Forbidden"
+```
+
+Two findings worth the Work lane's attention, both fail-closed and both correct:
+
+* `capabilities: {}` means placement refuses **any** stated capability
+  requirement. The runtime will not assume a text model does text.
+* `minimum_ram_gb: null` blocks ordinary placement entirely. That is the
+  first-load chicken-and-egg the record's own `quarantine_policy` describes —
+  measurement comes from a separate budgeted run. The fix is never to let the
+  scheduler guess a RAM figure, and a test pins both behaviours.
+
+PR #434 is superseded and was not used.
 
 ## The one blocker: no model artifact is reachable from this environment
 
@@ -78,9 +119,19 @@ is worse than a blocked one.
 
 ### FIRST_VALID_MODEL_RECORD_REQUIRED
 
-Unblocking needs either an egress allowance for `huggingface.co` (plus
-`cdn-lfs.huggingface.co`), or the artifact staged into the environment by
-another route. Plus a registry row carrying:
+**Egress was requested twice in-session and is still denied.** The gateway
+answered 403 to CONNECT for both `huggingface.co:443` and
+`cdn-lfs.huggingface.co:443` after each request. This cannot be lifted from
+inside the session: the policy is enforced by the environment's egress gateway,
+chosen when the environment was created, and no code in this repository can
+reach it. (Note the correct host is `cdn-lfs.huggingface.co` — `.co`, not
+`.com`.)
+
+Unblocking needs either an egress allowance applied to the **environment's
+network policy**, or the artifact securely staged into the filesystem by another
+route. Either path works: the runtime verifies size and SHA-256 against the
+bytes it actually has, so a staged artifact is accepted on identical evidence to
+a downloaded one. The registry row is no longer a gap — it carries:
 
 ```
 model_id, family, variant, upstream_revision (immutable, not main/latest/head),
