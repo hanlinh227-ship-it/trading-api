@@ -31,13 +31,15 @@ assert.equal(health.provider,'cloudflare_workers_ai');
 
 const client=createWorkersAiClient();
 
-// Text to image: prompt only, no reference, dimensions passed through.
+// Text to image: prompt only, no reference. flux-1-schnell declares only prompt and steps,
+// so width/height must be dropped rather than sent — sending them is what made the first
+// production probe fail with provider_request_failed.
 let result=await client.generate(env,{taskType:'TEXT_TO_IMAGE',prompt:'a blue square',width:512,height:512});
 assert.equal(result.ok,true);
 assert.equal(result.provider,'cloudflare_workers_ai');
 assert.equal(result.model,'@cf/black-forest-labs/flux-1-schnell');
 assert.equal(calls[0].input.prompt,'a blue square');
-assert.equal(calls[0].input.width,512);
+assert.equal(calls[0].input.width,undefined);
 
 // An edit task without a source image fails closed rather than rendering from the prompt.
 result=await client.generate(env,{taskType:'IMAGE_EDIT_GLOBAL',prompt:'make it night'});

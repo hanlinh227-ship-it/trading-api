@@ -200,6 +200,13 @@ runtime_activation:
   paid_route_on_allocation_exhaustion: forbidden
   runtime_health_probe_location: deployed_worker
   report_path: /brain/image/v3/activation
+  # A bound runtime is registered, not verified. Capability states stay UNVERIFIED until a
+  # probe in the same request proves the runtime answered; a binding alone never reads
+  # AVAILABLE, and a provider that fails its probe is not routed to.
+  capability_states: [AVAILABLE, UNVERIFIED, UNAVAILABLE, WAITING_FOR_FREE_COMPUTE, WAITING_FOR_SAFE_FREE_RUNTIME]
+  binding_presence_implies_available: false
+  unverified_runtime_action: report_unverified
+  provider_input_schema_must_match_model: true
 
 benchmark_suites:
   per_task_dimensions_required: true

@@ -38,12 +38,19 @@ assert.equal(payload.referenceSafeRuntime,'WAITING_FOR_SAFE_FREE_RUNTIME');
 assert.equal(payload.taskAvailability.REFERENCE_GENERATION,'WAITING_FOR_SAFE_FREE_RUNTIME');
 assert.equal(payload.taskAvailability.INPAINT,'WAITING_FOR_SAFE_FREE_RUNTIME');
 
+// A bound runtime is registered, not verified: production showed the binding present while
+// every generation failed. Unprobed it reports UNVERIFIED; only probe=1 upgrades it.
 payload=await get({...env,AI:{run:async()=>({})}});
-assert.equal(payload.referenceSafeRuntime,'AVAILABLE');
-assert.equal(payload.taskAvailability.REFERENCE_GENERATION,'AVAILABLE');
-assert.equal(payload.taskAvailability.IMAGE_EDIT_LOCAL,'AVAILABLE');
-assert.equal(payload.taskAvailability.INPAINT,'AVAILABLE');
+assert.equal(payload.referenceSafeRuntime,'UNVERIFIED');
+assert.equal(payload.taskAvailability.REFERENCE_GENERATION,'UNVERIFIED');
+assert.equal(payload.taskAvailability.IMAGE_EDIT_LOCAL,'UNVERIFIED');
+assert.equal(payload.taskAvailability.INPAINT,'UNVERIFIED');
+// Public text-to-image is also served by providers that need no binding, so it stays live.
 assert.equal(payload.taskAvailability.TEXT_TO_IMAGE,'AVAILABLE');
+
+const verified=await (await handleImageRenderV3(new Request('https://x/brain/image/v3/capabilities?probe=1',{headers:auth}),{...env,AI:{run:async()=>({image:'x'})}})).json();
+assert.equal(verified.referenceSafeRuntime,'AVAILABLE');
+assert.equal(verified.taskAvailability.REFERENCE_GENERATION,'AVAILABLE');
 // A task no registered provider serves still waits rather than being claimed.
 assert.equal(payload.taskAvailability.MULTI_IMAGE_COMPOSE,'WAITING_FOR_SAFE_FREE_RUNTIME');
 

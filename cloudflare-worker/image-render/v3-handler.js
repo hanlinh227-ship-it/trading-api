@@ -13,20 +13,40 @@ import {cancelImageLogicalJob,createImageLogicalJob,getImageLogicalJobStatus,ret
 // Tasks that can only run on a runtime allowed to receive the reference/source image.
 const REFERENCE_SAFE_TASKS=new Set(['REFERENCE_GENERATION','CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY','IMAGE_EDIT_GLOBAL','IMAGE_EDIT_LOCAL','INPAINT','OUTPAINT','BACKGROUND_REPLACE','OBJECT_REPLACE','TEXT_RENDER_EDIT','MULTI_IMAGE_COMPOSE','STYLE_TRANSFER','TARGETED_REPAIR']);
 
-// A supported intent is not an executable capability: a task is only AVAILABLE when a
-// registered FREE provider can actually run it today, and reference work that has no
-// reference-safe free runtime waits rather than being reported as live.
-function taskAvailability(registrations=[]){
+// A supported intent is not an executable capability, and a bound runtime is not a working
+// one. Production proved the difference: the AI binding was present while every generation
+// failed. So a provider whose runtime has not been verified this request reports UNVERIFIED
+// rather than AVAILABLE, and only a passing probe upgrades it.
+function providerState(registration,probedByProvider){
+  if(!probedByProvider)return 'UNVERIFIED';
+  const probed=probedByProvider.get(registration.providerId);
+  if(!probed)return 'UNVERIFIED';
+  if(probed.health?.ok===true)return 'AVAILABLE';
+  if(probed.health?.waitState==='WAITING_FOR_FREE_COMPUTE')return 'WAITING_FOR_FREE_COMPUTE';
+  return 'UNAVAILABLE';
+}
+
+// A provider reached over the network is exercised by its own adapter during execution;
+// it does not depend on a binding, so it is not held at UNVERIFIED by a probe it skips.
+const requiresLocalBinding=registration=>registration.providerId==='cloudflare_workers_ai';
+
+function taskAvailability(registrations=[],probedByProvider=null){
   const availability={};
   for(const task of IMAGE_INTENT_TASKS){
     const needsReferenceSafe=REFERENCE_SAFE_TASKS.has(task);
-    const eligible=registrations.some(registration=>
+    const capable=registrations.filter(registration=>
       Array.isArray(registration.supportedTasks)&&registration.supportedTasks.includes(task)
       &&registration.monetaryCost==='zero'
       &&registration.paidFallback===false
       &&registration.autoPurchase===false
       &&(!needsReferenceSafe||registration.referenceSafe===true));
-    availability[task]=eligible?'AVAILABLE':(needsReferenceSafe?'WAITING_FOR_SAFE_FREE_RUNTIME':'WAITING_FOR_FREE_COMPUTE');
+    const waiting=needsReferenceSafe?'WAITING_FOR_SAFE_FREE_RUNTIME':'WAITING_FOR_FREE_COMPUTE';
+    if(capable.length===0){availability[task]=waiting;continue;}
+    const states=capable.map(registration=>requiresLocalBinding(registration)?providerState(registration,probedByProvider):'AVAILABLE');
+    if(states.includes('AVAILABLE'))availability[task]='AVAILABLE';
+    else if(states.includes('UNVERIFIED'))availability[task]='UNVERIFIED';
+    else if(states.includes('WAITING_FOR_FREE_COMPUTE'))availability[task]='WAITING_FOR_FREE_COMPUTE';
+    else availability[task]=waiting;
   }
   return availability;
 }
@@ -77,10 +97,22 @@ export async function handleImageRenderV3Authorized(request,env={}){
   if(url.pathname==='/brain/image/v3/capabilities'){
     if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
     const registrations=createImageProviderMesh({env}).listRegistrations();
-    const availability=taskAvailability(registrations);
+    // ?probe=1 verifies the bound runtime for real instead of trusting that it exists.
+    const capabilityProbe=url.searchParams.get('probe')==='1'?await probeImageRuntimes(env):null;
+    const probedByProvider=capabilityProbe?new Map(capabilityProbe.providers.map(entry=>[entry.providerId,entry])):null;
+    const availability=taskAvailability(registrations,probedByProvider);
     const critic=await visualCriticAvailability(env);
     const inference=await workersAiHealth(env);
-    const referenceSafeRuntime=Object.entries(availability).some(([task,state])=>REFERENCE_SAFE_TASKS.has(task)&&state==='AVAILABLE')?'AVAILABLE':'WAITING_FOR_SAFE_FREE_RUNTIME';
+    const workersAiState=registrations.some(r=>r.providerId==='cloudflare_workers_ai')
+      ?providerState({providerId:'cloudflare_workers_ai'},probedByProvider)
+      :'UNAVAILABLE';
+    // The reference-safe runtime state is whatever the reference tasks actually report,
+    // so it can never read AVAILABLE while those tasks are unverified or waiting.
+    const referenceStates=Object.entries(availability).filter(([task])=>REFERENCE_SAFE_TASKS.has(task)).map(([,state])=>state);
+    const referenceSafeRuntime=referenceStates.includes('AVAILABLE')?'AVAILABLE'
+      :referenceStates.includes('UNVERIFIED')?'UNVERIFIED'
+      :referenceStates.includes('WAITING_FOR_FREE_COMPUTE')?'WAITING_FOR_FREE_COMPUTE'
+      :'WAITING_FOR_SAFE_FREE_RUNTIME';
     return json({
       ok:true,
       contractVersion:'image_render_v3',
@@ -95,10 +127,14 @@ export async function handleImageRenderV3Authorized(request,env={}){
       referenceSafeRuntime,
       // STRICT_VISUAL is only ever verified when a real critic runtime answered. With no
       // critic the quality layer reports complete_unverified; nothing metadata-only passes.
-      visualCriticRuntime:critic.available?'AVAILABLE':'UNAVAILABLE',
+      // The critic shares the Workers AI runtime, so it is only AVAILABLE once that runtime
+      // has actually answered. Unverified means the quality layer still cannot claim a
+      // visual verification it has no evidence for.
+      visualCriticRuntime:critic.available?workersAiState:'UNAVAILABLE',
       visualCriticProvider:critic.provider,
       visualCriticModel:critic.model,
-      inferenceRuntime:inference.ok?'AVAILABLE':'UNAVAILABLE',
+      inferenceRuntime:inference.ok?workersAiState:'UNAVAILABLE',
+      runtimeVerifiedThisRequest:Boolean(capabilityProbe),
       modelVault:vaultSummary(loadApprovedModelVault()),
       privacy:{aiHordePublicOnly:true,referenceSafeRequired:true},
       quality:{strictVisualRequiresRealCritic:true,missingVisualCriticAction:'complete_unverified'},

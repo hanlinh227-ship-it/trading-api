@@ -86,11 +86,18 @@ jobs:
           for(const m of x.models)for(const t of m.tasks)console.log('IMAGE_ACTIVATION model='+m.modelId+' task='+t.taskType+' stage='+t.stage+' status='+t.status+' blockers='+t.blockers.join('|'));
           console.log('IMAGE_V3_ACTIVATION=PASS active='+x.summary.ACTIVE+' candidate='+x.summary.CANDIDATE+' bottleneck='+x.nextBottleneck);})"
 
-          capabilities="$(curl -fsS --connect-timeout 5 --max-time 20 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/v3/capabilities")"
+          # probe=1 so the reported states are verified rather than assumed: a bound runtime
+          # that does not answer must never read AVAILABLE.
+          capabilities="$(curl -fsS --connect-timeout 5 --max-time 45 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/v3/capabilities?probe=1")"
           printf '%s\n' "$capabilities" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);
           if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.localRuntimeRequired!==false)process.exit(12);
           // Reference work must stay fail-closed until a reference-safe free runtime exists.
-          if(x.referenceSafeRuntime!=='AVAILABLE'&&x.taskAvailability.REFERENCE_GENERATION!=='WAITING_FOR_SAFE_FREE_RUNTIME')process.exit(13);
-          console.log('IMAGE_V3_CAPABILITIES=PASS t2i='+x.taskAvailability.TEXT_TO_IMAGE+' ref='+x.taskAvailability.REFERENCE_GENERATION+' critic='+x.visualCriticRuntime);})"
+          if(x.runtimeVerifiedThisRequest!==true)process.exit(13);
+          // A runtime may only read AVAILABLE when the probe in this same request verified it.
+          const verified=['AVAILABLE','UNAVAILABLE','UNVERIFIED','WAITING_FOR_SAFE_FREE_RUNTIME','WAITING_FOR_FREE_COMPUTE'];
+          if(!verified.includes(x.referenceSafeRuntime)||!verified.includes(x.visualCriticRuntime))process.exit(14);
+          if(x.referenceSafeRuntime==='AVAILABLE'&&x.taskAvailability.REFERENCE_GENERATION!=='AVAILABLE')process.exit(15);
+          if(x.visualCriticRuntime==='AVAILABLE'&&x.inferenceRuntime!=='AVAILABLE')process.exit(16);
+          console.log('IMAGE_V3_CAPABILITIES=PASS t2i='+x.taskAvailability.TEXT_TO_IMAGE+' ref='+x.taskAvailability.REFERENCE_GENERATION+' refRuntime='+x.referenceSafeRuntime+' critic='+x.visualCriticRuntime+' inference='+x.inferenceRuntime);})"
 
           echo 'IMAGE_RENDER_V2_PRODUCTION_SMOKE=PASS'
