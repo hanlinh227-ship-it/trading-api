@@ -1,0 +1,82 @@
+{
+  "failure_paths": "PROVEN",
+  "cases": 6,
+  "held": 6,
+  "nothing_was_destroyed": true,
+  "canonical_registry_untouched": true,
+  "results": [
+    {
+      "case": "corrupt_artifact",
+      "expected_behaviour": "intake refuses on digest; nothing resolvable is cached and the bytes are kept as evidence",
+      "status": "DIGEST_MISMATCH",
+      "refused": true,
+      "nothing_resolvable_cached": true,
+      "resolvable_entries": [],
+      "quarantined_path": "/tmp/tmpil96p2hb/cache/quarantine/ee18e02cb87de9249cebf984aa0255b5-Q8_0.gguf",
+      "quarantined_files": [
+        "quarantine/ee18e02cb87de9249cebf984aa0255b5-Q8_0.gguf"
+      ],
+      "evidence_kept": true,
+      "expected_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+      "recomputed_sha256": "105df5f7e70c2400b5f1286b3bb59531c3630d7420d8d227707a5c3412db4605"
+    },
+    {
+      "case": "truncated_artifact",
+      "expected_behaviour": "structural scan fails cleanly without raising",
+      "status": "fail",
+      "refused": true,
+      "findings": [
+        "declared length 8 at offset 24 runs past end of file (24)"
+      ],
+      "satisfies_malware_scan_status": false
+    },
+    {
+      "case": "wrong_file_type",
+      "expected_behaviour": "structural scan refuses a non-GGUF",
+      "status": "unsupported",
+      "refused": true
+    },
+    {
+      "case": "circuit_breaker",
+      "expected_behaviour": "opens on repeated failure and closes again after recovery",
+      "allowed_initially": true,
+      "state_after_threshold_failures": "OPEN",
+      "allowed_after_threshold_failures": false,
+      "allowed_after_cooldown": true,
+      "state_after_success": "CLOSED",
+      "allowed_after_success": true,
+      "behaves_correctly": true
+    },
+    {
+      "case": "failure_classification",
+      "expected_behaviour": "an unrecognised failure is UNKNOWN, not benign",
+      "MemoryError": "OOM",
+      "TimeoutError": "TIMEOUT",
+      "novel_exception": "UNKNOWN",
+      "unknown_is_not_benign": true
+    },
+    {
+      "case": "quarantined_not_placeable",
+      "expected_behaviour": "a quarantined model is never placeable",
+      "models": [
+        {
+          "model_id": "microsoft/bitnet-b1.58-2B-4T-gguf",
+          "placeable": false,
+          "reasons": [
+            "governance state QUARANTINED is blocked by the admission policy",
+            "quarantine_status='quarantined'; policy requires 'clear'"
+          ]
+        },
+        {
+          "model_id": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
+          "placeable": false,
+          "reasons": [
+            "governance state QUARANTINED is blocked by the admission policy",
+            "quarantine_status='quarantined'; policy requires 'clear'"
+          ]
+        }
+      ],
+      "refused": true
+    }
+  ]
+}
