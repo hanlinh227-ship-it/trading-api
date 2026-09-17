@@ -123,7 +123,9 @@ export function sanitizeWorkersAiError(error){
     .replace(/(authorization\s*:\s*bearer\s+)[^\s,;]+/gi,'$1[REDACTED]')
     .replace(/(bearer\s+)[A-Za-z0-9._~+\/-]+/gi,'$1[REDACTED]')
     .replace(/((?:api[-_ ]?key|token|secret|password)\s*[:=]\s*)[^\s,;]+/gi,'$1[REDACTED]');
-  if(message.length>240)message=`${message.slice(0,237)}...`;
+  // Long enough to keep the part that names the cause. Truncating at 240 cut every hosted
+  // pipeline error off exactly where it was about to say what was wrong.
+  if(message.length>1000)message=`${message.slice(0,997)}...`;
   return {
     ...(Number.isFinite(status)&&status>0?{status}:{}),
     ...(code?{code}:{}),
