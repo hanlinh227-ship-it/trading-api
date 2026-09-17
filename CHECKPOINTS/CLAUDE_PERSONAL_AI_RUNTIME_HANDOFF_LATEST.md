@@ -1,6 +1,6 @@
 # Claude Personal AI Runtime — Handoff
 
-**Lane:** Claude Code, implementation-heavy runtime lane
+**Role:** Claude Code — PRIMARY IMPLEMENTATION WORKER (single Web Commander coordination)
 **Project:** Open Model Universe / Personal AI Federation
 **Updated:** 2026-09-17
 
@@ -24,6 +24,28 @@ The coordinator's quoted `8acafcf2` was already stale on arrival; the branch is
 reconciled against the newest `origin/main` above, not that SHA. Integration was
 by **merge**, not rebase: the branch is published and PR #428 references it, so
 rewriting its history would invalidate every existing checkout and review anchor.
+
+---
+
+## Verified state
+
+Re-verified at exact HEAD, not carried forward from an earlier run:
+
+| Check | Result |
+|---|---|
+| HEAD | `c8820612c3ffaae9170c08aa34e36666e6d44331` |
+| origin/main | `bc83f70f16de40be833f83702538479ede8157b1` |
+| behind_by / ahead_by | **0** / 14 |
+| `ci_validate.py --source-sha $(git rev-parse HEAD)` | **CI_VALIDATE=PASS failures=0** |
+| Brain suite | 1000 passed, 4 skipped |
+| Repo suite | 46 passed |
+| Canonical registry rows | 1 — `qwen3-0.6b-q8_0-gguf` |
+| `huggingface.co:443` | **403 CONNECT (denied)** |
+| `cdn-lfs.huggingface.co:443` | **403 CONNECT (denied)** |
+| Staged GGUF anywhere on host | none (`find / -name '*.gguf' -size +10M` → empty) |
+| `LOCAL_RUNTIME_TEST_GGUF` | unset |
+
+The one skipped lane test is the real-generation hook, waiting on an artifact.
 
 ---
 
