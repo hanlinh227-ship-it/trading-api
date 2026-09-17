@@ -44,7 +44,7 @@
     },
     {
       "check": "model_admission",
-      "requirement": "every mesh-eligible model holds a scan or an acceptance, never both, bound to its own bytes",
+      "requirement": "every mesh-eligible model holds a scan or a live acceptance, never both, bound to its own bytes",
       "passed": true,
       "failures": []
     },
