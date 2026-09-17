@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "authority": false,
+  "routing_authority": false,
+  "reasoning_authority": false,
+  "execution_authority": false,
+  "stable_mutation": false,
+  "active": null,
+  "on_missing_focus": "no_resume",
+  "on_ambiguous_focus": "no_resume",
+  "write_mode": "candidate_only",
+  "cross_project_read": false,
+  "cross_project_write": false,
+  "requires_verified_project_handoff": true,
+  "current_project_authority_wins": true,
+  "note": "Foreground continuity pointer. Update only from a verified project handoff; fail closed when no unique foreground project is verified."
+}
