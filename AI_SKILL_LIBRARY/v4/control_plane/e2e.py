@@ -9,7 +9,7 @@ _TRACE = [
     "brain_synthesis", "response", "warm_sleep",
 ]
 _RUNTIME_FIELDS = {
-    "artifact_identity", "runtime", "runtime_version", "started_at", "ended_at",
+    "artifact_identity", "runtime", "runtime_version", "offline", "started_at", "ended_at",
     "load_latency_ms", "inference_latency_ms", "peak_ram_mb", "output", "raw_run_ref", "lifecycle",
 }
 
@@ -58,7 +58,7 @@ def run_golden_e2e(
     response = synthesis(prepared, execution, verification) if real_pass and verifier_pass else None
     b2 = real_pass
     b3 = b2 and verifier_pass and response is not None
-    b4 = b3 and str(execution.get("runtime", "")).lower() not in {"hosted_api", "cloud_api"}
+    b4 = b3 and execution.get("offline") is True and str(execution.get("runtime", "")).lower() not in {"hosted_api", "cloud_api"}
     return {
         "trace": list(_TRACE),
         "route": route,

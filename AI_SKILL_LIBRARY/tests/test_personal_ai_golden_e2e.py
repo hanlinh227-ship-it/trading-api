@@ -17,6 +17,7 @@ def real_runtime(_selection, _prepared):
     return {
         "real_inference": True, "synthetic": False, "fixture_only": False,
         "artifact_identity": IDENTITY, "runtime": "llama.cpp", "runtime_version": "1",
+        "offline": True,
         "started_at": "2026-09-17T00:00:00Z", "ended_at": "2026-09-17T00:00:01Z",
         "load_latency_ms": 10, "inference_latency_ms": 20, "peak_ram_mb": 100,
         "output": "4", "raw_run_ref": "run:1", "lifecycle": {"wake": True, "warm": True, "sleep": True},
@@ -53,6 +54,15 @@ class GoldenE2ETests(unittest.TestCase):
         result = self._run_case(verify=failed)
         self.assertTrue(result["B2_pass"])
         self.assertFalse(result["B3_pass"])
+        self.assertFalse(result["B4_pass"])
+
+    def test_offline_evidence_is_required_for_b4(self):
+        def online(selection, prepared):
+            row = real_runtime(selection, prepared); row["offline"] = False
+            return row
+        result = self._run_case(online)
+        self.assertTrue(result["B2_pass"])
+        self.assertTrue(result["B3_pass"])
         self.assertFalse(result["B4_pass"])
 
 
