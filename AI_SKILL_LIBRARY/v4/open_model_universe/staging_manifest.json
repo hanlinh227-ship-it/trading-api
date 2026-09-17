@@ -7,6 +7,24 @@
   "release_tag_prefix": "staged-model",
   "entries": [
     {
+      "id": "qwen3-0.6b-q8_0",
+      "family": "Qwen3",
+      "variant": "0.6B-Q8_0-GGUF",
+      "hf_repo": "Qwen/Qwen3-0.6B-GGUF",
+      "filename": "Qwen3-0.6B-Q8_0.gguf",
+      "source_run_id": 35200311835,
+      "artifact_name": "canonical-qwen3-0.6b-q8_0-gguf",
+      "expected_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+      "size_bytes": 639446688,
+      "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+      "revision_status": "verified_by_lfs_oid",
+      "size_tier": "S",
+      "release_tag": "canonical-qwen3-0.6b-q8_0",
+      "license_declared": "apache-2.0",
+      "license_source": "huggingface_api_via_ci",
+      "note": "Added so the existing CI scan lane covers the one model still resting on an operator risk acceptance. Its artifact predates that lane; nothing about the acceptance is rewritten by scanning it."
+    },
+    {
       "id": "qwen3-1.7b-q8_0",
       "family": "Qwen3",
       "variant": "1.7B-Q8_0-GGUF",
