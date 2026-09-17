@@ -17,5 +17,7 @@ assert.match(workflow,/validate-universal-canary\.mjs/,'Universal canary must ga
 assert.match(canary,/UNIVERSAL_BRAIN_HEALTH=PASS/,'Universal canary must report Brain health success');
 assert.match(canary,/UNIVERSAL_ADAPTER_CANARY=PASS/,'Universal canary must report adapter-route success');
 assert.match(canary,/UNIVERSAL_HIGH_RISK_FAIL_CLOSED=PASS/,'Universal canary must report the high-risk fail-closed proof');
+assert.match(canary,/UNIVERSAL_PROJECT_CONTINUITY=PASS/,'Universal canary must report cross-session project continuity proof');
+assert.match(canary,/UNIVERSAL_PROJECT_ISOLATION=PASS/,'Universal canary must report production project-isolation proof');
 assert.match(workflow,/name: Roll back to previously live exact revision\n\s+if: failure\(\)/,'Universal canary failures must reuse deterministic rollback');
 console.log('UNIVERSAL_DEPLOY_SAFETY_TESTS=PASS');

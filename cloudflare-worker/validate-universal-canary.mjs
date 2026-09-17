@@ -16,16 +16,20 @@ function sanitizeCheck(value,tokens){
   for(const term of FORBIDDEN_RESPONSE_TERMS)if(text.includes(term))throw new Error(`UNIVERSAL_CANARY_FORBIDDEN_RESPONSE_FIELD:${term}`);
   for(const token of Object.values(tokens))if(token&&text.includes(token))throw new Error('UNIVERSAL_CANARY_TOKEN_ECHO');
 }
-async function requestJson(fetchImpl,baseUrl,path,{clientId,token,body}={}){
+async function requestJsonStatus(fetchImpl,baseUrl,path,{clientId,token,body,method}={}){
   const headers={'x-brain-client':clientId,authorization:`Bearer ${token}`};
-  const init={method:body===undefined?'GET':'POST',headers};
+  const init={method:method||(body===undefined?'GET':'POST'),headers};
   if(body!==undefined){headers['content-type']='application/json';init.body=JSON.stringify(body);}
   const response=await fetchImpl(`${baseUrl}${path}`,init);
   const text=await response.text();
   let value;
   try{value=JSON.parse(text);}catch{throw new Error(`UNIVERSAL_CANARY_INVALID_JSON:${path}`);}
-  if(!response.ok)throw new Error(`UNIVERSAL_CANARY_HTTP_${response.status}:${path}`);
-  return value;
+  return {status:response.status,ok:response.ok,value};
+}
+async function requestJson(fetchImpl,baseUrl,path,options={}){
+  const result=await requestJsonStatus(fetchImpl,baseUrl,path,options);
+  if(!result.ok)throw new Error(`UNIVERSAL_CANARY_HTTP_${result.status}:${path}`);
+  return result.value;
 }
 
 export async function runUniversalCanary({baseUrl,sourceSha,clients,fetchImpl=fetch}={}){
@@ -67,7 +71,76 @@ export async function runUniversalCanary({baseUrl,sourceSha,clients,fetchImpl=fe
     throw new Error('UNIVERSAL_HIGH_RISK_FAIL_CLOSED_FAILED');
   }
 
-  return Object.freeze({ok:true,sourceSha:expected,adapters:[...USER_ADAPTERS],highRiskFailClosed:true});
+  const suffix=expected.slice(0,12);
+  const projectId=`canary-${suffix}`;
+  const statePath=`/brain/project/state?project_id=${encodeURIComponent(projectId)}`;
+  const initial=await requestJsonStatus(fetchImpl,endpoint,statePath,{clientId:primary,token:primaryToken,method:'GET'});
+  sanitizeCheck(initial.value,clients);
+  let previousVersion=0;
+  if(initial.status===200&&initial.value?.ok===true&&initial.value?.state?.project_id===projectId&&Number.isInteger(initial.value?.state?.version)){
+    previousVersion=initial.value.state.version;
+  }else if(!(initial.status===404&&initial.value?.error==='project_not_initialized')){
+    throw new Error('UNIVERSAL_PROJECT_STATE_READ_FAILED');
+  }
+
+  const jobRef={subsystem:'image-v3',job_id:`canary-image-${suffix}`,state:'canary-pointer'};
+  const handoff={summary:`continuity-canary:${suffix}`,blockers:[],next_actions:[`resume-canary-${suffix}`],refs:[`source-${suffix}`]};
+  const updateBody={
+    project_id:projectId,
+    expected_version:previousVersion,
+    active_phase:'production-continuity-canary',
+    status:'canary-ready',
+    latest_handoff:handoff,
+    job_refs:[jobRef],
+  };
+  const written=await requestJsonStatus(fetchImpl,endpoint,'/brain/project/state',{clientId:primary,token:primaryToken,method:'PUT',body:updateBody});
+  sanitizeCheck(written.value,clients);
+  const writtenState=written.value?.state;
+  if(written.status!==200||written.value?.ok!==true||writtenState?.project_id!==projectId||writtenState?.version!==previousVersion+1||writtenState?.updated_by!=='chatgpt'||writtenState?.latest_handoff?.summary!==handoff.summary){
+    throw new Error('UNIVERSAL_PROJECT_STATE_WRITE_FAILED');
+  }
+  if(JSON.stringify(writtenState?.job_refs)!==JSON.stringify([jobRef]))throw new Error('UNIVERSAL_PROJECT_JOB_POINTER_FAILED');
+
+  const claudeToken=String(clients.claude);
+  const bootstrap=await requestJson(fetchImpl,endpoint,`/brain/bootstrap?project_id=${encodeURIComponent(projectId)}`,{clientId:'claude',token:claudeToken,method:'GET'});
+  sanitizeCheck(bootstrap,clients);
+  const bootState=bootstrap?.project?.state;
+  if(bootstrap?.ok!==true||bootstrap?.clientId!=='claude'||bootstrap?.sourceSha!==expected||bootstrap?.project?.initialized!==true||bootState?.project_id!==projectId||bootState?.version!==writtenState.version||bootState?.updated_by!=='chatgpt'||bootState?.latest_handoff?.summary!==handoff.summary||JSON.stringify(bootstrap?.jobRefs)!==JSON.stringify([jobRef])){
+    throw new Error('UNIVERSAL_PROJECT_BOOTSTRAP_FAILED');
+  }
+
+  const staleBody={...updateBody,active_phase:'stale-write-must-not-land',status:'stale-write-must-not-land'};
+  const stale=await requestJsonStatus(fetchImpl,endpoint,'/brain/project/state',{clientId:'claude',token:claudeToken,method:'PUT',body:staleBody});
+  sanitizeCheck(stale.value,clients);
+  if(stale.status!==409||stale.value?.ok!==false||stale.value?.error!=='project_state_conflict'||stale.value?.currentVersion!==writtenState.version){
+    throw new Error('UNIVERSAL_PROJECT_STALE_WRITE_NOT_BLOCKED');
+  }
+
+  const isolationProjectId=`isolation-${suffix}`;
+  const isolated=await requestJsonStatus(fetchImpl,endpoint,`/brain/project/state?project_id=${encodeURIComponent(isolationProjectId)}`,{clientId:'claude',token:claudeToken,method:'GET'});
+  sanitizeCheck(isolated.value,clients);
+  if(isolated.status===200){
+    const isolatedState=isolated.value?.state;
+    const isolatedText=JSON.stringify(isolated.value);
+    if(isolated.value?.ok!==true||isolatedState?.project_id!==isolationProjectId||isolatedText.includes(projectId)||isolatedText.includes(handoff.summary)||isolatedText.includes(jobRef.job_id)){
+      throw new Error('UNIVERSAL_PROJECT_ISOLATION_FAILED');
+    }
+  }else if(!(isolated.status===404&&isolated.value?.error==='project_not_initialized')){
+    throw new Error('UNIVERSAL_PROJECT_ISOLATION_FAILED');
+  }
+
+  return Object.freeze({
+    ok:true,
+    sourceSha:expected,
+    adapters:[...USER_ADAPTERS],
+    highRiskFailClosed:true,
+    projectContinuity:true,
+    staleWriteBlocked:true,
+    projectIsolation:true,
+    projectId,
+    isolationProjectId,
+    projectVersion:writtenState.version,
+  });
 }
 
 async function main(){
@@ -84,6 +157,8 @@ async function main(){
   console.log(`UNIVERSAL_BRAIN_HEALTH=PASS sourceSha=${result.sourceSha}`);
   console.log(`UNIVERSAL_ADAPTER_CANARY=PASS ${result.adapters.join(' ')}`);
   console.log('UNIVERSAL_HIGH_RISK_FAIL_CLOSED=PASS');
+  console.log(`UNIVERSAL_PROJECT_CONTINUITY=PASS projectId=${result.projectId} version=${result.projectVersion} staleWriteBlocked=${result.staleWriteBlocked}`);
+  console.log(`UNIVERSAL_PROJECT_ISOLATION=PASS projectId=${result.projectId} isolatedProjectId=${result.isolationProjectId}`);
 }
 
 if(import.meta.url===`file://${process.argv[1]}`){

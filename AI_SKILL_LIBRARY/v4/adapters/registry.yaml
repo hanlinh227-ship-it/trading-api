@@ -4,19 +4,19 @@ adapters:
   - id: chatgpt
     principal_type: user
     token_binding: BRAIN_CLIENT_CHATGPT_TOKEN
-    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
+    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health, brain.bootstrap, brain.read_project_state, brain.write_project_state]
     routing_authority: false
     reasoning_authority: false
   - id: claude
     principal_type: user
     token_binding: BRAIN_CLIENT_CLAUDE_TOKEN
-    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
+    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health, brain.bootstrap, brain.read_project_state, brain.write_project_state]
     routing_authority: false
     reasoning_authority: false
   - id: gemini
     principal_type: user
     token_binding: BRAIN_CLIENT_GEMINI_TOKEN
-    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health]
+    scopes: [brain.route, brain.read_context, brain.submit_candidate_memory, brain.use_research_tools, brain.read_runtime_health, brain.bootstrap, brain.read_project_state, brain.write_project_state]
     routing_authority: false
     reasoning_authority: false
   - id: evergreen
