@@ -131,7 +131,18 @@ def build_record(entry: Mapping[str, Any], verified: Mapping[str, Any],
         gaps.append("license_undeclared_upstream")
 
     revision = entry.get("immutable_revision")
-    if not revision or entry.get("revision_status") != "verified_by_lfs_oid":
+    # Two ways a revision can be established, and both are real provenance:
+    #
+    #   verified_by_lfs_oid  the staged digest matches that revision's LFS OID,
+    #                        so the revision is shown to serve these bytes;
+    #   pinned_at_download   the bytes were fetched *from* resolve/<revision>,
+    #                        which is if anything stronger - there is no window
+    #                        in which the ref could have moved.
+    #
+    # Anything else - an unresolved lookup, a mutable ref, a status this tool
+    # does not recognise - is not provenance and leaves the model quarantined.
+    if not revision or entry.get("revision_status") not in {"verified_by_lfs_oid",
+                                                            "pinned_at_download"}:
         gaps.append("immutable_revision_unverified")
 
     structural = verified.get("structural_scan") or {}

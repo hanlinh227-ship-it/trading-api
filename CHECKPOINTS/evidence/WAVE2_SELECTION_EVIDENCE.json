@@ -1,62 +1,17 @@
 {
-  "version": 1,
-  "authority": false,
-  "routing_authority": false,
-  "reasoning_authority": false,
-  "notes": "Transport manifest. Names which staged Actions artifacts to republish as release assets and what bytes each must contain. Staging is transport only: nothing here admits a model, grants Model Mesh eligibility, or implies activation. Every entry must still earn its own admission evidence. Immutable revisions were resolved by matching each file's Hugging Face LFS OID - which is its SHA-256 - against the staged digest, so each revision is proven to serve these exact bytes rather than assumed from a ref that may have moved.",
-  "release_tag_prefix": "staged-model",
+  "wave": "wave2",
+  "selected": 5,
+  "deferred": 6,
+  "total_selected_bytes": 8358470368,
+  "written_to_manifest": [
+    "smollm2-360m-instruct-gguf-q8-0",
+    "bitnet-b1.58-2b-4t-gguf-i2-s",
+    "ministral-3-3b-reasoning-2512-gguf-q4-k-m",
+    "granite-4.2-3b-gguf-q4-k-m",
+    "phi-3-mini-4k-instruct-gguf-q4"
+  ],
+  "admits_nothing": true,
   "entries": [
-    {
-      "id": "qwen3-1.7b-q8_0",
-      "family": "Qwen3",
-      "variant": "1.7B-Q8_0-GGUF",
-      "hf_repo": "Qwen/Qwen3-1.7B-GGUF",
-      "filename": "Qwen3-1.7B-Q8_0.gguf",
-      "source_run_id": 35201035730,
-      "artifact_name": "open-model-wave1-qwen3-1.7b-q8_0",
-      "expected_sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
-      "immutable_revision": "90862c4b9d2787eaed51d12237eafdfe7c5f6077",
-      "size_tier": "A",
-      "revision_status": "verified_by_lfs_oid",
-      "size_bytes": 1834426016,
-      "release_tag": "staged-model-qwen3-1.7b-q8_0"
-    },
-    {
-      "id": "qwen3-4b-q4_k_m",
-      "family": "Qwen3",
-      "variant": "4B-Q4_K_M-GGUF",
-      "hf_repo": "Qwen/Qwen3-4B-GGUF",
-      "filename": "Qwen3-4B-Q4_K_M.gguf",
-      "source_run_id": 35201035730,
-      "artifact_name": "open-model-wave1-qwen3-4b-q4_k_m",
-      "expected_sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
-      "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
-      "size_tier": "B",
-      "revision_status": "verified_by_lfs_oid",
-      "size_bytes": 2497280256,
-      "release_tag": "staged-model-qwen3-4b-q4_k_m",
-      "release_parts": [
-        "Qwen3-4B-Q4_K_M.gguf.part00",
-        "Qwen3-4B-Q4_K_M.gguf.part01"
-      ],
-      "reassembly_required": true,
-      "reassembly_note": "Exceeds the 2 GiB release-asset cap. Parts are concatenated in order and the SHA-256 of the whole reassembled file is verified; parts are never verified individually in place of the whole."
-    },
-    {
-      "id": "granite-3.3-2b-instruct-q4_k_m",
-      "family": "Granite",
-      "variant": "3.3-2B-Instruct-Q4_K_M-GGUF",
-      "hf_repo": "ibm-granite/granite-3.3-2b-instruct-GGUF",
-      "filename": "granite-3.3-2b-instruct-Q4_K_M.gguf",
-      "source_run_id": 35201035730,
-      "artifact_name": "open-model-wave1-granite-3.3-2b-instruct-q4_k_m",
-      "expected_sha256": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
-      "immutable_revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
-      "size_tier": "A",
-      "revision_status": "verified_by_lfs_oid",
-      "size_bytes": 1545303328,
-      "release_tag": "staged-model-granite-3.3-2b-instruct-q4_k_m"
-    },
     {
       "id": "smollm2-360m-instruct-gguf-q8-0",
       "family": "SmolLM2",
@@ -136,6 +91,44 @@
       "size_tier": "A",
       "release_tag": "staged-model-phi-3-mini-4k-instruct-gguf-q4",
       "license_gap": "the prefetch index declares no licence for this repo; it must be fetched before admission and is never inferred from the family"
+    }
+  ],
+  "deferrals": [
+    {
+      "repo_id": "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF",
+      "size_bytes": 1055609536,
+      "tier": "A",
+      "deferred_because": "already selected a smollm2 model this wave; prefer a different family"
+    },
+    {
+      "repo_id": "google/gemma-4-E2B-it-qat-q4_0-gguf",
+      "size_bytes": 3349516256,
+      "tier": "B",
+      "deferred_because": "tier B at 3194 MB exceeds this wave's 2500 MB ceiling"
+    },
+    {
+      "repo_id": "Qwen/Qwen3-VL-8B-Thinking-GGUF",
+      "size_bytes": 5027784704,
+      "tier": "B",
+      "deferred_because": "tier B at 4794 MB exceeds this wave's 2500 MB ceiling"
+    },
+    {
+      "repo_id": "google/gemma-4-E4B-it-qat-q4_0-gguf",
+      "size_bytes": 5154941280,
+      "tier": "B",
+      "deferred_because": "tier B at 4916 MB exceeds this wave's 2500 MB ceiling"
+    },
+    {
+      "repo_id": "mistralai/Ministral-3-8B-Reasoning-2512-GGUF",
+      "size_bytes": 5198910368,
+      "tier": "B",
+      "deferred_because": "tier B at 4958 MB exceeds this wave's 2500 MB ceiling"
+    },
+    {
+      "repo_id": "ibm-granite/granite-4.2-8b-GGUF",
+      "size_bytes": 5347917952,
+      "tier": "B",
+      "deferred_because": "tier B at 5100 MB exceeds this wave's 2500 MB ceiling"
     }
   ]
 }
