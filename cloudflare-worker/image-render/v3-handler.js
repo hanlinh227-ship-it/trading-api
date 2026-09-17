@@ -4,30 +4,46 @@ import {loadApprovedModelVault} from './model-vault.js';
 import {getProviderAdapter,listProviderAdapters} from './provider-adapter-registry.js';
 import {describeProviderAdapter} from './provider-adapter.js';
 import {evaluateActivation} from './activation.js';
+import {buildStaticActivationEvidence} from './activation-evidence.js';
 import {BENCHMARK_SUITES} from './benchmark-suite.js';
 import {visualCriticAvailability} from './critic-runtime.js';
 import {workersAiHealth} from './workers-ai.js';
 import {probeImageRuntimes} from './runtime-probe.js';
 import {cancelImageLogicalJob,createImageLogicalJob,getImageLogicalJobStatus,retryImageLogicalJobScenes} from './logical-job-client.js';
 
-// Tasks that can only run on a runtime allowed to receive the reference/source image.
 const REFERENCE_SAFE_TASKS=new Set(['REFERENCE_GENERATION','CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY','IMAGE_EDIT_GLOBAL','IMAGE_EDIT_LOCAL','INPAINT','OUTPAINT','BACKGROUND_REPLACE','OBJECT_REPLACE','TEXT_RENDER_EDIT','MULTI_IMAGE_COMPOSE','STYLE_TRANSFER','TARGETED_REPAIR']);
 
-// A supported intent is not an executable capability, and a bound runtime is not a working
-// one. Production proved the difference: the AI binding was present while every generation
-// failed. So a provider whose runtime has not been verified this request reports UNVERIFIED
-// rather than AVAILABLE, and only a passing probe upgrades it.
-function providerState(registration,probedByProvider){
+const PROBE_TASK_GROUP=Object.freeze({
+  TEXT_TO_IMAGE:'TEXT_TO_IMAGE',
+  MULTI_SCENE_BATCH:'TEXT_TO_IMAGE',
+  REFERENCE_GENERATION:'REFERENCE_GENERATION',
+  IMAGE_EDIT_GLOBAL:'REFERENCE_GENERATION',
+  STYLE_TRANSFER:'REFERENCE_GENERATION',
+  IMAGE_EDIT_LOCAL:'INPAINT',
+  INPAINT:'INPAINT',
+  BACKGROUND_REPLACE:'INPAINT',
+  OBJECT_REPLACE:'INPAINT',
+  TARGETED_REPAIR:'INPAINT',
+});
+
+const evidenceState=evidence=>{
+  if(!evidence)return 'UNVERIFIED';
+  if(evidence.ok===true)return 'AVAILABLE';
+  if(evidence.waitState==='WAITING_FOR_FREE_COMPUTE')return 'WAITING_FOR_FREE_COMPUTE';
+  return 'UNAVAILABLE';
+};
+
+function providerState(registration,probedByProvider,taskType=null){
   if(!probedByProvider)return 'UNVERIFIED';
   const probed=probedByProvider.get(registration.providerId);
   if(!probed)return 'UNVERIFIED';
-  if(probed.health?.ok===true)return 'AVAILABLE';
-  if(probed.health?.waitState==='WAITING_FOR_FREE_COMPUTE')return 'WAITING_FOR_FREE_COMPUTE';
-  return 'UNAVAILABLE';
+  const probeKey=taskType?PROBE_TASK_GROUP[taskType]:null;
+  if(probeKey&&probed.taskHealth&&Object.prototype.hasOwnProperty.call(probed.taskHealth,probeKey)){
+    return evidenceState(probed.taskHealth[probeKey]);
+  }
+  return evidenceState(probed.health);
 }
 
-// A provider reached over the network is exercised by its own adapter during execution;
-// it does not depend on a binding, so it is not held at UNVERIFIED by a probe it skips.
 const requiresLocalBinding=registration=>registration.providerId==='cloudflare_workers_ai';
 
 function taskAvailability(registrations=[],probedByProvider=null){
@@ -42,7 +58,7 @@ function taskAvailability(registrations=[],probedByProvider=null){
       &&(!needsReferenceSafe||registration.referenceSafe===true));
     const waiting=needsReferenceSafe?'WAITING_FOR_SAFE_FREE_RUNTIME':'WAITING_FOR_FREE_COMPUTE';
     if(capable.length===0){availability[task]=waiting;continue;}
-    const states=capable.map(registration=>requiresLocalBinding(registration)?providerState(registration,probedByProvider):'AVAILABLE');
+    const states=capable.map(registration=>requiresLocalBinding(registration)?providerState(registration,probedByProvider,task):'AVAILABLE');
     if(states.includes('AVAILABLE'))availability[task]='AVAILABLE';
     else if(states.includes('UNVERIFIED'))availability[task]='UNVERIFIED';
     else if(states.includes('WAITING_FOR_FREE_COMPUTE'))availability[task]='WAITING_FOR_FREE_COMPUTE';
@@ -54,7 +70,6 @@ function taskAvailability(registrations=[],probedByProvider=null){
 function vaultSummary(entries=[]){
   const summary={CANDIDATE:0,BENCHMARKED:0,ACTIVE:0,DEGRADED:0,DISABLED:0};
   for(const entry of entries){
-    // A model is only counted ACTIVE when its runtime is actually configured.
     const status=entry.approvalStatus==='ACTIVE'&&entry.runtimeConfigured!==true?'BENCHMARKED':entry.approvalStatus;
     if(summary[status]!==undefined)summary[status]+=1;
   }
@@ -97,17 +112,15 @@ export async function handleImageRenderV3Authorized(request,env={}){
   if(url.pathname==='/brain/image/v3/capabilities'){
     if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
     const registrations=createImageProviderMesh({env}).listRegistrations();
-    // ?probe=1 verifies the bound runtime for real instead of trusting that it exists.
     const capabilityProbe=url.searchParams.get('probe')==='1'?await probeImageRuntimes(env):null;
     const probedByProvider=capabilityProbe?new Map(capabilityProbe.providers.map(entry=>[entry.providerId,entry])):null;
     const availability=taskAvailability(registrations,probedByProvider);
     const critic=await visualCriticAvailability(env);
     const inference=await workersAiHealth(env);
-    const workersAiState=registrations.some(r=>r.providerId==='cloudflare_workers_ai')
-      ?providerState({providerId:'cloudflare_workers_ai'},probedByProvider)
-      :'UNAVAILABLE';
-    // The reference-safe runtime state is whatever the reference tasks actually report,
-    // so it can never read AVAILABLE while those tasks are unverified or waiting.
+    const workersRegistration=registrations.find(r=>r.providerId==='cloudflare_workers_ai')||null;
+    const inferenceState=workersRegistration?providerState(workersRegistration,probedByProvider,'TEXT_TO_IMAGE'):'UNAVAILABLE';
+    const workersProbe=probedByProvider?.get('cloudflare_workers_ai')||null;
+    const criticState=capabilityProbe?evidenceState(workersProbe?.taskHealth?.VISUAL_CRITIC):'UNVERIFIED';
     const referenceStates=Object.entries(availability).filter(([task])=>REFERENCE_SAFE_TASKS.has(task)).map(([,state])=>state);
     const referenceSafeRuntime=referenceStates.includes('AVAILABLE')?'AVAILABLE'
       :referenceStates.includes('UNVERIFIED')?'UNVERIFIED'
@@ -125,15 +138,10 @@ export async function handleImageRenderV3Authorized(request,env={}){
       tasks:[...IMAGE_INTENT_TASKS],
       taskAvailability:availability,
       referenceSafeRuntime,
-      // STRICT_VISUAL is only ever verified when a real critic runtime answered. With no
-      // critic the quality layer reports complete_unverified; nothing metadata-only passes.
-      // The critic shares the Workers AI runtime, so it is only AVAILABLE once that runtime
-      // has actually answered. Unverified means the quality layer still cannot claim a
-      // visual verification it has no evidence for.
-      visualCriticRuntime:critic.available?workersAiState:'UNAVAILABLE',
+      visualCriticRuntime:critic.available?criticState:'UNAVAILABLE',
       visualCriticProvider:critic.provider,
       visualCriticModel:critic.model,
-      inferenceRuntime:inference.ok?workersAiState:'UNAVAILABLE',
+      inferenceRuntime:inference.ok?inferenceState:'UNAVAILABLE',
       runtimeVerifiedThisRequest:Boolean(capabilityProbe),
       modelVault:vaultSummary(loadApprovedModelVault()),
       privacy:{aiHordePublicOnly:true,referenceSafeRequired:true},
@@ -144,23 +152,28 @@ export async function handleImageRenderV3Authorized(request,env={}){
   if(url.pathname==='/brain/image/v3/activation'){
     if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
     const adapters=listProviderAdapters();
-    // ?probe=1 collects live runtime evidence. It costs a tiny amount of free allocation,
-    // so it is opt-in rather than run on every read of the report.
     const probe=url.searchParams.get('probe')==='1'?await probeImageRuntimes(env):null;
     const probedEvidence=new Map((probe?.providers||[]).map(entry=>[entry.providerId,entry]));
     const summary={CANDIDATE:0,RUNTIME_DISCOVERED:0,HEALTH_VERIFIED:0,LICENSE_VERIFIED:0,PRIVACY_VERIFIED:0,BENCHMARKED:0,ACTIVE:0,DEGRADED:0,DISABLED:0};
     const blockerCounts={};
     const models=loadApprovedModelVault().map(model=>{
       const tasks=(model.supportedTasks||[]).map(taskType=>{
-        // A model is evaluated against a provider that actually declares the task; with no
-        // such provider it stops at the first gate rather than being assumed runnable.
         const adapter=adapters.find(item=>(model.runtimeProviders||[]).includes(item.id)&&item.supportedTasks.includes(taskType))
           ||getProviderAdapter((model.runtimeProviders||[])[0])
           ||adapters[0];
-        // Recorded evidence, plus whatever this probe just verified for that provider.
+        const staticEvidence=buildStaticActivationEvidence({model,adapter,taskType});
         const recorded=model.activationEvidence?.[taskType]||{};
         const probed=probedEvidence.get(adapter?.id);
-        const evidence=probed?{...recorded,runtimeDiscovered:probed.runtimeDiscovered,health:probed.health}:recorded;
+        let health=probed?.health;
+        if(probed?.taskHealth){
+          const probeKey=model.criticSupport===true?'VISUAL_CRITIC':PROBE_TASK_GROUP[taskType];
+          if(probeKey&&probed.taskHealth[probeKey])health=probed.taskHealth[probeKey];
+        }
+        const evidence={...staticEvidence,...recorded};
+        if(probed){
+          evidence.runtimeDiscovered=probed.runtimeDiscovered;
+          evidence.health=health;
+        }
         const evaluation=evaluateActivation({model,adapter,taskType,evidence});
         if(summary[evaluation.status]!==undefined)summary[evaluation.status]+=1;
         for(const blocker of evaluation.blockers)blockerCounts[blocker]=(blockerCounts[blocker]||0)+1;
