@@ -166,7 +166,16 @@ export function createImageRenderBatchClass({
       delete record.bytes;
       if(!bytes||bytes.length===0)return {generation:record,bytes:null};
       const ref=assetKey(sceneId,attempt);
-      await this.storage.put(ref,{contentType:generation.contentType||'image/png',bytes,at:new Date(now()).toISOString()});
+      try{
+        await this.storage.put(ref,{contentType:generation.contentType||'image/png',bytes,at:new Date(now()).toISOString()});
+      }catch{
+        // An image the store will not take is a failed attempt, not a crashed alarm.
+        // Losing the cycle here would strand every other scene in the batch.
+        return {generation:{...record,assetRef:null,storeError:'image_render_asset_not_stored',byteLength:bytes.length},bytes:null};
+      }
+      // The superseded attempt's image has nothing left to serve, and keeping it would
+      // grow this batch's storage with every retry.
+      if(attempt>1)await Promise.resolve(this.storage.delete?.(assetKey(sceneId,attempt-1))).catch(()=>null);
       return {generation:{...record,assetRef:ref,byteLength:bytes.length},bytes};
     }
 
