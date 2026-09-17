@@ -15,7 +15,15 @@
 # infected artifact must be recorded as infected rather than quietly dropped.
 name: Wave 3 scan staged artifact
 
+# A dispatch-only workflow on a non-default branch is never registered for the
+# dispatch API - the call 404s. The push trigger is what makes this dispatchable
+# at all; a push carries no inputs, so the job reports that and stops rather
+# than scanning something nobody asked about.
 on:
+  push:
+    branches: ['claude/magical-euler-uu98r8']
+    paths:
+      - .github/workflows/wave3-scan-staged.yml
   workflow_dispatch:
     inputs:
       candidate:
@@ -32,6 +40,7 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Install a real signature engine
         shell: bash
