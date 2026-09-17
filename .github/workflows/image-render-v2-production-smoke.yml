@@ -75,15 +75,18 @@ jobs:
           status="$(curl -fsS --connect-timeout 5 --max-time 20 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/batch/status?id=$batch_id")"
           printf '%s\n' "$status" | BATCH_ID="$batch_id" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.state?.batch_id!==process.env.BATCH_ID||x.summary?.status!=='cancelled')process.exit(8);console.log('IMAGE_RENDER_BATCH_STATUS=PASS '+x.state.batch_id)})"
 
-          # probe=1 collects live runtime evidence with one tiny 256x256 generation, so the
-          # activation report reflects what actually answered in production.
+          # probe=1 collects live runtime evidence with one tiny generation per materially
+          # different capability, so activation reflects what actually answered in production.
           activation="$(curl -fsS --connect-timeout 5 --max-time 45 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/v3/activation?probe=1")"
           printf '%s\n' "$activation" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);
           if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.autoPurchase!==false)process.exit(9);
           if(!Array.isArray(x.models)||!Array.isArray(x.providers))process.exit(10);
           // A model reported ACTIVE in production must have a runtime provider behind it.
           for(const m of x.models){if(m.tasks.some(t=>t.status==='ACTIVE')&&(!m.runtimeProviders||m.runtimeProviders.length===0))process.exit(11);}
-          for(const p of (x.probe&&x.probe.providers)||[])console.log('IMAGE_RUNTIME_PROBE provider='+p.providerId+' discovered='+p.runtimeDiscovered.ok+' healthy='+p.health.ok+' detail='+p.health.detail);
+          for(const p of (x.probe&&x.probe.providers)||[]){
+            console.log('IMAGE_RUNTIME_PROBE provider='+p.providerId+' discovered='+p.runtimeDiscovered.ok+' healthy='+p.health.ok+' detail='+p.health.detail);
+            for(const [task,e] of Object.entries(p.taskHealth||{}))console.log('IMAGE_RUNTIME_TASK_PROBE provider='+p.providerId+' task='+task+' ok='+Boolean(e&&e.ok)+' model='+(e&&e.model||'none')+' detail='+(e&&e.detail||'none')+' waitState='+(e&&e.waitState||'none'));
+          }
           for(const m of x.models)for(const t of m.tasks)console.log('IMAGE_ACTIVATION model='+m.modelId+' task='+t.taskType+' stage='+t.stage+' status='+t.status+' blockers='+t.blockers.join('|'));
           console.log('IMAGE_V3_ACTIVATION=PASS active='+x.summary.ACTIVE+' candidate='+x.summary.CANDIDATE+' bottleneck='+x.nextBottleneck);})"
 
