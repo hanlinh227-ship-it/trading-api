@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "authority": false,
+  "routing_authority": false,
+  "reasoning_authority": false,
+  "notes": "Transport manifest. Names which staged Actions artifacts to republish as release assets and what bytes each must contain. Staging is transport only: nothing here admits a model, grants Model Mesh eligibility, or implies activation. Every entry must still earn its own admission evidence.",
+  "release_tag_prefix": "staged-model",
+  "entries": [
+    {
+      "id": "qwen3-1.7b-q8_0",
+      "family": "Qwen3",
+      "variant": "1.7B-Q8_0-GGUF",
+      "hf_repo": "Qwen/Qwen3-1.7B-GGUF",
+      "filename": "Qwen3-1.7B-Q8_0.gguf",
+      "source_run_id": 35201035730,
+      "artifact_name": "open-model-wave1-qwen3-1.7b-q8_0",
+      "expected_sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+      "immutable_revision": null,
+      "provenance_gap": "staged from the mutable ref resolve/main; the bytes are pinned by digest but the upstream revision is not yet recorded. The republish job resolves which immutable revision actually contains this digest and records it. Until that lands, provenance_verified must not be set true.",
+      "size_tier": "A"
+    },
+    {
+      "id": "qwen3-4b-q4_k_m",
+      "family": "Qwen3",
+      "variant": "4B-Q4_K_M-GGUF",
+      "hf_repo": "Qwen/Qwen3-4B-GGUF",
+      "filename": "Qwen3-4B-Q4_K_M.gguf",
+      "source_run_id": 35201035730,
+      "artifact_name": "open-model-wave1-qwen3-4b-q4_k_m",
+      "expected_sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "immutable_revision": null,
+      "provenance_gap": "staged from the mutable ref resolve/main; see qwen3-1.7b-q8_0.",
+      "size_tier": "B"
+    },
+    {
+      "id": "granite-3.3-2b-instruct-q4_k_m",
+      "family": "Granite",
+      "variant": "3.3-2B-Instruct-Q4_K_M-GGUF",
+      "hf_repo": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+      "filename": "granite-3.3-2b-instruct-Q4_K_M.gguf",
+      "source_run_id": 35201035730,
+      "artifact_name": "open-model-wave1-granite-3.3-2b-instruct-q4_k_m",
+      "expected_sha256": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+      "immutable_revision": null,
+      "provenance_gap": "staged from the mutable ref resolve/main; see qwen3-1.7b-q8_0.",
+      "size_tier": "A"
+    }
+  ]
+}

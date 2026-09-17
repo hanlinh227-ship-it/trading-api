@@ -1,0 +1,99 @@
+{
+  "request": "What is the capital of France?",
+  "model_named_at_ingress": false,
+  "trace": [
+    "ingress",
+    "task_router",
+    "task_decomposition",
+    "model_mesh",
+    "runtime_scheduler",
+    "wake_load",
+    "real_inference",
+    "verifier",
+    "brain_synthesis",
+    "response",
+    "warm_sleep"
+  ],
+  "route": {
+    "routed_by": "task_router",
+    "domain": "core",
+    "primary_skill": "core_reasoning",
+    "profile": "STANDARD"
+  },
+  "selection": {
+    "primary_model": {
+      "candidate_key": "local_runtime:Qwen/Qwen3-0.6B-GGUF",
+      "artifact_identity": {
+        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "family": "Qwen3",
+        "variant": "0.6B-Q8_0-GGUF",
+        "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+        "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+        "size_bytes": 639446688,
+        "format": "gguf",
+        "quantization": "Q8_0"
+      }
+    },
+    "supporting_models": [],
+    "verifier": "core_reasoning",
+    "fallback_chain": [],
+    "evidence_refs": [],
+    "resource_plan": {},
+    "rejections": []
+  },
+  "runtime_evidence": {
+    "real_inference": true,
+    "synthetic": false,
+    "fixture_only": false,
+    "artifact_identity": {
+      "model_id": "Qwen/Qwen3-0.6B-GGUF",
+      "family": "Qwen3",
+      "variant": "0.6B-Q8_0-GGUF",
+      "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+      "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+      "size_bytes": 639446688,
+      "format": "gguf",
+      "quantization": "Q8_0"
+    },
+    "runtime": "llama.cpp",
+    "runtime_version": "llama-cpp-python/0.3.35",
+    "offline": true,
+    "started_at": "2026-09-17T09:12:37.431+00:00",
+    "ended_at": "2026-09-17T09:12:41.771+00:00",
+    "load_latency_ms": 2756.337,
+    "inference_latency_ms": 766.811,
+    "warm_inference_latency_ms": 734.334,
+    "peak_ram_mb": 1829.0,
+    "output": " It is a question that has been asked by many and is perhaps even more important to the question of how to approach the",
+    "warm_output": " What is the capital of Germany? What is the capital of Italy? What is the capital of Japan? What is the",
+    "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b3-1789636356",
+    "lifecycle": {
+      "wake": true,
+      "warm": true,
+      "sleep": true
+    },
+    "tokens_input": 7,
+    "tokens_output": 24
+  },
+  "verification": {
+    "passed": true,
+    "failures": [],
+    "evidence_refs": [
+      "ee18e02cb87de9249cebf984aa0255b5:b3-1789636356"
+    ],
+    "verifier": "core_reasoning"
+  },
+  "response": {
+    "request_id": "b3-1789636356",
+    "answer": " It is a question that has been asked by many and is perhaps even more important to the question of how to approach the",
+    "verified": true,
+    "evidence_refs": [
+      "ee18e02cb87de9249cebf984aa0255b5:b3-1789636356"
+    ],
+    "produced_by": "llama.cpp"
+  },
+  "failures": [],
+  "B2_pass": true,
+  "B3_pass": true,
+  "B4_pass": true
+}
