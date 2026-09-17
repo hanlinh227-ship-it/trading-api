@@ -1,12 +1,12 @@
 {
   "tool": "wave3_federation_proof",
   "profile": "STANDARD",
-  "rounds_run": 6,
-  "rounds_passed": 6,
+  "rounds_run": 9,
+  "rounds_passed": 9,
   "failed_rounds": [],
   "federation_status": "PROVEN",
   "models_exercised": [
-    "Qwen/Qwen3-4B-GGUF",
+    "Qwen/Qwen3-8B-GGUF",
     "microsoft/Phi-3-mini-4k-instruct-gguf"
   ],
   "no_round_resolved_by_vote": true,
@@ -24,23 +24,23 @@
       "primary_skill": "core_reasoning",
       "workers": [
         {
-          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 11589.474,
+          "latency_ms": 44622.91,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 11590.582,
+          "latency_ms": 11946.56,
           "error": null
         }
       ],
       "resolved_by_vote": false,
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
-      "answer": " Also, explain the difference between \"every A is a B\" and \"all A are B\". Are they the same? Why or why not?\n\nYes, because if every A is a B and every B is a C, then by",
-      "wall_ms": 40727.466
+      "answer": " Also, if every A is a B, and every B is a C, then what is the relation between A and C? Explain briefly. Additionally, if every A is a B, and every B is a C, then what is",
+      "wall_ms": 612359.338
     },
     {
       "round": "B",
@@ -55,23 +55,23 @@
       "primary_skill": "core_reasoning",
       "workers": [
         {
-          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 11484.439,
+          "latency_ms": 21850.618,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 11499.729,
+          "latency_ms": 11923.117,
           "error": null
         }
       ],
       "resolved_by_vote": false,
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
-      "answer": " For example, if the list is [1, 2, 3, 4, 5], the function should return 4. If the list is [5, 5, 5, 5], the function should",
-      "wall_ms": 39753.941
+      "answer": " For example, given the list [5, 5, 5, 5], the function should return None. How can I approach this problem?\n\nTo solve this problem, you need to find the second largest distinct value in a list",
+      "wall_ms": 62769.983
     },
     {
       "round": "C",
@@ -86,23 +86,23 @@
       "primary_skill": "core_reasoning",
       "workers": [
         {
-          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 12074.282,
+          "latency_ms": 23342.359,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 9673.068,
+          "latency_ms": 10346.753,
           "error": null
         }
       ],
       "resolved_by_vote": false,
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
-      "answer": "\n\nThe function is missing the first element of the list in the sum. The defect is that the loop starts from index 1, which skips the first element (index 0), leading to an incorrect total. The correct loop should start",
-      "wall_ms": 38393.743
+      "answer": "\n\nThe function is missing the first element of the list in the sum. The defect is that the loop starts from index 1, excluding the first element. The correct loop should start from index 0. The function is not adding the",
+      "wall_ms": 62555.237
     },
     {
       "round": "D",
@@ -117,23 +117,23 @@
       "primary_skill": "core_reasoning",
       "workers": [
         {
-          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 13003.123,
+          "latency_ms": 18502.511,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 13373.198,
+          "latency_ms": 10693.392,
           "error": null
         }
       ],
       "resolved_by_vote": false,
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
-      "answer": " Also, does the scanner report the size of the file it's scanning? Answer yes or no.\n\nYes, the scanner report indicates that the file was scanned but no data was found, so it's clean. Yes, the scanner reports the",
-      "wall_ms": 43920.306
+      "answer": " No, it doesn't prove the file is clean. The scanner may not have detected any threats, but it doesn't guarantee the file is entirely free of malware. Additional checks or antivirus software might be needed for thorough security.  (Word",
+      "wall_ms": 57758.207
     },
     {
       "round": "E",
@@ -148,23 +148,23 @@
       "primary_skill": "core_reasoning",
       "workers": [
         {
-          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 13113.995,
+          "latency_ms": 21470.178,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 12408.239,
+          "latency_ms": 12848.519,
           "error": null
         }
       ],
       "resolved_by_vote": false,
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
-      "answer": " \n\nĐáp: \n\nMặt trời mọc ở phía Đông. \n\nMặt trời mọc ở hướng Đông. \n\nMặt trời mọc ở phía Đông. \n\nMặt trời mọc ở hướng Đông. \n\nMặt trời",
-      "wall_ms": 40304.841
+      "answer": " Đáp: Mặt trời mọc ở hướng Đông. Hỏi: Mặt trời lặn ở hướng nào? Đáp: Mặt trời lặn ở hướng Tây. Hỏi: Trái đất quay quanh trục the",
+      "wall_ms": 63350.427
     },
     {
       "round": "F",
@@ -179,23 +179,80 @@
       "primary_skill": "core_reasoning",
       "workers": [
         {
-          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
-          "latency_ms": 11152.458,
+          "latency_ms": 21149.754,
           "error": null
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "latency_ms": 11358.18,
+          "latency_ms": 11637.924,
           "error": null
         }
       ],
       "resolved_by_vote": false,
       "outputs_identical": false,
       "substantive_agreement": "unresolved_here",
-      "answer": " \n\nA capability benchmark can establish the model's performance across specific tasks, such as language understanding or mathematical reasoning, but it cannot establish the model's ability to handle novel or unexpected scenarios that are not part of the benchmark. \n\nAdditionally, a",
-      "wall_ms": 47532.471
+      "answer": " A capability benchmark can establish the relative performance of a model across specific tasks, providing insights into its strengths and weaknesses in particular domains. However, it cannot establish the model's general intelligence or its ability to understand and reason about the world in a",
+      "wall_ms": 62037.991
+    },
+    {
+      "round": "G",
+      "capability": "code_review",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "role": "maker",
+          "latency_ms": 22088.191,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 12105.871,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": " The function is supposed to return the sum of the elements in the list. The function is called with an empty list. The function returns None. The reviewer says that's a bug because the caller never checks for None. Is the reviewer right",
+      "wall_ms": 63175.105
+    },
+    {
+      "round": "H",
+      "capability": "large_model_remote_routing",
+      "passed": true,
+      "failures": [],
+      "placement_state": "REMOTE_WORKER_REQUIRED",
+      "blockers": {
+        "ephemeral-local-0": [
+          "has 15272 MB RAM available, needs 37200 MB",
+          "has 11091 MB disk free, needs 21600 MB"
+        ]
+      },
+      "required_ram_mb": 37200,
+      "workers": [],
+      "note": "the request resolves to a named machine requirement, not to a crash"
+    },
+    {
+      "round": "I",
+      "capability": "no_worker_fallback",
+      "passed": true,
+      "failures": [],
+      "placement_state": "NO_COMPATIBLE_WORKER_ONLINE",
+      "blockers": {},
+      "workers": [],
+      "note": "with nothing serving the answer is a truthful state, not a fabricated inference and not an exception"
     }
   ],
   "note": "Structural proof only. Whether an answer was good is what the benchmark suites measure; this measures whether the federation ran the way the architecture says it does."

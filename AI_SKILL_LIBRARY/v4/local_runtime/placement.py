@@ -13,6 +13,14 @@ So placement resolves to a state that says which of the two it is:
   AVAILABLE_REMOTE    a serving worker elsewhere can run it now
   AVAILABLE_JIT       a worker could run it after acquiring the artifact, and
                       has the disk to do so
+  AVAILABLE_SERVERLESS
+                      no worker of ours can hold it, but a hosted provider
+                      serves *this same model* on a zero-cost path
+  PROVIDER_CAPABILITY_FALLBACK
+                      no worker and no provider serves this model, but a
+                      provider serves a different one that covers the
+                      capability - the request can be answered, this model
+                      still cannot run, and the two must not be confused
   REMOTE_WORKER_REQUIRED
                       admitted and measured, but nothing online meets its
                       requirement - the blocker is named, with numbers
@@ -44,6 +52,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping, Sequence
 
+from .providers import ProviderRegistry
 from .scheduler import Privacy
 from .workers import WorkerClass, WorkerRecord, WorkerRegistry, WorkerRequirement
 
@@ -52,17 +61,26 @@ class PlacementState(str, Enum):
     AVAILABLE_LOCAL = "AVAILABLE_LOCAL"
     AVAILABLE_REMOTE = "AVAILABLE_REMOTE"
     AVAILABLE_JIT = "AVAILABLE_JIT"
+    AVAILABLE_SERVERLESS = "AVAILABLE_SERVERLESS"
+    PROVIDER_CAPABILITY_FALLBACK = "PROVIDER_CAPABILITY_FALLBACK"
     REMOTE_WORKER_REQUIRED = "REMOTE_WORKER_REQUIRED"
     NO_COMPATIBLE_WORKER_ONLINE = "NO_COMPATIBLE_WORKER_ONLINE"
     INCOMPATIBLE_WITH_SUPPORTED_RUNTIMES = "INCOMPATIBLE_WITH_SUPPORTED_RUNTIMES"
 
 
 #: States in which a request may actually be executed now or after acquisition.
+#: PROVIDER_CAPABILITY_FALLBACK is deliberately absent: the *request* can be
+#: served, but this model cannot run, and `executable` answers the second
+#: question. A caller that wants the first asks `answerable`.
 EXECUTABLE_STATES = frozenset({
     PlacementState.AVAILABLE_LOCAL,
     PlacementState.AVAILABLE_REMOTE,
     PlacementState.AVAILABLE_JIT,
+    PlacementState.AVAILABLE_SERVERLESS,
 })
+
+#: States in which *some* model can answer the request, including a substitute.
+ANSWERABLE_STATES = EXECUTABLE_STATES | {PlacementState.PROVIDER_CAPABILITY_FALLBACK}
 
 #: Runtime memory beyond the weights: KV cache plus compute buffer. Derived from
 #: this fleet's own measurements rather than assumed - Qwen3-4B is a 2382 MB
@@ -86,16 +104,47 @@ class ModelPlacement:
     ram_basis: str
     blockers: Mapping[str, tuple[str, ...]]
     note: str | None = None
+    #: Set when a provider is involved. `served_model_id` is what would actually
+    #: run, which on a fallback is *not* `model_id` - the one place the
+    #: difference is recorded as data rather than prose.
+    provider_id: str | None = None
+    served_model_id: str | None = None
+    substitution_reason: str | None = None
+    #: Whether what would execute is the model this record names. Recorded as a
+    #: fact rather than derived by comparing ids: a provider renames what it
+    #: hosts - "@cf/openai/gpt-oss-20b" is the same model as
+    #: "openai/gpt-oss-20b" - so string equality would call an exact match a
+    #: substitution, and on a different day a coincidental match the reverse.
+    serves_requested_model: bool | None = None
 
     @property
     def executable(self) -> bool:
         return self.state in EXECUTABLE_STATES
+
+    @property
+    def answerable(self) -> bool:
+        """Whether the request can be served, by this model or a substitute."""
+        return self.state in ANSWERABLE_STATES
+
+    @property
+    def runs_the_requested_model(self) -> bool:
+        if not self.executable:
+            return False
+        # No provider involved means a worker runs our own artifact, which is
+        # the requested model by construction.
+        return True if self.serves_requested_model is None else self.serves_requested_model
 
     def to_dict(self) -> Mapping[str, Any]:
         return {
             "model_id": self.model_id,
             "state": self.state.value,
             "executable": self.executable,
+            "answerable": self.answerable,
+            "runs_the_requested_model": self.runs_the_requested_model,
+            "serves_requested_model": self.serves_requested_model,
+            "provider_id": self.provider_id,
+            "served_model_id": self.served_model_id,
+            "substitution_reason": self.substitution_reason,
             "worker_id": self.worker_id,
             "worker_class": self.worker_class,
             "requires_acquisition": self.requires_acquisition,
@@ -181,6 +230,7 @@ def resolve(
     cached_on: Sequence[str] = (),
     measured_peak_ram_mb: float | None = None,
     runtime_incompatible: bool = False,
+    providers: ProviderRegistry | None = None,
 ) -> ModelPlacement:
     """Where this model can run right now.
 
@@ -188,13 +238,23 @@ def resolve(
     it needs no acquisition disk, so it is matched against a requirement with
     the disk clause dropped - otherwise a worker that is already running a model
     could be judged unable to run it.
+
+    `providers` are hosted paths that hold their own weights. They are consulted
+    only after every worker has been ruled out, because a worker runs the
+    artifact we admitted and measured, and a provider at best runs a copy of the
+    same model under someone else's operational control. Preferring a provider
+    while a worker could do it would trade verified execution for convenience.
     """
     model_id = str(record.get("model_id") or "<unidentified>")
     requirement, basis = requirement_for(record, measured_peak_ram_mb=measured_peak_ram_mb)
 
     if runtime_incompatible:
-        # No machine fixes a format the backend cannot read. Reported before
-        # any capacity question, because capacity is irrelevant to it.
+        # No machine fixes a format the backend cannot read. A *provider* can,
+        # though - it never sees our artifact - so the hosted paths are still
+        # worth asking before this is called a dead end.
+        hosted = _from_providers(model_id, requirement, basis, providers)
+        if hosted is not None:
+            return hosted
         return ModelPlacement(
             model_id=model_id,
             state=PlacementState.INCOMPATIBLE_WITH_SUPPORTED_RUNTIMES,
@@ -254,6 +314,12 @@ def resolve(
             note="no worker holds the artifact; the chosen one can acquire it",
         )
 
+    # Every worker is ruled out. Before naming a machine an operator has to go
+    # and provision, ask whether a zero-cost hosted path already serves this.
+    hosted = _from_providers(model_id, requirement, basis, providers)
+    if hosted is not None:
+        return hosted
+
     blockers = registry.refusals(requirement)
     # Distinguish "nothing is online" from "what is online cannot fit it". The
     # first is a transient state; the second is a standing requirement for a
@@ -279,3 +345,69 @@ def resolve(
             f"statement about the machines currently attached, not about the model."
         ),
     )
+
+
+def _from_providers(
+    model_id: str,
+    requirement: WorkerRequirement,
+    basis: str,
+    providers: ProviderRegistry | None,
+) -> ModelPlacement | None:
+    """The hosted answer for this model, if there is one worth reporting.
+
+    Exact beats capability and is never merged with it. A fallback carries the
+    substitute's id in `served_model_id` and the reason in
+    `substitution_reason`, so a reader who only looks at `model_id` still
+    cannot mistake one for the other.
+    """
+    if providers is None:
+        return None
+    resolution = providers.resolve(model_id, free_only=requirement.free_only)
+    rejected = {k: tuple(v) for k, v in resolution.rejected.items()}
+
+    if resolution.exact:
+        provider_id, offering = resolution.exact[0]
+        return ModelPlacement(
+            model_id=model_id,
+            state=PlacementState.AVAILABLE_SERVERLESS,
+            requirement=requirement,
+            worker_id=None,
+            worker_class=None,
+            requires_acquisition=False,
+            ram_basis=basis,
+            blockers=rejected,
+            provider_id=provider_id,
+            served_model_id=offering.provider_model_id,
+            serves_requested_model=True,
+            note=(
+                f"no worker of ours can hold it, but {provider_id} serves this same "
+                f"model as {offering.provider_model_id} on a zero-cost path. Our RAM "
+                f"requirement of {requirement.ram_mb} MB does not apply there - the "
+                f"provider holds the weights, not us."
+            ),
+        )
+
+    if resolution.capability:
+        provider_id, offering = resolution.capability[0]
+        return ModelPlacement(
+            model_id=model_id,
+            state=PlacementState.PROVIDER_CAPABILITY_FALLBACK,
+            requirement=requirement,
+            worker_id=None,
+            worker_class=None,
+            requires_acquisition=False,
+            ram_basis=basis,
+            blockers=rejected,
+            provider_id=provider_id,
+            served_model_id=offering.provider_model_id,
+            substitution_reason=offering.substitution_reason,
+            serves_requested_model=False,
+            note=(
+                f"{model_id} still cannot run anywhere. {provider_id} serves "
+                f"{offering.provider_model_id}, which covers the capability under its "
+                f"own name: a measurement taken there is a measurement of "
+                f"{offering.provider_model_id} and must never be recorded against "
+                f"{model_id}."
+            ),
+        )
+    return None

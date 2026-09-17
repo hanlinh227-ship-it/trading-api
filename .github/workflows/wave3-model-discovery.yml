@@ -47,6 +47,10 @@ on:
         description: Digest the runtime expects; the scan refuses on a mismatch
         required: false
         default: ''
+      probe_workers_ai:
+        description: Probe Cloudflare Workers AI free-tier eligibility (yes = run it)
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -601,3 +605,129 @@ jobs:
         run: |
           set -euo pipefail
           gh release upload "wave3-staged-${CANDIDATE}" "staged/scan-${CANDIDATE}.json" --clobber
+
+  # Whether a model Cloudflare lists is actually served on the Workers Free plan
+  # is not answerable from the catalog. Cloudflare publishes a Paid-only list,
+  # but a model's absence from that list is evidence rather than proof, and the
+  # runtime container holds no Cloudflare credential to settle it. This job
+  # settles it the only honest way: one request per model, and whatever comes
+  # back is the answer.
+  #
+  # It cannot spend money. The Workers Free plan has no billing path at all -
+  # Cloudflare's own pricing table records "N/A - Upgrade to Workers Paid" for
+  # it - so past the 10,000 daily Neuron allowance a request fails rather than
+  # charges. A 403 with internal error 5035 is the documented Paid-only refusal
+  # and is recorded as a finding, never treated as a reason to upgrade.
+  #
+  # It enables nothing, accepts no licence and creates no account. It reads the
+  # plan the operator already has, using the token this repository already
+  # holds for deployment, and writes down what that plan will serve.
+  probe-workers-ai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event.inputs.probe_workers_ai != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ask the free plan, one model at a time
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ACCOUNT_ID:-}" ]; then
+            echo "No Cloudflare credential in this repository. Recording that, not guessing."
+            printf '%s\n' '{"probe":"workers_ai_free_tier","status":"NO_CREDENTIAL","results":[]}' \
+              > workers-ai-probe.json
+            exit 0
+          fi
+
+          # Exactly the models free_execution_paths.yaml names, and nothing else.
+          # A probe that wandered the catalog would be discovery, and discovery
+          # is not what this job is for.
+          models=$(python3 - <<'PY'
+          import yaml
+          doc = yaml.safe_load(open("AI_SKILL_LIBRARY/v4/open_model_universe/free_execution_paths.yaml"))
+          for row in doc.get("offerings", []):
+              if row.get("provider_id") != "cloudflare_workers_ai":
+                  continue
+              if row.get("match") not in {"EXACT", "CAPABILITY"}:
+                  continue
+              print(f"{row['requested_model_id']}\t{row['provider_model_id']}\t{row['match']}")
+          PY
+          )
+
+          : > probe-rows.tsv
+          while IFS=$'\t' read -r requested served match; do
+            [ -n "${served:-}" ] || continue
+            body='{"messages":[{"role":"user","content":"Reply with the single word: ok"}],"max_tokens":8}'
+            http=$(curl -sS -o resp.json -w '%{http_code}' \
+              "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${served}" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "${body}" || echo "000")
+            # The response body can carry a credential-shaped error string, so
+            # only the fields the probe needs are kept: status, Cloudflare's own
+            # error code, and whether a completion came back at all.
+            code=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('resp.json'))
+          except Exception: print(''); sys.exit()
+          errs=d.get('errors') or []
+          print(errs[0].get('code','') if errs else '')" 2>/dev/null || echo "")
+            completed=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('resp.json'))
+          except Exception: print('false'); sys.exit()
+          r=(d.get('result') or {})
+          print('true' if (r.get('response') or r.get('choices')) else 'false')" 2>/dev/null || echo "false")
+            echo "  ${served}: HTTP ${http} cf_error=${code:-none} completion=${completed}"
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+              "$requested" "$served" "$match" "$http" "${code:-}" "$completed" >> probe-rows.tsv
+            rm -f resp.json
+          done <<< "$models"
+
+          python3 - <<'PY'
+          import json, time
+          rows = []
+          for line in open("probe-rows.tsv"):
+              requested, served, match, http, code, completed = line.rstrip("\n").split("\t")
+              # 5035 is the documented Workers-Paid-only refusal. It is a finding
+              # about the plan, and never a reason to change the plan.
+              if http == "200" and completed == "true":
+                  verdict = "FREE_TIER_SERVES_IT"
+              elif code == "5035" or http == "403":
+                  verdict = "REQUIRES_WORKERS_PAID_PLAN"
+              elif http == "429":
+                  verdict = "DAILY_NEURON_ALLOWANCE_EXHAUSTED"
+              else:
+                  verdict = "INCONCLUSIVE"
+              rows.append({
+                  "requested_model_id": requested, "provider_model_id": served,
+                  "match": match, "http_status": http,
+                  "cloudflare_error_code": code or None,
+                  "returned_a_completion": completed == "true",
+                  "verdict": verdict,
+              })
+          json.dump({
+              "probe": "workers_ai_free_tier",
+              "probed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "plan_can_bill": False,
+              "plan_evidence": "Workers Free has no paid path; past the allowance requests fail",
+              "status": "PROBED",
+              "results": rows,
+          }, open("workers-ai-probe.json", "w"), indent=2)
+          PY
+          cat workers-ai-probe.json
+
+      - name: Publish the probe where the runtime can read it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create wave3-workers-ai-probe --notes \
+            "Cloudflare Workers AI free-tier probe. Not an admission." 2>/dev/null || true
+          gh release upload wave3-workers-ai-probe workers-ai-probe.json --clobber

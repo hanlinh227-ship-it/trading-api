@@ -13,7 +13,7 @@
       "release": "6.18.44-fc-v33"
     },
     "health": true,
-    "seconds_since_seen": 0.082,
+    "seconds_since_seen": 0.095,
     "worker_class": "EPHEMERAL_LOCAL",
     "supported_formats": [
       "gguf"
@@ -34,15 +34,15 @@
       "granite"
     ],
     "max_context": 131072,
-    "available_ram_mb": 15517,
+    "available_ram_mb": 15416,
     "available_vram_mb": 0,
-    "available_disk_mb": 11093,
+    "available_disk_mb": 11091,
     "load_latency_ms": null,
     "warm_latency_ms": null,
     "cost_class": "owned_hardware_zero_marginal",
     "privacy_class": "CONFIDENTIAL",
     "network_reachable": true,
-    "last_verified_at": "2026-09-17T15:41:28Z",
+    "last_verified_at": "2026-09-17T16:01:47Z",
     "routing_authority": false,
     "reasoning_authority": false,
     "memory_authority": false,
@@ -63,7 +63,7 @@
         "release": "6.18.44-fc-v33"
       },
       "health": true,
-      "seconds_since_seen": 0.082,
+      "seconds_since_seen": 0.095,
       "worker_class": "EPHEMERAL_LOCAL",
       "supported_formats": [
         "gguf"
@@ -84,15 +84,15 @@
         "granite"
       ],
       "max_context": 131072,
-      "available_ram_mb": 15517,
+      "available_ram_mb": 15416,
       "available_vram_mb": 0,
-      "available_disk_mb": 11093,
+      "available_disk_mb": 11091,
       "load_latency_ms": null,
       "warm_latency_ms": null,
       "cost_class": "owned_hardware_zero_marginal",
       "privacy_class": "CONFIDENTIAL",
       "network_reachable": true,
-      "last_verified_at": "2026-09-17T15:41:28Z",
+      "last_verified_at": "2026-09-17T16:01:47Z",
       "routing_authority": false,
       "reasoning_authority": false,
       "memory_authority": false,
@@ -105,6 +105,12 @@
       "model_id": "Qwen/Qwen3-0.6B-GGUF",
       "state": "AVAILABLE_LOCAL",
       "executable": true,
+      "answerable": true,
+      "runs_the_requested_model": true,
+      "serves_requested_model": null,
+      "provider_id": null,
+      "served_model_id": null,
+      "substitution_reason": null,
       "worker_id": "ephemeral-local-0",
       "worker_class": "EPHEMERAL_LOCAL",
       "requires_acquisition": false,
@@ -130,6 +136,12 @@
       "model_id": "Qwen/Qwen3-1.7B-GGUF",
       "state": "AVAILABLE_LOCAL",
       "executable": true,
+      "answerable": true,
+      "runs_the_requested_model": true,
+      "serves_requested_model": null,
+      "provider_id": null,
+      "served_model_id": null,
+      "substitution_reason": null,
       "worker_id": "ephemeral-local-0",
       "worker_class": "EPHEMERAL_LOCAL",
       "requires_acquisition": false,
@@ -155,6 +167,12 @@
       "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
       "state": "AVAILABLE_LOCAL",
       "executable": true,
+      "answerable": true,
+      "runs_the_requested_model": true,
+      "serves_requested_model": null,
+      "provider_id": null,
+      "served_model_id": null,
+      "substitution_reason": null,
       "worker_id": "ephemeral-local-0",
       "worker_class": "EPHEMERAL_LOCAL",
       "requires_acquisition": false,
@@ -180,6 +198,12 @@
       "model_id": "Qwen/Qwen3-4B-GGUF",
       "state": "AVAILABLE_LOCAL",
       "executable": true,
+      "answerable": true,
+      "runs_the_requested_model": true,
+      "serves_requested_model": null,
+      "provider_id": null,
+      "served_model_id": null,
+      "substitution_reason": null,
       "worker_id": "ephemeral-local-0",
       "worker_class": "EPHEMERAL_LOCAL",
       "requires_acquisition": false,
@@ -205,6 +229,12 @@
       "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
       "state": "AVAILABLE_LOCAL",
       "executable": true,
+      "answerable": true,
+      "runs_the_requested_model": true,
+      "serves_requested_model": null,
+      "provider_id": null,
+      "served_model_id": null,
+      "substitution_reason": null,
       "worker_id": "ephemeral-local-0",
       "worker_class": "EPHEMERAL_LOCAL",
       "requires_acquisition": false,
@@ -230,6 +260,12 @@
       "model_id": "microsoft/bitnet-b1.58-2B-4T-gguf",
       "state": "INCOMPATIBLE_WITH_SUPPORTED_RUNTIMES",
       "executable": false,
+      "answerable": false,
+      "runs_the_requested_model": false,
+      "serves_requested_model": null,
+      "provider_id": null,
+      "served_model_id": null,
+      "substitution_reason": null,
       "worker_id": null,
       "worker_class": null,
       "requires_acquisition": false,
@@ -255,6 +291,12 @@
       "model_id": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
       "state": "INCOMPATIBLE_WITH_SUPPORTED_RUNTIMES",
       "executable": false,
+      "answerable": false,
+      "runs_the_requested_model": false,
+      "serves_requested_model": null,
+      "provider_id": null,
+      "served_model_id": null,
+      "substitution_reason": null,
       "worker_id": null,
       "worker_class": null,
       "requires_acquisition": false,
@@ -280,6 +322,12 @@
       "model_id": "ibm-granite/granite-4.2-3b-GGUF",
       "state": "AVAILABLE_LOCAL",
       "executable": true,
+      "answerable": true,
+      "runs_the_requested_model": true,
+      "serves_requested_model": null,
+      "provider_id": null,
+      "served_model_id": null,
+      "substitution_reason": null,
       "worker_id": "ephemeral-local-0",
       "worker_class": "EPHEMERAL_LOCAL",
       "requires_acquisition": false,
@@ -305,6 +353,12 @@
       "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
       "state": "AVAILABLE_LOCAL",
       "executable": true,
+      "answerable": true,
+      "runs_the_requested_model": true,
+      "serves_requested_model": null,
+      "provider_id": null,
+      "served_model_id": null,
+      "substitution_reason": null,
       "worker_id": "ephemeral-local-0",
       "worker_class": "EPHEMERAL_LOCAL",
       "requires_acquisition": false,
@@ -330,6 +384,12 @@
       "model_id": "Qwen/Qwen3-8B-GGUF",
       "state": "AVAILABLE_LOCAL",
       "executable": true,
+      "answerable": true,
+      "runs_the_requested_model": true,
+      "serves_requested_model": null,
+      "provider_id": null,
+      "served_model_id": null,
+      "substitution_reason": null,
       "worker_id": "ephemeral-local-0",
       "worker_class": "EPHEMERAL_LOCAL",
       "requires_acquisition": false,
@@ -372,7 +432,7 @@
     {
       "candidate_id": "qwen3-coder-30b-a3b-instruct",
       "upstream": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
-      "placement_state": "REMOTE_WORKER_REQUIRED",
+      "placement_state": "PROVIDER_PATH_PENDING_VERIFICATION",
       "worker_class_required": {
         "ram_min_mb": 40000,
         "disk_free_min_mb": 22000
@@ -383,16 +443,28 @@
       "requirement_is_an_estimate": true,
       "blockers": {
         "ephemeral-local-0": [
-          "has 15517 MB RAM available, needs 37200 MB",
-          "has 11093 MB disk free, needs 21600 MB"
+          "has 15416 MB RAM available, needs 37200 MB",
+          "has 11091 MB disk free, needs 21600 MB"
         ]
       },
-      "note": "needs a worker with at least 37200 MB RAM and 21600 MB free disk. No attached worker meets that. This is a statement about the machines currently online, not about the model."
+      "zero_cost_provider_paths": {
+        "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+        "exact": [],
+        "capability_fallback": [],
+        "pending_verification": {
+          "cloudflare_workers_ai": [
+            "this runtime holds no credential for it, and one must not be written into the repository to create one",
+            "@cf/qwen/qwen2.5-coder-32b-instruct free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
+          ]
+        },
+        "rejected_paths": {}
+      },
+      "note": "no attached worker meets the 37200 MB requirement, but cloudflare_workers_ai serves it. What is unproven is free-tier eligibility, which the Workers AI probe settles; until it returns a completion this stays unverified rather than available."
     },
     {
       "candidate_id": "gpt-oss-20b",
       "upstream": "openai/gpt-oss-20b",
-      "placement_state": "REMOTE_WORKER_REQUIRED",
+      "placement_state": "PROVIDER_PATH_PENDING_VERIFICATION",
       "worker_class_required": {
         "ram_min_mb": 28000,
         "disk_free_min_mb": 16000
@@ -403,11 +475,23 @@
       "requirement_is_an_estimate": true,
       "blockers": {
         "ephemeral-local-0": [
-          "has 15517 MB RAM available, needs 25600 MB",
-          "has 11093 MB disk free, needs 15800 MB"
+          "has 15416 MB RAM available, needs 25600 MB",
+          "has 11091 MB disk free, needs 15800 MB"
         ]
       },
-      "note": "needs a worker with at least 25600 MB RAM and 15800 MB free disk. No attached worker meets that. This is a statement about the machines currently online, not about the model."
+      "zero_cost_provider_paths": {
+        "model_id": "openai/gpt-oss-20b",
+        "exact": [],
+        "capability_fallback": [],
+        "pending_verification": {
+          "cloudflare_workers_ai": [
+            "this runtime holds no credential for it, and one must not be written into the repository to create one",
+            "@cf/openai/gpt-oss-20b free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
+          ]
+        },
+        "rejected_paths": {}
+      },
+      "note": "no attached worker meets the 25600 MB requirement, but cloudflare_workers_ai serves it. What is unproven is free-tier eligibility, which the Workers AI probe settles; until it returns a completion this stays unverified rather than available."
     },
     {
       "candidate_id": "phi-4-mini-instruct",
@@ -422,6 +506,13 @@
       "requirement_basis": "estimated: 3.8B parameters at ~5 bits per weight, the ratio measured on Phi-3-mini Q4",
       "requirement_is_an_estimate": true,
       "blockers": {},
+      "zero_cost_provider_paths": {
+        "model_id": "microsoft/Phi-4-mini-instruct",
+        "exact": [],
+        "capability_fallback": [],
+        "pending_verification": {},
+        "rejected_paths": {}
+      },
       "note": "a worker meets the 5000 MB RAM requirement; the blocker is artifact provenance, not capacity"
     },
     {
@@ -437,12 +528,24 @@
       "requirement_basis": "estimated: 7.6B parameters at ~4.9 bits per weight, the ratio measured on Qwen3-4B Q4_K_M",
       "requirement_is_an_estimate": true,
       "blockers": {},
+      "zero_cost_provider_paths": {
+        "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+        "exact": [],
+        "capability_fallback": [],
+        "pending_verification": {
+          "cloudflare_workers_ai": [
+            "this runtime holds no credential for it, and one must not be written into the repository to create one",
+            "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
+          ]
+        },
+        "rejected_paths": {}
+      },
       "note": "a worker meets the 9360 MB RAM requirement; the blocker is artifact provenance, not capacity"
     },
     {
       "candidate_id": "gemma-3-4b-it",
       "upstream": "google/gemma-3-4b-it",
-      "placement_state": "ADMISSION_PENDING_WORKER_AVAILABLE",
+      "placement_state": "HUMAN_LICENSE_GATE_REQUIRED",
       "worker_class_required": {
         "ram_min_mb": 7000,
         "disk_free_min_mb": 6000
@@ -452,7 +555,14 @@
       "requirement_basis": "estimated: 4.3B parameters at ~4.9 bits per weight",
       "requirement_is_an_estimate": true,
       "blockers": {},
-      "note": "a worker meets the 5200 MB RAM requirement; the blocker is artifact provenance, not capacity"
+      "zero_cost_provider_paths": {
+        "model_id": "google/gemma-3-4b-it",
+        "exact": [],
+        "capability_fallback": [],
+        "pending_verification": {},
+        "rejected_paths": {}
+      },
+      "note": "a worker's capacity is irrelevant here. The blocker is a licence only the operator can accept; this candidate is deferred and is not staged, downloaded or admitted."
     }
   ],
   "executable_now": [

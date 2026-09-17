@@ -48,6 +48,7 @@ from AI_SKILL_LIBRARY.v4.local_runtime.placement import (  # noqa: E402
     PlacementState,
     resolve,
 )
+from AI_SKILL_LIBRARY.v4.local_runtime.providers import ProviderRegistry  # noqa: E402
 from AI_SKILL_LIBRARY.v4.local_runtime.resources import detect_resources  # noqa: E402
 from AI_SKILL_LIBRARY.v4.local_runtime.scheduler import Privacy  # noqa: E402
 from AI_SKILL_LIBRARY.v4.local_runtime.workers import (  # noqa: E402
@@ -145,6 +146,16 @@ def cached_models(root: Path) -> dict[str, list[str]]:
     return out
 
 
+def load_free_paths(root: Path) -> tuple[ProviderRegistry, dict[str, Any]]:
+    """The recorded zero-cost paths, or nothing if the file is not there yet."""
+    from AI_SKILL_LIBRARY.v4.tools.wave3_free_execution_paths import load_registry
+
+    try:
+        return load_registry(root)
+    except (OSError, ValueError):
+        return ProviderRegistry(), {}
+
+
 def build(root: Path) -> dict[str, Any]:
     registry = WorkerRegistry()
     host = register_this_host(root, registry)
@@ -169,6 +180,10 @@ def build(root: Path) -> dict[str, Any]:
             if str((model.get("artifact_identity") or {}).get("sha256") or "").lower() == digest:
                 incompatible.add(str(model.get("model_id")))
 
+    # Hosted paths are consulted only where every worker has been ruled out, so
+    # a model that runs on our own hardware keeps that answer.
+    providers, _ = load_free_paths(root)
+
     cache = cached_models(root)
     placements = []
     for model in models:
@@ -179,6 +194,7 @@ def build(root: Path) -> dict[str, Any]:
             cached_on=cache.get(digest, []),
             measured_peak_ram_mb=peaks.get(str(model.get("model_id"))),
             runtime_incompatible=str(model.get("model_id")) in incompatible,
+            providers=providers,
         )
         placements.append(placement.to_dict())
 
@@ -202,19 +218,59 @@ def build(root: Path) -> dict[str, Any]:
         )
         fits = registry.eligible(requirement)
         blockers = {} if fits else registry.refusals(requirement)
+        hosted = providers.resolve(upstream, free_only=True)
         # Two different unavailabilities. A candidate no worker can hold needs a
         # machine; one that would fit but has no verified artifact needs
         # admission work. Collapsing them would send an operator to buy RAM for
         # a provenance problem.
-        if fits:
+        # The manifest keys this as `state`; `status` is read too so a rename
+        # upstream degrades into the licence gate holding rather than silently
+        # lapsing into a capacity answer.
+        status = str(candidate.get("state") or candidate.get("status") or "")
+        if status == "HUMAN_LICENSE_GATE_REQUIRED":
+            # Capacity is not this candidate's blocker and reporting one would
+            # imply the remaining work is technical. It is not: a person has to
+            # accept the publisher's terms, and nothing here may do that for
+            # them.
+            state = "HUMAN_LICENSE_GATE_REQUIRED"
+            note = ("a worker's capacity is irrelevant here. The blocker is a licence "
+                    "only the operator can accept; this candidate is deferred and is "
+                    "not staged, downloaded or admitted.")
+        elif fits:
             state = "ADMISSION_PENDING_WORKER_AVAILABLE"
             note = (f"a worker meets the {ram_mb} MB RAM requirement; the blocker is "
                     f"artifact provenance, not capacity")
+        elif hosted.has_exact:
+            # No machine of ours can hold it and none needs to: a zero-cost
+            # provider serves this same model. Reporting it as needing a worker
+            # would send an operator to buy RAM for a solved problem.
+            provider_id, offering = hosted.exact[0]
+            state = "AVAILABLE_SERVERLESS"
+            note = (f"{provider_id} serves this exact model as {offering.provider_model_id} "
+                    f"on a zero-cost path, so the {ram_mb} MB requirement does not bind")
+        elif hosted.capability:
+            provider_id, offering = hosted.capability[0]
+            state = "PROVIDER_CAPABILITY_FALLBACK"
+            note = (f"this model still runs nowhere. {provider_id} serves "
+                    f"{offering.provider_model_id}, which covers the capability under its "
+                    f"own name and must not be measured as this one")
+        elif hosted.pending:
+            # A provider does serve it; what is missing is proof that its free
+            # tier will. That is one probe, not a machine, and saying "needs a
+            # worker" here would send an operator to provision hardware for a
+            # question a single request answers.
+            state = "PROVIDER_PATH_PENDING_VERIFICATION"
+            names = ", ".join(sorted(hosted.pending))
+            note = (f"no attached worker meets the {ram_mb} MB requirement, but {names} "
+                    f"serves it. What is unproven is free-tier eligibility, which the "
+                    f"Workers AI probe settles; until it returns a completion this stays "
+                    f"unverified rather than available.")
         else:
             state = "REMOTE_WORKER_REQUIRED"
             note = (f"needs a worker with at least {ram_mb} MB RAM and {disk_mb} MB free "
-                    f"disk. No attached worker meets that. This is a statement about the "
-                    f"machines currently online, not about the model.")
+                    f"disk. No attached worker meets that, and no zero-cost provider "
+                    f"serves it. This is a statement about the machines currently online "
+                    f"and the paths currently recorded, not about the model.")
         unadmitted.append({
             "candidate_id": candidate.get("id"),
             "upstream": upstream,
@@ -225,6 +281,7 @@ def build(root: Path) -> dict[str, Any]:
             "requirement_basis": req.get("basis"),
             "requirement_is_an_estimate": bool(req.get("estimated", True)),
             "blockers": {k: list(v) for k, v in sorted(blockers.items())},
+            "zero_cost_provider_paths": dict(hosted.to_dict()),
             "note": note,
         })
 
