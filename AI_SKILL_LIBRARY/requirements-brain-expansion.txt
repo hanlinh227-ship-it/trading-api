@@ -29,10 +29,14 @@ deepeval==4.1.8
 # behaviour, not a defect.
 langfuse==4.15.4
 
-# --- blocked: needs a browser runtime and a resolvable dependency tree --------
-# browser-use additionally requires Playwright plus a Chromium binary. Installing
-# it into an image whose PyJWT came from the system package manager fails, so it
-# needs a clean virtualenv or container layer. Left commented until that runtime
-# exists; the adapter reports dependency_available=FAIL and stays off.
-# browser-use==0.13.10
-# playwright==1.56.0
+# --- runtime-verified elsewhere: browser-use has an interpreter of its own -----
+# browser-use additionally requires Playwright plus a Chromium binary, and
+# resolving that beside a distribution-managed interpreter has to replace
+# packages the system package manager owns (PyJWT among them). That is why it is
+# deliberately absent here rather than force-installed.
+#
+# Its runtime now exists: a dedicated virtualenv built from
+# AI_SKILL_LIBRARY/requirements-brain-expansion-browser.txt, where the adapter
+# reaches state=enabled with all eight of its gates PASS against a real Chromium
+# process. Installing it into *this* file's environment is what breaks; nothing
+# here needs to change for browser_use to be live.

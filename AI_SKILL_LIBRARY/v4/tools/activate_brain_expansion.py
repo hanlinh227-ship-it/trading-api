@@ -269,23 +269,271 @@ def _sandbox_langfuse(root: Path) -> bool:
     return failure["stable_path_ok"] is True and failure["exported"] is False
 
 
-def _sandbox_browser_use(_root: Path) -> bool:
+# --- Browser Use: an isolated runtime, a real engine, and a read-only sandbox --
+#
+# Browser Use is the one adapter that cannot prove itself in the validator
+# interpreter: it needs Playwright and a downloaded Chromium build, and
+# installing those beside a distribution-managed Python is what kept
+# `dependency_available` at FAIL. The runtime it activates in is a dedicated
+# virtualenv (see AI_SKILL_LIBRARY/requirements-brain-expansion-browser.txt);
+# nothing below force-installs anything or touches the system interpreter.
+#
+# The sandbox contract is loopback-only: the probes drive a real browser against
+# a `data:` URL and a static page served on 127.0.0.1, so a launched engine is
+# proven without a single external request. That is why `network_allowed` is not
+# one of this adapter's gates - egress is forbidden here, not merely unverified.
+
+#: A browser that has not answered within this budget is UNKNOWN, not healthy.
+_BROWSER_PROBE_TIMEOUT_MS = 20_000
+
+#: The page the sandbox serves on loopback. Its title is the observable fact the
+#: probe checks, and it carries a cookie/localStorage write so the persistence
+#: probe has something that *would* survive if the profile were not ephemeral.
+_SANDBOX_HTML = """<!doctype html>
+<html><head><title>brain-expansion-sandbox</title></head>
+<body><h1 id="marker">read-only sandbox</h1>
+<script>
+  document.cookie = "probe=1";
+  try { localStorage.setItem("probe", "1"); } catch (e) {}
+</script></body></html>
+"""
+
+
+def _default_browser_launcher(timeout_ms: int) -> bool:
+    """Launch the real engine against a data: URL and read the title back."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as play:
+        browser = play.chromium.launch(headless=True, timeout=timeout_ms)
+        try:
+            page = browser.new_page()
+            page.set_default_timeout(timeout_ms)
+            page.goto("data:text/html,<title>probe</title><h1>ok</h1>", timeout=timeout_ms)
+            return page.title() == "probe"
+        finally:
+            browser.close()
+
+
+def _browser_runtime_healthy(
+    *,
+    engine: str = "playwright",
+    launcher: Callable[..., bool] | None = None,
+    timeout_ms: int | None = None,
+) -> bool | None:
+    """Is a real browser engine present and able to render a page?
+
+    An engine that is simply not installed is a definite FAIL - that is the
+    dependency being absent, which the runtime knows for certain. An engine that
+    is present but times out, crashes or refuses to start is UNKNOWN: it still
+    fails closed, but "we could not tell" is reported honestly rather than as a
+    verdict against the upstream.
+    """
+    if launcher is None:
+        if importlib.util.find_spec(engine) is None:
+            return False
+        launcher = _default_browser_launcher
+    try:
+        return bool(launcher(timeout_ms=timeout_ms or _BROWSER_PROBE_TIMEOUT_MS))
+    except Exception:  # noqa: BLE001 - an unavailable engine must not raise out
+        return None
+
+
+class _SandboxServer:
+    """A static page on loopback. No external origin is ever contacted."""
+
+    def __init__(self) -> None:
+        self._httpd = None
+        self._thread = None
+        self.url = ""
+
+    def __enter__(self) -> "_SandboxServer":
+        import http.server
+        import threading
+
+        body = _SANDBOX_HTML.encode("utf-8")
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802 - stdlib naming
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):  # keep the probe quiet
+                return
+
+        self._httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
+        self._thread.start()
+        self.url = f"http://127.0.0.1:{self._httpd.server_address[1]}/sandbox.html"
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        if self._httpd is not None:
+            self._httpd.shutdown()
+            self._httpd.server_close()
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+
+
+def _browser_runner(task: dict) -> dict:
+    """Open one already-bounded page and report what was actually observed.
+
+    Returns the runtime facts `verify_browser_runtime` demands - a fetched URL
+    and a transport status - and closes the browser on every path.
+    """
+    from playwright.sync_api import sync_playwright
+
+    url = str(task.get("url") or "")
+    with sync_playwright() as play:
+        browser = play.chromium.launch(headless=True, timeout=_BROWSER_PROBE_TIMEOUT_MS)
+        try:
+            context = browser.new_context()
+            page = context.new_page()
+            page.set_default_timeout(_BROWSER_PROBE_TIMEOUT_MS)
+            response = page.goto(url, timeout=_BROWSER_PROBE_TIMEOUT_MS)
+            observed = {
+                "ok": response is not None,
+                "url": page.url,
+                "http_status": response.status if response is not None else None,
+                "title": page.title(),
+            }
+            context.close()
+            return observed
+        finally:
+            browser.close()
+
+
+def browser_persistence_probe() -> dict:
+    """Prove the sandbox profile keeps nothing between runs.
+
+    The served page sets a cookie and writes localStorage. A second, fresh
+    context must still start empty, or the adapter would be accumulating session
+    state across tasks - which the read-only sandbox contract forbids.
+    """
+    from playwright.sync_api import sync_playwright
+
+    with _SandboxServer() as server, sync_playwright() as play:
+        browser = play.chromium.launch(headless=True, timeout=_BROWSER_PROBE_TIMEOUT_MS)
+        try:
+            first = browser.new_context()
+            page = first.new_page()
+            page.goto(server.url, timeout=_BROWSER_PROBE_TIMEOUT_MS)
+            first.close()
+
+            second = browser.new_context()
+            fresh = second.new_page()
+            fresh.goto("about:blank", timeout=_BROWSER_PROBE_TIMEOUT_MS)
+            state = second.storage_state()
+            second.close()
+        finally:
+            browser.close()
+    return {
+        "cookies": list(state.get("cookies") or []),
+        "origins": list(state.get("origins") or []),
+    }
+
+
+def browser_sandbox_probe() -> bool:
+    """Drive a real browser through the adapter under its read-only contract."""
     from brain_expansion_adapters import execute_browser_task
 
-    perms = {"routed_by": "task_router", "allowed_domains": ["example.invalid"]}
+    permissions = {"routed_by": "task_router", "allowed_domains": ["127.0.0.1"]}
+    with _SandboxServer() as server:
+        result = execute_browser_task(
+            {
+                "objective_id": "brain_expansion_sandbox",
+                "risk_class": "read_only",
+                "domain": "127.0.0.1",
+                "actions": ["read"],
+                "url": server.url,
+            },
+            permissions=permissions,
+            runner=_browser_runner,
+        )
+    if not (result["success"] and result["runtime_verified"] and result["risk_class"] == "read_only"):
+        return False
+    if result["authority"] is not False:
+        return False
+    evidence = result.get("evidence") or {}
+    return evidence.get("http_status") == 200
+
+
+def _sandbox_browser_use(_root: Path) -> bool:
+    """The read-only sandbox contract, checked against a real browser.
+
+    The denial paths run first and deliberately use a runner that raises if it
+    is ever called: a financial or credential task must be refused before any
+    browser is launched, not after.
+    """
+    from brain_expansion_adapters import execute_browser_task
+
+    perms = {"routed_by": "task_router", "allowed_domains": ["127.0.0.1", "example.invalid"]}
+
+    def must_not_run(_task):
+        raise AssertionError("denied task reached the browser runner")
+
     financial = execute_browser_task(
-        {"objective_id": "x", "risk_class": "read_only", "domain": "example.invalid", "actions": ["place_order"]},
+        {"objective_id": "x", "risk_class": "read_only", "domain": "127.0.0.1", "actions": ["place_order"]},
         permissions=perms,
-        runner=lambda _t: {"ok": True, "url": "u", "http_status": 200},
+        runner=must_not_run,
     )
     if financial["success"] or financial["denied_reason"] != "financial_execution_forbidden_via_generic_browser_adapter":
         return False
+
+    credential = execute_browser_task(
+        {"objective_id": "x", "domain": "127.0.0.1", "actions": ["read"], "persist_credentials": True},
+        permissions=perms,
+        runner=must_not_run,
+    )
+    if credential["success"] or credential["denied_reason"] != "credential_persistence_forbidden":
+        return False
+
+    unrouted = execute_browser_task(
+        {"objective_id": "x", "domain": "127.0.0.1", "actions": ["read"]},
+        permissions={"allowed_domains": ["127.0.0.1"]},
+        runner=must_not_run,
+    )
+    if unrouted["success"] or unrouted["denied_reason"] != "task_not_routed_by_task_router":
+        return False
+
+    out_of_scope = execute_browser_task(
+        {"objective_id": "x", "domain": "example.com", "actions": ["read"]},
+        permissions=perms,
+        runner=must_not_run,
+    )
+    if out_of_scope["success"] or out_of_scope["denied_reason"] != "domain_out_of_scope":
+        return False
+
+    # A runner that times out must fail closed rather than report success.
+    def times_out(_task):
+        raise TimeoutError("navigation timed out")
+
+    timed_out = execute_browser_task(
+        {"objective_id": "x", "domain": "127.0.0.1", "actions": ["read"]},
+        permissions=perms,
+        runner=times_out,
+    )
+    if timed_out["success"] or timed_out["failure"] != "runtime":
+        return False
+
+    # A plan is never a result.
     plan_only = execute_browser_task(
-        {"objective_id": "x", "risk_class": "read_only", "domain": "example.invalid", "actions": ["read"]},
+        {"objective_id": "x", "risk_class": "read_only", "domain": "127.0.0.1", "actions": ["read"]},
         permissions=perms,
         runner=lambda _t: {"ok": True, "plan": "I would read the page"},
     )
-    return plan_only["success"] is False and plan_only["runtime_verified"] is False
+    if plan_only["success"] or plan_only["runtime_verified"]:
+        return False
+
+    # And finally the real thing: a live engine, a real page, no egress.
+    if importlib.util.find_spec("playwright") is None:
+        return False
+    if not browser_sandbox_probe():
+        return False
+    leftovers = browser_persistence_probe()
+    return not leftovers["cookies"] and not leftovers["origins"]
 
 
 _SANDBOX_TESTS: dict[str, Callable[[Path], bool]] = {
@@ -295,31 +543,6 @@ _SANDBOX_TESTS: dict[str, Callable[[Path], bool]] = {
     "langfuse": _sandbox_langfuse,
     "browser_use": _sandbox_browser_use,
 }
-
-
-def _browser_runtime_healthy() -> bool | None:
-    """Launch the real browser engine against a data: URL.
-
-    This proves the engine works without touching the network, so a blocked
-    egress policy cannot be mistaken for a broken browser or the other way round.
-    """
-    if importlib.util.find_spec("playwright") is None:
-        return False
-    try:
-        from playwright.sync_api import sync_playwright
-    except Exception:  # noqa: BLE001
-        return False
-    try:
-        with sync_playwright() as play:
-            browser = play.chromium.launch(headless=True)
-            try:
-                page = browser.new_page()
-                page.goto("data:text/html,<title>probe</title><h1>ok</h1>")
-                return page.title() == "probe"
-            finally:
-                browser.close()
-    except Exception:  # noqa: BLE001 - an unavailable engine must not raise out
-        return None
 
 
 def _upstream_health(adapter_id: str, record: dict, env: dict | None = None) -> bool | None:
@@ -487,8 +710,20 @@ def activation_sweep(
     env: dict | None = None,
     registry: dict | None = None,
     probe_builder: Callable[..., dict] | None = None,
+    runtime: str = "default",
+    probe: bool = True,
 ) -> dict:
-    """Probe every candidate for real and decide who may turn on."""
+    """Probe every candidate for real and decide who may turn on.
+
+    ``runtime`` labels which interpreter produced the report, so evidence from
+    the validator runtime and from the dedicated browser runtime can be merged
+    later without losing track of who proved what.
+
+    ``probe=False`` runs no probe at all. Every condition is then UNKNOWN and
+    every adapter stays off, which is how a runtime demonstrates that the stable
+    brain stands with the whole expansion layer dark - even in an image where
+    the optional dependencies happen to be installed.
+    """
     root = Path(root) if root else ROOT
     registry = registry if registry is not None else load_adapter_registry(root)
     env = env if env is not None else os.environ
@@ -496,7 +731,7 @@ def activation_sweep(
 
     adapters: dict[str, dict] = {}
     for candidate_id, record in (registry.get("candidates") or {}).items():
-        conditions = required_conditions(candidate_id, record)
+        conditions = required_conditions(candidate_id, record) if probe else []
         probes: dict[str, Callable[[], Any]] = {}
         if conditions:
             try:
@@ -510,14 +745,21 @@ def activation_sweep(
                 return None
             return classify_probe_outcome(probe())
 
-        row = evaluate_eligibility(candidate_id, record, probe_fn=probe_fn if conditions else None)
-        row["evidence"] = _evidence_for(candidate_id, record, probes, env) if conditions else {}
+        if probe:
+            row = evaluate_eligibility(candidate_id, record, probe_fn=probe_fn if conditions else None)
+            row["evidence"] = _evidence_for(candidate_id, record, probes, env) if conditions else {}
+        else:
+            row = evaluate_eligibility(candidate_id, record, probes={})
+            row["reason"] = "probes disabled: baseline sweep with the whole expansion layer off"
+            row["evidence"] = {}
         adapters[candidate_id] = row
 
     smoke = stable_path_smoke(registry=registry, root=root)
     policy = auto_activation_policy(registry)
     return {
         "schema_version": 1,
+        "runtime": str(runtime),
+        "probed": bool(probe),
         "policy": policy,
         "adapters": adapters,
         "enabled": sorted(cid for cid, row in adapters.items() if row["enabled"]),
@@ -589,12 +831,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", default=".")
     parser.add_argument("--output", default="AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation.json")
     parser.add_argument("--no-env", action="store_true", help="ignore process environment (probe with no credentials)")
+    parser.add_argument(
+        "--no-probe",
+        action="store_true",
+        help="run no probes at all: the all-adapters-off baseline for this runtime",
+    )
+    parser.add_argument(
+        "--runtime",
+        default="default",
+        help="label for the interpreter producing this report (e.g. validator, browser)",
+    )
     parser.add_argument("--require", nargs="*", default=[], help="adapter ids that must end up enabled")
     args = parser.parse_args(argv)
 
     root = Path(args.root).resolve()
     env: dict = {} if args.no_env else dict(os.environ)
-    report = activation_sweep(root=root, env=env)
+    report = activation_sweep(root=root, env=env, runtime=args.runtime, probe=not args.no_probe)
     out = write_report(report, root / args.output if not Path(args.output).is_absolute() else args.output)
 
     for candidate_id in sorted(report["adapters"]):
