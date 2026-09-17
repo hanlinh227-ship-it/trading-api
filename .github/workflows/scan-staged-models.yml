@@ -1,0 +1,151 @@
+# Signature-based malware scan of staged model artifacts, run where a scanner
+# can actually exist.
+#
+# The runtime environment has no signature engine and cannot get one: ClamAV is
+# not installable (404 on the archive) and database.clamav.net is 403 at the
+# gateway. That left malware_scan_status at not_run, which for Qwen3-0.6B was
+# closed by an explicit operator risk acceptance - deliberately narrow, bound to
+# one digest, and explicitly not reusable for any other model.
+#
+# A GitHub Actions runner has neither limitation. So the scan happens here and
+# produces a real finding rather than a decision. What makes the result usable
+# downstream is that it is bound to the artifact's SHA-256: the runtime
+# recomputes that digest from its own copy of the bytes, so a scan result can
+# only ever apply to the exact file that was scanned. It cannot be inherited by
+# another model, which is the property the operator acceptance had to be
+# hand-restricted to have.
+#
+# The scan is recorded whatever it says. A detection is evidence too, and an
+# infected artifact must be recorded as infected rather than quietly dropped.
+name: Scan staged model artifacts
+
+on:
+  push:
+    branches: ['ops/publish-model-release']
+    paths:
+      - .github/workflows/scan-staged-models.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          m = json.load(open("AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json"))
+          print("matrix=" + json.dumps({"include": m["entries"]}))
+          PY
+
+  scan:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install a real signature engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends clamav
+          sudo systemctl stop clamav-freshclam 2>/dev/null || true
+          # Signatures, not just the engine. An engine with no database would
+          # scan everything and find nothing, which looks exactly like a pass.
+          sudo freshclam --quiet || sudo freshclam
+          clamscan --version
+
+      - name: Download the staged artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          run-id: ${{ matrix.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: staged
+
+      - name: Scan, and bind the result to the exact bytes
+        id: scan
+        env:
+          FILENAME: ${{ matrix.filename }}
+          EXPECTED_SHA: ${{ matrix.expected_sha256 }}
+          MODEL_ID: ${{ matrix.id }}
+          REVISION: ${{ matrix.immutable_revision }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          FILE="$(find staged -type f -name "$FILENAME" -print -quit)"
+          test -n "$FILE" || { echo "::error::$FILENAME not in artifact"; exit 1; }
+
+          SHA=$(sha256sum "$FILE" | awk '{print $1}')
+          SIZE=$(stat -c%s "$FILE")
+          if [ "$SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::digest mismatch - scanning the wrong bytes would produce a worthless result"
+            exit 1
+          fi
+
+          ENGINE=$(clamscan --version)
+          # A GGUF is far larger than clamscan's defaults; raising the limits is
+          # what makes this a scan of the whole file instead of its first 100MB.
+          set +e
+          clamscan --max-filesize=4000M --max-scansize=4000M --stdout "$FILE" > scan.txt 2>&1
+          CODE=$?
+          set -e
+          cat scan.txt
+
+          case "$CODE" in
+            0) STATUS=pass ;;
+            1) STATUS=fail ;;
+            *) STATUS=error ;;
+          esac
+
+          SIGS=$(sudo sigtool --info /var/lib/clamav/daily.cvd 2>/dev/null | awk -F': ' '/^Version:/{print $2; exit}')
+          SIGS="${SIGS:-unknown}"
+
+          python - <<PY > "scan-${MODEL_ID}.json"
+          import json, os, datetime
+          print(json.dumps({
+            "model_id": os.environ["MODEL_ID"],
+            "filename": os.environ["FILENAME"],
+            "artifact_sha256": "$SHA",
+            "size_bytes": int("$SIZE"),
+            "immutable_revision": os.environ.get("REVISION") or None,
+            "malware_scan_status": "$STATUS",
+            "scan_exit_code": int("$CODE"),
+            "engine": """$ENGINE""".strip().splitlines()[0],
+            "signature_database_version": "$SIGS",
+            "scanned_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+            "scanned_by": "github-actions",
+            "scan_kind": "signature_based",
+            "is_a_scan_result": True,
+            "covers_only_this_digest": True,
+            "raw_output": open("scan.txt").read()[-4000:],
+          }, indent=2))
+          PY
+          cat "scan-${MODEL_ID}.json"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the scan result beside the artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: staged-model-${{ matrix.id }}
+          MODEL_ID: ${{ matrix.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" "scan-${MODEL_ID}.json" --clobber
+          echo "published scan-${MODEL_ID}.json to $TAG"
