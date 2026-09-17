@@ -50,8 +50,21 @@ from .staging import resolve_cached  # noqa: E402
 #: Greedy, and the state reset between models so one model's context cannot
 #: leak into another's answer - which would make an "independent" check anything
 #: but independent.
+#: Greedy and state-reset, so two identical requests give identical answers.
+#:
+#: `chat` applies each model's own embedded template. Without it an
+#: instruction-tuned model handed a bare prompt can emit end-of-turn
+#: immediately and return nothing - Phi-3-mini does exactly that, and it was
+#: silently failing as checker on prompts the maker answered fine. Using the
+#: template the GGUF already carries fixes it for every such model without a
+#: per-model table to keep in step.
+#:
+#: The benchmark suites deliberately do NOT set this. Their scores were measured
+#: through the raw completion path and are bound to artifact digests; moving
+#: them to a different prompt encoding would change the numbers under records
+#: that were already sealed.
 DECODING: Mapping[str, Any] = {"temperature": 0.0, "top_k": 1, "top_p": 1.0, "seed": 0,
-                               "reset_state": True}
+                               "reset_state": True, "chat": True}
 
 
 class FederationError(RuntimeError):

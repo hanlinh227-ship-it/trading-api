@@ -1,11 +1,9 @@
 {
   "tool": "free_worker_mesh_proof",
   "rounds_run": 10,
-  "rounds_passed": 9,
-  "failed_rounds": [
-    "J"
-  ],
-  "mesh_status": "FAILED",
+  "rounds_passed": 10,
+  "failed_rounds": [],
+  "mesh_status": "PROVEN",
   "worker_classes_supported": [
     "CI_EPHEMERAL",
     "EPHEMERAL_LOCAL",
@@ -100,6 +98,7 @@
       "provider_refusals": {
         "cloudflare_workers_ai": [
           "this runtime holds no credential for it, and one must not be written into the repository to create one",
+          "has never returned a completion on a zero-cost tier (state: AUTH_REQUIRED); documentation is not execution proof; Grant the repository's CLOUDFLARE_API_TOKEN the \"Workers AI: Read\" permission, or add a second token carrying it. This is a token scope change only - no new account, no plan change, no payment. The Workers Free plan already includes the 10,000 daily Neuron allowance and cannot bill.",
           "@cf/qwen/qwen2.5-coder-32b-instruct free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
         ]
       }
@@ -118,7 +117,7 @@
       "scenario": "large_model_keeps_its_named_requirement",
       "passed": true,
       "failures": [],
-      "refusal": "has 15298 MB RAM available, needs 37200 MB",
+      "refusal": "has 15369 MB RAM available, needs 37200 MB",
       "note": "a statement about the machines attached, not about the model"
     },
     {
@@ -137,9 +136,21 @@
     {
       "round": "J",
       "scenario": "live_federated_inference",
-      "passed": false,
-      "failures": [
-        "a worker errored"
+      "passed": true,
+      "failures": [],
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "role": "maker",
+          "error": null,
+          "latency_ms": 18019.972
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "error": null,
+          "latency_ms": 6210.39
+        }
       ],
       "models": [
         "Qwen/Qwen3-8B-GGUF",
@@ -147,8 +158,8 @@
       ],
       "routing_authority": "task_router",
       "model_selection_authority": "model_mesh",
-      "answer": " What is the role of a worker in a federation? What is the role of a worker in a federation? What is the role of a worker in a federation? What is the role of a worker in a federation? What is the role",
-      "wall_ms": 229728.034,
+      "answer": "<think>\nOkay, the user is asking, \"In one sentence, what does a worker contribute to a federation?\" Let me break this down.\n\nFirst, I need to understand what a federation is. A federation is a political entity where multiple",
+      "wall_ms": 53666.729,
       "note": "a real completion from an admitted local model, not a placement"
     }
   ],

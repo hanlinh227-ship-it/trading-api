@@ -265,14 +265,33 @@ class LlamaCppPythonBackend(ModelRuntimeAdapter):
             if callable(reset):
                 reset()
 
+        # An instruction-tuned model handed a bare prompt can emit its
+        # end-of-turn token immediately and return nothing at all. Phi-3-mini
+        # does exactly that: raw, it produces no output; through its own chat
+        # template it answers. So a caller may ask for the template the GGUF
+        # itself carries rather than guessing one per model.
+        #
+        # Opt-in, and deliberately not the default: every sealed benchmark on
+        # this fleet was measured through the raw completion path, and silently
+        # moving them onto a different prompt encoding would change scores
+        # already bound to digests. New callers ask for chat; the evidence keeps
+        # the path it was measured on.
+        use_chat = bool(task_contract.payload.get("chat"))
         started = time.monotonic()
         try:
-            completion = resident.handle(
-                prompt,
-                max_tokens=task_contract.max_output_tokens or 64,
-                echo=False,
-                **sampling,
-            )
+            if use_chat:
+                completion = resident.handle.create_chat_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=task_contract.max_output_tokens or 64,
+                    **sampling,
+                )
+            else:
+                completion = resident.handle(
+                    prompt,
+                    max_tokens=task_contract.max_output_tokens or 64,
+                    echo=False,
+                    **sampling,
+                )
         except MemoryError as exc:
             raise LlamaCppError(f"out of memory during generation: {exc}", FailureKind.OOM) from exc
         except Exception as exc:  # noqa: BLE001
@@ -280,11 +299,20 @@ class LlamaCppPythonBackend(ModelRuntimeAdapter):
         latency_ms = round((time.monotonic() - started) * 1000.0, 3)
 
         choices = (completion or {}).get("choices") or []
-        text = (choices[0].get("text") if choices else "") or ""
+        first = choices[0] if choices else {}
+        # A chat completion carries its text under message.content; a raw one
+        # under text. Reading only one would report an answer as no output.
+        text = (first.get("text") or (first.get("message") or {}).get("content") or "")
         if not text.strip():
             # An empty completion is a failure. Returning "" would let a broken
             # load look like a model that had nothing to say.
-            raise LlamaCppError("llama.cpp produced no output", FailureKind.CRASH)
+            detail = (
+                "llama.cpp produced no output through the model's own chat template"
+                if use_chat else
+                "llama.cpp produced no output for a raw prompt; an instruction-tuned "
+                "model may need chat=True so its embedded template is applied"
+            )
+            raise LlamaCppError(detail, FailureKind.CRASH)
 
         usage = (completion or {}).get("usage") or {}
         return {
