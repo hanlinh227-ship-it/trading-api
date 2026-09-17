@@ -44,15 +44,31 @@ class WorkerState(str, Enum):
     ELIGIBLE = "ELIGIBLE"      # attested and answering healthchecks
     ACTIVE = "ACTIVE"          # carrying work
     DEGRADED = "DEGRADED"      # answering, but failing its health signal
+    #: Healthy, reachable, and out of free quota until it resets. Deliberately
+    #: not DEGRADED: nothing is wrong with it, and retrying it would be a loop
+    #: against a limit that only time clears.
+    QUOTA_LIMITED = "QUOTA_LIMITED"
+    #: A laptop that closed its lid. Expected to come back, so it is not the
+    #: same fact as a worker that failed.
+    SLEEPING = "SLEEPING"
     OFFLINE = "OFFLINE"        # stopped answering
 
 
 _WORKER_TRANSITIONS: Mapping[WorkerState, frozenset[WorkerState]] = {
     WorkerState.REGISTERED: frozenset({WorkerState.ATTESTED, WorkerState.OFFLINE}),
     WorkerState.ATTESTED: frozenset({WorkerState.ELIGIBLE, WorkerState.DEGRADED, WorkerState.OFFLINE}),
-    WorkerState.ELIGIBLE: frozenset({WorkerState.ACTIVE, WorkerState.DEGRADED, WorkerState.OFFLINE}),
-    WorkerState.ACTIVE: frozenset({WorkerState.ELIGIBLE, WorkerState.DEGRADED, WorkerState.OFFLINE}),
+    WorkerState.ELIGIBLE: frozenset({
+        WorkerState.ACTIVE, WorkerState.DEGRADED, WorkerState.QUOTA_LIMITED,
+        WorkerState.SLEEPING, WorkerState.OFFLINE}),
+    WorkerState.ACTIVE: frozenset({
+        WorkerState.ELIGIBLE, WorkerState.DEGRADED, WorkerState.QUOTA_LIMITED,
+        WorkerState.SLEEPING, WorkerState.OFFLINE}),
     WorkerState.DEGRADED: frozenset({WorkerState.ELIGIBLE, WorkerState.OFFLINE}),
+    # Quota clears on its own, so this returns to ELIGIBLE without a probe. It
+    # may also simply go away while it waits.
+    WorkerState.QUOTA_LIMITED: frozenset({
+        WorkerState.ELIGIBLE, WorkerState.DEGRADED, WorkerState.OFFLINE}),
+    WorkerState.SLEEPING: frozenset({WorkerState.ELIGIBLE, WorkerState.OFFLINE}),
     # An offline worker rejoins at ELIGIBLE - its attestation still stands - or
     # is re-registered from scratch.
     WorkerState.OFFLINE: frozenset({WorkerState.ELIGIBLE, WorkerState.REGISTERED}),
@@ -79,6 +95,54 @@ class WorkerClass(str, Enum):
     REMOTE_EPHEMERAL = "REMOTE_EPHEMERAL"    # a CI runner or similar, per-job
     REMOTE_PERSISTENT = "REMOTE_PERSISTENT"  # a standing remote host
     JIT_REMOTE = "JIT_REMOTE"                # started on demand, then released
+
+    # Operator hardware. Split by platform because what each one can run
+    # differs - Metal on the Mac, CUDA on a Windows box with an NVIDIA card -
+    # and a scheduler that cannot tell them apart cannot honour that.
+    OWNED_MAC = "OWNED_MAC"
+    OWNED_WINDOWS = "OWNED_WINDOWS"
+    OWNED_LINUX = "OWNED_LINUX"
+    OWNED_VPS = "OWNED_VPS"
+
+    REMOTE_CPU = "REMOTE_CPU"
+    REMOTE_GPU = "REMOTE_GPU"
+    FREE_CLOUD_EPHEMERAL = "FREE_CLOUD_EPHEMERAL"
+    CI_EPHEMERAL = "CI_EPHEMERAL"
+
+    #: Holds its own weights behind an API. It is in this enum so one contract
+    #: covers everything that can execute, and it is the class for which
+    #: `supports_custom_weights` is False - the distinction that keeps an
+    #: admitted artifact from being recorded as running somewhere it cannot.
+    SERVERLESS_INFERENCE = "SERVERLESS_INFERENCE"
+    MODEL_PROVIDER = "MODEL_PROVIDER"
+
+    #: A class that does not exist yet. Present so that adding a worker type is
+    #: a registration, not a code change: an unrecognised worker registers here
+    #: and is matched on its declared capabilities like any other.
+    FUTURE_PROVIDER = "FUTURE_PROVIDER"
+
+
+#: Classes whose machine is the operator's own, so running on it costs nothing
+#: further and a confidential payload never leaves hardware they control.
+OWNED_CLASSES = frozenset({
+    WorkerClass.PERSISTENT_LOCAL, WorkerClass.EPHEMERAL_LOCAL,
+    WorkerClass.OWNED_MAC, WorkerClass.OWNED_WINDOWS,
+    WorkerClass.OWNED_LINUX, WorkerClass.OWNED_VPS,
+})
+
+#: The highest privacy a worker on somebody else's infrastructure may hold.
+#: A CONFIDENTIAL or LOCAL_ONLY payload has to stay on hardware the operator
+#: controls, and a provider cannot attest its way past that: the ceiling comes
+#: from where the machine is, not from what its operator promises.
+THIRD_PARTY_PRIVACY_CEILING = Privacy.INTERNAL
+
+#: Classes that are somebody else's infrastructure. A payload above INTERNAL
+#: must never reach one, whatever it costs.
+THIRD_PARTY_CLASSES = frozenset({
+    WorkerClass.SERVERLESS_INFERENCE, WorkerClass.MODEL_PROVIDER,
+    WorkerClass.FREE_CLOUD_EPHEMERAL, WorkerClass.CI_EPHEMERAL,
+    WorkerClass.FUTURE_PROVIDER,
+})
 
 
 def valid_worker_targets(state: WorkerState) -> frozenset[WorkerState]:
@@ -148,6 +212,43 @@ class WorkerRecord:
     network_reachable: bool | None = None
     last_verified_at: str | None = None
 
+    #: Capabilities this worker can serve, as wave-independent tags. Two sets,
+    #: never one: a capability may be *named* before anything has measured it,
+    #: but it may not make a worker eligible before that. `declared` is what the
+    #: worker says it could do and is advertising only; `measured` is what a
+    #: benchmark on this fleet established, and it alone is matched against a
+    #: capability requirement. Collapsing them would let a provider's marketing
+    #: copy stand in for evidence.
+    declared_capabilities: frozenset[str] = frozenset()
+    measured_capabilities: frozenset[str] = frozenset()
+
+    #: Can this worker be handed weights, or does it only serve its own?
+    #: A serverless catalog answers False, which is what stops an admitted
+    #: artifact from being recorded as running there.
+    supports_custom_weights: bool = True
+    supports_jit_acquisition: bool = True
+    supports_cache: bool = True
+    supports_eviction: bool = True
+
+    #: Free-tier accounting. `quota_remaining` of 0 is a real limit; None means
+    #: unmetered or unknown and is never read as exhausted.
+    free_quota: str | None = None
+    quota_remaining: float | None = None
+    quota_reset_at: float | None = None
+
+    #: How long a heartbeat is good for. A worker that has not beaten within
+    #: its lease is stale, and stale is not selectable - a machine that went
+    #: away mid-job is the failure this prevents.
+    lease_seconds: float = 120.0
+
+    #: Concurrency, so one worker is not handed every job at once.
+    max_concurrent_jobs: int = 1
+    current_jobs: int = 0
+    current_models: frozenset[str] = frozenset()
+
+    egress_policy: str | None = None
+    trust_class: str = "operator_owned"
+
     #: Not fields. A worker cannot be constructed with authority, and cannot
     #: acquire it later - `WorkerRecord(..., routing_authority=True)` is a
     #: TypeError, which is exactly the point.
@@ -155,6 +256,36 @@ class WorkerRecord:
     reasoning_authority = False
     memory_authority = False
     model_selection_authority = False
+
+    def lease_expired(self, *, now: float) -> bool:
+        """Whether this worker's last heartbeat has gone stale.
+
+        A worker that has never been seen has not proven it is there, so it is
+        stale rather than fresh. That is the safe direction: the cost of
+        wrongly calling a live worker stale is a missed placement; the cost of
+        the reverse is a job handed to a machine that is gone.
+        """
+        if self.last_seen is None:
+            return True
+        return (now - self.last_seen) > self.lease_seconds
+
+    @property
+    def has_capacity(self) -> bool:
+        return self.current_jobs < self.max_concurrent_jobs
+
+    @property
+    def is_third_party(self) -> bool:
+        return self.worker_class in THIRD_PARTY_CLASSES
+
+    def quota_exhausted(self, *, now: float) -> bool:
+        """Out of free quota, and not yet reset. None means unmetered."""
+        if self.quota_remaining is None:
+            return False
+        if self.quota_remaining > 0:
+            return False
+        # A reset time in the past means the window has rolled over; the
+        # remaining count is simply stale and a probe will refresh it.
+        return not (self.quota_reset_at is not None and now >= self.quota_reset_at)
 
     def to_dict(self, *, now: float) -> Mapping[str, Any]:
         return {
@@ -179,6 +310,24 @@ class WorkerRecord:
             "privacy_class": None if self.attestation is None else self.attestation.max_privacy.value,
             "network_reachable": self.network_reachable,
             "last_verified_at": self.last_verified_at,
+            "declared_capabilities": sorted(self.declared_capabilities),
+            "measured_capabilities": sorted(self.measured_capabilities),
+            "supports_custom_weights": self.supports_custom_weights,
+            "supports_jit_acquisition": self.supports_jit_acquisition,
+            "supports_cache": self.supports_cache,
+            "supports_eviction": self.supports_eviction,
+            "free_quota": self.free_quota,
+            "quota_remaining": self.quota_remaining,
+            "quota_reset_at": self.quota_reset_at,
+            "lease_seconds": self.lease_seconds,
+            "lease_expired": self.lease_expired(now=now),
+            "max_concurrent_jobs": self.max_concurrent_jobs,
+            "current_jobs": self.current_jobs,
+            "current_models": sorted(self.current_models),
+            "has_capacity": self.has_capacity,
+            "egress_policy": self.egress_policy,
+            "trust_class": self.trust_class,
+            "is_third_party": self.is_third_party,
             "routing_authority": self.routing_authority,
             "reasoning_authority": self.reasoning_authority,
             "memory_authority": self.memory_authority,
@@ -203,6 +352,14 @@ class WorkerRequirement:
     quantization: str | None = None
     model_family: str | None = None
     context: int | None = None
+
+    #: A wave-independent capability tag - "coding", "vision", "OCR". Matched
+    #: against a worker's *measured* set only, so a Wave 4 requirement needs no
+    #: scheduler change: it is a new string, not new code.
+    capability: str | None = None
+    #: Whether the work needs weights of ours loaded. False lets a hosted
+    #: catalog answer; True restricts to workers that can take an artifact.
+    requires_custom_weights: bool = False
 
 
 def _validate_endpoint(endpoint: str) -> None:
@@ -273,6 +430,12 @@ class WorkerRegistry:
         policy allows has not shown it will respect a narrower grant.
         """
         worker = self.get(worker_id)
+        # Where the machine is caps what it may be trusted with, under whatever
+        # ceiling the caller passed. A third-party worker attesting to
+        # CONFIDENTIAL is refused here rather than filtered at selection time,
+        # so the record never exists to be read wrongly later.
+        if worker.is_third_party and ceiling.rank > THIRD_PARTY_PRIVACY_CEILING.rank:
+            ceiling = THIRD_PARTY_PRIVACY_CEILING
         refusals = attestation.refusals(ceiling=ceiling)
         if refusals:
             return AttestationResult(accepted=False, refusals=refusals)
@@ -321,11 +484,33 @@ class WorkerRegistry:
 
     # -- selection ---------------------------------------------------------
 
-    def eligible(self, requirement: WorkerRequirement) -> tuple[WorkerRecord, ...]:
-        """Workers that could take this work. Empty is a normal answer."""
+    def eligible(
+        self, requirement: WorkerRequirement, *, now: float | None = None
+    ) -> tuple[WorkerRecord, ...]:
+        """Workers that could take this work. Empty is a normal answer.
+
+        `now` enables the time-dependent checks - lease staleness and quota
+        resets. Without it those are skipped rather than guessed, because a
+        wrong clock would silently exclude every worker.
+        """
         matches: list[WorkerRecord] = []
         for worker in self._workers.values():
             if worker.state not in SERVING_STATES or worker.attestation is None:
+                continue
+            # A heartbeat older than the lease means the worker may already be
+            # gone. Selecting it would hand a job to a machine that cannot
+            # answer, so staleness excludes before anything else is considered.
+            if now is not None and worker.lease_expired(now=now):
+                continue
+            if now is not None and worker.quota_exhausted(now=now):
+                continue
+            if not worker.has_capacity:
+                continue
+            if requirement.requires_custom_weights and not worker.supports_custom_weights:
+                continue
+            # Measured only. A declared capability advertises; it does not
+            # qualify.
+            if requirement.capability and requirement.capability not in worker.measured_capabilities:
                 continue
             if requirement.free_only and not worker.attestation.zero_cost_only:
                 continue
@@ -356,7 +541,9 @@ class WorkerRegistry:
             matches.append(worker)
         return tuple(matches)
 
-    def refusals(self, requirement: WorkerRequirement) -> Mapping[str, tuple[str, ...]]:
+    def refusals(
+        self, requirement: WorkerRequirement, *, now: float | None = None
+    ) -> Mapping[str, tuple[str, ...]]:
         """Per worker, why it cannot take this work.
 
         `eligible()` returning empty is a normal answer but an unhelpful one:
@@ -368,6 +555,29 @@ class WorkerRegistry:
             why: list[str] = []
             if worker.state not in SERVING_STATES:
                 why.append(f"state is {worker.state.value}, not serving")
+            if now is not None and worker.lease_expired(now=now):
+                seen = "never" if worker.last_seen is None else f"{round(now - worker.last_seen, 1)}s ago"
+                why.append(
+                    f"last heartbeat {seen}, past its {worker.lease_seconds}s lease, so it "
+                    f"may already be gone"
+                )
+            if now is not None and worker.quota_exhausted(now=now):
+                why.append(
+                    f"free quota is exhausted ({worker.quota_remaining} remaining); this "
+                    f"clears on reset, not on retry"
+                )
+            if not worker.has_capacity:
+                why.append(
+                    f"is carrying {worker.current_jobs} of {worker.max_concurrent_jobs} jobs"
+                )
+            if requirement.requires_custom_weights and not worker.supports_custom_weights:
+                why.append("cannot be handed weights; it serves only its own catalog")
+            if requirement.capability and requirement.capability not in worker.measured_capabilities:
+                declared = requirement.capability in worker.declared_capabilities
+                why.append(
+                    f"has no measured {requirement.capability} capability"
+                    + (" (it declares one, which advertises but does not qualify)" if declared else "")
+                )
             if worker.attestation is None:
                 why.append("has not attested")
             elif requirement.free_only and not worker.attestation.zero_cost_only:
