@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import {ACTIVATION_STAGES,advanceActivation,evaluateActivation} from './image-render/activation.js';
+import {buildStaticActivationEvidence} from './image-render/activation-evidence.js';
+import {getProviderAdapter} from './image-render/provider-adapter-registry.js';
+import {getModelVaultEntry} from './image-render/model-vault.js';
 
 // Section 5 flow, in order.
 assert.deepEqual([...ACTIVATION_STAGES],[
@@ -16,8 +19,6 @@ const adapter={
   rateLimitBehavior:'fail_closed',provenance:'https://github.com/Haidra-Org/AI-Horde',
   licenseEvidence:'per-model licenses tracked in the model vault',
 };
-// A realistic vault entry: the canonical promotion gate validates the whole record, so a
-// partial fixture would be testing against a contract the real thing never sees.
 const model={
   modelId:'sdxl',family:'stable-diffusion',version:'1.0',
   canonicalRepo:'stabilityai/stable-diffusion',providerModelId:'@cf/stabilityai/sdxl',
@@ -31,18 +32,15 @@ const model={
 };
 const base={model,adapter,taskType:'TEXT_TO_IMAGE'};
 
-// No evidence at all: stays CANDIDATE and says what is missing.
 let result=evaluateActivation(base);
 assert.equal(result.stage,'CANDIDATE');
 assert.ok(result.blockers.includes('runtime_not_discovered'));
 assert.equal(result.status,'CANDIDATE');
 
-// Runtime discovered but never probed: cannot claim health.
 result=evaluateActivation({...base,evidence:{runtimeDiscovered:{ok:true,at:'2026-09-16',source:'provider model listing'}}});
 assert.equal(result.stage,'RUNTIME_DISCOVERED');
 assert.ok(result.blockers.includes('runtime_health_not_verified'));
 
-// A failed probe never advances the stage.
 result=evaluateActivation({...base,evidence:{
   runtimeDiscovered:{ok:true,at:'2026-09-16',source:'provider model listing'},
   health:{ok:false,at:'2026-09-16',detail:'provider_unreachable'},
@@ -55,7 +53,6 @@ const healthy={
   health:{ok:true,at:'2026-09-16',detail:'workers_available=4'},
 };
 
-// Licence is verified from the vault record, not assumed.
 result=evaluateActivation({...base,evidence:healthy});
 assert.equal(result.stage,'HEALTH_VERIFIED');
 assert.ok(result.blockers.includes('license_not_verified'));
@@ -70,7 +67,6 @@ result=evaluateActivation({...base,evidence:priv});
 assert.equal(result.stage,'PRIVACY_VERIFIED');
 assert.ok(result.blockers.includes('benchmark_not_passed'));
 
-// Benchmark evidence is per task and must actually pass.
 result=evaluateActivation({...base,evidence:{...priv,benchmark:{ok:false,at:'2026-09-16',taskType:'TEXT_TO_IMAGE',samples:12,average:41}}});
 assert.equal(result.stage,'PRIVACY_VERIFIED');
 result=evaluateActivation({...base,evidence:{...priv,benchmark:{ok:true,at:'2026-09-16',taskType:'CHARACTER_CONSISTENCY',samples:12,average:91}}});
@@ -83,12 +79,10 @@ assert.equal(result.status,'ACTIVE');
 assert.deepEqual(result.blockers,[]);
 assert.equal(result.evidenceTrail.length,5,'every stage keeps its evidence record');
 
-// A broken adapter can never reach ACTIVE, whatever the evidence says.
 result=evaluateActivation({...base,adapter:{...adapter,monetaryCost:'unknown'},evidence:full});
 assert.equal(result.status,'DISABLED');
 assert.ok(result.blockers.some(b=>b.includes('monetaryCost')));
 
-// Cost/licence/privacy failures DISABLE rather than merely hold.
 for(const evidence of [
   {...full,license:{ok:false,at:'2026-09-16',detail:'non_commercial'}},
   {...full,privacy:{ok:false,at:'2026-09-16',detail:'retains_user_images'}},
@@ -96,22 +90,34 @@ for(const evidence of [
   assert.equal(evaluateActivation({...base,evidence}).status,'DISABLED');
 }
 
-// A quality regression demotes an active model to DEGRADED, it does not silently stay ACTIVE.
 result=evaluateActivation({...base,evidence:{...full,regression:{degraded:true,at:'2026-09-16',detail:'critic pass rate fell'}}});
 assert.equal(result.status,'DEGRADED');
 
-// advanceActivation records the outcome on the vault entry without mutating the input.
 const advanced=advanceActivation(base.model,evaluateActivation({...base,evidence:full}));
 assert.equal(advanced.status,'ACTIVE');
 assert.equal(advanced.activation.taskType,'TEXT_TO_IMAGE');
 assert.equal(advanced.activation.evidenceTrail.length,5);
 assert.equal(model.status,'CANDIDATE','input entry must not be mutated');
 
+// Static evidence is allowed to clear only licence/privacy: runtime health and benchmark
+// remain live/empirical gates. Sources must be explicit URLs rather than prose claims.
+{
+  const cf=getProviderAdapter('cloudflare_workers_ai');
+  const flux=getModelVaultEntry('flux-1-schnell');
+  const staticEvidence=buildStaticActivationEvidence({model:flux,adapter:cf,taskType:'TEXT_TO_IMAGE',at:'2026-09-17T00:00:00Z'});
+  assert.equal(staticEvidence.license.ok,true);
+  assert.equal(staticEvidence.privacy.ok,true);
+  assert.match(staticEvidence.license.source,/^https:\/\//);
+  assert.match(staticEvidence.privacy.source,/^https:\/\//);
+  const ref=getModelVaultEntry('stable-diffusion-v1-5-img2img');
+  const refEvidence=buildStaticActivationEvidence({model:ref,adapter:cf,taskType:'REFERENCE_GENERATION'});
+  assert.equal(refEvidence.privacy.ok,true);
+  const horde=getProviderAdapter('ai_horde');
+  assert.equal(buildStaticActivationEvidence({model:ref,adapter:horde,taskType:'REFERENCE_GENERATION'}).privacy.ok,false);
+}
+
 console.log('image render v3 runtime activation contracts: PASS');
 
-// The activation ladder must not be a second promotion authority: the final ACTIVE step
-// delegates to the canonical promotion gate, so a model cannot slip past it by walking
-// the stages. Reference tasks therefore still need a reference-safe provider.
 {
   const refModel={...model,supportedTasks:['REFERENCE_GENERATION'],referenceSupport:true};
   const unsafeAdapter={...adapter,supportedTasks:['REFERENCE_GENERATION'],referenceSafe:false,privacyClasses:['PUBLIC']};
@@ -122,11 +128,9 @@ console.log('image render v3 runtime activation contracts: PASS');
     privacy:{ok:true,at:'2026-09-16',source:'x'},
     benchmark:{ok:true,at:'2026-09-16',taskType:'REFERENCE_GENERATION',samples:12,average:95},
   };
-  // A reference task on a provider that is not reference-safe can never reach ACTIVE.
   const unsafe=evaluateActivation({model:refModel,adapter:unsafeAdapter,taskType:'REFERENCE_GENERATION',evidence});
   assert.notEqual(unsafe.status,'ACTIVE');
 
-  // The same evidence on a reference-safe provider clears the gate.
   const safeAdapter={...adapter,supportedTasks:['REFERENCE_GENERATION'],referenceSafe:true,privacyClasses:['PUBLIC','CONFIDENTIAL']};
   const safe=evaluateActivation({model:refModel,adapter:safeAdapter,taskType:'REFERENCE_GENERATION',evidence});
   assert.equal(safe.status,'ACTIVE',JSON.stringify(safe.blockers));
