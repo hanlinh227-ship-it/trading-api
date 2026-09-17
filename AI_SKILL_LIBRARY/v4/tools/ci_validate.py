@@ -34,6 +34,7 @@ VALIDATORS = (
     "AI_SKILL_LIBRARY/v4/tools/validate_universal_fabric.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_legion.py",
+    "AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py",
 )
 
 
