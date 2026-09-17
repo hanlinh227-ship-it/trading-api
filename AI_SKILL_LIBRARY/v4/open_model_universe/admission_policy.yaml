@@ -1,0 +1,56 @@
+version: 1
+purpose: fail_closed_local_model_admission_boundary
+
+authority:
+  routing: false
+  reasoning: false
+  runtime_residency: false
+
+flow:
+  - open_model_universe
+  - admission_gate
+  - model_mesh_local_candidate
+  - claude_runtime_projection
+
+registry_membership_implies_activation: false
+ingress_hardcodes_model: false
+runtime_residency_owner: claude_local_runtime
+model_selection_authority: model_mesh
+
+artifact_identity_source: artifact_identity
+artifact_identity_required_fields:
+  - model_id
+  - family
+  - variant
+  - immutable_revision
+  - sha256
+  - size_bytes
+  - format
+  - quantization
+
+candidate_gate:
+  governance_state_required: AVAILABLE
+  require_license_verified: true
+  require_provenance_verified: true
+  require_safe_format_verified: true
+  require_pickle_safe: true
+  trust_remote_code_required_must_be: false
+  custom_code_required_must_be: false
+  malware_scan_status_required: pass
+  quarantine_status_required: clear
+  unknown_critical_evidence_blocks: true
+  blocked_states:
+    - DISCOVERED
+    - QUARANTINED
+    - QUARANTINED_UPDATE
+    - REGISTERED
+    - APPROVED
+    - BLOCKED
+    - SUPERSEDED
+    - RETIRED
+
+runtime_first_load_contract:
+  isolated_first_load_if_required: true
+  deny_first_load_egress_when_first_load_egress_allowed_false: true
+  runtime_may_not_relax_admission: true
+  runtime_may_not_mutate_artifact_identity: true

@@ -1,7 +1,8 @@
-"""Authority-free Open Model Universe lifecycle contracts.
+"""Authority-free Open Model Universe governance lifecycle contracts.
 
-This module describes metadata lifecycle only. It does not route tasks, download
-weights, start runtimes, select models, or mutate Stable state.
+This module owns metadata governance only. Runtime residency (acquiring, loading,
+ready, running, warm, sleeping, degraded, evicted) is explicitly Claude-owned
+and is not represented as Open Model Universe authority.
 """
 from __future__ import annotations
 
@@ -9,48 +10,44 @@ from __future__ import annotations
 LIFECYCLE_STATES = {
     "DISCOVERED",
     "QUARANTINED",
+    "QUARANTINED_UPDATE",
     "REGISTERED",
     "APPROVED",
     "AVAILABLE",
-    "DOWNLOADING",
-    "CACHED",
-    "WARM",
+    "BLOCKED",
+    "SUPERSEDED",
+    "RETIRED",
+}
+
+RUNTIME_RESIDENCY_OWNER = "claude_local_runtime"
+RUNTIME_RESIDENCY_STATES = {
+    "COLD",
+    "ACQUIRING",
+    "LOADING",
+    "READY",
     "RUNNING",
+    "WARM",
     "SLEEPING",
     "DEGRADED",
     "BROKEN",
     "EVICTED",
-    "SUPERSEDED",
-    "RETIRED",
-    "BLOCKED",
-    "QUARANTINED_UPDATE",
 }
-
 
 ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     "DISCOVERED": frozenset({"QUARANTINED", "BLOCKED"}),
     "QUARANTINED": frozenset({"REGISTERED", "BLOCKED", "RETIRED"}),
     "REGISTERED": frozenset({"APPROVED", "QUARANTINED", "BLOCKED", "SUPERSEDED"}),
-    "APPROVED": frozenset({"AVAILABLE", "DOWNLOADING", "QUARANTINED_UPDATE", "BLOCKED"}),
-    "AVAILABLE": frozenset({"DOWNLOADING", "CACHED", "WARM", "RUNNING", "DEGRADED", "BROKEN", "QUARANTINED_UPDATE"}),
-    "DOWNLOADING": frozenset({"CACHED", "BROKEN", "QUARANTINED"}),
-    "CACHED": frozenset({"WARM", "EVICTED", "BROKEN", "SUPERSEDED"}),
-    "WARM": frozenset({"RUNNING", "SLEEPING", "CACHED", "DEGRADED", "BROKEN", "EVICTED"}),
-    "RUNNING": frozenset({"WARM", "SLEEPING", "DEGRADED", "BROKEN"}),
-    "SLEEPING": frozenset({"WARM", "EVICTED", "SUPERSEDED"}),
-    "DEGRADED": frozenset({"AVAILABLE", "WARM", "RUNNING", "BROKEN", "QUARANTINED"}),
-    "BROKEN": frozenset({"QUARANTINED", "BLOCKED", "RETIRED"}),
-    "EVICTED": frozenset({"DOWNLOADING", "RETIRED", "SUPERSEDED"}),
+    "APPROVED": frozenset({"AVAILABLE", "QUARANTINED_UPDATE", "BLOCKED", "SUPERSEDED"}),
+    "AVAILABLE": frozenset({"QUARANTINED_UPDATE", "BLOCKED", "SUPERSEDED", "RETIRED"}),
+    "BLOCKED": frozenset({"QUARANTINED", "RETIRED"}),
     "SUPERSEDED": frozenset({"RETIRED"}),
     "RETIRED": frozenset(),
-    "BLOCKED": frozenset({"QUARANTINED", "RETIRED"}),
     "QUARANTINED_UPDATE": frozenset({"APPROVED", "BLOCKED", "RETIRED"}),
 }
 
 
 def validate_transition(current: str, target: str) -> bool:
-    """Return whether a single explicit lifecycle transition is allowed."""
+    """Return whether a single governance transition is allowed."""
     if current not in LIFECYCLE_STATES or target not in LIFECYCLE_STATES:
         return False
     return target in ALLOWED_TRANSITIONS[current]
-
