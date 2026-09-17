@@ -123,15 +123,19 @@ class ArtifactIdentity:
 
 
 def artifact_block(record: Mapping[str, Any]) -> Mapping[str, Any]:
-    """The record's artifact fields, nested or flat.
+    """The record's artifact fields, from whichever shape the row uses.
 
-    The canonical registry nests them under `artifact:`; earlier drafts used
-    flat `artifact_*` keys. Both are read so a schema revision does not silently
-    strip an identity down to a bare model name.
+    The canonical registry nests them under `artifact_identity:`, which is what
+    `admission_policy.yaml` names as the source. Earlier shapes used `artifact:`
+    or flat `artifact_*` keys. All three are read, newest first, so a schema
+    revision never silently strips an identity down to a bare model name -
+    losing a quantization or a revision here would let two different artifacts
+    share one cache entry.
     """
-    nested = record.get("artifact")
-    if isinstance(nested, Mapping):
-        return nested
+    for key in ("artifact_identity", "artifact"):
+        nested = record.get(key)
+        if isinstance(nested, Mapping):
+            return nested
     return {
         "filename": record.get("artifact_filename") or record.get("filename"),
         "format": record.get("artifact_format"),
@@ -144,12 +148,17 @@ def artifact_block(record: Mapping[str, Any]) -> Mapping[str, Any]:
 def _identity_mapping(record: Mapping[str, Any]) -> Mapping[str, Any]:
     artifact = artifact_block(record)
     return {
-        "model_id": record.get("model_id"),
-        "family": record.get("family"),
-        "variant": record.get("variant"),
-        # `immutable_revision` is the canonical field; `upstream_revision` is
-        # accepted because the record carries both and they must agree.
-        "immutable_revision": record.get("immutable_revision") or record.get("upstream_revision"),
+        # The identity block carries its own copies of these. They are the
+        # authority when present, because the policy names that block as the
+        # identity source; the row-level values are a fallback.
+        "model_id": artifact.get("model_id") or record.get("model_id"),
+        "family": artifact.get("family") or record.get("family"),
+        "variant": artifact.get("variant") or record.get("variant"),
+        "immutable_revision": (
+            artifact.get("immutable_revision")
+            or record.get("immutable_revision")
+            or record.get("upstream_revision")
+        ),
         "artifact_sha256": artifact.get("sha256"),
         "artifact_format": artifact.get("format"),
         "quantization": artifact.get("quantization") or record.get("quantization"),
@@ -171,17 +180,33 @@ def from_record(record: Mapping[str, Any]) -> tuple["ArtifactIdentity | None", t
     if missing:
         return None, tuple(f"artifact identity field {name} is absent" for name in missing)
 
-    # Both revision fields are present in the canonical record. If they ever
-    # disagree, that is a corrupt row, not a preference to resolve.
-    upstream = str(record.get("upstream_revision") or "").strip()
-    immutable = str(record.get("immutable_revision") or "").strip()
-    if upstream and immutable and upstream != immutable:
-        return None, (
-            f"upstream_revision {upstream!r} and immutable_revision {immutable!r} disagree",
+    # The row states its revision in more than one place. If the copies ever
+    # disagree, that is a corrupt row, not a preference to resolve - picking one
+    # would silently pin a different artifact than the record describes.
+    artifact = artifact_block(record)
+    revisions = {
+        str(value).strip()
+        for value in (
+            record.get("upstream_revision"),
+            record.get("immutable_revision"),
+            artifact.get("immutable_revision"),
         )
+        if str(value or "").strip()
+    }
+    if len(revisions) > 1:
+        return None, (f"revision fields disagree: {sorted(revisions)}",)
+
+    # Same for identity fields duplicated between the row and the block.
+    for row_key, block_key in (("model_id", "model_id"), ("family", "family"), ("variant", "variant")):
+        row_value = str(record.get(row_key) or "").strip()
+        block_value = str(artifact.get(block_key) or "").strip()
+        if row_value and block_value and row_value != block_value:
+            return None, (
+                f"{row_key} disagrees between record ({row_value!r}) and identity block "
+                f"({block_value!r})",
+            )
 
     fields = _identity_mapping(record)
-    artifact = artifact_block(record)
     try:
         identity = ArtifactIdentity(
             model_id=str(fields["model_id"]),

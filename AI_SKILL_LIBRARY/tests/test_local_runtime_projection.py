@@ -13,6 +13,7 @@ import json
 import unittest
 from pathlib import Path
 
+from AI_SKILL_LIBRARY.v4.local_runtime.identity import from_record
 from AI_SKILL_LIBRARY.v4.local_runtime.projection import (
     PRIVACY_CLASS_MAP,
     ProjectionResult,
@@ -37,29 +38,35 @@ FIXTURE = {
     "official_upstream": "https://example.invalid/fixture",
     "weights_source": "https://example.invalid/fixture/weights",
     "upstream_revision": "0123456789abcdef0123456789abcdef01234567",
-    "immutable_revision": "0123456789abcdef0123456789abcdef01234567",
-    "artifact": {
-        "filename": "fixture-model-a-Q4_K_M.gguf",
-        "format": "gguf",
+    "artifact_identity": {
+        "model_id": "fixture-model-a",
+        "family": "fixture-family",
+        "variant": "8b-instruct",
+        "immutable_revision": "0123456789abcdef0123456789abcdef01234567",
         "sha256": "0" * 64,
         "size_bytes": 4_000_000_000,
+        "format": "gguf",
         "quantization": "Q4_K_M",
     },
-    "lineage_id": "fixture::a::Q4_K_M::0123456789abcdef0123456789abcdef01234567",
-    "zero_cost_eligible": True,
-    "offline_ready": False,
-    "admission_evidence": ["https://example.invalid/fixture/commit"],
-    "safe_admission": {
-        "safe_format": True,
-        "pickle_risk": False,
+    "admission_evidence": {
+        "license_verified": True,
+        "provenance_verified": True,
+        "safe_format_verified": True,
+        "pickle_safe": True,
         "trust_remote_code_required": False,
         "custom_code_required": False,
-        "provenance_verified": True,
-        "license_verified": True,
-        "digest_verified": False,
+        "malware_scan_status": "pass",
         "isolated_first_load_required": True,
-        "egress_required": True,
-        "quarantine_policy": "admit_metadata_only; isolated_first_load",
+        "first_load_egress_allowed": False,
+        "quarantine_status": "clear",
+    },
+    "model_mesh_local_candidate_eligible": True,
+    "offline_eligible": True,
+    "lineage": {
+        "source_model_id": "fixture-family-8b",
+        "source_revision": None,
+        "conversion_owner": "fixture",
+        "conversion_verified": False,
     },
     "release_date": "2026-01-01",
     "license_name": "Apache-2.0",
@@ -91,7 +98,7 @@ FIXTURE = {
     "latency_class": "fast",
     "privacy_class": "local_only",
     "cost_class": "owned_hardware_zero_marginal",
-    "lifecycle_state": "APPROVED",
+    "lifecycle_state": "AVAILABLE",
     "health": "healthy",
     "last_verified": "2026-09-17T00:00:00Z",
     "authority": False,
@@ -105,8 +112,8 @@ def record(**overrides):
     row = copy.deepcopy(FIXTURE)
     # The record carries both revision fields and they must agree, so driving
     # one from a test drives both unless the test sets them apart on purpose.
-    if "upstream_revision" in overrides and "immutable_revision" not in overrides:
-        overrides["immutable_revision"] = overrides["upstream_revision"]
+    if "upstream_revision" in overrides and "artifact_identity" not in overrides:
+        overrides["artifact_identity"] = {"immutable_revision": overrides["upstream_revision"]}
     for key, value in overrides.items():
         if isinstance(value, dict) and isinstance(row.get(key), dict):
             merged = {**row[key], **value}
@@ -144,24 +151,24 @@ class SchemaFidelityTests(unittest.TestCase):
 
         results = project_registry(registry, snapshot=snapshot(), available_runtimes=["llama.cpp"])
         self.assertEqual(len(results), len(registry["models"]))
-        for result in results:
+        for result, record in zip(results, registry["models"]):
             with self.subTest(model_id=result.model_id):
-                # Every merged row must project without an exclusion; a row that
-                # cannot be projected is a contract break between the lanes.
-                self.assertEqual(result.exclusion_reasons, (), result.model_id)
-                self.assertTrue(result.placeable)
-                self.assertTrue(result.profile.revision)
-                self.assertTrue(result.profile.artifact_hash)
+                # Identity must read losslessly whatever the governance state,
+                # and a row governance has not cleared must never be placeable.
+                identity, reasons = from_record(record)
+                self.assertIsNotNone(identity, reasons)
+                if record["lifecycle_state"] != "AVAILABLE":
+                    self.assertFalse(result.placeable)
 
-    def test_the_merged_canonical_row_is_acquisition_eligible(self):
+    def test_the_merged_canonical_row_is_quarantined_and_refused(self):
+        """The row on main is QUARANTINED; the runtime must refuse it."""
         registry = load_registry(ROOT)
         if not registry.get("models"):
             self.skipTest("no canonical row merged yet")
         result = project_registry(registry, snapshot=snapshot(), available_runtimes=["llama.cpp"])[0]
-        self.assertEqual(result.admission_status, AdmissionStatus.ADMITTED)
-        self.assertTrue(result.profile.acquisition_eligible)
-        # RAM is deliberately unmeasured upstream and must stay unknown here.
-        self.assertIsNone(result.profile.ram_mb)
+        self.assertEqual(result.admission_status, AdmissionStatus.INELIGIBLE)
+        self.assertIsNone(result.profile)
+        self.assertTrue(result.exclusion_reasons)
 
     def test_every_privacy_class_maps_to_a_real_ceiling(self):
         for value in PRIVACY_CLASS_MAP.values():
@@ -251,24 +258,32 @@ class UnknownPreservationTests(unittest.TestCase):
 
 
 class AcquisitionEligibilityTests(unittest.TestCase):
-    def test_a_record_without_artifact_identity_is_restricted_not_admitted(self):
-        stripped = record()
-        stripped["artifact"] = {k: v for k, v in stripped["artifact"].items()
-                                if k not in ("sha256", "size_bytes")}
-        result = project_record(stripped, snapshot=snapshot())
-        self.assertEqual(result.admission_status, AdmissionStatus.RESTRICTED)
-        self.assertFalse(result.profile.acquisition_eligible)
-        self.assertTrue(any("hash" in reason for reason in result.exclusion_reasons))
-        self.assertTrue(any("size" in reason for reason in result.exclusion_reasons))
+    def test_a_record_without_artifact_identity_is_ineligible(self):
+        """Stricter than before: the policy lists these as required fields.
 
-    def test_a_restricted_record_is_still_placeable_from_cache(self):
+        Earlier this lane called such a row RESTRICTED - placeable from cache,
+        not downloadable. `admission_policy.yaml` names sha256 and size_bytes
+        among `artifact_identity_required_fields`, so a row missing them is not
+        a candidate at all, and the runtime follows the policy.
+        """
         stripped = record()
-        stripped["artifact"] = {k: v for k, v in stripped["artifact"].items() if k != "sha256"}
-        self.assertTrue(project_record(stripped, snapshot=snapshot()).placeable)
+        stripped["artifact_identity"] = {k: v for k, v in stripped["artifact_identity"].items()
+                                         if k not in ("sha256", "size_bytes")}
+        result = project_record(stripped, snapshot=snapshot())
+        self.assertEqual(result.admission_status, AdmissionStatus.INELIGIBLE)
+        self.assertIsNone(result.profile)
+        self.assertTrue(any("sha256" in reason for reason in result.exclusion_reasons))
+        self.assertTrue(any("size_bytes" in reason for reason in result.exclusion_reasons))
+
+    def test_a_row_missing_a_required_identity_field_is_not_placeable(self):
+        stripped = record()
+        stripped["artifact_identity"] = {k: v for k, v in stripped["artifact_identity"].items()
+                                         if k != "sha256"}
+        self.assertFalse(project_record(stripped, snapshot=snapshot()).placeable)
 
     def test_artifact_identity_admits_the_record_for_acquisition(self):
         result = project_record(
-            record(artifact={"sha256": "a" * 64, "size_bytes": 4_000_000_000}), snapshot=snapshot()
+            record(artifact_identity={"sha256": "a" * 64, "size_bytes": 4_000_000_000}), snapshot=snapshot()
         )
         self.assertEqual(result.admission_status, AdmissionStatus.ADMITTED)
         self.assertTrue(result.profile.acquisition_eligible)
@@ -276,10 +291,11 @@ class AcquisitionEligibilityTests(unittest.TestCase):
 
     def test_a_missing_size_alone_still_blocks_acquisition(self):
         stripped = record()
-        stripped["artifact"] = {k: v for k, v in stripped["artifact"].items() if k != "size_bytes"}
+        stripped["artifact_identity"] = {k: v for k, v in stripped["artifact_identity"].items()
+                                         if k != "size_bytes"}
         result = project_record(stripped, snapshot=snapshot())
-        self.assertFalse(result.profile.acquisition_eligible)
-        self.assertIsNone(result.profile.disk_mb)
+        self.assertIsNone(result.profile)
+        self.assertTrue(any("size_bytes" in reason for reason in result.exclusion_reasons))
 
 
 class GateTests(unittest.TestCase):
@@ -321,9 +337,10 @@ class GateTests(unittest.TestCase):
         self.assertTrue(any("authority" in r for r in self._reasons(authority=True)))
 
     def test_non_placeable_lifecycle_states_are_rejected(self):
-        for state in ("DISCOVERED", "QUARANTINED", "REGISTERED", "BLOCKED", "RETIRED", "BROKEN"):
+        for state in ("DISCOVERED", "QUARANTINED", "REGISTERED", "BLOCKED", "RETIRED", "APPROVED"):
             with self.subTest(state=state):
-                self.assertTrue(any("lifecycle_state" in r for r in self._reasons(lifecycle_state=state)))
+                reasons = self._reasons(lifecycle_state=state)
+                self.assertTrue(any("governance state" in r for r in reasons), reasons)
 
     def test_broken_or_blocked_health_is_rejected(self):
         for health in ("broken", "blocked"):
@@ -451,14 +468,29 @@ CANONICAL_QWEN3 = {
         "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf"
     ),
     "upstream_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-    "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-    "artifact": {
-        "filename": "Qwen3-0.6B-Q8_0.gguf",
-        "format": "gguf",
+    "artifact_identity": {
+        "model_id": "qwen3-0.6b-q8_0-gguf",
+        "family": "Qwen3",
+        "variant": "0.6B-Q8_0-GGUF",
+        "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
         "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
         "size_bytes": 639446688,
+        "format": "gguf",
         "quantization": "Q8_0",
     },
+    "admission_evidence": {
+        "license_verified": True,
+        "provenance_verified": True,
+        "safe_format_verified": True,
+        "pickle_safe": True,
+        "trust_remote_code_required": False,
+        "custom_code_required": False,
+        "malware_scan_status": "pass",
+        "isolated_first_load_required": True,
+        "first_load_egress_allowed": False,
+        "quarantine_status": "clear",
+    },
+    "model_mesh_local_candidate_eligible": True,
     "license_name": "Apache-2.0",
     "license_class": "permissive",
     "license_verified": True,
@@ -480,7 +512,7 @@ CANONICAL_QWEN3 = {
     "quality_class": "unknown",
     "privacy_class": "local_only",
     "cost_class": "owned_hardware_zero_marginal",
-    "lifecycle_state": "APPROVED",
+    "lifecycle_state": "AVAILABLE",
     "health": "unknown",
     "authority": False,
     "source_evidence": ["https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/commit/1eaf4d96"],
@@ -504,7 +536,7 @@ class CanonicalRecordTests(unittest.TestCase):
     def test_identity_survives_the_nested_artifact_block(self):
         profile = self._project().profile
         self.assertEqual(profile.revision, "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa")
-        self.assertEqual(profile.artifact_hash, CANONICAL_QWEN3["artifact"]["sha256"])
+        self.assertEqual(profile.artifact_hash, CANONICAL_QWEN3["artifact_identity"]["sha256"])
         self.assertEqual(profile.artifact_size_bytes, 639446688)
         self.assertEqual(profile.quantization, "Q8_0")
         self.assertEqual(profile.runtime, "llama.cpp")
@@ -523,16 +555,29 @@ class CanonicalRecordTests(unittest.TestCase):
         self.assertIsNone(profile.quality)
         self.assertEqual(profile.quality_class, "unknown")
 
-    def test_a_flat_record_projects_identically_to_a_nested_one(self):
-        flat = {k: v for k, v in CANONICAL_QWEN3.items() if k != "artifact"}
+    def test_a_flat_record_reads_losslessly_but_is_not_a_candidate(self):
+        """Identity still reads an older shape; candidacy does not accept one.
+
+        Two different jobs: reading a revision and a digest out of a legacy row
+        keeps a cache entry correct, while `admission_policy.yaml` names
+        `artifact_identity` as *the* identity source for candidacy. So a flat
+        row is understood and still refused.
+        """
+        from AI_SKILL_LIBRARY.v4.local_runtime.identity import from_record
+        flat = {k: v for k, v in CANONICAL_QWEN3.items() if k != "artifact_identity"}
         flat.update(
             artifact_filename="Qwen3-0.6B-Q8_0.gguf",
             artifact_format="gguf",
-            artifact_sha256=CANONICAL_QWEN3["artifact"]["sha256"],
+            artifact_sha256=CANONICAL_QWEN3["artifact_identity"]["sha256"],
             artifact_size_bytes=639446688,
         )
-        self.assertEqual(self._project(flat).profile.artifact_hash,
-                         self._project().profile.artifact_hash)
+        identity, reasons = from_record(flat)
+        self.assertIsNotNone(identity, reasons)
+        self.assertEqual(identity.artifact_sha256, CANONICAL_QWEN3["artifact_identity"]["sha256"])
+
+        result = self._project(flat)
+        self.assertEqual(result.admission_status, AdmissionStatus.INELIGIBLE)
+        self.assertTrue(any("artifact_identity" in r for r in result.exclusion_reasons))
 
     def test_disagreeing_revision_fields_are_a_corrupt_row(self):
         from AI_SKILL_LIBRARY.v4.local_runtime.identity import from_record

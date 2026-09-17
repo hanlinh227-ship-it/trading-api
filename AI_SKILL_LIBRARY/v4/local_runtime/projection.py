@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from .admission_policy import AdmissionPolicy, load_admission_policy
 from .identity import artifact_block
 from .lifecycle import ModelState
 from .reconciliation import registry_state_is_runtime_bearing
@@ -73,7 +74,24 @@ ZERO_COST_CLASSES = frozenset(
 BLOCKING_LICENSE_CLASSES = frozenset({"restricted", "unclear"})
 
 #: Registry lifecycle states from which a model may be placed.
-PLACEABLE_STATES = frozenset({"APPROVED", "AVAILABLE", "CACHED", "WARM", "RUNNING", "SLEEPING", "DEGRADED"})
+#:
+#: Derived from `admission_policy.yaml`, not decided here: the policy requires
+#: AVAILABLE and lists everything else - APPROVED included - among its blocked
+#: states. A test asserts this stays equal to the policy's requirement, so the
+#: constant cannot drift away from the file it mirrors. It exists as a constant
+#: only to keep import time free of file IO.
+PLACEABLE_STATES = frozenset({"AVAILABLE"})
+
+#: Privacy classes meaning "local candidate, security admission still pending".
+#: Distinct from an unrecognised class: this one is understood, and understood
+#: to mean not-yet-cleared. Deliberately absent from PRIVACY_CLASS_MAP so it can
+#: never resolve to a usable ceiling.
+PENDING_SECURITY_PRIVACY_CLASSES = frozenset(
+    {
+        "local_candidate_pending_security_admission",
+        "pending_security_admission",
+    }
+)
 
 #: A runtime-bearing registry state projects back to what is actually provable
 #: from metadata alone: the model was approved and may exist upstream.
@@ -101,6 +119,10 @@ class ProjectionResult:
     unverified_claims: tuple[str, ...] = ()
     #: Fields the registry left empty, preserved as unknown.
     unknown_fields: tuple[str, ...] = ()
+    #: The first-load contract, carried through from the record's evidence so
+    #: the loader cannot lose it between projection and load.
+    first_load_isolation_required: bool = True
+    first_load_egress_allowed: bool = False
 
     @property
     def admitted(self) -> bool:
@@ -119,6 +141,8 @@ class ProjectionResult:
             "unverified_claims": list(self.unverified_claims),
             "unknown_fields": list(self.unknown_fields),
             "acquisition_eligible": bool(self.profile and self.profile.acquisition_eligible),
+            "first_load_isolation_required": self.first_load_isolation_required,
+            "first_load_egress_allowed": self.first_load_egress_allowed,
         }
 
 
@@ -186,10 +210,13 @@ def _gate_self_hostable(record: Mapping[str, Any]) -> str | None:
     return None
 
 
-def _gate_lifecycle(record: Mapping[str, Any]) -> str | None:
-    state = str(record.get("lifecycle_state") or "")
-    if state not in PLACEABLE_STATES:
-        return f"lifecycle_state {state or '<missing>'} is not placeable"
+def _gate_privacy_pending(record: Mapping[str, Any]) -> str | None:
+    privacy_class = str(record.get("privacy_class") or "").strip().lower()
+    if privacy_class in PENDING_SECURITY_PRIVACY_CLASSES:
+        return (
+            f"privacy_class {privacy_class!r} marks this a local candidate pending security "
+            "admission; it is not cleared for use"
+        )
     return None
 
 
@@ -213,8 +240,20 @@ def _gate_privacy(record: Mapping[str, Any]) -> str | None:
     privacy_class = str(record.get("privacy_class") or "").strip().lower()
     if not privacy_class:
         return "privacy_class is missing"
+    if privacy_class in PENDING_SECURITY_PRIVACY_CLASSES:
+        # Understood, and understood to mean not-yet-cleared. Reported by
+        # `_gate_privacy_pending`; repeating it here as "unrecognised" would
+        # blur a known pending state into an unknown one.
+        return None
     if privacy_class not in PRIVACY_CLASS_MAP:
         return f"privacy_class {privacy_class!r} has no mapping; it is not guessed"
+    return None
+
+
+def _gate_mesh_eligibility(record: Mapping[str, Any]) -> str | None:
+    """The Model Mesh decides candidacy; this lane only refuses to override it."""
+    if record.get("model_mesh_local_candidate_eligible") is False:
+        return "model_mesh_local_candidate_eligible is false; the mesh has not nominated this model"
     return None
 
 
@@ -225,10 +264,11 @@ GATES: tuple[Callable[[Mapping[str, Any]], str | None], ...] = (
     _gate_license,
     _gate_zero_cost,
     _gate_self_hostable,
-    _gate_lifecycle,
     _gate_health,
     _gate_runtime_support,
+    _gate_privacy_pending,
     _gate_privacy,
+    _gate_mesh_eligibility,
 )
 
 
@@ -276,17 +316,39 @@ def _select_runtime(record: Mapping[str, Any], available_runtimes: Sequence[str]
     return None
 
 
+def _default_policy() -> AdmissionPolicy:
+    return load_admission_policy(Path(__file__).resolve().parents[3])
+
+
 def project_record(
     record: Mapping[str, Any],
     *,
     snapshot: ResourceSnapshot | None = None,
     available_runtimes: Sequence[str] | None = None,
+    policy: AdmissionPolicy | None = None,
 ) -> ProjectionResult:
-    """Project one registry row. Never raises, never fabricates."""
+    """Project one registry row. Never raises, never fabricates.
+
+    Governance clearance is read from `admission_policy.yaml` and the record's
+    own `admission_evidence`. Nothing here can mark a model cleared; it can only
+    observe that governance already did.
+    """
+    policy = policy or _default_policy()
     model_id = str(record.get("model_id") or "<unidentified>")
     reasons: list[str] = []
     unverified: list[str] = []
     unknown: list[str] = []
+
+    evidence = record.get("admission_evidence")
+    # The older schema used a list of provenance URLs here. That carries no
+    # clearance at all, so it is treated as absent rather than as consent.
+    structured_evidence = evidence if isinstance(evidence, Mapping) else None
+
+    governance_refusal = policy.governance_refusal(record.get("lifecycle_state"))
+    if governance_refusal:
+        reasons.append(governance_refusal)
+    reasons.extend(policy.evidence_refusals(structured_evidence))
+    reasons.extend(policy.identity_refusals(record.get(policy.artifact_identity_source)))
 
     for gate in GATES:
         try:
@@ -313,14 +375,26 @@ def project_record(
             else "runtime_support could not be mapped"
         )
 
+    isolation_required = True
+    egress_allowed = False
+    if structured_evidence is not None:
+        isolation_required = bool(structured_evidence.get("isolated_first_load_required", True))
+        egress_allowed = bool(structured_evidence.get("first_load_egress_allowed", False))
+    if policy.isolated_first_load_if_required and structured_evidence is None:
+        isolation_required = True
+    if policy.deny_first_load_egress_when_disallowed and not egress_allowed:
+        egress_allowed = False
+
     if reasons:
         return ProjectionResult(
             model_id=model_id,
             profile=None,
             admission_status=AdmissionStatus.INELIGIBLE,
-            exclusion_reasons=tuple(reasons),
+            exclusion_reasons=tuple(dict.fromkeys(reasons)),
             unverified_claims=tuple(unverified),
             unknown_fields=tuple(unknown),
+            first_load_isolation_required=isolation_required,
+            first_load_egress_allowed=egress_allowed,
         )
 
     hardware = record.get("hardware_profile") or {}
@@ -390,6 +464,8 @@ def project_record(
         exclusion_reasons=tuple(acquisition_reasons),
         unverified_claims=tuple(unverified),
         unknown_fields=tuple(dict.fromkeys(unknown)),
+        first_load_isolation_required=isolation_required,
+        first_load_egress_allowed=egress_allowed,
     )
 
 
@@ -409,11 +485,15 @@ def project_registry(
     *,
     snapshot: ResourceSnapshot | None = None,
     available_runtimes: Sequence[str] | None = None,
+    policy: AdmissionPolicy | None = None,
 ) -> tuple[ProjectionResult, ...]:
     """Project every row. An empty registry projects to an empty tuple."""
+    policy = policy or _default_policy()
     models = registry.get("models") or []
     return tuple(
-        project_record(record, snapshot=snapshot, available_runtimes=available_runtimes)
+        project_record(
+            record, snapshot=snapshot, available_runtimes=available_runtimes, policy=policy
+        )
         for record in models
         if isinstance(record, Mapping)
     )
