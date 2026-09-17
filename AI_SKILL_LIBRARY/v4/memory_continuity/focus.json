@@ -5,7 +5,35 @@
   "reasoning_authority": false,
   "execution_authority": false,
   "stable_mutation": false,
-  "active": null,
+  "active": {
+    "project_id": "memory-continuity-fabric",
+    "domain": "engineering",
+    "phase": "operational_e2e",
+    "last_completed": "bootstrap_green_and_e2e_red",
+    "next_actions": [
+      "verify_cross_chat_resume",
+      "monitor_future_foreground_handoffs"
+    ],
+    "canonical_refs": [
+      "AI_SKILL_LIBRARY/checkpoint.json",
+      "AI_SKILL_LIBRARY/bootstrap.yaml",
+      "AI_SKILL_LIBRARY/v4/memory_continuity/policy.yaml",
+      "AI_SKILL_LIBRARY/v4/tools/memory_continuity.py",
+      "AI_SKILL_LIBRARY/v4/tools/memory_continuity_writeback.py",
+      "AI_SKILL_LIBRARY/v4/tools/memory_continuity_bootstrap.py"
+    ],
+    "source": "verified_project_handoff",
+    "last_verified": "2026-09-17T01:09:40Z",
+    "updated_at": "2026-09-17T01:09:40Z",
+    "verified": true,
+    "foreground": true,
+    "resume_eligible": true,
+    "authority": false,
+    "routing_authority": false,
+    "reasoning_authority": false,
+    "execution_authority": false,
+    "stable_mutation": false
+  },
   "on_missing_focus": "no_resume",
   "on_ambiguous_focus": "no_resume",
   "write_mode": "candidate_only",
