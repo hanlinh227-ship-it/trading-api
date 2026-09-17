@@ -14,7 +14,10 @@ const PROBE_STEPS=1;
 // strength 0.05. These paths ask for the smallest request that is still well formed.
 const PROBE_EDIT_STEPS=4;
 const PROBE_STRENGTH=1;
-const PROBE_SIZE=256;
+// The size the renders that actually succeed in production use. A probe run at a size the
+// model does not really serve reports a dead runtime for work the runtime performs, which
+// is how the reference tasks kept reading WAITING while Scene 1 rendered.
+const PROBE_SIZE=512;
 
 // The probe used to carry its images as base64 literals. Both were truncated -- no IEND,
 // an IDAT shorter than its own length field -- and the inpainting runtime rejected them

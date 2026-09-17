@@ -102,4 +102,32 @@ console.log('image render v4 png asset contracts: PASS');
   assert.equal(retried.overallScore,88);
 }
 
+// A probe must exercise the runtime the way real work does. Probing at a size the model
+// does not really serve reports a dead runtime for work the runtime performs.
+{
+  const calls=[];
+  await probe.probeImageRuntimes({AI:{async run(model,input){calls.push({model,input});return {image:''};}}});
+  for(const call of calls){
+    // Only the diffusion paths take a size; the vision model is handed an image alone.
+    if(!call.input?.image||call.input.width===undefined)continue;
+    assert.ok(Number(call.input.width)>=512&&Number(call.input.height)>=512,
+      `${call.model}: probed at ${call.input.width}x${call.input.height}, below what production renders at`);
+  }
+}
+
+// A hosted pipeline error says what was wrong at the end of the sentence. Truncating it
+// early throws away the only part worth reading.
+{
+  const {sanitizeWorkersAiError}=await import('./image-render/workers-ai.js');
+  const detail='3005: triton error running inference: '+'x'.repeat(400)+' ValueError: the actual cause';
+  const kept=sanitizeWorkersAiError(new Error(detail));
+  assert.ok(kept.message.includes('ValueError: the actual cause'),'the cause must survive truncation');
+  // Still bounded: a diagnostic is evidence, not a log dump.
+  assert.ok(kept.message.length<=1000);
+  // And still redacted.
+  const secret=sanitizeWorkersAiError(new Error('failed: authorization: bearer abc.def.ghi'));
+  assert.ok(!secret.message.includes('abc.def.ghi'));
+  assert.ok(secret.message.includes('[REDACTED]'));
+}
+
 console.log('image render v4 probe request and critic parse contracts: PASS');
