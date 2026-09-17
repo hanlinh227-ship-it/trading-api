@@ -393,13 +393,23 @@ candidates:
 # is sufficient for every adapter here because all of them are disabled by default
 # and none is on the stable request path.
 release_packaging:
-  packaged_in_stable_release: false
-  resolved_via: checkpoint_pointers
-  blocked_by: >-
-    release_gate: 4.13.0 is known_good=false in releases/history.yaml, so cutting a
-    successor release would break the rollback-to-known-good invariant asserted by
-    test_release_history_contains_current_release_and_is_rollbackable.
+  packaged_in_stable_release: true
+  resolved_via: stable_release_manifest
+  packaged_at_release: 4.14.0
+  blocked_by: ''
   resolution: >-
-    Once 4.13.0 (or a later release) is production-verified and recorded known_good,
-    add these paths to release.py RELEASE_FILES and build the next version with
-    AI_SKILL_LIBRARY/v4/tools/release.py build.
+    Closed 2026-09-17. Release 4.13.0 was production-verified by the canonical
+    gate (Deploy Skill-Mandatory Fast Gateway run 124 on main 8c9499e: exact-SHA
+    deploy, /brain/health, /brain/mesh/health, /brain/route matrix, planner
+    smoke, FREE_ONLY guard and final exact-SHA gate all PASS, rollback step
+    skipped), recorded known_good via evergreen.py mark-known-good, and the four
+    expansion paths were added to release.py RELEASE_FILES and packaged into
+    successor release 4.14.0 with release.py build.
+  production_evidence:
+    workflow: Deploy Skill-Mandatory Fast Gateway
+    run_id: 35173044514
+    run_number: 124
+    verified_source_sha: 8c9499e23c0eee17229a80cb1884f0cb078643e2
+    production_live_revision: 8c9499e23c0eee17229a80cb1884f0cb078643e2
+    result: SKILL_MANDATORY_FAST_GATEWAY_DEPLOY=PASS
+    adapters_enabled_during_verification: none
