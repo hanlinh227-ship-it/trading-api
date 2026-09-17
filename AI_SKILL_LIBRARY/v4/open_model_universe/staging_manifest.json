@@ -173,6 +173,35 @@
       "license_declared": "mit",
       "license_source": "huggingface_api_via_ci",
       "license_fetched_at": null
+    },
+    {
+      "id": "qwen3-8b-q4_k_m",
+      "family": "Qwen3",
+      "variant": "8B-Q4_K_M-GGUF",
+      "hf_repo": "Qwen/Qwen3-8B-GGUF",
+      "filename": "Qwen3-8B-Q4_K_M.gguf",
+      "source_run_id": null,
+      "artifact_name": null,
+      "expected_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "immutable_revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+      "revision_status": "pinned_at_download",
+      "size_bytes": 5027783488,
+      "size_tier": "B",
+      "release_tag": "wave3-staged-qwen3-8b-gguf",
+      "release_parts": [
+        "Qwen3-8B-Q4_K_M.gguf.part00",
+        "Qwen3-8B-Q4_K_M.gguf.part01",
+        "Qwen3-8B-Q4_K_M.gguf.part02"
+      ],
+      "reassembly_required": true,
+      "reassembly_note": "Exceeds the 2 GiB release-asset cap. Parts are concatenated in order and the SHA-256 of the whole reassembled file is verified; parts are never verified individually in place of the whole.",
+      "license_declared": "apache-2.0",
+      "license_source": "huggingface_repo_tag_via_ci",
+      "license_fetched_at": "2026-09-17T13:16:00+00:00",
+      "wave": 3,
+      "license_files_present": [
+        "LICENSE"
+      ]
     }
   ]
 }
