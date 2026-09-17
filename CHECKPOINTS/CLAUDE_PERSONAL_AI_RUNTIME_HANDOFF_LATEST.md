@@ -3,130 +3,81 @@
 **Role:** Claude Code — sole owner of the remaining Personal AI Federation path.
 **Updated:** 2026-09-17
 
----
-
 ## Position
 
 | Field | Value |
 |---|---|
 | origin/main | `b236a615f0598a2d3b97559f403ae954eb32602d` |
-| Branch / HEAD | `claude/magical-euler-uu98r8` / `a82f35c21fe928e2a85c65df297f98b9eb3aa809` |
+| Branch | `claude/magical-euler-uu98r8` |
 | behind_by | 0 |
 | PR | #439 |
-| Suites | lane 564 · brain 1227+ · repo 46 |
+| Suites | lane 642 · brain 1271+ · repo 46 · CI_VALIDATE=PASS failures=0 |
 
----
+## Gate status
 
-## B1 — **PASS**, with real inference
-
-The artifact arrived via GitHub Actions. Its storage backend
-(`*.blob.core.windows.net`) is 403 at the environment gateway, as are all
-Actions storage hosts — but **release assets are reachable**
-(`release-assets.githubusercontent.com`). A workflow
-(`.github/workflows/publish-model-release-asset.yml`, branch
-`ops/publish-model-release`) republishes the same bytes from the existing
-Actions artifact — never from Hugging Face — re-verifying size and SHA-256 on
-the runner first.
-
-Verified again locally, from the downloaded bytes:
-
-```
-size    639446688 == 639446688
-sha256  9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031  MATCH
-intake  VERIFIED · structural scan pass · GGUF v3 · 310 tensors · 28 kv
-```
-
-Real execution evidence (`CHECKPOINTS/evidence/B1_REAL_INFERENCE_EVIDENCE.json`):
-
-| Field | Value |
-|---|---|
-| b1_status / real_generation | **PASS** / **true** |
-| model_revision | `1eaf4d96…` |
-| actual_quantization | Q8_0 |
-| backend_version | llama-cpp-python/0.3.35 |
-| cold load | 3362.6 ms |
-| cold inference | 702.0 ms (total 4742.8 ms) |
-| warm inference | 677.7 ms |
-| peak_ram_mb / peak_vram_mb | 1825.36 / 0.0 (measured, CPU-only) |
-| tokens in/out | 5 / 24 |
-| failure / fallback_used | NONE / false |
-| egress during load | denied (proxy stripped, NO_PROXY=\*) |
-| residency | READY → WARM → READY |
-
-Output: *"The capital of France is"* → **" Paris."** Warm reuse is real — 678 ms
-against 3363 ms of cold load.
-
----
-
-## B2 — **BLOCKED at a real gate** (this inverts the stated order)
-
-The canonical route is wired and runs: ingress → task_router → Model Mesh →
-governance-admitted candidate → projection → scheduler → llama.cpp, using the
-canonical components rather than reimplementing them.
-
-```
-ingress               ok   model_named_at_ingress = false
-task_router           ok   core / core_reasoning
-governance_admission  ok   1 admitted
-model_mesh            REFUSED
-    -> below the capability floor for core/core_reasoning
-```
-
-**Why:** the registry declares `capabilities: {text_reasoning: 0.0}` with
-`benchmark_profile: unverified`. The Model Mesh correctly refuses a candidate
-declaring zero capability.
-
-**This is the important finding.** A measured capability score *is* benchmark
-evidence, so B2 cannot pass until Wave 0 has actually measured this model. The
-critical path as stated (B1 → B2 → B3 → B4 → Wave 0 → baseline) has a real
-dependency running the other way:
-
-```
-B1 (done) → Wave 0 measurement → registry capability updated
-          → B2 → B3 → B4 → PERSONAL_AI_BASELINE_001
-```
-
-Benchmarking does not need mesh selection — it invokes the model directly, as B1
-did. The mesh gate governs routed production traffic, which is what B2 tests.
-
-I did not invent a capability number to make the route light up. A test pins the
-refusal and skips itself once the capability is genuinely measured.
-
-### Two real defects found by executing the route
-
-* routing matched skill names as **substrings** — "the **capital** of France"
-  routed to `engineering` because "capital" contains "api". Now whole-word.
-* the mesh candidate used `privacy_class: private` / `usage_terms: permitted`,
-  neither in the mesh's vocabularies. Both normalised silently to `unknown` and
-  the FREE_ONLY gate rejected the candidate for a reason unrelated to its real
-  eligibility — which would have read as "the mesh rejects local models".
-
-Both were invisible until the route was actually run.
-
----
-
-## Wave 1 — staged, not yet retrievable
-
-Run `35201035730` produced all three artifacts (unexpired, expire 2026-09-18):
-
-| Model | Artifact ID | Zip size |
+| Gate | State | Evidence |
 |---|---|---|
-| `qwen3-1.7b-q8_0` | 10487951643 | 1,758,481,337 |
-| `qwen3-4b-q4_k_m` | 10487314513 | 2,428,084,775 |
-| `granite-3.3-2b-instruct-q4_k_m` | 10488431786 | 1,518,664,881 |
+| B1 real local runtime | **PASS** | `evidence/B1_REAL_INFERENCE_EVIDENCE.json` |
+| B2 canonical route | **PASS** | `evidence/B2_CANONICAL_ROUTE_EVIDENCE.json` |
+| B3 golden E2E | **PASS** | `evidence/B3_B4_GOLDEN_E2E_EVIDENCE.json` |
+| B4 offline E2E | **PASS** | same run — `offline` observed, not asserted |
+| Wave 0 capability | **MEASURED 0.75** | `evidence/WAVE0_CAPABILITY_EVIDENCE.json` |
+| PERSONAL_AI_BASELINE_001 | **NOT FROZEN** | `evidence/WAVE0_BASELINE_EVIDENCE.json` |
 
-They sit in the same blocked Actions storage. Retrieving them needs the same
-release-asset republication used for 0.6B, extended to a matrix. ~5.7 GB total
-against ~29 GB free — fits, but each model must earn its own admission and none
-inherits Qwen3-0.6B's.
+### Why the baseline is not frozen
 
----
+10 of 12 canonical Wave 0 tasks pass; 12 of 12 are reproducible. Two fail
+because the model is wrong, not the harness:
+
+* `gr-02` — which gas plants absorb → answered "Oxygen"
+* `vi-03` — which direction the sun rises → answered "Bắc" (north)
+
+`freeze_baseline` refuses a wave that is not ready and there is no override.
+A 0.6B model missing a 12/12 bar is the clearest argument for Wave 1.
+
+## Wave 1 — transport solved, admission not started
+
+All three artifacts are republished as GitHub **release assets** (Actions blob
+storage stays 403 at the gateway) and each carries an **immutable revision
+proven by LFS OID** to serve the staged digest:
+
+| Model | Revision | Release | Note |
+|---|---|---|---|
+| Qwen3-1.7B-Q8_0 | `90862c4b` | `staged-model-qwen3-1.7b-q8_0` | 1,834,426,016 B |
+| Qwen3-4B-Q4_K_M | `bc640142` | `staged-model-qwen3-4b-q4_k_m` | 2 parts — over the 2 GiB asset cap |
+| granite-3.3-2b-instruct-Q4_K_M | `7cdf86cc` | `staged-model-granite-…` | 1,545,303,328 B |
+
+Reachability verified from this runtime: HTTP 206 range request returns GGUF
+magic. None of them is admitted, none inherits Qwen3-0.6B's approval, and each
+needs its own licence, scan/acceptance, intake, first load, inference and
+capability measurement.
+
+## Anti-fabrication rules now enforced
+
+* a capability score above zero requires a measurement whose score equals it,
+  whose run had no errors, and which is **bound to that artifact's digest**
+  (`validate_open_model_universe.py`), so a score can never be inherited by
+  different bytes;
+* benchmark suites and prompt sets are frozen by content hash;
+* `supported: true` is set only from digest-matching evidence — never False,
+  which would claim a model was tested and failed;
+* the mesh ledger `v4/model_mesh/capability_evidence.json` is **release-sealed**
+  and was deliberately not written to; a benchmark result is not a reason to
+  mutate a sealed release.
+
+## Design work
+
+`docs/superpowers/specs/2026-09-17-brain-fast-reasoning-optimization-design.md`
+— design only, nothing implemented. Headline: FAST/SMART/DEEP **already exists**
+as FAST/STANDARD/DEEP in `stable/budgets.yaml`; the bottleneck is measured
+evidence, not architecture. Cold load is ~80% of first-response latency
+(2.8 s vs 0.7 s inference), and 8 of 10 models in `active.json` carry a
+capability score justified by a documentation URL.
 
 ## Next automatic action
 
-1. Run Wave 0 measurement against Qwen3-0.6B (direct invocation, no mesh needed)
-   and record measured capability with raw-run evidence.
-2. Update the registry capability from that measurement.
-3. Re-run B2; it should then clear the mesh, and B3/B4 follow.
-4. Extend the republish workflow to a matrix for Wave 1, then admit each model
-   independently from QUARANTINED.
+1. Admit Wave 1 models one at a time from QUARANTINED, each on its own evidence.
+2. Re-run the baseline against the strongest admitted model; freeze
+   PERSONAL_AI_BASELINE_001 only if it genuinely reaches 12/12.
+3. Then migration step 1 of the design spec: populate the capability index from
+   verified evidence only.
