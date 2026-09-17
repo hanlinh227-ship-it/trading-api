@@ -9,8 +9,6 @@ export const WORKERS_AI_MODELS=Object.freeze({
   visionLarge:'@cf/meta/llama-3.2-11b-vision-instruct',
 });
 
-// Tasks are routed to the model that actually accepts the inputs the task carries: a
-// masked local edit needs the inpainting model, a whole-image edit needs img2img.
 const TASK_MODEL=Object.freeze({
   TEXT_TO_IMAGE:WORKERS_AI_MODELS.textToImage,
   MULTI_SCENE_BATCH:WORKERS_AI_MODELS.textToImage,
@@ -24,15 +22,9 @@ const TASK_MODEL=Object.freeze({
   TARGETED_REPAIR:WORKERS_AI_MODELS.inpainting,
 });
 
-const NEEDS_SOURCE_IMAGE=new Set([
-  WORKERS_AI_MODELS.imageToImage,
-  WORKERS_AI_MODELS.inpainting,
-]);
+const NEEDS_SOURCE_IMAGE=new Set([WORKERS_AI_MODELS.imageToImage,WORKERS_AI_MODELS.inpainting]);
 const NEEDS_MASK=new Set([WORKERS_AI_MODELS.inpainting]);
 
-// Each model accepts a different input schema, and sending a parameter a model does not
-// declare gets the whole request rejected. flux-1-schnell takes only prompt and steps
-// (steps capped at 8); the stable-diffusion models take the image shaping parameters.
 const MODEL_INPUT_SCHEMA=Object.freeze({
   [WORKERS_AI_MODELS.textToImage]:{accepts:new Set(['prompt','steps']),stepsMax:8,stepsDefault:4},
   [WORKERS_AI_MODELS.imageToImage]:{accepts:new Set(['prompt','negative_prompt','width','height','image','strength','seed','num_steps'])},
@@ -56,25 +48,38 @@ function buildInput(model,{prompt,image,mask,width,height,negativePrompt,strengt
   }else if(schema.accepts.has('num_steps')&&Number.isFinite(Number(steps))){
     candidate.num_steps=clampInt(steps,1,50);
   }
-  // Drop anything this model does not declare rather than letting the provider reject it.
   return Object.fromEntries(Object.entries(candidate).filter(([key])=>schema.accepts.has(key)));
 }
 
-export function selectWorkersAiModel(taskType){
-  return TASK_MODEL[String(taskType||'')]||null;
-}
+export function selectWorkersAiModel(taskType){return TASK_MODEL[String(taskType||'')]||null;}
 
 function binding(env){
   const ai=env?.AI;
   return ai&&typeof ai.run==='function'?ai:null;
 }
 
-// A 429 or an explicit quota error means the free daily allocation is spent. That is a
-// wait state, never a reason to reach for a paid route.
 function isAllocationExhausted(error){
   const status=Number(error?.status||error?.code||0);
   const message=String(error?.message||'').toLowerCase();
   return status===429||message.includes('neuron')||message.includes('quota')||message.includes('rate limit');
+}
+
+// Preserve only bounded diagnostic fields needed to identify a hosted-model schema/runtime
+// failure. Credential-shaped content is removed before this object can reach logs/API output.
+export function sanitizeWorkersAiError(error){
+  const status=Number(error?.status||0);
+  const code=error?.code===undefined||error?.code===null?'':String(error.code).slice(0,64);
+  let message=String(error?.message||error||'').replace(/[\r\n\t]+/g,' ').trim();
+  message=message
+    .replace(/(authorization\s*:\s*bearer\s+)[^\s,;]+/gi,'$1[REDACTED]')
+    .replace(/(bearer\s+)[A-Za-z0-9._~+\/-]+/gi,'$1[REDACTED]')
+    .replace(/((?:api[-_ ]?key|token|secret|password)\s*[:=]\s*)[^\s,;]+/gi,'$1[REDACTED]');
+  if(message.length>240)message=`${message.slice(0,237)}...`;
+  return {
+    ...(Number.isFinite(status)&&status>0?{status}:{}),
+    ...(code?{code}:{}),
+    ...(message?{message}:{}),
+  };
 }
 
 export async function workersAiHealth(env={}){
@@ -91,7 +96,6 @@ export function createWorkersAiClient(){
       const model=selectWorkersAiModel(taskType);
       if(!model)return {ok:false,provider:'cloudflare_workers_ai',error:'task_not_supported'};
       if(!String(prompt||'').trim())return {ok:false,provider:'cloudflare_workers_ai',error:'prompt_required'};
-      // Fail closed rather than quietly turning an edit into a prompt-only render.
       if(NEEDS_SOURCE_IMAGE.has(model)&&!image)return {ok:false,provider:'cloudflare_workers_ai',error:'source_image_required'};
       if(NEEDS_MASK.has(model)&&!mask)return {ok:false,provider:'cloudflare_workers_ai',error:'mask_required'};
 
@@ -101,10 +105,11 @@ export function createWorkersAiClient(){
         const output=await ai.run(model,input);
         return {ok:true,provider:'cloudflare_workers_ai',model,mode:'FREE_ONLY',paidFallback:false,output};
       }catch(error){
+        const diagnostic=sanitizeWorkersAiError(error);
         if(isAllocationExhausted(error)){
-          return {ok:false,provider:'cloudflare_workers_ai',model,error:'free_allocation_exhausted',paidFallback:false,waitState:'WAITING_FOR_FREE_COMPUTE'};
+          return {ok:false,provider:'cloudflare_workers_ai',model,error:'free_allocation_exhausted',paidFallback:false,waitState:'WAITING_FOR_FREE_COMPUTE',diagnostic};
         }
-        return {ok:false,provider:'cloudflare_workers_ai',model,error:'provider_request_failed',paidFallback:false};
+        return {ok:false,provider:'cloudflare_workers_ai',model,error:'provider_request_failed',paidFallback:false,diagnostic};
       }
     },
   };
