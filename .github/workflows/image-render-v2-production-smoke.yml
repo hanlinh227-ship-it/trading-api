@@ -52,6 +52,7 @@ jobs:
             .filter(m=>m.name)
             .sort((a,b)=>b.workers-a.workers);
           for(const m of served)console.log('IMAGE_RUNTIME_DISCOVERED model='+m.name+' workers='+m.workers+' queued='+m.queued+' eta='+m.eta);
+          if(served.filter(m=>m.workers>0).length===0)process.exit(17);
           console.log('IMAGE_RUNTIME_DISCOVERY=PASS serving='+served.filter(m=>m.workers>0).length+'/'+served.length);
           NODE
           else

@@ -1,5 +1,6 @@
 import {
   applySceneQualityDecision,
+  modelHistoryFromState,
   cancelBatchState,
   createBatchState,
   markSceneProviderResult,
@@ -20,19 +21,9 @@ const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:
 const latestAttempt=scene=>scene?.attempts?.[scene.attempts.length-1]||null;
 const clone=value=>structuredClone(value);
 
-function modelHistory(state){
-  const history={};
-  for(const scene of state.scenes||[]){
-    for(const attempt of scene.attempts||[]){
-      const model=String(attempt?.model||'').trim();
-      if(!model)continue;
-      history[model]||={successes:0,failures:0};
-      if(['PASS','PASS_UNVERIFIED'].includes(attempt.qa_result)) history[model].successes+=1;
-      if(['RETRY_PROMPT','RETRY_MODEL','RETRY_SEED','FAIL_TERMINAL','provider_failure'].includes(attempt.qa_result)) history[model].failures+=1;
-    }
-  }
-  return history;
-}
+// Routing history is keyed by the model that actually produced the image, so a model the
+// provider substituted away from is not judged on output it never generated.
+const modelHistory=state=>modelHistoryFromState(state);
 
 function chosenProviderId(registry){
   const ids=registry?.list?.()||[];

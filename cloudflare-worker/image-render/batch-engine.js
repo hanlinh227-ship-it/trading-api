@@ -81,7 +81,13 @@ export function markSceneSubmitted(state,input={}){
   scene.attempts.push({
     attempt:attemptNumber,
     provider:String(input.provider||''),
+    // What we asked the provider for. Kept as `model` for existing consumers, and as
+    // requested_model so it is never confused with what actually ran.
     model:String(input.model||''),
+    requested_model:String(input.model||''),
+    // Filled in only from what the provider reports back.
+    observed_model:null,
+    model_substituted:false,
     provider_job_id:String(input.jobId||''),
     seed:input.seed??null,
     submitted_at:input.submittedAt||null,
@@ -103,6 +109,12 @@ export function markSceneProviderResult(state,input={}){
   attempt.completed_at=input.completedAt||attempt.completed_at||null;
   attempt.generation=generation;
   attempt.generation_state=String(generation?.state||input.state||'unknown');
+  // Record what the provider says it actually ran. A substitution never rewrites the
+  // request, and a provider that reports nothing leaves the attribution unknown rather
+  // than crediting the model we asked for with an image it may not have produced.
+  const observed=typeof generation?.model==='string'&&generation.model.trim()?generation.model.trim():null;
+  attempt.observed_model=observed;
+  attempt.model_substituted=Boolean(observed&&attempt.requested_model&&observed!==attempt.requested_model);
   const usable=Boolean(generation&&typeof generation.imageUrl==='string'&&generation.imageUrl);
   if(usable){
     scene.status='qa_pending';
@@ -193,3 +205,21 @@ export function summarizeBatch(state){
 }
 
 export const IMAGE_RENDER_ACTIVE_SCENE_STATES=Object.freeze([...ACTIVE_SCENE_STATES]);
+
+// Model history is keyed by the model that actually produced the image. An attempt whose
+// model cannot be attributed contributes nothing, so no model is benchmarked on another
+// model's output.
+export function modelHistoryFromState(state){
+  const history={};
+  for(const scene of state?.scenes||[]){
+    for(const attempt of scene.attempts||[]){
+      const model=typeof attempt?.observed_model==='string'?attempt.observed_model.trim():'';
+      if(!model)continue;
+      history[model]||={successes:0,failures:0,substitutions:0};
+      if(['PASS','PASS_UNVERIFIED'].includes(attempt.qa_result))history[model].successes+=1;
+      if(['RETRY_PROMPT','RETRY_MODEL','RETRY_SEED','FAIL_TERMINAL','provider_failure'].includes(attempt.qa_result))history[model].failures+=1;
+      if(attempt.model_substituted===true)history[model].substitutions+=1;
+    }
+  }
+  return history;
+}
