@@ -2,11 +2,11 @@
 
 Updated: 2026-09-17
 
-STATUS: CONTROL_PLANE_IMPLEMENTED_RUNTIME_EVIDENCE_BLOCKED
-CURRENT_MAIN: `6341fd682588d22640d5642e1e7174cd47785e20`
+STATUS: CONTROL_PLANE_MERGED_PRODUCTION_VERIFIED_RUNTIME_EVIDENCE_BLOCKED
+CURRENT_MAIN: `ca8b97eaa7fac5c7863a5b198bdedf6a8ade4488`
 BRANCH: `work/personal-ai-full-convergence-20260917`
-WORK_HEAD: implementation content published at `23d9a799c78b740e186cbab5ecff59722603b9ef`; resolve PR #436 for the latest metadata-only tip
-PR: `#436` — https://github.com/hanlinh227-ship-it/trading-api/pull/436
+WORK_HEAD: `c1e0467f0f6af22961eeba2bdbe7c258e7d5df26`
+PR: `#436` merged as `ca8b97eaa7fac5c7863a5b198bdedf6a8ade4488`
 
 B2_READY: true — canonical ingress, Model Mesh selection, Claude runtime evidence boundary, verifier, and synthesis harness implemented; no real B2 PASS claimed.
 B3_READY: true — exact golden trace and real-evidence gate implemented; no real B3 PASS claimed.
@@ -17,10 +17,10 @@ BASELINE_READY: false — freeze code is ready, but `PERSONAL_AI_BASELINE_001` c
 MULTI_MODEL: MULTI_MODEL_FEDERATION_V1_CONTROL_PLANE_READY — FAST/STANDARD/DEEP caps, 26 specialist groups, lineage diversity, resource-aware selection, champion/challenger governance, and routing metrics are implemented. No mass model activation occurred.
 SELF_DEVELOPMENT: CONTROLLED_SELF_DEVELOPMENT_V1_CONTROL_PLANE_READY — isolated branch, ordered states, tests/benchmark/security/authority/PR gates, scorecard, protected dimensions, and rollback target are enforced. It has no main-write or self-approval authority.
 
-CI: local canonical `ci_validate.py` PASS at `cf49304ddb35cad60dfad1376b68f9ea8184844a` with 674 Brain tests (3 skipped), 46 repo tests, and zero failures. Remote PR #436 required workflows are running on the equivalent published tree and must be green before merge.
+CI: local canonical `ci_validate.py` PASS after the final B4 evidence fix with 675 Brain tests (3 skipped), 46 repo tests, and zero failures. All required PR and post-merge workflows passed. Production `/runtime/contract.runtimeRevision` and `/brain/health.sourceSha` both equal `ca8b97eaa7fac5c7863a5b198bdedf6a8ade4488`.
 BLOCKER: Claude B1 cannot obtain the exact complete GGUF artifact because current environment egress to Hugging Face/CDN is denied. No synthetic runtime may substitute.
 CLAUDE_DEPENDENCY: PR #428 branch `claude/magical-euler-uu98r8`; consume a real artifact-bound execution evidence envelope when `REAL_RUNTIME_READY=true`.
-NEXT_WORK_ACTION: re-fetch Claude and main; if real evidence remains unavailable, publish this merge-ready control-plane PR and wait only on the external artifact boundary. When evidence exists, immediately run B2 -> B3 -> B4 -> Wave 0 -> baseline freeze.
+NEXT_WORK_ACTION: monitor Claude PR #428 only for new real artifact/runtime evidence. When `REAL_RUNTIME_READY=true` exists, immediately run B2 -> B3 -> B4 -> Wave 0 -> baseline freeze. Do not expand model activation before that gate.
 
 ## Closed Work-owned items
 
