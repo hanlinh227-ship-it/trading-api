@@ -53,6 +53,8 @@ function buildInput(model,{prompt,image,mask,width,height,negativePrompt,strengt
   if(Number.isInteger(seed))candidate.seed=seed;
   if(schema.stepsMax!==undefined){
     candidate.steps=clampInt(Number.isFinite(Number(steps))?steps:schema.stepsDefault,1,schema.stepsMax);
+  }else if(schema.accepts.has('num_steps')&&Number.isFinite(Number(steps))){
+    candidate.num_steps=clampInt(steps,1,50);
   }
   // Drop anything this model does not declare rather than letting the provider reject it.
   return Object.fromEntries(Object.entries(candidate).filter(([key])=>schema.accepts.has(key)));
