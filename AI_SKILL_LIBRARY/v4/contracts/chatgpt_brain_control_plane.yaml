@@ -1,0 +1,31 @@
+version: 1
+contract_id: CHATGPT_BRAIN_CONTROL_PLANE
+
+ingress_schema: AI_SKILL_LIBRARY/v4/contracts/chatgpt_brain_ingress.schema.json
+response_schema: AI_SKILL_LIBRARY/v4/contracts/brain_response.schema.json
+
+flow:
+  - ingress
+  - task_router
+  - project_domain_resolution
+  - memory
+  - skills
+  - model_mesh
+  - runtime_scheduler
+  - verifier
+  - synthesis
+  - response
+
+invariants:
+  task_router_mandatory: true
+  ingress_may_choose_model: false
+  ingress_may_bypass_router: false
+  ingress_may_widen_permissions: false
+  response_contains_hidden_reasoning: false
+  registry_has_runtime_authority: false
+
+privacy:
+  PUBLIC: external_policy_permitted
+  INTERNAL: policy_checked
+  CONFIDENTIAL: local_preferred
+  SECRET: local_only_default
