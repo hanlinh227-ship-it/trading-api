@@ -136,7 +136,17 @@ candidates:
   - fast_low_resource_worker
   - multilingual
   local_artifact_strategy: discover_verified_local_quantization_or_existing_supported_backend
-  state: DISCOVERY_CANDIDATE
+  state: ARTIFACT_PROVENANCE_INCOMPLETE
+  provenance_finding: >-
+    Discovery run 2026-09-17T17:49:36Z. The author publishes no GGUF, and every
+    community conversion found names a base model but neither a base revision nor
+    the converter that produced it, so provenance_complete is not satisfied for any
+    of them. A digest proves these bytes are these bytes; it says nothing about what
+    they were made from. The candidate is refused on that rule rather than admitted
+    on reputation - the same rule that keeps a vendor documentation page out of the
+    capability ledger. Not permanent: it clears the moment the author publishes a
+    GGUF, or a converter records its base revision and tool. Nothing here may be
+    relaxed to admit it.
   requires_before_staging:
   - immutable revision pin
   - local artifact provenance and digest verification
@@ -160,7 +170,17 @@ candidates:
   - deep_reasoning
   - verifier_checker
   local_artifact_strategy: discover_verified_GGUF_or_existing_supported_backend_with_conversion_provenance
-  state: DISCOVERY_CANDIDATE
+  state: ARTIFACT_PROVENANCE_INCOMPLETE
+  provenance_finding: >-
+    Discovery run 2026-09-17T17:49:36Z. The author publishes no GGUF, and every
+    community conversion found names a base model but neither a base revision nor
+    the converter that produced it, so provenance_complete is not satisfied for any
+    of them. A digest proves these bytes are these bytes; it says nothing about what
+    they were made from. The candidate is refused on that rule rather than admitted
+    on reputation - the same rule that keeps a vendor documentation page out of the
+    capability ledger. Not permanent: it clears the moment the author publishes a
+    GGUF, or a converter records its base revision and tool. Nothing here may be
+    relaxed to admit it.
   requires_before_staging:
   - immutable revision pin
   - exact local artifact provenance and digest

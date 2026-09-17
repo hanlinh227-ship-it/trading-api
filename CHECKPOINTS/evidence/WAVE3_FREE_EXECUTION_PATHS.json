@@ -261,8 +261,8 @@
       "pending_verification": {},
       "rejected_paths": {},
       "catalog_check": {
-        "match": "UNVERIFIED",
-        "why": "Repeated catalog queries for Microsoft/Phi models returned no results, which is not evidence of absence - the same query shape returned empty for models later confirmed present. Recorded UNVERIFIED rather than ABSENT. It is also moot for placement: Phi-4-mini needs ~5000 MB and runs on this host, so its blocker is artifact provenance, not capacity."
+        "match": "ABSENT",
+        "why": "Settled on 2026-09-17: the Workers AI catalog was read and the only Microsoft Phi model Cloudflare serves is phi-2, which is labelled both Beta and Deprecated. Phi-4-mini-instruct is not there. phi-2 is deliberately NOT recorded as a capability fallback either - it is a different, older and much smaller model that Cloudflare has marked for removal, so routing to it would be substituting a retiring model for a current one and calling that coverage. This replaces an earlier UNVERIFIED record: the query shape that had returned empty was the problem, not the catalog."
       }
     },
     {

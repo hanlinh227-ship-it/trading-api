@@ -227,7 +227,17 @@ def build(root: Path) -> dict[str, Any]:
         # upstream degrades into the licence gate holding rather than silently
         # lapsing into a capacity answer.
         status = str(candidate.get("state") or candidate.get("status") or "")
-        if status == "HUMAN_LICENSE_GATE_REQUIRED":
+        if status == "ARTIFACT_PROVENANCE_INCOMPLETE":
+            # A worker meets its memory requirement, so reporting capacity here
+            # would say the remaining work is a machine. It is not: every
+            # artifact on offer fails the provenance rule, and that is refused
+            # rather than waived.
+            state = "ARTIFACT_PROVENANCE_INCOMPLETE"
+            note = ("a worker meets this candidate's memory requirement, so capacity is "
+                    "not the blocker. No artifact exists whose conversion names both its "
+                    "base revision and the tool that produced it, and a build that cannot "
+                    "say what it was made from is refused whoever published it.")
+        elif status == "HUMAN_LICENSE_GATE_REQUIRED":
             # Capacity is not this candidate's blocker and reporting one would
             # imply the remaining work is technical. It is not: a person has to
             # accept the publisher's terms, and nothing here may do that for
