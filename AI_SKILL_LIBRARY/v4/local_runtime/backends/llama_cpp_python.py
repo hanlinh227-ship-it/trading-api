@@ -250,9 +250,20 @@ class LlamaCppPythonBackend(ModelRuntimeAdapter):
         # needs a reproducible run (a benchmark) can pin greedy decoding rather
         # than measure a score against whatever the sampler happened to draw.
         sampling: dict[str, Any] = {}
-        for key in ("temperature", "top_p", "top_k", "seed", "stop"):
+        for key in ("temperature", "top_p", "top_k", "seed", "stop"):  # not reset_state
             if key in task_contract.payload:
                 sampling[key] = task_contract.payload[key]
+
+        # Opt-in state reset. A llama.cpp handle carries the KV cache from the
+        # previous call, so two "identical" invocations are not identical: the
+        # second continues from the first's context and can diverge even under
+        # greedy decoding. A benchmark measuring reproducibility has to clear
+        # that, while warm-residency measurement must NOT - the retained state
+        # is exactly what makes a warm call warm. So it is a per-call choice.
+        if task_contract.payload.get("reset_state"):
+            reset = getattr(resident.handle, "reset", None)
+            if callable(reset):
+                reset()
 
         started = time.monotonic()
         try:

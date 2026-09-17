@@ -1,0 +1,129 @@
+{
+  "prompt_version": "wave0-prompts-v2",
+  "benchmark_version": "wave0-v1",
+  "notes": "Prompts and expectations for the canonical 12 Wave 0 tasks. The task ids and categories come from v4/control_plane/wave0.json and are not redefined here. Frozen by content hash before any model was run against them.",
+  "decoding": {
+    "temperature": 0.0,
+    "top_k": 1,
+    "top_p": 1.0,
+    "seed": 0,
+    "reset_state": true
+  },
+  "prompts": {
+    "gr-01": {
+      "prompt": "Answer each question directly and briefly.\n\nQ: What is 2 plus 3?\nA: 5\n\nQ: What is the largest planet in our solar system?\nA: Jupiter\n\nQ: What is the capital city of Japan?\nA:",
+      "expectation": {
+        "any_of": [
+          "Tokyo"
+        ],
+        "must_not_contain": [
+          "Kyoto",
+          "Osaka"
+        ]
+      },
+      "max_tokens": 12
+    },
+    "gr-02": {
+      "prompt": "Answer each question directly and briefly.\n\nQ: What is 2 plus 3?\nA: 5\n\nQ: What is the largest planet in our solar system?\nA: Jupiter\n\nQ: Which gas do plants absorb from the air to make food?\nA:",
+      "expectation": {
+        "any_of": [
+          "carbon dioxide",
+          "CO2"
+        ],
+        "must_not_contain": [
+          "oxygen"
+        ]
+      },
+      "max_tokens": 12
+    },
+    "gr-03": {
+      "prompt": "Answer each question directly and briefly.\n\nQ: What is 2 plus 3?\nA: 5\n\nQ: What is the largest planet in our solar system?\nA: Jupiter\n\nQ: How many continents are there on Earth?\nA:",
+      "expectation": {
+        "any_of": [
+          "seven",
+          "7"
+        ]
+      },
+      "max_tokens": 12
+    },
+    "vi-01": {
+      "prompt": "Trả lời ngắn gọn bằng tiếng Việt.\n\nHỏi: Thủ đô của nước Pháp là thành phố nào?\nĐáp: Thủ đô của nước Pháp là",
+      "expectation": {
+        "any_of": [
+          "Paris",
+          "Pa-ri"
+        ]
+      },
+      "max_tokens": 24
+    },
+    "vi-02": {
+      "prompt": "Trả lời ngắn gọn bằng tiếng Việt.\n\nHỏi: Một tuần có bao nhiêu ngày?\nĐáp: Một tuần có",
+      "expectation": {
+        "any_of": [
+          "bảy",
+          "7"
+        ]
+      },
+      "max_tokens": 24
+    },
+    "vi-03": {
+      "prompt": "Trả lời ngắn gọn bằng tiếng Việt.\n\nHỏi: Mặt trời mọc ở hướng nào?\nĐáp: Mặt trời mọc ở hướng",
+      "expectation": {
+        "any_of": [
+          "đông",
+          "hướng đông"
+        ]
+      },
+      "max_tokens": 24
+    },
+    "so-01": {
+      "prompt": "Return only JSON.\n\nInput: name Ann, age 30\nOutput: {\"name\": \"Ann\", \"age\": 30}\n\nInput: name Bob, age 41\nOutput:",
+      "expectation": {
+        "required_keys": [
+          "name",
+          "age"
+        ]
+      },
+      "max_tokens": 32
+    },
+    "so-02": {
+      "prompt": "Return only JSON.\n\nInput: city Rome, country Italy\nOutput: {\"city\": \"Rome\", \"country\": \"Italy\"}\n\nInput: city Lisbon, country Portugal\nOutput:",
+      "expectation": {
+        "required_keys": [
+          "city",
+          "country"
+        ]
+      },
+      "max_tokens": 32
+    },
+    "code-01": {
+      "prompt": "Write a single Python arithmetic expression. Output only the expression.\n\nTask: compute 7 times 6\nExpression: 7 * 6\n\nTask: compute 12 plus 30\nExpression:",
+      "expectation": {
+        "expected_value": 42
+      },
+      "max_tokens": 12
+    },
+    "code-02": {
+      "prompt": "Write a single Python arithmetic expression. Output only the expression.\n\nTask: compute 7 times 6\nExpression: 7 * 6\n\nTask: compute 100 minus 45\nExpression:",
+      "expectation": {
+        "expected_value": 55
+      },
+      "max_tokens": 12
+    },
+    "math-01": {
+      "prompt": "Answer each question directly and briefly.\n\nQ: What is 2 plus 3?\nA: 5\n\nQ: What is the largest planet in our solar system?\nA: Jupiter\n\nQ: What is 15 multiplied by 4?\nA:",
+      "expectation": {
+        "expected_number": 60
+      },
+      "max_tokens": 12
+    },
+    "math-02": {
+      "prompt": "Answer each question directly and briefly.\n\nQ: What is 2 plus 3?\nA: 5\n\nQ: What is the largest planet in our solar system?\nA: Jupiter\n\nQ: A shop sells pens for 3 dollars each. How much do 9 pens cost in dollars?\nA:",
+      "expectation": {
+        "expected_number": 27
+      },
+      "max_tokens": 16
+    }
+  },
+  "revision_note": "v2 rewrites the three Vietnamese prompts in actual Vietnamese. v1 wrote them with diacritics stripped, which is not Vietnamese text, while the verifier requires a Vietnamese answer - an unfair test rather than a measurement. Found after running v1; both results are recorded. No other prompt or expectation was changed, and in particular gr-02 was left alone: the model answered 'Oxygen' when asked which gas plants absorb, which is a real error and not the harness's fault."
+}
