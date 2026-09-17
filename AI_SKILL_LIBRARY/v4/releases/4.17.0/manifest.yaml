@@ -185,5 +185,5 @@ compatibility:
   min_architecture: 4.0.0
 promotion:
   class: feature
-  validated: true
+  validated: false
   source: wave3_qwen3_8b_capability

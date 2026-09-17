@@ -77,7 +77,7 @@ files:
   sha256: 88e170a288b0ae1a24ca6e70abac4cff3b7d587cc7ad54146e31aa32a018cdc8
   role: model_mesh_domain_capabilities
 - path: AI_SKILL_LIBRARY/v4/model_mesh/capability_evidence.json
-  sha256: aed510076154be006a6988a71530507f72eae6f5e2182c8d7a2c3be42d7427a2
+  sha256: ea3e0049479844937f7e2841782c9b92d8ca0d06e12206795beb47e3d244ca55
   role: model_mesh_capability_evidence
 - path: AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json
   sha256: 266edc4172dff2412fad0239219af2299805b2dc90ce746f427255d7e351a5e8
@@ -185,5 +185,5 @@ compatibility:
   min_architecture: 4.0.0
 promotion:
   class: feature
-  validated: true
+  validated: false
   source: capability_ledger_population

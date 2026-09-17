@@ -39,6 +39,14 @@ on:
         description: Refuse to stage an artifact larger than this
         required: false
         default: '6'
+      scan_candidate:
+        description: Candidate id to signature-scan (blank = no scan)
+        required: false
+        default: ''
+      scan_expected_sha256:
+        description: Digest the runtime expects; the scan refuses on a mismatch
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -355,3 +363,161 @@ jobs:
             fi
           done
           gh release upload "$TAG" * --clobber
+
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # Opt-in per dispatch, like staging. A run that was not asked to scan
+    # anything must not pick a candidate for itself.
+    if: github.event.inputs.scan_candidate != ''
+    steps:
+      - name: Install a real signature engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends clamav
+          sudo systemctl stop clamav-freshclam 2>/dev/null || true
+          # Signatures, not just the engine. An engine with no database would
+          # scan everything and find nothing, which looks exactly like a pass.
+          sudo freshclam --quiet || sudo freshclam
+          clamscan --version
+
+      - name: Fetch and reassemble the staged artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE: ${{ github.event.inputs.scan_candidate }}
+          EXPECTED_SHA: ${{ github.event.inputs.scan_expected_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staged && cd staged
+          gh release download "wave3-staged-${CANDIDATE}" --pattern '*.gguf*' --clobber
+          # Parts are concatenated in order and the digest of the whole file is
+          # verified; a part is never verified in place of the whole.
+          shopt -s nullglob
+          for base in $(ls *.part* 2>/dev/null | sed 's/\.part[0-9]*$//' | sort -u); do
+            cat "$base".part* > "$base"
+            rm -f "$base".part*
+          done
+          FILE=$(ls *.gguf | head -1)
+          SHA=$(sha256sum "$FILE" | awk '{print $1}')
+          if [ "$SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::digest mismatch - scanning the wrong bytes produces a worthless result"
+            echo "::error::expected $EXPECTED_SHA, got $SHA"
+            exit 1
+          fi
+          echo "FILE=$FILE" >> "$GITHUB_ENV"
+          echo "SHA=$SHA" >> "$GITHUB_ENV"
+          echo "SIZE=$(stat -c%s "$FILE")" >> "$GITHUB_ENV"
+
+      - name: Scan, and bind the result to the exact bytes
+        env:
+          CANDIDATE: ${{ github.event.inputs.scan_candidate }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          cd staged
+          ENGINE=$(clamscan --version)
+          LIMIT=2147483647   # libclamav cannot read a file larger than this
+
+          # libclamav skips a file over 2 GiB - 1 while still printing "OK" and
+          # "Scanned files: 1", so the naive path records a clean scan of bytes
+          # nothing ever looked at. Chunks overlap by 1 MiB so a signature
+          # straddling a boundary is still seen in one of them.
+          CHUNKED=false
+          OVERLAP=1048576
+          if [ "$SIZE" -gt "$LIMIT" ]; then
+            CHUNKED=true
+            mkdir -p chunks
+            SCAN_TARGET="$FILE" python - <<'PY'
+          import os, pathlib
+          src = pathlib.Path(os.environ["SCAN_TARGET"])
+          size = src.stat().st_size
+          chunk, overlap = 1_000_000_000, 1_048_576
+          out = pathlib.Path("chunks")
+          offset, index = 0, 0
+          with src.open("rb") as handle:
+              while offset < size:
+                  handle.seek(offset)
+                  data = handle.read(chunk)
+                  if not data:
+                      break
+                  (out / f"chunk{index:03d}.bin").write_bytes(data)
+                  index += 1
+                  offset += chunk - overlap
+          print(f"wrote {index} chunks covering {size} bytes")
+          PY
+            TARGET=chunks
+          else
+            TARGET="$FILE"
+          fi
+
+          set +e
+          clamscan -r --max-filesize=4000M --max-scansize=4000M --stdout "$TARGET" > scan.txt 2>&1
+          CODE=$?
+          set -e
+          cat scan.txt
+
+          case "$CODE" in
+            0) STATUS=pass ;;
+            1) STATUS=fail ;;
+            *) STATUS=error ;;
+          esac
+
+          # The check that decides whether this is a scan or theatre. "Scanned
+          # files: 1" is printed even for a file that was skipped. Data scanned
+          # is the honest measure.
+          SCANNED=$(awk -F': *' '/^Scanned files:/{print $2; exit}' scan.txt)
+          SCANNED="${SCANNED:-0}"
+          DATA_SCANNED=$(awk -F': *' '/^Data scanned:/{print $2; exit}' scan.txt)
+          DATA_SCANNED="${DATA_SCANNED:-0}"
+          COVERAGE_OK=true
+          case "$DATA_SCANNED" in
+            0|0.00*|"") COVERAGE_OK=false ;;
+          esac
+          [ "$SCANNED" -ge 1 ] || COVERAGE_OK=false
+          if [ "$COVERAGE_OK" != "true" ] && [ "$STATUS" = "pass" ]; then
+            echo "::warning::engine scanned no data - refusing to record a pass"
+            STATUS=not_run
+          fi
+
+          SIGS=$(sudo sigtool --info /var/lib/clamav/daily.cvd 2>/dev/null | awk -F': ' '/^Version:/{print $2; exit}')
+          SIGS="${SIGS:-unknown}"
+
+          python - <<PY > "scan-${CANDIDATE}.json"
+          import json, os, datetime
+          print(json.dumps({
+            "candidate_id": os.environ["CANDIDATE"],
+            "filename": "$FILE",
+            "artifact_sha256": "$SHA",
+            "size_bytes": int("$SIZE"),
+            "malware_scan_status": "$STATUS",
+            "scan_exit_code": int("$CODE"),
+            "engine": """$ENGINE""".strip().splitlines()[0],
+            "signature_database_version": "$SIGS",
+            "engine_scanned_file_count": int("$SCANNED"),
+            "engine_data_scanned": "$DATA_SCANNED",
+            "engine_read_whole_artifact": "$COVERAGE_OK" == "true",
+            "chunked": "$CHUNKED" == "true",
+            "chunk_overlap_bytes": int("$OVERLAP") if "$CHUNKED" == "true" else None,
+            "scanned_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+            "scanned_by": "github-actions",
+            "scan_kind": "signature_based",
+            "is_a_scan_result": True,
+            "covers_only_this_digest": True,
+            "raw_output": open("scan.txt").read()[-4000:],
+          }, indent=2))
+          PY
+          cat "scan-${CANDIDATE}.json"
+
+      - name: Publish the scan result beside the artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE: ${{ github.event.inputs.scan_candidate }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "wave3-staged-${CANDIDATE}" "staged/scan-${CANDIDATE}.json" --clobber
