@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "status": "STAGED_NOT_ADMITTED",
+  "authority": false,
+  "routing_authority": false,
+  "reasoning_authority": false,
+  "notes": "Operational handoff only. Artifact staging never implies runtime admission, Model Mesh eligibility, or Brain authority.",
+  "runs": {
+    "canonical_qwen3_0_6b": {
+      "workflow_run_id": 35200311835,
+      "artifact_id": 10487472041,
+      "artifact_name": "canonical-qwen3-0.6b-q8_0-gguf",
+      "expected_filename": "Qwen3-0.6B-Q8_0.gguf",
+      "expected_size_bytes": 639446688,
+      "expected_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+      "intended_state": "canonical_B1_candidate"
+    },
+    "wave1": {
+      "workflow_run_id": 35201035730,
+      "workflow_conclusion": "success",
+      "source_branch": "ops/model-artifact-staging",
+      "source_commit": "e0f184560d04726197bcd495f33a817d382e46c2",
+      "artifacts": [
+        {
+          "artifact_id": 10487951643,
+          "artifact_name": "open-model-wave1-qwen3-1.7b-q8_0",
+          "family": "Qwen3",
+          "variant": "1.7B-Q8_0",
+          "archive_digest": "sha256:3043d9ba2cd8e14e29926fd8e8a8d8452e8957d9ae3458e7a7b3752dccb2bf2c",
+          "archive_size_bytes": 1758481337,
+          "state": "STAGED_NOT_ADMITTED"
+        },
+        {
+          "artifact_id": 10487314513,
+          "artifact_name": "open-model-wave1-qwen3-4b-q4_k_m",
+          "family": "Qwen3",
+          "variant": "4B-Q4_K_M",
+          "archive_digest": "sha256:80c24ef4e55db25860a17bd2ad70dbe2400f493fa3fda5fcb638a9711ba8ba0b",
+          "archive_size_bytes": 2428084775,
+          "state": "STAGED_NOT_ADMITTED"
+        },
+        {
+          "artifact_id": 10488431786,
+          "artifact_name": "open-model-wave1-granite-3.3-2b-instruct-q4_k_m",
+          "family": "Granite",
+          "variant": "3.3-2B-Instruct-Q4_K_M",
+          "archive_digest": "sha256:e4dbf783fee6b28f47b269774d9bbb5653e778d1232d34aaad1a2282d5d9ecbe",
+          "archive_size_bytes": 1518664881,
+          "state": "STAGED_NOT_ADMITTED"
+        }
+      ]
+    }
+  },
+  "required_next_steps": [
+    "Claude refreshes canonical main/checkpoint/router before consuming this handoff",
+    "download artifact from GitHub Actions",
+    "recompute model-file size and SHA256 locally",
+    "quarantine any mismatch",
+    "run safe-format and structural validation",
+    "run isolated first load and real inference",
+    "benchmark and emit capability evidence",
+    "only then consider Open Model Universe admission and Model Mesh eligibility"
+  ]
+}
