@@ -1186,6 +1186,29 @@ jobs:
                   ms = round((time.time() - started) * 1000, 1)
                   return 0, None, ms, f"{type(e).__name__}: {e}"
 
+          def _text_of(res):
+              """Pull the answer out wherever this model puts it.
+
+              moondream returned 200 with an empty answer under the two keys I
+              guessed, so the text was there and I was not reading it. Rather
+              than guess a third time, take the first non-empty string field and
+              report the keys when nothing is found, so a wrong guess becomes a
+              visible fact instead of a silent zero.
+              """
+              if isinstance(res, str):
+                  return res
+              if not isinstance(res, dict):
+                  return ""
+              for key in ("description", "response", "text", "answer", "caption",
+                          "output", "result", "generated_text"):
+                  val = res.get(key)
+                  if isinstance(val, str) and val.strip():
+                      return val
+              for val in res.values():
+                  if isinstance(val, str) and val.strip():
+                      return val
+              return ""
+
           results = []
           def record(capability, model, verdict, **extra):
               results.append({"capability": capability, "model": model,
@@ -1218,7 +1241,29 @@ jobs:
                          http=status, latency_ms=ms, keys=list(body)[:6])
           else:
               record("text_to_speech", "@cf/myshell-ai/melotts", "FAILED",
-                     http=status, latency_ms=ms, error=err)
+                     http=status, latency_ms=ms, error=(err or "")[:200],
+                     note="two attempts, both 5xx; recorded as a real failure, not a flake")
+              # One model failing is not the capability failing. Try the other
+              # TTS model in the catalog before concluding anything about TTS.
+              for alt in ("@cf/deepgram/aura-1", "@cf/deepgram/aura-2-en"):
+                  status, body, ms, err = call(alt, {"text": SPOKEN})
+                  if status == 200 and body:
+                      if body.get("_binary_bytes"):
+                          audio_b64 = base64.b64encode(body["_raw"]).decode()
+                          record("text_to_speech", alt, "PRODUCED_AUDIO",
+                                 http=status, latency_ms=ms,
+                                 audio_bytes=body["_binary_bytes"],
+                                 note="fallback TTS after melotts failed twice")
+                          break
+                      cand = (body.get("result") or {}).get("audio")
+                      if cand:
+                          audio_b64 = cand
+                          record("text_to_speech", alt, "PRODUCED_AUDIO",
+                                 http=status, latency_ms=ms,
+                                 note="fallback TTS after melotts failed twice")
+                          break
+                  record("text_to_speech", alt, "FAILED", http=status,
+                         latency_ms=ms, error=(err or "")[:160])
 
           # --- ASR: transcribe the audio the TTS model just produced ---------
           # Neither model can pass by echoing: the ASR model never sees SPOKEN.
@@ -1269,18 +1314,22 @@ jobs:
               status, body, ms, err, form = ask_vision(
                   vision, "What word is written in this image? Answer with the word only.")
               if status == 200 and body:
-                  desc = ((body.get("result") or {}).get("description")
-                          or (body.get("result") or {}).get("response") or "")
+                  res = body.get("result") or {}
+                  desc = _text_of(res)
                   ok = "harmony" in desc.lower()
-                  record("ocr_text_in_image", vision,
-                         "READ_CORRECTLY" if ok else "READ_INCORRECTLY",
+                  # An empty answer is not a wrong answer. Say which it was, and
+                  # name the keys that came back so the gap is diagnosable.
+                  verdict_ocr = ("READ_CORRECTLY" if ok
+                                 else "EMPTY_RESPONSE" if not desc.strip()
+                                 else "READ_INCORRECTLY")
+                  record("ocr_text_in_image", vision, verdict_ocr,
                          http=status, latency_ms=ms, answer=desc[:200],
-                         expected="HARMONY", input_form=form)
+                         expected="HARMONY", input_form=form,
+                         result_keys=sorted(res)[:12] if isinstance(res, dict) else None)
                   status2, body2, ms2, err2, form2 = ask_vision(
                       vision, "Describe the shape in this image and its colour.")
                   if status2 == 200 and body2:
-                      d2 = ((body2.get("result") or {}).get("description")
-                            or (body2.get("result") or {}).get("response") or "")
+                      d2 = _text_of(body2.get("result") or {})
                       # Colour and shape scored separately. The first run asked
                       # for both in 32 tokens, got "Red", and recorded a flat
                       # failure - which threw away the fact that the model had
@@ -1294,7 +1343,12 @@ jobs:
                              http=status2, latency_ms=ms2, answer=d2[:200],
                              expected="red circle", saw_colour=saw_colour,
                              saw_shape=saw_shape, input_form=form2)
-                  break
+                  # Only stop looking once a model actually answered. A 200 that
+                  # returns nothing is not a working vision path, and treating
+                  # it as one cost the previous run its llava result.
+                  if desc.strip():
+                      break
+                  continue
               record("ocr_text_in_image", vision, "FAILED", http=status,
                      latency_ms=ms, error=err)
 
