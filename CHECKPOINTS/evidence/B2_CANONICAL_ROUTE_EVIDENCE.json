@@ -1,0 +1,52 @@
+{
+  "request_id": "b2-1789634648",
+  "canonical_route_ok": false,
+  "reason": "model_mesh: mesh selected no candidate",
+  "stages": [
+    {
+      "stage": "ingress",
+      "ok": true,
+      "detail": "request accepted",
+      "data": {
+        "prompt_chars": 24,
+        "model_named_at_ingress": false
+      }
+    },
+    {
+      "stage": "task_router",
+      "ok": true,
+      "detail": "core/core_reasoning",
+      "data": {
+        "router": "task_router",
+        "domain": "core",
+        "primary_skill": "core_reasoning",
+        "model_named_at_ingress": false
+      }
+    },
+    {
+      "stage": "governance_admission",
+      "ok": true,
+      "detail": "1 admitted",
+      "data": {
+        "model_ids": [
+          "Qwen/Qwen3-0.6B-GGUF"
+        ]
+      }
+    },
+    {
+      "stage": "model_mesh",
+      "ok": false,
+      "detail": "mesh selected no candidate",
+      "data": {
+        "rejections": [
+          "local_runtime:Qwen/Qwen3-0.6B-GGUF: below the capability floor for core/core_reasoning"
+        ]
+      }
+    }
+  ],
+  "output": null,
+  "execution_evidence": null,
+  "routing_authority": "task_router",
+  "model_selection_authority": "model_mesh",
+  "runtime_residency_authority": "claude_local_runtime"
+}
