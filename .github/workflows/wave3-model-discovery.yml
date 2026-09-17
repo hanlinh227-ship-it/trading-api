@@ -1431,9 +1431,30 @@ jobs:
           doc_b64 = base64.b64encode(doc_bytes).decode()
 
           def ask_image(model, prompt, raw, b64, max_tokens=128):
-              for form, image in (("byte_array", list(raw)), ("base64", b64)):
-                  status, body, ms, err = call(model, {
-                      "image": image, "prompt": prompt, "max_tokens": max_tokens})
+              """Three request shapes, because the catalog does not use one.
+
+              The image-to-text models take an `image` field; the multimodal chat
+              models take an image_url content block inside `messages` and reject
+              the first shape outright. Trying each distinguishes "cannot do it"
+              from "was asked in the wrong shape", which is a distinction an
+              earlier run got wrong and recorded as a model failure.
+              """
+              chat = {"messages": [{"role": "user", "content": [
+                  {"type": "text", "text": prompt},
+                  {"type": "image_url",
+                   "image_url": {"url": "data:image/png;base64," + b64}}]},
+              ], "max_tokens": max_tokens}
+              attempts = (("byte_array", {"image": list(raw), "prompt": prompt,
+                                          "max_tokens": max_tokens}),
+                          ("base64", {"image": b64, "prompt": prompt,
+                                      "max_tokens": max_tokens}),
+                          ("chat_image_url", chat))
+              for form, payload in attempts:
+                  status, body, ms, err = call(model, payload)
+                  if status == 403 and "agree" in (err or "").lower():
+                      # A licence gate answers every shape the same way; trying
+                      # the others would just be three identical refusals.
+                      return status, body, ms, err, form
                   if status == 200:
                       return status, body, ms, err, form
               return status, body, ms, err, "none_accepted"
@@ -1445,6 +1466,8 @@ jobs:
           # llama-3.2-11b-vision is listed first and is expected to hit a licence
           # gate; it stays in the list so the gate is measured rather than assumed.
           VISION_MODELS = ("@cf/meta/llama-3.2-11b-vision-instruct",
+                           "@cf/mistralai/mistral-small-3.1-24b-instruct",
+                           "@cf/meta/llama-4-scout-17b-16e-instruct",
                            "@cf/llava-hf/llava-1.5-7b-hf")
 
           # visual_reasoning: the answer is not written anywhere in the image.
@@ -1628,11 +1651,19 @@ jobs:
                   ans = _text_of(bd.get("result") or {})
                   low = ans.lower()
                   ok = ("rack 7" in low or "rack seven" in low) and "02:10" not in low
+                  res = bd.get("result") or {}
+                  # An empty extraction has been a bug in this harness twice now,
+                  # so it no longer reports a bare EMPTY_RESPONSE: it carries the
+                  # shape that came back, which is the only thing that makes the
+                  # next attempt better than another guess.
                   record("large_model_synthesis", big,
                          "SYNTHESISED" if ok else "EMPTY_RESPONSE" if not ans.strip()
                          else "SYNTHESISED_INCORRECTLY",
                          http=st, latency_ms=ms, answer=ans[:300],
                          expected="the failed disk in rack 7",
+                         result_keys=sorted(res)[:16] if isinstance(res, dict) else None,
+                         result_shape=(json.dumps(res)[:900]
+                                       if not ans.strip() and isinstance(res, dict) else None),
                          note="the two disagreed fields are decoys; quoting one source "
                               "rather than reconciling all three fails")
                   if ok:
