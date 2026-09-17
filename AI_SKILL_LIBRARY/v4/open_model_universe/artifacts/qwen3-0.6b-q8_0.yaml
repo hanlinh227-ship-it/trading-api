@@ -1,0 +1,110 @@
+version: 1
+record_id: FIRST_CANONICAL_LOCAL_MODEL_RECORD
+
+model_id: Qwen/Qwen3-0.6B-GGUF:Q8_0
+family: Qwen3-0.6B
+variant: Q8_0-GGUF
+base_model: Qwen/Qwen3-0.6B
+lineage_id: qwen3-0.6b-posttrained
+lineage:
+  foundation_model: Qwen/Qwen3-0.6B-Base
+  parent_model: Qwen/Qwen3-0.6B
+  quantized_artifact: Qwen/Qwen3-0.6B-GGUF:Q8_0
+  quantization_creates_independent_family: false
+
+immutable_revision: 8e42d41f70cb6c571f58c3f31bd9287b372d97cc
+artifact_filename: Qwen3-0.6B-Q8_0.gguf
+artifact_sha256: 12fae8b8f78f0360b498d04c8db7d33aff29ab7d8080231f93a17c18119e6735
+artifact_size_bytes: 804753088
+artifact_format: GGUF
+quantization: Q8_0
+source_uri: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/8e42d41f70cb6c571f58c3f31bd9287b372d97cc/Qwen3-0.6B-Q8_0.gguf
+
+license: Apache-2.0
+license_class: permissive
+license_verified: true
+self_hostable: true
+local_runtime_possible: true
+offline_eligible: true
+zero_paid_token: true
+privacy_class: local_offline_private_candidate
+
+runtime_support:
+  - llama.cpp
+  - ollama
+  - vllm
+context_window: 32768
+hardware_profile:
+  minimum_ram_gb: null
+  recommended_ram_gb: null
+  minimum_vram_gb: null
+  recommended_vram_gb: null
+  cpu_viable: unknown
+  apple_silicon_viable: unknown
+
+safe_admission:
+  safe_format_verified: true
+  pickle_safe: true
+  trust_remote_code_required: false
+  custom_code_required: false
+  provenance_verified: true
+  license_verified: true
+  quarantine_status: REGISTERED_RUNTIME_PENDING
+  isolated_first_load_required: true
+  egress_required: acquisition_only
+
+admission_status: IDENTITY_VERIFIED_RUNTIME_PENDING
+activation_allowed: false
+activation_blockers:
+  - genuine_runtime_adapter_not_yet_proven
+  - isolated_first_load_not_yet_observed
+
+runtime_projection:
+  ModelProfile:
+    model_id: Qwen/Qwen3-0.6B-GGUF:Q8_0
+    family: Qwen3-0.6B
+    variant: Q8_0-GGUF
+    runtime: llama.cpp
+    context_window: 32768
+    ram_mb: null
+    vram_mb: null
+    disk_bytes: 804753088
+    zero_cost: true
+    privacy: local_offline_private_candidate
+    quality: null
+    specializations: []
+  RegistryClaim:
+    model_id: Qwen/Qwen3-0.6B-GGUF:Q8_0
+    context_limit: 32768
+    modalities:
+      - text
+    tool_support: false
+    zero_cost: true
+  AcquisitionRequest:
+    model_id: Qwen/Qwen3-0.6B-GGUF:Q8_0
+    revision: 8e42d41f70cb6c571f58c3f31bd9287b372d97cc
+    source_uri: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/8e42d41f70cb6c571f58c3f31bd9287b372d97cc/Qwen3-0.6B-Q8_0.gguf
+    filename: Qwen3-0.6B-Q8_0.gguf
+    sha256: 12fae8b8f78f0360b498d04c8db7d33aff29ab7d8080231f93a17c18119e6735
+    size_bytes: 804753088
+    runtime: llama.cpp
+    supported_runtimes:
+      - llama.cpp
+      - ollama
+      - vllm
+    registry_lifecycle_state: REGISTERED
+  ArtifactIdentity:
+    model_id: Qwen/Qwen3-0.6B-GGUF:Q8_0
+    family: Qwen3-0.6B
+    lineage_id: qwen3-0.6b-posttrained
+    revision: 8e42d41f70cb6c571f58c3f31bd9287b372d97cc
+    sha256: 12fae8b8f78f0360b498d04c8db7d33aff29ab7d8080231f93a17c18119e6735
+    size_bytes: 804753088
+    format: GGUF
+    quantization: Q8_0
+
+source_evidence:
+  artifact_commit: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/commit/8e42d41f70cb6c571f58c3f31bd9287b372d97cc
+  immutable_model_tree: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/tree/ef4088322893040952513f532f736ddeab518403
+  immutable_license: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/ef4088322893040952513f532f736ddeab518403/LICENSE
+  gguf_specification: https://github.com/ggml-org/ggml/blob/master/docs/gguf.md
