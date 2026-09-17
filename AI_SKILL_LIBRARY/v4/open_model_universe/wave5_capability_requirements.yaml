@@ -1,12 +1,13 @@
 version: 1
 purpose: wave5_capability_requirements_and_measured_coverage
-status: MEASUREMENT_STARTED_NOT_CLOSED
+status: MEASUREMENT_STARTED_NOT_CLOSED  # see wave_closure_gate.py --wave 5
 measured_at: "2026-09-17"
 evidence:
   - CHECKPOINTS/evidence/WAVE3_CAPABILITY_GAP_MAP.json
   - CHECKPOINTS/evidence/WAVE3_FEDERATION_PROOF.json
   - CHECKPOINTS/evidence/WAVE4_MULTIMODAL_BENCHMARK.json
   - CHECKPOINTS/evidence/WORKERS_AI_FREE_TIER_PROBE.json
+  - CHECKPOINTS/evidence/WAVE5_ADVINT_QWEN3_8B.json
 
 # Wave 5 is advanced intelligence. Every row below is filled from a recorded
 # run against a frozen suite or a real completion on a verified zero-cost path.
@@ -110,51 +111,71 @@ capability_requirements:
 
   - tag: multilingual
     declared: true
-    measured_covered: false
-    measured_model: null
-    evidence_class: NONE
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    score: 0.833
     note: >-
-      NOT_MEASURED. Vietnamese is one language; the gap map reports
-      multilingual_reasoning as having no task at all. Covering multilingual
-      from a Vietnamese score would be exactly the inheritance this file
-      forbids.
+      5 of 6 on arithmetic posed in Spanish, French, German, Japanese,
+      Indonesian and Portuguese - six languages, none of them Vietnamese, so
+      nothing is inherited from the Vietnamese score. The Spanish item failed.
+      Measured on the exact local model, not on a provider substitute.
 
   - tag: long_context
     declared: true
-    measured_covered: false
-    measured_model: null
-    evidence_class: NONE
-    executable_path: "@cf/openai/gpt-oss-20b at 128k context on the Workers Free plan"
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    score: 0.833
+    measured_at_tokens: 6100
     note: >-
-      NOT_MEASURED, and a gap the fleet cannot close locally: no Wave 0 task
-      exercises long context. An executable path with a 128k window exists and
-      is recorded, but an available context window is a specification, not a
-      measurement, and does not cover the tag.
+      5 of 6 clearance codes recalled from a 400-record ledger of roughly 6,000
+      tokens placed in the prompt, at a 16384 context ceiling. The one failure is
+      the interesting part and is not rounded away: asked for depot-041's code it
+      returned BL2WC, which is depot-297's - it retrieved a real code from the
+      ledger and attached it to the wrong row.
+    measured_ceiling_is_the_claim: >-
+      This covers long_context AT ~6k TOKENS and at nothing larger. It is not
+      evidence at 32k or 128k and must never be cited as such. A 128k window
+      exists on @cf/openai/gpt-oss-20b, but an available window is a
+      specification and not a measurement.
 
   - tag: tool_calling
     declared: true
-    measured_covered: false
-    measured_model: null
-    evidence_class: NONE
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    score: 1.0
     note: >-
-      NOT_MEASURED. No frozen task asks a model to emit a well-formed call and
-      no run has been scored on one.
+      6 of 6: well-formed argument shapes against a declared schema, the right
+      response to a rate-limit error, refusing to invent a tool that does not
+      exist, and sequencing a call that depends on another's output.
+    what_it_does_not_cover: >-
+      These items measure judgment ABOUT calls, chosen from options. They do not
+      measure free-form emission of a syntactically valid call into a live tool
+      loop, which is a different task and has not been run.
 
   - tag: agentic_planning
     declared: true
-    measured_covered: false
-    measured_model: null
-    evidence_class: NONE
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    score: 1.0
     note: >-
-      NOT_MEASURED as a model capability. AI Legion orchestrates planning as
-      software; that is the harness planning, not a measured model competence,
-      and the two are different claims.
+      6 of 6: dependency ordering, stopping when a result contradicts the
+      assumption the rest of the plan rests on, treating a verifier's failure as
+      authoritative over a confident sub-agent, and routing around an exhausted
+      quota rather than retrying it or opening a second account.
+    what_it_does_not_cover: >-
+      This is a model reasoning about plans. AI Legion orchestrating a plan in
+      software is a different claim and is still not measured as one.
 
   - tag: large_model_synthesis
     declared: true
     measured_covered: false
     measured_model: null
     evidence_class: NONE
+    blocker_class: NO_SUITE_YET
     executable_path: "@cf/openai/gpt-oss-20b, proven to serve a completion on the Workers Free plan"
     note: >-
       NOT_MEASURED. A 20B model is executable on a zero-cost tier - probe run
@@ -165,18 +186,22 @@ capability_requirements:
 
   - tag: scientific_reasoning
     declared: true
-    measured_covered: false
-    measured_model: null
-    evidence_class: NONE
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    score: 1.0
     note: >-
-      NOT_MEASURED. No suite exists. math_quant is measured at 1.000 and
-      saturated, and mathematics is not science reasoning.
+      6 of 6 on items written so the intuitive answer is wrong: what a catalyst
+      does at equilibrium, why a sunlit thermometer stops measuring air
+      temperature, and reading a bookshop/longevity correlation as a shared cause
+      rather than an effect.
 
   - tag: finance_analysis
     declared: true
     measured_covered: false
     measured_model: null
     evidence_class: NONE
+    blocker_class: OUT_OF_SCOPE_THIS_WAVE
     note: >-
       NOT_MEASURED, deliberately. Building this suite touches Trading-adjacent
       material and Trading is not started in this wave. The tag is declared so
@@ -194,18 +219,25 @@ capability_requirements:
 
   - tag: reranking
     declared: true
-    measured_covered: false
-    measured_model: null
-    evidence_class: NONE
+    measured_covered: true
+    measured_model: "@cf/baai/bge-reranker-base"
+    evidence_class: MEASURED
     note: >-
-      NOT_MEASURED. No reranker has been run and none is in the verified
-      catalog read so far.
+      RANKED_CORRECTLY. Given a query about a container running out of disk
+      space and four passages, it put the one that answers it first. The three
+      decoys each share a word with the query - a container ship, a disc brake,
+      proving dough - so lexical overlap alone scores zero. Measured on the
+      Workers Free plan in the Wave 4 benchmark job.
+    served_by_a_substitute: >-
+      This is a provider's own model covering the capability under its own name.
+      No requested model became available by it.
 
   - tag: retrieval
     declared: true
     measured_covered: false
     measured_model: null
     evidence_class: NONE
+    blocker_class: NO_SUITE_YET
     note: >-
       NOT_MEASURED end to end. An index builder exists in the repository, but
       no recall or precision figure has been measured against a frozen query

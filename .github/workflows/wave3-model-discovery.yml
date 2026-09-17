@@ -1227,6 +1227,8 @@ jobs:
               for choice in (res.get("choices") or []):
                   if isinstance(choice, dict):
                       msg = choice.get("message") or {}
+                      # content only. reasoning_content is the model thinking out
+                      # loud and is deliberately not scored as its answer.
                       for cand in (msg.get("content"), choice.get("text")):
                           if isinstance(cand, str) and cand.strip():
                               return cand
@@ -1459,6 +1461,28 @@ jobs:
                       return status, body, ms, err, form
               return status, body, ms, err, "none_accepted"
 
+          def sees_the_image(model):
+              """A control that must pass before any answer from this model counts.
+
+              mistral-small answered a question about my order sheet with a
+              timestamp, and llama-4-scout answered it with generic markdown
+              headings. Neither string exists anywhere in the image. Those are
+              not wrong readings - they are answers produced without the image,
+              and scoring them would have recorded a hallucination as a
+              measurement of vision.
+
+              So each model first reads a word it cannot guess off a picture this
+              job drew. Fail the control and its document answers are not scored
+              at all, because there is nothing to score.
+              """
+              st, bd, ms, er, form = ask_image(
+                  model, "What word is written in this image? Answer with the word only.",
+                  img_bytes, img_b64, max_tokens=24)
+              if st != 200 or not bd:
+                  return False, (er or "")[:200], form, st
+              ans = _text_of(bd.get("result") or {})
+              return "harmony" in ans.lower(), ans[:200], form, st
+
           # A vision model that can also reason. llava answered the perception
           # questions above; whether it can reason over what it sees is a
           # different claim and is measured separately, on both models, rather
@@ -1470,9 +1494,29 @@ jobs:
                            "@cf/meta/llama-4-scout-17b-16e-instruct",
                            "@cf/llava-hf/llava-1.5-7b-hf")
 
+          GROUNDED_MODELS = []
+          for vm in VISION_MODELS:
+              ok, answer, form, st = sees_the_image(vm)
+              if ok:
+                  GROUNDED_MODELS.append(vm)
+                  record("vision_control", vm, "IMAGE_RECEIVED", http=st,
+                         answer=answer, expected="HARMONY", input_form=form,
+                         note="control passed; this model's document answers are scored")
+              elif licence_gated(st, answer):
+                  record("vision_control", vm, "HUMAN_LICENSE_GATE_REQUIRED", http=st,
+                         error=answer,
+                         note="licence acceptance is the operator's; not attempted")
+              else:
+                  record("vision_control", vm, "IMAGE_NOT_RECEIVED", http=st,
+                         answer=answer, expected="HARMONY", input_form=form,
+                         note="the model answered without reading the image, so nothing "
+                              "it says about the document is a measurement of vision")
+          if not GROUNDED_MODELS:
+              print("  no vision model passed the control; document tasks not scored")
+
           # visual_reasoning: the answer is not written anywhere in the image.
           # 104 - 34 is arithmetic over a value that has to be located first.
-          for vm in VISION_MODELS:
+          for vm in GROUNDED_MODELS:
               st, bd, ms, er, form = ask_image(
                   vm,
                   "This is an order sheet. Subtract the Bolts quantity from the TOTAL. "
@@ -1499,7 +1543,7 @@ jobs:
                          error=(er or "")[:160])
 
           # layout_understanding: which text is the heading, not which text exists.
-          for vm in VISION_MODELS:
+          for vm in GROUNDED_MODELS:
               st, bd, ms, er, form = ask_image(
                   vm, "What is the heading printed at the very top of this document? "
                       "Reply with that line only.", doc_bytes, doc_b64, max_tokens=32)
@@ -1523,7 +1567,7 @@ jobs:
                          latency_ms=ms, error=(er or "")[:160])
 
           # table_understanding: a row/column lookup, with three decoy rows.
-          for vm in VISION_MODELS:
+          for vm in GROUNDED_MODELS:
               st, bd, ms, er, form = ask_image(
                   vm, "In the table, what quantity is listed for Hinges? "
                       "Reply with the number only.", doc_bytes, doc_b64, max_tokens=24)
@@ -1550,7 +1594,7 @@ jobs:
 
           # document_understanding: read the document as a whole and answer a
           # question about what it is, not about one cell.
-          for vm in VISION_MODELS:
+          for vm in GROUNDED_MODELS:
               st, bd, ms, er, form = ask_image(
                   vm, "How many item rows does this order sheet list, not counting "
                       "the header row and not counting the TOTAL row? "
@@ -1579,7 +1623,7 @@ jobs:
           # multimodal_reasoning: the image alone is not enough and the text
           # alone is not enough. A price given only in the prompt has to be
           # combined with a quantity given only in the image.
-          for vm in VISION_MODELS:
+          for vm in GROUNDED_MODELS:
               st, bd, ms, er, form = ask_image(
                   vm, "Washers cost 2 each. This price is not written in the image. "
                       "Using the quantity of Washers shown in the image, what do the "
@@ -1645,8 +1689,12 @@ jobs:
               "by a failed disk in rack 7.\n"
               "Which single detail do all three reports agree on? Reply in a few words.")
           for big in ("@cf/openai/gpt-oss-120b", "@cf/openai/gpt-oss-20b"):
+              # gpt-oss is a reasoning model: it spent all 64 tokens thinking and
+              # returned finish_reason "length" with content null. That was my
+              # budget, not its inability, so the budget is the thing that
+              # changes - not the verdict.
               st, bd, ms, er = call(big, {"messages": [{"role": "user", "content": REPORTS}],
-                                          "max_tokens": 64})
+                                          "max_tokens": 1500, "reasoning_effort": "low"})
               if st == 200 and bd:
                   ans = _text_of(bd.get("result") or {})
                   low = ans.lower()
@@ -1671,6 +1719,60 @@ jobs:
               else:
                   record("large_model_synthesis", big, "FAILED", http=st,
                          latency_ms=ms, error=(er or "")[:200])
+
+          # retrieval (Wave 5), end to end rather than by proxy: embed a small
+          # corpus and four queries with the embedding model that is already
+          # measured, retrieve by cosine similarity, and score recall@1 against
+          # the one passage that answers each query. An embedding model returning
+          # vectors is not retrieval working; this measures whether the right
+          # document actually comes back.
+          CORPUS = [
+              "To free space in a container, delete build artifacts and stale caches.",
+              "Sourdough starter is fed with equal weights of flour and water.",
+              "A lease that is not renewed expires and the worker holding it is skipped.",
+              "Gantry cranes load containers onto ships at deep-water ports.",
+              "A circuit breaker opens after repeated failures and closes again on a probe.",
+              "The kestrel hunts by hovering and dropping onto small mammals.",
+          ]
+          QUERIES = [
+              ("how do I reclaim disk space in a container", 0),
+              ("what happens when a worker's lease runs out", 2),
+              ("how does a breaker stop hammering a failing service", 4),
+              ("how is a sourdough starter maintained", 1),
+          ]
+          st, bd, ms, er = call("@cf/baai/bge-m3", {"text": CORPUS})
+          st2, bd2, ms2, er2 = call(
+              "@cf/baai/bge-m3", {"text": [q for q, _ in QUERIES]})
+          if st == 200 and st2 == 200 and bd and bd2:
+              docs = (bd.get("result") or {}).get("data") or []
+              qs = (bd2.get("result") or {}).get("data") or []
+
+              def cosine(a, b):
+                  num = sum(x * y for x, y in zip(a, b))
+                  na = sum(x * x for x in a) ** 0.5
+                  nb = sum(y * y for y in b) ** 0.5
+                  return num / (na * nb) if na and nb else 0.0
+
+              hits, detail = 0, []
+              for (query, want), qv in zip(QUERIES, qs):
+                  ranked = sorted(range(len(docs)), key=lambda i: -cosine(qv, docs[i]))
+                  top = ranked[0] if ranked else None
+                  hits += int(top == want)
+                  detail.append({"query": query, "retrieved": top, "expected": want,
+                                 "correct": top == want})
+              recall = round(hits / len(QUERIES), 3) if QUERIES else 0.0
+              record("retrieval", "@cf/baai/bge-m3",
+                     "RETRIEVED" if recall >= 0.75 else "RETRIEVED_POORLY",
+                     http=st, latency_ms=round(ms + ms2, 1),
+                     recall_at_1=recall, queries=len(QUERIES), corpus=len(CORPUS),
+                     per_query=detail,
+                     note="six-document corpus and four queries, both written here. "
+                          "A recall figure on six documents says nothing about "
+                          "behaviour on six million and is not to be read that way.")
+          else:
+              record("retrieval", "@cf/baai/bge-m3", "FAILED",
+                     http=st if st != 200 else st2, latency_ms=round(ms + ms2, 1),
+                     error=((er or er2) or "")[:200])
 
           # audio_understanding beyond transcription is NOT attempted, and the
           # reason is a fact about the catalog rather than a failure: the live
@@ -1706,7 +1808,8 @@ jobs:
           # recorded because it is true, not because it is good enough.
           passed = {"PRODUCED_AUDIO", "TRANSCRIBED", "READ_CORRECTLY",
                     "GROUNDED", "EMBEDDED", "REASONED", "LOCATED", "LOOKED_UP",
-                    "UNDERSTOOD", "COMBINED", "RANKED_CORRECTLY", "SYNTHESISED"}
+                    "UNDERSTOOD", "COMBINED", "RANKED_CORRECTLY", "SYNTHESISED",
+                    "RETRIEVED"}
           covered = sorted({r["capability"] for r in results if r["verdict"] in passed})
           json.dump({
               "benchmark": "wave4_multimodal_v2",
