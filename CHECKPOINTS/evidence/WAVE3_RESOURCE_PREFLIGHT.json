@@ -2,13 +2,13 @@
   "tool": "wave3_resource_preflight",
   "host": {
     "ram_total_mb": 16095,
-    "ram_available_mb": 13929,
-    "disk_free_mb": 15895,
+    "ram_available_mb": 15355,
+    "disk_free_mb": 15893,
     "disk_watermark": "CRITICAL",
     "gpus": [],
     "total_vram_available_mb": 0,
     "cpu_logical": 4,
-    "detected_at": "2026-09-17T12:58:42+00:00"
+    "detected_at": "2026-09-17T13:07:10+00:00"
   },
   "policy": {
     "disk_headroom_mb": 3000,
@@ -93,7 +93,7 @@
       "upstream": "openai/gpt-oss-20b",
       "state": "RESOURCE_INFEASIBLE",
       "reasons": [
-        "needs ~25600 MB resident (weights plus KV cache and compute buffer) and 13929 MB is available"
+        "needs ~25600 MB resident (weights plus KV cache and compute buffer) and 15355 MB is available"
       ],
       "roles_hypothesised": [
         "deep_reasoning",
@@ -161,15 +161,10 @@
         "synthesis_generalist"
       ],
       "roles_not_yet_covered_or_thin": [
-        "deep_reasoning"
+        "deep_reasoning",
+        "vietnamese_reasoning"
       ],
       "roles_already_covered": [
-        {
-          "role": "vietnamese_reasoning",
-          "covered_by": "Qwen/Qwen3-4B-GGUF",
-          "measured_score": 1.0,
-          "measurement_depth": "3 task(s)"
-        },
         {
           "role": "synthesis_generalist",
           "covered_by": "Qwen/Qwen3-4B-GGUF",
@@ -193,7 +188,7 @@
       "upstream": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
       "state": "RESOURCE_INFEASIBLE",
       "reasons": [
-        "needs ~18600 MB on disk and 15895 MB is free; downloading it would fill the disk before the file finished"
+        "needs ~18600 MB on disk and 15893 MB is free; downloading it would fill the disk before the file finished"
       ],
       "roles_hypothesised": [
         "coding",

@@ -36,7 +36,7 @@
       "state": "RESOURCE_INFEASIBLE",
       "terminal": true,
       "findings": [
-        "needs ~18600 MB on disk and 15895 MB is free; downloading it would fill the disk before the file finished",
+        "needs ~18600 MB on disk and 15893 MB is free; downloading it would fill the disk before the file finished",
         "no ungated GGUF published by this model's own author; a community requantization would need its conversion provenance established before it could be considered"
       ],
       "resource_state": "RESOURCE_INFEASIBLE",
@@ -58,7 +58,7 @@
       "state": "RESOURCE_INFEASIBLE",
       "terminal": true,
       "findings": [
-        "needs ~25600 MB resident (weights plus KV cache and compute buffer) and 13929 MB is available",
+        "needs ~25600 MB resident (weights plus KV cache and compute buffer) and 15355 MB is available",
         "no ungated GGUF published by this model's own author; a community requantization would need its conversion provenance established before it could be considered"
       ],
       "resource_state": "RESOURCE_INFEASIBLE",

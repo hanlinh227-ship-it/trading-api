@@ -320,7 +320,12 @@ def build(root: Path) -> dict[str, Any]:
             # A perfect score on two tasks is a weak claim, and saying so is the
             # difference between a gap map and a scoreboard.
             "measurement_depth": f"{detail['attempted']} task(s)",
-            "thin_evidence": detail["attempted"] < 3,
+            # Under eight items a single lucky answer moves the score by more
+            # than a tenth, which is larger than the differences being read off
+            # it. Qwen3-0.6B scores 6 of 6 on code review and 2 of 6 on code
+            # semantics; at this depth that is noise, not a specialism, and a
+            # map that presented it as a ranking would be inviting a bad call.
+            "thin_evidence": detail["attempted"] < 8,
         }
 
     for name, reason in sorted(UNMEASURED_CAPABILITIES.items()):

@@ -12,24 +12,25 @@
     "microsoft/Phi-3-mini-4k-instruct-gguf"
   ],
   "capability_gaps": [
-    "code_review",
-    "debugging",
     "long_context",
     "multilingual_reasoning",
     "tool_calling"
   ],
   "saturated_capabilities": [
-    "coding",
     "deep_reasoning",
     "math_quant",
     "software_engineering",
     "verifier_checker"
   ],
   "thin_evidence_capabilities": [
+    "code_review",
     "coding",
+    "debugging",
+    "deep_reasoning",
     "math_quant",
     "software_engineering",
-    "verifier_checker"
+    "verifier_checker",
+    "vietnamese_reasoning"
   ],
   "measurement_gaps": [
     "code_review",
@@ -41,18 +42,57 @@
     "multilingual_reasoning",
     "software_engineering",
     "tool_calling",
-    "verifier_checker"
+    "verifier_checker",
+    "vietnamese_reasoning"
   ],
   "capabilities": {
+    "code_review": {
+      "state": "COVERED_MEASURED",
+      "saturated": false,
+      "saturation_note": null,
+      "capability_gap": false,
+      "current_best_model": "Qwen/Qwen3-0.6B-GGUF",
+      "measured_score": 1.0,
+      "passed": 6,
+      "attempted": 6,
+      "artifact_digest": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+      "latency": 1124.157,
+      "cold_load_ms": 580.373,
+      "peak_ram_mb": 1151.98,
+      "reliability": "12/12 reproducible",
+      "evidence_source": "WAVE0_BASELINE_QWEN3_0_6B.json",
+      "tied_with": [],
+      "measurement_depth": "6 task(s)",
+      "thin_evidence": true
+    },
     "coding": {
-      "state": "COVERED_BUT_SATURATED",
-      "saturated": true,
-      "saturation_note": "7 of 7 models score 1.0 on 2 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "state": "COVERED_MEASURED",
+      "saturated": false,
+      "saturation_note": null,
+      "capability_gap": false,
+      "current_best_model": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "measured_score": 0.666667,
+      "passed": 4,
+      "attempted": 6,
+      "artifact_digest": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+      "latency": 6012.869,
+      "cold_load_ms": 14187.6,
+      "peak_ram_mb": 5118.38,
+      "reliability": "12/12 reproducible",
+      "evidence_source": "WAVE0_BASELINE_PHI3_MINI.json",
+      "tied_with": [],
+      "measurement_depth": "6 task(s)",
+      "thin_evidence": true
+    },
+    "debugging": {
+      "state": "COVERED_MEASURED",
+      "saturated": false,
+      "saturation_note": null,
       "capability_gap": false,
       "current_best_model": "Qwen/Qwen3-4B-GGUF",
-      "measured_score": 1.0,
-      "passed": 2,
-      "attempted": 2,
+      "measured_score": 0.833333,
+      "passed": 5,
+      "attempted": 6,
       "artifact_digest": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
       "latency": 7480.892,
       "cold_load_ms": 11768.919,
@@ -60,14 +100,11 @@
       "reliability": "12/12 reproducible",
       "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
       "tied_with": [
-        "Qwen/Qwen3-1.7B-GGUF",
         "ibm-granite/granite-3.3-2b-instruct-GGUF",
         "ibm-granite/granite-4.2-3b-GGUF",
-        "Qwen/Qwen3-0.6B-GGUF",
-        "microsoft/Phi-3-mini-4k-instruct-gguf",
-        "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF"
+        "Qwen/Qwen3-0.6B-GGUF"
       ],
-      "measurement_depth": "2 task(s)",
+      "measurement_depth": "6 task(s)",
       "thin_evidence": true
     },
     "deep_reasoning": {
@@ -93,7 +130,7 @@
         "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF"
       ],
       "measurement_depth": "3 task(s)",
-      "thin_evidence": false
+      "thin_evidence": true
     },
     "math_quant": {
       "state": "COVERED_BUT_SATURATED",
@@ -169,12 +206,12 @@
     "verifier_checker": {
       "state": "COVERED_BUT_SATURATED",
       "saturated": true,
-      "saturation_note": "7 of 7 models score 1.0 on 2 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "saturation_note": "2 of 7 models score 1.0 on 6 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
       "capability_gap": false,
       "current_best_model": "Qwen/Qwen3-4B-GGUF",
       "measured_score": 1.0,
-      "passed": 2,
-      "attempted": 2,
+      "passed": 6,
+      "attempted": 6,
       "artifact_digest": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
       "latency": 7480.892,
       "cold_load_ms": 11768.919,
@@ -182,14 +219,9 @@
       "reliability": "12/12 reproducible",
       "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
       "tied_with": [
-        "Qwen/Qwen3-1.7B-GGUF",
-        "ibm-granite/granite-3.3-2b-instruct-GGUF",
-        "ibm-granite/granite-4.2-3b-GGUF",
-        "Qwen/Qwen3-0.6B-GGUF",
-        "microsoft/Phi-3-mini-4k-instruct-gguf",
-        "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF"
+        "ibm-granite/granite-3.3-2b-instruct-GGUF"
       ],
-      "measurement_depth": "2 task(s)",
+      "measurement_depth": "6 task(s)",
       "thin_evidence": true
     },
     "vietnamese_reasoning": {
@@ -209,30 +241,12 @@
       "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
       "tied_with": [],
       "measurement_depth": "3 task(s)",
-      "thin_evidence": false
-    },
-    "code_review": {
-      "state": "NOT_MEASURED",
-      "capability_gap": true,
-      "reason": "no task presents code to critique",
-      "current_best_model": null,
-      "measured_score": null,
-      "artifact_digest": null,
-      "evidence_source": null
-    },
-    "debugging": {
-      "state": "NOT_MEASURED",
-      "capability_gap": true,
-      "reason": "no task presents broken code to repair; the CODING tasks are write-from-scratch, which is a different skill",
-      "current_best_model": null,
-      "measured_score": null,
-      "artifact_digest": null,
-      "evidence_source": null
+      "thin_evidence": true
     },
     "long_context": {
       "state": "NOT_MEASURED",
       "capability_gap": true,
-      "reason": "Wave 0 has no long-context task; no run has exercised a context beyond a few hundred tokens on any admitted model",
+      "reason": "no suite exercises a context beyond a few hundred tokens on any admitted model",
       "current_best_model": null,
       "measured_score": null,
       "artifact_digest": null,
@@ -269,10 +283,84 @@
         "status": "NOT_READY"
       },
       "per_capability": {
+        "code_review": {
+          "score": 0.333333,
+          "passed": 2,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "coding": {
+          "score": 0.166667,
+          "passed": 1,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "debugging": {
+          "score": 0.166667,
+          "passed": 1,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "deep_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3,
+          "measured_by": "wave0"
+        },
+        "math_quant": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "software_engineering": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "synthesis_generalist": {
+          "score": 0.75,
+          "passed": 9,
+          "attempted": 12,
+          "measured_by": "wave0"
+        },
+        "verifier_checker": {
+          "score": 0.333333,
+          "passed": 2,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "vietnamese_reasoning": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 3,
+          "measured_by": "wave0"
+        }
+      },
+      "wave0_only": {
+        "code_review": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
+        },
         "coding": {
           "score": 1.0,
           "passed": 2,
           "attempted": 2
+        },
+        "debugging": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
         },
         "deep_reasoning": {
           "score": 1.0,
@@ -305,6 +393,36 @@
           "attempted": 3
         }
       },
+      "engineering_judgment": {
+        "overall_score": 0.25,
+        "artifact_sha256": "48ab3034d0dd401fbc721eb1df3217902fee7dab9078992d66431f09b7750201",
+        "suite": "local_engineering_judgment@1.0.0",
+        "suite_hash": "53b7ad2f01500ecb886b58dd08df8b1afb3dfc5341a6cb8ef968f68863601b02",
+        "errors": 0,
+        "per_skill": {
+          "debugging": {
+            "score": 0.166667,
+            "passed": 1,
+            "attempted": 6
+          },
+          "code_review": {
+            "score": 0.333333,
+            "passed": 2,
+            "attempted": 6
+          },
+          "verifier_checker": {
+            "score": 0.333333,
+            "passed": 2,
+            "attempted": 6
+          },
+          "coding": {
+            "score": 0.166667,
+            "passed": 1,
+            "attempted": 6
+          }
+        },
+        "source": "WAVE3_ENGJUDG_SMOLLM2.json"
+      },
       "cost": {
         "cold_load_ms": 215.734,
         "median_inference_ms": 746.451,
@@ -330,10 +448,84 @@
         "status": "NOT_READY"
       },
       "per_capability": {
+        "code_review": {
+          "score": 1.0,
+          "passed": 6,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "coding": {
+          "score": 0.333333,
+          "passed": 2,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "debugging": {
+          "score": 0.833333,
+          "passed": 5,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "deep_reasoning": {
+          "score": 0.666667,
+          "passed": 2,
+          "attempted": 3,
+          "measured_by": "wave0"
+        },
+        "math_quant": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "software_engineering": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "synthesis_generalist": {
+          "score": 0.833333,
+          "passed": 10,
+          "attempted": 12,
+          "measured_by": "wave0"
+        },
+        "verifier_checker": {
+          "score": 0.333333,
+          "passed": 2,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "vietnamese_reasoning": {
+          "score": 0.666667,
+          "passed": 2,
+          "attempted": 3,
+          "measured_by": "wave0"
+        }
+      },
+      "wave0_only": {
+        "code_review": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
+        },
         "coding": {
           "score": 1.0,
           "passed": 2,
           "attempted": 2
+        },
+        "debugging": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
         },
         "deep_reasoning": {
           "score": 0.666667,
@@ -366,6 +558,36 @@
           "attempted": 3
         }
       },
+      "engineering_judgment": {
+        "overall_score": 0.625,
+        "artifact_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+        "suite": "local_engineering_judgment@1.0.0",
+        "suite_hash": "53b7ad2f01500ecb886b58dd08df8b1afb3dfc5341a6cb8ef968f68863601b02",
+        "errors": 0,
+        "per_skill": {
+          "debugging": {
+            "score": 0.833333,
+            "passed": 5,
+            "attempted": 6
+          },
+          "code_review": {
+            "score": 1.0,
+            "passed": 6,
+            "attempted": 6
+          },
+          "verifier_checker": {
+            "score": 0.333333,
+            "passed": 2,
+            "attempted": 6
+          },
+          "coding": {
+            "score": 0.333333,
+            "passed": 2,
+            "attempted": 6
+          }
+        },
+        "source": "WAVE3_ENGJUDG_QWEN3_0_6B.json"
+      },
       "cost": {
         "cold_load_ms": 580.373,
         "median_inference_ms": 1124.157,
@@ -391,10 +613,84 @@
         "status": "NOT_READY"
       },
       "per_capability": {
+        "code_review": {
+          "score": 0.833333,
+          "passed": 5,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "coding": {
+          "score": 0.333333,
+          "passed": 2,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "debugging": {
+          "score": 0.666667,
+          "passed": 4,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "deep_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3,
+          "measured_by": "wave0"
+        },
+        "math_quant": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "software_engineering": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "synthesis_generalist": {
+          "score": 0.916667,
+          "passed": 11,
+          "attempted": 12,
+          "measured_by": "wave0"
+        },
+        "verifier_checker": {
+          "score": 0.5,
+          "passed": 3,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "vietnamese_reasoning": {
+          "score": 0.666667,
+          "passed": 2,
+          "attempted": 3,
+          "measured_by": "wave0"
+        }
+      },
+      "wave0_only": {
+        "code_review": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
+        },
         "coding": {
           "score": 1.0,
           "passed": 2,
           "attempted": 2
+        },
+        "debugging": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
         },
         "deep_reasoning": {
           "score": 1.0,
@@ -427,6 +723,36 @@
           "attempted": 3
         }
       },
+      "engineering_judgment": {
+        "overall_score": 0.583333,
+        "artifact_sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+        "suite": "local_engineering_judgment@1.0.0",
+        "suite_hash": "53b7ad2f01500ecb886b58dd08df8b1afb3dfc5341a6cb8ef968f68863601b02",
+        "errors": 0,
+        "per_skill": {
+          "debugging": {
+            "score": 0.666667,
+            "passed": 4,
+            "attempted": 6
+          },
+          "code_review": {
+            "score": 0.833333,
+            "passed": 5,
+            "attempted": 6
+          },
+          "verifier_checker": {
+            "score": 0.5,
+            "passed": 3,
+            "attempted": 6
+          },
+          "coding": {
+            "score": 0.333333,
+            "passed": 2,
+            "attempted": 6
+          }
+        },
+        "source": "WAVE3_ENGJUDG_QWEN3_1_7B.json"
+      },
       "cost": {
         "cold_load_ms": 708.508,
         "median_inference_ms": 3659.497,
@@ -452,10 +778,84 @@
         "status": "READY"
       },
       "per_capability": {
+        "code_review": {
+          "score": 0.833333,
+          "passed": 5,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "coding": {
+          "score": 0.5,
+          "passed": 3,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "debugging": {
+          "score": 0.833333,
+          "passed": 5,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "deep_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3,
+          "measured_by": "wave0"
+        },
+        "math_quant": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "software_engineering": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "synthesis_generalist": {
+          "score": 1.0,
+          "passed": 12,
+          "attempted": 12,
+          "measured_by": "wave0"
+        },
+        "verifier_checker": {
+          "score": 1.0,
+          "passed": 6,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "vietnamese_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3,
+          "measured_by": "wave0"
+        }
+      },
+      "wave0_only": {
+        "code_review": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
+        },
         "coding": {
           "score": 1.0,
           "passed": 2,
           "attempted": 2
+        },
+        "debugging": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
         },
         "deep_reasoning": {
           "score": 1.0,
@@ -488,6 +888,36 @@
           "attempted": 3
         }
       },
+      "engineering_judgment": {
+        "overall_score": 0.791667,
+        "artifact_sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "suite": "local_engineering_judgment@1.0.0",
+        "suite_hash": "53b7ad2f01500ecb886b58dd08df8b1afb3dfc5341a6cb8ef968f68863601b02",
+        "errors": 0,
+        "per_skill": {
+          "debugging": {
+            "score": 0.833333,
+            "passed": 5,
+            "attempted": 6
+          },
+          "code_review": {
+            "score": 0.833333,
+            "passed": 5,
+            "attempted": 6
+          },
+          "verifier_checker": {
+            "score": 1.0,
+            "passed": 6,
+            "attempted": 6
+          },
+          "coding": {
+            "score": 0.5,
+            "passed": 3,
+            "attempted": 6
+          }
+        },
+        "source": "WAVE3_ENGJUDG_QWEN3_4B.json"
+      },
       "cost": {
         "cold_load_ms": 11768.919,
         "median_inference_ms": 7480.892,
@@ -513,10 +943,84 @@
         "status": "NOT_READY"
       },
       "per_capability": {
+        "code_review": {
+          "score": 0.666667,
+          "passed": 4,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "coding": {
+          "score": 0.333333,
+          "passed": 2,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "debugging": {
+          "score": 0.833333,
+          "passed": 5,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "deep_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3,
+          "measured_by": "wave0"
+        },
+        "math_quant": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "software_engineering": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "synthesis_generalist": {
+          "score": 0.916667,
+          "passed": 11,
+          "attempted": 12,
+          "measured_by": "wave0"
+        },
+        "verifier_checker": {
+          "score": 1.0,
+          "passed": 6,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "vietnamese_reasoning": {
+          "score": 0.666667,
+          "passed": 2,
+          "attempted": 3,
+          "measured_by": "wave0"
+        }
+      },
+      "wave0_only": {
+        "code_review": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
+        },
         "coding": {
           "score": 1.0,
           "passed": 2,
           "attempted": 2
+        },
+        "debugging": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
         },
         "deep_reasoning": {
           "score": 1.0,
@@ -548,6 +1052,36 @@
           "passed": 2,
           "attempted": 3
         }
+      },
+      "engineering_judgment": {
+        "overall_score": 0.708333,
+        "artifact_sha256": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "suite": "local_engineering_judgment@1.0.0",
+        "suite_hash": "53b7ad2f01500ecb886b58dd08df8b1afb3dfc5341a6cb8ef968f68863601b02",
+        "errors": 0,
+        "per_skill": {
+          "debugging": {
+            "score": 0.833333,
+            "passed": 5,
+            "attempted": 6
+          },
+          "code_review": {
+            "score": 0.666667,
+            "passed": 4,
+            "attempted": 6
+          },
+          "verifier_checker": {
+            "score": 1.0,
+            "passed": 6,
+            "attempted": 6
+          },
+          "coding": {
+            "score": 0.333333,
+            "passed": 2,
+            "attempted": 6
+          }
+        },
+        "source": "WAVE3_ENGJUDG_GRANITE_3_3.json"
       },
       "cost": {
         "cold_load_ms": 1761.729,
@@ -574,10 +1108,84 @@
         "status": "NOT_READY"
       },
       "per_capability": {
+        "code_review": {
+          "score": 0.833333,
+          "passed": 5,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "coding": {
+          "score": 0.5,
+          "passed": 3,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "debugging": {
+          "score": 0.833333,
+          "passed": 5,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "deep_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3,
+          "measured_by": "wave0"
+        },
+        "math_quant": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "software_engineering": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "synthesis_generalist": {
+          "score": 0.916667,
+          "passed": 11,
+          "attempted": 12,
+          "measured_by": "wave0"
+        },
+        "verifier_checker": {
+          "score": 0.666667,
+          "passed": 4,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "vietnamese_reasoning": {
+          "score": 0.666667,
+          "passed": 2,
+          "attempted": 3,
+          "measured_by": "wave0"
+        }
+      },
+      "wave0_only": {
+        "code_review": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
+        },
         "coding": {
           "score": 1.0,
           "passed": 2,
           "attempted": 2
+        },
+        "debugging": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
         },
         "deep_reasoning": {
           "score": 1.0,
@@ -610,6 +1218,36 @@
           "attempted": 3
         }
       },
+      "engineering_judgment": {
+        "overall_score": 0.708333,
+        "artifact_sha256": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "suite": "local_engineering_judgment@1.0.0",
+        "suite_hash": "53b7ad2f01500ecb886b58dd08df8b1afb3dfc5341a6cb8ef968f68863601b02",
+        "errors": 0,
+        "per_skill": {
+          "debugging": {
+            "score": 0.833333,
+            "passed": 5,
+            "attempted": 6
+          },
+          "code_review": {
+            "score": 0.833333,
+            "passed": 5,
+            "attempted": 6
+          },
+          "verifier_checker": {
+            "score": 0.666667,
+            "passed": 4,
+            "attempted": 6
+          },
+          "coding": {
+            "score": 0.5,
+            "passed": 3,
+            "attempted": 6
+          }
+        },
+        "source": "WAVE3_ENGJUDG_GRANITE_4_2.json"
+      },
       "cost": {
         "cold_load_ms": 3707.477,
         "median_inference_ms": 4116.282,
@@ -635,10 +1273,84 @@
         "status": "NOT_READY"
       },
       "per_capability": {
+        "code_review": {
+          "score": 0.833333,
+          "passed": 5,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "coding": {
+          "score": 0.666667,
+          "passed": 4,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "debugging": {
+          "score": 0.666667,
+          "passed": 4,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "deep_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3,
+          "measured_by": "wave0"
+        },
+        "math_quant": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "software_engineering": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "synthesis_generalist": {
+          "score": 0.833333,
+          "passed": 10,
+          "attempted": 12,
+          "measured_by": "wave0"
+        },
+        "verifier_checker": {
+          "score": 0.833333,
+          "passed": 5,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "vietnamese_reasoning": {
+          "score": 0.333333,
+          "passed": 1,
+          "attempted": 3,
+          "measured_by": "wave0"
+        }
+      },
+      "wave0_only": {
+        "code_review": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
+        },
         "coding": {
           "score": 1.0,
           "passed": 2,
           "attempted": 2
+        },
+        "debugging": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
         },
         "deep_reasoning": {
           "score": 1.0,
@@ -670,6 +1382,36 @@
           "passed": 1,
           "attempted": 3
         }
+      },
+      "engineering_judgment": {
+        "overall_score": 0.75,
+        "artifact_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "suite": "local_engineering_judgment@1.0.0",
+        "suite_hash": "53b7ad2f01500ecb886b58dd08df8b1afb3dfc5341a6cb8ef968f68863601b02",
+        "errors": 0,
+        "per_skill": {
+          "debugging": {
+            "score": 0.666667,
+            "passed": 4,
+            "attempted": 6
+          },
+          "code_review": {
+            "score": 0.833333,
+            "passed": 5,
+            "attempted": 6
+          },
+          "verifier_checker": {
+            "score": 0.833333,
+            "passed": 5,
+            "attempted": 6
+          },
+          "coding": {
+            "score": 0.666667,
+            "passed": 4,
+            "attempted": 6
+          }
+        },
+        "source": "WAVE3_ENGJUDG_PHI3_MINI.json"
       },
       "cost": {
         "cold_load_ms": 14187.6,
