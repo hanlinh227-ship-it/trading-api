@@ -260,3 +260,74 @@ class ResidencyProfileEvidenceTests(unittest.TestCase):
         strongest = max(measured, key=lambda m: m["measured_capability"])
         fastest = min(measured, key=lambda m: m["warm_inference_ms"])
         self.assertNotEqual(strongest["model_id"], fastest["model_id"])
+
+
+class RuntimeLoadGateTests(unittest.TestCase):
+    """Licence, scan, digest and format can all pass on a model that cannot run.
+
+    Two did. BitNet's GGUF carries tensor type 36, removed from this llama.cpp
+    build, and Ministral-3 declares architecture `mistral3` with a vocabulary
+    the loader rejects. Both were briefly AVAILABLE while nothing could execute
+    them, which is the gap this gate closes.
+    """
+
+    def report(self, digest, loadable):
+        return {"results": [{"artifact_sha256": digest, "loadable": loadable}]}
+
+    def test_a_model_the_runtime_cannot_load_is_quarantined(self):
+        digest = "a" * 64
+        record = build_record(entry(), verified(digest=digest), scan(digest=digest),
+                              {"license_declared": "apache-2.0"},
+                              self.report(digest, False))
+        self.assertIn("runtime_cannot_load", record["admission_gaps"])
+        self.assertEqual(record["lifecycle_state"], "QUARANTINED")
+
+    def test_a_loadable_model_is_unaffected(self):
+        digest = "a" * 64
+        record = build_record(entry(), verified(digest=digest), scan(digest=digest),
+                              {"license_declared": "apache-2.0"},
+                              self.report(digest, True))
+        self.assertEqual(record["admission_gaps"], [])
+
+    def test_absent_verification_is_not_a_gap(self):
+        """The load can only be attempted after the artifact is cached, which
+        happens after the first admission. Requiring it up front would deadlock."""
+        digest = "a" * 64
+        record = build_record(entry(), verified(digest=digest), scan(digest=digest),
+                              {"license_declared": "apache-2.0"}, None)
+        self.assertEqual(record["admission_gaps"], [])
+
+    def test_a_verification_for_other_bytes_does_not_apply(self):
+        digest = "a" * 64
+        record = build_record(entry(), verified(digest=digest), scan(digest=digest),
+                              {"license_declared": "apache-2.0"},
+                              self.report("b" * 64, False))
+        self.assertNotIn("runtime_cannot_load", record["admission_gaps"])
+
+    def test_the_live_registry_quarantines_exactly_the_unloadable_models(self):
+        path = ROOT / "CHECKPOINTS/evidence/RUNTIME_LOAD_VERIFICATION.json"
+        if not path.is_file():
+            self.skipTest("no load verification committed")
+        report = json.loads(path.read_text(encoding="utf-8"))
+        unloadable = {r["model_id"] for r in report["results"] if r.get("loadable") is False}
+        by_id = {m["model_id"]: m for m in registry()["models"]}
+        for model_id in unloadable:
+            with self.subTest(model_id=model_id):
+                record = by_id[model_id]
+                self.assertEqual(record["lifecycle_state"], "QUARANTINED")
+                self.assertFalse(record["model_mesh_local_candidate_eligible"])
+                # The artifact is fine; the pairing is not, and the record says so.
+                self.assertTrue(record["runtime_compatibility"]["artifact_is_intact"])
+                self.assertFalse(record["runtime_compatibility"]["loadable"])
+
+    def test_every_mesh_eligible_model_actually_loads(self):
+        """The property that matters: nothing selectable is unrunnable."""
+        path = ROOT / "CHECKPOINTS/evidence/RUNTIME_LOAD_VERIFICATION.json"
+        if not path.is_file():
+            self.skipTest("no load verification committed")
+        report = json.loads(path.read_text(encoding="utf-8"))
+        loadable = {r["model_id"] for r in report["results"] if r.get("loadable") is True}
+        for record in registry()["models"]:
+            if record.get("model_mesh_local_candidate_eligible"):
+                with self.subTest(model_id=record["model_id"]):
+                    self.assertIn(record["model_id"], loadable)

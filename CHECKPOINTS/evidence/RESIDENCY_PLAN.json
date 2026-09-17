@@ -1,47 +1,56 @@
 {
   "host_ram_mb": 16095,
   "hot_budget_mb": 12876.0,
-  "committed_mb": 7304.33,
+  "committed_mb": 6528.0,
   "hot": [
-    "Qwen/Qwen3-0.6B-GGUF",
+    "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
     "Qwen/Qwen3-4B-GGUF"
   ],
   "assignments": [
     {
-      "model_id": "Qwen/Qwen3-0.6B-GGUF",
+      "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
       "tier": "HOT",
       "target_residency_state": "WARM",
-      "reason": "fastest measured worker: capability 0.75, warm inference 665.447 ms, 1828.32 MB within the 12876.0 MB budget",
-      "peak_ram_mb": 1828.32,
-      "measured_capability": 0.75,
-      "warm_inference_ms": 665.447
+      "reason": "fastest measured worker: capability 0.583333, warm inference 499.676 ms, 1051.63 MB within the 12876.0 MB budget",
+      "peak_ram_mb": 1051.63,
+      "measured_capability": 0.583333,
+      "warm_inference_ms": 499.676
     },
     {
       "model_id": "Qwen/Qwen3-4B-GGUF",
       "tier": "HOT",
       "target_residency_state": "WARM",
-      "reason": "strongest measured worker: capability 0.916667, warm inference 5065.97 ms, 5476.01 MB within the 12876.0 MB budget",
-      "peak_ram_mb": 5476.01,
+      "reason": "strongest measured worker: capability 0.916667, warm inference 5044.941 ms, 5476.37 MB within the 12876.0 MB budget",
+      "peak_ram_mb": 5476.37,
       "measured_capability": 0.916667,
-      "warm_inference_ms": 5065.97
+      "warm_inference_ms": 5044.941
+    },
+    {
+      "model_id": "Qwen/Qwen3-0.6B-GGUF",
+      "tier": "WARM",
+      "target_residency_state": "READY",
+      "reason": "neither the fastest nor the strongest measured worker, so residency would cost memory without shortening any request; load on demand",
+      "peak_ram_mb": 1828.66,
+      "measured_capability": 0.75,
+      "warm_inference_ms": 801.165
     },
     {
       "model_id": "Qwen/Qwen3-1.7B-GGUF",
       "tier": "WARM",
       "target_residency_state": "READY",
       "reason": "neither the fastest nor the strongest measured worker, so residency would cost memory without shortening any request; load on demand",
-      "peak_ram_mb": 4237.04,
+      "peak_ram_mb": 4237.44,
       "measured_capability": 0.833333,
-      "warm_inference_ms": 1764.321
+      "warm_inference_ms": 1886.581
     },
     {
       "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
       "tier": "WARM",
       "target_residency_state": "READY",
       "reason": "neither the fastest nor the strongest measured worker, so residency would cost memory without shortening any request; load on demand",
-      "peak_ram_mb": 3316.57,
+      "peak_ram_mb": 3319.05,
       "measured_capability": 0.791667,
-      "warm_inference_ms": 3249.839
+      "warm_inference_ms": 3359.844
     }
   ],
   "plan_only_nothing_loaded": true

@@ -198,7 +198,21 @@
         "model_mesh_local_candidate_eligible": {"type": "boolean"},
         "operator_risk_acceptance": {"$ref": "#/$defs/operator_risk_acceptance"},
         "malware_scan_reference": {"$ref": "#/$defs/malware_scan_reference"},
+        "runtime_compatibility": {"$ref": "#/$defs/runtime_compatibility"},
         "capability_evidence": {"type": "object", "description": "Per-capability measurement evidence. A declared capability score above zero must be backed by a matching entry here - the registry may not assert a capability nobody measured.", "additionalProperties": {"$ref": "#/$defs/capability_measurement"}}
+      },
+      "additionalProperties": false
+    },
+    "runtime_compatibility": {
+      "type": "object",
+      "description": "Whether a real runtime could load this artifact. Distinct from artifact integrity: a model whose bytes verify and whose container parses may still be unreadable by a given engine build, and that is a property of the pairing rather than a fault in the file.",
+      "required": ["loadable", "runtime", "evidence_ref"],
+      "properties": {
+        "loadable": {"type": "boolean"},
+        "runtime": {"type": "string", "minLength": 1},
+        "artifact_is_intact": {"type": "boolean"},
+        "engine_diagnostic": {"type": "string"},
+        "evidence_ref": {"type": "string", "minLength": 1}
       },
       "additionalProperties": false
     },

@@ -140,18 +140,41 @@ class CommittedSelectionTests(unittest.TestCase):
             with self.subTest(repo_id=row["repo_id"]):
                 self.assertTrue(row["deferred_because"].strip())
 
-    def test_selected_models_are_in_the_transport_manifest_only(self):
-        """Transport state, not governance state - they are not registry rows."""
-        import yaml
+    def test_every_selected_model_reaches_the_transport_manifest(self):
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-        registry = yaml.safe_load(
-            (ROOT / "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml").read_text(encoding="utf-8"))
-        registered = {m["artifact_identity"]["sha256"] for m in registry["models"]}
+        tracked = {e["expected_sha256"] for e in manifest["entries"]}
         for row in self.selection["entries"]:
             with self.subTest(model=row["id"]):
-                self.assertIn(row["expected_sha256"],
-                              {e["expected_sha256"] for e in manifest["entries"]})
-                self.assertNotIn(row["expected_sha256"], registered)
+                self.assertIn(row["expected_sha256"], tracked)
+
+    def test_selection_alone_never_makes_a_model_mesh_eligible(self):
+        """The rule, rather than where the pipeline happened to be.
+
+        This used to assert selected models were absent from the registry,
+        which was true the moment it was written and false as soon as three of
+        them were legitimately admitted. What must hold is the weaker,
+        permanent claim: appearing in the transport manifest confers nothing,
+        so any selected model that has become mesh-eligible got there through
+        admission evidence - a passing scan, a verified licence, an immutable
+        revision and a runtime that can load it.
+        """
+        import yaml
+
+        registry = yaml.safe_load(
+            (ROOT / "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml").read_text(encoding="utf-8"))
+        by_digest = {m["artifact_identity"]["sha256"]: m for m in registry["models"]}
+        for row in self.selection["entries"]:
+            record = by_digest.get(row["expected_sha256"])
+            if record is None or not record.get("model_mesh_local_candidate_eligible"):
+                continue
+            with self.subTest(model=row["id"]):
+                admission = record["admission_evidence"]
+                self.assertEqual(admission["malware_scan_status"], "pass")
+                self.assertTrue(record["license_verified"])
+                self.assertEqual(len(record["upstream_revision"]), 40)
+                compatibility = record.get("runtime_compatibility")
+                if compatibility is not None:
+                    self.assertTrue(compatibility["loadable"])
 
 
 if __name__ == "__main__":

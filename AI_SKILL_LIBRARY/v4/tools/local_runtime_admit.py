@@ -50,7 +50,11 @@ def _now() -> str:
 
 MANIFEST_REL = "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json"
 REGISTRY_REL = "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml"
-VERIFY_REL = "CHECKPOINTS/evidence/WAVE1_STAGING_VERIFY_EVIDENCE.json"
+#: Every staging-verification report, whichever wave produced it. This was
+#: pinned to WAVE1_..., which quietly made a generic pipeline wave-specific:
+#: Wave 2's models verified fine and then failed admission for "local byte
+#: verification did not pass", because the tool was reading Wave 1's file.
+VERIFY_GLOB = "CHECKPOINTS/evidence/*STAGING_VERIFY_EVIDENCE.json"
 
 
 def _q(value: Any) -> str:
@@ -65,7 +69,20 @@ def _q(value: Any) -> str:
 
 
 #: Quantization tags as they appear in GGUF filenames.
-_QUANT_RE = re.compile(r"(?<![A-Za-z0-9])(I?Q\d+(?:_[0-9A-Za-z]+)*|BF16|F16|F32)(?![A-Za-z0-9])")
+#:
+#: Case-insensitive, because publishers disagree: Qwen ships `Q8_0`,
+#: HuggingFaceTB ships `q8_0`. A case-sensitive pattern recorded the latter as
+#: "unknown" - honest, but wrong when the filename says it plainly, and the
+#: quantization is part of the artifact identity that intake and the cache key
+#: are built from.
+#:
+#: `i2_s` is here because BitNet's 1.58-bit format does not follow the Q-number
+#: convention at all, and a model whose whole point is an unusual quantization
+#: should not be the one the parser gives up on.
+_QUANT_RE = re.compile(
+    r"(?<![A-Za-z0-9])(I?Q\d+(?:_[0-9A-Za-z]+)*|I\d+_[A-Za-z]+|BF16|F16|F32)(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
 
 
 def quantization_of(filename: str) -> str:
@@ -78,7 +95,9 @@ def quantization_of(filename: str) -> str:
     and the runtime both compare against it.
     """
     matches = _QUANT_RE.findall(str(filename))
-    return matches[-1] if matches else "unknown"
+    # Normalised upper-case so two spellings of one quantization cannot produce
+    # two different artifact identities for the same bytes.
+    return matches[-1].upper() if matches else "unknown"
 
 
 def context_window_of(path: Path) -> int | None:
@@ -99,7 +118,8 @@ def context_window_of(path: Path) -> int | None:
 
 def build_record(entry: Mapping[str, Any], verified: Mapping[str, Any],
                  scan: Mapping[str, Any] | None,
-                 metadata: Mapping[str, Any] | None) -> dict[str, Any]:
+                 metadata: Mapping[str, Any] | None,
+                 load_report: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Assemble the record, and say honestly what is still missing."""
     digest = str(verified["sha256"]).lower()
     gaps: list[str] = []
@@ -148,6 +168,22 @@ def build_record(entry: Mapping[str, Any], verified: Mapping[str, Any],
     structural = verified.get("structural_scan") or {}
     if str(structural.get("status", "")).lower() != "pass":
         gaps.append("structural_scan_not_passed")
+
+    # Runtime compatibility. Licence, provenance, digest, format safety and a
+    # signature scan can all pass on a model this engine cannot execute - two
+    # did, and were briefly marked AVAILABLE while nothing could run them.
+    #
+    # Absence of a verification is not a gap: the load can only be attempted
+    # after the artifact is cached, which happens after the first admission.
+    # A recorded *failure* is a hard gap, so re-running admission after intake
+    # demotes a model the runtime turned out to be unable to read.
+    if load_report is not None:
+        for row in load_report.get("results") or []:
+            if str(row.get("artifact_sha256") or "").lower() != digest:
+                continue
+            if row.get("loadable") is False:
+                gaps.append("runtime_cannot_load")
+            break
 
     # Governance state is derived from the gaps, never asserted. Anything
     # outstanding leaves the model where it entered.
@@ -313,14 +349,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--model-id", default=None, help="manifest entry id; default all")
     parser.add_argument("--scan-dir", type=Path, default=repo_root / ".model-staging")
     parser.add_argument("--metadata", type=Path, default=None)
+    parser.add_argument("--verify-evidence", type=Path, default=None,
+                        help="one staging-verification report; default is every one on disk")
     parser.add_argument("--evidence", type=Path, default=None)
     parser.add_argument("--write", action="store_true",
                         help="append admissible records to the canonical registry")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     manifest = json.loads((args.root / MANIFEST_REL).read_text(encoding="utf-8"))
-    verify_doc = json.loads((args.root / VERIFY_REL).read_text(encoding="utf-8"))
-    verified_by_id = {r["id"]: r for r in verify_doc["results"] if r.get("verified")}
+    verified_by_id: dict[str, Any] = {}
+    reports = sorted(args.root.glob(VERIFY_GLOB)) if args.verify_evidence is None \
+        else [args.verify_evidence]
+    for report in reports:
+        try:
+            doc = json.loads(Path(report).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for row in doc.get("results") or []:
+            if row.get("verified"):
+                verified_by_id[row["id"]] = row
+    if not verified_by_id:
+        print(json.dumps({"admission_candidates": 0,
+                          "reason": f"no staging verification report matched {VERIFY_GLOB}"},
+                         indent=2))
+        return 1
+
+    load_path = args.root / "CHECKPOINTS/evidence/RUNTIME_LOAD_VERIFICATION.json"
+    load_report: dict[str, Any] | None = None
+    if load_path.is_file():
+        try:
+            load_report = json.loads(load_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            load_report = None
 
     metadata_doc: dict[str, Any] = {}
     meta_path = args.metadata or (args.scan_dir / "model-metadata.json")
@@ -338,7 +398,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         scan_path = args.scan_dir / f"scan-{entry['id']}.json"
         scan = json.loads(scan_path.read_text(encoding="utf-8")) if scan_path.is_file() else None
         rows.append({"id": entry["id"],
-                     **build_record(entry, verified, scan, metadata_doc.get(entry["id"]))})
+                     **build_record(entry, verified, scan, metadata_doc.get(entry["id"]),
+                                    load_report)})
 
     payload = {
         "admission_candidates": len(rows),

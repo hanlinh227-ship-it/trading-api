@@ -1,9 +1,11 @@
 {
-  "observed_at": "2026-09-17T10:49:01+00:00",
-  "gap_count": 6,
+  "observed_at": "2026-09-17T11:05:04+00:00",
+  "gap_count": 7,
   "by_kind": {
+    "capability_unmeasured": 2,
+    "model_not_admitted": 2,
     "no_signature_scan": 1,
-    "staged_not_admitted": 5
+    "staged_not_admitted": 2
   },
   "gaps": [
     {
@@ -15,27 +17,35 @@
       "is_a_proposal_not_a_change": true
     },
     {
-      "kind": "staged_not_admitted",
-      "subject": "smollm2-360m-instruct-gguf-q8-0",
-      "detail": "staged and verified in transport, but not yet a registry record",
-      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json",
+      "kind": "model_not_admitted",
+      "subject": "microsoft/bitnet-b1.58-2B-4T-gguf",
+      "detail": "lifecycle_state is QUARANTINED; it has not cleared admission",
+      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml",
       "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_admit.py",
       "is_a_proposal_not_a_change": true
     },
     {
-      "kind": "staged_not_admitted",
-      "subject": "bitnet-b1.58-2b-4t-gguf-i2-s",
-      "detail": "staged and verified in transport, but not yet a registry record",
-      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json",
+      "kind": "capability_unmeasured",
+      "subject": "microsoft/bitnet-b1.58-2B-4T-gguf",
+      "detail": "no capability measurement bound to this artifact's digest",
+      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml",
+      "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_wave0.py",
+      "is_a_proposal_not_a_change": true
+    },
+    {
+      "kind": "model_not_admitted",
+      "subject": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
+      "detail": "lifecycle_state is QUARANTINED; it has not cleared admission",
+      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml",
       "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_admit.py",
       "is_a_proposal_not_a_change": true
     },
     {
-      "kind": "staged_not_admitted",
-      "subject": "ministral-3-3b-reasoning-2512-gguf-q4-k-m",
-      "detail": "staged and verified in transport, but not yet a registry record",
-      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json",
-      "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_admit.py",
+      "kind": "capability_unmeasured",
+      "subject": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
+      "detail": "no capability measurement bound to this artifact's digest",
+      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml",
+      "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_wave0.py",
       "is_a_proposal_not_a_change": true
     },
     {

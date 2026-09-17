@@ -49,21 +49,61 @@ def reassemble(parts: Sequence[Path], destination: Path) -> None:
                     out.write(block)
 
 
-def verify_entry(entry: dict[str, Any], staging: Path) -> dict[str, Any]:
+def _cached_for(entry: dict[str, Any], cache: Path) -> Path | None:
+    """The verified cached artifact for this manifest entry, by digest."""
+    digest = str(entry.get("expected_sha256") or "").lower()
+    if len(digest) != 64 or not Path(cache).is_dir():
+        return None
+    for path in Path(cache).rglob("*.gguf"):
+        try:
+            if path.stat().st_size != int(entry.get("size_bytes") or -1):
+                continue
+        except OSError:
+            continue
+        if sha256_file(path) == digest:
+            return path
+    return None
+
+
+def discover_parts(staging: Path, name: str) -> list[Path]:
+    """Parts of `name` present on disk, in order.
+
+    Whether an artifact was split is decided at publish time by its size, not
+    when the wave was selected, so the manifest cannot be relied on to know.
+    Two Wave 2 models were split without any manifest entry saying so. Looking
+    on disk answers the question directly.
+    """
+    return sorted(staging.glob(f"{name}.part*"))
+
+
+def verify_entry(entry: dict[str, Any], staging: Path, cache: Path | None = None) -> dict[str, Any]:
     name = str(entry["filename"])
     target = staging / name
     reassembled = False
 
-    if entry.get("reassembly_required"):
-        parts = [staging / part for part in entry["release_parts"]]
-        missing = [p.name for p in parts if not p.is_file()]
-        if missing and not target.is_file():
-            return {"id": entry["id"], "verified": False, "reason": f"missing parts: {missing}"}
-        if not target.is_file():
+    if not target.is_file():
+        declared = [staging / part for part in (entry.get("release_parts") or [])]
+        parts = [p for p in declared if p.is_file()] or discover_parts(staging, name)
+        if parts:
             reassemble(parts, target)
             reassembled = True
 
     if not target.is_file():
+        # A model already taken into the verified cache has had exactly these
+        # checks run against it, and its staged copy is deleted to reclaim the
+        # disk. Reporting it as "not downloaded" would make a completed intake
+        # look like a transport failure.
+        if cache is not None:
+            from AI_SKILL_LIBRARY.v4.local_runtime.identity import ArtifactIdentity  # noqa: F401
+            cached = _cached_for(entry, cache)
+            if cached is not None:
+                return {"id": entry["id"], "filename": name, "verified": True,
+                        "already_in_verified_cache": True, "path": str(cached),
+                        "size_bytes": cached.stat().st_size,
+                        "sha256": str(entry["expected_sha256"]).lower(),
+                        "reassembled_from_parts": False,
+                        "immutable_revision": entry.get("immutable_revision"),
+                        "revision_status": entry.get("revision_status")}
         return {"id": entry["id"], "verified": False, "reason": f"{name} not downloaded"}
 
     size = target.stat().st_size
@@ -115,13 +155,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="verify staged artifacts")
     parser.add_argument("--root", type=Path, default=repo_root)
     parser.add_argument("--staging", type=Path, default=repo_root / ".model-staging")
+    parser.add_argument("--cache", type=Path, default=repo_root / ".model-cache")
     parser.add_argument("--only", default=None)
     parser.add_argument("--evidence", type=Path, default=None)
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     manifest = json.loads((args.root / MANIFEST_REL).read_text(encoding="utf-8"))
     entries = [e for e in manifest["entries"] if not args.only or e["id"] == args.only]
-    rows = [verify_entry(entry, args.staging) for entry in entries]
+    rows = [verify_entry(entry, args.staging, args.cache) for entry in entries]
 
     payload = {
         "staging_verify": "PASS" if rows and all(r["verified"] for r in rows) else "INCOMPLETE",
