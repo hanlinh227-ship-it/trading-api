@@ -164,7 +164,7 @@ jobs:
       - name: Publish as a release asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: staged-model-${{ matrix.id }}
+          TAG: ${{ matrix.release_tag || format('staged-model-{0}', matrix.id) }}
           FILE: ${{ steps.verify.outputs.path }}
           FILENAME: ${{ matrix.filename }}
           SIZE: ${{ steps.verify.outputs.size }}
