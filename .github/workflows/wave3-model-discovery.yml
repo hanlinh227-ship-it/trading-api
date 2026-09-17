@@ -1221,15 +1221,48 @@ jobs:
                   return res
               if not isinstance(res, dict):
                   return ""
+              # OpenAI-shaped first. gpt-oss returns {id, choices:[{message:{content}}]}
+              # and the loop below happily took the id, which scored two 200s
+              # carrying real answers as wrong answers. An id is never an answer.
+              for choice in (res.get("choices") or []):
+                  if isinstance(choice, dict):
+                      msg = choice.get("message") or {}
+                      for cand in (msg.get("content"), choice.get("text")):
+                          if isinstance(cand, str) and cand.strip():
+                              return cand
+              # Responses-API shape: output[].content[].text
+              out = res.get("output")
+              if isinstance(out, list):
+                  for entry in out:
+                      for block in ((entry or {}).get("content") or []):
+                          cand = (block or {}).get("text")
+                          if isinstance(cand, str) and cand.strip():
+                              return cand
               for key in ("description", "response", "text", "answer", "caption",
-                          "output", "result", "generated_text"):
+                          "generated_text"):
                   val = res.get(key)
                   if isinstance(val, str) and val.strip():
                       return val
-              for val in res.values():
+              # Last resort, and never an identifier: an id or a request trace is
+              # not an answer and scoring one as an answer is worse than finding
+              # nothing.
+              for key, val in res.items():
+                  if key in ("id", "object", "model", "created", "request_id"):
+                      continue
                   if isinstance(val, str) and val.strip():
                       return val
               return ""
+
+          def licence_gated(status, err):
+              """A 403 asking us to submit 'agree' is a licence we may not accept.
+
+              Cloudflare gates some models behind a prompt that must be answered
+              with the word 'agree'. Sending it would be accepting a model licence
+              on the operator's behalf, which this lane is forbidden from doing.
+              So the gate is recorded as what it is - a human decision that has
+              not been made - and never as the model being unable to do the task.
+              """
+              return status == 403 and "agree" in (err or "").lower()
 
           results = []
           def record(capability, model, verdict, **extra):
@@ -1409,6 +1442,8 @@ jobs:
           # questions above; whether it can reason over what it sees is a
           # different claim and is measured separately, on both models, rather
           # than inherited.
+          # llama-3.2-11b-vision is listed first and is expected to hit a licence
+          # gate; it stays in the list so the gate is measured rather than assumed.
           VISION_MODELS = ("@cf/meta/llama-3.2-11b-vision-instruct",
                            "@cf/llava-hf/llava-1.5-7b-hf")
 
@@ -1431,6 +1466,11 @@ jobs:
                          note="the answer appears nowhere in the image; it has to be computed")
                   if ok:
                       break
+              elif licence_gated(st, er):
+                  record("visual_reasoning", vm, "HUMAN_LICENSE_GATE_REQUIRED",
+                         http=st, latency_ms=ms, error=(er or "")[:200],
+                         note="the provider requires a licence acceptance only the "
+                              "operator may give; not attempted and not a model failure")
               else:
                   record("visual_reasoning", vm, "FAILED", http=st, latency_ms=ms,
                          error=(er or "")[:160])
@@ -1450,6 +1490,11 @@ jobs:
                          expected="DEPOT ORDER 7412", input_form=form)
                   if ok:
                       break
+              elif licence_gated(st, er):
+                  record("layout_understanding", vm, "HUMAN_LICENSE_GATE_REQUIRED",
+                         http=st, latency_ms=ms, error=(er or "")[:200],
+                         note="licence acceptance is the operator's to give; not a "
+                              "model failure and not attempted")
               else:
                   record("layout_understanding", vm, "FAILED", http=st,
                          latency_ms=ms, error=(er or "")[:160])
@@ -1471,6 +1516,11 @@ jobs:
                          note="three decoy rows; naming another row's number fails")
                   if ok:
                       break
+              elif licence_gated(st, er):
+                  record("table_understanding", vm, "HUMAN_LICENSE_GATE_REQUIRED",
+                         http=st, latency_ms=ms, error=(er or "")[:200],
+                         note="licence acceptance is the operator's to give; not a "
+                              "model failure and not attempted")
               else:
                   record("table_understanding", vm, "FAILED", http=st,
                          latency_ms=ms, error=(er or "")[:160])
@@ -1494,6 +1544,11 @@ jobs:
                               "structure, not transcription")
                   if ok:
                       break
+              elif licence_gated(st, er):
+                  record("document_understanding", vm, "HUMAN_LICENSE_GATE_REQUIRED",
+                         http=st, latency_ms=ms, error=(er or "")[:200],
+                         note="licence acceptance is the operator's to give; not a "
+                              "model failure and not attempted")
               else:
                   record("document_understanding", vm, "FAILED", http=st,
                          latency_ms=ms, error=(er or "")[:160])
@@ -1519,6 +1574,11 @@ jobs:
                               "source alone yields the answer")
                   if ok:
                       break
+              elif licence_gated(st, er):
+                  record("multimodal_reasoning", vm, "HUMAN_LICENSE_GATE_REQUIRED",
+                         http=st, latency_ms=ms, error=(er or "")[:200],
+                         note="licence acceptance is the operator's to give; not a "
+                              "model failure and not attempted")
               else:
                   record("multimodal_reasoning", vm, "FAILED", http=st,
                          latency_ms=ms, error=(er or "")[:160])
