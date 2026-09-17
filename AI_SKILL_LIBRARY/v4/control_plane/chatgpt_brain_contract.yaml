@@ -1,0 +1,72 @@
+version: 1
+contract_id: CHATGPT_BRAIN_INGRESS_V1
+
+authority:
+  routing: false
+  reasoning: false
+  permission: false
+  memory: false
+  project_truth: false
+  final_answer: false
+
+ingress:
+  required_fields:
+    - source
+    - request
+    - project_context
+    - conversation_context
+    - desired_depth
+    - attachments
+    - constraints
+    - privacy_class
+  mandatory_next_hop: task_router
+  may_choose_model: false
+  may_bypass_task_router: false
+  may_widen_permissions: false
+  selected_model_field_forbidden: true
+  runtime_field_forbidden: true
+
+brain_flow:
+  - ingress
+  - task_router
+  - project_domain_resolution
+  - memory
+  - skills
+  - model_mesh
+  - runtime_scheduler
+  - verifier
+  - synthesis
+  - response
+
+response:
+  required_fields:
+    - request_id
+    - task_id
+    - route
+    - selected_model_ref
+    - runtime_ref
+    - verification_status
+    - result
+    - evidence_refs
+    - limitations
+    - runtime_metrics_ref
+  hidden_reasoning_allowed: false
+  evidence_refs_required_when_claims_need_verification: true
+  limitations_required: true
+
+privacy:
+  classes:
+    - PUBLIC
+    - INTERNAL
+    - CONFIDENTIAL
+    - SECRET
+  PUBLIC:
+    default_route: policy_permitted
+  INTERNAL:
+    default_route: local_preferred
+  CONFIDENTIAL:
+    default_route: local_preferred
+    external_requires_verified_policy: true
+  SECRET:
+    default_route: local_only
+  free_external_sensitive_default: false
