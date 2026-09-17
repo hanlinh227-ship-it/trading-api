@@ -1,0 +1,126 @@
+# Collect a prefetch run's per-model manifests into one index this runtime can read.
+#
+# The prefetch lane on ops/model-artifact-staging stages models as Actions
+# artifacts, each carrying its own manifest.json with the repo, the immutable
+# revision it was downloaded from, the filename, the size and a SHA-256 computed
+# on the runner. That is exactly what the admission pipeline needs - and it sits
+# in Actions artifact storage, which is 403 at this runtime's gateway.
+#
+# So this reads those manifests where they are reachable and republishes them as
+# a single small release asset. It moves metadata only; the weights stay where
+# the prefetch lane put them until the republish job moves the ones we choose.
+#
+# It deliberately does not admit, rank or filter on quality. Prefetch is
+# transport state and stays separate from governance state: every entry it emits
+# is marked not-admitted, and the admission pipeline still requires each model to
+# earn its own licence, scan, format and capability evidence.
+name: Collect prefetch index
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Prefetch workflow run holding the staged artifacts
+        required: true
+      wave:
+        description: Label recorded with this index
+        required: false
+        default: wave2
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download every staged artifact's manifest
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: staged
+          pattern: '*'
+          merge-multiple: false
+
+      - name: Build the index
+        env:
+          SOURCE_RUN_ID: ${{ github.event.inputs.source_run_id }}
+          WAVE: ${{ github.event.inputs.wave }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import datetime, json, os, pathlib
+
+          root = pathlib.Path("staged")
+          entries, skipped = [], []
+
+          for manifest_path in sorted(root.rglob("manifest.json")):
+              artifact_name = manifest_path.relative_to(root).parts[0]
+              try:
+                  manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+              except Exception as exc:
+                  skipped.append({"artifact_name": artifact_name, "reason": str(exc)})
+                  continue
+
+              filename = manifest.get("filename")
+              # The weights sit beside the manifest in the same artifact. Their
+              # presence is recorded, not assumed: an artifact whose manifest
+              # survived but whose model file did not is not stageable.
+              weights = manifest_path.parent / filename if filename else None
+              entries.append({
+                  "artifact_name": artifact_name,
+                  "source_run_id": int(os.environ["SOURCE_RUN_ID"]),
+                  "publisher": manifest.get("publisher"),
+                  "repo_id": manifest.get("repo_id"),
+                  "immutable_revision": manifest.get("immutable_revision"),
+                  "filename": filename,
+                  "size_bytes": manifest.get("size_bytes"),
+                  "sha256": manifest.get("sha256_downloaded_bytes"),
+                  "license_declared_upstream": manifest.get("license_declared_upstream"),
+                  "source_url": manifest.get("source_url"),
+                  "weights_present_in_artifact": bool(weights and weights.is_file()),
+                  # Transport state only. Governance state is decided elsewhere,
+                  # per model, on its own evidence.
+                  "stage": "PREFETCHED_NOT_ADMITTED",
+              })
+
+          index = {
+              "version": 1,
+              "wave": os.environ.get("WAVE") or "wave2",
+              "source_run_id": int(os.environ["SOURCE_RUN_ID"]),
+              "collected_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+              "authority": False,
+              "governance_effect": "none",
+              "model_mesh_effect": "none",
+              "runtime_activation_effect": "none",
+              "note": ("Transport metadata only. Every entry is PREFETCHED_NOT_ADMITTED and must "
+                       "still earn licence, malware scan, format, runtime and capability evidence "
+                       "of its own. No approval carries over from any other model."),
+              "entries": entries,
+              "skipped": skipped,
+          }
+          pathlib.Path("prefetch-index.json").write_text(json.dumps(index, indent=2) + "\n")
+          print(json.dumps({"entries": len(entries), "skipped": len(skipped)}, indent=2))
+          for row in entries:
+              print(f"  {row['repo_id']:56} {row['filename'][:40]:42} {row['size_bytes']}")
+          PY
+
+      - name: Publish the index
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WAVE: ${{ github.event.inputs.wave }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="prefetch-index-${WAVE}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "Prefetch index ${WAVE}" \
+              --notes "Transport metadata for prefetched open models. No admission, no activation." --prerelease
+          fi
+          gh release upload "$TAG" prefetch-index.json --clobber
