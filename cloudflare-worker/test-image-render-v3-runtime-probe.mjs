@@ -51,6 +51,26 @@ assert.equal(partialCf.taskHealth.REFERENCE_GENERATION.ok,false);
 assert.equal(partialCf.taskHealth.INPAINT.ok,false);
 assert.equal(partialCf.taskHealth.VISUAL_CRITIC.ok,false);
 
+// Provider failures must preserve enough sanitized evidence to debug the exact hosted-model
+// contract in production, while never leaking bearer/API credentials into activation logs.
+const diagnostic={AI:{async run(model){
+  if(String(model).includes('flux-1-schnell'))return {image:'ZmFrZQ=='};
+  const e=new Error('input validation failed: num_steps rejected; Authorization: Bearer super-secret-token');
+  e.status=400;
+  e.code=10049;
+  throw e;
+}}};
+result=await probeImageRuntimes(diagnostic);
+const diagnosticCf=result.providers.find(p=>p.providerId==='cloudflare_workers_ai');
+const refFailure=diagnosticCf.taskHealth.REFERENCE_GENERATION;
+assert.equal(refFailure.ok,false);
+assert.equal(refFailure.detail,'provider_request_failed');
+assert.equal(refFailure.diagnostic?.status,400);
+assert.equal(refFailure.diagnostic?.code,'10049');
+assert.match(refFailure.diagnostic?.message||'',/input validation failed/i);
+assert.doesNotMatch(refFailure.diagnostic?.message||'',/super-secret-token/i);
+assert.match(refFailure.diagnostic?.message||'',/\[REDACTED\]/);
+
 const broken={AI:{async run(){throw new Error('nope');}}};
 result=await probeImageRuntimes(broken);
 const bad=result.providers.find(p=>p.providerId==='cloudflare_workers_ai');
