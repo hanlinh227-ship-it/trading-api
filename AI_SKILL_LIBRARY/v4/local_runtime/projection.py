@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from .identity import artifact_block
 from .lifecycle import ModelState
 from .reconciliation import registry_state_is_runtime_bearing
 from .resources import ResourceSnapshot
@@ -151,7 +152,7 @@ def _gate_identity(record: Mapping[str, Any]) -> str | None:
 
 
 def _gate_revision(record: Mapping[str, Any]) -> str | None:
-    revision = str(record.get("upstream_revision") or "").strip()
+    revision = str(record.get("immutable_revision") or record.get("upstream_revision") or "").strip()
     if not revision:
         return "upstream_revision is missing: a model cannot be pinned"
     if revision.lower() in FLOATING_REVISIONS:
@@ -336,8 +337,9 @@ def project_record(
     # admission: a model whose weights are already cached is perfectly usable
     # without it. The current registry schema carries no checksum or size
     # field at all, so today every row lands here.
-    artifact_hash = record.get("artifact_hash") or record.get("artifact_sha256")
-    artifact_size = record.get("artifact_size_bytes")
+    artifact = artifact_block(record)
+    artifact_hash = artifact.get("sha256")
+    artifact_size = artifact.get("size_bytes")
     acquisition_reasons: list[str] = []
     if not artifact_hash:
         acquisition_reasons.append("artifact hash is absent; a download could not be verified")
@@ -363,10 +365,10 @@ def project_record(
         max_privacy=PRIVACY_CLASS_MAP[str(record["privacy_class"]).strip().lower()],
         family=record.get("family"),
         variant=record.get("variant"),
-        revision=record.get("upstream_revision"),
+        revision=record.get("immutable_revision") or record.get("upstream_revision"),
         artifact_hash=artifact_hash,
         artifact_size_bytes=artifact_size,
-        quantization=record.get("quantization"),
+        quantization=artifact.get("quantization") or record.get("quantization"),
         runtime_support=frozenset(
             RUNTIME_NAME_MAP[name] for name in record.get("runtime_support") or [] if name in RUNTIME_NAME_MAP
         ),

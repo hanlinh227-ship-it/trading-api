@@ -122,18 +122,43 @@ class ArtifactIdentity:
         }
 
 
-def missing_identity_fields(record: Mapping[str, Any]) -> tuple[str, ...]:
-    """Which identity fields a registry row does not carry."""
-    mapping = {
+def artifact_block(record: Mapping[str, Any]) -> Mapping[str, Any]:
+    """The record's artifact fields, nested or flat.
+
+    The canonical registry nests them under `artifact:`; earlier drafts used
+    flat `artifact_*` keys. Both are read so a schema revision does not silently
+    strip an identity down to a bare model name.
+    """
+    nested = record.get("artifact")
+    if isinstance(nested, Mapping):
+        return nested
+    return {
+        "filename": record.get("artifact_filename") or record.get("filename"),
+        "format": record.get("artifact_format"),
+        "sha256": record.get("artifact_sha256") or record.get("artifact_hash"),
+        "size_bytes": record.get("artifact_size_bytes"),
+        "quantization": record.get("quantization"),
+    }
+
+
+def _identity_mapping(record: Mapping[str, Any]) -> Mapping[str, Any]:
+    artifact = artifact_block(record)
+    return {
         "model_id": record.get("model_id"),
         "family": record.get("family"),
         "variant": record.get("variant"),
-        "immutable_revision": record.get("upstream_revision"),
-        "artifact_sha256": record.get("artifact_sha256") or record.get("artifact_hash"),
-        "artifact_format": record.get("artifact_format"),
-        "quantization": record.get("quantization"),
+        # `immutable_revision` is the canonical field; `upstream_revision` is
+        # accepted because the record carries both and they must agree.
+        "immutable_revision": record.get("immutable_revision") or record.get("upstream_revision"),
+        "artifact_sha256": artifact.get("sha256"),
+        "artifact_format": artifact.get("format"),
+        "quantization": artifact.get("quantization") or record.get("quantization"),
     }
-    return tuple(name for name, value in mapping.items() if not str(value or "").strip())
+
+
+def missing_identity_fields(record: Mapping[str, Any]) -> tuple[str, ...]:
+    """Which identity fields a registry row does not carry."""
+    return tuple(name for name, value in _identity_mapping(record).items() if not str(value or "").strip())
 
 
 def from_record(record: Mapping[str, Any]) -> tuple["ArtifactIdentity | None", tuple[str, ...]]:
@@ -145,17 +170,29 @@ def from_record(record: Mapping[str, Any]) -> tuple["ArtifactIdentity | None", t
     missing = missing_identity_fields(record)
     if missing:
         return None, tuple(f"artifact identity field {name} is absent" for name in missing)
+
+    # Both revision fields are present in the canonical record. If they ever
+    # disagree, that is a corrupt row, not a preference to resolve.
+    upstream = str(record.get("upstream_revision") or "").strip()
+    immutable = str(record.get("immutable_revision") or "").strip()
+    if upstream and immutable and upstream != immutable:
+        return None, (
+            f"upstream_revision {upstream!r} and immutable_revision {immutable!r} disagree",
+        )
+
+    fields = _identity_mapping(record)
+    artifact = artifact_block(record)
     try:
         identity = ArtifactIdentity(
-            model_id=str(record["model_id"]),
-            family=str(record["family"]),
-            variant=str(record["variant"]),
-            immutable_revision=str(record["upstream_revision"]),
-            artifact_sha256=str(record.get("artifact_sha256") or record.get("artifact_hash")).lower(),
-            artifact_format=str(record["artifact_format"]).lower().lstrip("."),
-            quantization=str(record["quantization"]),
-            artifact_size_bytes=record.get("artifact_size_bytes"),
-            artifact_filename=record.get("artifact_filename") or record.get("filename"),
+            model_id=str(fields["model_id"]),
+            family=str(fields["family"]),
+            variant=str(fields["variant"]),
+            immutable_revision=str(fields["immutable_revision"]),
+            artifact_sha256=str(fields["artifact_sha256"]).lower(),
+            artifact_format=str(fields["artifact_format"]).lower().lstrip("."),
+            quantization=str(fields["quantization"]),
+            artifact_size_bytes=artifact.get("size_bytes"),
+            artifact_filename=artifact.get("filename"),
         )
     except IdentityError as exc:
         return None, (str(exc),)

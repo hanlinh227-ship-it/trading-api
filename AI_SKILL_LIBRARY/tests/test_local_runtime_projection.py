@@ -369,3 +369,167 @@ class BatchTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# The canonical Qwen3 record, mirroring the row in PR #433 field for field.
+# Copied rather than read from the branch so the test is hermetic; the
+# structural assertions below fail if the real contract shape moves away from
+# it. No value here is used as acquisition evidence - the digest is verified
+# against downloaded bytes at acquisition time, never trusted from a fixture.
+CANONICAL_QWEN3 = {
+    "model_id": "qwen3-0.6b-q8_0-gguf",
+    "family": "Qwen3",
+    "variant": "0.6B-Q8_0-GGUF",
+    "base_model": "Qwen/Qwen3-0.6B",
+    "quantization": "Q8_0",
+    "runtime_build": "llama.cpp>=b5092",
+    "official_upstream": "https://huggingface.co/Qwen/Qwen3-0.6B",
+    "weights_source": (
+        "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/"
+        "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf"
+    ),
+    "upstream_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+    "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+    "artifact": {
+        "filename": "Qwen3-0.6B-Q8_0.gguf",
+        "format": "gguf",
+        "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+        "size_bytes": 639446688,
+        "quantization": "Q8_0",
+    },
+    "license_name": "Apache-2.0",
+    "license_class": "permissive",
+    "license_verified": True,
+    "self_hostable": True,
+    "paid_token_required": False,
+    "local_runtime_possible": True,
+    "capabilities": {},
+    "hardware_profile": {
+        "minimum_ram_gb": None,
+        "recommended_ram_gb": None,
+        "minimum_vram_gb": None,
+        "recommended_vram_gb": None,
+        "quantization_options": ["Q8_0"],
+        "cpu_viable": True,
+        "apple_silicon_viable": "unknown",
+    },
+    "runtime_support": ["llama_cpp"],
+    "context_window": 32768,
+    "quality_class": "unknown",
+    "privacy_class": "local_only",
+    "cost_class": "owned_hardware_zero_marginal",
+    "lifecycle_state": "APPROVED",
+    "health": "unknown",
+    "authority": False,
+    "source_evidence": ["https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/commit/1eaf4d96"],
+}
+
+
+class CanonicalRecordTests(unittest.TestCase):
+    """The nested `artifact:` shape the canonical registry actually uses."""
+
+    def _project(self, record=None):
+        return project_record(
+            record or CANONICAL_QWEN3, snapshot=snapshot(), available_runtimes=["llama.cpp"]
+        )
+
+    def test_the_canonical_record_is_admitted_for_acquisition(self):
+        result = self._project()
+        self.assertEqual(result.admission_status, AdmissionStatus.ADMITTED)
+        self.assertTrue(result.profile.acquisition_eligible)
+        self.assertEqual(result.exclusion_reasons, ())
+
+    def test_identity_survives_the_nested_artifact_block(self):
+        profile = self._project().profile
+        self.assertEqual(profile.revision, "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa")
+        self.assertEqual(profile.artifact_hash, CANONICAL_QWEN3["artifact"]["sha256"])
+        self.assertEqual(profile.artifact_size_bytes, 639446688)
+        self.assertEqual(profile.quantization, "Q8_0")
+        self.assertEqual(profile.runtime, "llama.cpp")
+
+    def test_artifact_size_becomes_a_disk_requirement(self):
+        self.assertEqual(self._project().profile.disk_mb, 639446688 // (1024 * 1024))
+
+    def test_null_hardware_values_stay_unknown_rather_than_zero(self):
+        result = self._project()
+        self.assertIsNone(result.profile.ram_mb)
+        self.assertIsNone(result.profile.vram_mb)
+        self.assertIn("hardware_profile.minimum_ram_gb", result.unknown_fields)
+
+    def test_an_unmeasured_model_carries_no_invented_quality(self):
+        profile = self._project().profile
+        self.assertIsNone(profile.quality)
+        self.assertEqual(profile.quality_class, "unknown")
+
+    def test_a_flat_record_projects_identically_to_a_nested_one(self):
+        flat = {k: v for k, v in CANONICAL_QWEN3.items() if k != "artifact"}
+        flat.update(
+            artifact_filename="Qwen3-0.6B-Q8_0.gguf",
+            artifact_format="gguf",
+            artifact_sha256=CANONICAL_QWEN3["artifact"]["sha256"],
+            artifact_size_bytes=639446688,
+        )
+        self.assertEqual(self._project(flat).profile.artifact_hash,
+                         self._project().profile.artifact_hash)
+
+    def test_disagreeing_revision_fields_are_a_corrupt_row(self):
+        from AI_SKILL_LIBRARY.v4.local_runtime.identity import from_record
+        record = dict(CANONICAL_QWEN3, immutable_revision="f" * 40)
+        built, reasons = from_record(record)
+        self.assertIsNone(built)
+        self.assertTrue(any("disagree" in reason for reason in reasons))
+
+    def test_an_empty_capability_map_blocks_placement_for_a_stated_requirement(self):
+        # The canonical row declares `capabilities: {}`. Placement fails closed
+        # on an unstated capability rather than assuming a text model does text.
+        from AI_SKILL_LIBRARY.v4.local_runtime.scheduler import (
+            RuntimeSlot, TaskRequest, plan_placement,
+        )
+        from AI_SKILL_LIBRARY.v4.local_runtime.reconciliation import ENTRY_STATE
+        profile = self._project().profile
+        decision = plan_placement(
+            TaskRequest(task_id="t", required_capabilities=frozenset({"text"})),
+            [RuntimeSlot(model=profile, state=ENTRY_STATE)],
+            snapshot(),
+        )
+        self.assertFalse(decision.admitted)
+        self.assertIn("capabilit", decision.rejected[profile.model_id].lower())
+
+    def test_unmeasured_ram_blocks_ordinary_placement(self):
+        """The first-load chicken-and-egg, asserted rather than worked around.
+
+        The record leaves `minimum_ram_gb: null` until empirical measurement,
+        and the scheduler refuses a placement it cannot prove fits. So this
+        model cannot reach ordinary placement until a measurement run has
+        happened - which is precisely what the record's own quarantine policy
+        describes ("promote_after_runtime_probe_and_empirical_resource_
+        measurement"). The measurement run is a separate, explicitly-budgeted
+        path; the fix is never to let the scheduler guess a RAM figure.
+        """
+        from AI_SKILL_LIBRARY.v4.local_runtime.scheduler import (
+            RuntimeSlot, TaskRequest, plan_placement,
+        )
+        from AI_SKILL_LIBRARY.v4.local_runtime.reconciliation import ENTRY_STATE
+        profile = self._project().profile
+        decision = plan_placement(
+            TaskRequest(task_id="t", required_capabilities=frozenset()),
+            [RuntimeSlot(model=profile, state=ENTRY_STATE)],
+            snapshot(),
+        )
+        self.assertFalse(decision.admitted)
+        self.assertIn("ram requirement unknown", decision.rejected[profile.model_id])
+
+    def test_a_measured_ram_figure_unblocks_placement(self):
+        """Once measured, the same record places normally."""
+        from dataclasses import replace
+        from AI_SKILL_LIBRARY.v4.local_runtime.scheduler import (
+            RuntimeSlot, TaskRequest, plan_placement,
+        )
+        from AI_SKILL_LIBRARY.v4.local_runtime.reconciliation import ENTRY_STATE
+        measured = replace(self._project().profile, ram_mb=1200, vram_mb=None)
+        decision = plan_placement(
+            TaskRequest(task_id="t", required_capabilities=frozenset()),
+            [RuntimeSlot(model=measured, state=ENTRY_STATE)],
+            snapshot(),
+        )
+        self.assertTrue(decision.admitted, decision.rejected)
