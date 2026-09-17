@@ -99,6 +99,7 @@ def load_registry(root: Path) -> tuple[ProviderRegistry, dict[str, Any]]:
             credential_available_here=bool(row.get("credential_available_here", False)),
             operator_authorized=bool(row.get("operator_authorized", False)),
             operator_evidence=row.get("operator_evidence"),
+            credential_held_by_worker=row.get("credential_held_by_worker"),
             verification_state=ProviderVerification(
                 str(row.get("verification_state") or "DISCOVERED")),
             verification_evidence=row.get("verification_evidence"),

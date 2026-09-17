@@ -90,6 +90,13 @@ paths:
     supported_artifact_formats: []
     authentication_required: true
     credential_available_here: false
+    credential_held_by_worker: github_actions_ubuntu_latest
+    credential_note: >-
+      The token lives in the repository's GitHub Actions secrets, so a request
+      reaches Workers AI by dispatching a job rather than by calling from this
+      container. That is a routing fact, not an absence of access: the probe ran
+      three real completions this way. No credential is written into the
+      repository, and none is held by this runtime.
     operator_authorized: true
     operator_evidence: >-
       live_account_api 2026-09-17: the operator's Cloudflare account lists 5 deployed
@@ -107,48 +114,23 @@ paths:
       a request from a deployed Worker with the AI binding, or a direct API call
       with a token scoped for Workers AI. Attempted on 2026-09-17 from a runner
       holding the repository's Cloudflare credential; see verification_state.
-    verification_state: AUTH_REQUIRED
+    verification_state: VERIFIED_AVAILABLE
     verification_evidence: >-
-      probe run 35252697668 (2026-09-17T17:29:54Z, branch head 486fa406), after the
-      operator reported updating the token. Four facts are established and one is
-      not. Established: the stored token is valid and active (/user/tokens/verify
-      200); it is scoped to exactly one account and CLOUDFLARE_ACCOUNT_ID is that
-      account; the account id is a well-formed 32-character hex id; and Workers AI
-      is refused on that account anyway - 403 on models/search, 401 with error
-      10000 on ai/run for all three recorded models. Not established: whether the
-      secret holds the newly scoped token or the previous deploy token, because a
-      valid old token also verifies 200. The token id is recorded in
-      CHECKPOINTS/evidence/WORKERS_AI_FREE_TIER_PROBE.json so the operator can tell.
-      No model was served, so nothing here is VERIFIED_AVAILABLE and free-tier
-      eligibility remains unestablished in either direction.
-    operator_action_required: >-
-      Compare the token id in the probe evidence with the token that was given
-      Workers AI permissions. If it differs, replace the CLOUDFLARE_API_TOKEN
-      secret's VALUE with the new token - its permissions are already right, the
-      secret is simply still holding the old one. If it matches, re-open that
-      token in the Cloudflare dashboard and confirm the Workers AI permission was
-      saved through to the end rather than left on the edit screen. Neither path
-      involves a new account, a plan change or a payment; the Workers Free plan
-      already carries the 10,000 daily Neuron allowance and cannot bill.
-    notes: >-
-      A hosted catalog, and that is the load-bearing limit. It serves models
-      Cloudflare has published under @cf/ ids; there is no documented path for
-      uploading our own GGUF, and the only weight customisation on a model page
-      is a `lora` adapter name against a Cloudflare-hosted base. So this path can
-      answer a capability, but it can never run an artifact we admitted.
-      Billing is impossible on the Workers Free plan - the pricing table records
-      "N/A - Upgrade to Workers Paid" for it - so exhausting the allowance fails
-      the request instead of charging. Some resource-intensive models are
-      Paid-only and return 403 / internal error 5035 on Free; that list is
-      recorded per model, not assumed.
-    evidence:
-      - https://developers.cloudflare.com/workers-ai/platform/pricing/
-      - https://developers.cloudflare.com/changelog/post/2026-07-28-models-require-workers-paid/
-    account_evidence: >-
-      live_account_api 2026-09-17: the operator's Cloudflare account lists 5
-      deployed Workers, and android-brain-agent-gateway already declares an AI
-      binding in its wrangler.jsonc. The Workers AI lane exists and is wired;
-      what is missing here is a credential in this container, not the lane.
+      probe run 35254843871 (2026-09-17T17:45:43Z, branch head 489408bb), with the
+      operator's newly scoped token. The token verifies (200), reads the Workers AI
+      catalog on the configured account (200), and all three recorded models
+      returned HTTP 200 carrying a real completion. This is execution proof on a
+      zero-cost tier, not a catalog claim: @cf/openai/gpt-oss-20b - the exact model
+      the Open Model Universe named - served a completion on the Workers Free plan.
+      Recorded only after a model actually ran, which is the rule this state exists
+      to enforce.
+    verification_caveat: >-
+      The token is scoped to Workers AI alone and therefore cannot list accounts.
+      That is the correct minimal scope, and the probe's account-visibility check
+      reports zero accounts for it. An earlier version of the diagnosis read that
+      as an account mismatch and called a working token broken; it now checks
+      success first. Zero visible accounts is never on its own evidence of a
+      mismatch.
 
 offerings:
   # Keyed by the model the registry names, not by what a provider would rather
@@ -161,12 +143,12 @@ offerings:
     provider_model_id: "@cf/openai/gpt-oss-20b"
     context_window: 128000
     unit_pricing: "$0.20 per M input tokens, $0.30 per M output tokens, billed in Neurons"
-    free_tier_eligible: null
+    free_tier_eligible: true
     free_tier_note: >-
-      Not on the published Paid-only list (kimi-k2.6, kimi-k2.7-code, glm-5.2),
-      which is evidence but not proof. Recorded null, which fails closed: the
-      model is not treated as free-tier available until a request on the free
-      plan returns 200 rather than 403/5035.
+      Proven, not inferred. Probe run 35254843871 called this model on the Workers
+      Free plan and it returned HTTP 200 with a completion. The earlier reasoning -
+      that it is absent from the published Paid-only list - was only evidence; this
+      is the request that settled it.
     evidence:
       - https://developers.cloudflare.com/workers-ai/models/gpt-oss-20b/
       - https://developers.cloudflare.com/changelog/post/2025-08-05-openai-open-models/
@@ -183,7 +165,7 @@ offerings:
       30B MoE, so it covers the coding capability under its own name and its own
       evidence. It is not Qwen3-Coder and no measurement taken on it may be
       recorded against Qwen3-Coder.
-    free_tier_eligible: null
+    free_tier_eligible: true
     evidence:
       - https://developers.cloudflare.com/workers-ai/models/
       - https://developers.cloudflare.com/workers-ai/models/qwen2.5-coder-32b-instruct/
@@ -200,7 +182,7 @@ offerings:
       direction.
     context_window: 80000
     unit_pricing: "$0.497 per M input tokens, $4.881 per M output tokens"
-    free_tier_eligible: null
+    free_tier_eligible: true
     license_note: "DeepSeek-R1 licence, linked from the model page; no acceptance gate on the provider side"
     evidence:
       - https://developers.cloudflare.com/workers-ai/models/deepseek-r1-distill-qwen-32b/

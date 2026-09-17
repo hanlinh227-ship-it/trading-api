@@ -32,6 +32,8 @@
       "federation_blockers": [],
       "local_blockers": [],
       "reachable_from_this_runtime": true,
+      "credential_held_by_worker": null,
+      "reachable_only_by_dispatch_through": null,
       "egress_note": null,
       "inference_provable_by": "already proven - the Wave 0 benchmark suites and the federation proof ran here",
       "usable_without_approval": true,
@@ -72,6 +74,8 @@
       "federation_blockers": [],
       "local_blockers": [],
       "reachable_from_this_runtime": true,
+      "credential_held_by_worker": null,
+      "reachable_only_by_dispatch_through": null,
       "egress_note": "Runners reach huggingface.co, which this container does not. That is why artifact discovery and staging run there and not here.",
       "inference_provable_by": "a workflow job that loads the artifact and runs a real completion, with the log as evidence.",
       "usable_without_approval": true,
@@ -102,23 +106,19 @@
       "quota_resets": "daily at 00:00 UTC",
       "operator_authorized": true,
       "operator_evidence": "live_account_api 2026-09-17: the operator's Cloudflare account lists 5 deployed Workers, and android-brain-agent-gateway declares an AI binding. The federation has this path; this container simply holds no token for it.",
-      "verification_state": "AUTH_REQUIRED",
-      "verification_evidence": "probe run 35252697668 (2026-09-17T17:29:54Z, branch head 486fa406), after the operator reported updating the token. Four facts are established and one is not. Established: the stored token is valid and active (/user/tokens/verify 200); it is scoped to exactly one account and CLOUDFLARE_ACCOUNT_ID is that account; the account id is a well-formed 32-character hex id; and Workers AI is refused on that account anyway - 403 on models/search, 401 with error 10000 on ai/run for all three recorded models. Not established: whether the secret holds the newly scoped token or the previous deploy token, because a valid old token also verifies 200. The token id is recorded in CHECKPOINTS/evidence/WORKERS_AI_FREE_TIER_PROBE.json so the operator can tell. No model was served, so nothing here is VERIFIED_AVAILABLE and free-tier eligibility remains unestablished in either direction.",
-      "operator_action_required": "Compare the token id in the probe evidence with the token that was given Workers AI permissions. If it differs, replace the CLOUDFLARE_API_TOKEN secret's VALUE with the new token - its permissions are already right, the secret is simply still holding the old one. If it matches, re-open that token in the Cloudflare dashboard and confirm the Workers AI permission was saved through to the end rather than left on the edit screen. Neither path involves a new account, a plan change or a payment; the Workers Free plan already carries the 10,000 daily Neuron allowance and cannot bill.",
-      "execution_proven": false,
+      "verification_state": "VERIFIED_AVAILABLE",
+      "verification_evidence": "probe run 35254843871 (2026-09-17T17:45:43Z, branch head 489408bb), with the operator's newly scoped token. The token verifies (200), reads the Workers AI catalog on the configured account (200), and all three recorded models returned HTTP 200 carrying a real completion. This is execution proof on a zero-cost tier, not a catalog claim: @cf/openai/gpt-oss-20b - the exact model the Open Model Universe named - served a completion on the Workers Free plan. Recorded only after a model actually ran, which is the rule this state exists to enforce.",
+      "operator_action_required": null,
+      "execution_proven": true,
       "federation_blockers": [],
-      "local_blockers": [
-        "this runtime holds no credential for it, and one must not be written into the repository to create one",
-        "has never returned a completion on a zero-cost tier (state: AUTH_REQUIRED); documentation is not execution proof; Compare the token id in the probe evidence with the token that was given Workers AI permissions. If it differs, replace the CLOUDFLARE_API_TOKEN secret's VALUE with the new token - its permissions are already right, the secret is simply still holding the old one. If it matches, re-open that token in the Cloudflare dashboard and confirm the Workers AI permission was saved through to the end rather than left on the edit screen. Neither path involves a new account, a plan change or a payment; the Workers Free plan already carries the 10,000 daily Neuron allowance and cannot bill."
-      ],
-      "reachable_from_this_runtime": false,
+      "local_blockers": [],
+      "reachable_from_this_runtime": true,
+      "credential_held_by_worker": "github_actions_ubuntu_latest",
+      "reachable_only_by_dispatch_through": "github_actions_ubuntu_latest",
       "egress_note": "developers.cloudflare.com is blocked by this container's egress proxy, so the catalog was read through the connected Cloudflare documentation tool rather than by fetching it here.",
       "inference_provable_by": "a request from a deployed Worker with the AI binding, or a direct API call with a token scoped for Workers AI. Attempted on 2026-09-17 from a runner holding the repository's Cloudflare credential; see verification_state.",
       "usable_without_approval": false,
-      "blockers": [
-        "this runtime holds no credential for it, and one must not be written into the repository to create one",
-        "has never returned a completion on a zero-cost tier (state: AUTH_REQUIRED); documentation is not execution proof; Compare the token id in the probe evidence with the token that was given Workers AI permissions. If it differs, replace the CLOUDFLARE_API_TOKEN secret's VALUE with the new token - its permissions are already right, the secret is simply still holding the old one. If it matches, re-open that token in the Cloudflare dashboard and confirm the Workers AI permission was saved through to the end rather than left on the edit screen. Neither path involves a new account, a plan change or a payment; the Workers Free plan already carries the 10,000 daily Neuron allowance and cannot bill."
-      ],
+      "blockers": [],
       "offerings": [
         {
           "requested_model_id": "openai/gpt-oss-20b",
@@ -127,7 +127,7 @@
           "is_the_requested_model": true,
           "substitution_reason": null,
           "context_window": 128000,
-          "free_tier_eligible": null,
+          "free_tier_eligible": true,
           "unit_pricing": "$0.20 per M input tokens, $0.30 per M output tokens, billed in Neurons",
           "license_note": null,
           "evidence": [
@@ -142,7 +142,7 @@
           "is_the_requested_model": false,
           "substitution_reason": "Cloudflare's entire Qwen catalog is three models - qwen2.5-coder-32b-instruct, qwen3-30b-a3b-fp8 and qwen3-embedding-0.6b - and Qwen3-Coder-30B-A3B-Instruct is none of them. qwen2.5-coder-32b-instruct is the code-specialised Qwen Cloudflare does serve: a different generation and a dense 32B rather than a 30B MoE, so it covers the coding capability under its own name and its own evidence. It is not Qwen3-Coder and no measurement taken on it may be recorded against Qwen3-Coder.",
           "context_window": null,
-          "free_tier_eligible": null,
+          "free_tier_eligible": true,
           "unit_pricing": null,
           "license_note": null,
           "evidence": [
@@ -157,7 +157,7 @@
           "is_the_requested_model": false,
           "substitution_reason": "Cloudflare serves the 32B distill of DeepSeek-R1, not the 7B. Same distillation family and the same reasoning capability, a different model at four times the size. The 7B is the candidate because it fits this host; the 32B exists only on the provider, so the two are not interchangeable evidence in either direction.",
           "context_window": 80000,
-          "free_tier_eligible": null,
+          "free_tier_eligible": true,
           "unit_pricing": "$0.497 per M input tokens, $4.881 per M output tokens",
           "license_note": "DeepSeek-R1 licence, linked from the model page; no acceptance gate on the provider side",
           "evidence": [
@@ -165,11 +165,8 @@
           ]
         }
       ],
-      "notes": "A hosted catalog, and that is the load-bearing limit. It serves models Cloudflare has published under @cf/ ids; there is no documented path for uploading our own GGUF, and the only weight customisation on a model page is a `lora` adapter name against a Cloudflare-hosted base. So this path can answer a capability, but it can never run an artifact we admitted. Billing is impossible on the Workers Free plan - the pricing table records \"N/A - Upgrade to Workers Paid\" for it - so exhausting the allowance fails the request instead of charging. Some resource-intensive models are Paid-only and return 403 / internal error 5035 on Free; that list is recorded per model, not assumed.",
-      "evidence": [
-        "https://developers.cloudflare.com/workers-ai/platform/pricing/",
-        "https://developers.cloudflare.com/changelog/post/2026-07-28-models-require-workers-paid/"
-      ],
+      "notes": "",
+      "evidence": [],
       "routing_authority": false,
       "model_selection_authority": false,
       "admission_authority": false
@@ -197,17 +194,28 @@
       "upstream": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
       "local_status": null,
       "estimated_runtime_ram_mb": 37200,
-      "zero_cost_path_state": "CAPABILITY_FALLBACK_PENDING_FREE_TIER_PROOF",
+      "zero_cost_path_state": "CAPABILITY_FALLBACK_AVAILABLE",
       "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
       "exact": [],
-      "capability_fallback": [],
-      "pending_verification": {
-        "cloudflare_workers_ai": [
-          "this runtime holds no credential for it, and one must not be written into the repository to create one",
-          "has never returned a completion on a zero-cost tier (state: AUTH_REQUIRED); documentation is not execution proof; Compare the token id in the probe evidence with the token that was given Workers AI permissions. If it differs, replace the CLOUDFLARE_API_TOKEN secret's VALUE with the new token - its permissions are already right, the secret is simply still holding the old one. If it matches, re-open that token in the Cloudflare dashboard and confirm the Workers AI permission was saved through to the end rather than left on the edit screen. Neither path involves a new account, a plan change or a payment; the Workers Free plan already carries the 10,000 daily Neuron allowance and cannot bill.",
-          "@cf/qwen/qwen2.5-coder-32b-instruct free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
-        ]
-      },
+      "capability_fallback": [
+        {
+          "provider_id": "cloudflare_workers_ai",
+          "requested_model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+          "match": "CAPABILITY",
+          "provider_model_id": "@cf/qwen/qwen2.5-coder-32b-instruct",
+          "is_the_requested_model": false,
+          "substitution_reason": "Cloudflare's entire Qwen catalog is three models - qwen2.5-coder-32b-instruct, qwen3-30b-a3b-fp8 and qwen3-embedding-0.6b - and Qwen3-Coder-30B-A3B-Instruct is none of them. qwen2.5-coder-32b-instruct is the code-specialised Qwen Cloudflare does serve: a different generation and a dense 32B rather than a 30B MoE, so it covers the coding capability under its own name and its own evidence. It is not Qwen3-Coder and no measurement taken on it may be recorded against Qwen3-Coder.",
+          "context_window": null,
+          "free_tier_eligible": true,
+          "unit_pricing": null,
+          "license_note": null,
+          "evidence": [
+            "https://developers.cloudflare.com/workers-ai/models/",
+            "https://developers.cloudflare.com/workers-ai/models/qwen2.5-coder-32b-instruct/"
+          ]
+        }
+      ],
+      "pending_verification": {},
       "rejected_paths": {},
       "catalog_check": null
     },
@@ -216,17 +224,28 @@
       "upstream": "openai/gpt-oss-20b",
       "local_status": null,
       "estimated_runtime_ram_mb": 25600,
-      "zero_cost_path_state": "EXACT_MODEL_PENDING_FREE_TIER_PROOF",
+      "zero_cost_path_state": "EXACT_MODEL_ON_ZERO_COST_PROVIDER",
       "model_id": "openai/gpt-oss-20b",
-      "exact": [],
+      "exact": [
+        {
+          "provider_id": "cloudflare_workers_ai",
+          "requested_model_id": "openai/gpt-oss-20b",
+          "match": "EXACT",
+          "provider_model_id": "@cf/openai/gpt-oss-20b",
+          "is_the_requested_model": true,
+          "substitution_reason": null,
+          "context_window": 128000,
+          "free_tier_eligible": true,
+          "unit_pricing": "$0.20 per M input tokens, $0.30 per M output tokens, billed in Neurons",
+          "license_note": null,
+          "evidence": [
+            "https://developers.cloudflare.com/workers-ai/models/gpt-oss-20b/",
+            "https://developers.cloudflare.com/changelog/post/2025-08-05-openai-open-models/"
+          ]
+        }
+      ],
       "capability_fallback": [],
-      "pending_verification": {
-        "cloudflare_workers_ai": [
-          "this runtime holds no credential for it, and one must not be written into the repository to create one",
-          "has never returned a completion on a zero-cost tier (state: AUTH_REQUIRED); documentation is not execution proof; Compare the token id in the probe evidence with the token that was given Workers AI permissions. If it differs, replace the CLOUDFLARE_API_TOKEN secret's VALUE with the new token - its permissions are already right, the secret is simply still holding the old one. If it matches, re-open that token in the Cloudflare dashboard and confirm the Workers AI permission was saved through to the end rather than left on the edit screen. Neither path involves a new account, a plan change or a payment; the Workers Free plan already carries the 10,000 daily Neuron allowance and cannot bill.",
-          "@cf/openai/gpt-oss-20b free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
-        ]
-      },
+      "pending_verification": {},
       "rejected_paths": {},
       "catalog_check": null
     },
@@ -251,17 +270,27 @@
       "upstream": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
       "local_status": null,
       "estimated_runtime_ram_mb": 9360,
-      "zero_cost_path_state": "CAPABILITY_FALLBACK_PENDING_FREE_TIER_PROOF",
+      "zero_cost_path_state": "CAPABILITY_FALLBACK_AVAILABLE",
       "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
       "exact": [],
-      "capability_fallback": [],
-      "pending_verification": {
-        "cloudflare_workers_ai": [
-          "this runtime holds no credential for it, and one must not be written into the repository to create one",
-          "has never returned a completion on a zero-cost tier (state: AUTH_REQUIRED); documentation is not execution proof; Compare the token id in the probe evidence with the token that was given Workers AI permissions. If it differs, replace the CLOUDFLARE_API_TOKEN secret's VALUE with the new token - its permissions are already right, the secret is simply still holding the old one. If it matches, re-open that token in the Cloudflare dashboard and confirm the Workers AI permission was saved through to the end rather than left on the edit screen. Neither path involves a new account, a plan change or a payment; the Workers Free plan already carries the 10,000 daily Neuron allowance and cannot bill.",
-          "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
-        ]
-      },
+      "capability_fallback": [
+        {
+          "provider_id": "cloudflare_workers_ai",
+          "requested_model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+          "match": "CAPABILITY",
+          "provider_model_id": "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+          "is_the_requested_model": false,
+          "substitution_reason": "Cloudflare serves the 32B distill of DeepSeek-R1, not the 7B. Same distillation family and the same reasoning capability, a different model at four times the size. The 7B is the candidate because it fits this host; the 32B exists only on the provider, so the two are not interchangeable evidence in either direction.",
+          "context_window": 80000,
+          "free_tier_eligible": true,
+          "unit_pricing": "$0.497 per M input tokens, $4.881 per M output tokens",
+          "license_note": "DeepSeek-R1 licence, linked from the model page; no acceptance gate on the provider side",
+          "evidence": [
+            "https://developers.cloudflare.com/workers-ai/models/deepseek-r1-distill-qwen-32b/"
+          ]
+        }
+      ],
+      "pending_verification": {},
       "rejected_paths": {},
       "catalog_check": null
     },
@@ -280,11 +309,11 @@
     }
   ],
   "by_state": {
-    "CAPABILITY_FALLBACK_PENDING_FREE_TIER_PROOF": [
+    "CAPABILITY_FALLBACK_AVAILABLE": [
       "Qwen/Qwen3-Coder-30B-A3B-Instruct",
       "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
     ],
-    "EXACT_MODEL_PENDING_FREE_TIER_PROOF": [
+    "EXACT_MODEL_ON_ZERO_COST_PROVIDER": [
       "openai/gpt-oss-20b"
     ],
     "NO_ZERO_COST_PROVIDER_PATH": [

@@ -775,9 +775,28 @@ jobs:
               "accounts_token_can_see": "${acct_visible}",
               "account_names_token_can_see": "${acct_names}",
               "configured_account_is_one_the_token_can_see": ${acct_match},
+              "account_listing_note": (
+                  "listing accounts needs Account Settings Read, which a token scoped "
+                  "only to Workers AI does not carry. Zero visible accounts is therefore "
+                  "expected for a correctly minimal token and is never on its own "
+                  "evidence of an account mismatch."),
           }
           # One sentence an operator can act on, chosen by which call broke.
-          if preflight["token_verify_http"] != "200":
+          # Ordered by what actually matters. A token that reads the Workers AI
+          # catalog is working, and nothing else needs explaining; the other
+          # branches exist only to name a failure.
+          #
+          # Account visibility is deliberately NOT checked first. Listing
+          # accounts needs its own permission (Account Settings Read), so a
+          # token scoped narrowly to Workers AI - which is the correct, minimal
+          # scope - sees zero accounts. Treating that as a mismatch reported a
+          # fully working token as broken, which is exactly what it did on the
+          # run that first passed.
+          if preflight["workers_ai_models_search_http"] == "200":
+              preflight["diagnosis"] = (
+                  "the token verifies and reads the Workers AI catalog on this account; "
+                  "any remaining failure is specific to running a model")
+          elif preflight["token_verify_http"] != "200":
               preflight["diagnosis"] = (
                   "the token itself did not verify, so the CLOUDFLARE_API_TOKEN secret "
                   "does not hold a currently valid token - most likely the secret was "
@@ -786,6 +805,13 @@ jobs:
               preflight["diagnosis"] = (
                   "the token verifies but CLOUDFLARE_ACCOUNT_ID is not a 32-character "
                   "hex account id, so the request URL names no real account")
+          elif preflight["accounts_token_can_see"] in ("0", "UNKNOWN", ""):
+              preflight["diagnosis"] = (
+                  "the token verifies but Workers AI is refused on this account, and the "
+                  "token cannot list accounts either - which is normal for a token scoped "
+                  "only to Workers AI, so it is not evidence of a mismatch. Check that the "
+                  "token whose id is " + (preflight["token_id"] or "<unreadable>") + " has "
+                  "Workers AI permission on the account CLOUDFLARE_ACCOUNT_ID names")
           elif not preflight["configured_account_is_one_the_token_can_see"]:
               preflight["diagnosis"] = (
                   "the token verifies but CLOUDFLARE_ACCOUNT_ID is not among the accounts "
@@ -793,21 +819,13 @@ jobs:
                   "different accounts. Fix whichever is wrong: point the secret at the "
                   "account the token is scoped to, or re-scope the token. Accounts this "
                   "token can see: " + (preflight["account_names_token_can_see"] or "none"))
-          elif preflight["workers_ai_models_search_http"] != "200":
+          else:
               preflight["diagnosis"] = (
                   "the token verifies and is scoped to this very account, yet Workers AI is "
                   "refused on it, so the Workers AI permission is not in effect on the token "
-                  "the secret actually holds. Two things to check, in this order. First, "
-                  "confirm the GitHub secret CLOUDFLARE_API_TOKEN holds the token whose id "
-                  "is " + (preflight["token_id"] or "<unreadable>") + " - a valid old deploy "
-                  "token also verifies 200, so a passing verify does not mean the secret was "
-                  "replaced. Second, if that is the right token, re-open it in the dashboard "
-                  "and confirm the Workers AI permission was saved through to the end rather "
-                  "than left on the edit screen")
-          else:
-              preflight["diagnosis"] = (
-                  "the token verifies and can read Workers AI on this account; any "
-                  "remaining failure is specific to running a model")
+                  "the secret actually holds - re-open the token whose id is "
+                  + (preflight["token_id"] or "<unreadable>") +
+                  " and confirm the permission was saved through to the end")
           rows = []
           for line in open("probe-rows.tsv"):
               requested, served, match, http, code, completed = line.rstrip("\n").split("\t")

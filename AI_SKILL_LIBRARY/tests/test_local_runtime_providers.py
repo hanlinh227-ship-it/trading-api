@@ -105,6 +105,24 @@ class ScopeTests(unittest.TestCase):
         self.assertIn("cloudflare_workers_ai", resolution.pending)
         self.assertNotIn("cloudflare_workers_ai", resolution.rejected)
 
+    def test_a_credential_held_by_a_worker_is_routing_not_absence(self):
+        # Earned from the Workers AI probe: the token lived in Actions secrets
+        # while this container held none, and three real completions came back.
+        # Reporting that as no access would have been false.
+        provider = hosted([exact()], credential_available_here=False,
+                          credential_held_by_worker="github_actions_ubuntu_latest")
+        self.assertEqual(provider.local_blockers(), ())
+        self.assertEqual(provider.reachable_only_by_dispatch,
+                         "github_actions_ubuntu_latest")
+        resolution = ProviderRegistry([provider]).resolve("openai/gpt-oss-20b")
+        self.assertTrue(resolution.exact)
+
+    def test_no_credential_anywhere_is_still_a_blocker(self):
+        provider = hosted([exact()], credential_available_here=False,
+                          credential_held_by_worker=None)
+        self.assertTrue(provider.local_blockers())
+        self.assertFalse(ProviderRegistry([provider]).resolve("openai/gpt-oss-20b").exact)
+
     def test_an_unauthorized_account_is_a_federation_blocker(self):
         provider = hosted([exact()], operator_authorized=False)
         resolution = ProviderRegistry([provider]).resolve("openai/gpt-oss-20b")

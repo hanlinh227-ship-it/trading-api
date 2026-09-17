@@ -256,9 +256,28 @@ class ProviderRecord:
     #: How far this path has been verified. Defaults to DISCOVERED, so a
     #: provider added from documentation is not available until something has
     #: actually run on it.
+    #: A worker that holds this provider's credential when this runtime does
+    #: not. The distinction is real and was earned: the Workers AI probe ran
+    #: three completions from a GitHub Actions runner while this container held
+    #: no Cloudflare token at all. Treating that as "no access" would have been
+    #: false - the federation reaches the provider, just not from here.
+    credential_held_by_worker: str | None = None
+
     verification_state: ProviderVerification = ProviderVerification.DISCOVERED
     verification_evidence: str | None = None
     operator_action_required: str | None = None
+
+    @property
+    def reachable_only_by_dispatch(self) -> str | None:
+        """The worker a request must go through, when this runtime cannot call it.
+
+        Not a blocker: the provider is reachable and proven. It is a routing
+        fact, and the caller needs it because the request has to be dispatched
+        rather than made here.
+        """
+        if self.credential_available_here or not self.authentication_required:
+            return None
+        return self.credential_held_by_worker
 
     @property
     def usable_without_approval(self) -> bool:
@@ -302,10 +321,11 @@ class ProviderRecord:
         disqualified by these.
         """
         why: list[str] = []
-        if self.authentication_required and not self.credential_available_here:
+        if (self.authentication_required and not self.credential_available_here
+                and not self.credential_held_by_worker):
             why.append(
-                "this runtime holds no credential for it, and one must not be written "
-                "into the repository to create one"
+                "this runtime holds no credential for it, no worker holds one either, "
+                "and one must not be written into the repository to create one"
             )
         if self.verification_state not in VERIFIED_STATES:
             # The rule that keeps a catalog page out of the availability column.
@@ -346,6 +366,8 @@ class ProviderRecord:
             "federation_blockers": list(self.federation_blockers()),
             "local_blockers": list(self.local_blockers()),
             "reachable_from_this_runtime": not self.local_blockers(),
+            "credential_held_by_worker": self.credential_held_by_worker,
+            "reachable_only_by_dispatch_through": self.reachable_only_by_dispatch,
             "egress_note": self.egress_note,
             "inference_provable_by": self.inference_provable_by,
             "usable_without_approval": self.usable_without_approval,

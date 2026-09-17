@@ -56,41 +56,30 @@ Cloudflare's entire Qwen catalog is three models and Qwen3-Coder-30B-A3B is none
 of them. Do not record the qwen2.5-coder substitute as availability of the
 Qwen3-Coder candidate.
 
-## The one operator action outstanding
+## Cloudflare Workers AI — VERIFIED_AVAILABLE
 
-Workers AI is still refused on the operator's Cloudflare account. Three probe
-rounds narrowed it as far as it can be narrowed from here.
+Settled on 2026-09-17. Probe run 35254843871 with the operator's Workers-AI-scoped
+token: the token verifies (200), reads the Workers AI catalog on the configured
+account (200), and **all three recorded models returned HTTP 200 carrying a real
+completion**. `@cf/openai/gpt-oss-20b` — the exact model the Open Model Universe
+named — served a completion on the Workers Free plan.
 
-**Established** (probe run 35252697668, 2026-09-17T17:29:54Z):
+This is execution proof, which is the only thing that earns `VERIFIED_AVAILABLE`.
+No paid feature was enabled and no plan changed; Workers Free has no billing path.
 
-- the stored token is valid and active — `/user/tokens/verify` returns 200;
-- it is scoped to exactly one account, and `CLOUDFLARE_ACCOUNT_ID` **is** that
-  account;
-- the account id is a well-formed 32-character hex id;
-- Workers AI is refused on that account anyway — 403 on `ai/models/search`, 401
-  with error 10000 on `ai/run` for all three recorded models.
+**The credential lives in GitHub Actions secrets, not in this container.** A
+request therefore reaches Workers AI by dispatching a job. That is a routing fact,
+not an absence of access, and the model records it as `credential_held_by_worker`
+rather than as a blocker — the probe proved the federation reaches the provider
+while this runtime held no token at all. If no worker held one, it would be a
+blocker again; `test_no_credential_anywhere_is_still_a_blocker` holds that line.
 
-**Not established:** whether the GitHub secret holds the newly scoped token or
-the previous deploy token. A valid old token also verifies 200, so the verify
-result cannot tell them apart. The token id is recorded in
-`CHECKPOINTS/evidence/WORKERS_AI_FREE_TIER_PROBE.json` precisely so a person can.
-
-**What to do:** compare that token id with the token that was given Workers AI
-permissions.
-
-- **If it differs** — replace the `CLOUDFLARE_API_TOKEN` secret's *value* with
-  the new token. The permissions are already right; the secret is still holding
-  the old token.
-- **If it matches** — re-open that token in the Cloudflare dashboard and confirm
-  the Workers AI permission was saved through to the end rather than left on the
-  edit screen.
-
-Neither path involves a new account, a plan change or a payment. Workers Free
-already carries the 10,000 daily Neuron allowance and has no billing path.
-
-Then re-dispatch `wave3-model-discovery.yml` with `probe_workers_ai: yes`. A
-`FREE_TIER_SERVES_IT` verdict on `@cf/openai/gpt-oss-20b` moves it to
-`AVAILABLE_SERVERLESS` with no other change.
+**A defect this run exposed.** The probe's diagnosis checked account visibility
+before checking success, and listing accounts needs Account Settings Read — which
+a correctly minimal Workers-AI-only token does not carry. So a fully working token
+was reported as an account mismatch. The diagnosis now checks success first, and
+zero visible accounts is never on its own evidence of a mismatch. The model
+results were always right; only the narrative line was wrong.
 
 ## Evidence
 
