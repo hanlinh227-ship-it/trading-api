@@ -2,7 +2,7 @@ version: 1
 artifact_id: qwen/qwen3-0.6b-q8_0-gguf@1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
 model_id: qwen/qwen3-0.6b-q8_0-gguf
 family: qwen3
-variant: 0.6b-instruct-q8_0-gguf
+variant: 0.6b-q8_0-gguf
 base_model: Qwen/Qwen3-0.6B
 lineage_id: qwen3-0.6b-posttrain
 parent_model: Qwen/Qwen3-0.6B
