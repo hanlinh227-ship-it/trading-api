@@ -1116,15 +1116,34 @@ jobs:
           set -euo pipefail
           python3 -m pip install --quiet pillow
           python3 - <<'PY'
-          from PIL import Image, ImageDraw
-          # A word and a shape, both chosen here. "read the text" and "name the
-          # shape" then have exactly one correct answer each.
-          img = Image.new("RGB", (480, 240), "white")
+          from PIL import Image, ImageDraw, ImageFont
+          # A word and a shape, both chosen here, so "read the text" and "name
+          # the shape" each have exactly one correct answer.
+          #
+          # The word is rendered LARGE and on its own. The first run of this
+          # benchmark used PIL's default bitmap font at roughly 11 pixels on a
+          # 480x240 canvas, which is not legible text - a model that failed to
+          # read it would have been failing my input, not the OCR task. A
+          # capability measurement has to be winnable by a competent model.
+          font = None
+          for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                       "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                       "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
+              try:
+                  font = ImageFont.truetype(path, 120)
+                  break
+              except OSError:
+                  continue
+          img = Image.new("RGB", (900, 500), "white")
           d = ImageDraw.Draw(img)
-          d.text((40, 40), "HARMONY", fill="black")
-          d.ellipse((300, 120, 420, 220), fill="red", outline="black", width=3)
+          if font is None:
+              # Refuse to score OCR on an input nobody could read.
+              raise SystemExit("no scalable font available; refusing to render an "
+                               "illegible OCR input and call the result a measurement")
+          d.text((60, 60), "HARMONY", fill="black", font=font)
+          d.ellipse((330, 260, 570, 460), fill="red", outline="black", width=6)
           img.save("vision-input.png")
-          print("vision input written: word=HARMONY shape=red circle")
+          print(f"vision input written: word=HARMONY at 120px, shape=red circle, font={font.path}")
           PY
 
       - name: Measure it
@@ -1175,8 +1194,15 @@ jobs:
 
           # --- TTS: produce speech from text this job chose ------------------
           SPOKEN = "the quick brown fox jumps over the lazy dog"
+          # A 5xx from the provider says nothing about whether the model can
+          # synthesise speech, so it is retried once before any verdict is
+          # recorded. One retry, not a loop: a second failure is real.
           status, body, ms, err = call("@cf/myshell-ai/melotts",
                                        {"prompt": SPOKEN, "lang": "en"})
+          if status >= 500 or status == 0:
+              time.sleep(5)
+              status, body, ms, err = call("@cf/myshell-ai/melotts",
+                                           {"prompt": SPOKEN, "lang": "en"})
           audio_b64 = None
           if status == 200 and body:
               audio_b64 = (body.get("result") or {}).get("audio") if "result" in body else None
@@ -1221,12 +1247,27 @@ jobs:
                      reason="no audio was produced, so there was nothing to transcribe")
 
           # --- Vision / OCR: read an image rendered in this job --------------
-          img_b64 = base64.b64encode(open("vision-input.png", "rb").read()).decode()
+          img_bytes = open("vision-input.png", "rb").read()
+          img_b64 = base64.b64encode(img_bytes).decode()
+
+          def ask_vision(model, prompt):
+              """Each model wants the image in its own shape, so try both.
+
+              The first run assumed one form and read moondream's 400 as a model
+              failure; it was an input-shape mismatch on my side. Trying the
+              documented alternatives distinguishes 'cannot do it' from 'was
+              asked wrongly'.
+              """
+              for form, image in (("byte_array", list(img_bytes)), ("base64", img_b64)):
+                  status, body, ms, err = call(model, {
+                      "image": image, "prompt": prompt, "max_tokens": 128})
+                  if status == 200:
+                      return status, body, ms, err, form
+              return status, body, ms, err, "none_accepted"
+
           for vision in ("@cf/moondream/moondream3.1-9B-A2B", "@cf/llava-hf/llava-1.5-7b-hf"):
-              status, body, ms, err = call(vision, {
-                  "image": list(base64.b64decode(img_b64)),
-                  "prompt": "What word is written in this image? Answer with the word only.",
-                  "max_tokens": 32})
+              status, body, ms, err, form = ask_vision(
+                  vision, "What word is written in this image? Answer with the word only.")
               if status == 200 and body:
                   desc = ((body.get("result") or {}).get("description")
                           or (body.get("result") or {}).get("response") or "")
@@ -1234,19 +1275,25 @@ jobs:
                   record("ocr_text_in_image", vision,
                          "READ_CORRECTLY" if ok else "READ_INCORRECTLY",
                          http=status, latency_ms=ms, answer=desc[:200],
-                         expected="HARMONY")
-                  status2, body2, ms2, err2 = call(vision, {
-                      "image": list(base64.b64decode(img_b64)),
-                      "prompt": "What coloured shape is in this image? Answer briefly.",
-                      "max_tokens": 32})
+                         expected="HARMONY", input_form=form)
+                  status2, body2, ms2, err2, form2 = ask_vision(
+                      vision, "Describe the shape in this image and its colour.")
                   if status2 == 200 and body2:
                       d2 = ((body2.get("result") or {}).get("description")
                             or (body2.get("result") or {}).get("response") or "")
-                      ok2 = "circle" in d2.lower() and "red" in d2.lower()
-                      record("vision_grounding", vision,
-                             "GROUNDED" if ok2 else "NOT_GROUNDED",
+                      # Colour and shape scored separately. The first run asked
+                      # for both in 32 tokens, got "Red", and recorded a flat
+                      # failure - which threw away the fact that the model had
+                      # perceived the image correctly as far as it answered.
+                      saw_colour = "red" in d2.lower()
+                      saw_shape = any(w in d2.lower() for w in ("circle", "round", "oval", "ellipse"))
+                      verdict = ("GROUNDED" if (saw_colour and saw_shape)
+                                 else "PARTIALLY_GROUNDED" if (saw_colour or saw_shape)
+                                 else "NOT_GROUNDED")
+                      record("vision_grounding", vision, verdict,
                              http=status2, latency_ms=ms2, answer=d2[:200],
-                             expected="red circle")
+                             expected="red circle", saw_colour=saw_colour,
+                             saw_shape=saw_shape, input_form=form2)
                   break
               record("ocr_text_in_image", vision, "FAILED", http=status,
                      latency_ms=ms, error=err)
@@ -1265,6 +1312,8 @@ jobs:
               record("document_embedding", "@cf/baai/bge-m3", "FAILED",
                      http=status, latency_ms=ms, error=err)
 
+          # PARTIALLY_GROUNDED deliberately does not count as coverage. It is
+          # recorded because it is true, not because it is good enough.
           passed = {"PRODUCED_AUDIO", "TRANSCRIBED", "READ_CORRECTLY",
                     "GROUNDED", "EMBEDDED"}
           covered = sorted({r["capability"] for r in results if r["verdict"] in passed})
