@@ -1,0 +1,385 @@
+# Brain Expansion adapter registry.
+#
+# One normalized contract per candidate registered in
+# brain_expansion_architecture.yaml. This file is the single place that records
+# audited upstream provenance, activation stage, feature flag and rollback for
+# the expansion lanes. It creates no second configuration system: it follows the
+# same upstream-record shape already used by v4/integrations/policy.yaml.
+#
+# Nothing here holds authority. task_router remains the only routing authority,
+# Legion the multi-agent execution authority, Model Mesh the model/provider
+# selector, and Memory Continuity the memory authority.
+#
+# Provenance was verified on 2026-09-17 against the live GitHub API (repository
+# identity, default branch, archived state, license classification) and against
+# `git ls-remote --tags` for the exact commit each pinned tag resolves to.
+version: 1
+status: adapters_registered_upstream_audited_no_executable_dependency
+brain_authority: GITHUB_BRAIN_V4
+routing_authority: false
+reasoning_authority: false
+stable_mutation: false
+audited_at: '2026-09-17'
+audit_method: github_api_repository_metadata_plus_git_ls_remote_tag_resolution
+
+canonical_authorities:
+  routing: task_router
+  multi_agent_execution: legion
+  model_provider_selection: model_mesh
+  memory: memory_continuity
+  promotion: repository_native_deterministic_evals
+
+# A candidate may only ever weaken to a lower stage. Raising a stage requires the
+# promotion gates in brain_expansion_architecture.yaml.
+stages: [architecture_registered, reference_only, audited, sandbox_ready, enabled, production_verified]
+
+candidates:
+
+  # ---------------------------------------------------------------- observability
+  langfuse:
+    lane: observability
+    role: observability_adapter_candidate
+    stage: sandbox_ready
+    mode: sanitized_otel_compatible_trace_adapter
+    focus: "Sanitized, OpenTelemetry-aligned diagnostic trace export. Diagnostic evidence only."
+    enabled: false
+    feature_flag: BRAIN_EXPANSION_LANGFUSE_ENABLED
+    executable_dependency_added: false
+    network_execution_enabled: false
+    production_dependency: false
+    independently_disableable: true
+    provider_lock_in: false
+    memory_writeback_allowed: false
+    replaces: []
+    health: unknown
+    failure: none
+    runtime_evidence: null
+    rollback: "Unset BRAIN_EXPANSION_LANGFUSE_ENABLED (or set it false). The adapter then emits nothing and the stable request path is unchanged."
+    blockers:
+      - "license_ambiguous: langfuse/langfuse is a mixed-license monorepo. LICENSE at v4.37.0 grants MIT Expat for most content but places ee/, web/src/ee/ and worker/src/ee/ under the separate commercial licence in ee/LICENSE, so GitHub classifies the repository as NOASSERTION. Executable dependency on the monorepo is blocked; the adapter is vendor-neutral and imports nothing from upstream."
+    upstream:
+      repo: langfuse/langfuse
+      default_branch: main
+      tag: v4.37.0
+      ref: e35c5e108652887b8a22ef54bb2b7c148b397bac
+      license: "MIT-Expat-for-core-plus-separate-commercial-ee-license (GitHub SPDX: NOASSERTION)"
+      license_status: ambiguous
+      archived: false
+      audited_at: '2026-09-17'
+    audit:
+      maintenance: "Active. Pushed 2026-09-17; ~34.7k stars; no archive or disable flag."
+      dependency_license_concerns: "ee/ subtree is commercially licensed; any vendoring or self-hosting of the monorepo must exclude it. The separately published client SDK is not depended upon here."
+      supply_chain_risk: "Not taken: no npm/PyPI package and no upstream source is installed. Risk surface is limited to the repository audit itself."
+      network_behavior: "None. The adapter hands a sanitized dict to an injected exporter callable; the repository ships no exporter that opens a socket."
+      overlap: "Strengthens the existing stable observability contract (v4/stable/observability.yaml). Adds no new telemetry field and no new persistence location."
+      permission_ceiling: "Read-only over already-sanitized diagnostic metadata. Cannot read raw prompts, private chat, private tool payloads, credentials or hidden reasoning."
+      performance_cost_impact: "Zero while disabled. When enabled, one allowlist filter per event, bounded by observability limits.max_event_chars."
+      rollback: "Feature flag off; no schema, no migration, no persisted state to unwind."
+
+  # ------------------------------------------------------------------- evaluation
+  ragas:
+    lane: evaluation
+    role: rag_retrieval_eval_candidate
+    stage: sandbox_ready
+    mode: offline_or_ci_eval_adapter
+    focus: "Retrieval relevance, context quality and groundedness scoring for offline/CI evaluation. Advisory only."
+    enabled: false
+    feature_flag: BRAIN_EXPANSION_RAGAS_ENABLED
+    executable_dependency_added: false
+    network_execution_enabled: false
+    production_dependency: false
+    independently_disableable: true
+    provider_lock_in: false
+    memory_writeback_allowed: false
+    replaces: []
+    health: unknown
+    failure: none
+    runtime_evidence: null
+    rollback: "Unset BRAIN_EXPANSION_RAGAS_ENABLED. No production request path reads this adapter, so disabling it changes nothing at runtime."
+    blockers:
+      - "activation_blocked: enabling the upstream package would add a heavy transitive dependency tree and, by default, outbound LLM-provider calls from the evaluation process. Activation requires a separate dependency + egress decision; scores stay advisory regardless."
+    upstream:
+      repo: vibrantlabsai/ragas
+      default_branch: main
+      tag: v0.4.3
+      ref: 4ecab384fda829ca50bec3f07cc49589d756e172
+      license: Apache-2.0
+      license_status: verified
+      archived: false
+      audited_at: '2026-09-17'
+    audit:
+      maintenance: "Active repository (~15.8k stars), though the default branch was last pushed 2026-02-24 while tags continue; treat release cadence as the freshness signal."
+      dependency_license_concerns: "Apache-2.0 core. Transitive LLM-client and datasets packages carry their own licences and are not vetted because none are installed."
+      supply_chain_risk: "Not taken: no PyPI install. Activation would pull a large transitive tree and must be re-audited at that point."
+      network_behavior: "Upstream metrics call an LLM judge over the network by default. Not enabled here; the adapter only normalizes scores that are handed to it."
+      overlap: "Supplements retrieval evals already described in AI_SKILL_LIBRARY/evals.yaml. Does not replace any deterministic validator."
+      permission_ceiling: "Offline/CI only. No production request path, no credentials, no repository writes."
+      performance_cost_impact: "Zero in FAST/STANDARD/DEEP production profiles; cost would be confined to CI if ever activated."
+      rollback: "Feature flag off; normalized results are advisory records and hold no promotion authority to withdraw."
+
+  deepeval:
+    lane: evaluation
+    role: llm_agent_behavior_eval_candidate
+    stage: sandbox_ready
+    mode: offline_or_ci_eval_adapter
+    focus: "Instruction adherence, task success, hallucination/groundedness and agent behaviour regression fixtures. Advisory only."
+    enabled: false
+    feature_flag: BRAIN_EXPANSION_DEEPEVAL_ENABLED
+    executable_dependency_added: false
+    network_execution_enabled: false
+    production_dependency: false
+    independently_disableable: true
+    provider_lock_in: false
+    memory_writeback_allowed: false
+    replaces: []
+    health: unknown
+    failure: none
+    runtime_evidence: null
+    rollback: "Unset BRAIN_EXPANSION_DEEPEVAL_ENABLED. No production request path reads this adapter."
+    blockers:
+      - "activation_blocked: the upstream package reports telemetry to a first-party hosted service by default and drives LLM-provider calls for its metrics. Activation requires a separate egress/telemetry decision plus explicit opt-out configuration."
+    upstream:
+      repo: confident-ai/deepeval
+      default_branch: main
+      tag: v4.1.8
+      ref: d2de18c80a3e3df52e55e8af3b03943a4c5aaaff
+      license: Apache-2.0
+      license_status: verified
+      archived: false
+      audited_at: '2026-09-17'
+    audit:
+      maintenance: "Active. Pushed 2026-09-16; ~18.3k stars; frequent tagged releases."
+      dependency_license_concerns: "Apache-2.0 core. Transitive eval/LLM-client licences unvetted because nothing is installed."
+      supply_chain_risk: "Not taken: no PyPI install. Vendor-hosted telemetry default is the main concern to resolve before any activation."
+      network_behavior: "Upstream sends usage telemetry and performs LLM-judge calls by default. Neither occurs here."
+      overlap: "Supplements the native behavioural evals in AI_SKILL_LIBRARY/evals.yaml; adds benchmark fixtures, never promotion authority."
+      permission_ceiling: "Offline/CI only. No production request path, no credentials, no repository writes."
+      performance_cost_impact: "Zero in production profiles; CI-only cost if ever activated."
+      rollback: "Feature flag off; advisory records carry no authority to withdraw."
+
+  # ------------------------------------------------------------ browser execution
+  browser_use:
+    lane: browser_execution
+    role: sandbox_browser_execution_candidate
+    stage: sandbox_ready
+    mode: sandbox_browser_execution_adapter
+    focus: "Bounded, already-routed browser tasks. Read-only by default. Never selects its own objective."
+    enabled: false
+    feature_flag: BRAIN_EXPANSION_BROWSER_USE_ENABLED
+    executable_dependency_added: false
+    network_execution_enabled: false
+    production_dependency: false
+    independently_disableable: true
+    provider_lock_in: false
+    memory_writeback_allowed: false
+    replaces: []
+    health: unknown
+    failure: none
+    runtime_evidence: null
+    rollback: "Unset BRAIN_EXPANSION_BROWSER_USE_ENABLED. The adapter then refuses every task with denied_reason=adapter_disabled and invokes no runner."
+    blockers:
+      - "activation_blocked: upstream requires Playwright plus a downloaded Chromium binary, which is a native/binary supply-chain surface and an outbound-network execution surface. Activation requires a separate sandbox + egress authorization."
+    upstream:
+      repo: browser-use/browser-use
+      default_branch: main
+      tag: 0.13.10
+      ref: 5c892e013a73e6622e6f50336e1eb0aa2c4405f2
+      license: MIT
+      license_status: verified
+      archived: false
+      audited_at: '2026-09-17'
+    audit:
+      maintenance: "Very active. Pushed 2026-09-15; ~114.8k stars; rapid release cadence, which itself argues for a pinned ref."
+      dependency_license_concerns: "MIT core. Playwright (Apache-2.0) and the Chromium download are separate redistribution surfaces to review before activation."
+      supply_chain_risk: "High if activated: native browser binary download plus a fast-moving dependency tree. Not taken here."
+      network_behavior: "Would drive a real browser against arbitrary origins. Bounded here by allowed_domains and read-only default; no runner ships in this repository."
+      overlap: "Execution capability only. Objective selection stays with task_router; the adapter refuses any task not routed by it."
+      permission_ceiling: "read_only by default. reversible_write needs explicit user request AND project policy. destructive needs explicit approval. financial execution and credential persistence are hard-denied and cannot be granted through this adapter."
+      performance_cost_impact: "Zero while disabled."
+      rollback: "Feature flag off; per-task denial is the default path, so there is no partial state to unwind."
+
+  # -------------------------------------------------------------- typed contracts
+  baml:
+    lane: typed_contracts
+    role: typed_output_contract_candidate
+    stage: sandbox_ready
+    mode: optional_typed_output_contract_adapter
+    focus: "Optional typed-output checking layered beside canonical JSON Schema. Never business-logic authority."
+    enabled: false
+    feature_flag: BRAIN_EXPANSION_BAML_ENABLED
+    executable_dependency_added: false
+    network_execution_enabled: false
+    production_dependency: false
+    independently_disableable: true
+    provider_lock_in: false
+    memory_writeback_allowed: false
+    replaces: []
+    health: unknown
+    failure: none
+    runtime_evidence: null
+    rollback: "Unset BRAIN_EXPANSION_BAML_ENABLED. Canonical JSON Schema validation is unchanged, so business semantics are identical with the adapter present or removed."
+    blockers:
+      - "activation_blocked: upstream ships a Rust-built native runtime and a codegen CLI, and its default branch is the rolling `canary` branch. Activation requires a native-binary supply-chain decision and a stable pinned release."
+    upstream:
+      repo: BoundaryML/baml
+      default_branch: canary
+      tag: v0.226.2
+      ref: 069ea14fc697093c4d89b98071c83e7d07d166e8
+      license: Apache-2.0
+      license_status: verified
+      archived: false
+      audited_at: '2026-09-17'
+    audit:
+      maintenance: "Active. Pushed 2026-09-17; ~9.2k stars. Default branch is `canary`, so a tag is pinned rather than the branch."
+      dependency_license_concerns: "Apache-2.0 core. Prebuilt native artifacts would need separate provenance review."
+      supply_chain_risk: "Native compiled runtime distributed per platform. Not taken here."
+      network_behavior: "None required for schema validation. The adapter performs no I/O."
+      overlap: "Optional layer beside the canonical Pydantic/JSON Schema contracts. No schema is migrated to adopt it."
+      permission_ceiling: "Validation only. Cannot accept a payload the canonical schema rejects."
+      performance_cost_impact: "Zero while disabled; advisory-only when enabled."
+      rollback: "Feature flag off; removing the adapter cannot change any validation outcome."
+
+  # ------------------------------------------------------- architecture reference
+  microsoft_agent_framework:
+    lane: architecture_reference
+    role: architecture_reference
+    stage: reference_only
+    mode: reference_only
+    focus: "Workflow, session, agent handoff, MCP, A2A, telemetry and typed-state patterns. Patterns are imported into the canonical architecture; the framework is not."
+    enabled: false
+    feature_flag: null
+    executable_dependency_added: false
+    network_execution_enabled: false
+    production_dependency: false
+    independently_disableable: true
+    provider_lock_in: false
+    memory_writeback_allowed: false
+    replaces: []
+    health: unknown
+    failure: none
+    runtime_evidence: null
+    rollback: "Reference record only; delete the entry to withdraw it. Nothing executes."
+    blockers:
+      - "reference_only: promotion to an executable dependency requires a separate, explicit promotion authorization that does not exist today."
+    upstream:
+      repo: microsoft/agent-framework
+      default_branch: main
+      tag: python-1.18.0
+      ref: 3ad2b0741e9da918fa548f03eaafc659c9abca07
+      license: MIT
+      license_status: verified
+      archived: false
+      audited_at: '2026-09-17'
+    audit:
+      maintenance: "Active. Pushed 2026-09-17; ~13.6k stars; Microsoft-owned."
+      dependency_license_concerns: "MIT. Not installed, so transitive licences are out of scope."
+      supply_chain_risk: "None taken: reference only, no dependency."
+      network_behavior: "None. No code is executed from this upstream."
+      overlap: "Orchestration patterns overlap Legion and task_router by design. It replaces neither and holds no orchestration authority."
+      permission_ceiling: "None. Documentation-level reference."
+      performance_cost_impact: "None."
+      rollback: "Remove the registry entry."
+
+  letta:
+    lane: architecture_reference
+    role: memory_architecture_reference
+    stage: reference_only
+    mode: reference_only
+    focus: "Memory blocks, archival memory, compaction, persistence and memory-lifecycle patterns. Patterns only; Memory Continuity keeps memory authority."
+    enabled: false
+    feature_flag: null
+    executable_dependency_added: false
+    network_execution_enabled: false
+    production_dependency: false
+    independently_disableable: true
+    provider_lock_in: false
+    memory_writeback_allowed: false
+    replaces: []
+    health: unknown
+    failure: none
+    runtime_evidence: null
+    rollback: "Reference record only; delete the entry to withdraw it. Nothing executes."
+    blockers:
+      - "reference_only: promotion to an executable dependency requires a separate, explicit promotion authorization that does not exist today."
+    upstream:
+      repo: letta-ai/letta
+      default_branch: main
+      tag: 0.16.8
+      ref: 1131535716e8a31c9a437f8695e25ac98f203a24
+      license: Apache-2.0
+      license_status: verified
+      archived: false
+      audited_at: '2026-09-17'
+    audit:
+      maintenance: "Active. Pushed 2026-09-10; ~24.8k stars."
+      dependency_license_concerns: "Apache-2.0. Not installed, so transitive licences are out of scope."
+      supply_chain_risk: "None taken: reference only, no dependency."
+      network_behavior: "None. No code is executed from this upstream."
+      overlap: "Memory architecture overlaps Memory Continuity by design. It is never a persistent truth store and never writes back."
+      permission_ceiling: "None. Documentation-level reference. memory_writeback_allowed is false and enforced by the adapter tool."
+      performance_cost_impact: "None."
+      rollback: "Remove the registry entry."
+
+  agno:
+    lane: architecture_reference
+    role: agent_runtime_architecture_reference
+    stage: reference_only
+    mode: reference_only
+    focus: "Agent teams, workflow organization, runtime inspection, handoff, guardrails and AgentOS patterns. Patterns only."
+    enabled: false
+    feature_flag: null
+    executable_dependency_added: false
+    network_execution_enabled: false
+    production_dependency: false
+    independently_disableable: true
+    provider_lock_in: false
+    memory_writeback_allowed: false
+    replaces: []
+    health: unknown
+    failure: none
+    runtime_evidence: null
+    rollback: "Reference record only; delete the entry to withdraw it. Nothing executes."
+    blockers:
+      - "reference_only: promotion to an executable dependency requires a separate, explicit promotion authorization that does not exist today."
+    upstream:
+      repo: agno-agi/agno
+      default_branch: main
+      tag: v3.0.10
+      ref: cbc10df7c7d377ce86f8d8f9c1e8c364fd94334d
+      license: Apache-2.0
+      license_status: verified
+      archived: false
+      audited_at: '2026-09-17'
+    audit:
+      maintenance: "Active. Pushed 2026-09-16; ~42.2k stars."
+      dependency_license_concerns: "Apache-2.0. Not installed, so transitive licences are out of scope."
+      supply_chain_risk: "None taken: reference only, no dependency."
+      network_behavior: "None. No code is executed from this upstream."
+      overlap: "Agent-runtime patterns overlap Legion and task_router by design. It replaces neither and builds no parallel control plane."
+      permission_ceiling: "None. Documentation-level reference."
+      performance_cost_impact: "None."
+      rollback: "Remove the registry entry."
+
+# Packaging this contract into the immutable stable release bundle is deliberately
+# deferred. Releases are immutable, so the new files cannot be added to 4.13.0 in
+# place, and cutting a successor is blocked by the repository's own rollback
+# invariant: rollback_release() targets the last release marked known_good, and
+# AI_SKILL_LIBRARY/v4/releases/history.yaml records 4.13.0 as known_good=false.
+# A successor built on top of it would leave the immediate predecessor
+# un-rollbackable. Marking 4.13.0 known_good would assert a production
+# verification that has not happened, so the gate is respected rather than lowered.
+#
+# The expansion contract is therefore resolved through checkpoint pointers, which
+# is sufficient for every adapter here because all of them are disabled by default
+# and none is on the stable request path.
+release_packaging:
+  packaged_in_stable_release: false
+  resolved_via: checkpoint_pointers
+  blocked_by: >-
+    release_gate: 4.13.0 is known_good=false in releases/history.yaml, so cutting a
+    successor release would break the rollback-to-known-good invariant asserted by
+    test_release_history_contains_current_release_and_is_rollbackable.
+  resolution: >-
+    Once 4.13.0 (or a later release) is production-verified and recorded known_good,
+    add these paths to release.py RELEASE_FILES and build the next version with
+    AI_SKILL_LIBRARY/v4/tools/release.py build.
