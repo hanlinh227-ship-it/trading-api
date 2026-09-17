@@ -409,5 +409,56 @@ class FutureWaveReadinessTests(unittest.TestCase):
             self.assertIn(capability, CAPABILITY_TAGS)
 
 
+class SchedulerIntegrationTests(unittest.TestCase):
+    """serve() must not run work the mesh placed somewhere else."""
+
+    def _serve(self, **kwargs):
+        from AI_SKILL_LIBRARY.v4.local_runtime.federation import serve
+        from AI_SKILL_LIBRARY.v4.local_runtime.runtime import RuntimeMesh
+        from AI_SKILL_LIBRARY.v4.local_runtime.scheduler import TaskRequest
+
+        return serve(
+            TaskRequest(task_id="t1"),
+            slots=(), snapshot=snapshot(), mesh=RuntimeMesh(adapters=()), claims={},
+            now=NOW, **kwargs)
+
+    def test_a_job_placed_on_another_worker_is_refused_not_localised(self):
+        # The failure this guard prevents: a result attributed to a machine
+        # that never touched it.
+        registry = WorkerRegistry()
+        join(registry, "gpu-box", worker_class=WorkerClass.OWNED_LINUX)
+        outcome = self._serve(
+            worker_mesh=FreeWorkerMesh(registry),
+            mesh_request=request(), local_worker_id="ephemeral-local-0")
+        self.assertFalse(outcome.admitted)
+        self.assertIn("gpu-box", outcome.reason)
+        self.assertIn("remote transport is not implemented", outcome.reason)
+        self.assertEqual(outcome.worker_placement["worker_id"], "gpu-box")
+
+    def test_a_job_placed_on_a_provider_is_refused_by_the_local_plane(self):
+        mesh = FreeWorkerMesh(
+            WorkerRegistry(), ProviderRegistry([hosted_provider(OfferingMatch.EXACT)]))
+        outcome = self._serve(worker_mesh=mesh,
+                              mesh_request=request(privacy=Privacy.PUBLIC),
+                              local_worker_id="ephemeral-local-0")
+        self.assertFalse(outcome.admitted)
+        self.assertIn("provider cloudflare_workers_ai", outcome.reason)
+
+    def test_nothing_available_refuses_before_any_slot_is_considered(self):
+        outcome = self._serve(worker_mesh=FreeWorkerMesh(WorkerRegistry()),
+                              mesh_request=request(),
+                              local_worker_id="ephemeral-local-0")
+        self.assertFalse(outcome.admitted)
+        self.assertIn("no executor is available", outcome.reason)
+
+    def test_no_mesh_leaves_serve_behaving_exactly_as_before(self):
+        # Every prior conclusion drawn from serve() must still hold, or they
+        # would all need re-reading.
+        without = self._serve()
+        self.assertIsNone(without.worker_placement)
+        self.assertFalse(without.admitted)  # no slots were offered
+        self.assertNotIn("mesh", without.reason.lower())
+
+
 if __name__ == "__main__":
     unittest.main()

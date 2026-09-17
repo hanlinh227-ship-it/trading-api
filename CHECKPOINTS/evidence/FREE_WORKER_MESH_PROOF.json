@@ -1,0 +1,159 @@
+{
+  "tool": "free_worker_mesh_proof",
+  "rounds_run": 10,
+  "rounds_passed": 9,
+  "failed_rounds": [
+    "J"
+  ],
+  "mesh_status": "FAILED",
+  "worker_classes_supported": [
+    "CI_EPHEMERAL",
+    "EPHEMERAL_LOCAL",
+    "FREE_CLOUD_EPHEMERAL",
+    "FUTURE_PROVIDER",
+    "JIT_REMOTE",
+    "MODEL_PROVIDER",
+    "OWNED_LINUX",
+    "OWNED_MAC",
+    "OWNED_VPS",
+    "OWNED_WINDOWS",
+    "PERSISTENT_LOCAL",
+    "REMOTE_CPU",
+    "REMOTE_EPHEMERAL",
+    "REMOTE_GPU",
+    "REMOTE_PERSISTENT",
+    "SERVERLESS_INFERENCE"
+  ],
+  "capability_vocabulary_size": 25,
+  "execution_modes": [
+    "EXACT_MODEL",
+    "CAPABILITY_PROVIDER"
+  ],
+  "rounds": [
+    {
+      "round": "A",
+      "scenario": "owned_worker_runs_the_exact_model",
+      "passed": true,
+      "failures": [],
+      "placement": {
+        "outcome": "EXACT_MODEL_WORKER",
+        "requested_model": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+        "execution_mode": "EXACT_MODEL",
+        "executed_model": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+        "ran_the_requested_model": true,
+        "worker_id": "owned-linux-0",
+        "worker_class": "OWNED_LINUX",
+        "provider_id": null,
+        "fallback_reason": null,
+        "candidates_considered": 1,
+        "worker_refusals": {},
+        "provider_refusals": {},
+        "routing_authority": false,
+        "model_selection_authority": false,
+        "admission_authority": false
+      }
+    },
+    {
+      "round": "B",
+      "scenario": "stale_lease_fails_over",
+      "passed": true,
+      "failures": [],
+      "before": "laptop",
+      "after": "desktop",
+      "refusal": [
+        "last heartbeat 600.0s ago, past its 60.0s lease, so it may already be gone"
+      ]
+    },
+    {
+      "round": "C",
+      "scenario": "quota_exhaustion_is_bypassed_not_retried",
+      "passed": true,
+      "failures": [],
+      "chose": "owned-linux-0",
+      "refusal": "free quota is exhausted (0 remaining); this clears on reset, not on retry"
+    },
+    {
+      "round": "D",
+      "scenario": "repeated_failure_opens_the_circuit",
+      "passed": true,
+      "failures": [],
+      "failed_worker": "flaky",
+      "fell_over_to": "steady",
+      "refusal": [
+        "circuit is OPEN after repeated failures; 60.0s of cooldown remain"
+      ]
+    },
+    {
+      "round": "E",
+      "scenario": "the_breaker_is_not_a_permanent_removal",
+      "passed": true,
+      "failures": [],
+      "placed_on": "flaky",
+      "note": "after cooldown a probe is allowed through, which is how it recovers"
+    },
+    {
+      "round": "F",
+      "scenario": "privacy_outranks_the_free_provider",
+      "passed": true,
+      "failures": [],
+      "outcome": "CAPABILITY_TEMPORARILY_UNAVAILABLE",
+      "provider_refusals": {
+        "cloudflare_workers_ai": [
+          "this runtime holds no credential for it, and one must not be written into the repository to create one",
+          "@cf/qwen/qwen2.5-coder-32b-instruct free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
+        ]
+      }
+    },
+    {
+      "round": "G",
+      "scenario": "owned_device_joins_and_becomes_eligible",
+      "passed": true,
+      "failures": [],
+      "before": "CAPABILITY_TEMPORARILY_UNAVAILABLE",
+      "after": "macbook",
+      "note": "no code path changed between the two calls"
+    },
+    {
+      "round": "H",
+      "scenario": "large_model_keeps_its_named_requirement",
+      "passed": true,
+      "failures": [],
+      "refusal": "has 15298 MB RAM available, needs 37200 MB",
+      "note": "a statement about the machines attached, not about the model"
+    },
+    {
+      "round": "I",
+      "scenario": "future_capability_needs_no_new_authority",
+      "passed": true,
+      "failures": [],
+      "capabilities": {
+        "vision": "EXACT_MODEL_WORKER",
+        "ocr": "EXACT_MODEL_WORKER",
+        "audio_understanding": "EXACT_MODEL_WORKER",
+        "long_context": "EXACT_MODEL_WORKER"
+      },
+      "note": "architectural readiness only; no Wave 4 model is admitted, staged or measured by this round"
+    },
+    {
+      "round": "J",
+      "scenario": "live_federated_inference",
+      "passed": false,
+      "failures": [
+        "a worker errored"
+      ],
+      "models": [
+        "Qwen/Qwen3-8B-GGUF",
+        "microsoft/Phi-3-mini-4k-instruct-gguf"
+      ],
+      "routing_authority": "task_router",
+      "model_selection_authority": "model_mesh",
+      "answer": " What is the role of a worker in a federation? What is the role of a worker in a federation? What is the role of a worker in a federation? What is the role of a worker in a federation? What is the role",
+      "wall_ms": 229728.034,
+      "note": "a real completion from an admitted local model, not a placement"
+    }
+  ],
+  "routing_authority": false,
+  "model_selection_authority": false,
+  "admission_authority": false,
+  "note": "Round I is architectural readiness only. No later-wave model is admitted, staged or measured by this proof."
+}

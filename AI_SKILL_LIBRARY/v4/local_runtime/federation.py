@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .cache import CacheEntry, CachePolicy, EvictionAction, plan_eviction
+from .free_worker_mesh import FreeWorkerMesh, MeshOutcome, MeshPlacement, MeshRequest
 from .lifecycle import ModelState
 from .resources import ResourceSnapshot
 from .runtime import (
@@ -60,6 +61,10 @@ class ServeOutcome:
     #: True when the runtime plane itself failed and was contained.
     degraded: bool = False
     rejected: Mapping[str, str] = field(default_factory=dict)
+    #: The Free Worker Mesh's answer, when one was consulted. Carried onto the
+    #: outcome so a reader can see which executor was chosen and, on a refusal,
+    #: why this host was not it.
+    worker_placement: Mapping[str, Any] | None = None
 
     @property
     def ok(self) -> bool:
@@ -89,9 +94,31 @@ def serve(
     cache_entries: Sequence[CacheEntry] = (),
     scheduler_policy: SchedulerPolicy | None = None,
     cache_policy: CachePolicy | None = None,
+    worker_mesh: FreeWorkerMesh | None = None,
+    mesh_request: MeshRequest | None = None,
+    local_worker_id: str | None = None,
 ) -> ServeOutcome:
-    """Place, invoke and tidy up. Never raises into the caller."""
+    """Place, invoke and tidy up. Never raises into the caller.
+
+    When a `worker_mesh` is supplied it is consulted first, because it answers a
+    question the slot scheduler cannot: *which machine*. The slots below are all
+    on this host, so if the mesh names a different worker, running here anyway
+    would produce a result attributed to hardware that never touched it. That is
+    refused rather than silently localised - remote transport is deliberately
+    not implemented, and pretending otherwise is the failure this guard exists
+    to prevent.
+    """
     try:
+        mesh_placement: MeshPlacement | None = None
+        if worker_mesh is not None and mesh_request is not None:
+            mesh_placement = worker_mesh.place(mesh_request, now=now)
+            refusal = _mesh_refusal(mesh_placement, local_worker_id)
+            if refusal is not None:
+                return ServeOutcome(
+                    task_id=request.task_id, admitted=False, reason=refusal,
+                    worker_placement=dict(mesh_placement.to_dict()),
+                )
+
         decision = plan_placement(request, slots, snapshot, policy=scheduler_policy)
         housekeeping = plan_sleep(slots, snapshot, policy=scheduler_policy)
         evictions = plan_eviction(cache_entries, need_bytes=0, snapshot=snapshot, policy=cache_policy)
@@ -104,6 +131,7 @@ def serve(
                 sleep_actions=housekeeping,
                 eviction_actions=evictions,
                 rejected=decision.rejected,
+                worker_placement=None if mesh_placement is None else dict(mesh_placement.to_dict()),
             )
 
         placement = decision.placements[0]
@@ -133,6 +161,7 @@ def serve(
             sleep_actions=housekeeping,
             eviction_actions=evictions,
             rejected=decision.rejected,
+            worker_placement=None if mesh_placement is None else dict(mesh_placement.to_dict()),
         )
     except Exception as exc:  # noqa: BLE001 - the containment boundary itself
         return ServeOutcome(
@@ -141,6 +170,30 @@ def serve(
             reason=f"local runtime plane degraded: {type(exc).__name__}: {exc}",
             degraded=True,
         )
+
+
+def _mesh_refusal(placement: MeshPlacement, local_worker_id: str | None) -> str | None:
+    """Why this host must not carry the work the mesh just placed. None means it may.
+
+    Three cases, and each would be a different lie if it ran here anyway:
+    nothing can serve the request at all; a provider would serve it, which is
+    not this process; or another machine was chosen.
+    """
+    if placement.outcome is MeshOutcome.CAPABILITY_TEMPORARILY_UNAVAILABLE:
+        return f"no executor is available: {placement.fallback_reason}"
+    if placement.provider_id is not None:
+        return (
+            f"the mesh placed this on provider {placement.provider_id} running "
+            f"{placement.executed_model_id}; this process serves local slots only, and "
+            f"running here would attribute the result to the wrong executor"
+        )
+    if local_worker_id is not None and placement.worker_id != local_worker_id:
+        return (
+            f"the mesh placed this on worker {placement.worker_id}, not this host "
+            f"({local_worker_id}); remote transport is not implemented, and a local run "
+            f"would be recorded against a machine that never touched it"
+        )
+    return None
 
 
 def wake_transitions(placement: Placement) -> tuple[tuple[ModelState, ModelState], ...]:
