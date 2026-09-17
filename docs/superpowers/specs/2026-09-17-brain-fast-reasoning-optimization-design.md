@@ -53,19 +53,46 @@ USER / EVENT / IDLE OBJECTIVE
 All figures below are from runs committed in this branch
 (`CHECKPOINTS/evidence/`), on this host, Qwen3-0.6B-Q8_0, llama-cpp-python 0.3.35.
 
-**B1. Cold load dominates first-response latency.** This is the single largest
-local latency cost and it is not close:
+**B1. Cold load does *not* dominate — corrected.** An earlier version of this
+section claimed cold load was ~80% of first-response latency, from figures of
+2756–3363 ms load against 702–767 ms inference. Those loads were **not measured
+against a cold page cache**, so they were partly re-reading memory and partly
+contention. With `/proc/sys/vm/drop_caches` dropped before every load
+(`CHECKPOINTS/evidence/RESIDENCY_LATENCY_PROFILE.json`), across all four
+admitted models:
 
-| Phase | Measured |
-|---|---|
-| cold model load | 2756–3363 ms |
-| inference (24 tokens) | 702–767 ms |
-| warm inference | 678–734 ms |
+| Model | size | cold load | warm inference | residency saving | peak RAM |
+|---|---|---|---|---|---|
+| Qwen3-0.6B-Q8_0 | 609 MB | 942 ms | 665 ms | 942 ms | 1829 MB |
+| Granite-3.3-2B-Q4_K_M | 1473 MB | 836 ms | 3250 ms | 981 ms | 3317 MB |
+| Qwen3-1.7B-Q8_0 | 1749 MB | 1387 ms | 1764 ms | 1508 ms | 4237 MB |
+| Qwen3-4B-Q4_K_M | 2381 MB | 1588 ms | 5066 ms | 1859 ms | 5476 MB |
 
-The load is **~80% of first-response time**, and the second call saves all of
-it. Warm inference is *not* meaningfully faster than cold inference
-(767 vs 734 ms) — the win is entirely in not reloading. Any optimization that
-does not address residency is optimizing the remaining 20%.
+The conclusion reverses with model size:
+
+* on the **smallest** model, load is 59% of first response — the old claim, in
+  weakened form;
+* on the **strongest** model, the one the mesh now selects and the baseline is
+  frozen against, **inference dominates 3:1** (5066 ms against 1588 ms). Load is
+  24% of first response.
+
+So "fix residency first" is right for a small hot worker and wrong for the model
+that actually answers hard requests. Residency still buys 0.9–1.9 s per request
+and is worth having, but it is no longer the largest lever; **inference time on
+the selected model is**, and that is a quantization and token-budget question,
+not a caching one.
+
+The earlier figures are left described rather than deleted because the mistake
+is instructive: a latency measurement that does not control the page cache
+measures what was read last. Granite first profiled at a 618 ms "cold" load
+against Qwen3-1.7B's 4212 ms for a *larger* file — a cache artefact that looked
+exactly like a property of the model.
+
+**B1b. Not everything can be resident.** The four admitted models need
+1829 + 3317 + 4237 + 5476 = 14.9 GB against 16.1 GB of host RAM. Keeping them
+all hot would leave ~1 GB for everything else, so HOT must stay at one or two
+models and the choice is a real trade: the most capable model is also the most
+expensive to hold and the slowest to answer.
 
 **B2. The routing utility is fed vendor claims, not measurements.**
 `score_candidate` weights `measured_quality` at 0.25, yet in `active.json`
@@ -288,7 +315,8 @@ both fail closed on evidence that stops being real.
 
 | Change | Expected | Confidence |
 |---|---|---|
-| resident-aware FAST routing | removes ~2.8 s from a cold FAST request | **high** — measured |
+| resident-aware FAST routing | removes 0.9–1.9 s from a cold request, by model | **high** — measured cold-cache |
+| smaller model for FAST | 665 ms vs 5066 ms inference, at 0.75 vs 0.92 capability | **high** — measured |
 | early exit | removes one verifier/model call on already-verified answers | medium |
 | verified capability index | better *correctness* of selection; latency effect unknown | high on correctness |
 | streaming | large perceived improvement; no change to total latency | medium |

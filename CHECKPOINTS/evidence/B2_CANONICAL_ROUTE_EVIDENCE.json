@@ -2,7 +2,7 @@
   "b2_status": "PASS",
   "prompt": "What is the capital of France?",
   "model_named_at_ingress": false,
-  "request_id": "b2-1789635546",
+  "request_id": "b2-1789639448",
   "canonical_route_ok": true,
   "reason": "canonical route completed with real inference",
   "stages": [
@@ -29,19 +29,22 @@
     {
       "stage": "governance_admission",
       "ok": true,
-      "detail": "1 admitted",
+      "detail": "4 admitted",
       "data": {
         "model_ids": [
-          "Qwen/Qwen3-0.6B-GGUF"
+          "Qwen/Qwen3-0.6B-GGUF",
+          "Qwen/Qwen3-1.7B-GGUF",
+          "ibm-granite/granite-3.3-2b-instruct-GGUF",
+          "Qwen/Qwen3-4B-GGUF"
         ]
       }
     },
     {
       "stage": "model_mesh",
       "ok": true,
-      "detail": "selected Qwen/Qwen3-0.6B-GGUF",
+      "detail": "selected Qwen/Qwen3-4B-GGUF",
       "data": {
-        "selected": "Qwen/Qwen3-0.6B-GGUF",
+        "selected": "Qwen/Qwen3-4B-GGUF",
         "rejections": [],
         "selection_authority": "model_mesh"
       }
@@ -51,7 +54,7 @@
       "ok": true,
       "detail": "verified from cache",
       "data": {
-        "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031"
+        "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5"
       }
     },
     {
@@ -68,7 +71,7 @@
       "ok": true,
       "detail": "real tokens generated",
       "data": {
-        "inference_latency_ms": 708.481,
+        "inference_latency_ms": 5154.232,
         "tokens_output": 24,
         "residency": [
           "READY",
@@ -78,17 +81,17 @@
       }
     }
   ],
-  "output": " It is a question that has been asked by many and is perhaps even more important to the question of how to approach the",
+  "output": " \n\nThe capital of France is Paris. Paris is not only the capital of France but also a major cultural and historical center",
   "execution_evidence": {
     "authority": false,
-    "request_id": "b2-1789635546",
-    "task_id": "b2-1789635546",
+    "request_id": "b2-1789639448",
+    "task_id": "b2-1789639448",
     "worker_id": "local",
-    "model_id": "Qwen/Qwen3-0.6B-GGUF",
-    "model_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-    "artifact_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-    "artifact_fingerprint": "ee18e02cb87de9249cebf984aa0255b5",
-    "actual_quantization": "Q8_0",
+    "model_id": "Qwen/Qwen3-4B-GGUF",
+    "model_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+    "artifact_sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+    "artifact_fingerprint": "0af309b5b9d552063c8cc76f9415130a",
+    "actual_quantization": "Q4_K_M",
     "runtime_id": "llama.cpp",
     "runtime_version": "llama-cpp-python/0.3.35",
     "backend": "llama.cpp",
@@ -96,15 +99,15 @@
     "placement_action": "LOAD_FROM_CACHE",
     "cold_or_warm_start": "COLD",
     "timing": {
-      "queue_wait_ms": 0.072,
-      "load_latency_ms": 3018.731,
-      "inference_latency_ms": 708.909,
-      "total_latency_ms": 3727.643,
-      "start_time": "2026-09-17T08:59:06.820+00:00",
-      "end_time": "2026-09-17T08:59:10.548+00:00"
+      "queue_wait_ms": 0.08,
+      "load_latency_ms": 5983.094,
+      "inference_latency_ms": 5154.681,
+      "total_latency_ms": 11137.779,
+      "start_time": "2026-09-17T10:04:10.909+00:00",
+      "end_time": "2026-09-17T10:04:22.046+00:00"
     },
     "resources": {
-      "peak_ram_mb": 1827.52,
+      "peak_ram_mb": 5465.84,
       "peak_vram_mb": 0.0
     },
     "tokens": {

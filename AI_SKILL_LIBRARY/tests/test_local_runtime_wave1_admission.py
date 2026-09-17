@@ -210,3 +210,53 @@ class LiveRegistryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ResidencyProfileEvidenceTests(unittest.TestCase):
+    """Latency evidence must be measured under stated conditions, or it is noise."""
+
+    def setUp(self):
+        path = ROOT / "CHECKPOINTS/evidence/RESIDENCY_LATENCY_PROFILE.json"
+        if not path.is_file():
+            self.skipTest("no residency profile committed")
+        self.profile = json.loads(path.read_text(encoding="utf-8"))
+
+    def test_cold_loads_were_measured_against_a_cold_page_cache(self):
+        """Without this the first load measures whatever was read last.
+
+        It is recorded as a flag rather than assumed, because a profile taken
+        without the privilege to drop caches is still useful and must not claim
+        to be a cold-load measurement.
+        """
+        self.assertTrue(self.profile["cold_loads_are_page_cache_cold"])
+        for model in self.profile["models"]:
+            if model.get("measured"):
+                self.assertTrue(model["page_cache_dropped_before_load"], model["model_id"])
+
+    def test_every_admitted_model_was_profiled_on_the_same_prompt(self):
+        """A latency comparison across different prompts compares the prompts."""
+        self.assertTrue(self.profile["prompt"])
+        self.assertTrue(all(m.get("measured") for m in self.profile["models"]))
+
+    def test_residency_saving_is_derived_from_the_measured_parts(self):
+        for model in self.profile["models"]:
+            with self.subTest(model_id=model["model_id"]):
+                expected = (model["cold_load_ms"] + model["cold_inference_ms"]
+                            - model["warm_inference_ms"])
+                self.assertAlmostEqual(model["residency_saving_ms"], expected, places=2)
+
+    def test_the_models_cannot_all_be_resident_at_once(self):
+        """The constraint behind a HOT tier of one or two, not four."""
+        total = sum(m["peak_ram_mb"] for m in self.profile["models"] if m.get("measured"))
+        self.assertGreater(total, self.profile["host_ram_total_mb"] * 0.8)
+
+    def test_capability_and_latency_do_not_move_together(self):
+        """The trade the routing utility has to price.
+
+        The most capable model is also the slowest, so a selection weighted on
+        capability alone systematically picks the slowest worker.
+        """
+        measured = [m for m in self.profile["models"] if m.get("measured_capability")]
+        strongest = max(measured, key=lambda m: m["measured_capability"])
+        fastest = min(measured, key=lambda m: m["warm_inference_ms"])
+        self.assertNotEqual(strongest["model_id"], fastest["model_id"])

@@ -164,10 +164,23 @@ def make_selector(identities: Mapping[str, Mapping[str, Any]]):
     return selector
 
 
-def make_runtime(root: Path, cache: Path, record: Mapping[str, Any], *, max_tokens: int = 24):
-    """Load the real weights and generate, measuring wake, warm and sleep."""
+def make_runtime(root: Path, cache: Path, records: Mapping[str, Mapping[str, Any]],
+                 *, max_tokens: int = 24):
+    """Load the real weights the mesh selected, and measure wake, warm, sleep.
+
+    `records` maps candidate key -> registry record. It used to be a single
+    record, which was indistinguishable from correct while exactly one model was
+    admitted and became a mis-execution the moment four were: the mesh selected
+    Qwen3-4B and the runtime loaded Qwen3-0.6B, ignoring the selection
+    entirely. The golden gate caught it as an artifact_identity_mismatch,
+    because the identity it compares reaches it by two independent paths.
+    """
 
     def runtime(selection: Mapping[str, Any], prepared: Mapping[str, Any]) -> Mapping[str, Any]:
+        key = str(selection["primary_model"].get("candidate_key") or "")
+        record = records.get(key)
+        if record is None:
+            raise GoldenE2EError(f"the mesh selected {key}, which has no registry record here")
         identity, reasons = from_record(record)
         if identity is None:
             raise GoldenE2EError("; ".join(reasons))
@@ -308,6 +321,12 @@ def admitted_candidates(root: Path, *, observed_at: str | None = None):
             continue
         out.append((as_mesh_candidate(projected.profile, record, observed_at=observed_at), record))
     return out
+
+
+def records_by_key(pairs) -> dict[str, Mapping[str, Any]]:
+    """Candidate key -> its registry record, so the runtime loads what was picked."""
+    return {f"{candidate.get('provider_id')}:{candidate.get('model_id')}": record
+            for candidate, record in pairs}
 
 
 def declared_identities(pairs) -> dict[str, Mapping[str, Any]]:

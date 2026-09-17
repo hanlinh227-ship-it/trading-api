@@ -22,6 +22,7 @@ from AI_SKILL_LIBRARY.v4.local_runtime.golden_e2e import (  # noqa: E402
     GoldenE2EError,
     admitted_candidates,
     declared_identities,
+    records_by_key,
     ingress,
     make_router,
     make_runtime,
@@ -48,7 +49,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                    "reason": "no governance-admitted local model"}
     else:
         candidates = [candidate for candidate, _ in pairs]
-        record = pairs[0][1]
         try:
             result = run_golden_e2e(
                 {"request": args.request, "profile": "STANDARD"},
@@ -56,7 +56,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ingress=ingress,
                 router=make_router(args.root),
                 selector=make_selector(declared_identities(pairs)),
-                runtime=make_runtime(args.root, args.cache, record, max_tokens=args.max_tokens),
+                runtime=make_runtime(args.root, args.cache, records_by_key(pairs),
+                                     max_tokens=args.max_tokens),
                 verifier=verifier,
                 synthesis=synthesis,
             )
