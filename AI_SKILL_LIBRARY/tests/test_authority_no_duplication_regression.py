@@ -84,6 +84,8 @@ class SingleRouterTests(unittest.TestCase):
             value = doc.get("routing_authority") if isinstance(doc, dict) else None
             if isinstance(value, str) and value != "task_router":
                 wrong.append(f"{path.name}: {value}")
+            if value is True:
+                wrong.append(f"{path.name}: claims routing authority")
             if isinstance(doc, dict) and doc.get("routed_by") not in (None, "task_router"):
                 wrong.append(f"{path.name}: routed_by={doc.get('routed_by')}")
         self.assertEqual(wrong, [])
@@ -107,13 +109,24 @@ class SingleAuthorityPerPlaneTests(unittest.TestCase):
         self.assertEqual(integration["model_selection_authority"], "model_mesh")
 
     def test_model_selection_is_always_attributed_to_the_mesh(self):
+        """The key carries two meanings, and only one of them can be wrong.
+
+        A document that *attributes* a selection names the authority that made
+        it, and that must be the mesh. A document that *disclaims* the authority
+        writes False, exactly as it writes routing_authority and
+        admission_authority False - saying "not me" is the invariant holding,
+        not breaking. What is never acceptable is True: a tool asserting it
+        selects models is the duplicate authority this suite exists to catch.
+        """
         wrong = []
         for path, doc in evidence_docs():
             if not isinstance(doc, dict):
                 continue
             value = doc.get("model_selection_authority")
-            if value is not None and value != "model_mesh":
+            if isinstance(value, str) and value != "model_mesh":
                 wrong.append(f"{path.name}: {value}")
+            if value is True:
+                wrong.append(f"{path.name}: claims model-selection authority")
         self.assertEqual(wrong, [])
 
     def test_registry_membership_never_implies_activation(self):
