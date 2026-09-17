@@ -1,0 +1,37 @@
+{
+  "federation_status": "RAN",
+  "request": "What is the capital city of Japan? Answer briefly.",
+  "profile": "STANDARD",
+  "domain": "core",
+  "primary_skill": "core_reasoning",
+  "collaboration_mode": "MAKER_CHECKER",
+  "answer": " The capital city of Japan is Tokyo. However, it's worth noting that Tokyo is also the capital of the Tokyo Metropolitan",
+  "workers": [
+    {
+      "model_id": "Qwen/Qwen3-4B-GGUF",
+      "role": "maker",
+      "output": " The capital city of Japan is Tokyo. However, it's worth noting that Tokyo is also the capital of the Tokyo Metropolitan",
+      "latency_ms": 5167.118,
+      "error": null
+    },
+    {
+      "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+      "role": "checker",
+      "output": "\n\nThe capital city of Japan is Tokyo.",
+      "latency_ms": 1778.947,
+      "error": null
+    }
+  ],
+  "outputs_identical": false,
+  "substantive_agreement": "unresolved_here",
+  "resolved_by_vote": false,
+  "max_concurrent_models": 2,
+  "verifier": "core_reasoning",
+  "specialist_groups": [
+    "CORE_REASONING"
+  ],
+  "routing_authority": "task_router",
+  "model_selection_authority": "model_mesh",
+  "execution_plan_authority": "control_plane.plan_execution",
+  "rejections": []
+}
