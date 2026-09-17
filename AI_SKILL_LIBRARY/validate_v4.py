@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from AI_SKILL_LIBRARY.v4.tools.release import verify_active_pointer  # noqa: E402
+from AI_SKILL_LIBRARY.v4.tools.validate_open_model_universe import validate_open_model_universe  # noqa: E402
 
 
 def _load_yaml(path: Path) -> dict:
@@ -65,6 +66,7 @@ def validate_v4(root: Path = ROOT) -> tuple[list[str], list[str]]:
     release_errors, release_warnings = verify_active_pointer(root)
     errors.extend(release_errors)
     warnings.extend(release_warnings)
+    errors.extend(f"Open Model Universe: {item}" for item in validate_open_model_universe(root))
 
     stable = kernel.get("planes", {}).get("stable", {})
     update = kernel.get("planes", {}).get("evergreen", {})
