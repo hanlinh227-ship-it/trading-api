@@ -29,6 +29,33 @@ canonical_authorities:
   memory: memory_continuity
   promotion: repository_native_deterministic_evals
 
+# Auto-activation. An adapter turns itself on only when every condition it
+# actually requires is verified; FAIL, UNKNOWN, a missing probe or a probe that
+# raises all leave it off. There is deliberately no always-on mode.
+auto_activation:
+  mode: AUTO_ACTIVATE_WHEN_VERIFIED
+  auto_activate_when_verified: true
+  always_on: false
+  fail_closed: true
+  unknown_is_failure: true
+  paid_dependency_auto_install: false
+  billing_auto_enable: false
+  fast_path_synchronous_probe: false
+  eligibility_ttl_seconds: 3600
+  conditions:
+    - license_verified
+    - dependency_audit
+    - dependency_available
+    - security_policy
+    - credential_present
+    - network_allowed
+    - runtime_health_probe
+    - sandbox_test
+    - no_protected_regression
+    - rollback_verified
+  hard_blocking_conditions: [license_verified, security_policy]
+  degrading_conditions: [runtime_health_probe]
+
 # A candidate may only ever weaken to a lower stage. Raising a stage requires the
 # promotion gates in brain_expansion_architecture.yaml.
 stages: [architecture_registered, reference_only, audited, sandbox_ready, enabled, production_verified]
@@ -51,6 +78,19 @@ candidates:
     provider_lock_in: false
     memory_writeback_allowed: false
     replaces: []
+    auto_activation:
+      activation_mode: SANITIZED_EXPORT
+      required_conditions:
+        - license_verified
+        - dependency_audit
+        - dependency_available
+        - security_policy
+        - credential_present
+        - network_allowed
+        - runtime_health_probe
+        - sandbox_test
+        - no_protected_regression
+        - rollback_verified
     health: unknown
     failure: none
     runtime_evidence: null
@@ -112,6 +152,16 @@ candidates:
     provider_lock_in: false
     memory_writeback_allowed: false
     replaces: []
+    auto_activation:
+      activation_mode: OFFLINE_CI_EVAL
+      required_conditions:
+        - license_verified
+        - dependency_audit
+        - dependency_available
+        - security_policy
+        - sandbox_test
+        - no_protected_regression
+        - rollback_verified
     health: unknown
     failure: none
     runtime_evidence: null
@@ -152,6 +202,16 @@ candidates:
     provider_lock_in: false
     memory_writeback_allowed: false
     replaces: []
+    auto_activation:
+      activation_mode: OFFLINE_CI_EVAL
+      required_conditions:
+        - license_verified
+        - dependency_audit
+        - dependency_available
+        - security_policy
+        - sandbox_test
+        - no_protected_regression
+        - rollback_verified
     health: unknown
     failure: none
     runtime_evidence: null
@@ -193,6 +253,18 @@ candidates:
     provider_lock_in: false
     memory_writeback_allowed: false
     replaces: []
+    auto_activation:
+      activation_mode: READ_ONLY_SANDBOX
+      default_risk_class: read_only
+      required_conditions:
+        - license_verified
+        - dependency_audit
+        - dependency_available
+        - security_policy
+        - runtime_health_probe
+        - sandbox_test
+        - no_protected_regression
+        - rollback_verified
     health: unknown
     failure: none
     runtime_evidence: null
@@ -234,6 +306,16 @@ candidates:
     provider_lock_in: false
     memory_writeback_allowed: false
     replaces: []
+    auto_activation:
+      activation_mode: OPTIONAL_TYPED_CONTRACT
+      required_conditions:
+        - license_verified
+        - dependency_audit
+        - dependency_available
+        - security_policy
+        - sandbox_test
+        - no_protected_regression
+        - rollback_verified
     health: unknown
     failure: none
     runtime_evidence: null
@@ -275,6 +357,9 @@ candidates:
     provider_lock_in: false
     memory_writeback_allowed: false
     replaces: []
+    auto_activation:
+      activation_mode: REFERENCE_ONLY
+      required_conditions: []
     health: unknown
     failure: none
     runtime_evidence: null
@@ -315,6 +400,9 @@ candidates:
     provider_lock_in: false
     memory_writeback_allowed: false
     replaces: []
+    auto_activation:
+      activation_mode: REFERENCE_ONLY
+      required_conditions: []
     health: unknown
     failure: none
     runtime_evidence: null
@@ -355,6 +443,9 @@ candidates:
     provider_lock_in: false
     memory_writeback_allowed: false
     replaces: []
+    auto_activation:
+      activation_mode: REFERENCE_ONLY
+      required_conditions: []
     health: unknown
     failure: none
     runtime_evidence: null

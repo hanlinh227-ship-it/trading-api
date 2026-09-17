@@ -119,6 +119,63 @@ Nothing is `enabled` or `production_verified`. Langfuse remains blocked from an
 executable dependency by its open-core licence; the audited MIT-safe path
 (`langfuse/langfuse-python` `v4.15.4`) is recorded but not activated.
 
+## Auto-activation (AUTO_ACTIVATE_WHEN_VERIFIED)
+
+Adapters are no longer statically off; they evaluate themselves at boot and turn
+on only when every condition they actually require is verified. There is no
+always-on mode, and a test asserts the string `ALWAYS_ON` appears nowhere in the
+adapter tool or registry.
+
+Ten gates: `license_verified`, `dependency_audit`, `dependency_available`,
+`security_policy`, `credential_present`, `network_allowed`,
+`runtime_health_probe`, `sandbox_test`, `no_protected_regression`,
+`rollback_verified`. Each adapter declares only the subset it needs.
+
+| Adapter | Activation mode | Required gates |
+| --- | --- | --- |
+| langfuse | `SANITIZED_EXPORT` | all 10 |
+| ragas | `OFFLINE_CI_EVAL` | 7 (no credential, no network) |
+| deepeval | `OFFLINE_CI_EVAL` | 7 (no credential, no network) |
+| baml | `OPTIONAL_TYPED_CONTRACT` | 7 (no credential, no network) |
+| browser_use | `READ_ONLY_SANDBOX` | 8 (adds runtime health, no credential) |
+
+Fail-closed semantics: `FAIL`, `UNKNOWN`, a missing probe and a probe that raises
+all leave the adapter off. A definite failure on a hard gate (`license_verified`,
+`security_policy`) is `blocked`; an unhealthy upstream alone is `degraded`;
+anything else unmet is `disabled`. UNKNOWN never becomes `blocked`, because not
+knowing is not a standing prohibition.
+
+State machine: `reference_only`, `sandbox_ready`, `eligible`, `enabled`,
+`degraded`, `disabled`, `blocked`. `production_verified` is never produced by
+eligibility evaluation — it requires real runtime evidence.
+
+Boot flow: FAST never probes upstreams, so routing latency is untouched; STANDARD
+and DEEP probe, cache the verdict and revalidate after a 3600s TTL. A boot sweep
+where every probe fails or raises still returns `stable_path_ok=True` with no
+adapter enabled.
+
+Langfuse resolves its activation upstream to `langfuse/langfuse-python` (MIT). An
+edited `activation_path` pointing back at the open-core `langfuse/langfuse`
+monorepo is rejected as `blocked`.
+
+### Runtime evidence from this environment
+
+A real probe of this environment produced, for every adapter, `enabled=false`
+with `stable_path_ok=true` — `dependency_available` is the common unmet gate, and
+Langfuse additionally lacks credentials and cannot verify egress.
+
+One adapter was taken end to end as proof the mechanism actually flips. `baml-py`
+`0.226.2` was installed, and with a real sandbox test (validation parity with the
+adapter on and off across six payloads, plus a check that BAML cannot bless a
+payload the canonical schema rejects) BAML evaluated to `state=enabled` with all
+seven of its gates `PASS` and every authority claim false. This is environment-local
+evidence: the committed registry keeps `enabled: false`, because activation is a
+boot-time decision made where the brain actually runs, not a checked-in flag.
+
+Optional pinned dependencies are recorded in
+`AI_SKILL_LIBRARY/requirements-brain-expansion.txt`, which is deliberately not
+installed by the brain validator CI.
+
 ## Boundaries unchanged
 
 `task_router` remains the only routing authority, Legion the multi-agent execution

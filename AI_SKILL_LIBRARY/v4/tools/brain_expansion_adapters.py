@@ -765,3 +765,301 @@ def validate_typed_output(
         "baml_disagreement": disagreement,
         "stable_path_ok": True,
     }
+
+
+# ---------------------------------------------------------------------------
+# Auto-activation: AUTO_ACTIVATE_WHEN_VERIFIED
+# ---------------------------------------------------------------------------
+#
+# An adapter enables itself only when every condition it actually requires is
+# verified. FAIL, UNKNOWN, a missing probe and a probe that raises are all
+# treated the same way: the adapter stays off and the stable brain continues.
+# There is deliberately no always-on mode.
+
+#: Ordered gate set. `required_conditions()` preserves this order.
+AUTO_ACTIVATION_CONDITIONS = (
+    "license_verified",
+    "dependency_audit",
+    "dependency_available",
+    "security_policy",
+    "credential_present",
+    "network_allowed",
+    "runtime_health_probe",
+    "sandbox_test",
+    "no_protected_regression",
+    "rollback_verified",
+)
+
+#: The full adapter state machine.
+ADAPTER_STATES = (
+    "reference_only",
+    "sandbox_ready",
+    "eligible",
+    "enabled",
+    "degraded",
+    "disabled",
+    "blocked",
+)
+
+#: A failure here is a standing block, not a transient outage.
+HARD_BLOCKING_CONDITIONS = ("license_verified", "security_policy")
+
+#: A failure here means the adapter was otherwise fine but its upstream is not.
+DEGRADING_CONDITIONS = ("runtime_health_probe",)
+
+_DEFAULT_TTL_SECONDS = 3600
+
+
+def auto_activation_policy(registry: dict | None = None, root: Path | str | None = None) -> dict:
+    """The canonical auto-activation policy, read from the registry when present."""
+    try:
+        registry = registry if registry is not None else load_adapter_registry(root)
+        declared = registry.get("auto_activation") or {}
+    except (OSError, ValueError):
+        declared = {}
+    return {
+        "mode": "AUTO_ACTIVATE_WHEN_VERIFIED",
+        "auto_activate_when_verified": declared.get("auto_activate_when_verified", True) is True,
+        "always_on": False,
+        "fail_closed": True,
+        "unknown_is_failure": True,
+        "paid_dependency_auto_install": False,
+        "billing_auto_enable": False,
+        "fast_path_synchronous_probe": False,
+        "eligibility_ttl_seconds": int(declared.get("eligibility_ttl_seconds") or _DEFAULT_TTL_SECONDS),
+    }
+
+
+def required_conditions(candidate_id: str, record: dict) -> tuple[str, ...]:
+    """Conditions this specific candidate must satisfy before it may auto-enable."""
+    record = record if isinstance(record, dict) else {}
+    if str(record.get("stage")) == "reference_only":
+        return ()
+    declared = (record.get("auto_activation") or {}).get("required_conditions") or []
+    declared_set = {str(name) for name in declared}
+    return tuple(name for name in AUTO_ACTIVATION_CONDITIONS if name in declared_set)
+
+
+def activation_upstream(candidate_id: str, record: dict) -> dict:
+    """The upstream an adapter would actually depend on when activated.
+
+    Langfuse activates against the separately published, single-licence MIT SDK,
+    never the mixed-licence open-core server monorepo.
+    """
+    record = record if isinstance(record, dict) else {}
+    path = record.get("activation_path") if isinstance(record.get("activation_path"), dict) else None
+    if path:
+        return {
+            "repo": str(path.get("candidate_upstream") or ""),
+            "ref": str(path.get("ref") or ""),
+            "license": str(path.get("license") or ""),
+            "license_status": str(path.get("license_status") or "unknown"),
+        }
+    upstream = record.get("upstream") if isinstance(record.get("upstream"), dict) else {}
+    return {
+        "repo": str(upstream.get("repo") or ""),
+        "ref": str(upstream.get("ref") or ""),
+        "license": str(upstream.get("license") or ""),
+        "license_status": str(upstream.get("license_status") or "unknown"),
+    }
+
+
+def classify_probe_outcome(outcome: Any) -> bool | None:
+    """Map a raw probe outcome onto PASS / FAIL / UNKNOWN.
+
+    Auth, rate-limit and server errors are definite failures. A timeout or an
+    unparseable response is UNKNOWN, which fails closed just the same.
+    """
+    if outcome is True or outcome is False or outcome is None:
+        return outcome
+    text = str(outcome).strip().lower()
+    if text in ("ok", "pass", "200", "204", "healthy", "true"):
+        return True
+    if text in ("timeout", "malformed_response", "unknown", "unreachable"):
+        return None
+    return False
+
+
+def _resolve_probes(
+    conditions: Sequence[str],
+    probes: dict | None,
+    probe_fn: Callable[[str], Any] | None,
+) -> dict[str, bool | None]:
+    resolved: dict[str, bool | None] = {}
+    for name in conditions:
+        if probes is not None and name in probes:
+            resolved[name] = classify_probe_outcome(probes[name])
+            continue
+        if probe_fn is None:
+            resolved[name] = None
+            continue
+        try:
+            resolved[name] = classify_probe_outcome(probe_fn(name))
+        except Exception:  # noqa: BLE001 - a broken probe must never reach the caller
+            resolved[name] = None
+    return resolved
+
+
+def evaluate_eligibility(
+    candidate_id: str,
+    record: dict,
+    *,
+    probes: dict | None = None,
+    probe_fn: Callable[[str], Any] | None = None,
+    auto_activate: bool | None = None,
+    context: dict | None = None,  # noqa: ARG001 - accepted and deliberately never echoed
+) -> dict:
+    """Decide whether one candidate may auto-enable, and in which state.
+
+    ``context`` may carry operational values such as credentials. It is used only
+    to reach a verdict and is never copied into the result.
+    """
+    record = record if isinstance(record, dict) else {}
+    policy = auto_activation_policy()
+    if auto_activate is None:
+        auto_activate = policy["auto_activate_when_verified"]
+
+    conditions = required_conditions(candidate_id, record)
+    activation = record.get("auto_activation") if isinstance(record.get("auto_activation"), dict) else {}
+    upstream = activation_upstream(candidate_id, record)
+
+    result: dict[str, Any] = {
+        "id": candidate_id,
+        "state": "disabled",
+        "enabled": False,
+        "activation_mode": str(activation.get("activation_mode") or "DISABLED"),
+        "default_risk_class": str(activation.get("default_risk_class") or "read_only"),
+        "required": list(conditions),
+        "conditions": {},
+        "failed": [],
+        "unknown": [],
+        "blockers": [],
+        "reason": "",
+        "stable_path_ok": True,
+        "permission_widened": False,
+        "paid_fallback": False,
+        "activation_upstream": upstream,
+    }
+    for claim in AUTHORITY_CLAIMS:
+        result[claim] = False
+
+    if str(record.get("stage")) == "reference_only":
+        result["state"] = "reference_only"
+        result["reason"] = "reference_only candidates never auto-activate"
+        return result
+
+    # An adapter must never activate against a mixed-licence monorepo, even if an
+    # activation_path record is edited to point back at it.
+    declared = record.get("upstream") if isinstance(record.get("upstream"), dict) else {}
+    if (
+        str(declared.get("license_status") or "") != "verified"
+        and upstream["repo"]
+        and upstream["repo"] == str(declared.get("repo") or "")
+    ):
+        result["state"] = "blocked"
+        result["blockers"].append(
+            f"activation upstream {upstream['repo']!r} is the candidate's own non-verified-licence repository"
+        )
+        result["reason"] = "activation upstream is a non-verified-licence repository"
+        return result
+
+    # An adapter may only ever activate against an upstream whose licence is
+    # verified for that exact purpose.
+    if upstream["license_status"] != "verified":
+        result["state"] = "blocked"
+        result["blockers"].append(f"activation upstream {upstream['repo']!r} has no verified licence")
+        result["reason"] = "activation upstream licence not verified"
+        return result
+
+    resolved = _resolve_probes(conditions, probes, probe_fn)
+    for name in conditions:
+        verdict = resolved.get(name)
+        result["conditions"][name] = "PASS" if verdict is True else ("FAIL" if verdict is False else "UNKNOWN")
+        if verdict is False:
+            result["failed"].append(name)
+        elif verdict is None:
+            result["unknown"].append(name)
+    for name in AUTO_ACTIVATION_CONDITIONS:
+        result["conditions"].setdefault(name, "NOT_REQUIRED")
+
+    unmet = result["failed"] + result["unknown"]
+    if not unmet:
+        if auto_activate:
+            result["state"] = "enabled"
+            result["enabled"] = True
+            result["reason"] = "every required condition verified"
+        else:
+            result["state"] = "eligible"
+            result["reason"] = "conditions verified but auto-activation is off"
+        return result
+
+    # UNKNOWN fails closed, but it is not a standing prohibition: only a definite
+    # FAIL on a hard gate means "blocked". Not yet known means "disabled".
+    hard = [name for name in result["failed"] if name in HARD_BLOCKING_CONDITIONS]
+    if hard:
+        result["state"] = "blocked"
+        result["blockers"] = [f"{name} not verified" for name in hard]
+        result["reason"] = f"hard gate unmet: {', '.join(hard)}"
+        return result
+
+    if all(name in DEGRADING_CONDITIONS for name in unmet):
+        result["state"] = "degraded"
+        result["reason"] = f"upstream unhealthy: {', '.join(unmet)}"
+        return result
+
+    result["state"] = "disabled"
+    result["reason"] = f"unmet: {', '.join(unmet)}"
+    return result
+
+
+def boot_eligibility(
+    registry: dict | None = None,
+    *,
+    probe_fn: Callable[[str], Any] | None = None,
+    profile: str = "STANDARD",
+    cache: dict | None = None,
+    now: float | None = None,
+    root: Path | str | None = None,
+) -> dict:
+    """Boot-time eligibility sweep.
+
+    FAST never probes upstreams, so routing latency is untouched; it reports the
+    cached verdict or nothing. STANDARD and DEEP probe, cache the result and
+    revalidate once the TTL expires. Whatever happens, the stable brain stands.
+    """
+    registry = registry if registry is not None else load_adapter_registry(root)
+    policy = auto_activation_policy(registry)
+    ttl = policy["eligibility_ttl_seconds"]
+    now = float(now) if now is not None else 0.0
+    candidates = registry.get("candidates") or {}
+    probed = str(profile).upper() != "FAST"
+
+    adapters: dict[str, dict] = {}
+    for candidate_id, record in candidates.items():
+        cached = (cache or {}).get(candidate_id) if cache is not None else None
+        if cached and now - float(cached.get("checked_at", 0.0)) <= ttl:
+            adapters[candidate_id] = cached["result"]
+            continue
+        if not probed:
+            row = evaluate_eligibility(candidate_id, record, probes={})
+            row["reason"] = "FAST profile does not probe upstreams"
+            adapters[candidate_id] = row
+            continue
+        row = evaluate_eligibility(candidate_id, record, probe_fn=probe_fn)
+        adapters[candidate_id] = row
+        if cache is not None:
+            cache[candidate_id] = {"checked_at": now, "result": row}
+
+    smoke = stable_path_smoke(registry=registry, root=root)
+    return {
+        "profile": str(profile).upper(),
+        "probed": probed,
+        "policy": policy,
+        "adapters": adapters,
+        "enabled_adapters": sorted(cid for cid, row in adapters.items() if row["enabled"]),
+        "stable_path_ok": smoke["stable_path_ok"],
+        "router_authority": smoke["router_authority"],
+        "execution_authority": smoke["execution_authority"],
+        "model_authority": smoke["model_authority"],
+        "memory_authority": smoke["memory_authority"],
+    }

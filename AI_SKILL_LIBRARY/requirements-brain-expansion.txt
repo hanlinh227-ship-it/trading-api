@@ -1,0 +1,40 @@
+# Optional Brain Expansion adapter dependencies.
+#
+# This file is deliberately NOT installed by AI_SKILL_LIBRARY/requirements.txt and
+# NOT installed by the brain validator CI. The stable brain must keep working
+# with none of these present, and every adapter stays off until it verifies.
+#
+# Auto-activation is AUTO_ACTIVATE_WHEN_VERIFIED: installing a line below makes
+# that adapter's `dependency_available` condition pass, but the adapter still
+# enables only if every other condition it requires also passes (licence,
+# dependency audit, security policy, credential, egress, runtime health,
+# sandbox test, no protected regression, rollback). Anything FAIL or UNKNOWN
+# leaves it off. Installing a package is therefore permission to try, never an
+# instruction to enable.
+#
+# Versions are pinned to the exact audited upstream refs recorded in
+# AI_SKILL_LIBRARY/v4/integrations/brain_expansion_adapters.yaml.
+
+# --- verified in this repository -------------------------------------------
+# BAML typed-contract adapter. Apache-2.0, audited, sandbox-verified:
+# semantic parity on/off confirmed and it cannot override a schema rejection.
+baml-py==0.226.2
+
+# --- audited but not yet runtime-verified here ------------------------------
+# Each line below still needs its own activation decision. Ragas and DeepEval
+# drive LLM-provider calls by default and DeepEval reports telemetry to a
+# vendor-hosted service unless explicitly opted out, so both need an egress and
+# privacy decision before use. Browser Use additionally downloads a Chromium
+# binary, which is a separate native supply-chain decision.
+#
+# ragas==0.4.3
+# deepeval==4.1.8
+# browser-use==0.13.10
+
+# --- Langfuse ---------------------------------------------------------------
+# Use ONLY the separately published single-licence MIT SDK. The langfuse/langfuse
+# server monorepo is open-core (MIT Expat core plus a commercial ee/ licence) and
+# must never become an executable dependency. Enabling the exporter additionally
+# requires credentials and egress that this repository does not assume.
+#
+# langfuse==4.15.4
