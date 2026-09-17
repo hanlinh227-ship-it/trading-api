@@ -41,7 +41,13 @@ export function compileImageIntent(input={}){
 
   const refs=[];
   if(Array.isArray(input.referenceAssets))refs.push(...input.referenceAssets.filter(Boolean));
-  if(cleanObject(input.sourceImage))refs.push(input.sourceImage);
+  const sourceImage=cleanObject(input.sourceImage);
+  if(sourceImage)refs.push(sourceImage);
+  // A locked background is a reference asset like any other: it constrains the render and
+  // must travel with it, so it is never left behind as a prompt-only hint.
+  const backgroundImage=cleanObject(input.backgroundImage);
+  if(backgroundImage)refs.push(backgroundImage);
+  const mask=cleanObject(input.mask);
   if(REFERENCE_TASKS.has(taskType)&&refs.length===0)throw new Error('reference_assets_required');
   if(SOURCE_IMAGE_TASKS.has(taskType)&&refs.length===0)throw new Error('source_image_required');
 
@@ -62,6 +68,11 @@ export function compileImageIntent(input={}){
     subjectCount,
     subjectIdentityConstraints:asList(explicit.subjectIdentityConstraints??input.subjectIdentityConstraints),
     referenceAssets:refs.map(ref=>({...ref})),
+    // The image the provider actually renders from. Reference tasks that name no explicit
+    // source still have one -- the first reference -- so the runtime never has to guess.
+    sourceImage:sourceImage?{...sourceImage}:(refs.length?{...refs[0]}:null),
+    backgroundImage:backgroundImage?{...backgroundImage}:null,
+    mask:mask?{...mask}:null,
     preserveRegions:unique(asList(input.preserveRegions)),
     editableRegions:unique(asList(input.editableRegions)),
     wardrobeConstraints:asList(explicit.wardrobeConstraints??input.wardrobeConstraints),

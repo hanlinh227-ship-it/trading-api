@@ -115,7 +115,9 @@ export function markSceneProviderResult(state,input={}){
   const observed=typeof generation?.model==='string'&&generation.model.trim()?generation.model.trim():null;
   attempt.observed_model=observed;
   attempt.model_substituted=Boolean(observed&&attempt.requested_model&&observed!==attempt.requested_model);
-  const usable=Boolean(generation&&typeof generation.imageUrl==='string'&&generation.imageUrl);
+  // An image is usable whether the provider hosts it or we do. A synchronous runtime
+  // returns bytes and no URL, so requiring a URL here discarded real renders.
+  const usable=Boolean(generation&&((typeof generation.imageUrl==='string'&&generation.imageUrl)||String(generation.assetRef||'').trim()));
   if(usable){
     scene.status='qa_pending';
     return refresh(next);

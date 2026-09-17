@@ -24,8 +24,20 @@ assert.deepEqual(listed.models[1],{name:'Model B',workerCount:0,performance:10,e
 assert.ok(requests.some(row=>row.url.endsWith('/status/models?type=image')));
 
 const registry=createImageProviderRegistry({fetchImpl});
-assert.deepEqual(registry.list(),['ai_horde']);
+// The registry carries both free providers: the volunteer one and the reference-safe
+// first-party runtime that reference, edit and inpaint work needs an execution path on.
+assert.deepEqual(registry.list(),['cloudflare_workers_ai','ai_horde']);
 assert.equal(registry.get('unknown',{}),null);
+// Declaring the reference-safe runtime is not the same as having it. Without the binding
+// the registry hands out nothing, so a route to it fails closed instead of falling
+// through to a provider that must never see a reference image.
+assert.equal(registry.get('cloudflare_workers_ai',{}),null);
+const workersAi=registry.get('cloudflare_workers_ai',{AI:{run:async()=>({image:''})}});
+assert.equal(workersAi.id,'cloudflare_workers_ai');
+assert.equal(workersAi.referenceSafe,true);
+assert.equal(workersAi.monetaryCost,'zero');
+assert.equal(workersAi.paidFallback,false);
+assert.equal(workersAi.autoPurchase,false);
 const provider=registry.get('ai_horde',{});
 assert.equal(provider.id,'ai_horde');
 assert.equal(provider.mode,'FREE_ONLY');

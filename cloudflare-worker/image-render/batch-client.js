@@ -34,6 +34,13 @@ export function cancelImageBatch(env,batchId){
   return callBatch(env,batchId,'/cancel',{method:'DELETE'});
 }
 
+// Returns the raw image response, not JSON: the caller streams it straight back.
+export async function getImageBatchAsset(env,batchId,ref){
+  const binding=requireBinding(env);
+  const stub=binding.get(binding.idFromName(requireBatchId(batchId)));
+  return stub.fetch(new Request(`https://image-render-batch/asset?ref=${encodeURIComponent(String(ref||''))}`,{headers:{accept:'image/*'}}));
+}
+
 export function retryImageBatchScenes(env,batchId,sceneIds=[]){
   return callBatch(env,batchId,'/retry',{method:'POST',body:{sceneIds}});
 }
