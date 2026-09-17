@@ -4,6 +4,13 @@ on:
   workflow_run:
     workflows: ['Deploy Skill-Mandatory Fast Gateway']
     types: [completed]
+  # Runtime evidence has to be re-checkable without waiting for another deploy: a task
+  # probe that failed is only actionable once its diagnostic can be read again.
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: 'Exact main SHA production must already be serving'
+        required: true
 
 permissions:
   contents: read
@@ -13,7 +20,7 @@ env:
 
 jobs:
   image-render-v2-production-smoke:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push'
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
@@ -23,7 +30,7 @@ jobs:
       - name: Production Image Render V2 smoke
         env:
           MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
-          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          EXPECTED_SHA: ${{ github.event.inputs.expected_sha || github.event.workflow_run.head_sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -79,7 +86,7 @@ jobs:
           for(const m of x.models){if(m.tasks.some(t=>t.status==='ACTIVE')&&(!m.runtimeProviders||m.runtimeProviders.length===0))process.exit(11);}
           for(const p of (x.probe&&x.probe.providers)||[]){
             console.log('IMAGE_RUNTIME_PROBE provider='+p.providerId+' discovered='+p.runtimeDiscovered.ok+' healthy='+p.health.ok+' detail='+p.health.detail);
-            for(const [task,e] of Object.entries(p.taskHealth||{}))console.log('IMAGE_RUNTIME_TASK_PROBE provider='+p.providerId+' task='+task+' ok='+Boolean(e&&e.ok)+' model='+(e&&e.model||'none')+' detail='+(e&&e.detail||'none')+' waitState='+(e&&e.waitState||'none'));
+            for(const [task,e] of Object.entries(p.taskHealth||{}))console.log('IMAGE_RUNTIME_TASK_PROBE provider='+p.providerId+' task='+task+' ok='+Boolean(e&&e.ok)+' model='+(e&&e.model||'none')+' detail='+(e&&e.detail||'none')+' waitState='+(e&&e.waitState||'none')+' diagnostic='+JSON.stringify(e&&e.diagnostic||null)+' attempted='+JSON.stringify(e&&e.attempted||[]));
           }
           for(const m of x.models)for(const t of m.tasks)console.log('IMAGE_ACTIVATION model='+m.modelId+' task='+t.taskType+' stage='+t.stage+' status='+t.status+' blockers='+t.blockers.join('|'));
           console.log('IMAGE_V3_ACTIVATION=PASS active='+x.summary.ACTIVE+' candidate='+x.summary.CANDIDATE+' bottleneck='+x.nextBottleneck);})"
@@ -95,3 +102,81 @@ jobs:
           console.log('IMAGE_V3_CAPABILITIES=PASS t2i='+x.taskAvailability.TEXT_TO_IMAGE+' ref='+x.taskAvailability.REFERENCE_GENERATION+' refRuntime='+x.referenceSafeRuntime+' critic='+x.visualCriticRuntime+' inference='+x.inferenceRuntime);})"
 
           echo 'IMAGE_RENDER_V2_PRODUCTION_SMOKE=PASS'
+
+      - name: Scene 1 reference acceptance
+        env:
+          MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A reference scene with two locked character references and a locked background,
+          # submitted through the canonical V3 job path. This is the case that used to lose
+          # its references between layers and land on the volunteer provider.
+          PIXEL='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+          request="$(PIXEL="$PIXEL" node -e "
+          const px=process.env.PIXEL;
+          process.stdout.write(JSON.stringify({chunkSize:1,scenes:[{id:'scene-1',intent:{
+            taskType:'REFERENCE_GENERATION',
+            prompt:'Scene 1: MAX and MOMMY standing together in the BG01 kitchen at morning light',
+            dataClass:'CONFIDENTIAL',
+            qualityProfile:'STRICT',
+            width:512,height:512,subjectCount:2,
+            referenceAssets:[{id:'MAX_REF',role:'character',imageB64:px},{id:'MOMMY_REF',role:'character',imageB64:px}],
+            backgroundImage:{id:'BG01',role:'background',imageB64:px},
+            explicit:{backgroundConstraints:['BG01 kitchen layout must not change']},
+            negativeConstraints:['extra limbs'],
+          }}]}));")"
+
+          created="$(curl -fsS --connect-timeout 5 --max-time 30 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" -H 'content-type: application/json' -d "$request" "$WORKER_BASE_URL/brain/image/v3/jobs")"
+          job_id="$(printf '%s\n' "$created" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.sceneCount!==1)process.exit(20);process.stdout.write(String(x.jobId||''))})")"
+          test -n "$job_id"
+          echo "IMAGE_SCENE1_JOB=$job_id"
+
+          state=''
+          for attempt in $(seq 1 30); do
+            state="$(curl -fsS --connect-timeout 5 --max-time 30 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/v3/jobs/status?id=$job_id")"
+            status="$(printf '%s\n' "$state" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).state?.status||''))}catch{process.stdout.write('')}})")"
+            echo "IMAGE_SCENE1_POLL attempt=$attempt status=$status"
+            case "$status" in
+              complete|complete_with_failures|cancelled|waiting_for_safe_free_runtime|waiting_for_free_compute) break;;
+            esac
+            sleep 5
+          done
+
+          printf '%s\n' "$state" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{
+          const x=JSON.parse(s);
+          const job=x.state||{};
+          const scene=(job.scenes||[])[0]||{};
+          // The volunteer provider is PUBLIC-only and never reference-safe. Reaching it on
+          // this scene at all is a failure, whatever the outcome was.
+          const providers=new Set();
+          for(const attempt of scene.attempts||[])if(attempt.provider)providers.add(attempt.provider);
+          console.log('IMAGE_SCENE1_STATUS job='+job.status+' scene='+scene.status+' providers='+([...providers].join('|')||'none'));
+          if(providers.has('ai_horde')){console.log('IMAGE_SCENE1_REFERENCE_SAFE=FAIL volunteer_provider_reached');process.exit(21);}
+          console.log('IMAGE_SCENE1_REFERENCE_SAFE=PASS');
+          if(['waiting_for_safe_free_runtime','waiting_for_free_compute'].includes(job.status)){
+            console.log('IMAGE_SCENE1_ACCEPTANCE=WAITING state='+job.status);
+            process.exit(0);
+          }
+          if(['complete','complete_unverified'].includes(scene.status)&&scene.asset){
+            console.log('IMAGE_SCENE1_ACCEPTANCE=RENDERED model='+(scene.asset.model||'unknown'));
+            process.exit(0);
+          }
+          console.log('IMAGE_SCENE1_ACCEPTANCE=FAIL job='+job.status+' scene='+scene.status);
+          console.log(JSON.stringify(scene).slice(0,4000));
+          process.exit(22);})"
+
+          # When it rendered, the image itself must come back, not just a status.
+          asset_file="$(mktemp)"
+          asset_code="$(curl --silent --show-error --connect-timeout 5 --max-time 30 -o "$asset_file" -w '%{http_code}' -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/v3/assets?job=$job_id&scene=scene-1" || true)"
+          if [ "$asset_code" = "200" ]; then
+            bytes="$(wc -c < "$asset_file")"
+            test "$bytes" -gt 0
+            echo "IMAGE_SCENE1_ASSET=PASS bytes=$bytes"
+          else
+            echo "IMAGE_SCENE1_ASSET=NOT_READY http=$asset_code"
+          fi
+          rm -f "$asset_file"
+
+          curl -fsS --connect-timeout 5 --max-time 20 -X DELETE -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/v3/jobs?id=$job_id" >/dev/null || true
+          echo 'IMAGE_SCENE1_ACCEPTANCE_STEP=DONE'

@@ -10,6 +10,7 @@ import {visualCriticAvailability} from './critic-runtime.js';
 import {workersAiHealth} from './workers-ai.js';
 import {probeImageRuntimes} from './runtime-probe.js';
 import {cancelImageLogicalJob,createImageLogicalJob,getImageLogicalJobStatus,retryImageLogicalJobScenes} from './logical-job-client.js';
+import {getImageBatchAsset} from './batch-client.js';
 
 const REFERENCE_SAFE_TASKS=new Set(['REFERENCE_GENERATION','CHARACTER_CONSISTENCY','PRODUCT_CONSISTENCY','IMAGE_EDIT_GLOBAL','IMAGE_EDIT_LOCAL','INPAINT','OUTPAINT','BACKGROUND_REPLACE','OBJECT_REPLACE','TEXT_RENDER_EDIT','MULTI_IMAGE_COMPOSE','STYLE_TRANSFER','TARGETED_REPAIR']);
 
@@ -232,6 +233,22 @@ export async function handleImageRenderV3Authorized(request,env={}){
       const result=await getImageLogicalJobStatus(env,jobId);
       return json(result,result.status&&result.status>=400?result.status:200);
     }catch(error){return clientError(error);}
+  }
+
+  // Delivers the image a job produced. A synchronous free runtime returns bytes rather
+  // than a hosted URL, so without this the caller would only ever see a status.
+  if(url.pathname==='/brain/image/v3/assets'){
+    if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
+    const jobId=String(url.searchParams.get('job')||'').trim();
+    const sceneId=String(url.searchParams.get('scene')||'').trim();
+    if(!jobId)return json({ok:false,error:'image_logical_job_id_required'},400);
+    if(!sceneId)return json({ok:false,error:'image_asset_scene_id_required'},400);
+    let status;try{status=await getImageLogicalJobStatus(env,jobId);}catch(error){return clientError(error);}
+    if(!status?.ok)return json({ok:false,error:status?.error||'image_logical_job_not_found'},status?.status||404);
+    const asset=(status.state?.scenes||[]).find(scene=>scene.id===sceneId)?.asset;
+    if(!asset)return json({ok:false,error:'image_asset_not_ready'},404);
+    if(asset.url)return json({ok:true,jobId,sceneId,url:asset.url,model:asset.model||null});
+    try{return await getImageBatchAsset(env,asset.batchId,asset.ref);}catch(error){return clientError(error);}
   }
 
   if(url.pathname==='/brain/image/v3/jobs/retry'){

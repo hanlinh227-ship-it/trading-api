@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "lastVerifiedDate": "2026-09-16",
+  "lastVerifiedDate": "2026-09-17",
   "entries": [
     {
       "modelId": "flux2-klein-4b",
@@ -311,6 +311,52 @@
       "lastVerifiedAt": "2026-09-16",
       "licenseEvidence": "Llama 3.2 Community License permits commercial use below the stated monthly-active-user threshold.",
       "notes": "Visual critic runtime. Judges renders against the per-task benchmark dimensions."
+    },
+    {
+      "modelId": "stable-diffusion-xl-base-1.0",
+      "family": "Stable Diffusion XL",
+      "version": "base-1.0",
+      "canonicalRepo": "stabilityai/stable-diffusion-xl-base-1.0",
+      "providerModelId": "@cf/stabilityai/stable-diffusion-xl-base-1.0",
+      "license": "CreativeML-Open-RAIL++-M",
+      "codeLicense": "CreativeML-Open-RAIL++-M",
+      "weightsLicense": "CreativeML-Open-RAIL++-M",
+      "commercialUseEligible": true,
+      "redistributionEligible": false,
+      "runtimeProviders": [
+        "cloudflare_workers_ai"
+      ],
+      "runtimeConfigured": true,
+      "supportedTasks": [
+        "TEXT_TO_IMAGE",
+        "MULTI_SCENE_BATCH",
+        "REFERENCE_GENERATION",
+        "IMAGE_EDIT_GLOBAL",
+        "IMAGE_EDIT_LOCAL",
+        "INPAINT",
+        "BACKGROUND_REPLACE",
+        "OBJECT_REPLACE",
+        "STYLE_TRANSFER",
+        "TARGETED_REPAIR"
+      ],
+      "referenceSupport": true,
+      "editSupport": true,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1024,
+        "height": 1024
+      },
+      "qualityBenchmarks": {},
+      "approvalStatus": "CANDIDATE",
+      "status": "CANDIDATE",
+      "monetaryCost": "zero",
+      "lastVerifiedAt": "2026-09-17",
+      "licenseEvidence": "Stability AI publishes SDXL 1.0 base under the CreativeML Open RAIL++-M licence (https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md); commercial use is permitted subject to the use restrictions, and it is not a free redistribution licence.",
+      "notes": "Licence-audited fallback on the reference-safe runtime. Cloudflare documents it as accepting image[] and mask[], so it backs the img2img and inpainting routes when the SD 1.5 hosted models are unavailable."
     }
   ]
 }

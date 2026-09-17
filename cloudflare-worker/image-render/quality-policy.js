@@ -6,6 +6,8 @@ const MODEL_RETRY_REASONS=new Set([
   'severe_anatomy','deformation','provider_censored','model_mismatch',
 ]);
 
+import {decideQualityAction} from './critic.js';
+
 const asReasons=value=>Array.isArray(value)?[...new Set(value.map(x=>String(x||'').trim()).filter(Boolean))]:[];
 const finiteConfidence=value=>Number.isFinite(Number(value))?Math.min(1,Math.max(0,Number(value))):null;
 
@@ -13,9 +15,14 @@ function validHttpsUrl(value){
   try{return new URL(String(value||'')).protocol==='https:';}catch{return false;}
 }
 
+// An image either lives at a provider URL or in our own asset store. A synchronous
+// runtime hands back bytes and no URL, so requiring a URL here would have failed every
+// real Workers AI render as malformed.
+const hasAsset=generation=>validHttpsUrl(generation?.imageUrl)||Boolean(String(generation?.assetRef||'').trim());
+
 function structuralFailure(generation){
   if(!generation||typeof generation!=='object')return {decision:'FAIL_TERMINAL',reason:'invalid_generation_record'};
-  if(!validHttpsUrl(generation.imageUrl))return {decision:'FAIL_TERMINAL',reason:'invalid_image_url'};
+  if(!hasAsset(generation))return {decision:'FAIL_TERMINAL',reason:'invalid_image_url'};
   if(generation.censored===true)return {decision:'RETRY_MODEL',reason:'provider_censored'};
   if(!String(generation.model||'').trim())return {decision:'RETRY_MODEL',reason:'missing_generation_model'};
   if(!String(generation.state||'').trim())return {decision:'RETRY_MODEL',reason:'missing_generation_state'};
@@ -30,9 +37,9 @@ function retryFromReasons(reasons){
   return 'RETRY_SEED';
 }
 
-function result({decision,reasons=[],verified=false,qaLevel='STRUCTURAL',confidence=null}){
+function result({decision,reasons=[],verified=false,qaLevel='STRUCTURAL',confidence=null,critic=null,repairAction=null}){
   const sceneStatus=decision==='PASS'?'complete':decision==='PASS_UNVERIFIED'?'complete_unverified':decision==='FAIL_TERMINAL'?'failed_quality':'retry_pending';
-  return {decision,sceneStatus,verified,qaLevel,confidence,reasons:asReasons(reasons)};
+  return {decision,sceneStatus,verified,qaLevel,confidence,reasons:asReasons(reasons),...(critic?{critic}:{}),...(repairAction?{repairAction}:{})};
 }
 
 export async function evaluateImageQuality({scene,generation,qualityMode='STRICT',visualCritic=null}={}){
@@ -48,6 +55,22 @@ export async function evaluateImageQuality({scene,generation,qualityMode='STRICT
   try{review=await visualCritic({scene,generation});}
   catch{return result({decision:'PASS_UNVERIFIED',verified:false,qaLevel:'STRUCTURAL',reasons:['visual_critic_unavailable']});}
   if(!review||review.ok!==true)return result({decision:'PASS_UNVERIFIED',verified:false,qaLevel:'STRUCTURAL',reasons:['visual_critic_unavailable']});
+
+  // A critic that scored the image is judged on its scores and problems; the older
+  // pass/reasons shape is still honoured so an existing critic keeps working.
+  if(Number.isFinite(Number(review.overallScore))){
+    const action=decideQualityAction(review,{strictVisual:mode!=='STRUCTURAL'});
+    const decision=action.decision==='REPAIR_LOCAL'||action.decision==='REPAIR_GLOBAL'?'RETRY_PROMPT':action.decision;
+    return result({
+      decision,
+      verified:action.verified===true,
+      qaLevel:'VISUAL',
+      confidence:finiteConfidence(review.confidence),
+      reasons:action.reasons,
+      critic:action.critic,
+      repairAction:action.decision,
+    });
+  }
 
   const reasons=asReasons(review.reasons);
   const confidence=finiteConfidence(review.confidence);

@@ -24,26 +24,64 @@ function routeScene(scene,mesh){
   return {ok:true,state:'ELIGIBLE',providerModel:eligible[0]};
 }
 
-function physicalManifest(state,chunk){
+// The strictest class in the chunk wins. A manifest never states a looser data class than
+// the scene it carries, because the physical layer enforces privacy from this field.
+const PRIVACY_ORDER=['PUBLIC','INTERNAL','CONFIDENTIAL','SECRET'];
+function strictestPrivacy(scenes=[]){
+  let index=0;
+  for(const scene of scenes){
+    const position=PRIVACY_ORDER.indexOf(String(scene?.intent?.privacyClass||'PUBLIC'));
+    if(position>index)index=position;
+  }
+  return PRIVACY_ORDER[index];
+}
+
+// Everything the V3 routing decision was made from travels with the work. A physical batch
+// that cannot see the task type, the privacy class, the references or the provider that was
+// chosen would have to guess, and guessing is what sent reference work to a volunteer
+// provider before.
+function physicalScene(scene,route){
+  const intent=scene.intent||{};
+  return {
+    scene_id:scene.id,
+    status:'queued',
+    attempts:[],
+    compiled_prompt:String(intent.promptCompiled||scene.prompt||''),
+    negative_prompt:Array.isArray(intent.negativeConstraints)?intent.negativeConstraints.join(', '):'',
+    dimensions:{width:Number(intent.target?.width||512),height:Number(intent.target?.height||512)},
+    task_type:String(intent.taskType||'TEXT_TO_IMAGE'),
+    privacy_class:String(intent.privacyClass||'PUBLIC'),
+    quality_profile:String(intent.qualityProfile||'STRICT'),
+    reference_assets:Array.isArray(intent.referenceAssets)?structuredClone(intent.referenceAssets):[],
+    source_image:intent.sourceImage?structuredClone(intent.sourceImage):null,
+    background_image:intent.backgroundImage?structuredClone(intent.backgroundImage):null,
+    mask:intent.mask?structuredClone(intent.mask):null,
+    background_constraints:Array.isArray(intent.backgroundConstraints)?[...intent.backgroundConstraints]:[],
+    preserve_regions:Array.isArray(intent.preserveRegions)?[...intent.preserveRegions]:[],
+    editable_regions:Array.isArray(intent.editableRegions)?[...intent.editableRegions]:[],
+    destructive_redraw_allowed:intent.destructiveRedrawAllowed===true,
+    // The routed provider and model, not a hint. The physical layer executes this route or
+    // fails the scene; it never re-picks a provider of its own.
+    provider_id:route?.providerModel?.providerId||null,
+    model_candidates:route?.providerModel?.modelId?[route.providerModel.modelId]:[],
+    intent:structuredClone(intent),
+  };
+}
+
+function physicalManifest(state,chunk,routes=new Map()){
   const selected=chunk.sceneIds.map(id=>state.scenes.find(scene=>scene.id===id)).filter(Boolean);
   const strict=selected.some(scene=>scene.intent?.qualityProfile!=='STRUCTURAL');
+  const preferred=[...new Set(selected.map(scene=>routes.get(scene.id)?.providerModel?.modelId).filter(Boolean))];
   return {
     // One physical batch id per chunk attempt: /create overwrites physical batch state,
     // so a resubmission must never reuse the id of a batch that already ran.
     batch_id:`${state.jobId}-${chunk.id}-a${Number(chunk.attempt||1)}`,
-    data_class:'PUBLIC',
+    data_class:strictestPrivacy(selected),
     quality_mode:strict?'STRICT':'STRUCTURAL',
     scheduler_config:{concurrency:4},
     retry_policy:{maxAttempts:3},
-    preferred_models:[],
-    scenes:selected.map(scene=>({
-      scene_id:scene.id,
-      status:'queued',
-      attempts:[],
-      compiled_prompt:String(scene.intent?.promptCompiled||scene.prompt||''),
-      negative_prompt:Array.isArray(scene.intent?.negativeConstraints)?scene.intent.negativeConstraints.join(', '):'',
-      dimensions:{width:Number(scene.intent?.target?.width||512),height:Number(scene.intent?.target?.height||512)},
-    })),
+    preferred_models:preferred,
+    scenes:selected.map(scene=>physicalScene(scene,routes.get(scene.id))),
   };
 }
 
@@ -122,6 +160,27 @@ export function createImageLogicalJobClass({
           const logical=state.scenes.find(scene=>scene.id===physicalScene.scene_id);if(!logical)continue;
           const mapped=mapPhysicalStatus(physicalScene.status);
           if(logical.status!==mapped)state=applyLogicalJobEvent(state,{type:'SCENE_STATUS',sceneId:logical.id,status:mapped});
+          // Carry the produced asset up to the logical job so a caller gets the image
+          // back, not just a status it then has to go hunting behind.
+          const attempt=(physicalScene.attempts||[]).at(-1);
+          const generation=attempt?.generation;
+          if(generation?.assetRef||generation?.imageUrl){
+            const target=state.scenes.find(scene=>scene.id===physicalScene.scene_id);
+            target.asset={
+              batchId:snapshot.physicalBatchId,
+              ref:generation.assetRef||null,
+              url:generation.imageUrl||null,
+              contentType:generation.contentType||null,
+              model:generation.model||null,
+            };
+          }
+        }
+        // A spent free allocation is a wait for capacity, never a defect and never a
+        // reason to reach for a paid route.
+        const waitState=result?.state?.wait_state;
+        if(waitState==='WAITING_FOR_FREE_COMPUTE'||waitState==='WAITING_FOR_SAFE_FREE_RUNTIME'){
+          state=applyLogicalJobEvent(state,{type:waitState});
+          await this.save(state);await this.schedule(30);return state;
         }
         const physicalStatus=result?.summary?.status;
         const chunk=state.chunks.find(item=>item.id===snapshot.id);
@@ -135,13 +194,14 @@ export function createImageLogicalJobClass({
         const chunk=state.chunks.find(item=>item.id===action.chunkId);
         const selected=action.sceneIds.map(id=>state.scenes.find(scene=>scene.id===id)).filter(Boolean);
         const mesh=createImageProviderMesh({env:this.env});
-        const blocked=selected.map(scene=>routeScene(scene,mesh)).find(route=>!route.ok);
+        const routes=new Map(selected.map(scene=>[scene.id,routeScene(scene,mesh)]));
+        const blocked=[...routes.values()].find(route=>!route.ok);
         if(blocked){
           // Never drop a reference or downgrade privacy to force execution: wait instead.
           state=applyLogicalJobEvent(state,{type:blocked.state==='WAITING_FOR_FREE_COMPUTE'?'WAITING_FOR_FREE_COMPUTE':'WAITING_FOR_SAFE_FREE_RUNTIME'});
           await this.save(state);await this.schedule(30);return state;
         }
-        const manifest=physicalManifest(state,chunk);
+        const manifest=physicalManifest(state,chunk,routes);
         let created;try{created=await batchClient.createImageBatch(this.env,manifest.batch_id,manifest);}catch{created={ok:false};}
         if(!created?.ok){
           state=applyLogicalJobEvent(state,{type:'WAITING_FOR_FREE_COMPUTE'});

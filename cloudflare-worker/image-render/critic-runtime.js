@@ -5,6 +5,23 @@ import {benchmarkSuiteFor} from './benchmark-suite.js';
 // a verdict: without a real critic the caller gets ok:false and the quality layer reports
 // PASS_UNVERIFIED rather than claiming the output was looked at.
 const CRITIC_MODEL=WORKERS_AI_MODELS.visionLarge;
+// A second vision model behind the first. The large model carries an explicit Meta licence
+// acceptance on Cloudflare's side, so an account that has not accepted it still gets a
+// real critic rather than none.
+const CRITIC_CHAIN=[WORKERS_AI_MODELS.visionLarge,WORKERS_AI_MODELS.vision];
+
+// Workers AI vision models take the image as an array of 8-bit values. A data URL or bare
+// base64 string is a schema violation, so it is decoded here instead of being forwarded and
+// read back as "the critic runtime is unavailable".
+export function normalizeCriticImage(image){
+  if(!image)return null;
+  if(Array.isArray(image))return image.length?image:null;
+  if(image instanceof Uint8Array)return image.length?Array.from(image):null;
+  if(typeof image!=='string')return null;
+  const b64=image.startsWith('data:')?image.slice(image.indexOf(',')+1):image;
+  if(!b64.trim())return null;
+  try{const bytes=Array.from(atob(b64),char=>char.charCodeAt(0));return bytes.length?bytes:null;}catch{return null;}
+}
 
 const binding=env=>{
   const ai=env?.AI;
@@ -62,19 +79,30 @@ export function createVisualCriticRuntime({model=CRITIC_MODEL}={}){
     async review(env={},{intent={},image}={}){
       const ai=binding(env);
       if(!ai)return {ok:false,reason:'visual_critic_unavailable',provider:null,model:null};
-      if(!image)return {ok:false,reason:'image_required',provider:'cloudflare_workers_ai',model};
-      let output;
-      try{
-        output=await ai.run(model,{image,prompt:criticPrompt(intent),max_tokens:512});
-      }catch(error){
-        const diagnostic=sanitizeWorkersAiError(error);
-        if(isAllocationExhausted(error)){
-          return {ok:false,reason:'free_allocation_exhausted',provider:'cloudflare_workers_ai',model,waitState:'WAITING_FOR_FREE_COMPUTE',paidFallback:false,diagnostic};
+      const pixels=normalizeCriticImage(image);
+      if(!pixels)return {ok:false,reason:'image_required',provider:'cloudflare_workers_ai',model};
+      const chain=[...new Set([model,...CRITIC_CHAIN])];
+      const attempted=[];
+      let output=null,servedBy=null;
+      for(const candidate of chain){
+        try{
+          output=await ai.run(candidate,{image:pixels,prompt:criticPrompt(intent),max_tokens:512});
+          servedBy=candidate;
+          break;
+        }catch(error){
+          const diagnostic=sanitizeWorkersAiError(error);
+          attempted.push({model:candidate,diagnostic});
+          if(isAllocationExhausted(error)){
+            return {ok:false,reason:'free_allocation_exhausted',provider:'cloudflare_workers_ai',model:candidate,waitState:'WAITING_FOR_FREE_COMPUTE',paidFallback:false,diagnostic,attempted};
+          }
         }
-        return {ok:false,reason:'visual_critic_request_failed',provider:'cloudflare_workers_ai',model,diagnostic};
+      }
+      if(!servedBy){
+        const last=attempted[attempted.length-1]||{};
+        return {ok:false,reason:'visual_critic_request_failed',provider:'cloudflare_workers_ai',model:last.model||model,diagnostic:last.diagnostic,attempted};
       }
       const parsed=parseCriticResponse(output);
-      if(!parsed)return {ok:false,reason:'visual_critic_unparseable_response',provider:'cloudflare_workers_ai',model};
+      if(!parsed)return {ok:false,reason:'visual_critic_unparseable_response',provider:'cloudflare_workers_ai',model:servedBy};
       const dimensions={};
       for(const [key,value] of Object.entries(parsed.dimensions||{})){
         if(Number.isFinite(Number(value)))dimensions[key]=Math.min(100,Math.max(0,Number(value)));
@@ -82,7 +110,7 @@ export function createVisualCriticRuntime({model=CRITIC_MODEL}={}){
       return {
         ok:true,
         provider:'cloudflare_workers_ai',
-        model,
+        model:servedBy,
         overallScore:Math.min(100,Math.max(0,Number(parsed.overallScore))),
         confidence:Math.min(1,Math.max(0,Number(parsed.confidence)||0)),
         dimensions,
