@@ -1,135 +1,139 @@
-# Open Model Universe Work Handoff — Latest
+# Open Model Universe Work Handoff — B6/B5 Contract Ready
 
-Date/time: 2026-09-17 UTC
+Date: 2026-09-17
 Repository: `hanlinh227-ship-it/trading-api`
-Branch: `codex/open-model-universe-phase-ab`
-Latest verified implementation HEAD before this handoff refresh: `5c27c48f78a5e32b9ace9b304163d7bc7f448c16`
-Origin main: `c5ad9112de60223ef9e1175bb5bcc1fcdfdf163f`
-Open PR: `#427` — `https://github.com/hanlinh227-ship-it/trading-api/pull/427`
-Active release after refresh: `4.15.0`
+Branch: `codex/personal-ai-control-plane-contracts`
+PR: `#429`
+Base main used for reconciliation: `063c6217d00800a497ffd6b2e118d2cf5f72e5e8`
+Implementation payload HEAD before this handoff commit: `2aa4c47c7069c3e08ad355ad73c8103e75fd713f`
+Runtime LIVE claim: **NO**
 
-> READ `AI_SKILL_LIBRARY/checkpoint.json` AND THIS HANDOFF BEFORE CONTINUING.
+## Status
 
-## Completed phases
+- `WORK_B6_CONTRACT_READY`
+- `WORK_B5_ADMISSION_READY`
+- `FIRST_VALID_MODEL_RECORD_READY` — structurally/provenance valid, deliberately **not admission-cleared** and not active.
 
-- Phase A: refreshed canonical authority, routed the work as `DEEP / engineering / software_architecture`, and produced a conflict map.
-- Phase B foundation: added the Open Model Universe registry schema, empty canonical registry, lifecycle vocabulary/transition contract, validator, and canonical CI integration.
-- Rebased after PR #425 merged so the branch is based on current `origin/main` and release `4.15.0`.
+## B6 governance/runtime ownership contract
 
-## Current phase
+Open Model Universe now owns governance states only:
 
-Phase B is complete as an atomic control-plane slice. Phase C (supporting repository capability registry) is next. Model population remains Phase D and must use official-source, per-release provenance and license verification.
+- `DISCOVERED`
+- `QUARANTINED`
+- `QUARANTINED_UPDATE`
+- `REGISTERED`
+- `APPROVED`
+- `AVAILABLE`
+- `BLOCKED`
+- `SUPERSEDED`
+- `RETIRED`
 
-Scope was subsequently frozen for go-live. Do not begin Phase C/D catalog expansion until the real golden E2E path works.
+Runtime residency is explicitly owned by `claude_local_runtime`. Open Model Universe has no runtime residency authority. The registry does not define `RUNNING`, `WARM`, or `SLEEPING` as governance states.
 
-## GO_LIVE_STATUS
+Canonical files:
 
-- Target: `PERSONAL_AI_FEDERATION_END_TO_END_LIVE`
-- Current status: `BLOCKED_NOT_LIVE`
-- Canonical schema/control-plane PR: `#427`, CI running at last check.
-- Real open-model inference: not yet demonstrated.
-- ChatGPT-to-Brain runtime path: not yet demonstrated.
-- Claude runtime branch/PR/handoff: not found at last refresh.
-- Observed Work compute: Linux x86_64, AMD EPYC, 9 online vCPU, about 15 GiB available RAM, about 30 GiB free disk, no detected NVIDIA GPU.
-- Detected model runtimes: none of Ollama, llama.cpp CLI/server, MLX, vLLM, SGLang, Transformers, or `llama_cpp` was installed.
-- Critical blocker: a verified Claude runtime slice or another explicitly reconciled runtime foundation is required before actual weights, auto-wake, inference, verifier, and sleep/warm E2E can run. Do not duplicate Claude-owned modules.
-- No model, backend, or federation path may be called LIVE from current evidence.
-
-## Files created or changed
-
-- `docs/superpowers/specs/2026-09-17-open-model-universe-phase-ab-design.md`
-- `docs/superpowers/plans/2026-09-17-open-model-universe-phase-ab.md`
-- `AI_SKILL_LIBRARY/tests/test_open_model_universe.py`
-- `AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml`
-- `AI_SKILL_LIBRARY/v4/schemas/open_model_universe.schema.json`
 - `AI_SKILL_LIBRARY/v4/tools/open_model_universe.py`
-- `AI_SKILL_LIBRARY/v4/tools/validate_open_model_universe.py`
-- `AI_SKILL_LIBRARY/v4/tools/ci_validate.py`
-- `CHECKPOINTS/OPEN_MODEL_UNIVERSE_WORK_HANDOFF_LATEST.md`
+- `AI_SKILL_LIBRARY/v4/schemas/open_model_universe.schema.json`
+- `AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml`
+- `AI_SKILL_LIBRARY/v4/open_model_universe/admission_policy.yaml`
 
-## Tests and results
+## Artifact identity contract
 
-- RED proof: focused suite failed because the new schema/registry/tools did not exist.
-- Focused GREEN after independent review fixes: `13` tests, `OK`.
-- Canonical exact-SHA validation after rebase: `CI_VALIDATE=PASS failures=0`.
-- AI Skill Library suite: `635` tests, `OK`, `3` skipped.
-- Repository suite: `46` tests, `OK`.
-- `OPEN_MODEL_UNIVERSE_VALIDATE=PASS errors=0`.
-- Router, authority, runtime, V4, Model Mesh, Legion, Brain Expansion, release, retrieval index, and consolidation validators all passed.
+Authoritative runtime-acquisition identity is the nested `artifact_identity` object:
 
-## Architecture decisions locked
-
-- Open Model Universe is metadata/control-plane only and has no routing, reasoning, permission, memory, project-truth, or final-answer authority.
-- Registration never implies approval, download, cache, availability, or runtime activation.
-- Cost policy is `OPEN_MODEL_ZERO_TOKEN_FIRST`; paid fallback is `NO_PAID_FALLBACK`.
-- `DISCOVERED -> RUNNING` and `QUARANTINED -> RUNNING` are invalid.
-- Runtime-bearing states are rejected from the Phase A/B registry until Claude's runtime lane supplies approval and transition evidence compatible with the canonical lifecycle contract.
-- Hardcoded `enabled` fields and credential/secret material are rejected.
-- Provenance URLs must be usable HTTPS URLs without userinfo or sensitive query parameters; dates use JSON Schema formats; common GitHub, Slack, AWS, Hugging Face, Google, bearer, and private-key credential signatures are rejected.
-- Cost classes are closed to zero-paid-token/owned-hardware/free-tier candidates and `unknown`; model IDs and composite runtime identities are unique.
-- Family/base/variant/quantization/runtime-build identity is deduplicated; quantizations are not independent verification families.
-- The checked-in registry is intentionally empty until official evidence is collected. Scale is proven with a 1,000-record validation test rather than fabricated catalog rows.
-
-## Registered models and supporting repositories
-
-- Model families registered: `0` (intentional; Phase D has not run).
-- Model variants registered: `0`.
-- Supporting repositories registered: `0` (Phase C has not run).
-- Quarantined candidates: `0`.
-- Rejected candidates: `0`.
-
-## PARALLEL_CLAUDE_LANE
-
-- Claude branch: not found on GitHub at last refresh.
-- Claude PR: not found.
-- Last known Claude SHA: not available.
-- Claude handoff: `CHECKPOINTS/CLAUDE_PERSONAL_AI_RUNTIME_HANDOFF_LATEST.md` not present on `origin/main` at last refresh.
-- Components owned by Claude: lifecycle manager implementation, auto wake/sleep, compute registry, hardware scheduler, JIT acquisition, cache/eviction, runtime adapters, capability negotiation, priority queue, circuit breaker/failover, worker registration, cross-machine contracts, and runtime/failure tests.
-- Work-owned components: model/repo discovery, provenance/license catalog, registries, harmonization, benchmark catalog, expert groups, champion/challenger policy, self-development governance, and ingress/control-plane integration.
-- Shared integration points: lifecycle state names, registry schema, Model Mesh selection inputs, authority flags, FREE_ONLY policy, and canonical CI.
-- Conflicts discovered: none yet. Claude must consume or reconcile the checked-in lifecycle vocabulary rather than create a conflicting second state taxonomy.
-- Runtime lane status: not yet published; do not infer completion or runtime evidence.
-
-## Unresolved blockers and boundaries
-
-- Broad family/variant population requires current official-source and per-release license research; no unverified bulk rows may be added merely to hit a count target.
-- Runtime activation is outside this branch and belongs to Claude's lane.
-- The checkpoint pointer was not changed in this slice to avoid release/checkpoint churn; add it during the next coherent integration slice after PR state is known.
-
-## Next exact task
-
-1. Wait for PR #427 CI to reach a terminal green state, merge it through the normal PR workflow, and verify exact main SHA.
-2. Refresh and inspect `CHECKPOINTS/CLAUDE_PERSONAL_AI_RUNTIME_HANDOFF_LATEST.md` plus Claude runtime PR/branch.
-3. Reconcile Claude lifecycle/runtime contracts with the registry vocabulary from PR #427; resolve only actual conflicts.
-4. Run the smallest real CPU-only open-model golden path supported by the runtime lane, then coding, failover, FREE_ONLY, and lifecycle E2E tests.
-5. Do not resume broad catalog/repo discovery until `E2E_GOLDEN_PATH=PASS`.
-
-## Next files to inspect or edit
-
-- Inspect `CHECKPOINTS/CLAUDE_PERSONAL_AI_RUNTIME_HANDOFF_LATEST.md` if it appears.
-- Inspect the Claude runtime diff and its task/runtime/compute schemas before editing any runtime-heavy file.
-- Inspect PR #427 CI and exact head SHA.
-- Identify the minimal approved CPU model only after the runtime adapter contract is known.
-
-## Commands to run next
-
-```bash
-git fetch origin --prune
-git rebase origin/main
-python -m unittest AI_SKILL_LIBRARY.tests.test_open_repo_universe
-python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --root . --source-sha "$(git rev-parse HEAD)"
+```yaml
+artifact_identity:
+  model_id: string
+  family: string
+  variant: string
+  immutable_revision: 40-char git revision
+  sha256: 64-char digest
+  size_bytes: positive integer
+  format: gguf | safetensors | mlx | other
+  quantization: string
 ```
 
-## Known failure logs
+The validator rejects drift between top-level model metadata and artifact identity. `weights_source` must contain the immutable revision. Runtime projection may not mutate artifact identity.
 
-- Initial baseline without project dependencies failed with `ModuleNotFoundError: jsonschema`; rerunning in an isolated virtualenv with `AI_SKILL_LIBRARY/requirements.txt` passed. This was an environment setup issue, not a repository regression.
+## Admission evidence contract
 
-## Independent review
+Required metadata:
 
-- Review verdict before fixes: `With fixes`; no Critical issues.
-- Important findings fixed: direct runtime-state admission, open cost-class metadata, missing V4 enforcement, credential/URL bypasses, and weak provenance/date validation.
-- Minor findings fixed where safety-relevant: duplicate `model_id` and lifecycle schema/module drift protection.
+```yaml
+admission_evidence:
+  license_verified: bool
+  provenance_verified: bool
+  safe_format_verified: bool
+  pickle_safe: bool | unknown
+  trust_remote_code_required: bool | unknown
+  custom_code_required: bool | unknown
+  malware_scan_status: pass | fail | not_run | unknown
+  isolated_first_load_required: bool
+  first_load_egress_allowed: bool
+  quarantine_status: clear | quarantined | blocked | unknown
+```
 
-## Rollback point
+A model can set `model_mesh_local_candidate_eligible: true` only when:
 
-`c5ad9112de60223ef9e1175bb5bcc1fcdfdf163f` (current `origin/main`). Reverting this branch's two implementation commits removes the complete Open Model Universe Phase A/B slice.
+- governance state is `AVAILABLE`;
+- license, provenance, safe-format, and pickle evidence are true;
+- `trust_remote_code_required == false`;
+- `custom_code_required == false`;
+- `malware_scan_status == pass`;
+- `quarantine_status == clear`.
+
+Unknown critical evidence blocks candidate admission. Registry membership never implies activation.
+
+## Model Mesh boundary
+
+Canonical flow:
+
+`Open Model Universe -> admission gate -> Model Mesh local candidate -> Claude runtime projection`
+
+- routing authority remains `task_router`;
+- model-selection authority remains `model_mesh`;
+- ingress hardcoding of Qwen or any specific model is forbidden;
+- Claude runtime may narrow capability based on observation but may not relax Work admission or change artifact identity.
+
+## First model record
+
+Path: `AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml`
+Model: `Qwen/Qwen3-0.6B-GGUF`
+Variant: `0.6B-Q8_0-GGUF`
+Artifact: `Qwen3-0.6B-Q8_0.gguf`
+Immutable artifact revision: `1eaf4d9657fe65ad10a51eab76a8db5b363bddaa`
+SHA256: `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031`
+Size: `639446688` bytes
+Format: `gguf`
+Quantization: `Q8_0`
+License: `Apache-2.0`
+Runtime support evidence: llama.cpp / Ollama usage is documented by the official Qwen Hugging Face page.
+Offline eligibility: true after artifact acquisition; no hosted API is required by the artifact/runtime contract.
+
+The record remains:
+
+- `lifecycle_state: QUARANTINED`
+- `model_mesh_local_candidate_eligible: false`
+- `malware_scan_status: not_run`
+- `quarantine_status: quarantined`
+
+This is intentional and fail-closed.
+
+## Remaining unknowns for Claude/runtime lane
+
+1. Exact source-model commit used to produce the official Qwen GGUF is not exposed in the evidence verified by Work; `lineage.source_revision` remains `null` and `conversion_verified=false`.
+2. Malware scan has not been run on the exact 639,446,688-byte artifact.
+3. Isolated first load has not been executed.
+4. First-load egress denial has not been demonstrated in a real runtime.
+5. No backend/model load/inference evidence exists yet. Do not call runtime LIVE.
+
+Claude should consume this identity/admission contract, perform runtime-side security evidence and first-load work, and return evidence without changing governance ownership.
+
+## Tests
+
+B6/B5 contract tests live at:
+
+- `AI_SKILL_LIBRARY/tests/test_open_model_universe_b6_b5_contracts.py`
+- `AI_SKILL_LIBRARY/tests/test_open_model_universe.py`
+
+They prove governance/runtime state separation, lossless identity, blocked/quarantined non-admission, fail-closed critical evidence, and the generic registry -> admission -> Model Mesh -> Claude boundary.
