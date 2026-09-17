@@ -1,0 +1,87 @@
+# Republish the already-verified canonical GGUF as a GitHub Release asset.
+#
+# Why this exists: the Actions artifact from run 35200311835 is real and
+# verified, but its storage backend (*.blob.core.windows.net) is not reachable
+# from the runtime environment, while release assets
+# (release-assets.githubusercontent.com) are. This moves the same bytes to a
+# route the runtime can actually fetch.
+#
+# It never touches Hugging Face. The bytes come from the existing Actions
+# artifact, and the job re-verifies size and SHA-256 against the canonical
+# record before publishing. A mismatch fails the job rather than publishing
+# something unverified - and the runtime recomputes the digest again after
+# download regardless, so this check is defence in depth, not the only one.
+name: Publish canonical model release asset
+
+on:
+  push:
+    branches: ['ops/publish-model-release']
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Workflow run holding the verified artifact
+        required: true
+        default: '35200311835'
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  SOURCE_RUN_ID: ${{ github.event.inputs.source_run_id || '35200311835' }}
+  ARTIFACT_NAME: canonical-qwen3-0.6b-q8_0-gguf
+  GGUF_NAME: Qwen3-0.6B-Q8_0.gguf
+  EXPECTED_SIZE: '639446688'
+  EXPECTED_SHA256: '9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031'
+  RELEASE_TAG: canonical-qwen3-0.6b-q8_0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the verified artifact from the source run
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: staged
+
+      - name: Re-verify exact size and SHA-256 before publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="staged/${GGUF_NAME}"
+          test -f "$FILE" || { echo "::error::${GGUF_NAME} not found in artifact"; ls -laR staged; exit 1; }
+
+          ACTUAL_SIZE=$(stat -c%s "$FILE")
+          ACTUAL_SHA=$(sha256sum "$FILE" | awk '{print $1}')
+          echo "size   expected=${EXPECTED_SIZE} actual=${ACTUAL_SIZE}"
+          echo "sha256 expected=${EXPECTED_SHA256} actual=${ACTUAL_SHA}"
+
+          [ "$ACTUAL_SIZE" = "$EXPECTED_SIZE" ] || { echo "::error::size mismatch"; exit 1; }
+          [ "$ACTUAL_SHA" = "$EXPECTED_SHA256" ] || { echo "::error::sha256 mismatch"; exit 1; }
+          echo "ARTIFACT_VERIFIED=PASS"
+
+      - name: Publish as a release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Idempotent: recreate the asset if the release already exists.
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release delete-asset "$RELEASE_TAG" "$GGUF_NAME" --yes 2>/dev/null || true
+          else
+            gh release create "$RELEASE_TAG" \
+              --title "Canonical Qwen3-0.6B-Q8_0 GGUF" \
+              --notes "Byte-identical republication of the artifact from run ${SOURCE_RUN_ID}, for environments that cannot reach Actions artifact storage. size=${EXPECTED_SIZE} sha256=${EXPECTED_SHA256}" \
+              --prerelease
+          fi
+          gh release upload "$RELEASE_TAG" "staged/${GGUF_NAME}" --clobber
+          echo "RELEASE_ASSET_PUBLISHED=PASS"
+          gh release view "$RELEASE_TAG" --json assets \
+            --jq '.assets[] | "\(.name) \(.size) \(.url)"'
