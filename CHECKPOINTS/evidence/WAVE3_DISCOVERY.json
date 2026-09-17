@@ -1,0 +1,155 @@
+{
+  "tool": "wave3-model-discovery",
+  "generated_at": "2026-09-17T13:01:23+00:00",
+  "stage": "DISCOVERY_ONLY_NOT_ADMITTED",
+  "governance_effect": "none",
+  "model_mesh_effect": "none",
+  "findings": [
+    {
+      "candidate_id": "qwen3-8b-gguf",
+      "upstream": "Qwen/Qwen3-8B-GGUF",
+      "manifest_state": "DISCOVERY_CANDIDATE",
+      "repos_checked": [
+        {
+          "repo_id": "Qwen/Qwen3-8B-GGUF",
+          "exists": true,
+          "gated": false,
+          "revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+          "license_declared": null,
+          "gguf_files": [
+            "Qwen3-8B-Q4_K_M.gguf",
+            "Qwen3-8B-Q5_0.gguf",
+            "Qwen3-8B-Q5_K_M.gguf",
+            "Qwen3-8B-Q6_K.gguf",
+            "Qwen3-8B-Q8_0.gguf"
+          ]
+        }
+      ],
+      "selected": {
+        "repo_id": "Qwen/Qwen3-8B-GGUF",
+        "immutable_revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+        "license_declared": null,
+        "official_publisher_artifact": true,
+        "filename": "Qwen3-8B-Q4_K_M.gguf",
+        "size_bytes": 5027783488,
+        "size_gb": 5.03
+      }
+    },
+    {
+      "candidate_id": "qwen3-coder-30b-a3b-instruct",
+      "upstream": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "manifest_state": "DISCOVERY_CANDIDATE_RESOURCE_HEAVY",
+      "repos_checked": [
+        {
+          "repo_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+          "exists": true,
+          "gated": false,
+          "revision": "b2cff646eb4bb1d68355c01b18ae02e7cf42d120",
+          "license_declared": null,
+          "gguf_files": []
+        },
+        {
+          "repo_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+          "exists": false,
+          "error": "RepositoryNotFoundError: 401 Client Error. (Request ID: Root=1-6aabe4a3-743a80ba5d19c5d20fcb333d;ead24d98-a545-4a15-ae57-67d0b3aef64a)\n\nRepository Not Found for url: https://huggingface.co/api/models/Qwen/Qwen3-Coder-30B-A3B-Instruct-GGUF.\nPlease make sure you specified the correct `repo_id` and `repo_type`.\nIf you are trying to access a private or gated repo, make sure you are authenticated and your token has the required permissions.\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication\nInvalid username or password."
+        },
+        {
+          "repo_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct-gguf",
+          "exists": false,
+          "error": "RepositoryNotFoundError: 401 Client Error. (Request ID: Root=1-6aabe4a3-3dfbdf5f62149e3306fa8226;92a8bb80-540c-43f8-9df5-44892dd7e6b7)\n\nRepository Not Found for url: https://huggingface.co/api/models/Qwen/Qwen3-Coder-30B-A3B-Instruct-gguf.\nPlease make sure you specified the correct `repo_id` and `repo_type`.\nIf you are trying to access a private or gated repo, make sure you are authenticated and your token has the required permissions.\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication\nInvalid username or password."
+        }
+      ],
+      "selected": null,
+      "conclusion": "no ungated GGUF published by this model's own author; a community requantization would need its conversion provenance established before it could be considered"
+    },
+    {
+      "candidate_id": "gpt-oss-20b",
+      "upstream": "openai/gpt-oss-20b",
+      "manifest_state": "DISCOVERY_CANDIDATE_RESOURCE_HEAVY",
+      "repos_checked": [
+        {
+          "repo_id": "openai/gpt-oss-20b",
+          "exists": true,
+          "gated": false,
+          "revision": "6cee5e81ee83917806bbde320786a8fb61efebee",
+          "license_declared": null,
+          "gguf_files": []
+        },
+        {
+          "repo_id": "openai/gpt-oss-20b-GGUF",
+          "exists": false,
+          "error": "RepositoryNotFoundError: 401 Client Error. (Request ID: Root=1-6aabe4a3-4057bf63296258a44c8bdd28;cf1c5166-9e80-4da7-8fb9-1e96f56c8979)\n\nRepository Not Found for url: https://huggingface.co/api/models/openai/gpt-oss-20b-GGUF.\nPlease make sure you specified the correct `repo_id` and `repo_type`.\nIf you are trying to access a private or gated repo, make sure you are authenticated and your token has the required permissions.\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication\nInvalid username or password."
+        },
+        {
+          "repo_id": "openai/gpt-oss-20b-gguf",
+          "exists": false,
+          "error": "RepositoryNotFoundError: 401 Client Error. (Request ID: Root=1-6aabe4a3-75dc1494609f6f6a23701fb3;699390c9-478b-4d8a-a570-8d4b4cf11799)\n\nRepository Not Found for url: https://huggingface.co/api/models/openai/gpt-oss-20b-gguf.\nPlease make sure you specified the correct `repo_id` and `repo_type`.\nIf you are trying to access a private or gated repo, make sure you are authenticated and your token has the required permissions.\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication\nInvalid username or password."
+        }
+      ],
+      "selected": null,
+      "conclusion": "no ungated GGUF published by this model's own author; a community requantization would need its conversion provenance established before it could be considered"
+    },
+    {
+      "candidate_id": "phi-4-mini-instruct",
+      "upstream": "microsoft/Phi-4-mini-instruct",
+      "manifest_state": "DISCOVERY_CANDIDATE",
+      "repos_checked": [
+        {
+          "repo_id": "microsoft/Phi-4-mini-instruct",
+          "exists": true,
+          "gated": false,
+          "revision": "cfbefacb99257ffa30c83adab238a50856ac3083",
+          "license_declared": null,
+          "gguf_files": []
+        },
+        {
+          "repo_id": "microsoft/Phi-4-mini-instruct-GGUF",
+          "exists": false,
+          "error": "RepositoryNotFoundError: 401 Client Error. (Request ID: Root=1-6aabe4a3-4a0948a06df3841b0a8bd2da;52770212-4f83-43ff-914c-ad7a76df3163)\n\nRepository Not Found for url: https://huggingface.co/api/models/microsoft/Phi-4-mini-instruct-GGUF.\nPlease make sure you specified the correct `repo_id` and `repo_type`.\nIf you are trying to access a private or gated repo, make sure you are authenticated and your token has the required permissions.\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication\nInvalid username or password."
+        },
+        {
+          "repo_id": "microsoft/Phi-4-mini-instruct-gguf",
+          "exists": false,
+          "error": "RepositoryNotFoundError: 401 Client Error. (Request ID: Root=1-6aabe4a3-45c77b2c77a27f073e4f62cc;ab7c54eb-10f7-42f6-a56a-8798fa1f3852)\n\nRepository Not Found for url: https://huggingface.co/api/models/microsoft/Phi-4-mini-instruct-gguf.\nPlease make sure you specified the correct `repo_id` and `repo_type`.\nIf you are trying to access a private or gated repo, make sure you are authenticated and your token has the required permissions.\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication\nInvalid username or password."
+        }
+      ],
+      "selected": null,
+      "conclusion": "no ungated GGUF published by this model's own author; a community requantization would need its conversion provenance established before it could be considered"
+    },
+    {
+      "candidate_id": "deepseek-r1-distill-qwen-7b",
+      "upstream": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+      "manifest_state": "DISCOVERY_CANDIDATE",
+      "repos_checked": [
+        {
+          "repo_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+          "exists": true,
+          "gated": false,
+          "revision": "916b56a44061fd5cd7d6a8fb632557ed4f724f60",
+          "license_declared": null,
+          "gguf_files": []
+        },
+        {
+          "repo_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+          "exists": false,
+          "error": "RepositoryNotFoundError: 401 Client Error. (Request ID: Root=1-6aabe4a3-648010bf34185a6c0eb1277c;43ca264a-028e-4de0-8b81-b4a0586d7685)\n\nRepository Not Found for url: https://huggingface.co/api/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B-GGUF.\nPlease make sure you specified the correct `repo_id` and `repo_type`.\nIf you are trying to access a private or gated repo, make sure you are authenticated and your token has the required permissions.\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication\nInvalid username or password."
+        },
+        {
+          "repo_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B-gguf",
+          "exists": false,
+          "error": "RepositoryNotFoundError: 401 Client Error. (Request ID: Root=1-6aabe4a3-432423627ea3f500301f817a;b7464419-cd57-4e26-b7aa-535450d653e9)\n\nRepository Not Found for url: https://huggingface.co/api/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B-gguf.\nPlease make sure you specified the correct `repo_id` and `repo_type`.\nIf you are trying to access a private or gated repo, make sure you are authenticated and your token has the required permissions.\nFor more details, see https://huggingface.co/docs/huggingface_hub/authentication\nInvalid username or password."
+        }
+      ],
+      "selected": null,
+      "conclusion": "no ungated GGUF published by this model's own author; a community requantization would need its conversion provenance established before it could be considered"
+    },
+    {
+      "candidate_id": "gemma-3-4b-it",
+      "upstream": "google/gemma-3-4b-it",
+      "manifest_state": "HUMAN_LICENSE_GATE_REQUIRED",
+      "repos_checked": [],
+      "selected": null,
+      "skipped": "human licence gate; not probed for staging"
+    }
+  ]
+}

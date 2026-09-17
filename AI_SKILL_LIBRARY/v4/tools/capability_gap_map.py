@@ -48,6 +48,7 @@ import yaml  # noqa: E402
 
 BASELINE_GLOB = "CHECKPOINTS/evidence/*BASELINE*.json"
 CAPABILITY_GLOB = "CHECKPOINTS/evidence/WAVE0_CAPABILITY_*.json"
+ENGJUDG_GLOB = "CHECKPOINTS/evidence/WAVE3_ENGJUDG_*.json"
 REGISTRY_REL = "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml"
 
 #: The mesh's own hard capability floor. Imported as a number rather than
@@ -65,15 +66,23 @@ CAPABILITY_TASKS: dict[str, tuple[str, ...]] = {
     "math_quant": ("MATH",),
     "synthesis_generalist": ("GENERAL_REASONING", "STRUCTURED_OUTPUT", "CODING",
                              "MATH", "VIETNAMESE"),
+    # No Wave 0 category exercises these; the engineering suite does. They score
+    # 0 from Wave 0 alone, which is why the merge above is what makes them real.
+    "debugging": (),
+    "code_review": (),
 }
+
+#: Sub-skills the engineering-judgment suite measures directly, with more items
+#: than the Wave 0 wave has tasks. Where both exist they are reported side by
+#: side and the deeper one is primary - never averaged, because a suite that
+#: asks a model to write a function and one that asks it to read a broken one
+#: are measuring different things and a mean of the two means nothing.
+ENGINEERING_SUBSKILLS = ("debugging", "code_review", "verifier_checker", "coding")
 
 #: Named so the absence is visible rather than silently missing from the report.
 UNMEASURED_CAPABILITIES: dict[str, str] = {
-    "long_context": "Wave 0 has no long-context task; no run has exercised a "
-                    "context beyond a few hundred tokens on any admitted model",
-    "debugging": "no task presents broken code to repair; the CODING tasks are "
-                 "write-from-scratch, which is a different skill",
-    "code_review": "no task presents code to critique",
+    "long_context": "no suite exercises a context beyond a few hundred tokens on "
+                    "any admitted model",
     "multilingual_reasoning": "only Vietnamese is exercised; a single non-English "
                               "language is not evidence about the rest",
     "tool_calling": "no task issues a tool call",
@@ -152,6 +161,35 @@ def _cost(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _merge_capabilities(rows: list[dict[str, Any]], engineering: dict[str, Any] | None,
+                        digest: str) -> dict[str, dict[str, Any]]:
+    """Wave 0 per category, with the deeper engineering measurement taking over.
+
+    The engineering suite is bound to the same artifact digest as the Wave 0
+    run, and that is checked rather than assumed: a deeper score is only allowed
+    to replace a shallower one when both measured the same bytes.
+    """
+    merged: dict[str, dict[str, Any]] = {}
+    for name, categories in sorted(CAPABILITY_TASKS.items()):
+        score, passed, attempted = _category_score(rows, categories)
+        merged[name] = {"score": score, "passed": passed, "attempted": attempted,
+                        "measured_by": "wave0"}
+    if not engineering:
+        return merged
+    if digest and str(engineering.get("artifact_sha256") or "").lower() != digest.lower():
+        # A deeper measurement of different bytes is not a deeper measurement of
+        # these ones. Left out rather than merged.
+        return merged
+    for skill, row in (engineering.get("per_skill") or {}).items():
+        shallow = merged.get(skill)
+        if shallow and shallow["attempted"] >= row["attempted"]:
+            continue
+        merged[skill] = {**row, "measured_by": engineering["suite"],
+                         "wave0_score": shallow["score"] if shallow else None,
+                         "wave0_attempted": shallow["attempted"] if shallow else 0}
+    return merged
+
+
 def build(root: Path) -> dict[str, Any]:
     registry = _registry(root)
     runs = fleet_runs(root)
@@ -172,6 +210,39 @@ def build(root: Path) -> dict[str, Any]:
             "source": path.name,
         }
 
+    # The engineering-judgment suite, per sub-skill. Wave 0 cannot rank the
+    # fleet on coding or verification - every admitted model passes both of its
+    # code tasks - so these are the measurements that can.
+    engineering: dict[str, dict[str, Any]] = {}
+    for path in sorted(root.glob(ENGJUDG_GLOB)):
+        document = _load_json(path)
+        if not isinstance(document, dict) or document.get("measured") is not True:
+            continue
+        run = document.get("benchmark_run") or {}
+        rows = run.get("results")
+        if not isinstance(rows, list) or not rows:
+            continue
+        per_skill: dict[str, dict[str, Any]] = {}
+        for skill in ENGINEERING_SUBSKILLS:
+            selected = [row for row in rows if str(row.get("capability")) == skill]
+            if not selected:
+                continue
+            passed = sum(1 for row in selected if row.get("passed") is True)
+            per_skill[skill] = {
+                "score": round(passed / len(selected), 6),
+                "passed": passed,
+                "attempted": len(selected),
+            }
+        engineering[str(run.get("model_id"))] = {
+            "overall_score": float(run.get("score") or 0.0),
+            "artifact_sha256": str(run.get("artifact_sha256") or ""),
+            "suite": f"{run.get('suite_id')}@{run.get('suite_version')}",
+            "suite_hash": str(run.get("suite_hash") or ""),
+            "errors": int(run.get("errors") or 0),
+            "per_skill": per_skill,
+            "source": path.name,
+        }
+
     fleet: list[dict[str, Any]] = []
     for model_id, run in sorted(runs.items()):
         record = registry.get(model_id) or {}
@@ -182,11 +253,14 @@ def build(root: Path) -> dict[str, Any]:
             "lifecycle_state": record.get("lifecycle_state"),
             "wave0": {"passed": run["passed"], "total": run["total"],
                       "reproducible": run["reproducible"], "status": run["status"]},
-            "per_capability": {
+            "per_capability": _merge_capabilities(
+                run["rows"], engineering.get(model_id), digest),
+            "wave0_only": {
                 name: dict(zip(("score", "passed", "attempted"),
                                _category_score(run["rows"], categories)))
                 for name, categories in sorted(CAPABILITY_TASKS.items())
             },
+            "engineering_judgment": engineering.get(model_id),
             "cost": _cost(run["rows"]),
             "capability_suite": suite.get(model_id),
             "evidence_source": run["source"],
