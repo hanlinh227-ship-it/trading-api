@@ -662,7 +662,39 @@ jobs:
           acct_wellformed=$(printf '%s' "${CF_ACCOUNT_ID}" \
             | grep -qE '^[0-9a-f]{32}$' && echo True || echo False)
           acct_len=${#CF_ACCOUNT_ID}
-          echo "preflight: token_verify=${verify_http} models_search=${list_http} account_id_wellformed=${acct_wellformed}"
+
+          # A valid token that is refused on one account has two possible
+          # causes, and they need different fixes: the token is scoped to a
+          # different account, or its Workers AI permission was not applied to
+          # this one. Asking the token which accounts it can see separates them.
+          #
+          # Account NAMES are reported, not ids. A name is what an operator
+          # needs in order to pick the right account in the dashboard, and it is
+          # not credential material. Whether the configured id is among them is
+          # reported as a boolean, so the configured value itself never appears.
+          curl -sS -o accounts.json \
+            "https://api.cloudflare.com/client/v4/accounts?per_page=50" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" >/dev/null 2>&1 || true
+          acct_visible=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('accounts.json'))
+          except Exception: print('UNKNOWN'); sys.exit()
+          if not d.get('success'): print('UNKNOWN'); sys.exit()
+          print(len(d.get('result') or []))" 2>/dev/null || echo UNKNOWN)
+          acct_names=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('accounts.json'))
+          except Exception: print(''); sys.exit()
+          print('; '.join((a.get('name') or '?') for a in (d.get('result') or [])))" 2>/dev/null || echo "")
+          acct_match=$(CFA="${CF_ACCOUNT_ID}" python3 -c "
+          import json,os,sys
+          try: d=json.load(open('accounts.json'))
+          except Exception: print('False'); sys.exit()
+          ids={str(a.get('id','')).lower() for a in (d.get('result') or [])}
+          print('True' if os.environ['CFA'].lower() in ids else 'False')" 2>/dev/null || echo False)
+          rm -f accounts.json
+
+          echo "preflight: token_verify=${verify_http} models_search=${list_http} account_id_wellformed=${acct_wellformed} accounts_visible=${acct_visible} configured_account_is_visible=${acct_match}"
 
           # Exactly the models free_execution_paths.yaml names, and nothing else.
           # A probe that wandered the catalog would be discovery, and discovery
@@ -716,6 +748,9 @@ jobs:
               "workers_ai_models_search_http": "${list_http}",
               "account_id_wellformed": ${acct_wellformed},
               "account_id_length": ${acct_len},
+              "accounts_token_can_see": "${acct_visible}",
+              "account_names_token_can_see": "${acct_names}",
+              "configured_account_is_one_the_token_can_see": ${acct_match},
           }
           # One sentence an operator can act on, chosen by which call broke.
           if preflight["token_verify_http"] != "200":
@@ -727,11 +762,20 @@ jobs:
               preflight["diagnosis"] = (
                   "the token verifies but CLOUDFLARE_ACCOUNT_ID is not a 32-character "
                   "hex account id, so the request URL names no real account")
+          elif not preflight["configured_account_is_one_the_token_can_see"]:
+              preflight["diagnosis"] = (
+                  "the token verifies but CLOUDFLARE_ACCOUNT_ID is not among the accounts "
+                  "this token can see, so the token and the account id belong to "
+                  "different accounts. Fix whichever is wrong: point the secret at the "
+                  "account the token is scoped to, or re-scope the token. Accounts this "
+                  "token can see: " + (preflight["account_names_token_can_see"] or "none"))
           elif preflight["workers_ai_models_search_http"] != "200":
               preflight["diagnosis"] = (
-                  "the token verifies but cannot read the Workers AI catalog on this "
-                  "account, so either the token is scoped to a different account or its "
-                  "Workers AI permission is not applied to this one")
+                  "the token verifies and is scoped to this very account, but still "
+                  "cannot read the Workers AI catalog on it, so the Workers AI permission "
+                  "is not actually in effect on this token - re-check that Workers AI Read "
+                  "was saved on the token and that its Account Resources names this account "
+                  "rather than All accounts via a membership that excludes it")
           else:
               preflight["diagnosis"] = (
                   "the token verifies and can read Workers AI on this account; any "
