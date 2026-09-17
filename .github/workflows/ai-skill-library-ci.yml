@@ -126,7 +126,8 @@ jobs:
           LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
         run: |
           python AI_SKILL_LIBRARY/v4/tools/activate_brain_expansion.py \
-            --root . --output AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation.json
+            --root . --runtime validator \
+            --output AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation.json
       - name: Confirm the report carries no credential material
         run: |
           python - <<'PY'
@@ -161,5 +162,155 @@ jobs:
         with:
           name: brain-expansion-activation
           path: AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  # Browser Use isolated runtime.
+  #
+  # `browser_use` was the last adapter stuck at `dependency_available=FAIL`, and
+  # the cause was the install, never the contract: `browser-use` brings
+  # Playwright and a downloaded Chromium build, and resolving that beside a
+  # distribution-managed interpreter has to replace packages the system package
+  # manager owns. Forcing it (`--ignore-installed`) would trade an honest FAIL
+  # for a broken image.
+  #
+  # So this job gives the adapter an interpreter of its own: a clean `venv` that
+  # owns its whole dependency tree, with the runner's system Python untouched.
+  # Nothing else installs from `requirements-brain-expansion-browser.txt`, and
+  # the stable brain keeps working with none of it present - the baseline step
+  # below proves exactly that inside this same venv before anything is enabled.
+  #
+  # The sandbox is loopback-only. The health probe renders a `data:` URL and the
+  # sandbox probe loads a static page served on 127.0.0.1, so a real browser is
+  # proven without one external request. That is why `network_allowed` is not
+  # one of this adapter's gates.
+  brain-expansion-browser-runtime:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: brain-expansion-browser-runtime
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build the dedicated browser runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv .browser-runtime
+          .browser-runtime/bin/python -m pip install --upgrade pip
+          .browser-runtime/bin/python -m pip install \
+            -r AI_SKILL_LIBRARY/requirements.txt \
+            -r AI_SKILL_LIBRARY/requirements-brain-expansion-browser.txt
+      - name: Confirm the system interpreter was left alone
+        shell: bash
+        run: |
+          set -euo pipefail
+          if python -c 'import importlib.util,sys; sys.exit(0 if importlib.util.find_spec("browser_use") else 1)'; then
+            echo '[ERROR] browser-use leaked into the system interpreter'
+            exit 1
+          fi
+          echo 'SYSTEM_INTERPRETER_UNTOUCHED=PASS'
+      - name: Install the Chromium engine into the runtime
+        run: .browser-runtime/bin/python -m playwright install --with-deps chromium
+      - name: Prove the stable path with all adapters off
+        shell: bash
+        run: |
+          set -euo pipefail
+          .browser-runtime/bin/python AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py
+          .browser-runtime/bin/python AI_SKILL_LIBRARY/v4/tools/activate_brain_expansion.py \
+            --root . --no-env --no-probe --output /tmp/browser-baseline.json
+          .browser-runtime/bin/python - <<'PY'
+          import json
+          report = json.load(open('/tmp/browser-baseline.json'))
+          assert report['stable_path_ok'], 'stable path broken before activation'
+          assert report['enabled'] == [], f"adapters enabled with no probes: {report['enabled']}"
+          print('BROWSER_BASELINE_ALL_OFF=PASS')
+          PY
+      - name: Browser Use targeted tests
+        run: |
+          .browser-runtime/bin/python -m unittest \
+            AI_SKILL_LIBRARY.tests.test_brain_expansion_browser_runtime \
+            AI_SKILL_LIBRARY.tests.test_brain_expansion_activation_runtime \
+            AI_SKILL_LIBRARY.tests.test_brain_expansion_auto_activation
+      - name: Activation sweep in the browser runtime
+        run: |
+          .browser-runtime/bin/python AI_SKILL_LIBRARY/v4/tools/activate_brain_expansion.py \
+            --root . --runtime browser --require browser_use \
+            --output AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-browser-activation.json
+      - name: Confirm the evidence carries no credential material
+        run: |
+          .browser-runtime/bin/python - <<'PY'
+          import json, re, sys
+          path = 'AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-browser-activation.json'
+          text = open(path, encoding='utf-8').read()
+          patterns = (r'sk-[A-Za-z0-9_-]{8,}', r'pk-[A-Za-z0-9_-]{8,}',
+                      r'bearer\s+\S+', r'-----BEGIN [A-Z ]*PRIVATE KEY-----')
+          hits = [p for p in patterns if re.search(p, text, re.IGNORECASE)]
+          if hits:
+              print(f'[ERROR] activation report matched credential pattern(s): {hits}')
+              sys.exit(1)
+          report = json.loads(text)
+          row = report['adapters']['browser_use']
+          for claim in ('routing_authority', 'reasoning_authority',
+                        'memory_authority', 'model_selection_authority'):
+              assert row[claim] is False, f'browser_use claimed {claim}'
+          assert row['enabled'] and row['state'] == 'enabled', row['reason']
+          assert row['evidence'], 'browser_use enabled without evidence'
+          assert report['stable_path_ok'], 'stable path broken after activation'
+          print('BROWSER_ACTIVATION_CLEAN=PASS')
+          for name in row['required']:
+              print(f"  {name}={row['conditions'][name]}")
+          PY
+      - name: Upload browser activation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brain-expansion-browser-activation
+          path: AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-browser-activation.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  # One activation record for two interpreters.
+  #
+  # The evaluation and typed-contract lanes prove themselves in the validator
+  # runtime; Browser Use can only prove itself where Chromium lives. Merging is
+  # not a rubber stamp: a row may only carry `enabled: true` across if it proved
+  # every gate it declared and carries evidence, and a broken stable path in
+  # either runtime breaks the merge.
+  brain-expansion-evidence:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: [brain-expansion-activation, brain-expansion-browser-runtime]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: brain-expansion-activation
+          path: evidence/validator
+      - uses: actions/download-artifact@v4
+        with:
+          name: brain-expansion-browser-activation
+          path: evidence/browser
+      - name: Merge activation evidence and require every runtime adapter
+        run: |
+          python AI_SKILL_LIBRARY/v4/tools/merge_activation_reports.py \
+            evidence/validator/brain-expansion-activation.json \
+            evidence/browser/brain-expansion-browser-activation.json \
+            --require langfuse ragas deepeval baml browser_use \
+            --output AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation-merged.json
+      - name: Upload merged activation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brain-expansion-activation-merged
+          path: AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation-merged.json
           if-no-files-found: warn
           retention-days: 30

@@ -1,4 +1,4 @@
-version: 4.14.0
+version: 4.15.0
 architecture: GITHUB_BRAIN_V4
 files:
 - path: AI_SKILL_LIBRARY/v4/stable/kernel.yaml
@@ -161,7 +161,7 @@ files:
   sha256: 0603b13b51947b3b500d9c23326a89e49ca09cf30126c2e8caa9e7341b4ec92c
   role: brain_expansion_architecture
 - path: AI_SKILL_LIBRARY/v4/integrations/brain_expansion_adapters.yaml
-  sha256: 6c8d35a4f0638bbe66774faa39352b4431bc166e5efbe5bbd6e6ab8c5622f923
+  sha256: 446b4863ed2a7dc7a534e95b6d705648286121ca3fcd5cdcac8bf36016f7f076
   role: brain_expansion_adapter_registry
 - path: AI_SKILL_LIBRARY/v4/tools/brain_expansion_adapters.py
   sha256: 1e31047f574c862795f80ddb64c285110f73f5e11b4924fc33d83006e19849bb
@@ -169,6 +169,12 @@ files:
 - path: AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py
   sha256: 28b40c4e8fe91e6411775092e25c0c44883e7edc6b3bec52500ba5bfde58e25d
   role: brain_expansion_adapter_validator
+- path: AI_SKILL_LIBRARY/v4/tools/activate_brain_expansion.py
+  sha256: 02c23b9e8eb1f9816696e418d66937ecb8efaf7afc74f14ac45fd5824f348983
+  role: brain_expansion_activation_runtime
+- path: AI_SKILL_LIBRARY/v4/tools/merge_activation_reports.py
+  sha256: dc9cc6e1d6b3b326a78ef92d1ae39332356b3bab2c739aa26e2907076bfbc0f3
+  role: brain_expansion_activation_merge_tool
 - path: AI_SKILL_LIBRARY/v4/stable/universal_fabric.yaml
   sha256: d7b065cccd774b47ca780677e1c2063f6dcda0a82a4a8dc7da8747bc20d558b0
   role: universal_fabric
@@ -179,5 +185,5 @@ compatibility:
   min_architecture: 4.0.0
 promotion:
   class: feature
-  validated: true
-  source: brain_expansion_integrations
+  validated: false
+  source: brain_expansion_browser_runtime

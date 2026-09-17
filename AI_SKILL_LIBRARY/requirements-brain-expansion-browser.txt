@@ -1,0 +1,31 @@
+# Browser Use isolated runtime dependencies.
+#
+# These are deliberately NOT in requirements-brain-expansion.txt. `browser-use`
+# brings Playwright, a downloaded Chromium build and a fast-moving dependency
+# tree, and installing it beside a distribution-managed interpreter is what
+# produced the long-standing `dependency_available=FAIL`: the resolver needs to
+# replace packages (PyJWT among them) that the system package manager owns.
+#
+# The fix is a dedicated interpreter, never a forced install. Install this file
+# into a fresh `python -m venv`, which owns its whole dependency tree and leaves
+# the system interpreter untouched. `--ignore-installed` and
+# `--break-system-packages` are forbidden here and asserted against in
+# AI_SKILL_LIBRARY/tests/test_brain_expansion_browser_runtime.py.
+#
+#   python -m venv .browser-runtime
+#   .browser-runtime/bin/pip install -r AI_SKILL_LIBRARY/requirements.txt \
+#                                   -r AI_SKILL_LIBRARY/requirements-brain-expansion-browser.txt
+#   .browser-runtime/bin/python -m playwright install --with-deps chromium
+#   .browser-runtime/bin/python AI_SKILL_LIBRARY/v4/tools/activate_brain_expansion.py \
+#       --root . --require browser_use
+#
+# Installing this is permission to try, never an instruction to enable: the
+# adapter still turns on only if all eight of its gates pass, and the committed
+# registry keeps `enabled: false` either way.
+#
+# Versions are the exact audited upstream refs recorded in
+# AI_SKILL_LIBRARY/v4/integrations/brain_expansion_adapters.yaml. browser-use is
+# MIT; Playwright is Apache-2.0; the Chromium build it downloads is BSD-3-Clause
+# plus the Chromium notices shipped with the binary.
+browser-use==0.13.10
+playwright==1.56.0

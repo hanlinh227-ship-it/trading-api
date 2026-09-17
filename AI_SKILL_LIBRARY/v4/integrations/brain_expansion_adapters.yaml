@@ -269,8 +269,44 @@ candidates:
     failure: none
     runtime_evidence: null
     rollback: "Unset BRAIN_EXPANSION_BROWSER_USE_ENABLED. The adapter then refuses every task with denied_reason=adapter_disabled and invokes no runner."
-    blockers:
-      - "activation_blocked: upstream requires Playwright plus a downloaded Chromium binary, which is a native/binary supply-chain surface and an outbound-network execution surface. Activation requires a separate sandbox + egress authorization."
+    blockers: []
+    runtime_contract:
+      # Why this adapter needs a runtime of its own: `browser-use` pulls
+      # Playwright and a downloaded Chromium build, and resolving it beside a
+      # distribution-managed interpreter has to replace packages the system
+      # package manager owns (PyJWT among them). That is what held
+      # `dependency_available` at FAIL - not the adapter contract. The answer is
+      # a dedicated interpreter, never a forced install: no `--ignore-installed`,
+      # no `--break-system-packages`, no upgrade of unrelated system packages.
+      isolation: dedicated_python_virtualenv
+      isolation_rationale: "A clean venv owns its whole dependency tree and leaves the system interpreter untouched."
+      requirements_path: AI_SKILL_LIBRARY/requirements-brain-expansion-browser.txt
+      engine: chromium
+      engine_install: "playwright install --with-deps chromium, inside the venv"
+      headless: true
+      # Egress is forbidden, not merely unverified, which is why `network_allowed`
+      # is not one of this adapter's required gates: the probes drive the engine
+      # against a `data:` URL and a static page served on 127.0.0.1, so a real
+      # browser is proven without a single external request.
+      egress: loopback_and_data_url_only
+      external_network_requests: false
+      probe_targets:
+        - "data:text/html (engine health)"
+        - "http://127.0.0.1 (static sandbox page)"
+      probe_timeout_ms: 20000
+      timeout_behaviour: "A probe that does not answer within the budget is UNKNOWN, which fails closed."
+      retry_policy: "No retry inside a probe. Revalidation is the retry, on the eligibility TTL."
+      credential_persistence: false
+      session_persistence: false
+      cookie_persistence: false
+      storage_state_written: false
+      financial_execution: false
+      destructive_actions: false
+      selects_own_objective: false
+      routed_by: task_router
+      default_mode: READ_ONLY_SANDBOX
+      evidence_path: AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-browser-activation.json
+      merged_evidence_path: AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation-merged.json
     upstream:
       repo: browser-use/browser-use
       default_branch: main
@@ -283,8 +319,8 @@ candidates:
     audit:
       maintenance: "Very active. Pushed 2026-09-15; ~114.8k stars; rapid release cadence, which itself argues for a pinned ref."
       dependency_license_concerns: "MIT core. Playwright (Apache-2.0) and the Chromium download are separate redistribution surfaces to review before activation."
-      supply_chain_risk: "High if activated: native browser binary download plus a fast-moving dependency tree. Not taken here."
-      network_behavior: "Would drive a real browser against arbitrary origins. Bounded here by allowed_domains and read-only default; no runner ships in this repository."
+      supply_chain_risk: "Native browser binary download plus a fast-moving dependency tree. Contained by pinning the exact audited version, installing only into a dedicated virtualenv, and keeping the dependency out of the stable brain and out of the production request path."
+      network_behavior: "Could drive a real browser against arbitrary origins. Bounded here by allowed_domains and the read-only default, and the activation runtime only ever points it at a data: URL and a loopback static page, so the sandbox proves the engine without external egress."
       overlap: "Execution capability only. Objective selection stays with task_router; the adapter refuses any task not routed by it."
       permission_ceiling: "read_only by default. reversible_write needs explicit user request AND project policy. destructive needs explicit approval. financial execution and credential persistence are hard-denied and cannot be granted through this adapter."
       performance_cost_impact: "Zero while disabled."
