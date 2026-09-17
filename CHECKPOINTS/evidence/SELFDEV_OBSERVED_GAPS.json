@@ -1,20 +1,11 @@
 {
-  "observed_at": "2026-09-17T11:16:09+00:00",
-  "gap_count": 5,
+  "observed_at": "2026-09-17T11:30:43+00:00",
+  "gap_count": 4,
   "by_kind": {
     "capability_unmeasured": 2,
-    "model_not_admitted": 2,
-    "no_signature_scan": 1
+    "model_not_admitted": 2
   },
   "gaps": [
-    {
-      "kind": "no_signature_scan",
-      "subject": "Qwen/Qwen3-0.6B-GGUF",
-      "detail": "malware_scan_status is not_run; it rests on an operator acceptance rather than a scan",
-      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml",
-      "suggested_tool": "ops/publish-model-release:.github/workflows/scan-staged-models.yml",
-      "is_a_proposal_not_a_change": true
-    },
     {
       "kind": "model_not_admitted",
       "subject": "microsoft/bitnet-b1.58-2B-4T-gguf",

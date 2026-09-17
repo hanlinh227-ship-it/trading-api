@@ -79,8 +79,12 @@ models:
     # Latency was measured too, but no latency taxonomy has been defined yet,
     # so there is no honest class to put here.
     latency_class: unverified
-    # Security admission is no longer pending: it was resolved by the recorded
-    # operator risk acceptance below, not by a scan.
+    # Security admission was first resolved by the operator risk acceptance
+    # below, and has since been confirmed by a real signature scan run in CI.
+    # The acceptance is left exactly as written: it records a decision made when
+    # no engine was reachable from the runtime, and that remains true of the
+    # runtime. A later scan supersedes the gap without making the decision
+    # untrue, so nothing in it is rewritten.
     privacy_class: local_only
     cost_class: owned_hardware_zero_marginal
     lifecycle_state: AVAILABLE
@@ -103,7 +107,7 @@ models:
       pickle_safe: true
       trust_remote_code_required: false
       custom_code_required: false
-      malware_scan_status: not_run
+      malware_scan_status: pass
       isolated_first_load_required: true
       first_load_egress_allowed: false
       # Lifted by the operator risk acceptance below. The quarantine existed
@@ -157,6 +161,12 @@ models:
       note: >-
         Operator risk acceptance. No signature-based malware scan was performed;
         malware_scan_status remains not_run.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T11:21:52+00:00'
+      scanned_by: github-actions
+      artifact_sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
   - model_id: Qwen/Qwen3-1.7B-GGUF
     family: Qwen3
     variant: 1.7B-Q8_0-GGUF
