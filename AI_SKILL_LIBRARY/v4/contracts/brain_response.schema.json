@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brain_response.schema.json",
+  "title": "Brain response envelope",
+  "type": "object",
+  "required": ["request_id", "task_id", "route", "selected_model_ref", "runtime_ref", "verification_status", "result", "evidence_refs", "limitations", "runtime_metrics_ref"],
+  "properties": {
+    "request_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "route": {"type": "object"},
+    "selected_model_ref": {"type": ["string", "null"]},
+    "runtime_ref": {"type": ["string", "null"]},
+    "verification_status": {"enum": ["UNVERIFIED", "PARTIAL", "VERIFIED", "FAILED"]},
+    "result": {},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "runtime_metrics_ref": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}
