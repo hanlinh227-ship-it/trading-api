@@ -20,6 +20,11 @@ on:
       - 'AGENTS.md'
       - 'docs/checkpoints/**'
       - 'docs/superpowers/**'
+  # Periodic revalidation for the Brain Expansion activation sweep: eligibility is
+  # cached against a TTL, and an upstream that recovers should be picked up
+  # without waiting for the next push.
+  schedule:
+    - cron: '17 */6 * * *'
   workflow_dispatch:
 
 permissions:
@@ -66,3 +71,95 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python AI_SKILL_LIBRARY/validate_registry.py --check-remote
+
+  # Brain Expansion activation runtime.
+  #
+  # This is where AUTO_ACTIVATE_WHEN_VERIFIED runs against a real environment:
+  # optional dependencies are installed into the job image, credentials come from
+  # repository secrets (never from the repository), the egress probe opens a real
+  # socket, and each adapter runs its own sandbox test. An adapter turns on only
+  # when every condition it requires is proven here.
+  #
+  # Why here and not in the Worker: the production request path is a Cloudflare
+  # Worker (V8 isolate, JavaScript only). It cannot host a Python package or a
+  # browser engine, and the evaluation and typed-contract lanes carry
+  # `production_dependency: false` by contract - a CI runner is their canonical
+  # runtime, not the request path.
+  #
+  # Only runs on a schedule or manual dispatch, so the heavy optional
+  # dependencies never slow down ordinary push/PR validation. Adapters being off
+  # is a normal outcome, not a build failure.
+  brain-expansion-activation:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: brain-expansion-activation
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install brain validator dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+      - name: Prove the stable path with all adapters off
+        run: |
+          python AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py
+          python AI_SKILL_LIBRARY/v4/tools/activate_brain_expansion.py \
+            --root . --no-env --output /tmp/activation-baseline.json
+          python - <<'PY'
+          import json
+          report = json.load(open('/tmp/activation-baseline.json'))
+          assert report['stable_path_ok'], 'stable path broken before activation'
+          assert report['enabled'] == [], f"adapters enabled with no dependencies: {report['enabled']}"
+          print('BASELINE_ALL_OFF=PASS')
+          PY
+      - name: Install optional adapter dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements-brain-expansion.txt
+      # An unset secret is an empty string, which the runtime reports as
+      # credential_present=FAIL and the adapter stays off. That is the design.
+      - name: Activation sweep with real probes
+        env:
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_HOST: ${{ vars.LANGFUSE_HOST }}
+        run: |
+          python AI_SKILL_LIBRARY/v4/tools/activate_brain_expansion.py \
+            --root . --output AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation.json
+      - name: Confirm the report carries no credential material
+        run: |
+          python - <<'PY'
+          import json, re, sys
+          path = 'AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation.json'
+          text = open(path, encoding='utf-8').read()
+          patterns = (r'sk-[A-Za-z0-9_-]{8,}', r'pk-[A-Za-z0-9_-]{8,}',
+                      r'bearer\s+\S+', r'-----BEGIN [A-Z ]*PRIVATE KEY-----')
+          hits = [p for p in patterns if re.search(p, text, re.IGNORECASE)]
+          if hits:
+              print(f'[ERROR] activation report matched credential pattern(s): {hits}')
+              sys.exit(1)
+          report = json.loads(text)
+          assert report['router_authority'] == 'task_router'
+          assert report['memory_authority'] == 'memory_continuity'
+          for name, row in report['adapters'].items():
+              for claim in ('routing_authority', 'reasoning_authority',
+                            'memory_authority', 'model_selection_authority'):
+                  assert row[claim] is False, f'{name} claimed {claim}'
+              if row['enabled']:
+                  assert row['evidence'], f'{name} enabled without evidence'
+          print('ACTIVATION_REPORT_CLEAN=PASS')
+          for name in sorted(report['adapters']):
+              row = report['adapters'][name]
+              print(f"  {name}: state={row['state']} enabled={row['enabled']}")
+          print(f"BRAIN_EXPANSION_LIVE={report['enabled'] or 'none'}")
+          assert report['stable_path_ok'], 'stable path broken after activation'
+          PY
+      - name: Upload activation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brain-expansion-activation
+          path: AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation.json
+          if-no-files-found: warn
+          retention-days: 30
