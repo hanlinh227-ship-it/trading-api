@@ -1,62 +1,316 @@
 {
-  "version": 1,
-  "lastVerifiedDate": "2026-09-17",
+  "version": 3,
+  "lastVerifiedDate": "2026-09-16",
   "entries": [
     {
       "modelId": "flux2-klein-4b",
+      "family": "FLUX.2",
+      "version": "Klein-4B",
       "canonicalRepo": "black-forest-labs/flux2",
       "sourceRevision": "50fe5162777813d869182b139e83b10743caef15",
+      "license": "Apache-2.0",
       "codeLicense": "Apache-2.0",
       "weightsLicense": "Apache-2.0",
       "commercialUseEligible": true,
       "redistributionEligible": true,
+      "runtimeProviders": [],
       "runtimeConfigured": false,
+      "supportedTasks": [
+        "TEXT_TO_IMAGE",
+        "REFERENCE_GENERATION",
+        "IMAGE_EDIT_GLOBAL",
+        "MULTI_IMAGE_COMPOSE"
+      ],
+      "referenceSupport": true,
+      "editSupport": true,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1536,
+        "height": 1536
+      },
+      "qualityBenchmarks": {},
       "approvalStatus": "CANDIDATE",
-      "supportedTasks": ["TEXT_TO_IMAGE", "REFERENCE_GENERATION", "IMAGE_EDIT_GLOBAL", "MULTI_IMAGE_COMPOSE"],
+      "status": "CANDIDATE",
       "monetaryCost": "zero",
-      "licenseEvidence": "official FLUX.2 README model table; 4B only"
+      "lastVerifiedAt": "2026-09-17",
+      "licenseEvidence": "official FLUX.2 README model table; 4B only",
+      "notes": "Apache-2.0 4B variant only; the 9B/dev non-commercial variants are deliberately not listed."
     },
     {
       "modelId": "qwen-image-edit-2509",
+      "family": "Qwen-Image",
+      "version": "Edit-2509",
       "canonicalRepo": "QwenLM/Qwen-Image",
       "sourceRevision": "6b5e1f5cec987d404be5ac6657db3b9aacb56a89",
+      "license": "Apache-2.0",
       "codeLicense": "Apache-2.0",
       "weightsLicense": "Apache-2.0",
       "commercialUseEligible": true,
       "redistributionEligible": true,
+      "runtimeProviders": [],
       "runtimeConfigured": false,
+      "supportedTasks": [
+        "REFERENCE_GENERATION",
+        "IMAGE_EDIT_GLOBAL",
+        "IMAGE_EDIT_LOCAL",
+        "TEXT_RENDER_EDIT",
+        "MULTI_IMAGE_COMPOSE",
+        "TARGETED_REPAIR"
+      ],
+      "referenceSupport": true,
+      "editSupport": true,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1536,
+        "height": 1536
+      },
+      "qualityBenchmarks": {},
       "approvalStatus": "CANDIDATE",
-      "supportedTasks": ["REFERENCE_GENERATION", "IMAGE_EDIT_GLOBAL", "IMAGE_EDIT_LOCAL", "TEXT_RENDER_EDIT", "MULTI_IMAGE_COMPOSE", "TARGETED_REPAIR"],
+      "status": "CANDIDATE",
       "monetaryCost": "zero",
-      "licenseEvidence": "official Qwen-Image Apache-2.0 repository license"
+      "lastVerifiedAt": "2026-09-17",
+      "licenseEvidence": "official Qwen-Image Apache-2.0 repository license",
+      "notes": "Instruction-based image editing; reference-capable as a model, pending a reference-safe free runtime."
     },
     {
       "modelId": "hidream-e1.1",
+      "family": "HiDream-E1",
+      "version": "1.1",
       "canonicalRepo": "HiDream-ai/HiDream-E1",
       "sourceRevision": "f6f0631e9b621fa113f74d3b2e2cf2bc5314ef10",
+      "license": "MIT",
       "codeLicense": "MIT",
       "weightsLicense": "MIT",
       "commercialUseEligible": true,
       "redistributionEligible": true,
+      "runtimeProviders": [],
       "runtimeConfigured": false,
+      "supportedTasks": [
+        "IMAGE_EDIT_GLOBAL",
+        "IMAGE_EDIT_LOCAL",
+        "STYLE_TRANSFER",
+        "BACKGROUND_REPLACE",
+        "TARGETED_REPAIR"
+      ],
+      "referenceSupport": true,
+      "editSupport": true,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1536,
+        "height": 1536
+      },
+      "qualityBenchmarks": {},
       "approvalStatus": "CANDIDATE",
-      "supportedTasks": ["IMAGE_EDIT_GLOBAL", "IMAGE_EDIT_LOCAL", "STYLE_TRANSFER", "BACKGROUND_REPLACE", "TARGETED_REPAIR"],
+      "status": "CANDIDATE",
       "monetaryCost": "zero",
-      "licenseEvidence": "official HiDream-E1 README states code and models MIT"
+      "lastVerifiedAt": "2026-09-17",
+      "licenseEvidence": "official HiDream-E1 README states code and models MIT",
+      "notes": "Instruction-based editing; README states code and weights are MIT."
     },
     {
       "modelId": "step1x-edit",
+      "family": "Step1X-Edit",
+      "version": "1.0",
       "canonicalRepo": "stepfun-ai/Step1X-Edit",
       "sourceRevision": "4cca05dfcd6c32dc810d0b4db84c2bf0682a5aeb",
+      "license": "Apache-2.0",
       "codeLicense": "Apache-2.0",
       "weightsLicense": "Apache-2.0",
       "commercialUseEligible": true,
       "redistributionEligible": true,
+      "runtimeProviders": [],
       "runtimeConfigured": false,
+      "supportedTasks": [
+        "IMAGE_EDIT_GLOBAL",
+        "IMAGE_EDIT_LOCAL",
+        "OBJECT_REPLACE",
+        "TARGETED_REPAIR"
+      ],
+      "referenceSupport": true,
+      "editSupport": true,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1536,
+        "height": 1536
+      },
+      "qualityBenchmarks": {},
       "approvalStatus": "CANDIDATE",
-      "supportedTasks": ["IMAGE_EDIT_GLOBAL", "IMAGE_EDIT_LOCAL", "OBJECT_REPLACE", "TARGETED_REPAIR"],
+      "status": "CANDIDATE",
       "monetaryCost": "zero",
-      "licenseEvidence": "official Step1X-Edit README and model repository license"
+      "lastVerifiedAt": "2026-09-17",
+      "licenseEvidence": "official Step1X-Edit README and model repository license",
+      "notes": "Source-image editing and object replacement."
+    },
+    {
+      "modelId": "flux-1-schnell",
+      "family": "FLUX.1",
+      "version": "schnell",
+      "canonicalRepo": "black-forest-labs/FLUX.1-schnell",
+      "providerModelId": "@cf/black-forest-labs/flux-1-schnell",
+      "license": "Apache-2.0",
+      "codeLicense": "Apache-2.0",
+      "weightsLicense": "Apache-2.0",
+      "commercialUseEligible": true,
+      "redistributionEligible": false,
+      "runtimeProviders": [
+        "cloudflare_workers_ai"
+      ],
+      "runtimeConfigured": true,
+      "supportedTasks": [
+        "TEXT_TO_IMAGE",
+        "MULTI_SCENE_BATCH"
+      ],
+      "referenceSupport": false,
+      "editSupport": false,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1024,
+        "height": 1024
+      },
+      "qualityBenchmarks": {},
+      "approvalStatus": "CANDIDATE",
+      "status": "CANDIDATE",
+      "monetaryCost": "zero",
+      "lastVerifiedAt": "2026-09-16",
+      "licenseEvidence": "FLUX.1 [schnell] is released under Apache-2.0 by Black Forest Labs.",
+      "notes": "Primary free text-to-image model. The dev and pro variants are non-commercial and deliberately absent."
+    },
+    {
+      "modelId": "stable-diffusion-v1-5-img2img",
+      "family": "Stable Diffusion",
+      "version": "1.5-img2img",
+      "canonicalRepo": "runwayml/stable-diffusion-v1-5",
+      "providerModelId": "@cf/runwayml/stable-diffusion-v1-5-img2img",
+      "license": "CreativeML-Open-RAIL-M",
+      "codeLicense": "CreativeML-Open-RAIL-M",
+      "weightsLicense": "CreativeML-Open-RAIL-M",
+      "commercialUseEligible": true,
+      "redistributionEligible": false,
+      "runtimeProviders": [
+        "cloudflare_workers_ai"
+      ],
+      "runtimeConfigured": true,
+      "supportedTasks": [
+        "IMAGE_EDIT_GLOBAL",
+        "STYLE_TRANSFER",
+        "REFERENCE_GENERATION"
+      ],
+      "referenceSupport": true,
+      "editSupport": true,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1024,
+        "height": 1024
+      },
+      "qualityBenchmarks": {},
+      "approvalStatus": "CANDIDATE",
+      "status": "CANDIDATE",
+      "monetaryCost": "zero",
+      "lastVerifiedAt": "2026-09-16",
+      "licenseEvidence": "CreativeML Open RAIL-M permits commercial use with use restrictions; not a free redistribution licence.",
+      "notes": "Whole-image editing and reference-conditioned generation on the reference-safe runtime."
+    },
+    {
+      "modelId": "stable-diffusion-v1-5-inpainting",
+      "family": "Stable Diffusion",
+      "version": "1.5-inpainting",
+      "canonicalRepo": "runwayml/stable-diffusion-inpainting",
+      "providerModelId": "@cf/runwayml/stable-diffusion-v1-5-inpainting",
+      "license": "CreativeML-Open-RAIL-M",
+      "codeLicense": "CreativeML-Open-RAIL-M",
+      "weightsLicense": "CreativeML-Open-RAIL-M",
+      "commercialUseEligible": true,
+      "redistributionEligible": false,
+      "runtimeProviders": [
+        "cloudflare_workers_ai"
+      ],
+      "runtimeConfigured": true,
+      "supportedTasks": [
+        "INPAINT",
+        "IMAGE_EDIT_LOCAL",
+        "BACKGROUND_REPLACE",
+        "OBJECT_REPLACE",
+        "TARGETED_REPAIR"
+      ],
+      "referenceSupport": true,
+      "editSupport": true,
+      "criticSupport": false,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1024,
+        "height": 1024
+      },
+      "qualityBenchmarks": {},
+      "approvalStatus": "CANDIDATE",
+      "status": "CANDIDATE",
+      "monetaryCost": "zero",
+      "lastVerifiedAt": "2026-09-16",
+      "licenseEvidence": "CreativeML Open RAIL-M permits commercial use with use restrictions; not a free redistribution licence.",
+      "notes": "Masked local editing; the model targeted repair uses so a defect is fixed without redrawing the scene."
+    },
+    {
+      "modelId": "llama-3.2-11b-vision-instruct",
+      "family": "Llama",
+      "version": "3.2-11B-Vision-Instruct",
+      "canonicalRepo": "meta-llama/Llama-3.2-11B-Vision-Instruct",
+      "providerModelId": "@cf/meta/llama-3.2-11b-vision-instruct",
+      "license": "Llama-3.2-Community-License",
+      "codeLicense": "Llama-3.2-Community-License",
+      "weightsLicense": "Llama-3.2-Community-License",
+      "commercialUseEligible": true,
+      "redistributionEligible": false,
+      "runtimeProviders": [
+        "cloudflare_workers_ai"
+      ],
+      "runtimeConfigured": true,
+      "supportedTasks": [
+        "TARGETED_REPAIR"
+      ],
+      "referenceSupport": false,
+      "editSupport": false,
+      "criticSupport": true,
+      "minResolution": {
+        "width": 256,
+        "height": 256
+      },
+      "maxResolution": {
+        "width": 1024,
+        "height": 1024
+      },
+      "qualityBenchmarks": {},
+      "approvalStatus": "CANDIDATE",
+      "status": "CANDIDATE",
+      "monetaryCost": "zero",
+      "lastVerifiedAt": "2026-09-16",
+      "licenseEvidence": "Llama 3.2 Community License permits commercial use below the stated monthly-active-user threshold.",
+      "notes": "Visual critic runtime. Judges renders against the per-task benchmark dimensions."
     }
   ]
 }

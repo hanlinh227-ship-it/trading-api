@@ -134,7 +134,7 @@ export function createImageLogicalJobClass({
         const action=actions[0];
         const chunk=state.chunks.find(item=>item.id===action.chunkId);
         const selected=action.sceneIds.map(id=>state.scenes.find(scene=>scene.id===id)).filter(Boolean);
-        const mesh=createImageProviderMesh();
+        const mesh=createImageProviderMesh({env:this.env});
         const blocked=selected.map(scene=>routeScene(scene,mesh)).find(route=>!route.ok);
         if(blocked){
           // Never drop a reference or downgrade privacy to force execution: wait instead.

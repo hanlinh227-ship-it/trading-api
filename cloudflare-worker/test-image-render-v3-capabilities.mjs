@@ -41,3 +41,17 @@ assert.equal(payload.autoPurchase,false);
 assert.equal(payload.privacy.aiHordePublicOnly,true);
 
 console.log('image render v3 capability availability contracts: PASS');
+
+// With the AI binding present the critic and inference runtimes report AVAILABLE, and the
+// reference-safe runtime follows the registered providers rather than a hardcoded answer.
+const withAi={...env,AI:{run:async()=>({})}};
+const live=await (await handleImageRenderV3(new Request('https://x/brain/image/v3/capabilities',{headers:auth}),withAi)).json();
+assert.equal(live.visualCriticRuntime,'AVAILABLE');
+assert.equal(live.visualCriticProvider,'cloudflare_workers_ai');
+assert.match(live.visualCriticModel,/^@cf\//);
+assert.equal(live.inferenceRuntime,'AVAILABLE');
+// Even with a critic available, STRICT_VISUAL still requires a real critic pass.
+assert.equal(live.quality.strictVisualRequiresRealCritic,true);
+assert.equal(live.quality.missingVisualCriticAction,'complete_unverified');
+
+console.log('image render v3 capability runtime state contracts: PASS');

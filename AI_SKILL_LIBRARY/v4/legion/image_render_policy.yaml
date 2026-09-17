@@ -34,6 +34,37 @@ provider:
     integration: https://github.com/Haidra-Org/AI-Horde/blob/main/README_integration.md
   notes: AI Horde publicly commits to free access and no paid-priority tier, but no external service can be technically guaranteed to exist forever. Runtime therefore guarantees FREE_ONLY behavior, not perpetual provider availability.
 
+providers:
+  # AI Horde stays the PUBLIC-only volunteer renderer and is never reference-safe.
+  ai_horde:
+    role: public_only_volunteer_fallback
+    reference_safe: false
+    privacy_classes: [PUBLIC]
+    monetary_cost: zero
+    billing_mechanism: none
+  # Cloudflare Workers AI is first-party to the Worker already holding this data, so a
+  # reference image handled there reaches no new third party. On the Workers Free plan the
+  # daily Neuron allocation hard-stops, so it cannot bill and needs no stored credential.
+  cloudflare_workers_ai:
+    role: reference_safe_free_runtime_and_visual_critic
+    reference_safe: true
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL]
+    monetary_cost: zero
+    plan: workers_free
+    free_allocation_hard_stop: true
+    overage_billing_enabled: false
+    binding: AI
+    credential_required: false
+  # Pollinations needs no account and no key, so it has no way to bill us, but it is a
+  # public third-party service and therefore never receives a reference or source image.
+  pollinations:
+    role: public_only_text_to_image_redundancy
+    reference_safe: false
+    privacy_classes: [PUBLIC]
+    monetary_cost: zero
+    authentication: none
+    billing_mechanism: none
+
 provider_mesh:
   free_only: true
   paid_route_forbidden: true
@@ -137,6 +168,8 @@ quality:
   strict_visual:
     real_visual_critic_required_for_verified_completion: true
     missing_visual_critic_action: complete_unverified
+    visual_critic_provider: cloudflare_workers_ai
+    unparseable_critic_response_action: complete_unverified
   candidate_tournament_enabled: true
   targeted_repair_enabled: true
   preserve_non_target_content: true
@@ -150,10 +183,42 @@ benchmark_evolution:
   regression_demotion: true
   upstream_claims_are_not_promotion_evidence: true
 
+runtime_activation:
+  # A model is only ACTIVE once every gate below has passed with recorded evidence.
+  # No stage may be satisfied by a claim, a model name, or an upstream benchmark.
+  stages: [CANDIDATE, RUNTIME_DISCOVERED, HEALTH_VERIFIED, LICENSE_VERIFIED, PRIVACY_VERIFIED, BENCHMARKED, ACTIVE]
+  regression_status: DEGRADED
+  disqualified_status: DISABLED
+  evidence_required_per_stage: true
+  provider_adapter_contract_required: true
+  incomplete_adapter_action: inactive
+  unknown_cost_action: reject
+  unknown_privacy_behavior_action: reject
+  no_free_runtime_action: WAITING_FOR_FREE_COMPUTE
+  no_reference_safe_free_runtime_action: WAITING_FOR_SAFE_FREE_RUNTIME
+  free_allocation_exhausted_action: WAITING_FOR_FREE_COMPUTE
+  paid_route_on_allocation_exhaustion: forbidden
+  runtime_health_probe_location: deployed_worker
+  report_path: /brain/image/v3/activation
+
+benchmark_suites:
+  per_task_dimensions_required: true
+  incomplete_dimensions_action: not_a_pass
+  tasks: [TEXT_TO_IMAGE, REFERENCE_GENERATION, IMAGE_EDIT_LOCAL, IMAGE_EDIT_GLOBAL, CHARACTER_CONSISTENCY, TARGETED_REPAIR]
+  frontier_parity_claim_without_benchmark: forbidden
+
 model_vault:
   exact_source_revision_required: true
+  full_record_schema_required: true
+  active_requires_runtime_provider: true
+  active_requires_benchmark_evidence: true
   separate_code_and_weights_license_required: true
   preferred_licenses: [Apache-2.0, MIT]
+  # Licences permitting commercial use but not free redistribution may only be reached
+  # through a hosted provider that already licensed them; this repository never mirrors
+  # or ships those weights.
+  hosted_inference_only_licenses: [CreativeML-Open-RAIL-M, CreativeML-Open-RAIL++-M, Llama-2-Community-License, Llama-3.2-Community-License]
+  redistribution_requires_permissive_license: true
   commercial_use_must_be_explicit: true
   runtime_configured_is_separate_from_model_approval: true
 

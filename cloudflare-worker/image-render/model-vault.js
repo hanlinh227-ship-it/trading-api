@@ -1,6 +1,17 @@
 import vault from './model-vault.json' with {type:'json'};
 
-const ALLOWED_LICENSES=new Set(['Apache-2.0','MIT']);
+// Licences we may redistribute or self-host under.
+export const PERMISSIVE_LICENSES=Object.freeze(new Set(['Apache-2.0','MIT']));
+// Licences that permit commercial use of the model and its outputs but are not free
+// redistribution licences. A model under one of these may only be reached through a
+// hosted provider that already licensed it; we never mirror or ship its weights.
+export const HOSTED_INFERENCE_LICENSES=Object.freeze(new Set([
+  'CreativeML-Open-RAIL-M',
+  'CreativeML-Open-RAIL++-M',
+  'Llama-2-Community-License',
+  'Llama-3.2-Community-License',
+]));
+const ALLOWED_LICENSES=new Set([...PERMISSIVE_LICENSES,...HOSTED_INFERENCE_LICENSES]);
 // Promotion pipeline: candidate -> benchmark -> compare -> promotion proposal -> gate -> active.
 // BENCHMARKED means the benchmark evidence passed but the policy/runtime gate has not.
 export const MODEL_VAULT_STATUSES=Object.freeze(['CANDIDATE','BENCHMARKED','ACTIVE','DEGRADED','DISABLED']);
@@ -11,11 +22,22 @@ export function validateModelVaultEntry(entry={}){
   const errors=[];
   if(!String(entry.modelId||'').trim())errors.push('model_id_required');
   if(!String(entry.canonicalRepo||'').includes('/'))errors.push('canonical_repo_required');
-  if(!SHA40.test(String(entry.sourceRevision||'')))errors.push('exact_source_revision_required');
+  // A model we could self-host or redistribute must pin an exact revision. A model reached
+  // only through a hosted provider has no revision we control, so it is identified by the
+  // provider's model id instead; inventing a git SHA for it would be a fabricated fact.
+  const hasRevision=SHA40.test(String(entry.sourceRevision||''));
+  const hasProviderModelId=/^@?[a-z0-9_.-]+\/[a-z0-9_.\/-]+$/i.test(String(entry.providerModelId||''));
+  if(entry.redistributionEligible===true){
+    if(!hasRevision)errors.push('exact_source_revision_required');
+  }else if(!hasRevision&&!hasProviderModelId){
+    errors.push('exact_source_revision_or_provider_model_id_required');
+  }
   if(!ALLOWED_LICENSES.has(entry.codeLicense))errors.push('code_license_not_approved');
   if(!ALLOWED_LICENSES.has(entry.weightsLicense))errors.push('weights_license_not_approved');
   if(entry.commercialUseEligible!==true)errors.push('commercial_use_must_be_explicitly_allowed');
   if(typeof entry.redistributionEligible!=='boolean')errors.push('redistribution_eligibility_required');
+  // Only a permissive licence may claim redistribution eligibility.
+  if(entry.redistributionEligible===true&&!(PERMISSIVE_LICENSES.has(entry.codeLicense)&&PERMISSIVE_LICENSES.has(entry.weightsLicense)))errors.push('redistribution_requires_permissive_license');
   if(typeof entry.runtimeConfigured!=='boolean')errors.push('runtime_configured_required');
   if(!ALLOWED_STATUS.has(entry.approvalStatus))errors.push('approval_status_invalid');
   if(entry.approvalStatus==='ACTIVE'&&entry.runtimeConfigured!==true)errors.push('active_runtime_must_be_configured');
@@ -35,4 +57,53 @@ export function loadApprovedModelVault(){
 
 export function getModelVaultEntry(modelId){
   return loadApprovedModelVault().find(entry=>entry.modelId===modelId)||null;
+}
+
+// Section 16 record schema. The older validateModelVaultEntry above remains the FREE_ONLY
+// license gate; this is the full record contract a vault entry must also satisfy.
+export const MODEL_VAULT_RECORD_FIELDS=Object.freeze([
+  'modelId','family','version','license','codeLicense','weightsLicense','runtimeProviders',
+  'supportedTasks','referenceSupport','editSupport','criticSupport','minResolution',
+  'maxResolution','qualityBenchmarks','status','lastVerifiedAt','notes',
+]);
+
+const isString=value=>typeof value==='string';
+const isNonEmptyString=value=>isString(value)&&value.trim().length>0;
+const isResolution=value=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value)
+  &&Number.isInteger(Number(value.width))&&Number(value.width)>0
+  &&Number.isInteger(Number(value.height))&&Number(value.height)>0;
+const isPlainObject=value=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
+
+export function validateModelVaultRecord(record={}){
+  const errors=[];
+  for(const field of MODEL_VAULT_RECORD_FIELDS){
+    if(record[field]===undefined||record[field]===null)errors.push(`${field}_required`);
+  }
+  for(const field of ['modelId','family','version','license','codeLicense','weightsLicense','lastVerifiedAt']){
+    if(record[field]!==undefined&&!isNonEmptyString(record[field]))errors.push(`${field}_required`);
+  }
+  if(record.notes!==undefined&&!isString(record.notes))errors.push('notes_required');
+  if(record.runtimeProviders!==undefined&&!Array.isArray(record.runtimeProviders))errors.push('runtimeProviders_required');
+  if(record.supportedTasks!==undefined&&(!Array.isArray(record.supportedTasks)||record.supportedTasks.length===0))errors.push('supportedTasks_required');
+  for(const field of ['referenceSupport','editSupport','criticSupport']){
+    if(record[field]!==undefined&&typeof record[field]!=='boolean')errors.push(`${field}_required`);
+  }
+  if(record.minResolution!==undefined&&!isResolution(record.minResolution))errors.push('minResolution_required');
+  if(record.maxResolution!==undefined&&!isResolution(record.maxResolution))errors.push('maxResolution_required');
+  if(isResolution(record.minResolution)&&isResolution(record.maxResolution)
+    &&(Number(record.minResolution.width)>Number(record.maxResolution.width)||Number(record.minResolution.height)>Number(record.maxResolution.height))){
+    errors.push('minResolution_exceeds_maxResolution');
+  }
+  if(record.qualityBenchmarks!==undefined&&!isPlainObject(record.qualityBenchmarks))errors.push('qualityBenchmarks_required');
+  if(record.status!==undefined&&!ALLOWED_STATUS.has(record.status))errors.push('status_invalid');
+
+  // ACTIVE is a runtime claim: it needs a runtime to run on and benchmark evidence for a
+  // task the model supports. A model is never ACTIVE just because its record exists.
+  if(record.status==='ACTIVE'){
+    if(!Array.isArray(record.runtimeProviders)||record.runtimeProviders.length===0)errors.push('active_requires_runtime_provider');
+    const benchmarks=isPlainObject(record.qualityBenchmarks)?record.qualityBenchmarks:{};
+    const supported=Array.isArray(record.supportedTasks)?record.supportedTasks:[];
+    if(!supported.some(task=>isPlainObject(benchmarks[task])))errors.push('active_requires_benchmark_evidence');
+  }
+  return {ok:errors.length===0,errors:[...new Set(errors)]};
 }

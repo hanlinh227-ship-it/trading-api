@@ -16,8 +16,17 @@ assert.ok(vault.length>=4);
 for(const entry of vault){
   assert.equal(validateModelVaultEntry(entry).ok,true,entry.modelId);
   assert.equal(entry.approvalStatus,'CANDIDATE');
-  assert.equal(entry.runtimeConfigured,false);
   assert.equal(entry.monetaryCost,'zero');
+}
+// runtimeConfigured is no longer false for every model: the Workers AI models are reached
+// through a runtime that exists. The invariant that matters is that a configured runtime
+// still does not make a model ACTIVE — health and benchmark evidence do, and those are
+// collected in production.
+assert.ok(vault.some(entry=>entry.runtimeConfigured===true),'a configured runtime must be representable');
+assert.ok(vault.every(entry=>entry.approvalStatus!=='ACTIVE'),'no model is ACTIVE without verified evidence');
+for(const entry of vault){
+  if(entry.runtimeConfigured===true)assert.ok((entry.runtimeProviders||[]).length>0,`${entry.modelId} claims a runtime with no provider`);
+  if((entry.runtimeProviders||[]).length===0)assert.equal(entry.runtimeConfigured,false,entry.modelId);
 }
 assert.ok(vault.some(entry=>entry.modelId==='flux2-klein-4b'));
 assert.ok(!vault.some(entry=>/9b|dev/i.test(entry.modelId)&&entry.canonicalRepo==='black-forest-labs/flux2'));
