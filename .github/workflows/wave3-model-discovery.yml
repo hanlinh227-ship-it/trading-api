@@ -92,6 +92,61 @@ jobs:
               base = upstream.split("/", 1)[1]
               return [upstream, f"{author}/{base}-GGUF", f"{author}/{base}-gguf"]
 
+          # Converters whose builds carry enough provenance to be checkable: they
+          # publish the source revision they converted from and the llama.cpp
+          # release that did it. This is a shortlist of *where to look*, never a
+          # trust decision - every candidate found here is reported with its
+          # provenance fields so a human decides, and a build that cannot name
+          # its source revision and converter is refused downstream regardless
+          # of who published it.
+          CONVERTERS = ("bartowski", "unsloth", "ggml-org", "lmstudio-community")
+
+          def community_gguf_repos(upstream: str) -> list[str]:
+              base = upstream.split("/", 1)[1]
+              return [f"{c}/{base}-GGUF" for c in CONVERTERS]
+
+          def conversion_provenance(repo_id: str, revision: str) -> dict:
+              """What a conversion must be able to say about itself.
+
+              A GGUF is a derived artifact. Its digest proves only that these
+              bytes are these bytes; it says nothing about what they were made
+              from. So the fields that matter are the source repo and revision
+              it was converted from, and the tool that did it - without those,
+              a digest is provenance for nothing.
+              """
+              found = {"base_model": None, "base_revision": None,
+                       "converter_tool": None, "readme_excerpt": None}
+              try:
+                  info = api.model_info(repo_id=repo_id, files_metadata=False)
+              except Exception:
+                  return found
+              card = getattr(info, "cardData", None) or {}
+              if isinstance(card, dict):
+                  base = card.get("base_model")
+                  if isinstance(base, list):
+                      base = base[0] if base else None
+                  found["base_model"] = base
+              for tag in (getattr(info, "tags", None) or []):
+                  tag = str(tag)
+                  if tag.startswith("base_model:") and not found["base_model"]:
+                      found["base_model"] = tag.split(":", 1)[1]
+              try:
+                  from huggingface_hub import hf_hub_download
+                  readme = pathlib.Path(hf_hub_download(
+                      repo_id=repo_id, filename="README.md", revision=revision))
+                  text = readme.read_text(encoding="utf-8", errors="replace")
+                  found["readme_excerpt"] = text[:1500]
+                  import re
+                  m = re.search(r"llama\.cpp release (b\d+)", text)
+                  if m:
+                      found["converter_tool"] = f"llama.cpp {m.group(1)}"
+                  m = re.search(r"[0-9a-f]{40}", text)
+                  if m:
+                      found["base_revision"] = m.group(0)
+              except Exception:
+                  pass
+              return found
+
           def inspect(repo_id: str) -> dict | None:
               try:
                   info = api.model_info(repo_id=repo_id, files_metadata=False)
@@ -189,6 +244,31 @@ jobs:
                               "size_gb": round(picked["size_bytes"] / 1e9, 2),
                           }
                           break
+              # No author build. Look at conversions and report what provenance
+              # each can produce, so the decision is made on evidence rather
+              # than on the converter's reputation.
+              if row["selected"] is None:
+                  row["community_candidates"] = []
+                  for repo_id in community_gguf_repos(upstream):
+                      repo = inspect(repo_id)
+                      if not (repo.get("exists") and repo.get("gguf_files") and not repo.get("gated")):
+                          continue
+                      picked = choose(repo)
+                      if not picked:
+                          continue
+                      prov = conversion_provenance(repo["repo_id"], repo["revision"])
+                      row["community_candidates"].append({
+                          "repo_id": repo["repo_id"],
+                          "immutable_revision": repo["revision"],
+                          "license_declared": repo["license_declared"],
+                          "official_publisher_artifact": False,
+                          **picked,
+                          "size_gb": round(picked["size_bytes"] / 1e9, 2),
+                          "conversion_provenance": prov,
+                          "provenance_complete": bool(
+                              prov.get("base_model") and prov.get("converter_tool")),
+                      })
+
               if row["selected"] is None:
                   row["conclusion"] = (
                       "no ungated GGUF published by this model's own author; a "

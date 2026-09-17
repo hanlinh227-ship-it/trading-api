@@ -67,6 +67,9 @@ ROUNDS: tuple[tuple[str, str, str], ...] = (
     ("F", "synthesis_generalist",
      "In two sentences, say what a capability benchmark can and cannot establish "
      "about a model."),
+    ("G", "code_review",
+     "A reviewer says a function returning None on an empty list is a bug because the "
+     "caller never checks. In one sentence, is the reviewer right?"),
 )
 
 
@@ -120,6 +123,78 @@ def check(round_id: str, capability: str, result: dict[str, Any]) -> dict[str, A
     }
 
 
+def placement_rounds(root: Path) -> list[dict[str, Any]]:
+    """The two rounds that are about worker placement rather than inference.
+
+    H asks what happens when the Model Mesh would pick a model no attached
+    worker can hold. I asks what happens when a request arrives and *nothing*
+    is serving. Neither can be demonstrated by running a model, because the
+    whole point of both is that no model runs - so they are proven through the
+    placement resolver against a registry whose contents are controlled.
+    """
+    import yaml
+
+    from AI_SKILL_LIBRARY.v4.local_runtime.placement import PlacementState, resolve
+    from AI_SKILL_LIBRARY.v4.local_runtime.workers import WorkerRegistry
+    from AI_SKILL_LIBRARY.v4.tools.wave3_placement import register_this_host
+
+    rows: list[dict[str, Any]] = []
+
+    registry = WorkerRegistry()
+    register_this_host(root, registry)
+    document = yaml.safe_load(
+        (root / "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml").read_text(encoding="utf-8")
+    ) or {}
+    models = document.get("models", [])
+
+    # H: a model that genuinely exceeds every attached worker. Built from a real
+    # registry row with a 30B-class memory requirement, so the refusal is
+    # produced by the same code path a real large model would take.
+    oversized = dict(models[0])
+    oversized["model_id"] = "wave3/large-model-remote-path"
+    oversized["artifact_identity"] = {
+        **(models[0].get("artifact_identity") or {}),
+        "size_bytes": 18_600 * 1024 * 1024,
+    }
+    placement = resolve(oversized, registry, measured_peak_ram_mb=37_200)
+    failures: list[str] = []
+    if placement.state is not PlacementState.REMOTE_WORKER_REQUIRED:
+        failures.append(f"expected REMOTE_WORKER_REQUIRED, got {placement.state.value}")
+    if placement.executable:
+        failures.append("a model no worker can hold was reported executable")
+    if not placement.blockers:
+        failures.append("no blocker was named, so an operator learns nothing from it")
+    rows.append({
+        "round": "H", "capability": "large_model_remote_routing",
+        "passed": not failures, "failures": failures,
+        "placement_state": placement.state.value,
+        "blockers": {k: list(v) for k, v in placement.blockers.items()},
+        "required_ram_mb": placement.requirement.ram_mb,
+        "workers": [],
+        "note": "the request resolves to a named machine requirement, not to a crash",
+    })
+
+    # I: nothing serving at all. An empty registry is the honest way to ask
+    # this: no worker is offline-by-accident, there simply is none.
+    empty = WorkerRegistry()
+    placement = resolve(models[0], empty)
+    failures = []
+    if placement.executable:
+        failures.append("a request was reported executable with no worker at all")
+    if placement.state is not PlacementState.NO_COMPATIBLE_WORKER_ONLINE:
+        failures.append(f"expected NO_COMPATIBLE_WORKER_ONLINE, got {placement.state.value}")
+    rows.append({
+        "round": "I", "capability": "no_worker_fallback",
+        "passed": not failures, "failures": failures,
+        "placement_state": placement.state.value,
+        "blockers": {},
+        "workers": [],
+        "note": ("with nothing serving the answer is a truthful state, not a "
+                 "fabricated inference and not an exception"),
+    })
+    return rows
+
+
 def build(root: Path, cache: Path, profile: str, max_tokens: int) -> dict[str, Any]:
     rounds: list[dict[str, Any]] = []
     for round_id, capability, request in ROUNDS:
@@ -137,6 +212,7 @@ def build(root: Path, cache: Path, profile: str, max_tokens: int) -> dict[str, A
         row["wall_ms"] = round((time.time() - started) * 1000.0, 3)
         rounds.append(row)
 
+    rounds.extend(placement_rounds(root))
     failed = [row["round"] for row in rounds if not row["passed"]]
     models = sorted({str(w["model_id"]) for row in rounds for w in row.get("workers") or []})
     return {
