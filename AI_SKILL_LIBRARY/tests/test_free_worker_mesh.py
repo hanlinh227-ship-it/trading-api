@@ -20,6 +20,7 @@ from AI_SKILL_LIBRARY.v4.local_runtime.providers import (
     OfferingMatch,
     ProviderRecord,
     ProviderRegistry,
+    ProviderVerification,
 )
 from AI_SKILL_LIBRARY.v4.local_runtime.resilience import FailureKind
 from AI_SKILL_LIBRARY.v4.local_runtime.resources import HostFacts, ResourceSnapshot
@@ -85,6 +86,7 @@ def hosted_provider(match=OfferingMatch.CAPABILITY, free=True):
         cost_class=CostClass.FREE_HARD_STOP,
         custom_weights=False, authentication_required=True,
         credential_available_here=True, operator_authorized=True,
+        verification_state=ProviderVerification.VERIFIED_AVAILABLE,
         offerings=(offering,),
     )
 
@@ -270,6 +272,20 @@ class ExactVersusCapabilityTests(unittest.TestCase):
         self.assertIs(placement.execution_mode, ExecutionMode.EXACT_MODEL)
         self.assertTrue(placement.ran_the_requested_model)
 
+    def test_an_unproven_provider_is_never_placed_on(self):
+        unproven = ProviderRecord(
+            provider_id="read_about_it",
+            execution_type=ExecutionType.SERVERLESS_HOSTED_CATALOG,
+            cost_class=CostClass.FREE_HARD_STOP, authentication_required=False,
+            operator_authorized=True,
+            verification_state=ProviderVerification.DISCOVERED,
+            offerings=(ModelOffering(requested_model_id=MODEL, match=OfferingMatch.EXACT,
+                                     provider_model_id="hosted/whatever",
+                                     free_tier_eligible=True),))
+        mesh = FreeWorkerMesh(WorkerRegistry(), ProviderRegistry([unproven]))
+        placement = mesh.place(request(privacy=Privacy.PUBLIC), now=NOW)
+        self.assertIs(placement.outcome, MeshOutcome.CAPABILITY_TEMPORARILY_UNAVAILABLE)
+
     def test_an_exact_worker_beats_a_provider_that_also_serves_it(self):
         registry = WorkerRegistry()
         join(registry, "mac")
@@ -315,6 +331,7 @@ class PaidPathTests(unittest.TestCase):
             provider_id="paid-gpu", execution_type=ExecutionType.SERVERLESS_HOSTED_CATALOG,
             cost_class=CostClass.PAID, authentication_required=False,
             operator_authorized=True,
+            verification_state=ProviderVerification.VERIFIED_AVAILABLE,
             offerings=(ModelOffering(requested_model_id=MODEL, match=OfferingMatch.EXACT,
                                      provider_model_id="paid/whatever",
                                      free_tier_eligible=True),))

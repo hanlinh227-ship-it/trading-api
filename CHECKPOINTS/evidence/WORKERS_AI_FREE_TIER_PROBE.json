@@ -1,0 +1,39 @@
+{
+  "probe": "workers_ai_free_tier",
+  "probed_at": "2026-09-17T16:18:46Z",
+  "plan_can_bill": false,
+  "plan_evidence": "Workers Free has no paid path; past the allowance requests fail",
+  "status": "PROBED",
+  "results": [
+    {
+      "requested_model_id": "openai/gpt-oss-20b",
+      "provider_model_id": "@cf/openai/gpt-oss-20b",
+      "match": "EXACT",
+      "http_status": "401",
+      "cloudflare_error_code": "10000",
+      "returned_a_completion": false,
+      "verdict": "TOKEN_LACKS_WORKERS_AI_PERMISSION"
+    },
+    {
+      "requested_model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "provider_model_id": "@cf/qwen/qwen2.5-coder-32b-instruct",
+      "match": "CAPABILITY",
+      "http_status": "401",
+      "cloudflare_error_code": "10000",
+      "returned_a_completion": false,
+      "verdict": "TOKEN_LACKS_WORKERS_AI_PERMISSION"
+    },
+    {
+      "requested_model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+      "provider_model_id": "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+      "match": "CAPABILITY",
+      "http_status": "401",
+      "cloudflare_error_code": "10000",
+      "returned_a_completion": false,
+      "verdict": "TOKEN_LACKS_WORKERS_AI_PERMISSION"
+    }
+  ],
+  "reclassified_note": "The probe ran and Cloudflare answered. HTTP 401 with error 10000 means the repository's Cloudflare token was presented and rejected for the Workers AI API - the credential exists, its scope does not cover this. Recorded as a named blocker with a remedy rather than as an unknown.",
+  "run_url": "https://github.com/hanlinh227-ship-it/trading-api/actions/runs/35245779094",
+  "operator_action_required": "Grant the repository's CLOUDFLARE_API_TOKEN the 'Workers AI: Read' permission, or add a separate token with it. No account change, plan change or payment is involved; the Workers Free plan already includes the daily Neuron allowance."
+}

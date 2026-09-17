@@ -34,6 +34,11 @@ paths:
     max_disk_mb: 12000
     quota: none
     inference_provable_by: "already proven - the Wave 0 benchmark suites and the federation proof ran here"
+    verification_state: VERIFIED_AVAILABLE
+    verification_evidence: >-
+      real completions from admitted local models, repeatedly: the Wave 0
+      capability suites, PERSONAL_AI_BASELINE_001, and WAVE3_FEDERATION_PROOF at
+      nine rounds. This is execution proof, not a catalog claim.
     notes: >-
       The container this runtime is in. Its ~16 GB of RAM and its disk watermark
       are facts about this container and nothing else, which is the whole reason
@@ -60,7 +65,15 @@ paths:
       artifact discovery and staging run there and not here.
     inference_provable_by: >-
       a workflow job that loads the artifact and runs a real completion, with
-      the log as evidence. Proven this way already for the Wave 3 discovery lane.
+      the log as evidence.
+    verification_state: VERIFIED_LIMITED
+    verification_evidence: >-
+      execution is proven and inference is not, and the two are recorded
+      separately because they are different claims. Real jobs have run here -
+      the Wave 3 discovery lane, artifact staging, the ClamAV scan lane and the
+      Workers AI probe, all with logs. No model has been loaded and no
+      completion returned on this path yet, so it is VERIFIED_LIMITED rather
+      than VERIFIED_AVAILABLE, and the limit is exactly that.
     notes: >-
       A real machine with real RAM, for six hours at a time. It is NOT a
       persistent inference server and must not be recorded as one: every job
@@ -91,10 +104,23 @@ paths:
       the catalog was read through the connected Cloudflare documentation tool
       rather than by fetching it here.
     inference_provable_by: >-
-      a request from a deployed Worker with the AI binding, or a dashboard/API
-      call by the account holder. NOT provable from this container: no
-      Cloudflare API token is present in this runtime, and one must not be
-      written into the repository to create one.
+      a request from a deployed Worker with the AI binding, or a direct API call
+      with a token scoped for Workers AI. Attempted on 2026-09-17 from a runner
+      holding the repository's Cloudflare credential; see verification_state.
+    verification_state: AUTH_REQUIRED
+    verification_evidence: >-
+      probe run 35245779094 (2026-09-17T16:18:46Z, branch head 2ffb6c26): the
+      repository's CLOUDFLARE_API_TOKEN was presented to the Workers AI run API
+      for all three recorded models and Cloudflare answered HTTP 401 with error
+      10000 on each. The credential exists and was rejected for this API, which
+      is a scope fact, not a pricing or availability one. No model was served,
+      so nothing here is VERIFIED_AVAILABLE and no free-tier eligibility was
+      established either way.
+    operator_action_required: >-
+      Grant the repository's CLOUDFLARE_API_TOKEN the "Workers AI: Read"
+      permission, or add a second token carrying it. This is a token scope
+      change only - no new account, no plan change, no payment. The Workers Free
+      plan already includes the 10,000 daily Neuron allowance and cannot bill.
     notes: >-
       A hosted catalog, and that is the load-bearing limit. It serves models
       Cloudflare has published under @cf/ ids; there is no documented path for

@@ -66,6 +66,58 @@ class OfferingMatch(str, Enum):
     UNVERIFIED = "UNVERIFIED"
 
 
+class ProviderVerification(str, Enum):
+    """How far a provider has got from "we read about it" to "it ran".
+
+    The ordering is deliberate and the line is between the first four and the
+    rest: **only a state that required a real execution admits a provider.** A
+    catalog page, a pricing table and a published limit are all evidence about
+    the world and none of them is evidence that this account can call this model
+    today. A provider that has never returned a completion is DISCOVERED, and
+    calling it available would be the same error as recording a documentation
+    score in the capability ledger.
+    """
+
+    #: Found and recorded. Nothing has been attempted.
+    DISCOVERED = "DISCOVERED"
+    #: An attempt is warranted but has not been made or has not concluded.
+    VERIFICATION_PENDING = "VERIFICATION_PENDING"
+    #: Attempted, and the credential was missing or rejected for this API. The
+    #: remedy is a token, and it belongs to a person.
+    AUTH_REQUIRED = "AUTH_REQUIRED"
+    #: Attempted, and it needs an account or connection only the operator can make.
+    HUMAN_CONNECTION_REQUIRED = "HUMAN_CONNECTION_REQUIRED"
+    #: Reachable, but out of free allowance until it resets.
+    QUOTA_EXHAUSTED = "QUOTA_EXHAUSTED"
+    #: Reachable and answering, but not on any zero-cost tier.
+    PAID_ONLY = "PAID_ONLY"
+    #: Its terms do not permit the use we would make of it. Never worked around.
+    TERMS_INCOMPATIBLE = "TERMS_INCOMPATIBLE"
+    #: Cannot serve what we need at all - wrong modality, wrong interface.
+    UNSUPPORTED = "UNSUPPORTED"
+    #: Was verified, is not answering now.
+    OFFLINE = "OFFLINE"
+    #: It ran. A real request returned a real completion on a zero-cost tier.
+    VERIFIED_AVAILABLE = "VERIFIED_AVAILABLE"
+    #: It ran, within constraints worth recording (a narrow model set, a low cap).
+    VERIFIED_LIMITED = "VERIFIED_LIMITED"
+
+
+#: The only two states in which a provider may actually be selected. Everything
+#: else is a stage on the way, and none of them is availability.
+VERIFIED_STATES = frozenset({
+    ProviderVerification.VERIFIED_AVAILABLE,
+    ProviderVerification.VERIFIED_LIMITED,
+})
+
+#: States that are facts about the provider itself and hold on every machine.
+PERMANENT_REFUSAL_STATES = frozenset({
+    ProviderVerification.PAID_ONLY,
+    ProviderVerification.TERMS_INCOMPATIBLE,
+    ProviderVerification.UNSUPPORTED,
+})
+
+
 class CostClass(str, Enum):
     #: Free and unable to bill: the plan has no billing path at all, so an
     #: overrun fails rather than charges.
@@ -201,6 +253,13 @@ class ProviderRecord:
     operator_authorized: bool = False
     operator_evidence: str | None = None
 
+    #: How far this path has been verified. Defaults to DISCOVERED, so a
+    #: provider added from documentation is not available until something has
+    #: actually run on it.
+    verification_state: ProviderVerification = ProviderVerification.DISCOVERED
+    verification_evidence: str | None = None
+    operator_action_required: str | None = None
+
     @property
     def usable_without_approval(self) -> bool:
         """Zero-cost and reachable from here. Both, or it is not usable now."""
@@ -228,6 +287,11 @@ class ProviderRecord:
                 "requires an account this federation has not been shown to have; "
                 "enabling one is an operator decision, not an autonomous one"
             )
+        if self.verification_state in PERMANENT_REFUSAL_STATES:
+            why.append(
+                f"is {self.verification_state.value}, which is a fact about the provider "
+                f"and does not change with the machine asking"
+            )
         return tuple(why)
 
     def local_blockers(self) -> tuple[str, ...]:
@@ -242,6 +306,14 @@ class ProviderRecord:
             why.append(
                 "this runtime holds no credential for it, and one must not be written "
                 "into the repository to create one"
+            )
+        if self.verification_state not in VERIFIED_STATES:
+            # The rule that keeps a catalog page out of the availability column.
+            detail = f"; {self.operator_action_required}" if self.operator_action_required else ""
+            why.append(
+                f"has never returned a completion on a zero-cost tier (state: "
+                f"{self.verification_state.value}); documentation is not execution proof"
+                f"{detail}"
             )
         return tuple(why)
 
@@ -267,6 +339,10 @@ class ProviderRecord:
             "quota_resets": self.quota_resets,
             "operator_authorized": self.operator_authorized,
             "operator_evidence": self.operator_evidence,
+            "verification_state": self.verification_state.value,
+            "verification_evidence": self.verification_evidence,
+            "operator_action_required": self.operator_action_required,
+            "execution_proven": self.verification_state in VERIFIED_STATES,
             "federation_blockers": list(self.federation_blockers()),
             "local_blockers": list(self.local_blockers()),
             "reachable_from_this_runtime": not self.local_blockers(),

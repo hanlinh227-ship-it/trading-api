@@ -701,6 +701,12 @@ jobs:
                   verdict = "REQUIRES_WORKERS_PAID_PLAN"
               elif http == "429":
                   verdict = "DAILY_NEURON_ALLOWANCE_EXHAUSTED"
+              elif http == "401":
+                  # The credential exists and Cloudflare rejected it for this
+                  # API. That is a scope problem with a named remedy, not an
+                  # unknown - calling it inconclusive would hide the one thing
+                  # an operator can act on.
+                  verdict = "TOKEN_LACKS_WORKERS_AI_PERMISSION"
               else:
                   verdict = "INCONCLUSIVE"
               rows.append({

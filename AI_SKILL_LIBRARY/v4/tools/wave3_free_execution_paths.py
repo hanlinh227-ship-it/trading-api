@@ -48,6 +48,7 @@ from AI_SKILL_LIBRARY.v4.local_runtime.providers import (  # noqa: E402
     ProviderRecord,
     ProviderRegistry,
     ProviderResolution,
+    ProviderVerification,
 )
 
 PATHS_REL = "AI_SKILL_LIBRARY/v4/open_model_universe/free_execution_paths.yaml"
@@ -98,6 +99,10 @@ def load_registry(root: Path) -> tuple[ProviderRegistry, dict[str, Any]]:
             credential_available_here=bool(row.get("credential_available_here", False)),
             operator_authorized=bool(row.get("operator_authorized", False)),
             operator_evidence=row.get("operator_evidence"),
+            verification_state=ProviderVerification(
+                str(row.get("verification_state") or "DISCOVERED")),
+            verification_evidence=row.get("verification_evidence"),
+            operator_action_required=row.get("operator_action_required"),
             model_cache_capability=str(row.get("model_cache_capability") or "none"),
             cold_start_ms=row.get("cold_start_ms"),
             max_job_seconds=row.get("max_job_seconds"),

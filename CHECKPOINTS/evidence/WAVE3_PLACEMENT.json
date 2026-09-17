@@ -34,15 +34,33 @@
       "granite"
     ],
     "max_context": 131072,
-    "available_ram_mb": 15416,
+    "available_ram_mb": 12923,
     "available_vram_mb": 0,
-    "available_disk_mb": 11091,
+    "available_disk_mb": 11089,
     "load_latency_ms": null,
     "warm_latency_ms": null,
     "cost_class": "owned_hardware_zero_marginal",
     "privacy_class": "CONFIDENTIAL",
     "network_reachable": true,
-    "last_verified_at": "2026-09-17T16:01:47Z",
+    "last_verified_at": "2026-09-17T16:23:18Z",
+    "declared_capabilities": [],
+    "measured_capabilities": [],
+    "supports_custom_weights": true,
+    "supports_jit_acquisition": true,
+    "supports_cache": true,
+    "supports_eviction": true,
+    "free_quota": null,
+    "quota_remaining": null,
+    "quota_reset_at": null,
+    "lease_seconds": 120.0,
+    "lease_expired": false,
+    "max_concurrent_jobs": 1,
+    "current_jobs": 0,
+    "current_models": [],
+    "has_capacity": true,
+    "egress_policy": null,
+    "trust_class": "operator_owned",
+    "is_third_party": false,
     "routing_authority": false,
     "reasoning_authority": false,
     "memory_authority": false,
@@ -84,15 +102,33 @@
         "granite"
       ],
       "max_context": 131072,
-      "available_ram_mb": 15416,
+      "available_ram_mb": 12923,
       "available_vram_mb": 0,
-      "available_disk_mb": 11091,
+      "available_disk_mb": 11089,
       "load_latency_ms": null,
       "warm_latency_ms": null,
       "cost_class": "owned_hardware_zero_marginal",
       "privacy_class": "CONFIDENTIAL",
       "network_reachable": true,
-      "last_verified_at": "2026-09-17T16:01:47Z",
+      "last_verified_at": "2026-09-17T16:23:18Z",
+      "declared_capabilities": [],
+      "measured_capabilities": [],
+      "supports_custom_weights": true,
+      "supports_jit_acquisition": true,
+      "supports_cache": true,
+      "supports_eviction": true,
+      "free_quota": null,
+      "quota_remaining": null,
+      "quota_reset_at": null,
+      "lease_seconds": 120.0,
+      "lease_expired": false,
+      "max_concurrent_jobs": 1,
+      "current_jobs": 0,
+      "current_models": [],
+      "has_capacity": true,
+      "egress_policy": null,
+      "trust_class": "operator_owned",
+      "is_third_party": false,
       "routing_authority": false,
       "reasoning_authority": false,
       "memory_authority": false,
@@ -443,8 +479,8 @@
       "requirement_is_an_estimate": true,
       "blockers": {
         "ephemeral-local-0": [
-          "has 15416 MB RAM available, needs 37200 MB",
-          "has 11091 MB disk free, needs 21600 MB"
+          "has 12923 MB RAM available, needs 37200 MB",
+          "has 11089 MB disk free, needs 21600 MB"
         ]
       },
       "zero_cost_provider_paths": {
@@ -454,6 +490,7 @@
         "pending_verification": {
           "cloudflare_workers_ai": [
             "this runtime holds no credential for it, and one must not be written into the repository to create one",
+            "has never returned a completion on a zero-cost tier (state: AUTH_REQUIRED); documentation is not execution proof; Grant the repository's CLOUDFLARE_API_TOKEN the \"Workers AI: Read\" permission, or add a second token carrying it. This is a token scope change only - no new account, no plan change, no payment. The Workers Free plan already includes the 10,000 daily Neuron allowance and cannot bill.",
             "@cf/qwen/qwen2.5-coder-32b-instruct free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
           ]
         },
@@ -475,8 +512,8 @@
       "requirement_is_an_estimate": true,
       "blockers": {
         "ephemeral-local-0": [
-          "has 15416 MB RAM available, needs 25600 MB",
-          "has 11091 MB disk free, needs 15800 MB"
+          "has 12923 MB RAM available, needs 25600 MB",
+          "has 11089 MB disk free, needs 15800 MB"
         ]
       },
       "zero_cost_provider_paths": {
@@ -486,6 +523,7 @@
         "pending_verification": {
           "cloudflare_workers_ai": [
             "this runtime holds no credential for it, and one must not be written into the repository to create one",
+            "has never returned a completion on a zero-cost tier (state: AUTH_REQUIRED); documentation is not execution proof; Grant the repository's CLOUDFLARE_API_TOKEN the \"Workers AI: Read\" permission, or add a second token carrying it. This is a token scope change only - no new account, no plan change, no payment. The Workers Free plan already includes the 10,000 daily Neuron allowance and cannot bill.",
             "@cf/openai/gpt-oss-20b free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
           ]
         },
@@ -535,6 +573,7 @@
         "pending_verification": {
           "cloudflare_workers_ai": [
             "this runtime holds no credential for it, and one must not be written into the repository to create one",
+            "has never returned a completion on a zero-cost tier (state: AUTH_REQUIRED); documentation is not execution proof; Grant the repository's CLOUDFLARE_API_TOKEN the \"Workers AI: Read\" permission, or add a second token carrying it. This is a token scope change only - no new account, no plan change, no payment. The Workers Free plan already includes the 10,000 daily Neuron allowance and cannot bill.",
             "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b free-tier eligibility is unverified; fail closed until one request on the free plan returns a completion"
           ]
         },

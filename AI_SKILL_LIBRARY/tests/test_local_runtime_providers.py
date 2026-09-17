@@ -14,6 +14,7 @@ from AI_SKILL_LIBRARY.v4.local_runtime.providers import (
     ProviderError,
     ProviderRecord,
     ProviderRegistry,
+    ProviderVerification,
 )
 from AI_SKILL_LIBRARY.v4.local_runtime.workers import WorkerRegistry
 
@@ -34,6 +35,10 @@ def hosted(offerings, **overrides):
         authentication_required=True,
         credential_available_here=True,
         operator_authorized=True,
+        # Selection tests need a path that has actually run. The rule that a
+        # provider must not be available on documentation alone has its own
+        # test below rather than being smuggled into every other one.
+        verification_state=ProviderVerification.VERIFIED_AVAILABLE,
         offerings=tuple(offerings),
     )
     defaults.update(overrides)
@@ -108,6 +113,22 @@ class ScopeTests(unittest.TestCase):
 
     def test_a_soft_quota_on_a_billable_account_is_refused(self):
         provider = hosted([exact()], cost_class=CostClass.FREE_QUOTA_SOFT)
+        resolution = ProviderRegistry([provider]).resolve("openai/gpt-oss-20b")
+        self.assertIn("cloudflare_workers_ai", resolution.rejected)
+
+    def test_documentation_alone_never_makes_a_provider_available(self):
+        # The §34 rule, structural rather than remembered: a provider that has
+        # never returned a completion cannot be selected, however complete its
+        # catalog entry is.
+        provider = hosted([exact()], verification_state=ProviderVerification.DISCOVERED)
+        resolution = ProviderRegistry([provider]).resolve("openai/gpt-oss-20b")
+        self.assertFalse(resolution.exact)
+        self.assertIn("documentation is not execution proof",
+                      " ".join(resolution.pending["cloudflare_workers_ai"]))
+
+    def test_a_terms_incompatible_provider_is_refused_on_every_machine(self):
+        provider = hosted([exact()],
+                          verification_state=ProviderVerification.TERMS_INCOMPATIBLE)
         resolution = ProviderRegistry([provider]).resolve("openai/gpt-oss-20b")
         self.assertIn("cloudflare_workers_ai", resolution.rejected)
 
