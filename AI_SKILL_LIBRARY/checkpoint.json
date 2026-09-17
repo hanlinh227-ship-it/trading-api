@@ -130,5 +130,6 @@
   "legion_runtime_tool_path": "AI_SKILL_LIBRARY/v4/tools/legion.py",
   "memory_continuity_policy_path": "AI_SKILL_LIBRARY/v4/memory_continuity/policy.yaml",
   "memory_continuity_resolver_path": "AI_SKILL_LIBRARY/v4/tools/memory_continuity.py",
-  "memory_continuity_focus_path": "AI_SKILL_LIBRARY/v4/memory_continuity/focus.json"
+  "memory_continuity_focus_path": "AI_SKILL_LIBRARY/v4/memory_continuity/focus.json",
+  "memory_continuity_writeback_path": "AI_SKILL_LIBRARY/v4/tools/memory_continuity_writeback.py"
 }
