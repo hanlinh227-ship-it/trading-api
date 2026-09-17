@@ -1,12 +1,13 @@
 {
   "tool": "capability_gap_map",
   "coverage_floor": 0.35,
-  "fleet_size": 7,
+  "fleet_size": 8,
   "models_measured": [
     "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
     "Qwen/Qwen3-0.6B-GGUF",
     "Qwen/Qwen3-1.7B-GGUF",
     "Qwen/Qwen3-4B-GGUF",
+    "Qwen/Qwen3-8B-GGUF",
     "ibm-granite/granite-3.3-2b-instruct-GGUF",
     "ibm-granite/granite-4.2-3b-GGUF",
     "microsoft/Phi-3-mini-4k-instruct-gguf"
@@ -17,10 +18,13 @@
     "tool_calling"
   ],
   "saturated_capabilities": [
+    "code_review",
     "deep_reasoning",
     "math_quant",
     "software_engineering",
-    "verifier_checker"
+    "synthesis_generalist",
+    "verifier_checker",
+    "vietnamese_reasoning"
   ],
   "thin_evidence_capabilities": [
     "code_review",
@@ -41,27 +45,30 @@
     "math_quant",
     "multilingual_reasoning",
     "software_engineering",
+    "synthesis_generalist",
     "tool_calling",
     "verifier_checker",
     "vietnamese_reasoning"
   ],
   "capabilities": {
     "code_review": {
-      "state": "COVERED_MEASURED",
-      "saturated": false,
-      "saturation_note": null,
+      "state": "COVERED_BUT_SATURATED",
+      "saturated": true,
+      "saturation_note": "2 of 8 models score 1.0 on 6 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
       "capability_gap": false,
-      "current_best_model": "Qwen/Qwen3-0.6B-GGUF",
+      "current_best_model": "Qwen/Qwen3-8B-GGUF",
       "measured_score": 1.0,
       "passed": 6,
       "attempted": 6,
-      "artifact_digest": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-      "latency": 1124.157,
-      "cold_load_ms": 580.373,
-      "peak_ram_mb": 1151.98,
+      "artifact_digest": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "latency": 8355.914,
+      "cold_load_ms": 8677.937,
+      "peak_ram_mb": 8637.62,
       "reliability": "12/12 reproducible",
-      "evidence_source": "WAVE0_BASELINE_QWEN3_0_6B.json",
-      "tied_with": [],
+      "evidence_source": "WAVE0_BASELINE_QWEN3_8B.json",
+      "tied_with": [
+        "Qwen/Qwen3-0.6B-GGUF"
+      ],
       "measurement_depth": "6 task(s)",
       "thin_evidence": true
     },
@@ -89,28 +96,24 @@
       "saturated": false,
       "saturation_note": null,
       "capability_gap": false,
-      "current_best_model": "Qwen/Qwen3-4B-GGUF",
-      "measured_score": 0.833333,
-      "passed": 5,
+      "current_best_model": "Qwen/Qwen3-8B-GGUF",
+      "measured_score": 1.0,
+      "passed": 6,
       "attempted": 6,
-      "artifact_digest": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
-      "latency": 7480.892,
-      "cold_load_ms": 11768.919,
-      "peak_ram_mb": 4721.73,
+      "artifact_digest": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "latency": 8355.914,
+      "cold_load_ms": 8677.937,
+      "peak_ram_mb": 8637.62,
       "reliability": "12/12 reproducible",
-      "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
-      "tied_with": [
-        "ibm-granite/granite-3.3-2b-instruct-GGUF",
-        "ibm-granite/granite-4.2-3b-GGUF",
-        "Qwen/Qwen3-0.6B-GGUF"
-      ],
+      "evidence_source": "WAVE0_BASELINE_QWEN3_8B.json",
+      "tied_with": [],
       "measurement_depth": "6 task(s)",
       "thin_evidence": true
     },
     "deep_reasoning": {
       "state": "COVERED_BUT_SATURATED",
       "saturated": true,
-      "saturation_note": "6 of 7 models score 1.0 on 3 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "saturation_note": "7 of 8 models score 1.0 on 3 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
       "capability_gap": false,
       "current_best_model": "Qwen/Qwen3-4B-GGUF",
       "measured_score": 1.0,
@@ -123,6 +126,7 @@
       "reliability": "12/12 reproducible",
       "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
       "tied_with": [
+        "Qwen/Qwen3-8B-GGUF",
         "Qwen/Qwen3-1.7B-GGUF",
         "ibm-granite/granite-3.3-2b-instruct-GGUF",
         "ibm-granite/granite-4.2-3b-GGUF",
@@ -135,7 +139,7 @@
     "math_quant": {
       "state": "COVERED_BUT_SATURATED",
       "saturated": true,
-      "saturation_note": "7 of 7 models score 1.0 on 2 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "saturation_note": "8 of 8 models score 1.0 on 2 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
       "capability_gap": false,
       "current_best_model": "Qwen/Qwen3-4B-GGUF",
       "measured_score": 1.0,
@@ -148,6 +152,7 @@
       "reliability": "12/12 reproducible",
       "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
       "tied_with": [
+        "Qwen/Qwen3-8B-GGUF",
         "Qwen/Qwen3-1.7B-GGUF",
         "ibm-granite/granite-3.3-2b-instruct-GGUF",
         "ibm-granite/granite-4.2-3b-GGUF",
@@ -161,7 +166,7 @@
     "software_engineering": {
       "state": "COVERED_BUT_SATURATED",
       "saturated": true,
-      "saturation_note": "7 of 7 models score 1.0 on 2 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "saturation_note": "8 of 8 models score 1.0 on 2 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
       "capability_gap": false,
       "current_best_model": "Qwen/Qwen3-4B-GGUF",
       "measured_score": 1.0,
@@ -174,6 +179,7 @@
       "reliability": "12/12 reproducible",
       "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
       "tied_with": [
+        "Qwen/Qwen3-8B-GGUF",
         "Qwen/Qwen3-1.7B-GGUF",
         "ibm-granite/granite-3.3-2b-instruct-GGUF",
         "ibm-granite/granite-4.2-3b-GGUF",
@@ -185,9 +191,9 @@
       "thin_evidence": true
     },
     "synthesis_generalist": {
-      "state": "COVERED_MEASURED",
-      "saturated": false,
-      "saturation_note": null,
+      "state": "COVERED_BUT_SATURATED",
+      "saturated": true,
+      "saturation_note": "2 of 8 models score 1.0 on 12 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
       "capability_gap": false,
       "current_best_model": "Qwen/Qwen3-4B-GGUF",
       "measured_score": 1.0,
@@ -199,14 +205,16 @@
       "peak_ram_mb": 4721.73,
       "reliability": "12/12 reproducible",
       "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
-      "tied_with": [],
+      "tied_with": [
+        "Qwen/Qwen3-8B-GGUF"
+      ],
       "measurement_depth": "12 task(s)",
       "thin_evidence": false
     },
     "verifier_checker": {
       "state": "COVERED_BUT_SATURATED",
       "saturated": true,
-      "saturation_note": "2 of 7 models score 1.0 on 6 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "saturation_note": "3 of 8 models score 1.0 on 6 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
       "capability_gap": false,
       "current_best_model": "Qwen/Qwen3-4B-GGUF",
       "measured_score": 1.0,
@@ -219,15 +227,16 @@
       "reliability": "12/12 reproducible",
       "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
       "tied_with": [
+        "Qwen/Qwen3-8B-GGUF",
         "ibm-granite/granite-3.3-2b-instruct-GGUF"
       ],
       "measurement_depth": "6 task(s)",
       "thin_evidence": true
     },
     "vietnamese_reasoning": {
-      "state": "COVERED_MEASURED",
-      "saturated": false,
-      "saturation_note": null,
+      "state": "COVERED_BUT_SATURATED",
+      "saturated": true,
+      "saturation_note": "2 of 8 models score 1.0 on 3 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
       "capability_gap": false,
       "current_best_model": "Qwen/Qwen3-4B-GGUF",
       "measured_score": 1.0,
@@ -239,7 +248,9 @@
       "peak_ram_mb": 4721.73,
       "reliability": "12/12 reproducible",
       "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
-      "tied_with": [],
+      "tied_with": [
+        "Qwen/Qwen3-8B-GGUF"
+      ],
       "measurement_depth": "3 task(s)",
       "thin_evidence": true
     },
@@ -933,6 +944,171 @@
       "evidence_source": "WAVE0_BASELINE_EVIDENCE.json"
     },
     {
+      "model_id": "Qwen/Qwen3-8B-GGUF",
+      "artifact_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "lifecycle_state": "AVAILABLE",
+      "wave0": {
+        "passed": 12,
+        "total": 12,
+        "reproducible": 12,
+        "status": "READY"
+      },
+      "per_capability": {
+        "code_review": {
+          "score": 1.0,
+          "passed": 6,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "coding": {
+          "score": 0.166667,
+          "passed": 1,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "debugging": {
+          "score": 1.0,
+          "passed": 6,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 0.0,
+          "wave0_attempted": 0
+        },
+        "deep_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3,
+          "measured_by": "wave0"
+        },
+        "math_quant": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "software_engineering": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2,
+          "measured_by": "wave0"
+        },
+        "synthesis_generalist": {
+          "score": 1.0,
+          "passed": 12,
+          "attempted": 12,
+          "measured_by": "wave0"
+        },
+        "verifier_checker": {
+          "score": 1.0,
+          "passed": 6,
+          "attempted": 6,
+          "measured_by": "local_engineering_judgment@1.0.0",
+          "wave0_score": 1.0,
+          "wave0_attempted": 2
+        },
+        "vietnamese_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3,
+          "measured_by": "wave0"
+        }
+      },
+      "wave0_only": {
+        "code_review": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
+        },
+        "coding": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2
+        },
+        "debugging": {
+          "score": 0.0,
+          "passed": 0,
+          "attempted": 0
+        },
+        "deep_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3
+        },
+        "math_quant": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2
+        },
+        "software_engineering": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2
+        },
+        "synthesis_generalist": {
+          "score": 1.0,
+          "passed": 12,
+          "attempted": 12
+        },
+        "verifier_checker": {
+          "score": 1.0,
+          "passed": 2,
+          "attempted": 2
+        },
+        "vietnamese_reasoning": {
+          "score": 1.0,
+          "passed": 3,
+          "attempted": 3
+        }
+      },
+      "engineering_judgment": {
+        "overall_score": 0.791667,
+        "artifact_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+        "suite": "local_engineering_judgment@1.0.0",
+        "suite_hash": "53b7ad2f01500ecb886b58dd08df8b1afb3dfc5341a6cb8ef968f68863601b02",
+        "errors": 0,
+        "per_skill": {
+          "debugging": {
+            "score": 1.0,
+            "passed": 6,
+            "attempted": 6
+          },
+          "code_review": {
+            "score": 1.0,
+            "passed": 6,
+            "attempted": 6
+          },
+          "verifier_checker": {
+            "score": 1.0,
+            "passed": 6,
+            "attempted": 6
+          },
+          "coding": {
+            "score": 0.166667,
+            "passed": 1,
+            "attempted": 6
+          }
+        },
+        "source": "WAVE3_ENGJUDG_QWEN3_8B.json"
+      },
+      "cost": {
+        "cold_load_ms": 8677.937,
+        "median_inference_ms": 8355.914,
+        "median_warm_inference_ms": 8336.102,
+        "peak_ram_mb": 8637.62
+      },
+      "capability_suite": {
+        "score": 1.0,
+        "artifact_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+        "suite": "local_core_reasoning@1.0.0",
+        "source": "WAVE0_CAPABILITY_QWEN3_8B.json"
+      },
+      "evidence_source": "WAVE0_BASELINE_QWEN3_8B.json"
+    },
+    {
       "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
       "artifact_sha256": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
       "lifecycle_state": "AVAILABLE",
@@ -1436,6 +1612,7 @@
       "WAVE0_BASELINE_PHI3_MINI.json",
       "WAVE0_BASELINE_QWEN3_0_6B.json",
       "WAVE0_BASELINE_QWEN3_1_7B.json",
+      "WAVE0_BASELINE_QWEN3_8B.json",
       "WAVE0_BASELINE_SMOLLM2.json"
     ],
     "capability_suite": [

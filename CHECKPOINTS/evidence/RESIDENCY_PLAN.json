@@ -69,6 +69,15 @@
       "peak_ram_mb": 6209.72,
       "measured_capability": 0.916667,
       "warm_inference_ms": 5081.342
+    },
+    {
+      "model_id": "Qwen/Qwen3-8B-GGUF",
+      "tier": "COLD",
+      "target_residency_state": "READY",
+      "reason": "no digest-bound capability measurement; residency is not committed to an unmeasured model",
+      "peak_ram_mb": null,
+      "measured_capability": 1.0,
+      "warm_inference_ms": null
     }
   ],
   "plan_only_nothing_loaded": true
