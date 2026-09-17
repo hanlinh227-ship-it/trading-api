@@ -1,0 +1,283 @@
+{
+  "tool": "wave3_jit_proof",
+  "host_disk_free_mb": 11093,
+  "host_disk_watermark": "CRITICAL",
+  "cached_artifacts": [
+    {
+      "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+      "size_mb": 369,
+      "digest": "48ab3034d0dd401f",
+      "reacquirable": true,
+      "evictable": true
+    },
+    {
+      "model_id": "Qwen/Qwen3-0.6B-GGUF",
+      "size_mb": 610,
+      "digest": "9465e63a22add535",
+      "reacquirable": true,
+      "evictable": true
+    },
+    {
+      "model_id": "Qwen/Qwen3-1.7B-GGUF",
+      "size_mb": 1749,
+      "digest": "061b54daade076b5",
+      "reacquirable": true,
+      "evictable": true
+    },
+    {
+      "model_id": "Qwen/Qwen3-4B-GGUF",
+      "size_mb": 2382,
+      "digest": "7485fe6f11af2943",
+      "reacquirable": true,
+      "evictable": true
+    },
+    {
+      "model_id": "Qwen/Qwen3-8B-GGUF",
+      "size_mb": 4795,
+      "digest": "d98cdcbd03e17ce4",
+      "reacquirable": true,
+      "evictable": true
+    },
+    {
+      "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+      "size_mb": 1474,
+      "digest": "ac71e9e32c0bea91",
+      "reacquirable": true,
+      "evictable": true
+    },
+    {
+      "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+      "size_mb": 2140,
+      "digest": "e0406663965846ae",
+      "reacquirable": true,
+      "evictable": true
+    },
+    {
+      "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "size_mb": 2282,
+      "digest": "8a83c7fb9049a9b2",
+      "reacquirable": true,
+      "evictable": true
+    }
+  ],
+  "required_space_formula": "artifact + staging overhead + safety headroom",
+  "example_required_mb_for_5000mb_artifact": 13000,
+  "cases": [
+    {
+      "case": "already_cached",
+      "expected": "an artifact the worker already holds needs neither acquisition nor eviction",
+      "plan": {
+        "state": "ALREADY_CACHED",
+        "may_proceed": true,
+        "digest": "48ab3034d0dd401fbc721eb1df3217902fee7dab9078992d66431f09b7750201",
+        "artifact_mb": 369,
+        "required_mb": 0,
+        "available_mb": 11093,
+        "evict": [],
+        "freed_mb": 0,
+        "refusals": [],
+        "protected_from_eviction": [],
+        "policy": {
+          "staging_overhead_ratio": 1.0,
+          "safety_headroom_mb": 3000,
+          "evicts_only_reacquirable": true,
+          "never_evicts_evidence": true
+        }
+      },
+      "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF"
+    },
+    {
+      "case": "fits_without_eviction",
+      "expected": "an artifact well inside the free space is READY with an empty eviction set",
+      "plan": {
+        "state": "READY",
+        "may_proceed": true,
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "artifact_mb": 100,
+        "required_mb": 3200,
+        "available_mb": 11093,
+        "evict": [],
+        "freed_mb": 0,
+        "refusals": [],
+        "protected_from_eviction": [],
+        "policy": {
+          "staging_overhead_ratio": 1.0,
+          "safety_headroom_mb": 3000,
+          "evicts_only_reacquirable": true,
+          "never_evicts_evidence": true
+        }
+      }
+    },
+    {
+      "case": "eviction_set_is_minimal",
+      "expected": "the eviction set is exactly large enough; removing its last member would not suffice",
+      "plan": {
+        "state": "EVICTION_REQUIRED",
+        "may_proceed": true,
+        "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "artifact_mb": 10093,
+        "required_mb": 23186,
+        "available_mb": 11093,
+        "evict": [
+          {
+            "digest": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "size_mb": 4795,
+            "path": "/home/user/trading-api/.model-cache/models/Qwen_Qwen3-8B-GGUF-Q4_K_M@7c41481f57cb9591-3ee96153354e/Q4_K_M.gguf",
+            "reacquirable_from": "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf"
+          },
+          {
+            "digest": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "size_mb": 2382,
+            "path": "/home/user/trading-api/.model-cache/models/Qwen_Qwen3-4B-GGUF-Q4_K_M@bc640142c66e1fdd-0af309b5b9d5/Q4_K_M.gguf",
+            "reacquirable_from": "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf"
+          },
+          {
+            "digest": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "size_mb": 2282,
+            "path": "/home/user/trading-api/.model-cache/models/microsoft_Phi-3-mini-4k-instruct-gguf-Q4@a64113399c2f6b8a-f2b029f5a539/Q4.gguf",
+            "reacquirable_from": "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/a64113399c2f6b8ad3e11c394733a2ddadaa7f33/Phi-3-mini-4k-instruct-q4.gguf"
+          },
+          {
+            "digest": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+            "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+            "size_mb": 2140,
+            "path": "/home/user/trading-api/.model-cache/models/ibm-granite_granite-4.2-3b-GGUF-Q4_K_M@c40945d71cd90f24-6aa9ff462f0e/Q4_K_M.gguf",
+            "reacquirable_from": "https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF/resolve/c40945d71cd90f249a56985e8155551a9188dc30/granite-4.2-3b-Q4_K_M.gguf"
+          },
+          {
+            "digest": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+            "model_id": "Qwen/Qwen3-1.7B-GGUF",
+            "size_mb": 1749,
+            "path": "/home/user/trading-api/.model-cache/models/Qwen_Qwen3-1.7B-GGUF-Q8_0@90862c4b9d2787ea-ef1c730bb1a9/Q8_0.gguf",
+            "reacquirable_from": "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/Qwen3-1.7B-Q8_0.gguf"
+          }
+        ],
+        "freed_mb": 13348,
+        "refusals": [],
+        "protected_from_eviction": [],
+        "policy": {
+          "staging_overhead_ratio": 1.0,
+          "safety_headroom_mb": 3000,
+          "evicts_only_reacquirable": true,
+          "never_evicts_evidence": true
+        }
+      },
+      "eviction_set_is_minimal": true
+    },
+    {
+      "case": "refused_when_nothing_would_free_enough",
+      "expected": "refused before any byte is fetched, rather than discovered part-way through",
+      "plan": {
+        "state": "REFUSED_INSUFFICIENT_SPACE",
+        "may_proceed": false,
+        "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "artifact_mb": 1109300,
+        "required_mb": 2221600,
+        "available_mb": 11093,
+        "evict": [],
+        "freed_mb": 0,
+        "refusals": [
+          "needs 2221600 MB, has 11093 MB, and evicting every reacquirable artifact would free only 15801 MB"
+        ],
+        "protected_from_eviction": [],
+        "policy": {
+          "staging_overhead_ratio": 1.0,
+          "safety_headroom_mb": 3000,
+          "evicts_only_reacquirable": true,
+          "never_evicts_evidence": true
+        }
+      }
+    },
+    {
+      "case": "never_evicts_the_only_copy",
+      "expected": "an artifact with no recorded source is protected, even when that means refusing",
+      "plan": {
+        "state": "REFUSED_INSUFFICIENT_SPACE",
+        "may_proceed": false,
+        "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "artifact_mb": 16093,
+        "required_mb": 35186,
+        "available_mb": 11093,
+        "evict": [],
+        "freed_mb": 0,
+        "refusals": [
+          "needs 35186 MB, has 11093 MB, and evicting every reacquirable artifact would free only 0 MB"
+        ],
+        "protected_from_eviction": [
+          "orphan/no-source: no recorded source, so deleting it would destroy the only copy"
+        ],
+        "policy": {
+          "staging_overhead_ratio": 1.0,
+          "safety_headroom_mb": 3000,
+          "evicts_only_reacquirable": true,
+          "never_evicts_evidence": true
+        }
+      },
+      "protected_correctly": true
+    },
+    {
+      "case": "never_evicts_what_another_worker_needs",
+      "expected": "a digest named in keep is protected even though it is reacquirable",
+      "plan": {
+        "state": "REFUSED_INSUFFICIENT_SPACE",
+        "may_proceed": false,
+        "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "artifact_mb": 16093,
+        "required_mb": 35186,
+        "available_mb": 11093,
+        "evict": [],
+        "freed_mb": 0,
+        "refusals": [
+          "needs 35186 MB, has 11093 MB, and evicting every reacquirable artifact would free only 0 MB"
+        ],
+        "protected_from_eviction": [
+          "shared/in-fleet: another worker depends on it"
+        ],
+        "policy": {
+          "staging_overhead_ratio": 1.0,
+          "safety_headroom_mb": 3000,
+          "evicts_only_reacquirable": true,
+          "never_evicts_evidence": true
+        }
+      },
+      "protected_correctly": true
+    },
+    {
+      "case": "never_evicts_an_artifact_in_use",
+      "expected": "an artifact carrying a running task is protected",
+      "plan": {
+        "state": "REFUSED_INSUFFICIENT_SPACE",
+        "may_proceed": false,
+        "digest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "artifact_mb": 16093,
+        "required_mb": 35186,
+        "available_mb": 11093,
+        "evict": [],
+        "freed_mb": 0,
+        "refusals": [
+          "needs 35186 MB, has 11093 MB, and evicting every reacquirable artifact would free only 0 MB"
+        ],
+        "protected_from_eviction": [
+          "busy/running: currently in use"
+        ],
+        "policy": {
+          "staging_overhead_ratio": 1.0,
+          "safety_headroom_mb": 3000,
+          "evicts_only_reacquirable": true,
+          "never_evicts_evidence": true
+        }
+      },
+      "protected_correctly": true
+    }
+  ],
+  "checks_held": 5,
+  "checks_run": 5,
+  "jit_cache_policy": "PROVEN",
+  "canonical_evidence_files": 61,
+  "canonical_evidence_is_never_an_eviction_candidate": true,
+  "nothing_was_deleted": true,
+  "note": "The plan is produced and checked; nothing is deleted. This proves the policy rather than exercising it on the only copies this container holds."
+}
