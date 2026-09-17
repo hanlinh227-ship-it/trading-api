@@ -69,8 +69,10 @@ jobs:
           import os
           from pathlib import Path
           path = Path(os.environ["RUNNER_TEMP"]) / "personal-ai-artifact" / "${{ steps.prepare.outputs.artifact_filename }}"
-          if path.suffix.lower() == ".gguf" and path.read_bytes()[:4] != b"GGUF":
-              raise SystemExit("GGUF magic validation failed")
+          if path.suffix.lower() == ".gguf":
+              with path.open("rb") as handle:
+                  if handle.read(4) != b"GGUF":
+                      raise SystemExit("GGUF magic validation failed")
           PY
 
       - name: Install and refresh ClamAV
