@@ -1,0 +1,4 @@
+https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/commit/8e42d41f70cb6c571f58c3f31bd9287b372d97cc
+https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/tree/ef4088322893040952513f532f736ddeab518403
+https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/ef4088322893040952513f532f736ddeab518403/LICENSE
+https://github.com/ggml-org/ggml/blob/master/docs/gguf.md
