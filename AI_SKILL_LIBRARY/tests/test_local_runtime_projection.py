@@ -160,12 +160,17 @@ class SchemaFidelityTests(unittest.TestCase):
                 if record["lifecycle_state"] != "AVAILABLE":
                     self.assertFalse(result.placeable)
 
-    def test_the_merged_canonical_row_is_quarantined_and_refused(self):
-        """The row on main is QUARANTINED; the runtime must refuse it."""
+    def test_a_quarantined_version_of_the_merged_row_is_refused(self):
+        """Behaviour under quarantine, independent of today's governance state."""
+        import copy
         registry = load_registry(ROOT)
         if not registry.get("models"):
             self.skipTest("no canonical row merged yet")
-        result = project_registry(registry, snapshot=snapshot(), available_runtimes=["llama.cpp"])[0]
+        record = copy.deepcopy(registry["models"][0])
+        record.pop("operator_risk_acceptance", None)
+        record["lifecycle_state"] = "QUARANTINED"
+        record["admission_evidence"]["quarantine_status"] = "quarantined"
+        result = project_record(record, snapshot=snapshot(), available_runtimes=["llama.cpp"])
         self.assertEqual(result.admission_status, AdmissionStatus.INELIGIBLE)
         self.assertIsNone(result.profile)
         self.assertTrue(result.exclusion_reasons)

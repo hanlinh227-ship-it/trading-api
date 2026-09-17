@@ -30,6 +30,7 @@ from AI_SKILL_LIBRARY.v4.local_runtime.clearance import (
     SIGNATURE_ENGINES,
     ClearanceStatus,
     apply_clearance,
+    build_risk_acceptance,
     evaluate_clearance,
     find_signature_engine,
 )
@@ -56,6 +57,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--cache-root", default=None)
     parser.add_argument("--model-id", default=None)
     parser.add_argument("--apply", action="store_true", help="write the update (CLEARED only)")
+    parser.add_argument(
+        "--record-acceptance", action="store_true",
+        help="record an operator risk acceptance on the row (needs --accepted-by and --basis)",
+    )
+    parser.add_argument("--accepted-by", default=None, help="the accepting party")
+    parser.add_argument("--basis", default=None, help="why the risk is acceptable")
     parser.add_argument("--output", default=None)
     args = parser.parse_args(argv)
 
@@ -70,8 +77,38 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     identity, identity_reasons = from_record(record)
     artifact = resolve_cached(cache, record, verify=True) if identity else None
+
+    # Record a new acceptance, or reuse one already stored on the row. Storing
+    # it is a pre-authorization: it is bound to the canonical digest, so it
+    # applies only to bytes that match, and the checks it is predicated on
+    # (size, digest, format, structure) still have to pass when they arrive.
+    if args.record_acceptance:
+        if not args.accepted_by or not args.basis:
+            print(json.dumps({"status": "BAD_ARGS",
+                              "reason": "--record-acceptance needs --accepted-by and --basis"},
+                             indent=2))
+            return 2
+        if identity is None:
+            print(json.dumps({"status": "NO_IDENTITY", "reason": "; ".join(identity_reasons)},
+                             indent=2))
+            return 2
+        stored = build_risk_acceptance(
+            accepted_by=args.accepted_by,
+            artifact_sha256=identity.artifact_sha256,
+            basis=args.basis,
+            missing_evidence=["signature_based_malware_scan"],
+        )
+        registry["models"][index] = {**record, "operator_risk_acceptance": stored}
+        (root / REGISTRY_REL).write_text(
+            yaml.safe_dump(registry, sort_keys=False), encoding="utf-8"
+        )
+        record = registry["models"][index]
+
+    acceptance = record.get("operator_risk_acceptance")
     result = evaluate_clearance(
-        artifact, artifact_format=(identity.artifact_format if identity else "gguf")
+        artifact,
+        artifact_format=(identity.artifact_format if identity else "gguf"),
+        risk_acceptance=acceptance,
     )
 
     payload: dict[str, Any] = {
@@ -87,6 +124,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "placeable": project_record(record).placeable,
         },
         "clearance": result.to_dict(),
+        "stored_risk_acceptance": dict(acceptance) if acceptance else None,
+        "acceptance_recorded_this_run": bool(args.record_acceptance),
         "applied": False,
     }
 

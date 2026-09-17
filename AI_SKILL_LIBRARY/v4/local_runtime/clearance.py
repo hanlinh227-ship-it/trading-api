@@ -45,6 +45,9 @@ _CLAM_INFECTED = 1
 
 class ClearanceStatus(str, Enum):
     CLEARED = "CLEARED"                    # every check ran and passed
+    #: Every runnable check passed, and an operator accepted the named gap that
+    #: could not be checked here. A decision, recorded as one.
+    CLEARED_WITH_ACCEPTED_RISK = "CLEARED_WITH_ACCEPTED_RISK"
     BLOCKED_INFECTED = "BLOCKED_INFECTED"  # a signature engine found something
     BLOCKED_MALFORMED = "BLOCKED_MALFORMED"  # structural scan failed
     INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"  # a required check could not run
@@ -76,8 +79,17 @@ class ClearanceResult:
     #: Engines looked for but not installed.
     engines_unavailable: tuple[str, ...] = ()
 
+    #: The acceptance record, when one was used.
+    risk_acceptance: Mapping[str, Any] | None = None
+
     @property
     def cleared(self) -> bool:
+        return self.status in (
+            ClearanceStatus.CLEARED, ClearanceStatus.CLEARED_WITH_ACCEPTED_RISK
+        )
+
+    @property
+    def cleared_by_evidence_only(self) -> bool:
         return self.status is ClearanceStatus.CLEARED
 
     def to_dict(self) -> Mapping[str, Any]:
@@ -85,6 +97,8 @@ class ClearanceResult:
             "status": self.status.value,
             "reason": self.reason,
             "cleared": self.cleared,
+            "cleared_by_evidence_only": self.cleared_by_evidence_only,
+            "risk_acceptance": dict(self.risk_acceptance) if self.risk_acceptance else None,
             "evidence": [e.to_dict() for e in self.evidence],
             "proposed_registry_update": dict(self.proposed_registry_update),
             "engines_unavailable": list(self.engines_unavailable),
@@ -154,12 +168,53 @@ def run_structural_scan(path: Path, artifact_format: str) -> ScanEvidence:
     )
 
 
+def build_risk_acceptance(
+    *,
+    accepted_by: str,
+    artifact_sha256: str,
+    basis: str,
+    missing_evidence: Sequence[str],
+    accepted_at: str | None = None,
+    covers: Sequence[str] = ("malware_scan_status",),
+) -> Mapping[str, Any]:
+    """Build an auditable acceptance record.
+
+    Every field is supplied by the caller except the timestamp. Nothing here
+    infers consent - an acceptance exists only because someone stated one.
+    """
+    import datetime
+
+    if not accepted_by.strip():
+        raise ValueError("accepted_by is required: an acceptance needs an accepting party")
+    if not basis.strip():
+        raise ValueError("basis is required: an acceptance needs a stated reason")
+    if not missing_evidence:
+        raise ValueError("missing_evidence is required: record what was not checked")
+    return {
+        "accepted_by": accepted_by.strip(),
+        "accepted_at": accepted_at
+        or datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "artifact_sha256": artifact_sha256.strip().lower(),
+        "basis": basis.strip(),
+        "missing_evidence": list(missing_evidence),
+        "covers": list(covers),
+        "scope": "single_artifact",
+        # Said outright inside the record itself.
+        "is_a_scan_result": False,
+        "note": (
+            "Operator risk acceptance. No signature-based malware scan was performed; "
+            "malware_scan_status remains not_run."
+        ),
+    }
+
+
 def evaluate_clearance(
     artifact_path: Path | str | None,
     *,
     artifact_format: str = "gguf",
     which: Callable[[str], str | None] = _default_which,
     run: Callable[..., tuple[int, str]] = _default_run,
+    risk_acceptance: Mapping[str, Any] | None = None,
 ) -> ClearanceResult:
     """Run every available check and decide. Never raises, never assumes."""
     if artifact_path is None or not Path(artifact_path).is_file():
@@ -195,6 +250,28 @@ def evaluate_clearance(
             evidence=evidence, engines_unavailable=unavailable,
         )
     if not signature.ran or signature.passed is not True:
+        if risk_acceptance is not None:
+            # An operator decision, and recorded as one. The scan still did not
+            # run, so malware_scan_status is deliberately left at its true
+            # value and the acceptance is carried beside it.
+            return ClearanceResult(
+                status=ClearanceStatus.CLEARED_WITH_ACCEPTED_RISK,
+                reason=(
+                    f"structural scan passed; no signature engine available "
+                    f"({signature.detail}). Operator "
+                    f"{risk_acceptance.get('accepted_by')!r} accepted the residual risk. "
+                    "malware_scan_status remains 'not_run'."
+                ),
+                evidence=evidence, engines_unavailable=unavailable,
+                risk_acceptance=risk_acceptance,
+                proposed_registry_update={
+                    # Note what is NOT here: malware_scan_status.
+                    "admission_evidence": {"quarantine_status": "clear"},
+                    "lifecycle_state": "AVAILABLE",
+                    "model_mesh_local_candidate_eligible": True,
+                    "operator_risk_acceptance": dict(risk_acceptance),
+                },
+            )
         # The refusal that matters. "Nobody looked" must never become "clean".
         return ClearanceResult(
             status=ClearanceStatus.INSUFFICIENT_EVIDENCE,
@@ -234,6 +311,10 @@ def apply_clearance(record: Mapping[str, Any], result: ClearanceResult) -> Mappi
     updated = copy.deepcopy(dict(record))
     update = dict(result.proposed_registry_update)
     evidence_update = dict(update.pop("admission_evidence", {}))
+    if "malware_scan_status" in evidence_update and not result.cleared_by_evidence_only:
+        # Belt and braces: an accepted-risk clearance must never write a scan
+        # status, whatever a future edit to the proposed update might contain.
+        raise ValueError("an accepted-risk clearance may not set malware_scan_status")
     updated.setdefault("admission_evidence", {})
     updated["admission_evidence"] = {**updated["admission_evidence"], **evidence_update}
     updated.update(update)
