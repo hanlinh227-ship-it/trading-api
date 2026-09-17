@@ -97,6 +97,28 @@
         "protocol": "local_inprocess",
         "runtime": "llama-cpp-python/0.3.35"
       },
+      "evidence_id": "local_core_reasoning-d98cdcbd03e1-f0a0ae922cf3",
+      "measured_at": "2026-09-17T13:19:47+00:00",
+      "model_family": "Qwen3",
+      "model_id": "Qwen/Qwen3-8B-GGUF",
+      "passed": true,
+      "provenance": {
+        "kind": "local_benchmark_run",
+        "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_QWEN3_8B.json"
+      },
+      "provider_id": "local_runtime",
+      "score": 1.0,
+      "source_sha": "32d3c5bf958815dcbee4e1ebe83b820e0ae11b5a",
+      "threshold": 0.35
+    },
+    {
+      "benchmark_id": "local_core_reasoning",
+      "benchmark_version": "1.0.0+f0a0ae922cf3",
+      "capability": "text_reasoning",
+      "environment": {
+        "protocol": "local_inprocess",
+        "runtime": "llama-cpp-python/0.3.35"
+      },
       "evidence_id": "local_core_reasoning-ac71e9e32c0b-f0a0ae922cf3",
       "measured_at": "2026-09-17T09:45:42+00:00",
       "model_family": "Granite",

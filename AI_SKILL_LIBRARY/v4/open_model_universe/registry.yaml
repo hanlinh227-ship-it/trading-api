@@ -996,7 +996,7 @@ models:
       # No capability has been measured for this model. It declares
       # none, and a score can only arrive from its own benchmark run -
       # Qwen3-0.6B's measurement is bound to a different digest.
-      text_reasoning: 0.0
+      text_reasoning: 1.0
     hardware_profile:
       minimum_ram_gb: null
       recommended_ram_gb: null
@@ -1014,8 +1014,8 @@ models:
       conversion_verified: false
     # Read from the GGUF header of these exact bytes.
     context_window: 40960
-    benchmark_profile: unverified
-    quality_class: unverified
+    benchmark_profile: local_core_reasoning@1.0.0+f0a0ae922cf3
+    quality_class: locally_measured
     latency_class: unverified
     privacy_class: local_only
     cost_class: owned_hardware_zero_marginal
@@ -1057,3 +1057,17 @@ models:
       scanned_at: '2026-09-17T13:17:02+00:00'
       scanned_by: github-actions
       artifact_sha256: d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785
+    capability_evidence:
+      text_reasoning:
+        score: 1.0
+        benchmark_id: local_core_reasoning
+        benchmark_version: 1.0.0
+        suite_hash: f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957
+        is_public_benchmark: false
+        attempted: 24
+        passed: 24
+        errors: 0
+        measured_at: '2026-09-17T13:19:47+00:00'
+        artifact_sha256: d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785
+        runtime: llama-cpp-python/0.3.35
+        evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_QWEN3_8B.json
