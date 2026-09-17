@@ -1,0 +1,16 @@
+{
+  "load_verification": "RAN",
+  "runtime": "llama-cpp-python/0.3.35",
+  "loadable": 1,
+  "not_loadable": 0,
+  "undetermined": 0,
+  "records_nothing_in_the_registry": true,
+  "results": [
+    {
+      "model_id": "Qwen/Qwen3-8B-GGUF",
+      "loadable": true,
+      "artifact_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "runtime": "llama-cpp-python/0.3.35"
+    }
+  ]
+}
