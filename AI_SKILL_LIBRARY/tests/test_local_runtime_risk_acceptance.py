@@ -242,6 +242,13 @@ class ProjectionWithAcceptanceTests(unittest.TestCase):
         record = copy.deepcopy(registry["models"][0])
         # Tests supply their own acceptance; drop any stored on the live row.
         record.pop("operator_risk_acceptance", None)
+        # And force the condition these tests are about. The fixture borrowed
+        # whatever the live row said, so once that row gained a real signature
+        # scan the acceptance stopped being what cleared it, and
+        # "without the acceptance it is refused" became false - for a reason
+        # that had nothing to do with acceptances.
+        record["admission_evidence"]["malware_scan_status"] = "not_run"
+        record.pop("malware_scan_reference", None)
         record["lifecycle_state"] = "AVAILABLE"
         record["privacy_class"] = "local_only"
         record["model_mesh_local_candidate_eligible"] = True
