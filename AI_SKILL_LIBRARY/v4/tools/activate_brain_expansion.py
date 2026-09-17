@@ -30,6 +30,7 @@ import os
 import socket
 import ssl
 import sys
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Any, Callable
 
@@ -69,9 +70,16 @@ ADAPTER_CREDENTIALS = {
     "langfuse": ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"),
 }
 
-#: Host an adapter must be able to reach, and the env var that can override it.
+#: Host an adapter must reach, and the env vars that can override it, in
+#: precedence order. LANGFUSE_BASE_URL matches the SDK's own `base_url`
+#: parameter; LANGFUSE_HOST is kept as a legacy alias.
+#:
+#: Operators hold the base URL as a secret, so the resolved host is treated as
+#: sensitive too: Actions only masks exact secret strings, and a host derived by
+#: stripping the scheme would slip past that masking. Nothing in this module
+#: puts a resolved host into a report, a log line or an exception.
 ADAPTER_EGRESS = {
-    "langfuse": ("LANGFUSE_HOST", "cloud.langfuse.com", 443),
+    "langfuse": (("LANGFUSE_BASE_URL", "LANGFUSE_HOST"), "cloud.langfuse.com", 443),
 }
 
 _EGRESS_TIMEOUT_SECONDS = 8.0
@@ -108,15 +116,58 @@ def credential_status(adapter_id: str, env: dict | None = None) -> dict:
     }
 
 
-def egress_target(adapter_id: str, env: dict | None = None) -> tuple[str, int] | None:
+def _configured_base_url(adapter_id: str, env: dict | None = None) -> str:
+    """The operator-supplied endpoint for this adapter, or an empty string."""
     env = env if env is not None else os.environ
     spec = ADAPTER_EGRESS.get(adapter_id)
     if not spec:
+        return ""
+    override_vars, _default_host, _port = spec
+    for name in override_vars:
+        value = str(env.get(name) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def egress_target(adapter_id: str, env: dict | None = None) -> tuple[str, int] | None:
+    """Resolve (host, port) for an adapter's upstream.
+
+    The result is used to open a socket and is deliberately never recorded; use
+    `egress_descriptor` for anything that ends up in a report or a log.
+    """
+    spec = ADAPTER_EGRESS.get(adapter_id)
+    if not spec:
         return None
-    override_var, default_host, port = spec
-    host = str(env.get(override_var) or default_host).strip()
-    host = host.replace("https://", "").replace("http://", "").rstrip("/")
-    return (host or default_host, port)
+    _override_vars, default_host, default_port = spec
+    raw = _configured_base_url(adapter_id, env)
+    if not raw:
+        return (default_host, default_port)
+
+    parsed = urlparse(raw if "//" in raw else f"//{raw}", scheme="https")
+    host = (parsed.hostname or "").strip()
+    port = parsed.port or (80 if parsed.scheme == "http" else default_port)
+    return (host or default_host, int(port))
+
+
+def egress_descriptor(adapter_id: str, env: dict | None = None) -> dict:
+    """A report-safe description of the egress target.
+
+    Says whether a custom endpoint was configured and which variable supplied
+    it, never the host itself.
+    """
+    spec = ADAPTER_EGRESS.get(adapter_id)
+    if not spec:
+        return {"required": False, "custom_endpoint": False, "source": None}
+    override_vars, _default_host, _port = spec
+    env = env if env is not None else os.environ
+    source = next((name for name in override_vars if str(env.get(name) or "").strip()), None)
+    return {
+        "required": True,
+        "custom_endpoint": source is not None,
+        "source": source or "default",
+        "host": "redacted" if source else "default_public_endpoint",
+    }
 
 
 def egress_reachable(adapter_id: str, env: dict | None = None) -> bool | None:
@@ -275,15 +326,64 @@ def _upstream_health(adapter_id: str, record: dict, env: dict | None = None) -> 
     if adapter_id == "browser_use":
         return _browser_runtime_healthy()
     if adapter_id == "langfuse":
-        # The SDK only authenticates once credentials exist; without them there is
-        # nothing to health-check and the credential gate has already failed.
+        # Without credentials there is nothing to authenticate against, and the
+        # credential gate has already failed the adapter.
         if not credential_status(adapter_id, env)["present"]:
             return None
         reachable = egress_reachable(adapter_id, env)
         if reachable is not True:
             return reachable
-        return None  # a real auth round-trip is required before claiming healthy
+        verdict, _detail = langfuse_auth_probe(env=env)
+        return verdict
     return True
+
+
+def langfuse_auth_probe(
+    *,
+    env: dict | None = None,
+    client_factory: Callable[..., Any] | None = None,
+) -> tuple[bool | None, dict]:
+    """Authenticate against Langfuse for real and report only a verdict.
+
+    Returns (verdict, detail). The detail carries an exception *type* at most:
+    an upstream message could quote the endpoint or echo a key, so it is never
+    captured. Credentials are passed straight to the SDK and never touched
+    again.
+    """
+    env = env if env is not None else os.environ
+    detail: dict[str, Any] = {"probe": "auth_check", "error": None}
+
+    if client_factory is None:
+        if importlib.util.find_spec("langfuse") is None:
+            detail["error"] = "sdk_not_installed"
+            return False, detail
+        try:
+            from langfuse import Langfuse
+        except Exception as exc:  # noqa: BLE001
+            detail["error"] = type(exc).__name__
+            return False, detail
+        client_factory = Langfuse
+
+    kwargs: dict[str, Any] = {
+        "public_key": str(env.get("LANGFUSE_PUBLIC_KEY") or ""),
+        "secret_key": str(env.get("LANGFUSE_SECRET_KEY") or ""),
+        "tracing_enabled": False,
+    }
+    base_url = _configured_base_url("langfuse", env)
+    if base_url:
+        kwargs["base_url"] = base_url
+
+    try:
+        client = client_factory(**kwargs)
+        verdict = bool(client.auth_check())
+    except Exception as exc:  # noqa: BLE001 - never surface an upstream message
+        detail["error"] = type(exc).__name__
+        return False, detail
+    finally:
+        kwargs.clear()
+
+    detail["authenticated"] = verdict
+    return verdict, detail
 
 
 # ---------------------------------------------------------------------------
@@ -375,9 +475,9 @@ def _evidence_for(adapter_id: str, record: dict, probes: dict, env: dict | None)
         "activation_upstream": activation_upstream(adapter_id, record),
         "credentials": credential_status(adapter_id, env),
     }
-    target = egress_target(adapter_id, env)
-    if target:
-        evidence["egress_target"] = f"{target[0]}:{target[1]}"
+    descriptor = egress_descriptor(adapter_id, env)
+    if descriptor["required"]:
+        evidence["egress"] = descriptor
     return evidence
 
 
