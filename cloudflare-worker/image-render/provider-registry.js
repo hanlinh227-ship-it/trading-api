@@ -35,6 +35,7 @@ export function createImageProviderRegistry({fetchImpl=fetch}={}){
         autoPurchase:false,
         privacyClasses:['PUBLIC'],
         referenceSafe:false,
+        capabilities:{globalEdit:false,localEdit:false,segment:false},
         health:()=>aiHordeHealth({fetchImpl}),
         listModels:()=>listAiHordeModels({fetchImpl}),
         submit:input=>submitAiHordeImage({...input,apiKey,fetchImpl}),

@@ -52,6 +52,10 @@ export function createWorkersAiProvider({env={},client=createWorkersAiClient()}=
     privacyClasses:['PUBLIC','INTERNAL','CONFIDENTIAL'],
     referenceSafe:true,
     synchronous:true,
+    // What this runtime can do for a repair. There is no segmentation model here, so a
+    // masked local repair is not claimed: the repair planner falls back rather than
+    // pretending a mask could be produced.
+    capabilities:{globalEdit:true,localEdit:true,segment:false},
 
     async listModels(){
       return {ok:true,provider:PROVIDER_ID,models:Object.values(WORKERS_AI_MODELS).map(name=>({name,workerCount:1,performance:0,eta:0,queued:0}))};

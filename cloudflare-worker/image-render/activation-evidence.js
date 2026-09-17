@@ -12,6 +12,9 @@ const LICENSE_SOURCES=Object.freeze({
   'flux-1-schnell':'https://developers.cloudflare.com/workers-ai/models/flux-1-schnell/',
   'stable-diffusion-v1-5-img2img':'https://developers.cloudflare.com/workers-ai/models/stable-diffusion-v1-5-img2img/',
   'stable-diffusion-v1-5-inpainting':'https://developers.cloudflare.com/workers-ai/models/stable-diffusion-v1-5-inpainting/',
+  // Sourced from the licence Stability AI publishes with the weights rather than the
+  // hosting page, because the hosting page is evidence of availability, not of terms.
+  'stable-diffusion-xl-base-1.0':'https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md',
   'llama-3.2-11b-vision-instruct':'https://developers.cloudflare.com/workers-ai/models/llama-3.2-11b-vision-instruct/',
 });
 

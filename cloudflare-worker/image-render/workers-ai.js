@@ -6,8 +6,6 @@ export const WORKERS_AI_MODELS=Object.freeze({
   imageToImage:'@cf/runwayml/stable-diffusion-v1-5-img2img',
   inpainting:'@cf/runwayml/stable-diffusion-v1-5-inpainting',
   sdxlBase:'@cf/stabilityai/stable-diffusion-xl-base-1.0',
-  sdxlLightning:'@cf/bytedance/stable-diffusion-xl-lightning',
-  dreamshaper:'@cf/lykon/dreamshaper-8-lcm',
   vision:'@cf/llava-hf/llava-1.5-7b-hf',
   visionLarge:'@cf/meta/llama-3.2-11b-vision-instruct',
 });
@@ -17,7 +15,10 @@ export const WORKERS_AI_MODELS=Object.freeze({
 // needs it), so a task is only reported unavailable when the whole free runtime is, not
 // when one hosted model is withdrawn or failing. The order is preference, and the first
 // entry stays the model the rest of the system already names for the task.
-const EDIT_FALLBACKS=Object.freeze([WORKERS_AI_MODELS.sdxlBase,WORKERS_AI_MODELS.dreamshaper,WORKERS_AI_MODELS.sdxlLightning]);
+// Only models whose licence is audited in the vault may run. Cloudflare hosts other
+// image-capable models; they stay out of the chain until their licence evidence exists,
+// because an available model is not the same as a model we are licensed to use.
+const EDIT_FALLBACKS=Object.freeze([WORKERS_AI_MODELS.sdxlBase]);
 const TASK_MODELS=Object.freeze({
   TEXT_TO_IMAGE:Object.freeze([WORKERS_AI_MODELS.textToImage,...EDIT_FALLBACKS]),
   MULTI_SCENE_BATCH:Object.freeze([WORKERS_AI_MODELS.textToImage,...EDIT_FALLBACKS]),
@@ -43,8 +44,6 @@ const MODEL_INPUT_SCHEMA=Object.freeze({
   [WORKERS_AI_MODELS.imageToImage]:DIFFUSION_INPUTS,
   [WORKERS_AI_MODELS.inpainting]:DIFFUSION_INPUTS,
   [WORKERS_AI_MODELS.sdxlBase]:DIFFUSION_INPUTS,
-  [WORKERS_AI_MODELS.sdxlLightning]:DIFFUSION_INPUTS,
-  [WORKERS_AI_MODELS.dreamshaper]:DIFFUSION_INPUTS,
 });
 
 const clampInt=(value,min,max)=>Math.min(max,Math.max(min,Math.round(Number(value))));

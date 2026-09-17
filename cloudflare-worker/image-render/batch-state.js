@@ -14,6 +14,7 @@ import {createImageProviderRegistry} from './provider-registry.js';
 import {evaluateImageQuality} from './quality-policy.js';
 import {createVisualCriticRuntime} from './critic-runtime.js';
 import {sourceBytesFor,maskBytesFor} from './workers-ai-provider.js';
+import {planRepair} from './repair-planner.js';
 
 const STATE_KEY='image-render-batch-state-v2';
 const TERMINAL_BATCH_STATES=new Set(['complete','complete_with_failures','cancelled','failed']);
@@ -178,7 +179,7 @@ export function createImageRenderBatchClass({
       return async ({scene})=>runtime.review(this.env,{intent:scene?.intent||{},image:bytes});
     }
 
-    async settleQuality(state,sceneId,generation,bytes,qualityEvaluator){
+    async settleQuality(state,sceneId,generation,bytes,qualityEvaluator,capabilities={}){
       const updatedScene=state.scenes.find(item=>item.scene_id===sceneId);
       if(!updatedScene||updatedScene.status!=='qa_pending')return state;
       let quality;
@@ -190,7 +191,24 @@ export function createImageRenderBatchClass({
           visualCritic:this.visualCriticFor(bytes),
         });
       }catch{quality={decision:'RETRY_MODEL',verified:false,reasons:['visual_critic_error']};}
-      return applySceneQualityDecision(state,{sceneId,quality,completedAt:new Date(now()).toISOString()});
+      let next=applySceneQualityDecision(state,{sceneId,quality,completedAt:new Date(now()).toISOString()});
+
+      // A fixable fault in a finished image is worth repairing rather than re-rolling:
+      // a fresh render throws away everything the first one got right. The planner decides
+      // whether a repair is possible at all with the runtime we actually have.
+      const scene=next.scenes.find(item=>item.scene_id===sceneId);
+      if(!scene||scene.status!=='retry_pending')return next;
+      if(!['REPAIR_LOCAL','REPAIR_GLOBAL'].includes(String(quality.repairAction||'')))return next;
+      const repairCount=(scene.attempts||[]).filter(attempt=>attempt.repair).length;
+      const plan=planRepair({
+        intent:scene.intent||{destructiveRedrawAllowed:scene.destructive_redraw_allowed===true},
+        criticResult:quality.critic,
+        capabilities,
+        attempts:{total:scene.attempts?.length||0,totalLimit:Number(next.retry?.maxAttempts||3)+2,repair:repairCount,repairLimit:2},
+      });
+      if(!['GLOBAL_EDIT','LOCAL_MASKED_EDIT'].includes(plan.action))return next;
+      scene.pending_repair={action:plan.action,reason:plan.reason,target:plan.target||null,sourceRef:generation?.assetRef||null};
+      return next;
     }
 
     async cycle(){
@@ -269,13 +287,20 @@ export function createImageRenderBatchClass({
           ||ranked[0]?.name
           ||null;
         const dims=scene.dimensions||{};
+        // A planned repair edits the image the previous attempt produced, so the scene the
+        // provider sees names the repair task and carries that image as its source.
+        const repair=scene.pending_repair||null;
+        const repairSource=repair?.sourceRef?await this.storage.get(repair.sourceRef):null;
+        const executedScene=repair&&repairSource
+          ?{...scene,task_type:repair.action==='GLOBAL_EDIT'?'IMAGE_EDIT_GLOBAL':'TARGETED_REPAIR',source_image:{id:'previous-render',bytes:repairSource.bytes}}
+          :scene;
         let submitted;
         try{
           submitted=await route.provider.submit({
             sceneId,
             attempt:attemptNumber,
-            scene,
-            taskType:scene.task_type||null,
+            scene:executedScene,
+            taskType:executedScene.task_type||null,
             prompt:scene.compiled_prompt||scene.original_prompt||'',
             negativePrompt:scene.negative_prompt||'',
             width:Number(dims.width||512),
@@ -294,18 +319,27 @@ export function createImageRenderBatchClass({
           // An exhausted free allocation is a wait, not a defect. It is recorded so the
           // logical job can say so instead of reporting a failed render.
           if(submitted?.waitState)state.wait_state=String(submitted.waitState);
+          // Reference-bound work whose reference-safe runtime rejected every model it has
+          // is not a bad scene: the runtime is not there. Saying so is the honest answer,
+          // and it is the one that keeps the reference rather than re-rolling without it.
+          else if(sceneIsReferenceBound(scene)&&submitted?.error==='provider_request_failed')state.wait_state='WAITING_FOR_SAFE_FREE_RUNTIME';
           if(submitted?.diagnostic)state.scenes.find(item=>item.scene_id===sceneId).provider_diagnostic=clone(submitted.diagnostic);
           continue;
         }
 
         state=markSceneSubmitted(state,{sceneId,provider:route.id,model:submitted.model||selectedModel||'',jobId:submitted.jobId,seed,submittedAt:new Date(now()).toISOString()});
+        if(repair&&repairSource){
+          const live=state.scenes.find(item=>item.scene_id===sceneId);
+          live.attempts.at(-1).repair={action:repair.action,reason:repair.reason,target:repair.target};
+          delete live.pending_repair;
+        }
 
         // A synchronous runtime already has the image. Holding it for a poll that will
         // never come would strand the scene, so it is settled on the spot.
         if(submitted.synchronous&&submitted.generation){
           const {generation,bytes}=await this.storeGeneration(sceneId,attemptNumber,submitted.generation);
           state=markSceneProviderResult(state,{sceneId,generation,completedAt:new Date(now()).toISOString()});
-          state=await this.settleQuality(state,sceneId,generation,bytes,qualityEvaluator);
+          state=await this.settleQuality(state,sceneId,generation,bytes,qualityEvaluator,route.provider.capabilities||{});
         }
       }
       await this.save(state);

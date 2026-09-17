@@ -177,8 +177,9 @@ export function createImageLogicalJobClass({
         }
         // A spent free allocation is a wait for capacity, never a defect and never a
         // reason to reach for a paid route.
-        if(result?.state?.wait_state==='WAITING_FOR_FREE_COMPUTE'){
-          state=applyLogicalJobEvent(state,{type:'WAITING_FOR_FREE_COMPUTE'});
+        const waitState=result?.state?.wait_state;
+        if(waitState==='WAITING_FOR_FREE_COMPUTE'||waitState==='WAITING_FOR_SAFE_FREE_RUNTIME'){
+          state=applyLogicalJobEvent(state,{type:waitState});
           await this.save(state);await this.schedule(30);return state;
         }
         const physicalStatus=result?.summary?.status;

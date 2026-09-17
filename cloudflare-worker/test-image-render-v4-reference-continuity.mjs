@@ -167,4 +167,16 @@ const stateOf=async object=>(await (await object.fetch(new Request('https://inte
   assert.equal((await stateOf(object)).status,'waiting_for_free_compute');
 }
 
+// 5. A reference-safe runtime that rejects every model it has is reported as a missing
+//    runtime, not as a failed scene: the reference is kept and the work waits.
+{
+  const env={AI:{async run(){throw Object.assign(new Error('no such model'),{status:404});}}};
+  const {object,batches}=harness({env});
+  await create(object,SCENE_1);
+  await object.alarm();
+  for(const batch of batches.values())await batch.alarm();
+  await object.alarm();
+  assert.equal((await stateOf(object)).status,'waiting_for_safe_free_runtime');
+}
+
 console.log('IMAGE_V4_REFERENCE_CONTINUITY=PASS');

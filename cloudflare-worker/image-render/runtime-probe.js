@@ -19,6 +19,9 @@ const waitEvidence=(result,at,model)=>({
   waitState:result?.waitState??null,
   paidFallback:false,
   ...(result?.diagnostic&&typeof result.diagnostic==='object'?{diagnostic:result.diagnostic}:{}),
+  // Every model the task chain tried, so a task reported unavailable names what was
+  // actually rejected instead of one model standing in for the whole capability.
+  ...(Array.isArray(result?.attempted)&&result.attempted.length?{attempted:result.attempted}:{}),
 });
 const okEvidence=(result,at,model)=>result?.ok
   ?{ok:true,at,model:result.model||model,detail:`responded:${result.model||model}`}
@@ -54,6 +57,7 @@ async function probeWorkersAiTasks(env,at){
         waitState:critic?.waitState??null,
         paidFallback:false,
         ...(critic?.diagnostic&&typeof critic.diagnostic==='object'?{diagnostic:critic.diagnostic}:{}),
+        ...(Array.isArray(critic?.attempted)&&critic.attempted.length?{attempted:critic.attempted}:{}),
       },
   };
 }
