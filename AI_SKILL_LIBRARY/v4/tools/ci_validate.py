@@ -36,6 +36,11 @@ VALIDATORS = (
     "AI_SKILL_LIBRARY/v4/tools/validate_open_model_universe.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_legion.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py",
+    # Runs here rather than only on demand: each AI CORE proof is checked in
+    # isolation elsewhere, and this is the only place that asks whether they
+    # still hold together - which is what silently stops being true as the
+    # evidence around them changes.
+    "AI_SKILL_LIBRARY/v4/tools/ai_core_release_gate.py",
 )
 
 
@@ -171,6 +176,7 @@ def run_validators(
         "validate_model_mesh.py",
         "validate_open_model_universe.py",
         "validate_legion.py",
+        "ai_core_release_gate.py",
     }
     for rel in VALIDATORS:
         cmd = [py, rel]
