@@ -172,17 +172,24 @@ capability_requirements:
 
   - tag: large_model_synthesis
     declared: true
-    measured_covered: false
-    measured_model: null
-    evidence_class: NONE
-    blocker_class: NO_SUITE_YET
-    executable_path: "@cf/openai/gpt-oss-20b, proven to serve a completion on the Workers Free plan"
+    measured_covered: true
+    measured_model: "@cf/openai/gpt-oss-120b"
+    evidence_class: MEASURED
     note: >-
-      NOT_MEASURED. A 20B model is executable on a zero-cost tier - probe run
-      35254843871 returned a real completion - but it has not been run against
-      a frozen synthesis suite, so the capability is executable and unmeasured.
-      synthesis_generalist at the 4B scale is measured and covered separately;
-      it is not the same tag.
+      SYNTHESISED. Given three incident reports that disagree on start time and
+      duration but agree on the cause, it named the agreement: the failed disk
+      in rack 7. Quoting any single source fails, because the scored answer is
+      the intersection rather than any one report.
+    two_harness_faults_found_getting_here: >-
+      The first attempt scored the response id as the answer. The second gave a
+      reasoning model 64 tokens, which it spent entirely on reasoning, returning
+      content null with finish_reason length. The third failed a correct answer
+      because it contained a narrow no-break space. All three were mine, and
+      none of them was evidence about the model.
+    served_by_a_substitute: >-
+      A provider's own model covering the capability under its own name. No
+      requested model became available by it, and the local fleet still has no
+      model of this size.
 
   - tag: scientific_reasoning
     declared: true
@@ -234,14 +241,19 @@ capability_requirements:
 
   - tag: retrieval
     declared: true
-    measured_covered: false
-    measured_model: null
-    evidence_class: NONE
-    blocker_class: NO_SUITE_YET
+    measured_covered: true
+    measured_model: "@cf/baai/bge-m3"
+    evidence_class: MEASURED
+    score: 1.0
     note: >-
-      NOT_MEASURED end to end. An index builder exists in the repository, but
-      no recall or precision figure has been measured against a frozen query
-      set, so retrieval quality is unknown and recorded as unknown.
+      RETRIEVED, recall@1 of 1.0 on four queries against a six-document corpus:
+      embedded with bge-m3, retrieved by cosine similarity, scored against the
+      one passage that answers each query. This is end to end - an embedding
+      model returning vectors is not retrieval working, and the two were kept
+      as separate claims until this measured the second one.
+    measured_ceiling_is_the_claim: >-
+      Six documents. A recall figure at that size says nothing about six
+      million and must not be cited as though it did.
 
 rules_carried_forward:
   declared_never_qualifies: >-

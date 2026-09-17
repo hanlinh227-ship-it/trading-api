@@ -48,6 +48,13 @@ VALIDATORS = (
     "AI_SKILL_LIBRARY/v4/tools/wave3_closure_gate.py",
 )
 
+#: Same reason as the Wave 3 gate, for the capability waves. These close on
+#: "nothing measurable is left undone", and a measurement that stops holding -
+#: a provider that starts refusing, an edited requirement row - would leave the
+#: flag asserting something that is no longer true. One entry per wave because
+#: the gate takes the wave it is checking.
+WAVE_CLOSURE_GATES = (4, 5)
+
 
 def _run(cmd: list[str], root: Path) -> tuple[int, str]:
     proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True)
@@ -183,6 +190,14 @@ def run_validators(
         "validate_legion.py",
         "ai_core_release_gate.py",
     }
+    for wave in WAVE_CLOSURE_GATES:
+        rel = "AI_SKILL_LIBRARY/v4/tools/wave_closure_gate.py"
+        code, out = _run([py, rel, "--wave", str(wave), "--root", str(root)], root)
+        tail = out.splitlines()[0] if out else ""
+        print(f"{'PASS' if code == 0 else 'FAIL'} {rel} --wave {wave}: {tail}")
+        if code != 0:
+            failures.append(f"{rel} --wave {wave}: {tail}")
+
     for rel in VALIDATORS:
         cmd = [py, rel]
         if Path(rel).name in rooted:

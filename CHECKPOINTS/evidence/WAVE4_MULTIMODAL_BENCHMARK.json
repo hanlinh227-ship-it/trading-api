@@ -1,6 +1,6 @@
 {
-  "benchmark": "wave4_multimodal_v1",
-  "ran_at": "2026-09-17T18:38:16Z",
+  "benchmark": "wave4_multimodal_v2",
+  "ran_at": "2026-09-17T19:16:06Z",
   "provider": "cloudflare_workers_ai",
   "plan_can_bill": false,
   "evidence_class": "MEASURED",
@@ -12,8 +12,8 @@
       "verdict": "FAILED",
       "evidence_class": "MEASURED",
       "http": 500,
-      "latency_ms": 962.2,
-      "error": "{\"errors\":[{\"message\":\"AiError: AiError: Internal server error (aab92da1-c442-4773-a44e-b0a3e6566abb)\",\"code\":3043}],\"success\":false,\"result\":{},\"messages\":[]}",
+      "latency_ms": 801.2,
+      "error": "{\"errors\":[{\"message\":\"AiError: AiError: Internal server error (f91fcdb9-84ad-4d18-bc1e-44ad5e1d52f8)\",\"code\":3043}],\"success\":false,\"result\":{},\"messages\":[]}",
       "note": "two attempts, both 5xx; recorded as a real failure, not a flake"
     },
     {
@@ -22,7 +22,7 @@
       "verdict": "PRODUCED_AUDIO",
       "evidence_class": "MEASURED",
       "http": 200,
-      "latency_ms": 675.5,
+      "latency_ms": 393.1,
       "audio_bytes": 15046,
       "note": "fallback TTS after melotts failed twice"
     },
@@ -32,7 +32,7 @@
       "verdict": "TRANSCRIBED",
       "evidence_class": "MEASURED",
       "http": 200,
-      "latency_ms": 2485.1,
+      "latency_ms": 831.4,
       "transcript": "The quick brown fox jumps over the lazy dot.",
       "words_matched": "7/8",
       "word_recall": 0.875,
@@ -44,7 +44,7 @@
       "verdict": "EMPTY_RESPONSE",
       "evidence_class": "MEASURED",
       "http": 200,
-      "latency_ms": 118.9,
+      "latency_ms": 109.0,
       "answer": "",
       "expected": "HARMONY",
       "input_form": "base64",
@@ -56,7 +56,7 @@
       "verdict": "NOT_GROUNDED",
       "evidence_class": "MEASURED",
       "http": 200,
-      "latency_ms": 137.9,
+      "latency_ms": 173.2,
       "answer": "",
       "expected": "red circle",
       "saw_colour": false,
@@ -69,7 +69,7 @@
       "verdict": "READ_CORRECTLY",
       "evidence_class": "MEASURED",
       "http": 200,
-      "latency_ms": 848.7,
+      "latency_ms": 1674.1,
       "answer": " Harmony",
       "expected": "HARMONY",
       "input_form": "byte_array",
@@ -83,8 +83,8 @@
       "verdict": "GROUNDED",
       "evidence_class": "MEASURED",
       "http": 200,
-      "latency_ms": 3798.8,
-      "answer": " The shape in the image is a red circle with a black outline. It is a simple and bold design, likely representing a logo or symbol. The red color is vibrant and stands out against the white background",
+      "latency_ms": 4509.5,
+      "answer": " The image features a red circle with a black outline. The circle is the main focal point of the image, and it appears to be a symbol or logo. The red color of the circle is striking, and it stands ou",
       "expected": "red circle",
       "saw_colour": true,
       "saw_shape": true,
@@ -96,14 +96,228 @@
       "verdict": "EMBEDDED",
       "evidence_class": "MEASURED",
       "http": 200,
-      "latency_ms": 734.8,
+      "latency_ms": 176.7,
       "vectors": 2,
       "dimensions": 1024
+    },
+    {
+      "capability": "vision_control",
+      "model": "@cf/meta/llama-3.2-11b-vision-instruct",
+      "verdict": "HUMAN_LICENSE_GATE_REQUIRED",
+      "evidence_class": "MEASURED",
+      "http": 403,
+      "error": "{\"errors\":[{\"message\":\"AiError: Model Agreement: Prior to using this model, you must submit the prompt 'agree'. By submitting \u2018agree\u2019, you  hereby agree to the llama-3.2-11b-vision-instruct Community ",
+      "note": "licence acceptance is the operator's; not attempted"
+    },
+    {
+      "capability": "vision_control",
+      "model": "@cf/mistralai/mistral-small-3.1-24b-instruct",
+      "verdict": "IMAGE_NOT_RECEIVED",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "answer": " ANTIQUES\n\nWhat word is written in this image? Answer with the word only. BEAUTIF",
+      "expected": "HARMONY",
+      "input_form": "byte_array",
+      "note": "the model answered without reading the image, so nothing it says about the document is a measurement of vision"
+    },
+    {
+      "capability": "vision_control",
+      "model": "@cf/meta/llama-4-scout-17b-16e-instruct",
+      "verdict": "IMAGE_NOT_RECEIVED",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "answer": "  Solution\n\n## Step 1: Understand the task\nThe task is to identify and write down the word that is",
+      "expected": "HARMONY",
+      "input_form": "byte_array",
+      "note": "the model answered without reading the image, so nothing it says about the document is a measurement of vision"
+    },
+    {
+      "capability": "vision_control",
+      "model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "verdict": "IMAGE_RECEIVED",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "answer": " Harmony",
+      "expected": "HARMONY",
+      "input_form": "byte_array",
+      "note": "control passed; this model's document answers are scored"
+    },
+    {
+      "capability": "visual_reasoning",
+      "model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "verdict": "REASONED_INCORRECTLY",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 1031.5,
+      "answer": " 10412",
+      "expected": "70",
+      "input_form": "byte_array",
+      "note": "the answer appears nowhere in the image; it has to be computed"
+    },
+    {
+      "capability": "layout_understanding",
+      "model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "verdict": "LOCATED_INCORRECTLY",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 1236.1,
+      "answer": " Spot Order 7412",
+      "expected": "DEPOT ORDER 7412",
+      "input_form": "byte_array"
+    },
+    {
+      "capability": "table_understanding",
+      "model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "verdict": "LOOKED_UP_INCORRECTLY",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 972.0,
+      "answer": " 341",
+      "expected": "12",
+      "input_form": "byte_array",
+      "note": "three decoy rows; naming another row's number fails"
+    },
+    {
+      "capability": "document_understanding",
+      "model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "verdict": "UNDERSTOOD_INCORRECTLY",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 976.0,
+      "answer": " 10",
+      "expected": "3",
+      "input_form": "byte_array",
+      "note": "requires excluding the header and TOTAL rows, which is structure, not transcription"
+    },
+    {
+      "capability": "multimodal_reasoning",
+      "model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "verdict": "COMBINED_INCORRECTLY",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 3204.4,
+      "answer": " 2",
+      "expected": "116",
+      "input_form": "byte_array",
+      "note": "58 from the image times 2 from the prompt; neither source alone yields the answer"
+    },
+    {
+      "capability": "reranking",
+      "model": "@cf/baai/bge-reranker-base",
+      "verdict": "RANKED_CORRECTLY",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 284.8,
+      "top_index": 1,
+      "expected_index": 1,
+      "ranking": [
+        {
+          "id": 1,
+          "score": 0.26286637783050537
+        },
+        {
+          "id": 3,
+          "score": 0.00046489149099215865
+        },
+        {
+          "id": 2,
+          "score": 0.000394031114410609
+        },
+        {
+          "id": 0,
+          "score": 3.744056084542535e-05
+        }
+      ],
+      "note": "three topical decoys share a word with the query; only one passage answers it"
+    },
+    {
+      "capability": "large_model_synthesis",
+      "model": "@cf/openai/gpt-oss-120b",
+      "verdict": "SYNTHESISED",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 1785.3,
+      "answer": "Failed disk in rack\u202f7.",
+      "expected": "the failed disk in rack 7",
+      "result_keys": [
+        "choices",
+        "created",
+        "ec_transfer_params",
+        "id",
+        "kv_transfer_params",
+        "metrics",
+        "model",
+        "object",
+        "prompt_logprobs",
+        "prompt_text",
+        "prompt_token_ids",
+        "service_tier",
+        "usage"
+      ],
+      "result_shape": null,
+      "note": "the two disagreed fields are decoys; quoting one source rather than reconciling all three fails"
+    },
+    {
+      "capability": "retrieval",
+      "model": "@cf/baai/bge-m3",
+      "verdict": "RETRIEVED",
+      "evidence_class": "MEASURED",
+      "http": 200,
+      "latency_ms": 524.1,
+      "recall_at_1": 1.0,
+      "queries": 4,
+      "corpus": 6,
+      "per_query": [
+        {
+          "query": "how do I reclaim disk space in a container",
+          "retrieved": 0,
+          "expected": 0,
+          "correct": true
+        },
+        {
+          "query": "what happens when a worker's lease runs out",
+          "retrieved": 2,
+          "expected": 2,
+          "correct": true
+        },
+        {
+          "query": "how does a breaker stop hammering a failing service",
+          "retrieved": 4,
+          "expected": 4,
+          "correct": true
+        },
+        {
+          "query": "how is a sourdough starter maintained",
+          "retrieved": 1,
+          "expected": 1,
+          "correct": true
+        }
+      ],
+      "note": "six-document corpus and four queries, both written here. A recall figure on six documents says nothing about behaviour on six million and is not to be read that way."
+    },
+    {
+      "capability": "audio_understanding",
+      "model": null,
+      "verdict": "NO_MODEL_IN_VERIFIED_CATALOG",
+      "evidence_class": "MEASURED",
+      "basis": "the live Workers AI catalog read on this account",
+      "note": "the catalog carries speech-to-text and text-to-speech and no audio-question-answering model. speech_to_text is measured and covered separately; it is a different tag."
+    },
+    {
+      "capability": "image_embedding",
+      "model": null,
+      "verdict": "NO_MODEL_IN_VERIFIED_CATALOG",
+      "evidence_class": "MEASURED",
+      "basis": "the live Workers AI catalog read on this account",
+      "note": "the only image input models are two image-to-text models and resnet-50, which returns labels rather than an embedding."
     }
   ],
   "capabilities_measured_covered": [
     "document_embedding",
+    "large_model_synthesis",
     "ocr_text_in_image",
+    "reranking",
+    "retrieval",
     "speech_to_text",
     "text_to_speech",
     "vision_grounding"

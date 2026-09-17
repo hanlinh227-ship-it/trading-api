@@ -1,0 +1,174 @@
+{
+  "tool": "wave_closure_gate",
+  "wave": 4,
+  "WAVE4_OPERATIONAL_CLOSED": true,
+  "WAVE4_ALL_CAPABILITIES_COVERED": false,
+  "WAVE4_ALL_EXACT_MODELS_AVAILABLE": false,
+  "capabilities_total": 13,
+  "capabilities_covered": 6,
+  "capabilities_uncovered": [
+    "audio_understanding",
+    "document_understanding",
+    "image_embedding",
+    "layout_understanding",
+    "multimodal_reasoning",
+    "table_understanding",
+    "visual_reasoning"
+  ],
+  "measurable_work_outstanding": [],
+  "covered_by_a_provider_substitute": [
+    "document_embedding",
+    "image_understanding",
+    "ocr",
+    "speech_to_text",
+    "text_to_speech",
+    "vision"
+  ],
+  "covered_but_suite_saturated": [],
+  "capabilities": [
+    {
+      "tag": "vision",
+      "measured_covered": true,
+      "measured_model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": true,
+      "saturated": false
+    },
+    {
+      "tag": "image_understanding",
+      "measured_covered": true,
+      "measured_model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": true,
+      "saturated": false
+    },
+    {
+      "tag": "visual_reasoning",
+      "measured_covered": false,
+      "measured_model": null,
+      "evidence_class": "MEASURED_AND_FAILED",
+      "blocker_class": "HUMAN_GATE_REQUIRED",
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "ocr",
+      "measured_covered": true,
+      "measured_model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": true,
+      "saturated": false
+    },
+    {
+      "tag": "document_understanding",
+      "measured_covered": false,
+      "measured_model": null,
+      "evidence_class": "MEASURED_AND_FAILED",
+      "blocker_class": "HUMAN_GATE_REQUIRED",
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "layout_understanding",
+      "measured_covered": false,
+      "measured_model": null,
+      "evidence_class": "MEASURED_AND_FAILED",
+      "blocker_class": "HUMAN_GATE_REQUIRED",
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "table_understanding",
+      "measured_covered": false,
+      "measured_model": null,
+      "evidence_class": "MEASURED_AND_FAILED",
+      "blocker_class": "HUMAN_GATE_REQUIRED",
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "audio_understanding",
+      "measured_covered": false,
+      "measured_model": null,
+      "evidence_class": "MEASURED",
+      "blocker_class": "NO_MODEL_IN_VERIFIED_CATALOG",
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "speech_to_text",
+      "measured_covered": true,
+      "measured_model": "@cf/openai/whisper-large-v3-turbo",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": true,
+      "saturated": false
+    },
+    {
+      "tag": "text_to_speech",
+      "measured_covered": true,
+      "measured_model": "@cf/deepgram/aura-1",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": true,
+      "saturated": false
+    },
+    {
+      "tag": "multimodal_reasoning",
+      "measured_covered": false,
+      "measured_model": null,
+      "evidence_class": "MEASURED_AND_FAILED",
+      "blocker_class": "HUMAN_GATE_REQUIRED",
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "image_embedding",
+      "measured_covered": false,
+      "measured_model": null,
+      "evidence_class": "MEASURED",
+      "blocker_class": "NO_MODEL_IN_VERIFIED_CATALOG",
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "document_embedding",
+      "measured_covered": true,
+      "measured_model": "@cf/baai/bge-m3",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": true,
+      "saturated": false
+    },
+    {
+      "tag": "future_multimodal",
+      "measured_covered": false,
+      "measured_model": null,
+      "evidence_class": "NONE",
+      "blocker_class": "PLACEHOLDER_TAG",
+      "is_a_requirement": false,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    }
+  ],
+  "failures": [],
+  "note": "A wave closes when nothing measurable is left undone, not when the remaining gaps are written down well. Coverage by a provider's own model counts under that model's name and never makes the requested model available. A saturated suite is flagged because a perfect score on a thin suite bounds the suite, not the model.",
+  "routing_authority": false,
+  "admission_authority": false
+}
