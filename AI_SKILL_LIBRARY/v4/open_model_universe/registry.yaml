@@ -48,7 +48,7 @@ models:
       recommended_vram_gb: null
       quantization_options:
         - Q8_0
-      cpu_viable: true
+      cpu_viable: unknown
       apple_silicon_viable: unknown
     runtime_support:
       - llama_cpp
