@@ -110,7 +110,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.model_id else (models[0] if len(models) == 1 else None)
     )
     if record is None:
-        print(json.dumps({"status": "NO_RECORD"}, indent=2))
+        # A bare NO_RECORD was unactionable once the registry held more than one
+        # model, which it has since Wave 1: the documented invocation with no
+        # --model-id started returning a status naming neither the cause nor the
+        # remedy. Say which ids are there and what to pass.
+        available = [str(m.get("model_id")) for m in models]
+        print(json.dumps({
+            "status": "NO_RECORD",
+            "reason": (
+                f"--model-id {args.model_id!r} matched no registry record"
+                if args.model_id else
+                f"the registry holds {len(models)} models, so --model-id is required"
+            ),
+            "available_model_ids": available,
+        }, indent=2))
         return 2
 
     identity, reasons = from_record(record)

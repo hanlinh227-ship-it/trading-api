@@ -132,3 +132,30 @@ class WalkSafetyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoRecordIsActionableTests(unittest.TestCase):
+    """A refusal that names neither the cause nor the remedy is a dead end."""
+
+    def _run(self, *args):
+        import json, subprocess, sys
+        from pathlib import Path as _Path
+        root = _Path(__file__).resolve().parents[2]
+        result = subprocess.run(
+            [sys.executable, str(root / "AI_SKILL_LIBRARY/v4/tools/local_runtime_autorun.py"), *args],
+            cwd=root, capture_output=True, text=True, timeout=300,
+        )
+        return json.loads(result.stdout)
+
+    def test_an_unknown_model_id_names_what_is_available(self):
+        payload = self._run("--model-id", "nobody/such-model")
+        self.assertEqual(payload["status"], "NO_RECORD")
+        self.assertIn("nobody/such-model", payload["reason"])
+        self.assertTrue(payload["available_model_ids"])
+
+    def test_the_reason_distinguishes_absent_from_ambiguous(self):
+        """Two different problems produced one indistinguishable status."""
+        missing = self._run("--model-id", "nobody/such-model")["reason"]
+        ambiguous = self._run()["reason"]
+        self.assertNotEqual(missing, ambiguous)
+        self.assertIn("--model-id is required", ambiguous)
