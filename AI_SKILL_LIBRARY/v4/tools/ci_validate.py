@@ -201,6 +201,14 @@ def run_validators(
     print(f"{'PASS' if code == 0 else 'FAIL'} retrieval index check: {out.splitlines()[-1] if out else ''}")
     if code != 0:
         failures.append(f"retrieval index: {out}")
+    # The mesh capability ledger must keep saying exactly what the evidence
+    # files say. It is sealed by the release manifest, so a hand edit would be
+    # caught as a stale hash - but only after someone had already re-cut the
+    # release around it. This catches the edit itself.
+    code, out = _run([py, "AI_SKILL_LIBRARY/v4/tools/compile_capability_ledger.py", "--check", "--root", str(root)], root)
+    print(f"{'PASS' if code == 0 else 'FAIL'} capability ledger check: {out.splitlines()[-1] if out else ''}")
+    if code != 0:
+        failures.append(f"capability ledger: {out}")
     code, out = _run([py, "AI_SKILL_LIBRARY/v4/tools/validate_consolidation.py", str(root)], root)
     print(f"{'PASS' if code == 0 else 'FAIL'} validate_consolidation: {out.splitlines()[-1] if out else ''}")
     if code != 0:

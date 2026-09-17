@@ -176,12 +176,20 @@ def run(root: Path, cache: Path, suite_path: Path, model_id: str | None) -> Mapp
     }
 
 
-def ledger_record(result: Mapping[str, Any], *, source_sha: str) -> Mapping[str, Any]:
+def ledger_record(
+    result: Mapping[str, Any], *, source_sha: str, reference: str | None = None
+) -> Mapping[str, Any]:
     """Shape the measurement as a canonical capability-evidence row.
 
     Printed, never written. `passed` is the mesh floor comparison and nothing
     softer, and `provenance` points at the evidence file so the row can be
     traced back to the raw generations that produced it.
+
+    `reference` is that file. It used to be hardcoded to one model's evidence
+    path, so every row - whichever model it measured - claimed to come from the
+    same file, and none of them could be traced back to its own run. The caller
+    passes the path it is about to write, and the default only applies when
+    nothing is being written at all.
     """
     run_block = result.get("benchmark_run") or {}
     identity = result.get("artifact_identity") or {}
@@ -210,7 +218,7 @@ def ledger_record(result: Mapping[str, Any], *, source_sha: str) -> Mapping[str,
         },
         "provenance": {
             "kind": "local_benchmark_run",
-            "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_EVIDENCE.json",
+            "reference": reference or "CHECKPOINTS/evidence/WAVE0_CAPABILITY_EVIDENCE.json",
         },
     }
 
@@ -232,7 +240,16 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     result = run(args.root, args.cache, args.suite, args.model_id)
     if args.ledger_record and result.get("measured"):
-        result = {**result, "ledger_record": ledger_record(result, source_sha=args.source_sha)}
+        reference = None
+        if args.evidence:
+            try:
+                reference = str(Path(args.evidence).resolve().relative_to(Path(args.root).resolve()))
+            except ValueError:
+                # Written outside the repository: no repo-relative reference
+                # exists, and inventing one would be worse than leaving it.
+                reference = None
+        result = {**result, "ledger_record": ledger_record(
+            result, source_sha=args.source_sha, reference=reference)}
     text = json.dumps(result, indent=2, ensure_ascii=False)
     if args.evidence:
         args.evidence.parent.mkdir(parents=True, exist_ok=True)
