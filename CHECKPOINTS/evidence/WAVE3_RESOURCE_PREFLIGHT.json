@@ -1,0 +1,226 @@
+{
+  "tool": "wave3_resource_preflight",
+  "host": {
+    "ram_total_mb": 16095,
+    "ram_available_mb": 13929,
+    "disk_free_mb": 15895,
+    "disk_watermark": "CRITICAL",
+    "gpus": [],
+    "total_vram_available_mb": 0,
+    "cpu_logical": 4,
+    "detected_at": "2026-09-17T12:58:42+00:00"
+  },
+  "policy": {
+    "disk_headroom_mb": 3000,
+    "ram_headroom_mb": 2000,
+    "runtime_ram_multiplier": 2.0,
+    "loadable_formats": [
+      "gguf"
+    ]
+  },
+  "candidates_not_in_manifest": [],
+  "manifest_candidates_not_classified": [],
+  "by_state": {
+    "HUMAN_LICENSE_GATE_REQUIRED": [
+      "gemma-3-4b-it"
+    ],
+    "RESOURCE_FEASIBLE": [
+      "deepseek-r1-distill-qwen-7b",
+      "phi-4-mini-instruct",
+      "qwen3-8b-gguf"
+    ],
+    "RESOURCE_INFEASIBLE": [
+      "gpt-oss-20b",
+      "qwen3-coder-30b-a3b-instruct"
+    ]
+  },
+  "candidates": [
+    {
+      "candidate_id": "deepseek-r1-distill-qwen-7b",
+      "upstream": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+      "state": "RESOURCE_FEASIBLE",
+      "reasons": [],
+      "roles_hypothesised": [
+        "deep_reasoning",
+        "verifier_checker"
+      ],
+      "roles_not_yet_covered_or_thin": [
+        "deep_reasoning",
+        "verifier_checker"
+      ],
+      "roles_already_covered": [],
+      "estimated_artifact_mb": 4680,
+      "estimate_basis": "7.6B parameters at ~4.9 bits per weight, the ratio observed on the admitted Qwen3-4B Q4_K_M artifact",
+      "estimated_runtime_ram_mb": 9360,
+      "target_quantization": "Q4_K_M",
+      "upstream_format": "safetensors",
+      "conversion_required": true,
+      "backend": "llama.cpp via llama-cpp-python",
+      "deferred_to_wave": null,
+      "sizes_are_estimates": true,
+      "admission_binds_to": "the size and digest the staging lane reports, not these numbers"
+    },
+    {
+      "candidate_id": "gemma-3-4b-it",
+      "upstream": "google/gemma-3-4b-it",
+      "state": "HUMAN_LICENSE_GATE_REQUIRED",
+      "reasons": [
+        "Hugging Face access requires a person to review and accept Google's Gemma usage licence. Accepting terms on the operator's behalf is not something this tool may do, so the candidate stops here whatever its resource profile.",
+        "Wave 3 is reasoning, coding and verification. Vision and multimodal are Wave 4, so this candidate is out of scope for Wave 3 independently of its licence gate."
+      ],
+      "roles_hypothesised": [
+        "multilingual_reasoning",
+        "vision"
+      ],
+      "roles_not_yet_covered_or_thin": [
+        "multilingual_reasoning",
+        "vision"
+      ],
+      "roles_already_covered": [],
+      "estimated_artifact_mb": 2600,
+      "estimate_basis": "4.3B parameters at ~4.9 bits per weight",
+      "estimated_runtime_ram_mb": 5200,
+      "target_quantization": "Q4_K_M",
+      "upstream_format": "safetensors_multimodal",
+      "conversion_required": true,
+      "backend": "llama.cpp via llama-cpp-python",
+      "deferred_to_wave": 4,
+      "sizes_are_estimates": true,
+      "admission_binds_to": "the size and digest the staging lane reports, not these numbers"
+    },
+    {
+      "candidate_id": "gpt-oss-20b",
+      "upstream": "openai/gpt-oss-20b",
+      "state": "RESOURCE_INFEASIBLE",
+      "reasons": [
+        "needs ~25600 MB resident (weights plus KV cache and compute buffer) and 13929 MB is available"
+      ],
+      "roles_hypothesised": [
+        "deep_reasoning",
+        "verifier_checker",
+        "synthesis_generalist"
+      ],
+      "roles_not_yet_covered_or_thin": [
+        "deep_reasoning",
+        "verifier_checker"
+      ],
+      "roles_already_covered": [
+        {
+          "role": "synthesis_generalist",
+          "covered_by": "Qwen/Qwen3-4B-GGUF",
+          "measured_score": 1.0,
+          "measurement_depth": "12 task(s)"
+        }
+      ],
+      "estimated_artifact_mb": 12800,
+      "estimate_basis": "21B parameters natively quantized to MXFP4 by the publisher; requantizing below it is not an upstream-supported artifact",
+      "estimated_runtime_ram_mb": 25600,
+      "target_quantization": "MXFP4",
+      "upstream_format": "safetensors_mxfp4",
+      "conversion_required": true,
+      "backend": "llama.cpp via llama-cpp-python",
+      "deferred_to_wave": null,
+      "sizes_are_estimates": true,
+      "admission_binds_to": "the size and digest the staging lane reports, not these numbers"
+    },
+    {
+      "candidate_id": "phi-4-mini-instruct",
+      "upstream": "microsoft/Phi-4-mini-instruct",
+      "state": "RESOURCE_FEASIBLE",
+      "reasons": [],
+      "roles_hypothesised": [
+        "verifier_checker",
+        "fast_low_resource_worker",
+        "multilingual_reasoning"
+      ],
+      "roles_not_yet_covered_or_thin": [
+        "verifier_checker",
+        "fast_low_resource_worker",
+        "multilingual_reasoning"
+      ],
+      "roles_already_covered": [],
+      "estimated_artifact_mb": 2500,
+      "estimate_basis": "3.8B parameters at ~5 bits per weight, the ratio observed on the admitted Phi-3-mini Q4 artifact",
+      "estimated_runtime_ram_mb": 5000,
+      "target_quantization": "Q4",
+      "upstream_format": "safetensors",
+      "conversion_required": true,
+      "backend": "llama.cpp via llama-cpp-python",
+      "deferred_to_wave": null,
+      "sizes_are_estimates": true,
+      "admission_binds_to": "the size and digest the staging lane reports, not these numbers"
+    },
+    {
+      "candidate_id": "qwen3-8b-gguf",
+      "upstream": "Qwen/Qwen3-8B-GGUF",
+      "state": "RESOURCE_FEASIBLE",
+      "reasons": [],
+      "roles_hypothesised": [
+        "deep_reasoning",
+        "vietnamese_reasoning",
+        "synthesis_generalist"
+      ],
+      "roles_not_yet_covered_or_thin": [
+        "deep_reasoning"
+      ],
+      "roles_already_covered": [
+        {
+          "role": "vietnamese_reasoning",
+          "covered_by": "Qwen/Qwen3-4B-GGUF",
+          "measured_score": 1.0,
+          "measurement_depth": "3 task(s)"
+        },
+        {
+          "role": "synthesis_generalist",
+          "covered_by": "Qwen/Qwen3-4B-GGUF",
+          "measured_score": 1.0,
+          "measurement_depth": "12 task(s)"
+        }
+      ],
+      "estimated_artifact_mb": 5030,
+      "estimate_basis": "8.2B parameters at ~4.9 bits per weight, the ratio observed on the admitted Qwen3-4B Q4_K_M artifact",
+      "estimated_runtime_ram_mb": 10060,
+      "target_quantization": "Q4_K_M",
+      "upstream_format": "gguf",
+      "conversion_required": false,
+      "backend": "llama.cpp via llama-cpp-python",
+      "deferred_to_wave": null,
+      "sizes_are_estimates": true,
+      "admission_binds_to": "the size and digest the staging lane reports, not these numbers"
+    },
+    {
+      "candidate_id": "qwen3-coder-30b-a3b-instruct",
+      "upstream": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "state": "RESOURCE_INFEASIBLE",
+      "reasons": [
+        "needs ~18600 MB on disk and 15895 MB is free; downloading it would fill the disk before the file finished"
+      ],
+      "roles_hypothesised": [
+        "coding",
+        "software_engineering",
+        "debugging",
+        "code_review"
+      ],
+      "roles_not_yet_covered_or_thin": [
+        "coding",
+        "software_engineering",
+        "debugging",
+        "code_review"
+      ],
+      "roles_already_covered": [],
+      "estimated_artifact_mb": 18600,
+      "estimate_basis": "30.5B total parameters; MoE stores every expert on disk and in memory even though only 3B are active per token, so the sparse compute does not reduce what has to be resident",
+      "estimated_runtime_ram_mb": 37200,
+      "target_quantization": "Q4_K_M",
+      "upstream_format": "safetensors",
+      "conversion_required": true,
+      "backend": "llama.cpp via llama-cpp-python",
+      "deferred_to_wave": null,
+      "sizes_are_estimates": true,
+      "admission_binds_to": "the size and digest the staging lane reports, not these numbers"
+    }
+  ],
+  "acquires_nothing": true,
+  "admits_nothing": true,
+  "accepts_no_licence": true
+}

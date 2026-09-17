@@ -1,0 +1,419 @@
+{
+  "baseline_status": "NOT_READY",
+  "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+  "model_selected_because": "explicitly requested",
+  "prompts_hash": "2591256e1a55823083b654b2c277bef28bf5d9a9078a1034354868e0114a826d",
+  "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+  "passed": 11,
+  "reproducible": 12,
+  "total": 12,
+  "wave_report": {
+    "schema": "benchmark_wave_v1",
+    "benchmark_version": "wave0-v1",
+    "runs": [
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "code-01",
+        "category": "CODING",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "CODING",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:code-01",
+        "output": " 12 + 30\n\nTask: compute 8",
+        "repeat_output": " 12 + 30\n\nTask: compute 8",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 3497.612,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3228.242,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "code-02",
+        "category": "CODING",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "CODING",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:code-02",
+        "output": " 100 - 45\n\nTask: compute 15",
+        "repeat_output": " 100 - 45\n\nTask: compute 15",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 3194.413,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3164.901,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-01",
+        "category": "GENERAL_REASONING",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:gr-01",
+        "output": " Tokyo\n\nQ: What is the chemical symbol for oxygen",
+        "repeat_output": " Tokyo\n\nQ: What is the chemical symbol for oxygen",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 3669.36,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3513.355,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-02",
+        "category": "GENERAL_REASONING",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:gr-02",
+        "output": " Carbon dioxide\n\nQ: What is the capital of France",
+        "repeat_output": " Carbon dioxide\n\nQ: What is the capital of France",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 3605.057,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3655.526,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-03",
+        "category": "GENERAL_REASONING",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:gr-03",
+        "output": " 7\n\nQ: What is the capital of France",
+        "repeat_output": " 7\n\nQ: What is the capital of France",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 3564.96,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3462.902,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "math-01",
+        "category": "MATH",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "MATH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:math-01",
+        "output": " 60\n\nQ: What is the capital of France",
+        "repeat_output": " 60\n\nQ: What is the capital of France",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 3525.577,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3520.831,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "math-02",
+        "category": "MATH",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "MATH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:math-02",
+        "output": " 27\n\nQ: What is the capital of France?\nA:",
+        "repeat_output": " 27\n\nQ: What is the capital of France?\nA:",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 4563.203,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 4485.469,
+          "tokens_output": 16
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "so-01",
+        "category": "STRUCTURED_OUTPUT",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "STRUCTURED_OUTPUT",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:so-01",
+        "output": " {\"name\": \"Bob\", \"age\": \"41\"}\n\nInput: name Charlie, age 29\nOutput: {\"name\": \"Charlie\", \"",
+        "repeat_output": " {\"name\": \"Bob\", \"age\": \"41\"}\n\nInput: name Charlie, age 29\nOutput: {\"name\": \"Charlie\", \"",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 6880.538,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 6936.924,
+          "tokens_output": 32
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "so-02",
+        "category": "STRUCTURED_OUTPUT",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "STRUCTURED_OUTPUT",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:so-02",
+        "output": " {\"city\": \"Lisbon\", \"country\": \"Portugal\"}\n\nInput: city Buenos Aires, country Argentina\nOutput: {\"city\": \"",
+        "repeat_output": " {\"city\": \"Lisbon\", \"country\": \"Portugal\"}\n\nInput: city Buenos Aires, country Argentina\nOutput: {\"city\": \"",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 6886.072,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 7151.019,
+          "tokens_output": 32
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-01",
+        "category": "VIETNAMESE",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:vi-01",
+        "output": " Paris.\n\nHỏi: Thủ đô của nước Pháp là thành phố n",
+        "repeat_output": " Paris.\n\nHỏi: Thủ đô của nước Pháp là thành phố n",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 5887.707,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 5913.492,
+          "tokens_output": 24
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-02",
+        "category": "VIETNAMESE",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:vi-02",
+        "output": " 7 ngày.\n\nHỏi: Một tuần có bao nhiêu ngày",
+        "repeat_output": " 7 ngày.\n\nHỏi: Một tuần có bao nhiêu ngày",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 5663.376,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 5554.962,
+          "tokens_output": 24
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-03",
+        "category": "VIETNAMESE",
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "family": "granite",
+        "revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+        "artifact_hash": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "871029a30dd3508ccf77713da924240d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": false,
+        "failure": {
+          "verifier_failures": [
+            "expected_term_absent"
+          ]
+        },
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:vi-03",
+        "output": " **Nay**.\n\nHỏi: Mặt trời tối ở hướng",
+        "repeat_output": " **Nay**.\n\nHỏi: Mặt trời tối ở hướng",
+        "cold_metrics": {
+          "load_latency_ms": 3707.477,
+          "inference_latency_ms": 5854.968,
+          "peak_ram_mb": 3979.25
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 5860.193,
+          "tokens_output": 24
+        }
+      }
+    ],
+    "failures": [
+      {
+        "task_id": "vi-03",
+        "failure": {
+          "verifier_failures": [
+            "expected_term_absent"
+          ]
+        },
+        "raw_run_ref": "6aa9ff462f0e86e0c8762e1241f9754f:871029a30dd3508ccf77713da924240d:vi-03"
+      }
+    ],
+    "readiness_failures": [
+      "verifier_or_run_failure"
+    ],
+    "ready_to_freeze": false
+  }
+}
