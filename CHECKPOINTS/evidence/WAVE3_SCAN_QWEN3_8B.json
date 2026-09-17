@@ -1,0 +1,21 @@
+{
+  "candidate_id": "qwen3-8b-gguf",
+  "filename": "Qwen3-8B-Q4_K_M.gguf",
+  "artifact_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+  "size_bytes": 5027783488,
+  "malware_scan_status": "pass",
+  "scan_exit_code": 0,
+  "engine": "ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026",
+  "signature_database_version": "28126",
+  "engine_scanned_file_count": 6,
+  "engine_data_scanned": "5.98 GiB",
+  "engine_read_whole_artifact": true,
+  "chunked": true,
+  "chunk_overlap_bytes": 1048576,
+  "scanned_at": "2026-09-17T13:17:02+00:00",
+  "scanned_by": "github-actions",
+  "scan_kind": "signature_based",
+  "is_a_scan_result": true,
+  "covers_only_this_digest": true,
+  "raw_output": "LibClamAV Warning: Max file-size was set to 4194304000 bytes. Unfortunately, scanning files greater than 2147483647 bytes (2 GiB - 1) is not supported.\nchunks/chunk002.bin: OK\nchunks/chunk004.bin: OK\nchunks/chunk003.bin: OK\nchunks/chunk001.bin: OK\nchunks/chunk005.bin: OK\nchunks/chunk000.bin: OK\n\n----------- SCAN SUMMARY -----------\nKnown viruses: 3628071\nEngine version: 1.5.3\nScanned directories: 1\nScanned files: 6\nInfected files: 0\nData scanned: 5.98 GiB\nData read: 4.69 GiB (ratio 1.28:1)\nTime: 235.556 sec (3 m 55 s)\nStart Date: 2026:09:17 13:13:06\nEnd Date:   2026:09:17 13:17:01\n"
+}

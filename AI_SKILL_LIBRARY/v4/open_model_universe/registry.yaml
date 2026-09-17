@@ -970,3 +970,90 @@ models:
         artifact_sha256: 8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef
         runtime: llama-cpp-python/0.3.35
         evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_PHI3_MINI.json
+  - model_id: Qwen/Qwen3-8B-GGUF
+    family: Qwen3
+    variant: 8B-Q4_K_M-GGUF
+    base_model: Qwen/Qwen3-8B
+    quantization: Q4_K_M
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/Qwen/Qwen3-8B-GGUF
+    weights_source: https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf
+    upstream_revision: 7c41481f57cb95916b40956ab2f0b139b296d974
+    release_date: null
+    license_name: apache-2.0
+    license_url: https://huggingface.co/Qwen/Qwen3-8B-GGUF
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      # No capability has been measured for this model. It declares
+      # none, and a score can only arrive from its own benchmark run -
+      # Qwen3-0.6B's measurement is bound to a different digest.
+      text_reasoning: 0.0
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [Q4_K_M]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp]
+    offline_eligible: true
+    lineage:
+      source_model_id: Qwen/Qwen3-8B
+      source_revision: null
+      conversion_owner: Qwen
+      conversion_verified: false
+    # Read from the GGUF header of these exact bytes.
+    context_window: 40960
+    benchmark_profile: unverified
+    quality_class: unverified
+    latency_class: unverified
+    privacy_class: local_only
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: AVAILABLE
+    health: unknown
+    last_verified: '2026-09-17T13:18:34Z'
+    authority: false
+    source_evidence:
+      - https://huggingface.co/Qwen/Qwen3-8B-GGUF
+      - https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf
+    artifact_identity:
+      model_id: Qwen/Qwen3-8B-GGUF
+      family: Qwen3
+      variant: 8B-Q4_K_M-GGUF
+      immutable_revision: 7c41481f57cb95916b40956ab2f0b139b296d974
+      sha256: d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785
+      size_bytes: 5027783488
+      format: gguf
+      quantization: Q4_K_M
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: pass
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: clear
+    model_mesh_local_candidate_eligible: true
+    # Signature scan run in CI, where an engine and a signature
+    # database are reachable. Bound to the digest above: the runtime
+    # recomputes it from its own copy, so this result cannot apply
+    # to any other bytes.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T13:17:02+00:00'
+      scanned_by: github-actions
+      artifact_sha256: d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785

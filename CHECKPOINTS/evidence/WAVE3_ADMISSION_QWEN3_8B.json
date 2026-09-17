@@ -1,0 +1,43 @@
+{
+  "admission_candidates": 1,
+  "admissible_now": 1,
+  "quarantined": 0,
+  "no_approval_copied_from_other_models": true,
+  "records": [
+    {
+      "id": "qwen3-8b-q4_k_m",
+      "model_id": "Qwen/Qwen3-8B-GGUF",
+      "family": "Qwen3",
+      "variant": "8B-Q4_K_M-GGUF",
+      "quantization": "Q4_K_M",
+      "immutable_revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+      "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "size_bytes": 5027783488,
+      "license_declared": "apache-2.0",
+      "license_link": "https://huggingface.co/Qwen/Qwen3-8B-GGUF/blob/7c41481f57cb95916b40956ab2f0b139b296d974/LICENSE",
+      "malware_scan_status": "pass",
+      "scan_reference": {
+        "engine": "ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026",
+        "signature_database_version": "28126",
+        "scanned_at": "2026-09-17T13:17:02+00:00",
+        "scanned_by": "github-actions",
+        "artifact_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"
+      },
+      "structural_scan": {
+        "status": "pass",
+        "gguf_version": 3,
+        "tensor_count": 399,
+        "kv_count": 28
+      },
+      "lifecycle_state": "AVAILABLE",
+      "admission_gaps": [],
+      "mesh_eligible": true,
+      "capabilities": {
+        "text_reasoning": 0.0
+      }
+    }
+  ],
+  "written_to_registry": [
+    "qwen3-8b-q4_k_m"
+  ]
+}
