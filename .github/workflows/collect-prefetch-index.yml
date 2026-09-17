@@ -16,16 +16,28 @@
 # earn its own licence, scan, format and capability evidence.
 name: Collect prefetch index
 
+# A dispatch-only workflow on a non-default branch is not registered for the
+# dispatch API, so a push trigger is what makes this runnable at all. The
+# default run id is the wave 2 prefetch run; override it on dispatch.
 on:
+  push:
+    branches: ['ops/publish-model-release']
+    paths:
+      - .github/workflows/collect-prefetch-index.yml
   workflow_dispatch:
     inputs:
       source_run_id:
         description: Prefetch workflow run holding the staged artifacts
-        required: true
+        required: false
+        default: '35209030539'
       wave:
         description: Label recorded with this index
         required: false
         default: wave2
+
+env:
+  DEFAULT_SOURCE_RUN_ID: '35209030539'
+  DEFAULT_WAVE: wave2
 
 permissions:
   contents: write
@@ -41,7 +53,7 @@ jobs:
       - name: Download every staged artifact's manifest
         uses: actions/download-artifact@v4
         with:
-          run-id: ${{ github.event.inputs.source_run_id }}
+          run-id: ${{ github.event.inputs.source_run_id || env.DEFAULT_SOURCE_RUN_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: staged
           pattern: '*'
@@ -49,8 +61,8 @@ jobs:
 
       - name: Build the index
         env:
-          SOURCE_RUN_ID: ${{ github.event.inputs.source_run_id }}
-          WAVE: ${{ github.event.inputs.wave }}
+          SOURCE_RUN_ID: ${{ github.event.inputs.source_run_id || env.DEFAULT_SOURCE_RUN_ID }}
+          WAVE: ${{ github.event.inputs.wave || env.DEFAULT_WAVE }}
         shell: bash
         run: |
           set -euo pipefail
@@ -114,7 +126,7 @@ jobs:
       - name: Publish the index
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WAVE: ${{ github.event.inputs.wave }}
+          WAVE: ${{ github.event.inputs.wave || env.DEFAULT_WAVE }}
         shell: bash
         run: |
           set -euo pipefail
