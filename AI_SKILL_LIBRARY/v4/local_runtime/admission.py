@@ -16,6 +16,15 @@ the control plane produced and adds the one check that plane cannot make -
 *this file, in this format, is safe for this loader to open* - and refuses when
 the evidence is absent. Absent evidence is a refusal, not a warning: an
 unreadable format field is exactly the case where guessing is worst.
+
+Two further conditions apply to the **first** load of an artifact this machine
+has never run. Until it has been opened once successfully, the file is only as
+trustworthy as its checksum - which proves it is the file the registry named,
+not that the file is harmless. So a first load must be sandboxed and must have
+egress denied. A parser bug or a malicious tensor header gets a process with no
+network and no reach into the rest of the machine, and if it goes wrong the
+artifact is quarantined rather than retried. Subsequent loads of an artifact
+that already ran cleanly do not carry that requirement.
 """
 
 from __future__ import annotations
@@ -72,6 +81,15 @@ class ArtifactEvidence:
     #: Would loading this require executing repository-supplied code?
     trust_remote_code: bool = False
     custom_model_code: bool = False
+    #: Policy may permit remote code for a specific, reviewed artifact. It is
+    #: an explicit grant, never a default, and never inferred from the record.
+    remote_code_allowed: bool = False
+    #: Has this exact artifact been loaded successfully on this machine before?
+    #: Only a first load carries the sandbox and egress requirements.
+    previously_loaded: bool = False
+    #: What the caller is actually offering for this load.
+    sandbox_available: bool = False
+    egress_denied: bool = False
 
 
 @dataclass(frozen=True)
@@ -83,6 +101,9 @@ class AdmissionResult:
     #: A refused artifact is quarantined rather than simply skipped, so the
     #: failure is recorded against the model instead of being retried forever.
     quarantine: bool = False
+    #: Conditions the caller must honour when it performs this load.
+    sandbox_required: bool = False
+    egress_required_denied: bool = False
 
     @property
     def admitted(self) -> bool:
@@ -95,6 +116,8 @@ class AdmissionResult:
             "refusals": list(self.refusals),
             "resolved_format": self.resolved_format,
             "quarantine": self.quarantine,
+            "sandbox_required": self.sandbox_required,
+            "egress_required_denied": self.egress_required_denied,
         }
 
 
@@ -154,12 +177,31 @@ def evaluate(evidence: ArtifactEvidence) -> AdmissionResult:
     elif resolved not in SAFE_FORMATS:
         refusals.append(f"format {resolved!r} is not on the safe-loader allowlist")
 
-    if evidence.trust_remote_code:
-        refusals.append("trust_remote_code is required; repository-supplied code is not executed here")
+    # Remote code is refused unless policy granted it for this artifact
+    # specifically. The grant is an input, so it can never be inferred from the
+    # record that is asking for the permission.
+    if evidence.trust_remote_code and not evidence.remote_code_allowed:
+        refusals.append(
+            "trust_remote_code is required but not policy-approved; repository-supplied "
+            "code is not executed here"
+        )
         quarantine = True
-    if evidence.custom_model_code:
-        refusals.append("artifact ships custom model code; execution is not permitted")
+    if evidence.custom_model_code and not evidence.remote_code_allowed:
+        refusals.append("artifact ships custom model code and execution is not policy-approved")
         quarantine = True
+
+    # First-load containment. A checksum proves the file is the one the registry
+    # named; it does not prove opening it is harmless.
+    first_load = not evidence.previously_loaded
+    if first_load:
+        if not evidence.sandbox_available:
+            refusals.append(
+                "first load of this artifact requires an isolated sandbox; none was offered"
+            )
+        if not evidence.egress_denied:
+            refusals.append(
+                "first load of this artifact requires egress to be denied; it was not"
+            )
 
     if evidence.runtime and evidence.runtime_support and evidence.runtime not in evidence.runtime_support:
         refusals.append(
@@ -174,9 +216,13 @@ def evaluate(evidence: ArtifactEvidence) -> AdmissionResult:
             refusals=tuple(refusals),
             resolved_format=resolved,
             quarantine=quarantine,
+            sandbox_required=first_load,
+            egress_required_denied=first_load,
         )
     return AdmissionResult(
         model_id=evidence.model_id,
         verdict=AdmissionVerdict.ADMITTED,
         resolved_format=resolved,
+        sandbox_required=first_load,
+        egress_required_denied=first_load,
     )

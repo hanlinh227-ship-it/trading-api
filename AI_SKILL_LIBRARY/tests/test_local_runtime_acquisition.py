@@ -30,6 +30,13 @@ def make_request(root, **kwargs):
     kwargs.setdefault("runtime", "llama.cpp")
     kwargs.setdefault("supported_runtimes", frozenset({"llama.cpp"}))
     kwargs.setdefault("disk_budget_bytes", 10 * len(PAYLOAD))
+    # Safety evidence a vetted artifact would already carry. Acquisition
+    # consumes these decisions; it never makes them.
+    kwargs.setdefault("artifact_format", "gguf")
+    kwargs.setdefault("quantization", "Q8_0")
+    kwargs.setdefault("license_admission_ref", "governance:license/fixture#1")
+    kwargs.setdefault("provenance_ref", "governance:provenance/fixture#1")
+    kwargs.setdefault("safe_format_verified", True)
     return AcquisitionRequest(root=Path(root), **kwargs)
 
 
@@ -89,6 +96,42 @@ class PreconditionTests(unittest.TestCase):
             make_request(self.root, runtime="vllm", supported_runtimes=frozenset({"llama.cpp"}))
         )
         self.assertTrue(any("runtime" in r for r in refusals), refusals)
+
+    def test_unverified_safe_format_is_refused(self):
+        refusals = precondition_refusals(make_request(self.root, safe_format_verified=False))
+        self.assertTrue(any("safe artifact format" in r for r in refusals), refusals)
+
+    def test_missing_artifact_format_is_refused(self):
+        refusals = precondition_refusals(make_request(self.root, artifact_format=None))
+        self.assertTrue(any("artifact_format" in r for r in refusals), refusals)
+
+    def test_missing_quantization_is_refused(self):
+        refusals = precondition_refusals(make_request(self.root, quantization=""))
+        self.assertTrue(any("quantization" in r for r in refusals), refusals)
+
+    def test_missing_license_admission_reference_is_refused(self):
+        refusals = precondition_refusals(make_request(self.root, license_admission_ref=None))
+        self.assertTrue(any("license_admission_ref" in r for r in refusals), refusals)
+
+    def test_missing_provenance_reference_is_refused(self):
+        refusals = precondition_refusals(make_request(self.root, provenance_ref=None))
+        self.assertTrue(any("provenance_ref" in r for r in refusals), refusals)
+
+    def test_egress_with_a_required_sandbox_is_refused(self):
+        refusals = precondition_refusals(
+            make_request(self.root, egress_allowed=True, sandbox_required=True)
+        )
+        self.assertTrue(any("egress" in r for r in refusals), refusals)
+
+    def test_safety_evidence_defaults_to_the_refusing_value(self):
+        # A request built without safety evidence must not be acquirable.
+        bare = AcquisitionRequest(
+            root=Path(self.root), model_id="m", revision="a1b2c3d4",
+            source_uri="https://example.invalid/w", filename="w.gguf", sha256=DIGEST,
+            size_bytes=len(PAYLOAD), lifecycle_state=ModelState.AVAILABLE, runtime="llama.cpp",
+            supported_runtimes=frozenset({"llama.cpp"}), disk_budget_bytes=10 * len(PAYLOAD),
+        )
+        self.assertTrue(precondition_refusals(bare))
 
     def test_missing_source_uri_is_refused(self):
         refusals = precondition_refusals(make_request(self.root, source_uri=""))

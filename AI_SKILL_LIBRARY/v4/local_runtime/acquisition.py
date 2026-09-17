@@ -72,6 +72,21 @@ class AcquisitionRequest:
     supported_runtimes: frozenset[str]
     disk_budget_bytes: int | None
 
+    # -- safety evidence ---------------------------------------------------
+    #
+    # Consumed, not derived. Each is a reference to a decision made elsewhere -
+    # governance for licence and provenance, the safe-loader boundary for
+    # format - so acquisition cannot accidentally become the place that grants
+    # its own permissions. All default to the refusing value.
+    artifact_format: str | None = None
+    quantization: str | None = None
+    license_admission_ref: str | None = None
+    provenance_ref: str | None = None
+    safe_format_verified: bool = False
+    remote_code_allowed: bool = False
+    sandbox_required: bool = True
+    egress_allowed: bool = False
+
 
 @dataclass(frozen=True)
 class AcquisitionResult:
@@ -135,6 +150,18 @@ def precondition_refusals(request: AcquisitionRequest) -> tuple[str, ...]:
         refusals.append(
             f"runtime {request.runtime!r} is not in the model's supported runtimes"
         )
+    if not request.safe_format_verified:
+        refusals.append("safe artifact format has not been verified by the admission boundary")
+    if not (request.artifact_format or "").strip():
+        refusals.append("artifact_format is missing")
+    if not (request.quantization or "").strip():
+        refusals.append("quantization is missing")
+    if not (request.license_admission_ref or "").strip():
+        refusals.append("license_admission_ref is missing: no governance licence decision to consume")
+    if not (request.provenance_ref or "").strip():
+        refusals.append("provenance_ref is missing: no governance provenance decision to consume")
+    if request.egress_allowed and request.sandbox_required:
+        refusals.append("egress is allowed while a sandbox is required; the combination is refused")
     if request.size_bytes and request.disk_budget_bytes is not None:
         if request.size_bytes > request.disk_budget_bytes:
             refusals.append(
