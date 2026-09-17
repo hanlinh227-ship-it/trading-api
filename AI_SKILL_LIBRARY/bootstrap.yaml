@@ -27,6 +27,8 @@ paths:
   observability: AI_SKILL_LIBRARY/observability.yaml
   security: AI_SKILL_LIBRARY/security.yaml
   migration: AI_SKILL_LIBRARY/migration.yaml
+  memory_continuity_focus: AI_SKILL_LIBRARY/v4/memory_continuity/focus.json
+  memory_continuity_bootstrap: AI_SKILL_LIBRARY/v4/tools/memory_continuity_bootstrap.py
 
 lazy_load:
   full_skill_catalog: true
@@ -72,6 +74,26 @@ refresh_triggers:
   - code_or_config_change
   - pre_merge_or_deploy
   - active_or_live_status_claim
+
+new_chat_resume:
+  enabled: true
+  trigger_intents:
+    - continue_existing_project
+    - implicit_continue
+    - resume_previous_work
+  order:
+    - refresh_checkpoint
+    - route_request
+    - resolve_current_project_authority
+    - read_memory_continuity_focus
+    - run_memory_continuity_bootstrap
+    - inject_bounded_context
+    - continue_execution
+  require_verified_current_project_authority: true
+  fail_closed_on_missing_or_ambiguous_focus: true
+  cross_project_read: false
+  cross_project_write: false
+  continuity_has_authority: false
 
 fallback:
   marker: fresh_git_context=false
