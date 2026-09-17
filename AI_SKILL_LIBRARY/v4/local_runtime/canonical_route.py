@@ -183,6 +183,9 @@ def as_mesh_candidate(profile: Any, record: Mapping[str, Any], *, observed_at: s
         ):
             capabilities[name] = {
                 "supported": True,
+                # Measured, digest-bound, so it competes at its real score
+                # rather than being capped like a self-reported one.
+                "evidence_state": "VERIFIED",
                 "score": float(score),
                 "evidence": [
                     f"measured:{row.get('benchmark_id')}@{row.get('benchmark_version')}"
@@ -194,6 +197,7 @@ def as_mesh_candidate(profile: Any, record: Mapping[str, Any], *, observed_at: s
         else:
             capabilities[name] = {
                 "supported": "unknown",
+                "evidence_state": "PROVISIONAL",
                 "score": float(score),
                 "evidence": ["registry_declared"],
                 "verified_at": None,
