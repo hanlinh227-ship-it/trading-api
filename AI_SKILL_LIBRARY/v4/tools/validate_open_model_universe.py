@@ -12,6 +12,7 @@ import yaml
 
 
 RUNTIME_STATES = {"AVAILABLE", "DOWNLOADING", "CACHED", "WARM", "RUNNING", "SLEEPING", "DEGRADED", "EVICTED"}
+FLOATING_REVISIONS = {"main", "master", "latest", "head", "trunk", "dev", "stable"}
 FORBIDDEN_KEYS = {
     "api_key", "apikey", "access_token", "auth_token", "bearer_token", "password",
     "private_key", "wallet_seed", "credential", "authorization", "secret", "secret_value",
@@ -23,6 +24,11 @@ CREDENTIAL_VALUE = re.compile(
 )
 SENSITIVE_QUERY_KEYS = {"access_token", "api_key", "apikey", "auth", "authorization", "password", "secret", "token"}
 URL_FIELDS = ("official_upstream", "weights_source", "license_url")
+E2E_REQUIRED_FIELDS = (
+    "immutable_revision", "artifact_url", "artifact_hash", "artifact_size_bytes",
+    "artifact_format", "zero_cost_eligible", "offline_ready", "lineage",
+    "artifact_security", "runtime_projection",
+)
 
 
 def _schema_path() -> Path:
@@ -55,6 +61,42 @@ def _unsafe_https_url(value: object) -> bool:
     if parsed.scheme != "https" or not parsed.hostname or parsed.username is not None or parsed.password is not None:
         return True
     return any(key.lower() in SENSITIVE_QUERY_KEYS for key, _ in parse_qsl(parsed.query, keep_blank_values=True))
+
+
+def _validate_e2e_candidate(model: dict, index: int) -> list[str]:
+    errors: list[str] = []
+    if model.get("admission_status") != "E2E_CANDIDATE":
+        return errors
+    missing = [field for field in E2E_REQUIRED_FIELDS if model.get(field) is None]
+    if missing:
+        errors.append(f"E2E candidate missing admission evidence at models[{index}]: {missing}")
+    revision = str(model.get("upstream_revision") or "").strip()
+    immutable = str(model.get("immutable_revision") or "").strip()
+    if not revision or revision.lower() in FLOATING_REVISIONS or immutable != revision:
+        errors.append(f"E2E candidate revision is not immutably pinned at models[{index}]")
+    if model.get("license_verified") is not True or model.get("self_hostable") is not True:
+        errors.append(f"E2E candidate must have verified licence and self-host rights at models[{index}]")
+    if model.get("local_runtime_possible") is not True or model.get("paid_token_required") is not False:
+        errors.append(f"E2E candidate must prove local zero-paid-token runtime eligibility at models[{index}]")
+    security = model.get("artifact_security") if isinstance(model.get("artifact_security"), dict) else {}
+    for key in ("revision_pinned", "digest_verified", "safe_format", "license_verified", "provenance_verified"):
+        if security.get(key) is not True:
+            errors.append(f"E2E candidate artifact_security.{key} must be true at models[{index}]")
+    if security.get("trust_remote_code_required") is not False or security.get("custom_code_required") is not False:
+        errors.append(f"first E2E candidate must not require remote/custom code at models[{index}]")
+    projection = model.get("runtime_projection") if isinstance(model.get("runtime_projection"), dict) else {}
+    mirrors = {
+        "model_id": model.get("model_id"),
+        "revision": model.get("upstream_revision"),
+        "artifact_hash": model.get("artifact_hash"),
+        "artifact_size_bytes": model.get("artifact_size_bytes"),
+        "quantization": model.get("quantization"),
+        "runtime_support": model.get("runtime_support"),
+    }
+    for key, expected in mirrors.items():
+        if projection.get(key) != expected:
+            errors.append(f"runtime_projection.{key} must mirror registry evidence at models[{index}]")
+    return errors
 
 
 def validate_document(document: object, schema: dict | None = None) -> list[str]:
@@ -103,13 +145,16 @@ def validate_document(document: object, schema: dict | None = None) -> list[str]
         if model.get("paid_token_required") is True:
             errors.append(f"paid-token model cannot enter zero-token registry at models[{index}]")
         if model.get("lifecycle_state") in RUNTIME_STATES:
-            errors.append(f"runtime state is forbidden in Phase A/B registry without Claude runtime approval/transition evidence at models[{index}]")
+            errors.append(f"runtime state is forbidden in metadata registry without runtime transition evidence at models[{index}]")
         for field in URL_FIELDS:
             if _unsafe_https_url(model.get(field)):
                 errors.append(f"unsafe or invalid provenance URL at models[{index}].{field}")
+        if model.get("artifact_url") is not None and _unsafe_https_url(model.get("artifact_url")):
+            errors.append(f"unsafe or invalid artifact URL at models[{index}].artifact_url")
         for evidence_index, evidence in enumerate(model.get("source_evidence") or []):
             if _unsafe_https_url(evidence):
                 errors.append(f"unsafe or invalid provenance URL at models[{index}].source_evidence[{evidence_index}]")
+        errors.extend(_validate_e2e_candidate(model, index))
 
     forbidden = _forbidden_paths(document)
     if forbidden:
