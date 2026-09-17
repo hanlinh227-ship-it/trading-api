@@ -53,6 +53,8 @@ def snapshot(ram_available_mb=32000, ram_total_mb=64000, disk_free_mb=500_000,
 
 def profile(model_id, ram_mb=8000, vram_mb=8000, quality=0.7, **kwargs):
     kwargs.setdefault("capabilities", frozenset({"text"}))
+    # Fixtures stand for models that already cleared projection.
+    kwargs.setdefault("acquisition_eligible", True)
     return ModelProfile(
         model_id=model_id,
         ram_mb=ram_mb,

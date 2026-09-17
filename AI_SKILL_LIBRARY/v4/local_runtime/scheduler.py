@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from .lifecycle import NON_SELECTABLE_STATES, ModelState
 from .resources import ResourceSnapshot, Watermark
@@ -49,6 +49,39 @@ class QualityTier(str, Enum):
     FAST = "FAST"
     STANDARD = "STANDARD"
     DEEP = "DEEP"
+
+
+class Tri(str, Enum):
+    """The registry schema's three-valued truth. UNKNOWN is never coerced."""
+
+    TRUE = "true"
+    FALSE = "false"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def of(cls, value: Any) -> "Tri":
+        if value is True:
+            return cls.TRUE
+        if value is False:
+            return cls.FALSE
+        return cls.UNKNOWN
+
+    @property
+    def is_true(self) -> bool:
+        return self is Tri.TRUE
+
+    @property
+    def is_false(self) -> bool:
+        return self is Tri.FALSE
+
+
+class AdmissionStatus(str, Enum):
+    """Whether projection cleared this model for placement."""
+
+    ADMITTED = "ADMITTED"
+    INELIGIBLE = "INELIGIBLE"
+    #: Usable, but not for anything needing the artifact it has not proven.
+    RESTRICTED = "RESTRICTED"
 
 
 class Privacy(str, Enum):
@@ -145,6 +178,10 @@ class SchedulerPolicy:
     #: Idle grace before a loaded model is put to sleep, per watermark.
     warm_idle_seconds: float = 300.0
     warm_idle_seconds_under_pressure: float = 60.0
+    #: Stand-in for a model whose quality was never measured. Neutral on
+    #: purpose: optimism would let an unmeasured model outrank a proven one,
+    #: pessimism would make it unreachable and unmeasurable forever.
+    unknown_quality_prior: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -152,13 +189,20 @@ class ModelProfile:
     """What a model needs, and what it is entitled to be used for."""
 
     model_id: str
-    ram_mb: int
-    #: None means the model does not require an accelerator at all.
+    #: Minimum RAM. `None` means the registry did not say - which is refused at
+    #: fit time, never treated as "needs nothing".
+    ram_mb: int | None
+    #: `None` means the model does not require an accelerator at all. Contrast
+    #: with `ram_mb`, where `None` means unknown - the asymmetry is deliberate:
+    #: "no GPU needed" is a real answer, "no RAM needed" is not.
     vram_mb: int | None
-    disk_mb: int
+    disk_mb: int | None
     runtime: str
-    context_limit: int
-    quality: float
+    context_limit: int | None
+    #: Measured quality in 0..1, or `None` when the registry carries only a
+    #: quality *class* and no number. Scoring then falls back to a neutral
+    #: prior and the placement reports the quality as unevidenced.
+    quality: float | None
     capabilities: frozenset[str] = frozenset()
     specializations: frozenset[str] = frozenset()
     #: Zero monetary cost at execution time. False models are unreachable while
@@ -168,6 +212,44 @@ class ModelProfile:
     local: bool = True
     #: Highest privacy tier this model may be handed.
     max_privacy: Privacy = Privacy.SECRET
+
+    # -- provenance and identity ------------------------------------------
+    #
+    # Populated by `projection.py` from the Open Model Universe registry. A
+    # hand-built profile leaves them unset, which is honest: nothing here is
+    # inferred, and `None` means "the registry did not say", never a default.
+    family: str | None = None
+    variant: str | None = None
+    #: The pinned upstream revision. Acquisition refuses a floating ref.
+    revision: str | None = None
+    #: Artifact identity. Both are required before anything may be downloaded.
+    artifact_hash: str | None = None
+    artifact_size_bytes: int | None = None
+    quantization: str | None = None
+    #: Every runtime that can load this artifact. `runtime` is the one chosen.
+    runtime_support: frozenset[str] = frozenset()
+    #: `ram_mb`/`vram_mb` above are the *minimum* - what fit-checking spends.
+    #: These are the comfortable figures, used for scoring, never for fit.
+    recommended_ram_mb: int | None = None
+    recommended_vram_mb: int | None = None
+    cpu_viable: Tri = Tri.UNKNOWN
+    gpu_viable: Tri = Tri.UNKNOWN
+    apple_silicon_viable: Tri = Tri.UNKNOWN
+    license_verified: bool = False
+    health: str = "unknown"
+    #: The registry's free-form quality class, kept verbatim. Mapping it to a
+    #: number needs a scoring table the research lane owns, so this lane does
+    #: not invent one.
+    quality_class: str | None = None
+    #: Whether this profile cleared projection. A directly constructed profile
+    #: is trusted - the constructor is a vetted act - but `projection.py` never
+    #: relies on that default and always sets this explicitly.
+    admission_status: AdmissionStatus = AdmissionStatus.ADMITTED
+    #: Fail closed: downloading weights is the one irreversible, outbound act
+    #: here, so it is off unless something proved it safe.
+    acquisition_eligible: bool = False
+    #: Why projection refused, when it did.
+    exclusion_reasons: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -232,12 +314,18 @@ def _eligibility_refusal(slot: RuntimeSlot, request: TaskRequest) -> str | None:
     model = slot.model
     if slot.state in NON_SELECTABLE_STATES or slot.state not in _STATE_ACTION:
         return f"not selectable in state {slot.state.value}"
+    if model.admission_status is AdmissionStatus.INELIGIBLE:
+        detail = "; ".join(model.exclusion_reasons) or "projection marked it ineligible"
+        return f"admission status INELIGIBLE: {detail}"
     if not slot.runtime_healthy:
         return f"runtime health check failing for {model.runtime}"
     missing = request.required_capabilities - model.capabilities
     if missing:
         return f"missing capabilities: {', '.join(sorted(missing))}"
-    if request.required_context > model.context_limit:
+    if model.context_limit is None:
+        if request.required_context > 0:
+            return "context window unknown: cannot prove the request fits"
+    elif request.required_context > model.context_limit:
         return f"context {request.required_context} exceeds model context limit {model.context_limit}"
     if request.free_only and not model.zero_cost:
         return "not zero-cost eligible under FREE_ONLY; no paid fallback"
@@ -311,11 +399,18 @@ def _fit_refusal(
         return None, slot.device, None
 
     if action is PlacementAction.ACQUIRE:
+        if not model.acquisition_eligible:
+            detail = "; ".join(model.exclusion_reasons) or "artifact identity not proven"
+            return f"not eligible for acquisition: {detail}", None, None
+        if model.disk_mb is None:
+            return "artifact size unknown: cannot prove the download fits", None, None
         if budget.disk_mb is None:
             return "disk capacity unknown: cannot prove the artifact fits", None, None
         if model.disk_mb > budget.disk_mb:
             return f"disk: needs {model.disk_mb} MB, {budget.disk_mb} MB usable", None, None
 
+    if model.ram_mb is None:
+        return "model ram requirement unknown: cannot prove it fits", None, None
     if budget.ram_mb is None:
         return "ram capacity unknown: cannot prove the model fits", None, None
     if model.ram_mb > budget.ram_mb:
@@ -349,9 +444,11 @@ def _spend(budget: _Budget, slot: RuntimeSlot, action: PlacementAction, gpu_inde
     if action not in _ALLOCATING:
         return budget
     model = slot.model
-    ram = budget.ram_mb if budget.ram_mb is None else budget.ram_mb - model.ram_mb
+    ram = budget.ram_mb
+    if ram is not None and model.ram_mb is not None:
+        ram -= model.ram_mb
     disk = budget.disk_mb
-    if action is PlacementAction.ACQUIRE and disk is not None:
+    if action is PlacementAction.ACQUIRE and disk is not None and model.disk_mb is not None:
         disk -= model.disk_mb
     vram = dict(budget.vram_by_device)
     if gpu_index is not None and model.vram_mb is not None and vram.get(gpu_index) is not None:
@@ -364,7 +461,10 @@ def _spend(budget: _Budget, slot: RuntimeSlot, action: PlacementAction, gpu_inde
 
 def _score(slot: RuntimeSlot, action: PlacementAction, request: TaskRequest, policy: SchedulerPolicy) -> float:
     locality_weight, quality_weight = _TIER_WEIGHTS[request.quality_tier]
-    score = locality_weight * _LOCALITY[action] + quality_weight * slot.model.quality
+    quality = slot.model.quality
+    if quality is None:
+        quality = policy.unknown_quality_prior
+    score = locality_weight * _LOCALITY[action] + quality_weight * quality
     if slot.model.specializations & request.required_capabilities:
         score += policy.specialization_bonus
     if slot.state is ModelState.DEGRADED:
