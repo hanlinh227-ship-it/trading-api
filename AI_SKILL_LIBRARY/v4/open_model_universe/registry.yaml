@@ -20,7 +20,7 @@ authority:
 models:
   - model_id: qwen/qwen3-0.6b-q8_0-gguf
     family: qwen3
-    variant: 0.6b-instruct-q8_0-gguf
+    variant: 0.6b-q8_0-gguf
     base_model: Qwen/Qwen3-0.6B
     quantization: Q8_0
     runtime_build: pending_first_activation
