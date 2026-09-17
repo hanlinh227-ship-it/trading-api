@@ -51,6 +51,10 @@ on:
         description: Probe Cloudflare Workers AI free-tier eligibility (yes = run it)
         required: false
         default: ''
+      dump_workers_ai_catalog:
+        description: Dump the live Workers AI model catalog (yes = run it)
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -992,3 +996,90 @@ jobs:
           gh release create wave3-workers-ai-probe --notes \
             "Cloudflare Workers AI free-tier probe. Not an admission." 2>/dev/null || true
           gh release upload wave3-workers-ai-probe workers-ai-probe.json --clobber
+
+  # The live catalog, not the documentation. A docs page is a rendering of what
+  # Cloudflare chose to publish; this is what the account can actually address,
+  # with each model's task type, so a capability search rests on the same thing
+  # inference will hit. Read-only, and it spends no Neurons - listing models is
+  # not running one.
+  dump-workers-ai-catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.inputs.dump_workers_ai_catalog != ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: List what this account can actually address
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ACCOUNT_ID:-}" ]; then
+            printf '%s\n' '{"status":"NO_CREDENTIAL","models":[]}' > workers-ai-catalog.json
+            exit 0
+          fi
+          : > pages.jsonl
+          page=1
+          while [ "$page" -le 20 ]; do
+            http=$(curl -sS -o "page.json" -w '%{http_code}' \
+              "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/models/search?per_page=100&page=${page}" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" || echo "000")
+            [ "$http" = "200" ] || break
+            n=$(python3 -c "import json;print(len(json.load(open('page.json')).get('result') or []))")
+            cat page.json >> pages.jsonl
+            echo "  page ${page}: ${n} models"
+            [ "$n" -lt 100 ] && break
+            page=$((page+1))
+          done
+          python3 - <<'PY'
+          import json, time
+          models = []
+          for line in open("pages.jsonl"):
+              line = line.strip()
+              if not line:
+                  continue
+              try:
+                  doc = json.loads(line)
+              except ValueError:
+                  continue
+              for m in (doc.get("result") or []):
+                  task = (m.get("task") or {})
+                  models.append({
+                      "name": m.get("name"),
+                      "task": task.get("name"),
+                      "description": (m.get("description") or "")[:200],
+                      "properties": {
+                          str(p.get("property_id")): str(p.get("value"))
+                          for p in (m.get("properties") or [])
+                      },
+                  })
+          by_task = {}
+          for m in models:
+              by_task.setdefault(m["task"] or "<none>", []).append(m["name"])
+          json.dump({
+              "status": "LISTED",
+              "listed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "source": "live account catalog via ai/models/search",
+              "evidence_class": "PROVIDER_DECLARED",
+              "note": ("A catalog row says this account may address the model. It is "
+                       "not execution proof and not a capability measurement."),
+              "model_count": len(models),
+              "tasks": {k: sorted(v) for k, v in sorted(by_task.items())},
+              "models": models,
+          }, open("workers-ai-catalog.json", "w"), indent=2)
+          print(f"catalog: {len(models)} models across {len(by_task)} task types")
+          for k, v in sorted(by_task.items()):
+              print(f"  {k}: {len(v)}")
+          PY
+
+      - name: Publish the catalog where the runtime can read it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create wave4-workers-ai-catalog --notes \
+            "Live Workers AI catalog. Provider-declared, not execution proof." 2>/dev/null || true
+          gh release upload wave4-workers-ai-catalog workers-ai-catalog.json --clobber
