@@ -4,8 +4,8 @@ Date: 2026-09-17
 Repository: `hanlinh227-ship-it/trading-api`
 Branch: `codex/personal-ai-control-plane-contracts`
 PR: `#429`
-Base main used for reconciliation: `063c6217d00800a497ffd6b2e118d2cf5f72e5e8`
-Implementation payload HEAD before this handoff commit: `2aa4c47c7069c3e08ad355ad73c8103e75fd713f`
+Current reconciled base main: `bc83f70f16de40be833f83702538479ede8157b1`
+Reconciliation commit validated before this metadata-only refresh: `68faad329c105182e830227dd7ffd0348cc1e36a`
 Runtime LIVE claim: **NO**
 
 ## Status
@@ -129,11 +129,11 @@ This is intentional and fail-closed.
 
 Claude should consume this identity/admission contract, perform runtime-side security evidence and first-load work, and return evidence without changing governance ownership.
 
-## Tests
+## Tests and reconciliation evidence
 
-B6/B5 contract tests live at:
-
-- `AI_SKILL_LIBRARY/tests/test_open_model_universe_b6_b5_contracts.py`
-- `AI_SKILL_LIBRARY/tests/test_open_model_universe.py`
-
-They prove governance/runtime state separation, lossless identity, blocked/quarantined non-admission, fail-closed critical evidence, and the generic registry -> admission -> Model Mesh -> Claude boundary.
+- RED contract commit: `441b19559f554d999e6df17357c31a6e9387de6d`.
+- `AI_SKILL_LIBRARY/tests/test_open_model_universe_b6_b5_contracts.py` covers state ownership, artifact identity, fail-closed admission, and generic Model Mesh/Claude boundary.
+- `AI_SKILL_LIBRARY/tests/test_open_model_universe.py` is aligned to the governance/admission split.
+- Reconciliation commit `68faad329c105182e830227dd7ffd0348cc1e36a` merged current main `bc83f70f16de40be833f83702538479ede8157b1` into this branch with explicit resolution of the competing Qwen schema from PR #433.
+- On reconciliation commit `68faad329c105182e830227dd7ffd0348cc1e36a`: AI Skill Library CI, Crypto Skill Registry Validate, Zero Local Cloud Runtime, Skill-Mandatory Fast Gateway CI, and Cloudflare Research Runtime CI all completed `success`.
+- At that verification point PR #429 was `mergeable=true`, `mergeable_state=clean`, and `behind_by=0`.
