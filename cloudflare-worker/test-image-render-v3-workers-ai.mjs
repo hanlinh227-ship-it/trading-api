@@ -41,6 +41,15 @@ assert.equal(result.model,'@cf/black-forest-labs/flux-1-schnell');
 assert.equal(calls[0].input.prompt,'a blue square');
 assert.equal(calls[0].input.width,undefined);
 
+// Stable Diffusion edit models call the provider field num_steps, not the logical request
+// field steps. This matters in production because probes intentionally use a tiny step count
+// to stay within the free allocation.
+result=await client.generate(env,{taskType:'IMAGE_EDIT_GLOBAL',prompt:'make it night',image:[1,2,3],steps:2,width:512,height:512});
+assert.equal(result.ok,true);
+assert.equal(result.model,'@cf/runwayml/stable-diffusion-v1-5-img2img');
+assert.equal(calls.at(-1).input.num_steps,2);
+assert.equal(calls.at(-1).input.steps,undefined);
+
 // An edit task without a source image fails closed rather than rendering from the prompt.
 result=await client.generate(env,{taskType:'IMAGE_EDIT_GLOBAL',prompt:'make it night'});
 assert.equal(result.ok,false);
@@ -51,10 +60,12 @@ result=await client.generate(env,{taskType:'INPAINT',prompt:'fix the hand',image
 assert.equal(result.ok,false);
 assert.equal(result.error,'mask_required');
 
-result=await client.generate(env,{taskType:'INPAINT',prompt:'fix the hand',image:[1,2,3],mask:[4,5,6]});
+result=await client.generate(env,{taskType:'INPAINT',prompt:'fix the hand',image:[1,2,3],mask:[4,5,6],steps:2});
 assert.equal(result.ok,true);
 assert.equal(result.model,'@cf/runwayml/stable-diffusion-v1-5-inpainting');
 assert.deepEqual(calls.at(-1).input.mask,[4,5,6]);
+assert.equal(calls.at(-1).input.num_steps,2);
+assert.equal(calls.at(-1).input.steps,undefined);
 
 // A provider error is surfaced, never swallowed into a fake success.
 const failing={AI:{async run(){throw new Error('capacity');}}};
