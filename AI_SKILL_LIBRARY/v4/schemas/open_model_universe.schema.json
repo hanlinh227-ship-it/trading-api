@@ -31,14 +31,75 @@
       },
       "additionalProperties": false
     },
-    "models": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/model"}
-    }
+    "models": {"type": "array", "items": {"$ref": "#/$defs/model"}}
   },
   "additionalProperties": false,
   "$defs": {
     "truth": {"enum": [true, false, "unknown"]},
+    "security": {
+      "type": "object",
+      "required": [
+        "revision_pinned", "digest_verified", "safe_format", "pickle_risk",
+        "trust_remote_code_required", "custom_code_required", "license_verified",
+        "provenance_verified", "malware_scan_status", "isolated_load_required",
+        "egress_required", "rollback_artifact_available"
+      ],
+      "properties": {
+        "revision_pinned": {"type": "boolean"},
+        "digest_verified": {"type": "boolean"},
+        "safe_format": {"type": "boolean"},
+        "pickle_risk": {"type": "boolean"},
+        "trust_remote_code_required": {"type": "boolean"},
+        "custom_code_required": {"type": "boolean"},
+        "license_verified": {"type": "boolean"},
+        "provenance_verified": {"type": "boolean"},
+        "malware_scan_status": {"enum": ["not_scanned", "pass", "fail", "unknown"]},
+        "isolated_load_required": {"type": "boolean"},
+        "egress_required": {"type": "boolean"},
+        "rollback_artifact_available": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "lineage": {
+      "type": "object",
+      "properties": {
+        "lineage_id": {"type": ["string", "null"]},
+        "family": {"type": ["string", "null"]},
+        "base_model": {"type": ["string", "null"]},
+        "fine_tune_parent": {"type": ["string", "null"]},
+        "distillation_parent": {"type": ["string", "null"]},
+        "quantization_parent": {"type": ["string", "null"]},
+        "lora_parent": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "runtime_projection": {
+      "type": "object",
+      "required": [
+        "model_id", "family", "revision", "artifact_hash", "artifact_size_bytes",
+        "quantization", "runtime_support", "minimum_ram_gb", "recommended_ram_gb",
+        "minimum_vram_gb", "recommended_vram_gb", "cpu_viable", "privacy_class",
+        "zero_cost_eligible", "admission_status"
+      ],
+      "properties": {
+        "model_id": {"type": "string", "minLength": 1},
+        "family": {"type": "string", "minLength": 1},
+        "revision": {"type": "string", "minLength": 7},
+        "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "artifact_size_bytes": {"type": "integer", "minimum": 1},
+        "quantization": {"type": "string", "minLength": 1},
+        "runtime_support": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+        "minimum_ram_gb": {"type": ["number", "null"], "minimum": 0},
+        "recommended_ram_gb": {"type": ["number", "null"], "minimum": 0},
+        "minimum_vram_gb": {"type": ["number", "null"], "minimum": 0},
+        "recommended_vram_gb": {"type": ["number", "null"], "minimum": 0},
+        "cpu_viable": {"$ref": "#/$defs/truth"},
+        "privacy_class": {"type": "string", "minLength": 1},
+        "zero_cost_eligible": {"type": "boolean"},
+        "admission_status": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
     "model": {
       "type": "object",
       "required": [
@@ -62,6 +123,11 @@
         "official_upstream": {"type": "string", "pattern": "^https://", "format": "uri"},
         "weights_source": {"type": "string", "pattern": "^https://", "format": "uri"},
         "upstream_revision": {"type": "string", "minLength": 1},
+        "immutable_revision": {"type": "string", "minLength": 7},
+        "artifact_url": {"type": "string", "pattern": "^https://", "format": "uri"},
+        "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "artifact_size_bytes": {"type": "integer", "minimum": 1},
+        "artifact_format": {"type": "string", "minLength": 1},
         "release_date": {"type": ["string", "null"], "format": "date"},
         "license_name": {"type": "string", "minLength": 1},
         "license_url": {"type": "string", "pattern": "^https://", "format": "uri"},
@@ -75,10 +141,9 @@
         "api_required": {"type": "boolean"},
         "paid_token_required": {"type": "boolean"},
         "local_runtime_possible": {"type": "boolean"},
-        "capabilities": {
-          "type": "object",
-          "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
-        },
+        "zero_cost_eligible": {"type": "boolean"},
+        "offline_ready": {"type": "boolean"},
+        "capabilities": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
         "hardware_profile": {
           "type": "object",
           "required": ["minimum_ram_gb", "recommended_ram_gb", "minimum_vram_gb", "recommended_vram_gb", "quantization_options", "cpu_viable", "apple_silicon_viable"],
@@ -89,7 +154,8 @@
             "recommended_vram_gb": {"type": ["number", "null"], "minimum": 0},
             "quantization_options": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
             "cpu_viable": {"$ref": "#/$defs/truth"},
-            "apple_silicon_viable": {"$ref": "#/$defs/truth"}
+            "apple_silicon_viable": {"$ref": "#/$defs/truth"},
+            "gpu_viable": {"$ref": "#/$defs/truth"}
           },
           "additionalProperties": false
         },
@@ -104,11 +170,13 @@
         "latency_class": {"type": "string", "minLength": 1},
         "privacy_class": {"type": "string", "minLength": 1},
         "cost_class": {"enum": ["zero_paid_token_candidate", "owned_hardware_zero_marginal", "verified_recurring_free", "verified_free_quota_hard_stop", "unknown"]},
-        "lifecycle_state": {
-          "enum": ["DISCOVERED", "QUARANTINED", "REGISTERED", "APPROVED", "AVAILABLE", "DOWNLOADING", "CACHED", "WARM", "RUNNING", "SLEEPING", "DEGRADED", "BROKEN", "EVICTED", "SUPERSEDED", "RETIRED", "BLOCKED", "QUARANTINED_UPDATE"]
-        },
+        "lifecycle_state": {"enum": ["DISCOVERED", "QUARANTINED", "REGISTERED", "APPROVED", "AVAILABLE", "DOWNLOADING", "CACHED", "WARM", "RUNNING", "SLEEPING", "DEGRADED", "BROKEN", "EVICTED", "SUPERSEDED", "RETIRED", "BLOCKED", "QUARANTINED_UPDATE"]},
         "health": {"enum": ["unknown", "healthy", "degraded", "broken", "blocked"]},
         "last_verified": {"type": ["string", "null"], "format": "date-time"},
+        "lineage": {"$ref": "#/$defs/lineage"},
+        "admission_status": {"type": "string", "minLength": 1},
+        "artifact_security": {"$ref": "#/$defs/security"},
+        "runtime_projection": {"$ref": "#/$defs/runtime_projection"},
         "authority": {"const": false},
         "source_evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^https://", "format": "uri"}, "uniqueItems": true}
       },
