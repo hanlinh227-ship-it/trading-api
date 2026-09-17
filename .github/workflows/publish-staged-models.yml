@@ -1,0 +1,188 @@
+# Republish staged model artifacts as release assets, driven by a manifest.
+#
+# Same transport problem as the canonical 0.6B artifact: Actions artifact
+# storage (*.blob.core.windows.net) is 403 at the runtime's gateway, while
+# release assets (release-assets.githubusercontent.com) answer range requests.
+# This moves already-staged bytes onto the route the runtime can reach.
+#
+# Generic on purpose. Nothing here names a model: the matrix is built from
+# AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json, so a new model
+# is a manifest entry rather than a new workflow.
+#
+# It never fetches weights from Hugging Face. The bytes come from the existing
+# Actions artifact of the staging run, and the digest is re-verified here before
+# publishing - and again by the runtime after download, because a publisher
+# asserting a digest is not the same as having checked one.
+#
+# It does read the Hugging Face *API* (metadata only, no weights) to close a
+# real provenance gap: the staging run pinned `resolve/main`, a mutable ref, so
+# the bytes are pinned by digest but no immutable revision was recorded. This
+# job finds which revision actually contains the staged digest - by matching the
+# file's LFS OID, which is its SHA-256 - and records it. If no revision can be
+# shown to contain these bytes, that is reported and the revision stays null.
+# It is never guessed: an unproven revision is worse than an absent one,
+# because admission would treat it as established provenance.
+name: Publish staged model release assets
+
+on:
+  push:
+    branches: ['ops/publish-model-release']
+    paths:
+      - .github/workflows/publish-staged-models.yml
+      - AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Publish a single manifest entry id (blank = all)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          ONLY='${{ github.event.inputs.only }}' python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          manifest = json.load(open("AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json"))
+          only = (os.environ.get("ONLY") or "").strip()
+          entries = [e for e in manifest["entries"] if not only or e["id"] == only]
+          if not entries:
+              raise SystemExit(f"no manifest entry matches {only!r}")
+          print("matrix=" + json.dumps({"include": entries}))
+          PY
+
+  publish:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the staged artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          run-id: ${{ matrix.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: staged
+
+      - name: Re-verify the model file before publishing
+        id: verify
+        env:
+          FILENAME: ${{ matrix.filename }}
+          EXPECTED_SHA: ${{ matrix.expected_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="$(find staged -type f -name "$FILENAME" -print -quit)"
+          if [ -z "$FILE" ]; then
+            echo "::error::$FILENAME not found in the staged artifact"
+            find staged -type f -printf '%p %s\n'
+            exit 1
+          fi
+          SIZE=$(stat -c%s "$FILE")
+          SHA=$(sha256sum "$FILE" | awk '{print $1}')
+          echo "file=$FILE  size=$SIZE"
+          echo "sha256 expected=$EXPECTED_SHA actual=$SHA"
+          [ "$SHA" = "$EXPECTED_SHA" ] || { echo "::error::sha256 mismatch - not publishing"; exit 1; }
+          echo "path=$FILE" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve the immutable revision that contains these bytes
+        id: revision
+        env:
+          HF_REPO: ${{ matrix.hf_repo }}
+          FILENAME: ${{ matrix.filename }}
+          EXPECTED_SHA: ${{ matrix.expected_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, urllib.request
+
+          repo = os.environ["HF_REPO"]
+          filename = os.environ["FILENAME"]
+          expected = os.environ["EXPECTED_SHA"]
+
+          def get(url):
+              with urllib.request.urlopen(url, timeout=60) as r:
+                  return json.load(r)
+
+          revision, status = "", "unresolved"
+          try:
+              # files_metadata gives each sibling's LFS OID, which for these
+              # repos is the file's SHA-256. Matching it proves this commit
+              # really serves the bytes we staged, rather than assuming it.
+              info = get(f"https://huggingface.co/api/models/{repo}?files_metadata=true")
+              commit = str(info.get("sha") or "")
+              for sib in info.get("siblings") or []:
+                  if sib.get("rfilename") != filename:
+                      continue
+                  oid = ((sib.get("lfs") or {}).get("oid") or "").lower()
+                  if oid == expected and commit:
+                      revision, status = commit, "verified_by_lfs_oid"
+                  elif oid:
+                      status = "digest_differs_from_current_head"
+                  break
+              else:
+                  status = "file_not_listed_in_repo"
+          except Exception as exc:
+              status = f"lookup_failed: {type(exc).__name__}"
+
+          print(f"revision={revision}")
+          print(f"status={status}")
+          PY
+          echo "resolved: $(grep '^revision=' "$GITHUB_OUTPUT" | tail -1)"
+
+      - name: Publish as a release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: staged-model-${{ matrix.id }}
+          FILE: ${{ steps.verify.outputs.path }}
+          FILENAME: ${{ matrix.filename }}
+          SIZE: ${{ steps.verify.outputs.size }}
+          SHA: ${{ matrix.expected_sha256 }}
+          REVISION: ${{ steps.revision.outputs.revision }}
+          REVISION_STATUS: ${{ steps.revision.outputs.status }}
+          HF_REPO: ${{ matrix.hf_repo }}
+          RUN_ID: ${{ matrix.source_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          NOTES=$(cat <<NOTE
+          Byte-identical republication of the artifact staged by run ${RUN_ID}, for
+          environments that cannot reach Actions artifact storage.
+
+          upstream_repo    ${HF_REPO}
+          filename         ${FILENAME}
+          size_bytes       ${SIZE}
+          sha256           ${SHA}
+          revision         ${REVISION:-null}
+          revision_status  ${REVISION_STATUS}
+
+          Transport only. This grants no admission, no Model Mesh eligibility and
+          no activation. The runtime recomputes size and SHA-256 after download.
+          NOTE
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes "$NOTES"
+          else
+            gh release create "$TAG" --title "Staged model: ${FILENAME}" --notes "$NOTES" --prerelease
+          fi
+          gh release upload "$TAG" "$FILE" --clobber
+          gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size)"'
