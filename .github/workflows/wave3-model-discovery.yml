@@ -663,6 +663,23 @@ jobs:
             | grep -qE '^[0-9a-f]{32}$' && echo True || echo False)
           acct_len=${#CF_ACCOUNT_ID}
 
+          # Which token is in the secret. A verify of 200 says the stored token
+          # is valid; it does NOT say it is the one just configured, because the
+          # previous deploy token was valid too. The token *id* settles it: it
+          # is a stable identifier, it is shown beside the token in the
+          # dashboard, and it cannot be used to authenticate - so printing it
+          # identifies the token without disclosing it.
+          tok_id=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('verify.json'))
+          except Exception: print(''); sys.exit()
+          print((d.get('result') or {}).get('id') or '')" 2>/dev/null || echo "")
+          tok_status=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('verify.json'))
+          except Exception: print(''); sys.exit()
+          print((d.get('result') or {}).get('status') or '')" 2>/dev/null || echo "")
+
           # A valid token that is refused on one account has two possible
           # causes, and they need different fixes: the token is scoped to a
           # different account, or its Workers AI permission was not applied to
@@ -748,6 +765,13 @@ jobs:
               "workers_ai_models_search_http": "${list_http}",
               "account_id_wellformed": ${acct_wellformed},
               "account_id_length": ${acct_len},
+              "token_id": "${tok_id}",
+              "token_status": "${tok_status}",
+              "token_id_note": (
+                  "a non-secret identifier, shown beside the token in the Cloudflare "
+                  "dashboard. Compare it with the token you edited: if it differs, the "
+                  "GitHub secret still holds the previous token and needs its value "
+                  "replaced, not its permissions changed."),
               "accounts_token_can_see": "${acct_visible}",
               "account_names_token_can_see": "${acct_names}",
               "configured_account_is_one_the_token_can_see": ${acct_match},
@@ -771,11 +795,15 @@ jobs:
                   "token can see: " + (preflight["account_names_token_can_see"] or "none"))
           elif preflight["workers_ai_models_search_http"] != "200":
               preflight["diagnosis"] = (
-                  "the token verifies and is scoped to this very account, but still "
-                  "cannot read the Workers AI catalog on it, so the Workers AI permission "
-                  "is not actually in effect on this token - re-check that Workers AI Read "
-                  "was saved on the token and that its Account Resources names this account "
-                  "rather than All accounts via a membership that excludes it")
+                  "the token verifies and is scoped to this very account, yet Workers AI is "
+                  "refused on it, so the Workers AI permission is not in effect on the token "
+                  "the secret actually holds. Two things to check, in this order. First, "
+                  "confirm the GitHub secret CLOUDFLARE_API_TOKEN holds the token whose id "
+                  "is " + (preflight["token_id"] or "<unreadable>") + " - a valid old deploy "
+                  "token also verifies 200, so a passing verify does not mean the secret was "
+                  "replaced. Second, if that is the right token, re-open it in the dashboard "
+                  "and confirm the Workers AI permission was saved through to the end rather "
+                  "than left on the edit screen")
           else:
               preflight["diagnosis"] = (
                   "the token verifies and can read Workers AI on this account; any "
