@@ -5,7 +5,7 @@ Repository: `hanlinh227-ship-it/trading-api`
 Branch: `codex/open-model-universe-phase-ab`
 Latest verified implementation HEAD before this handoff refresh: `5c27c48f78a5e32b9ace9b304163d7bc7f448c16`
 Origin main: `c5ad9112de60223ef9e1175bb5bcc1fcdfdf163f`
-Open PR: pending creation
+Open PR: `#427` — `https://github.com/hanlinh227-ship-it/trading-api/pull/427`
 Active release after refresh: `4.15.0`
 
 > READ `AI_SKILL_LIBRARY/checkpoint.json` AND THIS HANDOFF BEFORE CONTINUING.
@@ -19,6 +19,21 @@ Active release after refresh: `4.15.0`
 ## Current phase
 
 Phase B is complete as an atomic control-plane slice. Phase C (supporting repository capability registry) is next. Model population remains Phase D and must use official-source, per-release provenance and license verification.
+
+Scope was subsequently frozen for go-live. Do not begin Phase C/D catalog expansion until the real golden E2E path works.
+
+## GO_LIVE_STATUS
+
+- Target: `PERSONAL_AI_FEDERATION_END_TO_END_LIVE`
+- Current status: `BLOCKED_NOT_LIVE`
+- Canonical schema/control-plane PR: `#427`, CI running at last check.
+- Real open-model inference: not yet demonstrated.
+- ChatGPT-to-Brain runtime path: not yet demonstrated.
+- Claude runtime branch/PR/handoff: not found at last refresh.
+- Observed Work compute: Linux x86_64, AMD EPYC, 9 online vCPU, about 15 GiB available RAM, about 30 GiB free disk, no detected NVIDIA GPU.
+- Detected model runtimes: none of Ollama, llama.cpp CLI/server, MLX, vLLM, SGLang, Transformers, or `llama_cpp` was installed.
+- Critical blocker: a verified Claude runtime slice or another explicitly reconciled runtime foundation is required before actual weights, auto-wake, inference, verifier, and sleep/warm E2E can run. Do not duplicate Claude-owned modules.
+- No model, backend, or federation path may be called LIVE from current evidence.
 
 ## Files created or changed
 
@@ -83,18 +98,18 @@ Phase B is complete as an atomic control-plane slice. Phase C (supporting reposi
 
 ## Next exact task
 
-Implement Phase C: an authority-free supporting repository capability registry and validator, with TDD coverage for provenance, pinned revision, license, maintenance, overlap, conflict/security risk, integration mode, rollback path, duplicate handling, and forbidden authority/secret fields.
-
-Then begin Phase D in small official-source batches. First batch should cover general/reasoning and coding families only, keeping every unresolved per-release license row quarantined.
+1. Wait for PR #427 CI to reach a terminal green state, merge it through the normal PR workflow, and verify exact main SHA.
+2. Refresh and inspect `CHECKPOINTS/CLAUDE_PERSONAL_AI_RUNTIME_HANDOFF_LATEST.md` plus Claude runtime PR/branch.
+3. Reconcile Claude lifecycle/runtime contracts with the registry vocabulary from PR #427; resolve only actual conflicts.
+4. Run the smallest real CPU-only open-model golden path supported by the runtime lane, then coding, failover, FREE_ONLY, and lifecycle E2E tests.
+5. Do not resume broad catalog/repo discovery until `E2E_GOLDEN_PATH=PASS`.
 
 ## Next files to inspect or edit
 
 - Inspect `CHECKPOINTS/CLAUDE_PERSONAL_AI_RUNTIME_HANDOFF_LATEST.md` if it appears.
-- Create `AI_SKILL_LIBRARY/v4/open_model_universe/repositories.yaml`.
-- Create `AI_SKILL_LIBRARY/v4/schemas/open_repo_capability_registry.schema.json`.
-- Create `AI_SKILL_LIBRARY/v4/tools/validate_open_repo_universe.py`.
-- Create `AI_SKILL_LIBRARY/tests/test_open_repo_universe.py`.
-- Integrate the new validator into `AI_SKILL_LIBRARY/v4/tools/ci_validate.py`.
+- Inspect the Claude runtime diff and its task/runtime/compute schemas before editing any runtime-heavy file.
+- Inspect PR #427 CI and exact head SHA.
+- Identify the minimal approved CPU model only after the runtime adapter contract is known.
 
 ## Commands to run next
 
