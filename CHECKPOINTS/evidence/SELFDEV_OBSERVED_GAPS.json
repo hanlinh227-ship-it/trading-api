@@ -1,0 +1,68 @@
+{
+  "observed_at": "2026-09-17T10:49:01+00:00",
+  "gap_count": 6,
+  "by_kind": {
+    "no_signature_scan": 1,
+    "staged_not_admitted": 5
+  },
+  "gaps": [
+    {
+      "kind": "no_signature_scan",
+      "subject": "Qwen/Qwen3-0.6B-GGUF",
+      "detail": "malware_scan_status is not_run; it rests on an operator acceptance rather than a scan",
+      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml",
+      "suggested_tool": "ops/publish-model-release:.github/workflows/scan-staged-models.yml",
+      "is_a_proposal_not_a_change": true
+    },
+    {
+      "kind": "staged_not_admitted",
+      "subject": "smollm2-360m-instruct-gguf-q8-0",
+      "detail": "staged and verified in transport, but not yet a registry record",
+      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json",
+      "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_admit.py",
+      "is_a_proposal_not_a_change": true
+    },
+    {
+      "kind": "staged_not_admitted",
+      "subject": "bitnet-b1.58-2b-4t-gguf-i2-s",
+      "detail": "staged and verified in transport, but not yet a registry record",
+      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json",
+      "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_admit.py",
+      "is_a_proposal_not_a_change": true
+    },
+    {
+      "kind": "staged_not_admitted",
+      "subject": "ministral-3-3b-reasoning-2512-gguf-q4-k-m",
+      "detail": "staged and verified in transport, but not yet a registry record",
+      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json",
+      "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_admit.py",
+      "is_a_proposal_not_a_change": true
+    },
+    {
+      "kind": "staged_not_admitted",
+      "subject": "granite-4.2-3b-gguf-q4-k-m",
+      "detail": "staged and verified in transport, but not yet a registry record",
+      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json",
+      "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_admit.py",
+      "is_a_proposal_not_a_change": true
+    },
+    {
+      "kind": "staged_not_admitted",
+      "subject": "phi-3-mini-4k-instruct-gguf-q4",
+      "detail": "staged and verified in transport, but not yet a registry record",
+      "evidence_ref": "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json",
+      "suggested_tool": "AI_SKILL_LIBRARY/v4/tools/local_runtime_admit.py",
+      "is_a_proposal_not_a_change": true
+    }
+  ],
+  "capabilities": {
+    "reads_evidence": true,
+    "writes_code": false,
+    "edits_registry": false,
+    "runs_models": false,
+    "starts_autodev_runs": false,
+    "approves_anything": false,
+    "ranks_by_importance": false
+  },
+  "note": "Proposals only. Ordering these is a judgement about what the system should do next, and that belongs to the Brain and the operator, not to the component that noticed."
+}
