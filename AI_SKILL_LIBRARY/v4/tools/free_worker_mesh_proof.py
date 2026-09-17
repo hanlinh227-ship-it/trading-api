@@ -280,14 +280,22 @@ def live_inference_round(root: Path) -> dict[str, Any]:
     failures = []
     if not workers:
         failures.append("no worker ran")
-    if any(w.get("error") for w in workers):
-        failures.append("a worker errored")
+    # Name the worker and quote the error. "A worker errored" is not a finding
+    # anyone can act on, and the first run of this proof proved that by
+    # reporting exactly that and nothing else.
+    for worker in workers:
+        if worker.get("error"):
+            failures.append(
+                f"{worker.get('model_id')} as {worker.get('role')} errored: {worker.get('error')}")
     if not (result.get("answer") or "").strip():
         failures.append("no answer came back")
     if result.get("resolved_by_vote") is not False:
         failures.append("the round was resolved by vote")
     return _row(
         "J", "live_federated_inference", failures,
+        workers=[{"model_id": w.get("model_id"), "role": w.get("role"),
+                  "error": w.get("error"), "latency_ms": w.get("latency_ms")}
+                 for w in workers],
         models=[w.get("model_id") for w in workers],
         routing_authority=result.get("routing_authority"),
         model_selection_authority=result.get("model_selection_authority"),

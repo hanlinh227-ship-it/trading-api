@@ -151,5 +151,12 @@
   "personal_ai_federation_path": "AI_SKILL_LIBRARY/v4/control_plane/federation.py",
   "personal_ai_specialists_path": "AI_SKILL_LIBRARY/v4/control_plane/specialists.yaml",
   "personal_ai_self_development_path": "AI_SKILL_LIBRARY/v4/control_plane/self_development.py",
-  "personal_ai_convergence_handoff_path": "CHECKPOINTS/PERSONAL_AI_FULL_CONVERGENCE_WORK_HANDOFF_LATEST.md"
+  "personal_ai_convergence_handoff_path": "CHECKPOINTS/PERSONAL_AI_FULL_CONVERGENCE_WORK_HANDOFF_LATEST.md",
+  "free_worker_mesh_spec_path": "AI_SKILL_LIBRARY/v4/local_runtime/FREE_WORKER_MESH.md",
+  "free_worker_mesh_path": "AI_SKILL_LIBRARY/v4/local_runtime/free_worker_mesh.py",
+  "free_worker_mesh_proof_path": "AI_SKILL_LIBRARY/v4/tools/free_worker_mesh_proof.py",
+  "free_execution_paths_path": "AI_SKILL_LIBRARY/v4/open_model_universe/free_execution_paths.yaml",
+  "free_execution_paths_tool_path": "AI_SKILL_LIBRARY/v4/tools/wave3_free_execution_paths.py",
+  "worker_placement_path": "AI_SKILL_LIBRARY/v4/local_runtime/placement.py",
+  "free_worker_mesh_handoff_path": "CHECKPOINTS/FREE_WORKER_MESH_HANDOFF_2026-09-17.md"
 }
