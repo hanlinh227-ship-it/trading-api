@@ -15,7 +15,58 @@ authority:
   project_truth: false
   final_answer: false
 
-# Population is a separate, evidence-heavy phase. A row may be added only after
-# official-source, per-release licence, revision, and provenance review.
-models: []
-
+# Population is evidence-heavy. Each row requires official-source, per-release
+# licence, immutable revision, artifact integrity, and provenance evidence.
+models:
+  - model_id: qwen/qwen3-0.6b-q8_0-gguf
+    family: qwen3
+    variant: 0.6b-instruct-q8_0-gguf
+    base_model: Qwen/Qwen3-0.6B
+    quantization: Q8_0
+    runtime_build: pending_first_activation
+    official_upstream: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
+    weights_source: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
+    upstream_revision: 1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
+    release_date: '2025-05-08'
+    license_name: Apache-2.0
+    license_url: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/LICENSE
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities: {}
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options:
+        - Q8_0
+      cpu_viable: true
+      apple_silicon_viable: unknown
+    runtime_support:
+      - llama_cpp
+      - ollama
+      - vllm
+    context_window: 32768
+    benchmark_profile: unverified
+    quality_class: unverified
+    latency_class: unverified
+    privacy_class: local_offline_private
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: APPROVED
+    health: unknown
+    last_verified: null
+    authority: false
+    source_evidence:
+      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
+      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/commit/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa
+      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
+      - https://huggingface.co/Qwen/Qwen3-0.6B
+      - https://huggingface.co/Qwen/Qwen3-0.6B-Base
