@@ -116,6 +116,19 @@ export async function runUniversalCanary({baseUrl,sourceSha,clients,fetchImpl=fe
     throw new Error('UNIVERSAL_PROJECT_STALE_WRITE_NOT_BLOCKED');
   }
 
+  const isolationProjectId=`isolation-${suffix}`;
+  const isolated=await requestJsonStatus(fetchImpl,endpoint,`/brain/project/state?project_id=${encodeURIComponent(isolationProjectId)}`,{clientId:'claude',token:claudeToken,method:'GET'});
+  sanitizeCheck(isolated.value,clients);
+  if(isolated.status===200){
+    const isolatedState=isolated.value?.state;
+    const isolatedText=JSON.stringify(isolated.value);
+    if(isolated.value?.ok!==true||isolatedState?.project_id!==isolationProjectId||isolatedText.includes(projectId)||isolatedText.includes(handoff.summary)||isolatedText.includes(jobRef.job_id)){
+      throw new Error('UNIVERSAL_PROJECT_ISOLATION_FAILED');
+    }
+  }else if(!(isolated.status===404&&isolated.value?.error==='project_not_initialized')){
+    throw new Error('UNIVERSAL_PROJECT_ISOLATION_FAILED');
+  }
+
   return Object.freeze({
     ok:true,
     sourceSha:expected,
@@ -123,7 +136,9 @@ export async function runUniversalCanary({baseUrl,sourceSha,clients,fetchImpl=fe
     highRiskFailClosed:true,
     projectContinuity:true,
     staleWriteBlocked:true,
+    projectIsolation:true,
     projectId,
+    isolationProjectId,
     projectVersion:writtenState.version,
   });
 }
@@ -143,6 +158,7 @@ async function main(){
   console.log(`UNIVERSAL_ADAPTER_CANARY=PASS ${result.adapters.join(' ')}`);
   console.log('UNIVERSAL_HIGH_RISK_FAIL_CLOSED=PASS');
   console.log(`UNIVERSAL_PROJECT_CONTINUITY=PASS projectId=${result.projectId} version=${result.projectVersion} staleWriteBlocked=${result.staleWriteBlocked}`);
+  console.log(`UNIVERSAL_PROJECT_ISOLATION=PASS projectId=${result.projectId} isolatedProjectId=${result.isolationProjectId}`);
 }
 
 if(import.meta.url===`file://${process.argv[1]}`){
