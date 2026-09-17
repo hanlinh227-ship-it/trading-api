@@ -100,6 +100,10 @@ def quantization_of(filename: str) -> str:
     return matches[-1].upper() if matches else "unknown"
 
 
+class AdmissionRefused(RuntimeError):
+    """Admission stopped because a required fact could not be read from the bytes."""
+
+
 def context_window_of(path: Path) -> int | None:
     """The context length the artifact itself declares, or None.
 
@@ -277,11 +281,19 @@ def render_record(entry: Mapping[str, Any], record: Mapping[str, Any],
         "      conversion_verified: false",
     ]
     if context_window is None:
-        lines.append("    # The artifact declares no context length; not guessed.")
-        lines.append("    context_window: 0")
-    else:
-        lines.append(f"    # Read from the GGUF header of these exact bytes.")
-        lines.append(f"    context_window: {context_window}")
+        # Writing 0 here was not a refusal, it was a guess that happened to be
+        # invalid: the record reached the registry and only failed schema
+        # validation afterwards. A window that cannot be read from the bytes
+        # stops admission instead, so the operator fixes the input rather than
+        # discovering a placeholder downstream.
+        raise AdmissionRefused(
+            f"{record['model_id']}: context_window unknown - the artifact header "
+            "declares no context length, or the file was not readable at the path "
+            "given. Point --scan-dir at the directory holding the GGUF, or stage "
+            "the artifact, and re-run."
+        )
+    lines.append("    # Read from the GGUF header of these exact bytes.")
+    lines.append(f"    context_window: {context_window}")
     lines += [
         "    benchmark_profile: unverified",
         "    quality_class: unverified",

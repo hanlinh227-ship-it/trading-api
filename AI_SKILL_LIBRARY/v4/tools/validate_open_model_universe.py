@@ -249,6 +249,18 @@ def _admission_refusals(model: dict, index: int) -> list[str]:
         # never a substituted finding: malware_scan_status must still read its
         # true value, and the acceptance has to be complete enough to audit.
         errors.extend(_risk_acceptance_refusals(model, index))
+    elif isinstance(model.get("operator_risk_acceptance"), dict):
+        # A scan ran, and an acceptance saying it did not is still sitting here.
+        # Nothing checked this before, because the acceptance rules were only
+        # consulted when the scan had *not* passed - so an acceptance outlived
+        # the gap it covered and the row asserted both at once. One of the two
+        # is untrue whichever way it is read, and a reader has no way to tell
+        # which, so the row is refused until the stale one is removed.
+        errors.append(
+            f"operator_risk_acceptance is recorded although malware_scan_status is pass; "
+            f"an acceptance covers a scan that did not run, so it must be retired once "
+            f"one has, at models[{index}]"
+        )
     if admission.get("quarantine_status") != "clear":
         errors.append(f"admission blocks local candidate: quarantine_status must be clear at models[{index}]")
     if model.get("artifact_identity", {}).get("format") == "other":

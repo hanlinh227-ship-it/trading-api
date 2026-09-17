@@ -79,12 +79,10 @@ models:
     # Latency was measured too, but no latency taxonomy has been defined yet,
     # so there is no honest class to put here.
     latency_class: unverified
-    # Security admission was first resolved by the operator risk acceptance
-    # below, and has since been confirmed by a real signature scan run in CI.
-    # The acceptance is left exactly as written: it records a decision made when
-    # no engine was reachable from the runtime, and that remains true of the
-    # runtime. A later scan supersedes the gap without making the decision
-    # untrue, so nothing in it is rewritten.
+    # Security admission is established by a real signature scan run in CI - see
+    # malware_scan_reference below. An operator risk acceptance used to stand
+    # here in place of that scan, and is retired now the scan exists: it was a
+    # decision about a missing finding, and a finding replaces it.
     privacy_class: local_only
     cost_class: owned_hardware_zero_marginal
     lifecycle_state: AVAILABLE
@@ -110,10 +108,6 @@ models:
       malware_scan_status: pass
       isolated_first_load_required: true
       first_load_egress_allowed: false
-      # Lifted by the operator risk acceptance below. The quarantine existed
-      # because the malware scan could not run; the operator accepted that gap
-      # knowingly. malware_scan_status above still reads not_run, which remains
-      # the true state.
       quarantine_status: clear
     model_mesh_local_candidate_eligible: true
     capability_evidence:
@@ -133,34 +127,6 @@ models:
     source_evidence:
       - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
       - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
-    # Explicit operator decision, not a scan result. It is bound to the digest
-    # below, so it applies to these exact bytes and to nothing else, and it
-    # covers only malware_scan_status - licence, provenance, format safety,
-    # pickle safety, remote-code restrictions and the structural scan are all
-    # still required and all still checked.
-    #
-    # malware_scan_status above deliberately still reads not_run, because no
-    # signature scan ran. The acceptance sits beside that fact rather than
-    # replacing it.
-    operator_risk_acceptance:
-      accepted_by: hanlinh227-ship-it (repository operator)
-      accepted_at: '2026-09-17T05:00:00Z'
-      artifact_sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
-      basis: >-
-        Operator accepts the canonical Qwen3-0.6B-Q8_0 GGUF on verified provenance,
-        immutable revision 1eaf4d9657fe65ad10a51eab76a8db5b363bddaa, exact size
-        639446688 bytes, SHA-256 verification, format validation and GGUF structural
-        scan. No signature-based malware engine is installable in this environment;
-        the residual risk is accepted knowingly.
-      missing_evidence:
-        - signature_based_malware_scan
-      covers:
-        - malware_scan_status
-      scope: single_artifact
-      is_a_scan_result: false
-      note: >-
-        Operator risk acceptance. No signature-based malware scan was performed;
-        malware_scan_status remains not_run.
     malware_scan_reference:
       engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
       signature_database_version: '28126'

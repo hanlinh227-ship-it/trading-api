@@ -18,11 +18,22 @@ from AI_SKILL_LIBRARY.v4.local_runtime.scanner import gguf_metadata
 from AI_SKILL_LIBRARY.v4.tools.local_runtime_admit import build_record, quantization_of
 from AI_SKILL_LIBRARY.v4.tools.local_runtime_record_capability import refusals
 from AI_SKILL_LIBRARY.v4.tools.validate_open_model_universe import (
+    _admission_refusals,
     _capability_refusals,
     _scan_reference_refusals,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def sha256_of(path: Path) -> str:
+    """The digest of the bytes on disk, so a record is checked against its own artifact."""
+    import hashlib
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 22), b""):
+            digest.update(block)
+    return digest.hexdigest()
 REGISTRY = ROOT / "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml"
 MANIFEST = ROOT / "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json"
 
@@ -167,22 +178,94 @@ class LiveRegistryTests(unittest.TestCase):
             self.assertNotIn(digest, seen, f"{model['model_id']} reuses {seen.get(digest)}'s run")
             seen[digest] = model["model_id"]
 
-    def test_only_the_first_model_carries_an_operator_risk_acceptance(self):
-        """The acceptance was scoped to one artifact and must not spread.
+    def test_an_acceptance_cannot_spread_beyond_the_bytes_it_was_granted_for(self):
+        """An acceptance is bound to one artifact, wherever it appears.
 
-        Wave 1 closed malware_scan_status with real CI scans instead, which is
-        why no second acceptance was ever needed.
+        This used to assert that exactly one named row carried an acceptance,
+        which broke the moment that row's gap was closed by a real scan and the
+        acceptance was retired. The rule the assertion was reaching for is the
+        binding, not the row: a decision to proceed without a scan applies to
+        the digest it names and to nothing else, so it can never become a
+        blanket permission by being copied onto a second model.
         """
-        accepted = [m["model_id"] for m in self.models if m.get("operator_risk_acceptance")]
-        self.assertEqual(accepted, ["Qwen/Qwen3-0.6B-GGUF"])
-
-    def test_wave1_models_hold_a_real_scan_rather_than_an_acceptance(self):
         for model in self.models:
-            if model["model_id"] == "Qwen/Qwen3-0.6B-GGUF":
+            acceptance = model.get("operator_risk_acceptance")
+            if not acceptance:
                 continue
             with self.subTest(model_id=model["model_id"]):
-                self.assertEqual(model["admission_evidence"]["malware_scan_status"], "pass")
-                self.assertNotIn("operator_risk_acceptance", model)
+                self.assertEqual(acceptance["artifact_sha256"],
+                                 model["artifact_identity"]["sha256"])
+                self.assertEqual(acceptance["scope"], "single_artifact")
+                self.assertEqual(acceptance["covers"], ["malware_scan_status"])
+                self.assertIs(acceptance["is_a_scan_result"], False)
+
+    def test_every_model_holds_a_real_scan_or_a_recorded_acceptance(self):
+        """Never neither, and never both.
+
+        Both together would be a row asserting that no scan ran beside the scan
+        that did; one of the two is then untrue whichever way it is read.
+        """
+        for model in self.models:
+            with self.subTest(model_id=model["model_id"]):
+                status = model["admission_evidence"]["malware_scan_status"]
+                acceptance = model.get("operator_risk_acceptance")
+                if status == "pass":
+                    self.assertNotIn("operator_risk_acceptance", model)
+                    reference = model["malware_scan_reference"]
+                    self.assertEqual(reference["artifact_sha256"],
+                                     model["artifact_identity"]["sha256"])
+                    self.assertTrue(reference["signature_database_version"])
+                else:
+                    self.assertEqual(status, "not_run")
+                    self.assertIsNotNone(acceptance)
+
+    def test_an_acceptance_left_behind_by_a_real_scan_is_refused(self):
+        """The gate that was missing while the registry contradicted itself.
+
+        The acceptance rules were only consulted when malware_scan_status was
+        not pass, so once a scan actually ran the acceptance beside it stopped
+        being checked at all - and the row read "pass" under a record stating no
+        scan was performed. Nothing refused that, which is why it survived.
+        """
+        model = copy.deepcopy(self.models[0])
+        model["admission_evidence"]["malware_scan_status"] = "pass"
+        model["operator_risk_acceptance"] = {
+            "accepted_by": "operator",
+            "accepted_at": "2026-09-17T05:00:00Z",
+            "artifact_sha256": model["artifact_identity"]["sha256"],
+            "basis": "no engine reachable",
+            "missing_evidence": ["signature_based_malware_scan"],
+            "covers": ["malware_scan_status"],
+            "scope": "single_artifact",
+            "is_a_scan_result": False,
+        }
+        refusals = _admission_refusals(model, 0)
+        self.assertTrue(
+            any("must be retired" in reason for reason in refusals),
+            refusals,
+        )
+
+    def test_an_acceptance_is_still_allowed_where_no_scan_ran(self):
+        """The new gate must not make acceptances unusable.
+
+        An acceptance is the documented route for an environment with no
+        reachable engine. Refusing it outright would close that route, which is
+        a different change than the one intended here.
+        """
+        model = copy.deepcopy(self.models[0])
+        model["admission_evidence"]["malware_scan_status"] = "not_run"
+        model.pop("malware_scan_reference", None)
+        model["operator_risk_acceptance"] = {
+            "accepted_by": "operator",
+            "accepted_at": "2026-09-17T05:00:00Z",
+            "artifact_sha256": model["artifact_identity"]["sha256"],
+            "basis": "no engine reachable",
+            "missing_evidence": ["signature_based_malware_scan"],
+            "covers": ["malware_scan_status"],
+            "scope": "single_artifact",
+            "is_a_scan_result": False,
+        }
+        self.assertEqual(_admission_refusals(model, 0), [])
 
     def test_context_windows_came_from_the_artifacts(self):
         """Read from the GGUF header, not from a model card."""
@@ -193,19 +276,27 @@ class LiveRegistryTests(unittest.TestCase):
             declared = model.get("context_window")
             if not declared:
                 continue
-            digest = model["artifact_identity"]["sha256"]
-            matches = [p for p in cache.rglob("*.gguf")]
-            for path in matches:
-                metadata = gguf_metadata(path)
-                architecture = metadata.get("general.architecture")
-                if not architecture:
-                    continue
-                observed = metadata.get(f"{architecture}.context_length")
-                if observed == declared:
+            # Match this model's OWN artifact, by digest. Accepting any cached
+            # artifact that happened to declare the same number let one model's
+            # window vouch for another's, and failed as soon as the cache held a
+            # different subset of models than the registry.
+            digest = str(model["artifact_identity"]["sha256"]).lower()
+            artifact = None
+            for path in cache.rglob("*.gguf"):
+                if sha256_of(path) == digest:
+                    artifact = path
                     break
-            else:
-                if matches:
-                    self.fail(f"{model['model_id']} context_window {declared} matches no artifact")
+            if artifact is None:
+                # Not cached here. Absence of the bytes is not evidence against
+                # the record, so there is nothing this check can say.
+                continue
+            metadata = gguf_metadata(artifact)
+            architecture = metadata.get("general.architecture")
+            observed = metadata.get(f"{architecture}.context_length") if architecture else None
+            self.assertEqual(
+                observed, declared,
+                f"{model['model_id']} declares context_window {declared} but its own "
+                f"artifact declares {observed}")
 
 
 if __name__ == "__main__":

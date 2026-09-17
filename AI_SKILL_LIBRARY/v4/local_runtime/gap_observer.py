@@ -33,6 +33,7 @@ from typing import Any, Mapping, Sequence
 
 EVIDENCE_DIR = "CHECKPOINTS/evidence"
 REGISTRY_REL = "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml"
+INCOMPATIBILITY_REL = f"{EVIDENCE_DIR}/RUNTIME_INCOMPATIBILITY_EVIDENCE.json"
 MANIFEST_REL = "AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json"
 
 
@@ -58,6 +59,75 @@ class Gap:
         }
 
 
+@dataclass(frozen=True)
+class Resolution:
+    """A finding that is closed, and stays visible so the limit is not forgotten.
+
+    A model whose bytes are intact but which no available runtime can load is not
+    work waiting to be done. Reporting it forever as an open admission gap teaches
+    the operator to skim past the observer, and admitting it anyway would claim
+    something runs that does not. So it is reported here instead: still named,
+    still evidenced, but not counted as work.
+
+    It is bound to the artifact digest deliberately. A resolution describes bytes
+    that were actually tried, so different bytes reopen the gap, and it lists the
+    runtimes that were tried, so adding a runtime reopens it too.
+    """
+
+    subject: str
+    artifact_sha256: str
+    verdict: str
+    detail: str
+    evidence_ref: str
+    revisit_if: Sequence[str]
+    suppresses: Sequence[str]
+
+    def to_dict(self) -> Mapping[str, Any]:
+        return {
+            "subject": self.subject,
+            "artifact_sha256": self.artifact_sha256,
+            "verdict": self.verdict,
+            "detail": self.detail,
+            "evidence_ref": self.evidence_ref,
+            "revisit_if": list(self.revisit_if),
+            "suppresses": list(self.suppresses),
+            "is_resolved_not_available": True,
+        }
+
+
+# The kinds a verified runtime incompatibility closes. Everything else about the
+# model stays observable: an incompatibility says nothing about its licence or scan.
+_INCOMPATIBILITY_SUPPRESSES = ("model_not_admitted", "capability_unmeasured")
+
+
+def load_resolutions(root: Path) -> dict[str, Resolution]:
+    """Verified incompatibilities, keyed by the digest they were observed on."""
+    doc = _load_json(root / INCOMPATIBILITY_REL)
+    if not doc:
+        return {}
+    resolutions: dict[str, Resolution] = {}
+    for record in doc.get("records") or []:
+        digest = str(record.get("artifact_sha256") or "").lower()
+        # No digest, no resolution: an unbound finding could silence any model.
+        if not digest or record.get("verdict") != "INCOMPATIBLE_WITH_AVAILABLE_RUNTIMES":
+            continue
+        tried = ", ".join(
+            f"{t.get('runtime')} {t.get('runtime_version')}"
+            for t in record.get("runtimes_tried") or []
+        )
+        resolutions[digest] = Resolution(
+            subject=str(record.get("model_id")),
+            artifact_sha256=digest,
+            verdict=str(record.get("verdict")),
+            detail=(f"artifact intact, but {tried} cannot load it: "
+                    f"{record.get('cause') or record.get('runtime_diagnostic')}"),
+            evidence_ref=INCOMPATIBILITY_REL,
+            revisit_if=tuple(record.get("revisit_if") or ()),
+            suppresses=_INCOMPATIBILITY_SUPPRESSES,
+        )
+    return resolutions
+
+
 def _load_json(path: Path) -> dict[str, Any] | None:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -65,16 +135,25 @@ def _load_json(path: Path) -> dict[str, Any] | None:
         return None
 
 
-def observe_models(registry: Mapping[str, Any]) -> list[Gap]:
-    """Gaps visible in the canonical registry itself."""
+def observe_models(registry: Mapping[str, Any],
+                   resolutions: Mapping[str, "Resolution"] | None = None) -> list[Gap]:
+    """Gaps visible in the canonical registry itself.
+
+    A gap whose kind is closed by a resolution bound to *this* artifact's digest is
+    not emitted: it is reported as resolved instead. The digest match is the whole
+    safeguard, so re-quantized bytes are observed afresh.
+    """
+    resolutions = resolutions or {}
     gaps: list[Gap] = []
     for record in registry.get("models") or []:
         model_id = str(record.get("model_id"))
         digest = str((record.get("artifact_identity") or {}).get("sha256") or "")
+        resolved = resolutions.get(digest.lower())
+        suppressed = set(resolved.suppresses) if resolved else set()
         admission = record.get("admission_evidence") or {}
         evidence = (record.get("capability_evidence") or {}).get("text_reasoning") or {}
 
-        if record.get("lifecycle_state") != "AVAILABLE":
+        if record.get("lifecycle_state") != "AVAILABLE" and "model_not_admitted" not in suppressed:
             gaps.append(Gap(
                 kind="model_not_admitted", subject=model_id,
                 detail=f"lifecycle_state is {record.get('lifecycle_state')}; it has not cleared admission",
@@ -97,7 +176,8 @@ def observe_models(registry: Mapping[str, Any]) -> list[Gap]:
                                 ".github/workflows/scan-staged-models.yml"),
             ))
 
-        if str(evidence.get("artifact_sha256") or "") != digest or not digest:
+        unmeasured = str(evidence.get("artifact_sha256") or "") != digest or not digest
+        if unmeasured and "capability_unmeasured" not in suppressed:
             gaps.append(Gap(
                 kind="capability_unmeasured", subject=model_id,
                 detail="no capability measurement bound to this artifact's digest",
@@ -192,8 +272,10 @@ def observe(root: Path) -> Mapping[str, Any]:
     baseline = _load_json(root / EVIDENCE_DIR / "WAVE0_BASELINE_EVIDENCE.json")
     plan = _load_json(root / EVIDENCE_DIR / "RESIDENCY_PLAN.json")
 
+    resolutions = load_resolutions(root)
+
     gaps: list[Gap] = []
-    gaps += observe_models(registry)
+    gaps += observe_models(registry, resolutions=resolutions)
     gaps += observe_baseline(baseline)
     gaps += observe_transport(manifest, registry)
     gaps += observe_residency(plan)
@@ -202,9 +284,19 @@ def observe(root: Path) -> Mapping[str, Any]:
     for gap in gaps:
         by_kind[gap.kind] = by_kind.get(gap.kind, 0) + 1
 
+    # Only resolutions that actually match a model in the registry are reported, so a
+    # stale record for bytes no longer tracked cannot pad the report.
+    tracked = {str((m.get("artifact_identity") or {}).get("sha256") or "").lower()
+               for m in registry.get("models") or []}
+    resolved = [r for digest, r in sorted(resolutions.items()) if digest in tracked]
+
     return {
         "observed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        # Actionable work only. A resolved finding is reported separately rather than
+        # counted here, so the count answers "what is left to do".
         "gap_count": len(gaps),
+        "resolved_count": len(resolved),
+        "resolved": [r.to_dict() for r in resolved],
         "by_kind": dict(sorted(by_kind.items())),
         "gaps": [gap.to_dict() for gap in gaps],
         # The capability boundary, stated rather than assumed by the reader.
