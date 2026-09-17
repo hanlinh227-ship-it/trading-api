@@ -1102,7 +1102,7 @@ jobs:
   # because a capability score that forgives wrong answers measures nothing.
   benchmark-wave4:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     if: github.event.inputs.benchmark_wave4 != ''
     steps:
       - uses: actions/checkout@v4
@@ -1144,6 +1144,28 @@ jobs:
           d.ellipse((330, 260, 570, 460), fill="red", outline="black", width=6)
           img.save("vision-input.png")
           print(f"vision input written: word=HARMONY at 120px, shape=red circle, font={font.path}")
+
+          # A second input, shaped like a document: a heading, a two-column
+          # table with a header row, and a total. Layout, table lookup and
+          # document-level reading each have exactly one correct answer in it,
+          # and all three answers are numbers or words chosen here - none of
+          # them can be guessed from a prior.
+          small = ImageFont.truetype(font.path, 34)
+          head = ImageFont.truetype(font.path, 52)
+          doc = Image.new("RGB", (900, 620), "white")
+          dd = ImageDraw.Draw(doc)
+          dd.text((60, 40), "DEPOT ORDER 7412", fill="black", font=head)
+          dd.line((60, 120, 840, 120), fill="black", width=3)
+          rows = [("ITEM", "QTY"), ("Bolts", "34"), ("Hinges", "12"),
+                  ("Washers", "58"), ("TOTAL", "104")]
+          y = 160
+          for name, qty in rows:
+              dd.text((80, y), name, fill="black", font=small)
+              dd.text((620, y), qty, fill="black", font=small)
+              y += 70
+          dd.line((60, 160 + 70 * 4 - 14, 840, 160 + 70 * 4 - 14), fill="black", width=2)
+          doc.save("doc-input.png")
+          print("document input written: heading=DEPOT ORDER 7412, Bolts=34, TOTAL=104")
           PY
 
       - name: Measure it
@@ -1366,13 +1388,237 @@ jobs:
               record("document_embedding", "@cf/baai/bge-m3", "FAILED",
                      http=status, latency_ms=ms, error=err)
 
+          # --- the gaps the first run left open -----------------------------
+          # Each of the following was recorded as an honest gap after the first
+          # benchmark, because nothing had been run for it. Running something is
+          # the only way to close one, so each gets an input built here with one
+          # correct answer and a model from the catalog that was actually read.
+
+          doc_bytes = open("doc-input.png", "rb").read()
+          doc_b64 = base64.b64encode(doc_bytes).decode()
+
+          def ask_image(model, prompt, raw, b64, max_tokens=128):
+              for form, image in (("byte_array", list(raw)), ("base64", b64)):
+                  status, body, ms, err = call(model, {
+                      "image": image, "prompt": prompt, "max_tokens": max_tokens})
+                  if status == 200:
+                      return status, body, ms, err, form
+              return status, body, ms, err, "none_accepted"
+
+          # A vision model that can also reason. llava answered the perception
+          # questions above; whether it can reason over what it sees is a
+          # different claim and is measured separately, on both models, rather
+          # than inherited.
+          VISION_MODELS = ("@cf/meta/llama-3.2-11b-vision-instruct",
+                           "@cf/llava-hf/llava-1.5-7b-hf")
+
+          # visual_reasoning: the answer is not written anywhere in the image.
+          # 104 - 34 is arithmetic over a value that has to be located first.
+          for vm in VISION_MODELS:
+              st, bd, ms, er, form = ask_image(
+                  vm,
+                  "This is an order sheet. Subtract the Bolts quantity from the TOTAL. "
+                  "Reply with the number only.",
+                  doc_bytes, doc_b64, max_tokens=24)
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  ok = "70" in ans
+                  record("visual_reasoning", vm,
+                         "REASONED" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "REASONED_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:200], expected="70",
+                         input_form=form,
+                         note="the answer appears nowhere in the image; it has to be computed")
+                  if ok:
+                      break
+              else:
+                  record("visual_reasoning", vm, "FAILED", http=st, latency_ms=ms,
+                         error=(er or "")[:160])
+
+          # layout_understanding: which text is the heading, not which text exists.
+          for vm in VISION_MODELS:
+              st, bd, ms, er, form = ask_image(
+                  vm, "What is the heading printed at the very top of this document? "
+                      "Reply with that line only.", doc_bytes, doc_b64, max_tokens=32)
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  ok = "7412" in ans and "depot" in ans.lower()
+                  record("layout_understanding", vm,
+                         "LOCATED" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "LOCATED_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:200],
+                         expected="DEPOT ORDER 7412", input_form=form)
+                  if ok:
+                      break
+              else:
+                  record("layout_understanding", vm, "FAILED", http=st,
+                         latency_ms=ms, error=(er or "")[:160])
+
+          # table_understanding: a row/column lookup, with three decoy rows.
+          for vm in VISION_MODELS:
+              st, bd, ms, er, form = ask_image(
+                  vm, "In the table, what quantity is listed for Hinges? "
+                      "Reply with the number only.", doc_bytes, doc_b64, max_tokens=24)
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  # 12 must be the answer, not a digit borrowed from 104 or 34.
+                  ok = "12" in ans and "34" not in ans and "104" not in ans
+                  record("table_understanding", vm,
+                         "LOOKED_UP" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "LOOKED_UP_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:200], expected="12",
+                         input_form=form,
+                         note="three decoy rows; naming another row's number fails")
+                  if ok:
+                      break
+              else:
+                  record("table_understanding", vm, "FAILED", http=st,
+                         latency_ms=ms, error=(er or "")[:160])
+
+          # document_understanding: read the document as a whole and answer a
+          # question about what it is, not about one cell.
+          for vm in VISION_MODELS:
+              st, bd, ms, er, form = ask_image(
+                  vm, "How many item rows does this order sheet list, not counting "
+                      "the header row and not counting the TOTAL row? "
+                      "Reply with the number only.", doc_bytes, doc_b64, max_tokens=24)
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  ok = "3" in ans and "34" not in ans
+                  record("document_understanding", vm,
+                         "UNDERSTOOD" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "UNDERSTOOD_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:200], expected="3",
+                         input_form=form,
+                         note="requires excluding the header and TOTAL rows, which is "
+                              "structure, not transcription")
+                  if ok:
+                      break
+              else:
+                  record("document_understanding", vm, "FAILED", http=st,
+                         latency_ms=ms, error=(er or "")[:160])
+
+          # multimodal_reasoning: the image alone is not enough and the text
+          # alone is not enough. A price given only in the prompt has to be
+          # combined with a quantity given only in the image.
+          for vm in VISION_MODELS:
+              st, bd, ms, er, form = ask_image(
+                  vm, "Washers cost 2 each. This price is not written in the image. "
+                      "Using the quantity of Washers shown in the image, what do the "
+                      "Washers cost in total? Reply with the number only.",
+                  doc_bytes, doc_b64, max_tokens=24)
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  ok = "116" in ans
+                  record("multimodal_reasoning", vm,
+                         "COMBINED" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "COMBINED_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:200], expected="116",
+                         input_form=form,
+                         note="58 from the image times 2 from the prompt; neither "
+                              "source alone yields the answer")
+                  if ok:
+                      break
+              else:
+                  record("multimodal_reasoning", vm, "FAILED", http=st,
+                         latency_ms=ms, error=(er or "")[:160])
+
+          # reranking (a Wave 5 retrieval dependency): one relevant passage
+          # among three plausible decoys. Passing means ranking it first.
+          RQ = "how do I stop a container running out of disk space"
+          PASSAGES = [
+              "Bread dough should be proved in a warm place until it doubles in size.",
+              "Delete build artifacts and stale caches to free writable space in a container.",
+              "Container ships are loaded at deep-water ports using gantry cranes.",
+              "A disc brake converts kinetic energy into heat through friction.",
+          ]
+          st, bd, ms, er = call("@cf/baai/bge-reranker-base",
+                                {"query": RQ, "contexts": [{"text": t} for t in PASSAGES]})
+          if st == 200 and bd:
+              res = (bd.get("result") or {}).get("response") or []
+              top = res[0] if res else {}
+              idx = top.get("id") if isinstance(top, dict) else None
+              ok = idx == 1
+              record("reranking", "@cf/baai/bge-reranker-base",
+                     "RANKED_CORRECTLY" if ok else "NO_RANKING" if not res
+                     else "RANKED_INCORRECTLY",
+                     http=st, latency_ms=ms, top_index=idx, expected_index=1,
+                     ranking=res[:4],
+                     note="three topical decoys share a word with the query; only one "
+                          "passage answers it")
+          else:
+              record("reranking", "@cf/baai/bge-reranker-base", "FAILED",
+                     http=st, latency_ms=ms, error=(er or "")[:200])
+
+          # large_model_synthesis (Wave 5): a 120B model reconciling three
+          # sources that disagree. The scored answer is the single fact all
+          # three agree on, so reciting any one source fails.
+          REPORTS = (
+              "Report A: the outage began at 02:10, lasted 40 minutes, and was caused "
+              "by a failed disk in rack 7.\n"
+              "Report B: the outage began at 02:40, lasted 10 minutes, and was caused "
+              "by a failed disk in rack 7.\n"
+              "Report C: the outage began at 01:55, lasted 90 minutes, and was caused "
+              "by a failed disk in rack 7.\n"
+              "Which single detail do all three reports agree on? Reply in a few words.")
+          for big in ("@cf/openai/gpt-oss-120b", "@cf/openai/gpt-oss-20b"):
+              st, bd, ms, er = call(big, {"messages": [{"role": "user", "content": REPORTS}],
+                                          "max_tokens": 64})
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  low = ans.lower()
+                  ok = ("rack 7" in low or "rack seven" in low) and "02:10" not in low
+                  record("large_model_synthesis", big,
+                         "SYNTHESISED" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "SYNTHESISED_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:300],
+                         expected="the failed disk in rack 7",
+                         note="the two disagreed fields are decoys; quoting one source "
+                              "rather than reconciling all three fails")
+                  if ok:
+                      break
+              else:
+                  record("large_model_synthesis", big, "FAILED", http=st,
+                         latency_ms=ms, error=(er or "")[:200])
+
+          # audio_understanding beyond transcription is NOT attempted, and the
+          # reason is a fact about the catalog rather than a failure: the live
+          # catalog read lists exactly five ASR models, four TTS models and a
+          # turn detector, and no audio model that answers questions about what
+          # it heard. Transcribing and then reasoning in a text model would be a
+          # pipeline result, which is not the same claim as a model capability,
+          # so it is not recorded as one.
+          results.append({
+              "capability": "audio_understanding",
+              "model": None,
+              "verdict": "NO_MODEL_IN_VERIFIED_CATALOG",
+              "evidence_class": "MEASURED",
+              "basis": "the live Workers AI catalog read on this account",
+              "note": ("the catalog carries speech-to-text and text-to-speech and no "
+                       "audio-question-answering model. speech_to_text is measured and "
+                       "covered separately; it is a different tag."),
+          })
+          # image_embedding, likewise: there is no image embedding model in the
+          # catalog. resnet-50 classifies into fixed labels and does not return
+          # a vector, so it is not a substitute.
+          results.append({
+              "capability": "image_embedding",
+              "model": None,
+              "verdict": "NO_MODEL_IN_VERIFIED_CATALOG",
+              "evidence_class": "MEASURED",
+              "basis": "the live Workers AI catalog read on this account",
+              "note": ("the only image input models are two image-to-text models and "
+                       "resnet-50, which returns labels rather than an embedding."),
+          })
+
           # PARTIALLY_GROUNDED deliberately does not count as coverage. It is
           # recorded because it is true, not because it is good enough.
           passed = {"PRODUCED_AUDIO", "TRANSCRIBED", "READ_CORRECTLY",
-                    "GROUNDED", "EMBEDDED"}
+                    "GROUNDED", "EMBEDDED", "REASONED", "LOCATED", "LOOKED_UP",
+                    "UNDERSTOOD", "COMBINED", "RANKED_CORRECTLY", "SYNTHESISED"}
           covered = sorted({r["capability"] for r in results if r["verdict"] in passed})
           json.dump({
-              "benchmark": "wave4_multimodal_v1",
+              "benchmark": "wave4_multimodal_v2",
               "ran_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
               "provider": "cloudflare_workers_ai",
               "plan_can_bill": False,

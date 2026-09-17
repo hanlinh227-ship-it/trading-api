@@ -71,7 +71,17 @@ def _refusal(stage: str, reason: str, **extra: Any) -> Mapping[str, Any]:
             "measured": False, **extra}
 
 
-def run(root: Path, cache: Path, suite_path: Path, model_id: str | None) -> Mapping[str, Any]:
+#: The context a suite is measured under, unless the caller raises it. 4096 is
+#: what every recorded score so far was taken at, so it stays the default: a
+#: ceiling change would silently move old numbers. A suite whose prompts are
+#: longer than this - the long-context items are ~6k tokens - has to be run with
+#: the ceiling raised on purpose, and the ceiling used is recorded in the
+#: evidence so a score can never be read at the wrong context.
+DEFAULT_CONTEXT_CEILING = 4096
+
+
+def run(root: Path, cache: Path, suite_path: Path, model_id: str | None,
+        context_ceiling: int = DEFAULT_CONTEXT_CEILING) -> Mapping[str, Any]:
     try:
         suite = load_suite(suite_path)
     except BenchmarkError as exc:
@@ -115,7 +125,7 @@ def run(root: Path, cache: Path, suite_path: Path, model_id: str | None) -> Mapp
 
     egress_removed = deny_egress()
     snapshot = detect_resources(disk_path=str(cache))
-    context_limit = min(int(record.get("context_window") or 2048), 4096)
+    context_limit = min(int(record.get("context_window") or 2048), context_ceiling)
     started_at = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
     load_started = time.monotonic()
@@ -165,6 +175,7 @@ def run(root: Path, cache: Path, suite_path: Path, model_id: str | None) -> Mapp
         "promotable": run_result.promotable,
         "load_latency_ms": load_ms,
         "context_limit": context_limit,
+        "context_ceiling_requested": context_ceiling,
         "host": {
             "gpus": len(snapshot.gpus),
             "ram_total_mb": snapshot.ram_total_mb,
@@ -236,9 +247,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--ledger-record", action="store_true",
                         help="also print the canonical capability-ledger row")
     parser.add_argument("--source-sha", default="0" * 40)
+    parser.add_argument("--context-ceiling", type=int, default=DEFAULT_CONTEXT_CEILING,
+                        help=("cap on the context the model is loaded with. The default is "
+                              "what every existing score was measured at; raise it only to "
+                              "run a suite whose prompts do not fit, and the value used is "
+                              "recorded in the evidence."))
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    result = run(args.root, args.cache, args.suite, args.model_id)
+    result = run(args.root, args.cache, args.suite, args.model_id, args.context_ceiling)
     if args.ledger_record and result.get("measured"):
         reference = None
         if args.evidence:

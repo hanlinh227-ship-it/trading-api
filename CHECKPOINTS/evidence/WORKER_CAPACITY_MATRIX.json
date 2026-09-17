@@ -1,0 +1,184 @@
+{
+  "tool": "worker_capacity_matrix",
+  "WORKER_CAPACITY_MATRIX": [
+    {
+      "worker_id": "ephemeral-local-0",
+      "execution_type": "LOCAL_PROCESS",
+      "cost_class": "OWNED_ZERO_MARGINAL",
+      "verification_state": "VERIFIED_AVAILABLE",
+      "counts_as_capacity": true,
+      "holds_custom_weights": true,
+      "ram_total_mb": {
+        "value": 16095,
+        "source": "MEASURED"
+      },
+      "ram_available_mb": {
+        "value": 9635,
+        "source": "MEASURED"
+      },
+      "disk_free_mb": {
+        "value": 11050,
+        "source": "MEASURED"
+      },
+      "gpus": {
+        "value": 0,
+        "source": "MEASURED"
+      },
+      "max_job_seconds": null,
+      "cold_start_ms": null,
+      "quota": {
+        "value": "none",
+        "source": "DECLARED"
+      },
+      "keeps_a_model_warm": true,
+      "concurrent_resident_models": {
+        "value": null,
+        "source": "UNKNOWN",
+        "basis": "no measured model peak to divide by"
+      }
+    },
+    {
+      "worker_id": "github_actions_ubuntu_latest",
+      "execution_type": "EPHEMERAL_JOB",
+      "cost_class": "FREE_HARD_STOP",
+      "verification_state": "VERIFIED_LIMITED",
+      "counts_as_capacity": true,
+      "holds_custom_weights": true,
+      "ram_total_mb": {
+        "value": 16384,
+        "source": "DECLARED"
+      },
+      "ram_available_mb": {
+        "value": 16384,
+        "source": "DECLARED"
+      },
+      "disk_free_mb": {
+        "value": 14336,
+        "source": "DECLARED"
+      },
+      "gpus": {
+        "value": 0,
+        "source": "DECLARED"
+      },
+      "max_job_seconds": {
+        "value": 21600,
+        "source": "DECLARED"
+      },
+      "cold_start_ms": {
+        "value": 60000,
+        "source": "DECLARED"
+      },
+      "quota": {
+        "value": "standard GitHub-hosted runner; larger runners are a paid product and are not used",
+        "source": "DECLARED"
+      },
+      "keeps_a_model_warm": false,
+      "concurrent_resident_models": {
+        "value": null,
+        "source": "UNKNOWN",
+        "basis": "no measured model peak to divide by"
+      }
+    },
+    {
+      "worker_id": "cloudflare_workers_ai",
+      "execution_type": "SERVERLESS_HOSTED_CATALOG",
+      "cost_class": "FREE_HARD_STOP",
+      "verification_state": "VERIFIED_AVAILABLE",
+      "counts_as_capacity": true,
+      "holds_custom_weights": false,
+      "ram_total_mb": {
+        "value": null,
+        "source": "DECLARED"
+      },
+      "ram_available_mb": {
+        "value": null,
+        "source": "DECLARED"
+      },
+      "disk_free_mb": {
+        "value": null,
+        "source": "DECLARED"
+      },
+      "gpus": {
+        "value": 0,
+        "source": "DECLARED"
+      },
+      "max_job_seconds": {
+        "value": 30,
+        "source": "DECLARED"
+      },
+      "cold_start_ms": null,
+      "quota": {
+        "value": "10,000 Neurons per day on the Workers Free plan; beyond it, requests fail rather than bill",
+        "source": "DECLARED"
+      },
+      "keeps_a_model_warm": true,
+      "concurrent_resident_models": {
+        "value": null,
+        "source": "NOT_APPLICABLE",
+        "basis": "resident-model slots are a host concept. This provider holds no weights on our behalf; its ceiling is its free quota."
+      }
+    }
+  ],
+  "FLEET_CAPACITY_PLAN": {
+    "weight_holding_executors": [
+      "ephemeral-local-0",
+      "github_actions_ubuntu_latest"
+    ],
+    "hosted_catalog_executors": [
+      "cloudflare_workers_ai"
+    ],
+    "executors_that_keep_a_model_warm": [
+      "ephemeral-local-0",
+      "cloudflare_workers_ai"
+    ],
+    "single_point_of_failure": "one host holds every local weight. If this container dies, exact-model execution stops and only the hosted catalog answers - under a different model's name.",
+    "largest_measured_model_peak_mb": null,
+    "measured_model_peaks_mb": {},
+    "host_reserve_mb": 1500
+  },
+  "CAPACITY_SCENARIOS": {
+    "MINIMUM_OPERATIONAL": {
+      "shape": "one request at a time, nothing else resident",
+      "executors_required": 1,
+      "ram_required_mb": {
+        "value": null,
+        "source": "MEASURED",
+        "basis": "the largest measured peak RSS in the fabric"
+      },
+      "satisfied_by_host_alone": false,
+      "evidence": "every Wave 0 baseline run took exactly this shape"
+    },
+    "NORMAL_CONCURRENT": {
+      "shape": "a maker and a checker at once - the shape every federation round takes",
+      "executors_required": 2,
+      "ram_required_mb": {
+        "value": null,
+        "source": "ESTIMATED",
+        "basis": "largest measured peak 0 MB + smallest measured peak 0 MB. The federation proof ran this pairing sequentially, not concurrently, so the sum is arithmetic and not an observation."
+      },
+      "satisfied_by_host_alone": false,
+      "evidence": "WAVE3_FEDERATION_PROOF ran nine maker/checker rounds. Concurrency of the pair is ESTIMATED; the rounds themselves are MEASURED."
+    },
+    "PEAK_FEDERATION": {
+      "shape": "every currently eligible executor busy at once",
+      "executors_required": 3,
+      "ram_required_mb": {
+        "value": null,
+        "source": "NOT_APPLICABLE",
+        "basis": "peak is not a single RAM figure: one executor is this host, one is a runner with its own RAM, and one is a hosted catalog bounded by quota rather than memory. Adding them would invent a number."
+      },
+      "binding_constraint": "the hosted catalog's daily free quota and the runner's cold start, not RAM",
+      "satisfied_by_host_alone": false,
+      "evidence": "never executed as a single concurrent burst. Recorded as a planned shape with no measurement behind it, which is why it carries no RAM figure."
+    }
+  },
+  "source_legend": {
+    "MEASURED": "read from this machine or from a recorded run",
+    "DECLARED": "published by the provider or platform; true by contract, not observed here",
+    "ESTIMATED": "derived arithmetic; the derivation is in the row"
+  },
+  "routing_authority": false,
+  "admission_authority": false,
+  "scheduling_authority": false,
+  "note": "Capacity is not permission. A worker appearing here with room is still subject to attestation, privacy ceiling, quota and the mesh's own eligibility rules before it may be handed anything."
+}

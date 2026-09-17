@@ -89,13 +89,22 @@ CAPABILITY_TAGS: frozenset[str] = frozenset({
     "verifier", "checker", "synthesis",
     "vietnamese", "multilingual",
     "long_context", "tool_calling",
-    "vision", "image_understanding",
-    "ocr", "document_understanding",
+    "vision", "image_understanding", "visual_reasoning",
+    "ocr", "document_understanding", "layout_understanding", "table_understanding",
     "audio_understanding", "speech_to_text", "text_to_speech",
-    "embedding", "reranking",
+    "multimodal_reasoning",
+    "embedding", "reranking", "retrieval",
+    "image_embedding", "document_embedding",
+    "agentic_planning", "scientific_reasoning", "finance_analysis",
+    "large_model_synthesis",
     "image_generation", "video_generation",
     "future_multimodal",
 })
+
+#: Naming a capability is not authorising an action. `finance_analysis` reads
+#: and reasons about markets; it carries no trading, order, wallet or transfer
+#: permission whatsoever, and no worker gains one by being measured for it.
+NON_EXECUTING_ANALYSIS_TAGS: frozenset[str] = frozenset({"finance_analysis"})
 
 
 @dataclass(frozen=True)

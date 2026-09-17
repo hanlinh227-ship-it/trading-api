@@ -1,0 +1,229 @@
+version: 1
+purpose: wave5_capability_requirements_and_measured_coverage
+status: MEASUREMENT_STARTED_NOT_CLOSED
+measured_at: "2026-09-17"
+evidence:
+  - CHECKPOINTS/evidence/WAVE3_CAPABILITY_GAP_MAP.json
+  - CHECKPOINTS/evidence/WAVE3_FEDERATION_PROOF.json
+  - CHECKPOINTS/evidence/WAVE4_MULTIMODAL_BENCHMARK.json
+  - CHECKPOINTS/evidence/WORKERS_AI_FREE_TIER_PROBE.json
+
+# Wave 5 is advanced intelligence. Every row below is filled from a recorded
+# run against a frozen suite or a real completion on a verified zero-cost path.
+# Nothing here is filled from a model card, a leaderboard or a vendor page.
+#
+# Two distinctions carried in from Wave 3 and not relaxed:
+#   - a capability with no task is NOT_MEASURED, never a pass inherited from a
+#     model being generally good;
+#   - a provider serving a different model covers the capability under its own
+#     name, and never makes the requested model available.
+#
+# A third distinction Wave 5 adds, because Wave 0's suites saturate: a score of
+# 1.000 on a four-task suite is evidence the suite is too easy, not evidence the
+# capability is solved. Those rows are covered AND flagged saturated, and the
+# flag is the honest part.
+
+architecture:
+  unchanged: true
+  flow: >-
+    USER -> GITHUB_BRAIN_V4 -> task_router -> AI Legion -> Model Mesh
+    -> existing runtime scheduler -> Free Worker Mesh -> worker/provider
+    -> inference -> verifier -> evidence -> synthesis
+  forbidden_additions:
+    - another Brain
+    - another router
+    - another Model Mesh
+    - another model registry
+    - another scheduler
+    - another worker registry
+    - another admission authority
+    - another evidence authority
+
+authority_boundary:
+  finance_analysis_carries_no_trading_authority: true
+  note: >-
+    Wave 5 names finance_analysis as a reading-and-reasoning capability. It
+    carries no order, wallet, transfer, signing or broadcast permission, and no
+    worker gains one by being measured for it. Trading remains out of scope for
+    this wave entirely and is not started here.
+
+capability_requirements:
+
+  - tag: deep_reasoning
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-4B-GGUF"
+    evidence_class: MEASURED
+    saturated: true
+    note: >-
+      1.000 on the frozen Wave 0 reasoning suite, and confirmed live in the
+      federation proof round A with Qwen3-8B as maker and Phi-3-mini as checker.
+      Flagged saturated: a perfect score on a thin suite bounds the suite, not
+      the model.
+
+  - tag: software_engineering
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-4B-GGUF"
+    evidence_class: MEASURED
+    saturated: true
+    note: >-
+      1.000 on the Wave 0 software-engineering tasks. Saturated and thin. This
+      is not evidence of SWE-bench-class ability and must not be read as such.
+
+  - tag: debugging
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    note: >-
+      1.000 measured, and re-run live in federation round C. Thin evidence.
+
+  - tag: code_review
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    saturated: true
+    note: >-
+      1.000 measured; federation round G passed with a real maker/checker pair.
+
+  - tag: verifier
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-4B-GGUF"
+    evidence_class: MEASURED
+    saturated: true
+    note: >-
+      The checker role is the one capability exercised in every federation
+      round rather than only its own, which is the strongest evidence in this
+      file: Phi-3-mini checked nine rounds and the rounds were graded on it.
+
+  - tag: vietnamese
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-4B-GGUF"
+    evidence_class: MEASURED
+    saturated: true
+    note: >-
+      1.000 on the Vietnamese suite and passed live in federation round E.
+
+  - tag: multilingual
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      NOT_MEASURED. Vietnamese is one language; the gap map reports
+      multilingual_reasoning as having no task at all. Covering multilingual
+      from a Vietnamese score would be exactly the inheritance this file
+      forbids.
+
+  - tag: long_context
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    executable_path: "@cf/openai/gpt-oss-20b at 128k context on the Workers Free plan"
+    note: >-
+      NOT_MEASURED, and a gap the fleet cannot close locally: no Wave 0 task
+      exercises long context. An executable path with a 128k window exists and
+      is recorded, but an available context window is a specification, not a
+      measurement, and does not cover the tag.
+
+  - tag: tool_calling
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      NOT_MEASURED. No frozen task asks a model to emit a well-formed call and
+      no run has been scored on one.
+
+  - tag: agentic_planning
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      NOT_MEASURED as a model capability. AI Legion orchestrates planning as
+      software; that is the harness planning, not a measured model competence,
+      and the two are different claims.
+
+  - tag: large_model_synthesis
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    executable_path: "@cf/openai/gpt-oss-20b, proven to serve a completion on the Workers Free plan"
+    note: >-
+      NOT_MEASURED. A 20B model is executable on a zero-cost tier - probe run
+      35254843871 returned a real completion - but it has not been run against
+      a frozen synthesis suite, so the capability is executable and unmeasured.
+      synthesis_generalist at the 4B scale is measured and covered separately;
+      it is not the same tag.
+
+  - tag: scientific_reasoning
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      NOT_MEASURED. No suite exists. math_quant is measured at 1.000 and
+      saturated, and mathematics is not science reasoning.
+
+  - tag: finance_analysis
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      NOT_MEASURED, deliberately. Building this suite touches Trading-adjacent
+      material and Trading is not started in this wave. The tag is declared so
+      that the taxonomy is wave-independent; it is covered by nothing.
+
+  - tag: embedding
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/baai/bge-m3"
+    evidence_class: MEASURED
+    note: >-
+      EMBEDDED, two vectors of 1024 real dimensions, on the Workers Free plan.
+      Measured in the Wave 4 benchmark and carried here because embedding is a
+      Wave 5 retrieval dependency.
+
+  - tag: reranking
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      NOT_MEASURED. No reranker has been run and none is in the verified
+      catalog read so far.
+
+  - tag: retrieval
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    note: >-
+      NOT_MEASURED end to end. An index builder exists in the repository, but
+      no recall or precision figure has been measured against a frozen query
+      set, so retrieval quality is unknown and recorded as unknown.
+
+rules_carried_forward:
+  declared_never_qualifies: >-
+    A declared capability advertises; only a measured one makes a worker
+    eligible.
+  saturation_is_reported_not_hidden: >-
+    A 1.000 on a thin suite is flagged saturated. The flag says the suite has
+    stopped discriminating, which is information about the suite.
+  exact_versus_capability_unchanged: >-
+    A provider serving a different model covers a capability under its own name
+    and is never recorded as the requested model being available.
+  execution_proof_unchanged: >-
+    A provider is VERIFIED_AVAILABLE only after a real request returns a real
+    completion on a zero-cost tier.
+  no_trading: >-
+    No Wave 5 capability grants trading, payment, transfer or signing
+    authority, and none is exercised here.
