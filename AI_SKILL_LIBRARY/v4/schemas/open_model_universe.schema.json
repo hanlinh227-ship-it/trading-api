@@ -196,7 +196,28 @@
         "artifact_identity": {"$ref": "#/$defs/artifact_identity"},
         "admission_evidence": {"$ref": "#/$defs/admission_evidence"},
         "model_mesh_local_candidate_eligible": {"type": "boolean"},
-        "operator_risk_acceptance": {"$ref": "#/$defs/operator_risk_acceptance"}
+        "operator_risk_acceptance": {"$ref": "#/$defs/operator_risk_acceptance"},
+        "capability_evidence": {"type": "object", "description": "Per-capability measurement evidence. A declared capability score above zero must be backed by a matching entry here - the registry may not assert a capability nobody measured.", "additionalProperties": {"$ref": "#/$defs/capability_measurement"}}
+      },
+      "additionalProperties": false
+    },
+    "capability_measurement": {
+      "type": "object",
+      "description": "One capability score and the run that produced it. Bound to the exact artifact digest and the exact frozen suite, so a score cannot be carried onto different bytes or a reworded suite.",
+      "required": ["score", "benchmark_id", "benchmark_version", "suite_hash", "is_public_benchmark", "attempted", "passed", "errors", "measured_at", "artifact_sha256", "runtime", "evidence_ref"],
+      "properties": {
+        "score": {"type": "number", "minimum": 0, "maximum": 1},
+        "benchmark_id": {"type": "string", "minLength": 1},
+        "benchmark_version": {"type": "string", "minLength": 1},
+        "suite_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "is_public_benchmark": {"type": "boolean"},
+        "attempted": {"type": "integer", "minimum": 1},
+        "passed": {"type": "integer", "minimum": 0},
+        "errors": {"type": "integer", "minimum": 0},
+        "measured_at": {"type": "string", "minLength": 1},
+        "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "runtime": {"type": "string", "minLength": 1},
+        "evidence_ref": {"type": "string", "minLength": 1}
       },
       "additionalProperties": false
     }

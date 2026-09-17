@@ -19,6 +19,7 @@ from AI_SKILL_LIBRARY.v4.local_runtime.canonical_route import (
 from AI_SKILL_LIBRARY.v4.local_runtime.projection import load_registry, project_record
 
 ROOT = Path(__file__).resolve().parents[2]
+_NOW = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
 
 def admitted_candidate():
@@ -95,24 +96,67 @@ class MeshCandidateTests(unittest.TestCase):
             self.assertTrue(all(":" in item for item in rejections))
 
     def test_an_unmeasured_capability_is_refused_by_the_mesh(self):
-        """The gate that currently blocks B2, pinned as correct behaviour.
+        """The gate that blocked B2, now asserted as a rule rather than a state.
 
-        The registry declares text_reasoning 0.0 with benchmark_profile
-        "unverified". The mesh refuses it, and that refusal is right: a measured
-        capability score is benchmark evidence, and inventing one here to make
-        the route light up would be fabricating exactly that.
+        This used to read the live registry row and skip itself once the
+        capability had been measured. That was right while the measurement was
+        the open question, and wrong the moment it was answered: a test that
+        skips forever after the thing it guards changes is not guarding it any
+        more. So it builds its own unmeasured record and checks the rule, which
+        holds whatever the live row happens to say today.
         """
         candidate, record = admitted_candidate()
         if candidate is None:
             self.skipTest("no admitted local candidate")
-        declared = (record.get("capabilities") or {}).get("text_reasoning")
-        if declared is None or declared > 0.0:
-            self.skipTest("capability has since been measured")
+
+        unmeasured = dict(record)
+        unmeasured["capabilities"] = {"text_reasoning": 0.9}
+        unmeasured.pop("capability_evidence", None)
+
+        profile = project_record(record).profile
+        projected = as_mesh_candidate(profile, unmeasured, observed_at=_NOW)
+
+        # Score alone is not enough: without evidence the capability cannot be
+        # marked supported, and the floor requires supported to be True. A high
+        # number with nothing behind it buys nothing.
+        self.assertEqual(projected["capabilities"]["text_reasoning"]["score"], 0.9)
+        self.assertEqual(projected["capabilities"]["text_reasoning"]["supported"], "unknown")
+
         winner, rejections = mesh_select(
-            [candidate], domain="core", primary_skill="core_reasoning"
+            [projected], domain="core", primary_skill="core_reasoning"
         )
         self.assertIsNone(winner)
         self.assertTrue(any("capability floor" in item for item in rejections), rejections)
+
+    def test_a_measured_capability_is_supported_and_bound_to_the_artifact(self):
+        """Evidence promotes a capability to supported - but only its own.
+
+        The measurement carries the digest of the bytes it was measured on. If
+        that digest does not match the record's artifact, the evidence belongs
+        to different weights and must not lift this candidate.
+        """
+        candidate, record = admitted_candidate()
+        if candidate is None:
+            self.skipTest("no admitted local candidate")
+        if not (record.get("capability_evidence") or {}).get("text_reasoning"):
+            self.skipTest("live row carries no measurement to check")
+
+        profile = project_record(record).profile
+        measured = as_mesh_candidate(profile, record, observed_at=_NOW)
+        row = measured["capabilities"]["text_reasoning"]
+        self.assertIs(row["supported"], True)
+        self.assertTrue(any(item.startswith("measured:") for item in row["evidence"]), row)
+
+        # Same score, evidence from other bytes -> back to unknown.
+        foreign = dict(record)
+        foreign["capability_evidence"] = {
+            "text_reasoning": {
+                **record["capability_evidence"]["text_reasoning"],
+                "artifact_sha256": "0" * 64,
+            }
+        }
+        drifted = as_mesh_candidate(profile, foreign, observed_at=_NOW)
+        self.assertEqual(drifted["capabilities"]["text_reasoning"]["supported"], "unknown")
 
 
 class RouteIntegrityTests(unittest.TestCase):

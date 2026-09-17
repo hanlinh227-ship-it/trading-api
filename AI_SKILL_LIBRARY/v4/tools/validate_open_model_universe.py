@@ -137,6 +137,64 @@ def _risk_acceptance_refusals(model: dict, index: int) -> list[str]:
     return errors
 
 
+def _capability_refusals(model: dict, index: int) -> list[str]:
+    """A capability score above zero must be backed by a measurement.
+
+    This is the rule that makes a capability score mean anything. The Model
+    Mesh admits or refuses a worker by comparing this number against a floor,
+    so a number nobody measured is not an optimistic estimate - it is the whole
+    gate, bypassed. Declaring `text_reasoning: 0.9` is otherwise a one-line
+    edit that promotes a model past every filter the mesh has.
+
+    Four things are checked, and each closes a different way of getting a
+    number without earning it:
+
+    * a non-zero score needs an entry in `capability_evidence` at all;
+    * the entry's score must equal the declared one, so the registry cannot
+      quote a measurement and then round it up;
+    * the evidence must be bound to *this* artifact's digest, so a score
+      measured on one set of weights cannot be inherited by another;
+    * the run must have completed without errors, because a score computed
+      over the items that did not crash is not a score.
+
+    A score of exactly 0.0 needs nothing. Declaring no capability is always
+    honest, and requiring evidence for it would mean a newly discovered model
+    could not be registered at all.
+    """
+    errors: list[str] = []
+    capabilities = model.get("capabilities")
+    if not isinstance(capabilities, dict):
+        return errors
+    evidence = model.get("capability_evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    declared_digest = (model.get("artifact_identity") or {}).get("sha256")
+
+    for name, raw in sorted(capabilities.items()):
+        if not isinstance(raw, (int, float)) or isinstance(raw, bool) or float(raw) <= 0.0:
+            continue
+        score = float(raw)
+        row = evidence.get(name)
+        if not isinstance(row, dict):
+            errors.append(
+                f"capability {name}={score} is declared without measurement evidence at models[{index}]"
+            )
+            continue
+        measured = row.get("score")
+        if not isinstance(measured, (int, float)) or isinstance(measured, bool) or float(measured) != score:
+            errors.append(
+                f"capability {name} declares {score} but its evidence measured {measured} at models[{index}]"
+            )
+        if row.get("errors") != 0:
+            errors.append(
+                f"capability {name} was measured by a run with errors; a partial run is not a score at models[{index}]"
+            )
+        if declared_digest and row.get("artifact_sha256") != declared_digest:
+            errors.append(
+                f"capability {name} evidence is bound to different artifact bytes at models[{index}]"
+            )
+    return errors
+
+
 def _admission_refusals(model: dict, index: int) -> list[str]:
     errors: list[str] = []
     if not model.get("model_mesh_local_candidate_eligible"):
@@ -241,6 +299,10 @@ def validate_document(document: object, schema: dict | None = None) -> list[str]
             errors.append(f"license verification must agree with admission evidence at models[{index}]")
 
         errors.extend(_admission_refusals(model, index))
+        # Applies to every row, not only mesh-eligible ones: a fabricated
+        # capability score is a defect the moment it is written down, not
+        # the moment the model becomes selectable.
+        errors.extend(_capability_refusals(model, index))
 
         for field in URL_FIELDS:
             if _unsafe_https_url(model.get(field)):

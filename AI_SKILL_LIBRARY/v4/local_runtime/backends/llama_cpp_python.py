@@ -245,12 +245,22 @@ class LlamaCppPythonBackend(ModelRuntimeAdapter):
         if not prompt:
             raise LlamaCppError("no prompt supplied", FailureKind.PROTOCOL)
 
+        # Sampling controls are opt-in. Absent, the engine's own defaults
+        # stand, so ordinary inference is unchanged; supplied, a caller that
+        # needs a reproducible run (a benchmark) can pin greedy decoding rather
+        # than measure a score against whatever the sampler happened to draw.
+        sampling: dict[str, Any] = {}
+        for key in ("temperature", "top_p", "top_k", "seed", "stop"):
+            if key in task_contract.payload:
+                sampling[key] = task_contract.payload[key]
+
         started = time.monotonic()
         try:
             completion = resident.handle(
                 prompt,
                 max_tokens=task_contract.max_output_tokens or 64,
                 echo=False,
+                **sampling,
             )
         except MemoryError as exc:
             raise LlamaCppError(f"out of memory during generation: {exc}", FailureKind.OOM) from exc

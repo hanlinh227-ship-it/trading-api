@@ -95,7 +95,7 @@ refusal and skips itself once the capability is genuinely measured.
 ### Two real defects found by executing the route
 
 * routing matched skill names as **substrings** — "the **capital** of France"
-  routed to  because "capital" contains "api". Now whole-word.
+  routed to `engineering` because "capital" contains "api". Now whole-word.
 * the mesh candidate used `privacy_class: private` / `usage_terms: permitted`,
   neither in the mesh's vocabularies. Both normalised silently to `unknown` and
   the FREE_ONLY gate rejected the candidate for a reason unrelated to its real

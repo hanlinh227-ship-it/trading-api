@@ -1,14 +1,17 @@
 {
-  "request_id": "b2-1789634648",
-  "canonical_route_ok": false,
-  "reason": "model_mesh: mesh selected no candidate",
+  "b2_status": "PASS",
+  "prompt": "What is the capital of France?",
+  "model_named_at_ingress": false,
+  "request_id": "b2-1789635546",
+  "canonical_route_ok": true,
+  "reason": "canonical route completed with real inference",
   "stages": [
     {
       "stage": "ingress",
       "ok": true,
       "detail": "request accepted",
       "data": {
-        "prompt_chars": 24,
+        "prompt_chars": 30,
         "model_named_at_ingress": false
       }
     },
@@ -35,17 +38,89 @@
     },
     {
       "stage": "model_mesh",
-      "ok": false,
-      "detail": "mesh selected no candidate",
+      "ok": true,
+      "detail": "selected Qwen/Qwen3-0.6B-GGUF",
       "data": {
-        "rejections": [
-          "local_runtime:Qwen/Qwen3-0.6B-GGUF: below the capability floor for core/core_reasoning"
+        "selected": "Qwen/Qwen3-0.6B-GGUF",
+        "rejections": [],
+        "selection_authority": "model_mesh"
+      }
+    },
+    {
+      "stage": "artifact",
+      "ok": true,
+      "detail": "verified from cache",
+      "data": {
+        "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031"
+      }
+    },
+    {
+      "stage": "scheduler",
+      "ok": true,
+      "detail": "LOAD_FROM_CACHE",
+      "data": {
+        "runtime": "llama.cpp",
+        "estimated_start_s": 15.0
+      }
+    },
+    {
+      "stage": "runtime",
+      "ok": true,
+      "detail": "real tokens generated",
+      "data": {
+        "inference_latency_ms": 708.481,
+        "tokens_output": 24,
+        "residency": [
+          "READY",
+          "WARM",
+          "READY"
         ]
       }
     }
   ],
-  "output": null,
-  "execution_evidence": null,
+  "output": " It is a question that has been asked by many and is perhaps even more important to the question of how to approach the",
+  "execution_evidence": {
+    "authority": false,
+    "request_id": "b2-1789635546",
+    "task_id": "b2-1789635546",
+    "worker_id": "local",
+    "model_id": "Qwen/Qwen3-0.6B-GGUF",
+    "model_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+    "artifact_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "artifact_fingerprint": "ee18e02cb87de9249cebf984aa0255b5",
+    "actual_quantization": "Q8_0",
+    "runtime_id": "llama.cpp",
+    "runtime_version": "llama-cpp-python/0.3.35",
+    "backend": "llama.cpp",
+    "backend_version": "llama-cpp-python/0.3.35",
+    "placement_action": "LOAD_FROM_CACHE",
+    "cold_or_warm_start": "COLD",
+    "timing": {
+      "queue_wait_ms": 0.072,
+      "load_latency_ms": 3018.731,
+      "inference_latency_ms": 708.909,
+      "total_latency_ms": 3727.643,
+      "start_time": "2026-09-17T08:59:06.820+00:00",
+      "end_time": "2026-09-17T08:59:10.548+00:00"
+    },
+    "resources": {
+      "peak_ram_mb": 1827.52,
+      "peak_vram_mb": 0.0
+    },
+    "tokens": {
+      "input": 7,
+      "output": 24
+    },
+    "failure": {
+      "kind": "NONE",
+      "source": null
+    },
+    "fallback_used": false,
+    "attempted_runtimes": [],
+    "real_generated_output_ref": null,
+    "complete": true,
+    "missing_fields": []
+  },
   "routing_authority": "task_router",
   "model_selection_authority": "model_mesh",
   "runtime_residency_authority": "claude_local_runtime"

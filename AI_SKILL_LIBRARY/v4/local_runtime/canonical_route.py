@@ -43,6 +43,7 @@ from .backends.llama_cpp_python import LlamaCppPythonBackend, detect_llama_cpp_p
 from .evidence import EvidenceRecorder, PeakSampler  # noqa: E402
 from .identity import from_record  # noqa: E402
 from .projection import project_record  # noqa: E402
+from .lifecycle import ModelState  # noqa: E402
 from .reconciliation import ENTRY_STATE  # noqa: E402
 from .residency import ResidencyState  # noqa: E402
 from .resources import detect_resources  # noqa: E402
@@ -160,10 +161,43 @@ def as_mesh_candidate(profile: Any, record: Mapping[str, Any], *, observed_at: s
     `owned_hardware_zero_marginal` cost: running it spends electricity, not
     tokens.
     """
-    capabilities = {
-        name: {"score": float(score), "evidence": "registry_declared"}
-        for name, score in (record.get("capabilities") or {}).items()
-    }
+    # The evidence string names where the score came from. It used to be the
+    # constant "registry_declared", which described a measured score and a
+    # made-up one identically - exactly the distinction the mesh needs in order
+    # to weigh a candidate honestly.
+    #
+    # `supported` follows the same rule, and it is the stricter half: the mesh
+    # treats a capability as usable only when `supported is True`, so asserting
+    # it is asserting that the model was shown to have the capability. An
+    # unmeasured capability stays "unknown" - not False, which would claim the
+    # model was tested and failed, and not True, which would be the fabrication
+    # this whole path exists to prevent.
+    measurements = record.get("capability_evidence") or {}
+    if not isinstance(measurements, Mapping):
+        measurements = {}
+    capabilities = {}
+    for name, score in (record.get("capabilities") or {}).items():
+        row = measurements.get(name)
+        if isinstance(row, Mapping) and str(row.get("artifact_sha256") or "") == str(
+            (record.get("artifact_identity") or {}).get("sha256") or ""
+        ):
+            capabilities[name] = {
+                "supported": True,
+                "score": float(score),
+                "evidence": [
+                    f"measured:{row.get('benchmark_id')}@{row.get('benchmark_version')}"
+                    f"+{str(row.get('suite_hash') or '')[:12]}",
+                    str(row.get("evidence_ref") or ""),
+                ],
+                "verified_at": str(row.get("measured_at") or "") or None,
+            }
+        else:
+            capabilities[name] = {
+                "supported": "unknown",
+                "score": float(score),
+                "evidence": ["registry_declared"],
+                "verified_at": None,
+            }
     raw = {
         "model_id": profile.model_id,
         "model_family": profile.family or "",
@@ -226,7 +260,24 @@ def mesh_select(
         if not mesh._passes_capability_floor(candidate, requirements, config):
             rejections.append(f"{key}: below the capability floor for {domain}/{primary_skill}")
             continue
-        scored.append((mesh.score_candidate(candidate, requirements=requirements), candidate))
+        # A locally-resident model has no provider quota to run down - the
+        # constraint is RAM, and that is the scheduler's job, not the mesh's.
+        # Full headroom is the true value here, not a flattering one.
+        #
+        # Reputation is the mesh's own neutral default. This lane has no
+        # operating history for a model it has just admitted, and inventing a
+        # high reputation for the only candidate would rig a comparison that
+        # currently has nothing to compare against - and would keep rigging it
+        # once network candidates appear beside it.
+        scored.append((
+            mesh.score_candidate(
+                candidate,
+                requirements=requirements,
+                quota_headroom=1.0,
+                reputation=0.5,
+            ),
+            candidate,
+        ))
 
     if not scored:
         return None, rejections
@@ -313,12 +364,20 @@ def run_canonical_route(
         # The measured footprint from B1 is the requirement here; the registry
         # still carries null, and this stays host-specific evidence.
         from dataclasses import replace as _replace
+        # 2048 MB is a slot size chosen to sit above B1's measured 1825.36 MB
+        # peak on this host - a requirement derived from a measurement, not the
+        # measurement itself, and not a registry claim. The registry still
+        # carries null for minimum_ram_gb.
         measured = _replace(profile, ram_mb=2048, vram_mb=None)
         decision = plan_placement(
             TaskRequest(task_id=request_id, priority=Priority.P1_INTERACTIVE,
                         quality_tier=QualityTier.FAST, privacy=Privacy.INTERNAL,
                         required_capabilities=frozenset(), free_only=True),
-            [RuntimeSlot(model=measured, state=ENTRY_STATE)], snapshot,
+            # CACHED, not the AVAILABLE entry state. The artifact was verified
+            # on disk two stages ago, and telling the scheduler otherwise made
+            # it plan an ACQUIRE - a 300-second download budget for a file that
+            # is already there. The scheduler was right; the input was a lie.
+            [RuntimeSlot(model=measured, state=ModelState.CACHED)], snapshot,
         )
         if not decision.admitted:
             return fail("scheduler", decision.reason, rejected=dict(decision.rejected))
@@ -341,7 +400,10 @@ def run_canonical_route(
             actual_quantization=identity.quantization, runtime_id=backend.name,
             runtime_version=backend_identity.backend_version, backend="llama.cpp",
             backend_version=backend_identity.backend_version,
-            placement_action=placement.action.value, runtime_health="healthy",
+            # No runtime_health here. It was a hardcoded "healthy" that
+            # ExecutionEvidence has no field for; a constant self-report is not
+            # evidence anyway. Health shows up as a failure_type when it fails.
+            placement_action=placement.action.value,
         )
         recorder.begin(cold_or_warm="COLD", placement_action=placement.action.value)
         with PeakSampler() as sampler:

@@ -51,7 +51,10 @@ models:
     paid_token_required: false
     local_runtime_possible: true
     capabilities:
-      text_reasoning: 0.0
+      # Measured, not declared. See capability_evidence below for the run that
+      # produced this number and CHECKPOINTS/evidence/WAVE0_CAPABILITY_EVIDENCE.json
+      # for all 24 raw generations it was counted from.
+      text_reasoning: 0.75
     hardware_profile:
       minimum_ram_gb: null
       recommended_ram_gb: null
@@ -68,8 +71,13 @@ models:
       conversion_owner: Qwen
       conversion_verified: false
     context_window: 40960
-    benchmark_profile: unverified
-    quality_class: unverified
+    benchmark_profile: local_core_reasoning@1.0.0+f0a0ae922cf3
+    # Locally measured against a small private suite - deliberately NOT
+    # "verified", which would imply a public benchmark this score is not
+    # comparable to.
+    quality_class: locally_measured
+    # Latency was measured too, but no latency taxonomy has been defined yet,
+    # so there is no honest class to put here.
     latency_class: unverified
     # Security admission is no longer pending: it was resolved by the recorded
     # operator risk acceptance below, not by a scan.
@@ -104,6 +112,20 @@ models:
       # the true state.
       quarantine_status: clear
     model_mesh_local_candidate_eligible: true
+    capability_evidence:
+      text_reasoning:
+        score: 0.75
+        benchmark_id: local_core_reasoning
+        benchmark_version: 1.0.0
+        suite_hash: f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957
+        is_public_benchmark: false
+        attempted: 24
+        passed: 18
+        errors: 0
+        measured_at: '2026-09-17T08:54:59+00:00'
+        artifact_sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+        runtime: llama-cpp-python/0.3.35
+        evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_EVIDENCE.json
     source_evidence:
       - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
       - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
