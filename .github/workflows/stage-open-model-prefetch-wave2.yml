@@ -53,11 +53,9 @@ jobs:
           for publisher in publishers:
               publisher_picks = 0
               try:
-                  # Some official GGUF repos do not carry a stable `gguf` tag.
-                  # Search by repo/file naming, then inspect actual files below.
-                  models = list(api.list_models(author=publisher, search='GGUF', sort='lastModified', direction=-1, limit=60, full=True))
+                  models = list(api.list_models(author=publisher, search='GGUF', sort='lastModified', limit=60, full=True))
               except Exception as exc:
-                  print(f'DISCOVERY_SKIP publisher={publisher} error={type(exc).__name__}')
+                  print(f'DISCOVERY_SKIP publisher={publisher} error={type(exc).__name__}:{exc}')
                   continue
               for model in models:
                   if publisher_picks >= max_per_publisher or len(picked) >= max_models:
