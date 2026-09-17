@@ -98,8 +98,23 @@ jobs:
                           "error": f"{type(exc).__name__}: {exc}", "gguf_files": []}
               ggufs = [f for f in files if f.lower().endswith(".gguf")
                        and not any(s in f.lower() for s in SKIP)]
+              # Licence detection has to look in more than one place. Reading
+              # only cardData returned null for Qwen3-8B-GGUF, whose licence is
+              # carried as a `license:` tag and as a LICENSE file in the repo.
+              # A null licence blocks admission, so a detector that misses the
+              # answer manufactures a blocker rather than finding one.
               card = getattr(info, "cardData", None) or {}
               licence = card.get("license") if isinstance(card, dict) else None
+              tags = [str(tag) for tag in (getattr(info, "tags", None) or [])]
+              if not licence:
+                  for tag in tags:
+                      if tag.startswith("license:"):
+                          licence = tag.split(":", 1)[1]
+                          break
+              licence_files = sorted(
+                  f for f in files
+                  if f.upper().startswith("LICENSE") or f.upper().startswith("LICENCE")
+              )
               gated = bool(getattr(info, "gated", False))
               return {
                   "repo_id": repo_id,
@@ -107,6 +122,10 @@ jobs:
                   "gated": gated,
                   "revision": revision,
                   "license_declared": licence,
+                  "license_source": ("card_data" if (isinstance(card, dict) and card.get("license"))
+                                     else "repo_tag" if licence else None),
+                  "license_files": licence_files,
+                  "tags": tags,
                   "gguf_files": sorted(ggufs),
               }
 
@@ -155,6 +174,8 @@ jobs:
                               "repo_id": repo["repo_id"],
                               "immutable_revision": repo["revision"],
                               "license_declared": repo["license_declared"],
+                              "license_source": repo.get("license_source"),
+                              "license_files": repo.get("license_files"),
                               "official_publisher_artifact": True,
                               **picked,
                               "size_gb": round(picked["size_bytes"] / 1e9, 2),

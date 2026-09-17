@@ -1,0 +1,202 @@
+{
+  "tool": "wave3_federation_proof",
+  "profile": "STANDARD",
+  "rounds_run": 6,
+  "rounds_passed": 6,
+  "failed_rounds": [],
+  "federation_status": "PROVEN",
+  "models_exercised": [
+    "Qwen/Qwen3-4B-GGUF",
+    "microsoft/Phi-3-mini-4k-instruct-gguf"
+  ],
+  "no_round_resolved_by_vote": true,
+  "rounds": [
+    {
+      "round": "A",
+      "capability": "deep_reasoning",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "role": "maker",
+          "latency_ms": 11589.474,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 11590.582,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": " Also, explain the difference between \"every A is a B\" and \"all A are B\". Are they the same? Why or why not?\n\nYes, because if every A is a B and every B is a C, then by",
+      "wall_ms": 40727.466
+    },
+    {
+      "round": "B",
+      "capability": "coding",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "role": "maker",
+          "latency_ms": 11484.439,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 11499.729,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": " For example, if the list is [1, 2, 3, 4, 5], the function should return 4. If the list is [5, 5, 5, 5], the function should",
+      "wall_ms": 39753.941
+    },
+    {
+      "round": "C",
+      "capability": "debugging",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "role": "maker",
+          "latency_ms": 12074.282,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 9673.068,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": "\n\nThe function is missing the first element of the list in the sum. The defect is that the loop starts from index 1, which skips the first element (index 0), leading to an incorrect total. The correct loop should start",
+      "wall_ms": 38393.743
+    },
+    {
+      "round": "D",
+      "capability": "verifier_checker",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "role": "maker",
+          "latency_ms": 13003.123,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 13373.198,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": " Also, does the scanner report the size of the file it's scanning? Answer yes or no.\n\nYes, the scanner report indicates that the file was scanned but no data was found, so it's clean. Yes, the scanner reports the",
+      "wall_ms": 43920.306
+    },
+    {
+      "round": "E",
+      "capability": "vietnamese_reasoning",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "role": "maker",
+          "latency_ms": 13113.995,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 12408.239,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": " \n\nĐáp: \n\nMặt trời mọc ở phía Đông. \n\nMặt trời mọc ở hướng Đông. \n\nMặt trời mọc ở phía Đông. \n\nMặt trời mọc ở hướng Đông. \n\nMặt trời",
+      "wall_ms": 40304.841
+    },
+    {
+      "round": "F",
+      "capability": "synthesis_generalist",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "role": "maker",
+          "latency_ms": 11152.458,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 11358.18,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": " \n\nA capability benchmark can establish the model's performance across specific tasks, such as language understanding or mathematical reasoning, but it cannot establish the model's ability to handle novel or unexpected scenarios that are not part of the benchmark. \n\nAdditionally, a",
+      "wall_ms": 47532.471
+    }
+  ],
+  "note": "Structural proof only. Whether an answer was good is what the benchmark suites measure; this measures whether the federation ran the way the architecture says it does."
+}
