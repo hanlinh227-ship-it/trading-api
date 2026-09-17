@@ -123,7 +123,7 @@ jobs:
         env:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
-          LANGFUSE_HOST: ${{ vars.LANGFUSE_HOST }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
         run: |
           python AI_SKILL_LIBRARY/v4/tools/activate_brain_expansion.py \
             --root . --output AI_SKILL_LIBRARY/v4/runtime/generated/brain-expansion-activation.json

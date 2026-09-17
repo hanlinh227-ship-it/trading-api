@@ -95,6 +95,128 @@ class ProbeRegistry(unittest.TestCase):
                 self.assertEqual(rt.credential_status(adapter_id, env={})["required"], [])
 
 
+class LangfuseCredentialAndEgress(unittest.TestCase):
+    """Langfuse is the only adapter needing a credential, an egress and a live probe."""
+
+    def test_base_url_env_var_matches_what_operators_configure(self):
+        rt = runtime()
+        target = rt.egress_target("langfuse", env={"LANGFUSE_BASE_URL": "https://eu.cloud.langfuse.com"})
+        self.assertEqual(target[0], "eu.cloud.langfuse.com")
+        self.assertEqual(target[1], 443)
+
+    def test_legacy_host_env_var_still_works(self):
+        rt = runtime()
+        target = rt.egress_target("langfuse", env={"LANGFUSE_HOST": "https://self.hosted.invalid"})
+        self.assertEqual(target[0], "self.hosted.invalid")
+
+    def test_base_url_wins_over_legacy_host(self):
+        rt = runtime()
+        target = rt.egress_target(
+            "langfuse", env={"LANGFUSE_BASE_URL": "https://primary.invalid", "LANGFUSE_HOST": "https://legacy.invalid"}
+        )
+        self.assertEqual(target[0], "primary.invalid")
+
+    def test_explicit_port_in_base_url_is_honoured(self):
+        rt = runtime()
+        self.assertEqual(rt.egress_target("langfuse", env={"LANGFUSE_BASE_URL": "https://self.hosted.invalid:8443"}),
+                         ("self.hosted.invalid", 8443))
+
+    def test_default_host_is_used_when_nothing_is_configured(self):
+        rt = runtime()
+        self.assertEqual(rt.egress_target("langfuse", env={})[0], "cloud.langfuse.com")
+
+    def test_a_custom_base_url_never_reaches_the_report(self):
+        """LANGFUSE_BASE_URL is held as a secret, so the host is sensitive too.
+
+        Actions only masks exact secret strings; a host derived by stripping the
+        scheme would not be masked, so the runtime must redact it itself.
+        """
+        rt = runtime()
+        report = rt.activation_sweep(
+            root=ROOT,
+            env={"LANGFUSE_BASE_URL": "https://private-tenant-abc123.internal.invalid",
+                 "LANGFUSE_PUBLIC_KEY": "pk-x", "LANGFUSE_SECRET_KEY": "s" + "k-x"},
+        )
+        blob = json.dumps(report)
+        self.assertNotIn("private-tenant-abc123", blob)
+        self.assertNotIn("internal.invalid", blob)
+
+    def test_report_states_whether_a_custom_endpoint_was_configured(self):
+        rt = runtime()
+        default = rt.egress_descriptor("langfuse", env={})
+        custom = rt.egress_descriptor("langfuse", env={"LANGFUSE_BASE_URL": "https://private.invalid"})
+        self.assertFalse(default["custom_endpoint"])
+        self.assertTrue(custom["custom_endpoint"])
+        self.assertNotIn("private.invalid", json.dumps(custom))
+
+    def test_health_probe_is_unknown_without_credentials(self):
+        rt = runtime()
+        reg = load("brain_expansion_adapters").load_adapter_registry(root=ROOT)
+        self.assertIsNone(rt._upstream_health("langfuse", reg["candidates"]["langfuse"], {}))
+
+    def test_health_probe_never_leaks_an_exception_message(self):
+        rt = runtime()
+
+        class Boom(Exception):
+            pass
+
+        def exploding_auth(**_kwargs):
+            raise Boom("failed for host https://private.invalid with key sk-live-abc")
+
+        verdict, detail = rt.langfuse_auth_probe(
+            env={"LANGFUSE_PUBLIC_KEY": "pk", "LANGFUSE_SECRET_KEY": "sk", "LANGFUSE_BASE_URL": "https://private.invalid"},
+            client_factory=exploding_auth,
+        )
+        self.assertIs(verdict, False)
+        blob = json.dumps(detail)
+        self.assertNotIn("private.invalid", blob)
+        self.assertNotIn("sk-live-abc", blob)
+        self.assertEqual(detail["error"], "Boom")
+
+    def test_auth_check_true_makes_the_probe_pass(self):
+        rt = runtime()
+
+        class Client:
+            def auth_check(self):
+                return True
+
+        verdict, _detail = rt.langfuse_auth_probe(
+            env={"LANGFUSE_PUBLIC_KEY": "pk", "LANGFUSE_SECRET_KEY": "sk"},
+            client_factory=lambda **_k: Client(),
+        )
+        self.assertIs(verdict, True)
+
+    def test_auth_check_false_fails_closed(self):
+        rt = runtime()
+
+        class Client:
+            def auth_check(self):
+                return False
+
+        verdict, _detail = rt.langfuse_auth_probe(
+            env={"LANGFUSE_PUBLIC_KEY": "pk", "LANGFUSE_SECRET_KEY": "sk"},
+            client_factory=lambda **_k: Client(),
+        )
+        self.assertIs(verdict, False)
+
+    def test_langfuse_enables_only_when_all_ten_gates_pass(self):
+        rt, adapters = runtime(), load("brain_expansion_adapters")
+        reg = adapters.load_adapter_registry(root=ROOT)
+        record = reg["candidates"]["langfuse"]
+        self.assertEqual(len(adapters.required_conditions("langfuse", record)), 10)
+        row = adapters.evaluate_eligibility(
+            "langfuse", record, probes={c: True for c in adapters.required_conditions("langfuse", record)}
+        )
+        self.assertEqual(row["state"], "enabled")
+        for condition in adapters.required_conditions("langfuse", record):
+            probes = {c: True for c in adapters.required_conditions("langfuse", record)}
+            probes[condition] = False
+            self.assertFalse(
+                adapters.evaluate_eligibility("langfuse", record, probes=probes)["enabled"],
+                f"langfuse enabled despite {condition}=FAIL",
+            )
+
+
 class ActivationSweep(unittest.TestCase):
     def test_sweep_produces_a_state_for_every_candidate(self):
         rt, adapters = runtime(), load("brain_expansion_adapters")
