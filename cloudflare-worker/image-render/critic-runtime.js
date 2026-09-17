@@ -1,4 +1,4 @@
-import {WORKERS_AI_MODELS} from './workers-ai.js';
+import {WORKERS_AI_MODELS,sanitizeWorkersAiError} from './workers-ai.js';
 import {benchmarkSuiteFor} from './benchmark-suite.js';
 
 // The visual critic runs on the Worker's own AI binding. There is no fallback that fakes
@@ -22,8 +22,6 @@ export async function visualCriticAvailability(env={}){
   return {available:true,provider:'cloudflare_workers_ai',model:CRITIC_MODEL,reason:null};
 }
 
-// Ask about the dimensions that decide this task, so a reference render is judged on
-// identity rather than on generic prettiness.
 function criticPrompt(intent={}){
   const suite=benchmarkSuiteFor(intent.taskType)||benchmarkSuiteFor('TEXT_TO_IMAGE');
   const dimensions=suite.dimensions.map(dimension=>dimension.id);
@@ -46,8 +44,6 @@ function criticPrompt(intent={}){
   ].filter(Boolean).join('\n');
 }
 
-// The model returns text. Anything that is not parseable JSON with a numeric score is
-// unverified: a critic that did not answer is not a pass.
 function parseCriticResponse(output){
   const raw=typeof output==='string'?output:String(output?.response??output?.result??'');
   if(!raw.trim())return null;
@@ -71,10 +67,11 @@ export function createVisualCriticRuntime({model=CRITIC_MODEL}={}){
       try{
         output=await ai.run(model,{image,prompt:criticPrompt(intent),max_tokens:512});
       }catch(error){
+        const diagnostic=sanitizeWorkersAiError(error);
         if(isAllocationExhausted(error)){
-          return {ok:false,reason:'free_allocation_exhausted',provider:'cloudflare_workers_ai',model,waitState:'WAITING_FOR_FREE_COMPUTE',paidFallback:false};
+          return {ok:false,reason:'free_allocation_exhausted',provider:'cloudflare_workers_ai',model,waitState:'WAITING_FOR_FREE_COMPUTE',paidFallback:false,diagnostic};
         }
-        return {ok:false,reason:'visual_critic_request_failed',provider:'cloudflare_workers_ai',model};
+        return {ok:false,reason:'visual_critic_request_failed',provider:'cloudflare_workers_ai',model,diagnostic};
       }
       const parsed=parseCriticResponse(output);
       if(!parsed)return {ok:false,reason:'visual_critic_unparseable_response',provider:'cloudflare_workers_ai',model};
