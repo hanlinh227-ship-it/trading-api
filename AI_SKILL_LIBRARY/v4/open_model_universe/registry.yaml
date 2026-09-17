@@ -15,7 +15,57 @@ authority:
   project_truth: false
   final_answer: false
 
-# Population is a separate, evidence-heavy phase. A row may be added only after
-# official-source, per-release licence, revision, and provenance review.
-models: []
-
+# Population is evidence-heavy and deliberately incremental. Registry membership
+# is metadata only and never activates or downloads a model by itself.
+models:
+  - model_id: Qwen/Qwen3-0.6B-GGUF:Q8_0
+    family: Qwen3-0.6B
+    variant: Q8_0-GGUF
+    base_model: Qwen/Qwen3-0.6B
+    quantization: Q8_0
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/Qwen/Qwen3-0.6B
+    weights_source: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/8e42d41f70cb6c571f58c3f31bd9287b372d97cc/Qwen3-0.6B-Q8_0.gguf
+    upstream_revision: 8e42d41f70cb6c571f58c3f31bd9287b372d97cc
+    release_date: 2025-05-05
+    license_name: Apache-2.0
+    license_url: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/ef4088322893040952513f532f736ddeab518403/LICENSE
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities: {}
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options:
+        - Q8_0
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support:
+      - llama_cpp
+      - ollama
+      - vllm
+    context_window: 32768
+    benchmark_profile: unverified
+    quality_class: unverified
+    latency_class: unverified
+    privacy_class: local_offline_private_candidate
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: REGISTERED
+    health: unknown
+    last_verified: null
+    authority: false
+    source_evidence:
+      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/commit/8e42d41f70cb6c571f58c3f31bd9287b372d97cc
+      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/tree/ef4088322893040952513f532f736ddeab518403
+      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/ef4088322893040952513f532f736ddeab518403/LICENSE
+      - https://github.com/ggml-org/ggml/blob/master/docs/gguf.md
