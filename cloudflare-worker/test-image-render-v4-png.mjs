@@ -64,3 +64,42 @@ assert.ok(seen.some(call=>call.input?.image),'the probe must exercise an image-c
 assert.ok(seen.some(call=>call.input?.mask),'the probe must exercise the inpainting mask path');
 
 console.log('image render v4 png asset contracts: PASS');
+
+// A diffusion pipeline multiplies steps by strength and refuses the request when the
+// result rounds to zero. Production answered "After adjusting the num_inference..." to a
+// probe asking for one step at strength 0.05, and that read as a dead runtime.
+{
+  const calls=[];
+  await probe.probeImageRuntimes({AI:{async run(model,input){calls.push({model,input});return {image:''};}}});
+  for(const call of calls){
+    if(call.input?.num_steps===undefined)continue;
+    const strength=call.input.strength??1;
+    assert.ok(Math.floor(call.input.num_steps*strength)>=1,
+      `${call.model}: ${call.input.num_steps} steps at strength ${strength} leaves no pipeline steps`);
+  }
+}
+
+// A critic that answers in prose has judged nothing we can act on, so the runtime moves on
+// rather than reporting that one model as the verdict -- and never invents a score.
+{
+  const critic=await import('./image-render/critic-runtime.js');
+  const seen=[];
+  const prose=await critic.createVisualCriticRuntime().review(
+    {AI:{async run(model){seen.push(model);return {response:'The image looks quite nice overall.'};}}},
+    {intent:{taskType:'TEXT_TO_IMAGE',promptOriginal:'a square'},image:[1,2,3]},
+  );
+  assert.equal(prose.ok,false);
+  assert.equal(prose.reason,'visual_critic_unparseable_response');
+  assert.ok(new Set(seen).size>1,`every candidate must be tried, saw ${[...new Set(seen)].join(',')}`);
+
+  // The terse retry is a real second chance, not a formality.
+  let call=0;
+  const retried=await critic.createVisualCriticRuntime().review(
+    {AI:{async run(){call+=1;return call===1?{response:'Looks good to me.'}:{response:'{"overallScore":88,"confidence":0.7,"problems":[]}'};}}},
+    {intent:{taskType:'TEXT_TO_IMAGE',promptOriginal:'a square'},image:[1,2,3]},
+  );
+  assert.equal(retried.ok,true);
+  assert.equal(retried.overallScore,88);
+}
+
+console.log('image render v4 probe request and critic parse contracts: PASS');

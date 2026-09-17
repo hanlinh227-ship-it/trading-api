@@ -39,6 +39,27 @@ export async function visualCriticAvailability(env={}){
   return {available:true,provider:'cloudflare_workers_ai',model:CRITIC_MODEL,reason:null};
 }
 
+// A small vision model will not reliably produce a nested schema. It is asked for one flat
+// line instead, which is a request it can actually meet, and the result is parsed into the
+// same shape. Nothing is invented: a model that still answers in prose is reported as
+// unavailable rather than guessed at.
+function compactCriticPrompt(intent={}){
+  const locks=[
+    intent.subjectCount?`exactly ${intent.subjectCount} subject(s)`:null,
+    ...(intent.wardrobeConstraints||[]),
+    ...(intent.propConstraints||[]),
+    ...(intent.backgroundConstraints||[]),
+  ].filter(Boolean);
+  return [
+    'Judge this image against the request below.',
+    `Request: ${String(intent.promptCompiled||intent.promptOriginal||'').trim()}`,
+    locks.length?`Must hold: ${locks.join('; ')}`:null,
+    'Answer with one line of JSON and nothing else, in exactly this form:',
+    '{"overallScore":75,"confidence":0.6,"problems":[]}',
+    'overallScore is 0-100. Put a short problem code in problems only for a fault you can see.',
+  ].filter(Boolean).join('\n');
+}
+
 function criticPrompt(intent={}){
   const suite=benchmarkSuiteFor(intent.taskType)||benchmarkSuiteFor('TEXT_TO_IMAGE');
   const dimensions=suite.dimensions.map(dimension=>dimension.id);
@@ -83,26 +104,40 @@ export function createVisualCriticRuntime({model=CRITIC_MODEL}={}){
       if(!pixels)return {ok:false,reason:'image_required',provider:'cloudflare_workers_ai',model};
       const chain=[...new Set([model,...CRITIC_CHAIN])];
       const attempted=[];
-      let output=null,servedBy=null;
+      let parsed=null,servedBy=null;
+      // Each candidate gets the full schema first and one terse retry. A model that answers
+      // in prose has not judged anything we can act on, so the walk continues rather than
+      // stopping at it -- an unparseable answer is no more usable than a refused call.
       for(const candidate of chain){
-        try{
-          output=await ai.run(candidate,{image:pixels,prompt:criticPrompt(intent),max_tokens:512});
-          servedBy=candidate;
-          break;
-        }catch(error){
-          const diagnostic=sanitizeWorkersAiError(error);
-          attempted.push({model:candidate,diagnostic});
-          if(isAllocationExhausted(error)){
-            return {ok:false,reason:'free_allocation_exhausted',provider:'cloudflare_workers_ai',model:candidate,waitState:'WAITING_FOR_FREE_COMPUTE',paidFallback:false,diagnostic,attempted};
+        for(const prompt of [criticPrompt(intent),compactCriticPrompt(intent)]){
+          let output;
+          try{
+            output=await ai.run(candidate,{image:pixels,prompt,max_tokens:512});
+          }catch(error){
+            const diagnostic=sanitizeWorkersAiError(error);
+            attempted.push({model:candidate,diagnostic});
+            if(isAllocationExhausted(error)){
+              return {ok:false,reason:'free_allocation_exhausted',provider:'cloudflare_workers_ai',model:candidate,waitState:'WAITING_FOR_FREE_COMPUTE',paidFallback:false,diagnostic,attempted};
+            }
+            break;
           }
+          const candidateParsed=parseCriticResponse(output);
+          if(candidateParsed){parsed=candidateParsed;servedBy=candidate;break;}
+          attempted.push({model:candidate,reason:'visual_critic_unparseable_response'});
         }
+        if(servedBy)break;
       }
       if(!servedBy){
         const last=attempted[attempted.length-1]||{};
-        return {ok:false,reason:'visual_critic_request_failed',provider:'cloudflare_workers_ai',model:last.model||model,diagnostic:last.diagnostic,attempted};
+        return {
+          ok:false,
+          reason:last.reason||'visual_critic_request_failed',
+          provider:'cloudflare_workers_ai',
+          model:last.model||model,
+          ...(last.diagnostic?{diagnostic:last.diagnostic}:{}),
+          attempted,
+        };
       }
-      const parsed=parseCriticResponse(output);
-      if(!parsed)return {ok:false,reason:'visual_critic_unparseable_response',provider:'cloudflare_workers_ai',model:servedBy};
       const dimensions={};
       for(const [key,value] of Object.entries(parsed.dimensions||{})){
         if(Number.isFinite(Number(value)))dimensions[key]=Math.min(100,Math.max(0,Number(value)));
