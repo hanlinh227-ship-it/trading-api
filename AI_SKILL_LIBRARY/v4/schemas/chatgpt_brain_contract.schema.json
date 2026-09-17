@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chatgpt_brain_contract.schema.json",
+  "title": "ChatGPT to Brain ingress and response control-plane contract",
+  "type": "object",
+  "required": [
+    "version",
+    "contract_id",
+    "authority",
+    "ingress",
+    "brain_flow",
+    "response",
+    "privacy"
+  ],
+  "properties": {
+    "version": {"const": 1},
+    "contract_id": {"const": "CHATGPT_BRAIN_INGRESS_V1"},
+    "authority": {
+      "type": "object",
+      "required": ["routing", "reasoning", "permission", "memory", "project_truth", "final_answer"],
+      "properties": {
+        "routing": {"const": false},
+        "reasoning": {"const": false},
+        "permission": {"const": false},
+        "memory": {"const": false},
+        "project_truth": {"const": false},
+        "final_answer": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "ingress": {
+      "type": "object",
+      "required": [
+        "required_fields",
+        "mandatory_next_hop",
+        "may_choose_model",
+        "may_bypass_task_router",
+        "may_widen_permissions",
+        "selected_model_field_forbidden",
+        "runtime_field_forbidden"
+      ],
+      "properties": {
+        "required_fields": {
+          "const": [
+            "source",
+            "request",
+            "project_context",
+            "conversation_context",
+            "desired_depth",
+            "attachments",
+            "constraints",
+            "privacy_class"
+          ]
+        },
+        "mandatory_next_hop": {"const": "task_router"},
+        "may_choose_model": {"const": false},
+        "may_bypass_task_router": {"const": false},
+        "may_widen_permissions": {"const": false},
+        "selected_model_field_forbidden": {"const": true},
+        "runtime_field_forbidden": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "brain_flow": {
+      "const": [
+        "ingress",
+        "task_router",
+        "project_domain_resolution",
+        "memory",
+        "skills",
+        "model_mesh",
+        "runtime_scheduler",
+        "verifier",
+        "synthesis",
+        "response"
+      ]
+    },
+    "response": {
+      "type": "object",
+      "required": [
+        "required_fields",
+        "hidden_reasoning_allowed",
+        "evidence_refs_required_when_claims_need_verification",
+        "limitations_required"
+      ],
+      "properties": {
+        "required_fields": {
+          "const": [
+            "request_id",
+            "task_id",
+            "route",
+            "selected_model_ref",
+            "runtime_ref",
+            "verification_status",
+            "result",
+            "evidence_refs",
+            "limitations",
+            "runtime_metrics_ref"
+          ]
+        },
+        "hidden_reasoning_allowed": {"const": false},
+        "evidence_refs_required_when_claims_need_verification": {"const": true},
+        "limitations_required": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "privacy": {
+      "type": "object",
+      "required": ["classes", "PUBLIC", "INTERNAL", "CONFIDENTIAL", "SECRET", "free_external_sensitive_default"],
+      "properties": {
+        "classes": {"const": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "SECRET"]},
+        "PUBLIC": {
+          "type": "object",
+          "required": ["default_route"],
+          "properties": {"default_route": {"const": "policy_permitted"}},
+          "additionalProperties": false
+        },
+        "INTERNAL": {
+          "type": "object",
+          "required": ["default_route"],
+          "properties": {"default_route": {"const": "local_preferred"}},
+          "additionalProperties": false
+        },
+        "CONFIDENTIAL": {
+          "type": "object",
+          "required": ["default_route", "external_requires_verified_policy"],
+          "properties": {
+            "default_route": {"const": "local_preferred"},
+            "external_requires_verified_policy": {"const": true}
+          },
+          "additionalProperties": false
+        },
+        "SECRET": {
+          "type": "object",
+          "required": ["default_route"],
+          "properties": {"default_route": {"const": "local_only"}},
+          "additionalProperties": false
+        },
+        "free_external_sensitive_default": {"const": false}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
