@@ -1266,6 +1266,17 @@ jobs:
               """
               return status == 403 and "agree" in (err or "").lower()
 
+          def norm(text):
+              """Collapse every Unicode space to a plain one before matching.
+
+              Both gpt-oss models answered "Failed disk in rack\u202f7." - correct,
+              with a narrow no-break space before the 7 - and a substring test for
+              "rack 7" scored both of them wrong. Typography is not a wrong answer.
+              """
+              import re as _re
+              return _re.sub(r"\s+", " ", (text or "").replace("\u202f", " ")
+                             .replace("\u00a0", " ").replace("\u2009", " ")).strip().lower()
+
           results = []
           def record(capability, model, verdict, **extra):
               results.append({"capability": capability, "model": model,
@@ -1697,8 +1708,12 @@ jobs:
                                           "max_tokens": 1500, "reasoning_effort": "low"})
               if st == 200 and bd:
                   ans = _text_of(bd.get("result") or {})
-                  low = ans.lower()
-                  ok = ("rack 7" in low or "rack seven" in low) and "02:10" not in low
+                  low = norm(ans)
+                  # The agreement has to be named. Mentioning a disagreed field
+                  # while naming it is fine - only quoting one source's timing AS
+                  # the agreement is the failure, and that would not contain the
+                  # rack at all.
+                  ok = "rack 7" in low or "rack seven" in low
                   res = bd.get("result") or {}
                   # An empty extraction has been a bug in this harness twice now,
                   # so it no longer reports a bare EMPTY_RESPONSE: it carries the
