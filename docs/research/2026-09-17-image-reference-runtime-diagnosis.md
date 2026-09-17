@@ -98,6 +98,42 @@ Neither is a reason to reach for a paid provider: `paid_fallback` stays `false`,
 `auto_purchase` stays `false`, and work with no safe free runtime waits as
 `WAITING_FOR_SAFE_FREE_RUNTIME` rather than being re-routed or silently dropped.
 
+## Second production run: what the fixes changed
+
+Production smoke on exact main `db725b7df995d8a186f9e72b635207b05cd6b824`, run
+`35176988623`.
+
+**Scene 1 rendered.** The same reference scene — two locked character
+references, a locked background, `CONFIDENTIAL`, STRICT — went through the
+canonical V3 job path and came back with a real image:
+
+```
+IMAGE_SCENE1_STATUS job=complete scene=complete_unverified providers=none
+IMAGE_SCENE1_REFERENCE_SAFE=PASS
+IMAGE_SCENE1_ACCEPTANCE=RENDERED model=@cf/runwayml/stable-diffusion-v1-5-inpainting
+IMAGE_SCENE1_ASSET=PASS bytes=434832
+```
+
+The inpainting-as-image-to-image route carried it, the volunteer provider was
+never reached, and the asset came back over `/brain/image/v3/assets`. The scene
+finished `complete_unverified` because the visual critic is still unavailable,
+which is exactly what STRICT-without-a-critic is specified to do.
+
+The `broken data stream` error is gone, confirming the truncated PNGs were its
+cause. Two further faults of our own became visible once it was:
+
+1. **The probe asked for zero pipeline steps.** `1 step × strength 0.05` rounds
+   to zero and the pipeline refuses: `ValueError: After adjusting the
+   num_inference...`. The real render used the defaults and succeeded, so the
+   probe was failing a task the runtime could do. The image-conditioned probes
+   now ask for the smallest request that is still well formed. FLUX keeps its
+   single step: it takes a plain step count with no strength.
+2. **The critic answered in prose.** `llava` now accepts the image — the `3010:
+   Unsupported image data` is gone — but replies in sentences rather than the
+   JSON schema. Each candidate now gets the full schema and one terse retry, and
+   an unparseable answer advances the chain instead of standing as the verdict.
+   No score is ever invented from an answer that could not be parsed.
+
 ## What this run did prove
 
 Scene 1 — two locked character references plus a locked background,

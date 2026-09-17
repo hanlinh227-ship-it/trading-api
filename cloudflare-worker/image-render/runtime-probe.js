@@ -8,6 +8,12 @@ import {fullyPreservedMask,solidGreyscalePng} from './png.js';
 // independently: a working FLUX request is not evidence that img2img, inpainting or the
 // visual critic also work.
 const PROBE_STEPS=1;
+// FLUX takes a plain step count, but the img2img and inpainting pipelines multiply steps by
+// strength and reject the request when the result rounds to zero: production answered
+// "ValueError: After adjusting the num_inference..." to a probe asking for 1 step at
+// strength 0.05. These paths ask for the smallest request that is still well formed.
+const PROBE_EDIT_STEPS=4;
+const PROBE_STRENGTH=1;
 const PROBE_SIZE=256;
 
 // The probe used to carry its images as base64 literals. Both were truncated -- no IEND,
@@ -44,8 +50,8 @@ async function probeWorkersAiTasks(env,at){
   const inpaintModel=selectWorkersAiModel('INPAINT');
 
   const text=await client.generate(env,{taskType:'TEXT_TO_IMAGE',prompt:'probe',steps:PROBE_STEPS});
-  const ref=await client.generate(env,{taskType:'REFERENCE_GENERATION',prompt:'preserve the source image',image,width:256,height:256,strength:0.05,steps:PROBE_STEPS});
-  const inpaint=await client.generate(env,{taskType:'INPAINT',prompt:'preserve the image',image,mask,width:256,height:256,strength:0.05,steps:PROBE_STEPS});
+  const ref=await client.generate(env,{taskType:'REFERENCE_GENERATION',prompt:'a plain grey square',image,width:PROBE_SIZE,height:PROBE_SIZE,strength:PROBE_STRENGTH,steps:PROBE_EDIT_STEPS});
+  const inpaint=await client.generate(env,{taskType:'INPAINT',prompt:'a plain grey square',image,mask,width:PROBE_SIZE,height:PROBE_SIZE,strength:PROBE_STRENGTH,steps:PROBE_EDIT_STEPS});
   const critic=await createVisualCriticRuntime().review(env,{
     intent:{taskType:'TEXT_TO_IMAGE',promptOriginal:'a plain gray square'},
     image,
