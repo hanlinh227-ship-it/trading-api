@@ -34,6 +34,7 @@ VALIDATORS = (
     "AI_SKILL_LIBRARY/v4/tools/validate_universal_fabric.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_open_model_universe.py",
+    "AI_SKILL_LIBRARY/v4/tools/validate_brain_ingress_contract.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_legion.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py",
 )
@@ -170,6 +171,7 @@ def run_validators(
         "validate_universal_fabric.py",
         "validate_model_mesh.py",
         "validate_open_model_universe.py",
+        "validate_brain_ingress_contract.py",
         "validate_legion.py",
     }
     for rel in VALIDATORS:
