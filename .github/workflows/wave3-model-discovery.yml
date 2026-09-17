@@ -643,6 +643,27 @@ jobs:
             exit 0
           fi
 
+          # Cloudflare answers 10000 for every authentication problem there is,
+          # so a bare 401 on ai/run cannot tell an invalid token from a token
+          # scoped to a different account from a missing Workers AI permission.
+          # Three graded calls separate them, and the first two are read-only.
+          #
+          # Nothing here prints a secret. The account id is reported only as
+          # derived booleans - well-formed or not - which is what a diagnosis
+          # needs and is not the value itself.
+          verify_http=$(curl -sS -o verify.json -w '%{http_code}' \
+            "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" || echo "000")
+          list_http=$(curl -sS -o models.json -w '%{http_code}' \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/models/search?per_page=1" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" || echo "000")
+          # Capitalised because this value is interpolated straight into the
+          # Python below, where shell's `true` is a NameError.
+          acct_wellformed=$(printf '%s' "${CF_ACCOUNT_ID}" \
+            | grep -qE '^[0-9a-f]{32}$' && echo True || echo False)
+          acct_len=${#CF_ACCOUNT_ID}
+          echo "preflight: token_verify=${verify_http} models_search=${list_http} account_id_wellformed=${acct_wellformed}"
+
           # Exactly the models free_execution_paths.yaml names, and nothing else.
           # A probe that wandered the catalog would be discovery, and discovery
           # is not what this job is for.
@@ -688,8 +709,33 @@ jobs:
             rm -f resp.json
           done <<< "$models"
 
-          python3 - <<'PY'
+          python3 - <<PY
           import json, time
+          preflight = {
+              "token_verify_http": "${verify_http}",
+              "workers_ai_models_search_http": "${list_http}",
+              "account_id_wellformed": ${acct_wellformed},
+              "account_id_length": ${acct_len},
+          }
+          # One sentence an operator can act on, chosen by which call broke.
+          if preflight["token_verify_http"] != "200":
+              preflight["diagnosis"] = (
+                  "the token itself did not verify, so the CLOUDFLARE_API_TOKEN secret "
+                  "does not hold a currently valid token - most likely the secret was "
+                  "not updated with the newly scoped token's value")
+          elif not preflight["account_id_wellformed"]:
+              preflight["diagnosis"] = (
+                  "the token verifies but CLOUDFLARE_ACCOUNT_ID is not a 32-character "
+                  "hex account id, so the request URL names no real account")
+          elif preflight["workers_ai_models_search_http"] != "200":
+              preflight["diagnosis"] = (
+                  "the token verifies but cannot read the Workers AI catalog on this "
+                  "account, so either the token is scoped to a different account or its "
+                  "Workers AI permission is not applied to this one")
+          else:
+              preflight["diagnosis"] = (
+                  "the token verifies and can read Workers AI on this account; any "
+                  "remaining failure is specific to running a model")
           rows = []
           for line in open("probe-rows.tsv"):
               requested, served, match, http, code, completed = line.rstrip("\n").split("\t")
@@ -719,6 +765,7 @@ jobs:
           json.dump({
               "probe": "workers_ai_free_tier",
               "probed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "preflight": preflight,
               "plan_can_bill": False,
               "plan_evidence": "Workers Free has no paid path; past the allowance requests fail",
               "status": "PROBED",
