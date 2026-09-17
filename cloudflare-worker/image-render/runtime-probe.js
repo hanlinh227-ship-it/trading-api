@@ -1,16 +1,24 @@
 import {createWorkersAiClient,selectWorkersAiModel} from './workers-ai.js';
 import {createVisualCriticRuntime} from './critic-runtime.js';
 import {listProviderAdapters} from './provider-adapter-registry.js';
+import {fullyPreservedMask,solidGreyscalePng} from './png.js';
 
 // Live runtime evidence. This runs in the deployed Worker because build sandboxes cannot
 // honestly prove inference availability. Each materially different capability is probed
 // independently: a working FLUX request is not evidence that img2img, inpainting or the
 // visual critic also work.
 const PROBE_STEPS=1;
-const PROBE_IMAGE_B64='iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAADHklEQVR4nO3UMQEAIAzAMED5nIMMjiYKenXPzF1A0vkdAPxjABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABBmABD2AEtABH80lN/gAAAAAElFTkSuQmCC';
-const PROBE_MASK_B64='iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAADHUlEQVR4nO3UMQEAIAzAMMC/5yFjRxMFvXpnZg6Q9LYDgD0GAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEGAGEfHrAF/LZ/lzEAAAAASUVORK5CYII=';
+const PROBE_SIZE=256;
 
-const decodeBytes=b64=>Array.from(Uint8Array.from(atob(b64),char=>char.charCodeAt(0)));
+// The probe used to carry its images as base64 literals. Both were truncated -- no IEND,
+// an IDAT shorter than its own length field -- and the inpainting runtime rejected them
+// with "broken data stream when reading image", which was read as a missing runtime rather
+// than as a corrupt probe. Generating them makes the probe image correct by construction.
+const PROBE_IMAGE_BYTES=solidGreyscalePng(PROBE_SIZE,PROBE_SIZE,128);
+// Nothing is editable: the probe only needs the runtime to accept the call, not to redraw.
+const PROBE_MASK_BYTES=fullyPreservedMask(PROBE_SIZE,PROBE_SIZE);
+
+const decodeBytes=bytes=>Array.from(bytes);
 const waitEvidence=(result,at,model)=>({
   ok:false,
   at,
@@ -29,8 +37,8 @@ const okEvidence=(result,at,model)=>result?.ok
 
 async function probeWorkersAiTasks(env,at){
   const client=createWorkersAiClient();
-  const image=decodeBytes(PROBE_IMAGE_B64);
-  const mask=decodeBytes(PROBE_MASK_B64);
+  const image=decodeBytes(PROBE_IMAGE_BYTES);
+  const mask=decodeBytes(PROBE_MASK_BYTES);
   const textModel=selectWorkersAiModel('TEXT_TO_IMAGE');
   const refModel=selectWorkersAiModel('REFERENCE_GENERATION');
   const inpaintModel=selectWorkersAiModel('INPAINT');
@@ -40,7 +48,7 @@ async function probeWorkersAiTasks(env,at){
   const inpaint=await client.generate(env,{taskType:'INPAINT',prompt:'preserve the image',image,mask,width:256,height:256,strength:0.05,steps:PROBE_STEPS});
   const critic=await createVisualCriticRuntime().review(env,{
     intent:{taskType:'TEXT_TO_IMAGE',promptOriginal:'a plain gray square'},
-    image:`data:image/png;base64,${PROBE_IMAGE_B64}`,
+    image,
   });
 
   return {

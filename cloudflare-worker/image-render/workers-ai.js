@@ -1,6 +1,8 @@
 // Cloudflare Workers AI execution client. The Worker reaches these models through its own
 // AI binding, so no credential is stored and no new third party sees the data.
 // Model IDs are the verified Workers AI catalogue IDs; nothing here is inferred from a name.
+import {fullyEditableMask} from './png.js';
+
 export const WORKERS_AI_MODELS=Object.freeze({
   textToImage:'@cf/black-forest-labs/flux-1-schnell',
   imageToImage:'@cf/runwayml/stable-diffusion-v1-5-img2img',
@@ -15,21 +17,27 @@ export const WORKERS_AI_MODELS=Object.freeze({
 // needs it), so a task is only reported unavailable when the whole free runtime is, not
 // when one hosted model is withdrawn or failing. The order is preference, and the first
 // entry stays the model the rest of the system already names for the task.
-// Only models whose licence is audited in the vault may run. Cloudflare hosts other
-// image-capable models; they stay out of the chain until their licence evidence exists,
-// because an available model is not the same as a model we are licensed to use.
-const EDIT_FALLBACKS=Object.freeze([WORKERS_AI_MODELS.sdxlBase]);
+// Only models whose licence is audited in the vault may run, and only where the runtime
+// actually accepts the inputs the task needs. Production reports 3030 ("input tensor
+// `image` is not present in the model") for SDXL base, so despite what its documented
+// parameter list suggests it is a text-only model here and never backs an image-conditioned
+// task. The runtime is the authority on this, not the model page.
+const TEXT_FALLBACKS=Object.freeze([WORKERS_AI_MODELS.sdxlBase]);
+// The inpainting model given a fully-editable mask is image-to-image. That makes it the
+// fallback for whole-image edits when the dedicated img2img model is unavailable.
+const IMAGE_TO_IMAGE=Object.freeze([WORKERS_AI_MODELS.imageToImage,WORKERS_AI_MODELS.inpainting]);
+const INPAINTING=Object.freeze([WORKERS_AI_MODELS.inpainting]);
 const TASK_MODELS=Object.freeze({
-  TEXT_TO_IMAGE:Object.freeze([WORKERS_AI_MODELS.textToImage,...EDIT_FALLBACKS]),
-  MULTI_SCENE_BATCH:Object.freeze([WORKERS_AI_MODELS.textToImage,...EDIT_FALLBACKS]),
-  REFERENCE_GENERATION:Object.freeze([WORKERS_AI_MODELS.imageToImage,...EDIT_FALLBACKS]),
-  IMAGE_EDIT_GLOBAL:Object.freeze([WORKERS_AI_MODELS.imageToImage,...EDIT_FALLBACKS]),
-  STYLE_TRANSFER:Object.freeze([WORKERS_AI_MODELS.imageToImage,...EDIT_FALLBACKS]),
-  BACKGROUND_REPLACE:Object.freeze([WORKERS_AI_MODELS.inpainting,...EDIT_FALLBACKS]),
-  OBJECT_REPLACE:Object.freeze([WORKERS_AI_MODELS.inpainting,...EDIT_FALLBACKS]),
-  IMAGE_EDIT_LOCAL:Object.freeze([WORKERS_AI_MODELS.inpainting,...EDIT_FALLBACKS]),
-  INPAINT:Object.freeze([WORKERS_AI_MODELS.inpainting,...EDIT_FALLBACKS]),
-  TARGETED_REPAIR:Object.freeze([WORKERS_AI_MODELS.inpainting,...EDIT_FALLBACKS]),
+  TEXT_TO_IMAGE:Object.freeze([WORKERS_AI_MODELS.textToImage,...TEXT_FALLBACKS]),
+  MULTI_SCENE_BATCH:Object.freeze([WORKERS_AI_MODELS.textToImage,...TEXT_FALLBACKS]),
+  REFERENCE_GENERATION:IMAGE_TO_IMAGE,
+  IMAGE_EDIT_GLOBAL:IMAGE_TO_IMAGE,
+  STYLE_TRANSFER:IMAGE_TO_IMAGE,
+  BACKGROUND_REPLACE:INPAINTING,
+  OBJECT_REPLACE:INPAINTING,
+  IMAGE_EDIT_LOCAL:INPAINTING,
+  INPAINT:INPAINTING,
+  TARGETED_REPAIR:INPAINTING,
 });
 
 // Which inputs a task must have, rather than which a given model happens to accept: an
@@ -147,7 +155,13 @@ export function createWorkersAiClient(){
       // spend an allocation that is already gone.
       const attempted=[];
       for(const model of chain){
-        const input=buildInput(model,{prompt,image,mask,width,height,negativePrompt,strength,seed,steps});
+        // The inpainting model always needs a mask. A whole-image edit has none to give,
+        // so one that leaves the whole frame editable is generated: that is precisely what
+        // makes inpainting stand in for image-to-image.
+        const effectiveMask=model===WORKERS_AI_MODELS.inpainting&&!mask
+          ?Array.from(fullyEditableMask(width||512,height||512))
+          :mask;
+        const input=buildInput(model,{prompt,image,mask:effectiveMask,width,height,negativePrompt,strength,seed,steps});
         try{
           const output=await ai.run(model,input);
           return {ok:true,provider:'cloudflare_workers_ai',model,mode:'FREE_ONLY',paidFallback:false,output,attempted};
