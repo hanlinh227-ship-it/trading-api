@@ -64,6 +64,23 @@ SERVING_STATES = frozenset({WorkerState.ELIGIBLE, WorkerState.ACTIVE})
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost", "[::1]"}
 
 
+class WorkerClass(str, Enum):
+    """Where a worker lives and how long it lasts.
+
+    This is descriptive metadata, not a permission tier. A REMOTE_PERSISTENT
+    worker has exactly the same authority as an EPHEMERAL_LOCAL one, which is
+    none; the class only tells the scheduler what to expect of it - whether its
+    cache survives, whether it must acquire an artifact before it can run one,
+    and whether its absence is a transient or a standing fact.
+    """
+
+    EPHEMERAL_LOCAL = "EPHEMERAL_LOCAL"      # this container; cache dies with it
+    PERSISTENT_LOCAL = "PERSISTENT_LOCAL"    # an operator machine that keeps its cache
+    REMOTE_EPHEMERAL = "REMOTE_EPHEMERAL"    # a CI runner or similar, per-job
+    REMOTE_PERSISTENT = "REMOTE_PERSISTENT"  # a standing remote host
+    JIT_REMOTE = "JIT_REMOTE"                # started on demand, then released
+
+
 def valid_worker_targets(state: WorkerState) -> frozenset[WorkerState]:
     return _WORKER_TRANSITIONS[WorkerState(state)]
 
@@ -114,6 +131,23 @@ class WorkerRecord:
     last_seen: float | None = None
     last_health: bool | None = None
 
+    #: What this worker can actually load. Empty means "not declared", which is
+    #: treated as unknown rather than as universal: a requirement naming a
+    #: format is only matched by a worker that named the same one. Declaring
+    #: nothing therefore narrows a worker's usefulness instead of widening it,
+    #: which is the safe direction for a default.
+    worker_class: WorkerClass = WorkerClass.EPHEMERAL_LOCAL
+    supported_formats: frozenset[str] = frozenset()
+    supported_quantizations: frozenset[str] = frozenset()
+    supported_model_families: frozenset[str] = frozenset()
+    max_context: int | None = None
+    #: Measured, when this worker has been measured. None is not zero.
+    load_latency_ms: float | None = None
+    warm_latency_ms: float | None = None
+    cost_class: str = "owned_hardware_zero_marginal"
+    network_reachable: bool | None = None
+    last_verified_at: str | None = None
+
     #: Not fields. A worker cannot be constructed with authority, and cannot
     #: acquire it later - `WorkerRecord(..., routing_authority=True)` is a
     #: TypeError, which is exactly the point.
@@ -131,9 +165,24 @@ class WorkerRecord:
             "platform": self.resources.host.to_dict(),
             "health": self.last_health,
             "seconds_since_seen": None if self.last_seen is None else round(now - self.last_seen, 3),
+            "worker_class": self.worker_class.value,
+            "supported_formats": sorted(self.supported_formats),
+            "supported_quantizations": sorted(self.supported_quantizations),
+            "supported_model_families": sorted(self.supported_model_families),
+            "max_context": self.max_context,
+            "available_ram_mb": self.resources.ram_available_mb,
+            "available_vram_mb": self.resources.total_vram_available_mb,
+            "available_disk_mb": self.resources.disk_free_mb,
+            "load_latency_ms": self.load_latency_ms,
+            "warm_latency_ms": self.warm_latency_ms,
+            "cost_class": self.cost_class,
+            "privacy_class": None if self.attestation is None else self.attestation.max_privacy.value,
+            "network_reachable": self.network_reachable,
+            "last_verified_at": self.last_verified_at,
             "routing_authority": self.routing_authority,
             "reasoning_authority": self.reasoning_authority,
             "memory_authority": self.memory_authority,
+            "model_selection_authority": self.model_selection_authority,
         }
 
 
@@ -144,6 +193,16 @@ class WorkerRequirement:
     vram_mb: int = 0
     privacy: Privacy = Privacy.PUBLIC
     free_only: bool = True
+
+    #: Disk needed to hold the artifact, for a worker that does not have it yet.
+    #: A worker with the artifact already cached passes this trivially; one that
+    #: must acquire it does not, and that difference is the whole of JIT
+    #: placement.
+    disk_mb: int = 0
+    artifact_format: str | None = None
+    quantization: str | None = None
+    model_family: str | None = None
+    context: int | None = None
 
 
 def _validate_endpoint(endpoint: str) -> None:
@@ -280,8 +339,70 @@ class WorkerRegistry:
                     continue
             if requirement.vram_mb and resources.total_vram_available_mb < requirement.vram_mb:
                 continue
+            if requirement.disk_mb:
+                if resources.disk_free_mb is None or resources.disk_free_mb < requirement.disk_mb:
+                    continue
+            # A worker that declared no formats matches no format requirement.
+            # Silence is not a claim of universal support, and treating it as
+            # one is how a GGUF lands on a runtime that cannot read it.
+            if requirement.artifact_format and requirement.artifact_format not in worker.supported_formats:
+                continue
+            if requirement.quantization and requirement.quantization not in worker.supported_quantizations:
+                continue
+            if requirement.model_family and requirement.model_family not in worker.supported_model_families:
+                continue
+            if requirement.context and (worker.max_context is None or worker.max_context < requirement.context):
+                continue
             matches.append(worker)
         return tuple(matches)
+
+    def refusals(self, requirement: WorkerRequirement) -> Mapping[str, tuple[str, ...]]:
+        """Per worker, why it cannot take this work.
+
+        `eligible()` returning empty is a normal answer but an unhelpful one:
+        "no worker" and "no worker with 40 GB of RAM" are different facts, and
+        the second is the one that tells an operator what to provision.
+        """
+        out: dict[str, tuple[str, ...]] = {}
+        for worker_id, worker in self._workers.items():
+            why: list[str] = []
+            if worker.state not in SERVING_STATES:
+                why.append(f"state is {worker.state.value}, not serving")
+            if worker.attestation is None:
+                why.append("has not attested")
+            elif requirement.free_only and not worker.attestation.zero_cost_only:
+                why.append("is not zero-cost and the request is free-only")
+            elif requirement.privacy.rank > worker.attestation.max_privacy.rank:
+                why.append(
+                    f"privacy ceiling {worker.attestation.max_privacy.value} is below "
+                    f"the requested {requirement.privacy.value}"
+                )
+            if requirement.runtime and requirement.runtime not in worker.runtimes:
+                why.append(f"does not run {requirement.runtime}")
+            resources = worker.resources
+            if requirement.ram_mb and (resources.ram_available_mb or 0) < requirement.ram_mb:
+                why.append(
+                    f"has {resources.ram_available_mb} MB RAM available, needs {requirement.ram_mb} MB"
+                )
+            if requirement.vram_mb and resources.total_vram_available_mb < requirement.vram_mb:
+                why.append(
+                    f"has {resources.total_vram_available_mb} MB VRAM, needs {requirement.vram_mb} MB"
+                )
+            if requirement.disk_mb and (resources.disk_free_mb or 0) < requirement.disk_mb:
+                why.append(
+                    f"has {resources.disk_free_mb} MB disk free, needs {requirement.disk_mb} MB"
+                )
+            if requirement.artifact_format and requirement.artifact_format not in worker.supported_formats:
+                why.append(f"does not declare support for {requirement.artifact_format}")
+            if requirement.quantization and requirement.quantization not in worker.supported_quantizations:
+                why.append(f"does not declare support for quantization {requirement.quantization}")
+            if requirement.model_family and requirement.model_family not in worker.supported_model_families:
+                why.append(f"does not declare support for family {requirement.model_family}")
+            if requirement.context and (worker.max_context is None or worker.max_context < requirement.context):
+                why.append(f"max_context {worker.max_context} is below the requested {requirement.context}")
+            if why:
+                out[worker_id] = tuple(why)
+        return out
 
     def to_dict(self, *, now: float) -> Mapping[str, Mapping[str, Any]]:
         return {worker_id: worker.to_dict(now=now) for worker_id, worker in self._workers.items()}
