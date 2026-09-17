@@ -199,18 +199,23 @@ class LiveRegistryTests(unittest.TestCase):
                 self.assertEqual(acceptance["covers"], ["malware_scan_status"])
                 self.assertIs(acceptance["is_a_scan_result"], False)
 
-    def test_every_model_holds_a_real_scan_or_a_recorded_acceptance(self):
-        """Never neither, and never both.
+    def test_every_model_holds_a_real_scan_or_a_live_acceptance(self):
+        """Never neither, and never two live claims at once.
 
-        Both together would be a row asserting that no scan ran beside the scan
-        that did; one of the two is then untrue whichever way it is read.
+        A row asserting that no scan ran beside the scan that did is a
+        contradiction. A *superseded* acceptance is not: it records that a
+        decision was taken before the scan existed, which is history rather
+        than a competing claim, and the repository owner asked for it to be
+        kept. So the rule is about live acceptances, not recorded ones.
         """
         for model in self.models:
             with self.subTest(model_id=model["model_id"]):
                 status = model["admission_evidence"]["malware_scan_status"]
                 acceptance = model.get("operator_risk_acceptance")
                 if status == "pass":
-                    self.assertNotIn("operator_risk_acceptance", model)
+                    if acceptance is not None:
+                        self.assertTrue(str(acceptance.get("superseded_by") or "").strip(),
+                                        "an acceptance kept beside a scan must be superseded")
                     reference = model["malware_scan_reference"]
                     self.assertEqual(reference["artifact_sha256"],
                                      model["artifact_identity"]["sha256"])
@@ -218,6 +223,7 @@ class LiveRegistryTests(unittest.TestCase):
                 else:
                     self.assertEqual(status, "not_run")
                     self.assertIsNotNone(acceptance)
+                    self.assertFalse(str(acceptance.get("superseded_by") or "").strip())
 
     def test_an_acceptance_left_behind_by_a_real_scan_is_refused(self):
         """The gate that was missing while the registry contradicted itself.
@@ -241,9 +247,33 @@ class LiveRegistryTests(unittest.TestCase):
         }
         refusals = _admission_refusals(model, 0)
         self.assertTrue(
-            any("must be retired" in reason for reason in refusals),
+            any("still live" in reason for reason in refusals),
             refusals,
         )
+
+    def test_a_superseded_acceptance_may_be_kept_beside_the_scan(self):
+        """Deleting the record would erase that a decision was ever made.
+
+        The contradiction is two live claims, not a preserved one, so an
+        acceptance marked superseded by the scan that closed its gap is
+        accepted - which is what the repository owner asked for.
+        """
+        model = copy.deepcopy(self.models[0])
+        digest = model["artifact_identity"]["sha256"]
+        model["admission_evidence"]["malware_scan_status"] = "pass"
+        model["operator_risk_acceptance"] = {
+            "accepted_by": "operator",
+            "accepted_at": "2026-09-17T05:00:00Z",
+            "artifact_sha256": digest,
+            "basis": "no engine reachable at the time",
+            "missing_evidence": ["signature_based_malware_scan"],
+            "covers": ["malware_scan_status"],
+            "scope": "single_artifact",
+            "is_a_scan_result": False,
+            "superseded_by": f"malware_scan_reference against artifact_sha256 {digest}",
+            "superseded_at": "2026-09-17T11:19:31Z",
+        }
+        self.assertEqual(_admission_refusals(model, 0), [])
 
     def test_an_acceptance_is_still_allowed_where_no_scan_ran(self):
         """The new gate must not make acceptances unusable.

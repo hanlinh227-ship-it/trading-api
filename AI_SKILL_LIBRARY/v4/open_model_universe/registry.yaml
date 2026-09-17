@@ -80,9 +80,10 @@ models:
     # so there is no honest class to put here.
     latency_class: unverified
     # Security admission is established by a real signature scan run in CI - see
-    # malware_scan_reference below. An operator risk acceptance used to stand
-    # here in place of that scan, and is retired now the scan exists: it was a
-    # decision about a missing finding, and a finding replaces it.
+    # malware_scan_reference below. Before that scan existed, an operator risk
+    # acceptance stood in its place; it is kept below, marked superseded, as the
+    # record of a decision that was actually made. It is history, not evidence:
+    # nothing admits this model on its strength any more.
     privacy_class: local_only
     cost_class: owned_hardware_zero_marginal
     lifecycle_state: AVAILABLE
@@ -127,6 +128,38 @@ models:
     source_evidence:
       - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
       - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
+    # Retained as history. On 2026-09-17 no signature engine was installable in
+    # the runtime, and the operator accepted that gap knowingly for these exact
+    # bytes. The CI scan below later closed it. Deleting this would erase the
+    # fact that the decision was made - superseding it does not.
+    #
+    # Every field below describes that moment. `missing_evidence` is what was
+    # missing *then*; `superseded_by` is what supplies it now.
+    operator_risk_acceptance:
+      accepted_by: hanlinh227-ship-it (repository operator)
+      accepted_at: '2026-09-17T05:00:00Z'
+      artifact_sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+      basis: >-
+        Operator accepts the canonical Qwen3-0.6B-Q8_0 GGUF on verified provenance,
+        immutable revision 1eaf4d9657fe65ad10a51eab76a8db5b363bddaa, exact size
+        639446688 bytes, SHA-256 verification, format validation and GGUF structural
+        scan. No signature-based malware engine was installable in the runtime at
+        that time; the residual risk was accepted knowingly.
+      missing_evidence:
+        - signature_based_malware_scan
+      covers:
+        - malware_scan_status
+      scope: single_artifact
+      is_a_scan_result: false
+      superseded_by: >-
+        malware_scan_reference: ClamAV 1.5.3, signature database 28126, run in CI
+        against artifact_sha256 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+        with the whole artifact read.
+      superseded_at: '2026-09-17T11:19:31Z'
+      note: >-
+        Historical operator risk acceptance, no longer load-bearing. It is not a
+        scan result and never was; malware_scan_status now reads pass because a
+        real scan ran, not because of this record.
     malware_scan_reference:
       engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
       signature_database_version: '28126'

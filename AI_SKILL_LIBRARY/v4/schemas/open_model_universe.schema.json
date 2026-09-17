@@ -113,7 +113,9 @@
         },
         "scope": {"const": "single_artifact"},
         "is_a_scan_result": {"const": false},
-        "note": {"type": "string"}
+        "note": {"type": "string"},
+        "superseded_by": {"description": "What replaced this decision, present once real evidence closed the gap it covered. The decision stays on the record as history; this says it is no longer load-bearing. An acceptance without it is live, and a live acceptance alongside a passing scan is a contradiction the validator refuses.", "type": "string", "minLength": 1},
+        "superseded_at": {"type": "string", "format": "date-time"}
       },
       "additionalProperties": false
     },

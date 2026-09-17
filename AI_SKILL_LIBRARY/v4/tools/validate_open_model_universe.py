@@ -250,17 +250,39 @@ def _admission_refusals(model: dict, index: int) -> list[str]:
         # true value, and the acceptance has to be complete enough to audit.
         errors.extend(_risk_acceptance_refusals(model, index))
     elif isinstance(model.get("operator_risk_acceptance"), dict):
-        # A scan ran, and an acceptance saying it did not is still sitting here.
-        # Nothing checked this before, because the acceptance rules were only
-        # consulted when the scan had *not* passed - so an acceptance outlived
-        # the gap it covered and the row asserted both at once. One of the two
-        # is untrue whichever way it is read, and a reader has no way to tell
-        # which, so the row is refused until the stale one is removed.
-        errors.append(
-            f"operator_risk_acceptance is recorded although malware_scan_status is pass; "
-            f"an acceptance covers a scan that did not run, so it must be retired once "
-            f"one has, at models[{index}]"
-        )
+        # A scan ran and an acceptance is still here. That was unchecked before,
+        # because the acceptance rules were consulted only when the scan had
+        # *not* passed, so an acceptance could outlive the gap it covered and the
+        # row would assert both at once with no way to tell which was true.
+        #
+        # The contradiction is a *live* acceptance, not a recorded one. Deleting
+        # the record would erase the fact that an operator made a named,
+        # digest-bound decision, which is history rather than evidence and is
+        # worth keeping - so an acceptance marked superseded is accepted, and one
+        # that still claims to be load-bearing is refused.
+        acceptance = model["operator_risk_acceptance"]
+        superseded_by = str(acceptance.get("superseded_by") or "").strip()
+        if not superseded_by:
+            errors.append(
+                f"operator_risk_acceptance is still live although malware_scan_status is pass; "
+                f"record what superseded it rather than leaving both claims standing, "
+                f"at models[{index}]"
+            )
+        else:
+            # A supersession that names nothing checkable is just a deletion with
+            # extra steps, so it has to say when, and point at the evidence that
+            # replaced it.
+            if not str(acceptance.get("superseded_at") or "").strip():
+                errors.append(
+                    f"operator_risk_acceptance is superseded but records no superseded_at "
+                    f"at models[{index}]"
+                )
+            digest = str((model.get("artifact_identity") or {}).get("sha256") or "")
+            if digest and digest not in superseded_by:
+                errors.append(
+                    f"operator_risk_acceptance claims supersession by evidence that does not "
+                    f"name this artifact's digest at models[{index}]"
+                )
     if admission.get("quarantine_status") != "clear":
         errors.append(f"admission blocks local candidate: quarantine_status must be clear at models[{index}]")
     if model.get("artifact_identity", {}).get("format") == "other":
