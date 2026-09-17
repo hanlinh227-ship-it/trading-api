@@ -1,0 +1,217 @@
+version: 1
+status: architecture_registered_not_runtime_active
+registered_at: '2026-09-17'
+brain_authority: GITHUB_BRAIN_V4
+routing_authority: false
+reasoning_authority: false
+stable_mutation: false
+
+purpose:
+  summary: "Register bounded integration lanes for observability, evaluation, browser execution, typed contracts, and architecture references without creating a second brain."
+  implementation_owner: "Claude Code or another approved coding agent following repository authority, tests, validators, CI, and promotion gates."
+
+canonical_invariants:
+  - task_router_remains_single_routing_authority
+  - legion_remains_multi_agent_execution_authority
+  - model_mesh_remains_model_provider_selection_authority
+  - memory_continuity_remains_memory_authority
+  - project_authority_precedes_memory_and_external_frameworks
+  - external_repos_never_gain_reasoning_authority
+  - capability_does_not_imply_permission
+  - no_raw_private_chat_prompt_or_hidden_reasoning_in_traces
+  - no_secret_credential_private_key_or_auth_token_in_repository_or_durable_memory
+  - executable_dependency_requires_license_security_and_supply_chain_audit
+  - executable_candidate_requires_sandbox_before_activation
+  - promotion_requires_tests_evals_security_authority_and_ci
+  - financial_execution_never_enabled_by_generic_browser_or_agent_adapters
+
+lanes:
+  observability:
+    authority: false
+    primary_candidate: langfuse
+    interface: sanitized_otel_compatible_trace_adapter
+    runtime_default: disabled
+    requirements:
+      - reuse_stable_observability_contract
+      - metadata_only_by_default
+      - raw_prompts_forbidden
+      - raw_private_tool_payloads_forbidden
+      - hidden_reasoning_forbidden
+      - telemetry_failure_must_not_break_stable_request_path
+
+  evaluation:
+    authority: false
+    candidates: [ragas, deepeval]
+    interface: offline_or_ci_eval_adapter
+    runtime_default: disabled
+    requirements:
+      - advisory_not_authority
+      - deterministic_repo_evals_remain_source_of_truth_for_promotion
+      - candidate_metrics_must_map_to_existing_failure_taxonomy
+      - no_production_request_dependency
+      - no_auto_promotion_from_external_score
+
+  browser_execution:
+    authority: false
+    primary_candidate: browser_use
+    interface: sandbox_browser_execution_adapter
+    runtime_default: disabled
+    requirements:
+      - task_router_selects_capability
+      - security_policy_classifies_action_before_execution
+      - read_only_default
+      - reversible_write_only_when_user_request_and_project_policy_allow
+      - destructive_actions_require_existing_explicit_approval_rules
+      - financial_execution_forbidden
+      - credential_persistence_forbidden
+      - domain_and_tool_scope_bounded
+      - runtime_verification_required_for_success_claim
+
+  typed_contracts:
+    authority: false
+    primary_candidate: baml
+    interface: optional_typed_output_contract_adapter
+    runtime_default: disabled
+    requirements:
+      - schema_validation_only
+      - cannot_replace_business_logic_or_reasoning_authority
+      - preserve_existing_pydantic_json_schema_contracts
+      - adapter_must_be_removable_without_semantic_change
+      - no_provider_lock_in
+
+  architecture_reference:
+    authority: false
+    runtime_default: disabled
+    candidates: [microsoft_agent_framework, letta, agno]
+    requirements:
+      - reference_only_until_separate_promotion_decision
+      - no_parallel_router
+      - no_parallel_memory_authority
+      - no_parallel_agent_control_plane
+      - import_patterns_not_framework_ownership
+
+candidates:
+  langfuse:
+    repo: langfuse/langfuse
+    default_branch: main
+    role: observability_adapter_candidate
+    desired_stage: sandbox_adapter
+    executable_dependency_added: false
+    network_execution_enabled: false
+    license_status: verify_before_runtime
+    overlap_policy: strengthen_existing_observability_only
+
+  ragas:
+    repo: vibrantlabsai/ragas
+    default_branch: main
+    role: rag_retrieval_eval_candidate
+    desired_stage: ci_eval_adapter
+    executable_dependency_added: false
+    network_execution_enabled: false
+    license_status: verify_before_runtime
+    overlap_policy: map_metrics_to_existing_evals
+
+  deepeval:
+    repo: confident-ai/deepeval
+    default_branch: main
+    role: llm_agent_behavior_eval_candidate
+    desired_stage: ci_eval_adapter
+    executable_dependency_added: false
+    network_execution_enabled: false
+    license_status: verify_before_runtime
+    overlap_policy: supplement_not_replace_native_evals
+
+  browser_use:
+    repo: browser-use/browser-use
+    default_branch: main
+    role: sandbox_browser_execution_candidate
+    desired_stage: sandbox_adapter
+    executable_dependency_added: false
+    network_execution_enabled: false
+    license_status: verify_before_runtime
+    overlap_policy: execution_capability_only
+
+  baml:
+    repo: BoundaryML/baml
+    default_branch: canary
+    role: typed_output_contract_candidate
+    desired_stage: sandbox_adapter
+    executable_dependency_added: false
+    network_execution_enabled: false
+    license_status: verify_before_runtime
+    overlap_policy: optional_contract_layer_only
+
+  microsoft_agent_framework:
+    repo: microsoft/agent-framework
+    default_branch: main
+    role: architecture_reference
+    desired_stage: reference_only
+    executable_dependency_added: false
+    network_execution_enabled: false
+    license_status: verify_before_runtime
+    overlap_policy: no_orchestration_authority
+
+  letta:
+    repo: letta-ai/letta
+    default_branch: main
+    role: memory_architecture_reference
+    desired_stage: reference_only
+    executable_dependency_added: false
+    network_execution_enabled: false
+    license_status: verify_before_runtime
+    overlap_policy: no_memory_authority_or_writeback
+
+  agno:
+    repo: agno-agi/agno
+    default_branch: main
+    role: agent_runtime_architecture_reference
+    desired_stage: reference_only
+    executable_dependency_added: false
+    network_execution_enabled: false
+    license_status: verify_before_runtime
+    overlap_policy: no_router_legion_or_runtime_replacement
+
+promotion_stages:
+  - id: A
+    name: architecture_registered
+    requirements: [repo_identity_verified, overlap_classified, authority_boundary_declared]
+  - id: B
+    name: upstream_audited
+    requirements: [license_verified, pinned_ref_selected, maintenance_checked, security_reviewed, dependency_risk_reviewed]
+  - id: C
+    name: sandbox_adapter
+    requirements: [minimal_adapter, permissions_bounded, secrets_externalized, failure_isolation, rollback_path]
+  - id: D
+    name: evaluated
+    requirements: [unit_tests, integration_tests, relevant_evals, baseline_comparison, no_protected_regression]
+  - id: E
+    name: limited_activation
+    requirements: [explicit_feature_flag, disabled_by_default_unless_policy_allows, observability_sanitized, production_health_check]
+  - id: F
+    name: stable_candidate
+    requirements: [tests, eval_baseline, security, authority, ci, human_or_existing_repo_merge_policy]
+
+claude_code_execution_order:
+  - audit_current_repo_and_refresh_checkpoint
+  - validate_this_architecture_against_current_authority
+  - pin_and_audit_each_upstream_before_dependency_changes
+  - implement_langfuse_adapter
+  - implement_ragas_adapter
+  - implement_deepeval_adapter
+  - implement_browser_use_sandbox_adapter
+  - implement_baml_optional_contract_adapter
+  - register_reference_only_sources_for_microsoft_agent_framework_letta_agno
+  - run_targeted_tests_and_evals_after_each_adapter
+  - run_full_brain_validators_and_ci
+  - verify_runtime_state_before_any_activation_claim
+  - produce_final_handoff_with_commits_tests_failures_and_rollback
+
+success_criteria:
+  - no_change_to_task_router_authority
+  - no_change_to_legion_authority
+  - no_change_to_memory_continuity_authority
+  - no_external_framework_required_for_fast_profile
+  - each_runtime_adapter_can_be_disabled_independently
+  - stable_brain_operates_when_every_new_adapter_is_off
+  - all_new_dependencies_are_pinned_and_audited_before_activation
+  - all_new_output_and_trace_paths_respect_existing_security_and_observability_contracts
