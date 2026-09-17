@@ -84,3 +84,83 @@ planes, any reference-capable free GPU runtime, and any visual-critic runtime. T
 model vault entries remain `CANDIDATE` with `runtimeConfigured: false`.
 
 Previous closure record: `CHECKPOINTS/FREE_IMAGE_RENDER_AGENT_4_12_0_CANDIDATE_2026-09-16.md`.
+
+## Amendment: execution continuity and the reference-safe render path (2026-09-17)
+
+The V3 control plane selected a provider correctly and the selection was then
+discarded. The logical job compiled a physical manifest carrying only a prompt,
+a negative prompt and a target size; the task type, privacy class, reference
+assets, source image, mask and the selected provider were all dropped, and the
+manifest's data class was hardcoded `PUBLIC`. The physical batch, given nothing
+to honour, selected a provider of its own and preferred AI Horde. Cloudflare
+Workers AI had no executable adapter at all, so the reference-safe route had no
+execution path in either direction. Reference, edit and inpaint work therefore
+could not run, and what did run was routed to a volunteer provider that must
+never receive a reference image.
+
+Changed under this candidate:
+
+- **Routing continuity.** The physical manifest carries the compiled intent, the
+  task type, the privacy class, the reference assets, the source image, the
+  mask, the background constraints, the preserve/editable regions and the
+  selected provider and model. Its data class is the strictest class among the
+  scenes it carries, never a fixed value.
+- **Route honouring.** The physical batch executes the route it was given. A
+  manifest with no recorded route may fall back to the registry default only
+  when it is prompt-only and `PUBLIC`; anything image-bound or above `PUBLIC`
+  fails closed with `reference_route_lost`. `AI_HORDE` is never reachable for
+  reference, edit or inpaint work.
+- **Executable reference-safe runtime.** Cloudflare Workers AI is now an
+  executable provider. It is synchronous -- the Worker's own AI binding returns
+  the image on the same call -- so submissions settle in place rather than
+  waiting for a provider-side job that does not exist. It is handed out only
+  when the `AI` binding is actually present.
+- **Model chains.** Each task walks an ordered list of image-capable Workers AI
+  models rather than depending on one. Only models whose licence is audited in
+  the model vault may run; SDXL 1.0 base (CreativeML Open RAIL++-M) is added as
+  the audited fallback for the img2img and inpainting routes. Every rejected
+  candidate is retained as diagnostic evidence.
+- **Visual critic.** The critic runs on the produced bytes when its runtime is
+  present, and the image is passed in the form Workers AI vision models accept.
+  Without a critic the quality layer still reports `PASS_UNVERIFIED`.
+- **Targeted repair.** A critic verdict naming a fixable fault produces a repair
+  attempt that edits the image the previous attempt produced, subject to the
+  caller's `destructiveRedrawAllowed`. Local masked repair is not claimed: there
+  is no segmentation runtime here, so the planner falls back instead.
+- **Wait states.** An exhausted free allocation surfaces as
+  `WAITING_FOR_FREE_COMPUTE`. A reference-safe runtime that rejects every model
+  it has surfaces as `WAITING_FOR_SAFE_FREE_RUNTIME` rather than as a failed
+  scene, so the reference is kept and the work waits.
+
+### Amended boundary: rendered binary assets
+
+The original V2 boundary -- export/report metadata only, no generated binary in
+Worker state -- was written when the only provider was AI Horde, which returns a
+hosted URL. A synchronous first-party runtime returns bytes and no URL, so that
+boundary made a real render unrepresentable.
+
+Rendered bytes are now held in the render batch's own Durable Object storage,
+keyed to the attempt that produced them, and served from it through
+`/brain/image/v3/assets`. They live and die with the batch, are never written to
+`TRADING_STATE`, and no new storage product, vendor or paid dependency is
+introduced. This is the amendment that lets a caller receive the image rather
+than only a status.
+
+### Unchanged boundaries
+
+FREE_ONLY with `paid_fallback=false` and `auto_purchase=false`; no new paid
+service and no auto-purchase; AI Horde stays `PUBLIC`-only with reference
+uploads disabled; STRICT quality without a real critic still completes
+`complete_unverified`; the image subsystem still does not use `TRADING_STATE`;
+Bybit BTCUSDT production execution authority and the trading project authority
+are untouched.
+
+### Verification
+
+Production runtime availability for the reference-safe render path is **not**
+asserted by this amendment. Production smoke now submits Scene 1 -- two locked
+character references plus a locked background, `CONFIDENTIAL`, through the
+canonical V3 job path -- fails outright if the volunteer provider is reached,
+and reports either a real rendered asset or an explicit wait state. Each task
+probe now prints its sanitized diagnostic and every model it rejected. Model
+vault entries remain `CANDIDATE`; no benchmark evidence is fabricated.
