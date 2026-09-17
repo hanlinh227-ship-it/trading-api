@@ -4,7 +4,6 @@ import {buildStaticActivationEvidence} from './image-render/activation-evidence.
 import {getProviderAdapter} from './image-render/provider-adapter-registry.js';
 import {getModelVaultEntry} from './image-render/model-vault.js';
 
-// Section 5 flow, in order.
 assert.deepEqual([...ACTIVATION_STAGES],[
   'CANDIDATE','RUNTIME_DISCOVERED','HEALTH_VERIFIED','LICENSE_VERIFIED','PRIVACY_VERIFIED','BENCHMARKED','ACTIVE',
 ]);
@@ -52,7 +51,6 @@ const healthy={
   runtimeDiscovered:{ok:true,at:'2026-09-16',source:'provider model listing'},
   health:{ok:true,at:'2026-09-16',detail:'workers_available=4'},
 };
-
 result=evaluateActivation({...base,evidence:healthy});
 assert.equal(result.stage,'HEALTH_VERIFIED');
 assert.ok(result.blockers.includes('license_not_verified'));
@@ -67,12 +65,16 @@ result=evaluateActivation({...base,evidence:priv});
 assert.equal(result.stage,'PRIVACY_VERIFIED');
 assert.ok(result.blockers.includes('benchmark_not_passed'));
 
-result=evaluateActivation({...base,evidence:{...priv,benchmark:{ok:false,at:'2026-09-16',taskType:'TEXT_TO_IMAGE',samples:12,average:41}}});
+result=evaluateActivation({...base,evidence:{...priv,benchmark:{ok:false,at:'2026-09-16',taskType:'TEXT_TO_IMAGE',samples:12,average:41,verifiedRate:1}}});
 assert.equal(result.stage,'PRIVACY_VERIFIED');
-result=evaluateActivation({...base,evidence:{...priv,benchmark:{ok:true,at:'2026-09-16',taskType:'CHARACTER_CONSISTENCY',samples:12,average:91}}});
+result=evaluateActivation({...base,evidence:{...priv,benchmark:{ok:true,at:'2026-09-16',taskType:'CHARACTER_CONSISTENCY',samples:12,average:91,verifiedRate:1}}});
 assert.equal(result.stage,'PRIVACY_VERIFIED','benchmark for another task must not activate this one');
+result=evaluateActivation({...base,evidence:{...priv,benchmark:{ok:true,at:'2026-09-16',taskType:'TEXT_TO_IMAGE',samples:12,average:91,verifiedRate:0.5}}});
+assert.equal(result.stage,'PRIVACY_VERIFIED','low verified rate must not pass benchmark gate');
+result=evaluateActivation({...base,evidence:{...priv,benchmark:{ok:true,at:'2026-09-16',taskType:'TEXT_TO_IMAGE',samples:2,average:99,verifiedRate:1}}});
+assert.equal(result.stage,'PRIVACY_VERIFIED','too few samples must not pass benchmark gate');
 
-const full={...priv,benchmark:{ok:true,at:'2026-09-16',taskType:'TEXT_TO_IMAGE',samples:12,average:91}};
+const full={...priv,benchmark:{ok:true,at:'2026-09-16',taskType:'TEXT_TO_IMAGE',samples:12,average:91,verifiedRate:0.92}};
 result=evaluateActivation({...base,evidence:full});
 assert.equal(result.stage,'ACTIVE');
 assert.equal(result.status,'ACTIVE');
@@ -86,9 +88,7 @@ assert.ok(result.blockers.some(b=>b.includes('monetaryCost')));
 for(const evidence of [
   {...full,license:{ok:false,at:'2026-09-16',detail:'non_commercial'}},
   {...full,privacy:{ok:false,at:'2026-09-16',detail:'retains_user_images'}},
-]){
-  assert.equal(evaluateActivation({...base,evidence}).status,'DISABLED');
-}
+])assert.equal(evaluateActivation({...base,evidence}).status,'DISABLED');
 
 result=evaluateActivation({...base,evidence:{...full,regression:{degraded:true,at:'2026-09-16',detail:'critic pass rate fell'}}});
 assert.equal(result.status,'DEGRADED');
@@ -99,8 +99,6 @@ assert.equal(advanced.activation.taskType,'TEXT_TO_IMAGE');
 assert.equal(advanced.activation.evidenceTrail.length,5);
 assert.equal(model.status,'CANDIDATE','input entry must not be mutated');
 
-// Static evidence is allowed to clear only licence/privacy: runtime health and benchmark
-// remain live/empirical gates. Sources must be explicit URLs rather than prose claims.
 {
   const cf=getProviderAdapter('cloudflare_workers_ai');
   const flux=getModelVaultEntry('flux-1-schnell');
@@ -126,11 +124,10 @@ console.log('image render v3 runtime activation contracts: PASS');
     health:{ok:true,at:'2026-09-16',detail:'x'},
     license:{ok:true,at:'2026-09-16',source:'x'},
     privacy:{ok:true,at:'2026-09-16',source:'x'},
-    benchmark:{ok:true,at:'2026-09-16',taskType:'REFERENCE_GENERATION',samples:12,average:95},
+    benchmark:{ok:true,at:'2026-09-16',taskType:'REFERENCE_GENERATION',samples:12,average:95,verifiedRate:1},
   };
   const unsafe=evaluateActivation({model:refModel,adapter:unsafeAdapter,taskType:'REFERENCE_GENERATION',evidence});
   assert.notEqual(unsafe.status,'ACTIVE');
-
   const safeAdapter={...adapter,supportedTasks:['REFERENCE_GENERATION'],referenceSafe:true,privacyClasses:['PUBLIC','CONFIDENTIAL']};
   const safe=evaluateActivation({model:refModel,adapter:safeAdapter,taskType:'REFERENCE_GENERATION',evidence});
   assert.equal(safe.status,'ACTIVE',JSON.stringify(safe.blockers));
