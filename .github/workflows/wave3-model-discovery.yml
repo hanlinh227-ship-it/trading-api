@@ -55,6 +55,10 @@ on:
         description: Dump the live Workers AI model catalog (yes = run it)
         required: false
         default: ''
+      benchmark_wave4:
+        description: Run real Wave 4 multimodal inference and measure it (yes = run it)
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -1083,3 +1087,212 @@ jobs:
           gh release create wave4-workers-ai-catalog --notes \
             "Live Workers AI catalog. Provider-declared, not execution proof." 2>/dev/null || true
           gh release upload wave4-workers-ai-catalog workers-ai-catalog.json --clobber
+
+  # Wave 4 capability measurement. Real inference, real inputs, checkable
+  # answers - the only thing that turns a catalog row into a capability score.
+  #
+  # The inputs are built in the job rather than fetched, which is what makes the
+  # results honest. Speech is produced by the TTS model from text this job chose,
+  # then transcribed by the ASR model: each measures the other, and neither can
+  # pass by echoing something it was handed. The vision input is an image
+  # rendered here containing a known word and a known shape, so "read the text in
+  # this image" has one right answer and reading it is exactly the OCR task.
+  #
+  # Scored strictly. A model that returns something plausible but wrong fails,
+  # because a capability score that forgives wrong answers measures nothing.
+  benchmark-wave4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: github.event.inputs.benchmark_wave4 != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build the inputs this benchmark will be scored against
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw
+          # A word and a shape, both chosen here. "read the text" and "name the
+          # shape" then have exactly one correct answer each.
+          img = Image.new("RGB", (480, 240), "white")
+          d = ImageDraw.Draw(img)
+          d.text((40, 40), "HARMONY", fill="black")
+          d.ellipse((300, 120, 420, 220), fill="red", outline="black", width=3)
+          img.save("vision-input.png")
+          print("vision input written: word=HARMONY shape=red circle")
+          PY
+
+      - name: Measure it
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ACCOUNT_ID:-}" ]; then
+            printf '%s\n' '{"status":"NO_CREDENTIAL","results":[]}' > wave4-benchmark.json
+            exit 0
+          fi
+          python3 - <<'PY'
+          import base64, json, os, time, urllib.request, urllib.error
+
+          ACCOUNT = os.environ["CF_ACCOUNT_ID"]
+          TOKEN = os.environ["CF_API_TOKEN"]
+          BASE = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT}/ai/run/"
+
+          def call(model, payload=None, raw=None, content_type="application/json"):
+              url = BASE + model
+              data = raw if raw is not None else json.dumps(payload).encode()
+              req = urllib.request.Request(url, data=data, headers={
+                  "Authorization": f"Bearer {TOKEN}", "Content-Type": content_type})
+              started = time.time()
+              try:
+                  with urllib.request.urlopen(req, timeout=180) as r:
+                      body = r.read()
+                      ms = round((time.time() - started) * 1000, 1)
+                      ctype = r.headers.get("Content-Type", "")
+                      if "application/json" in ctype:
+                          return r.status, json.loads(body), ms, None
+                      return r.status, {"_binary_bytes": len(body), "_raw": body}, ms, None
+              except urllib.error.HTTPError as e:
+                  ms = round((time.time() - started) * 1000, 1)
+                  detail = e.read()[:300].decode("utf-8", "replace")
+                  return e.code, None, ms, detail
+              except Exception as e:
+                  ms = round((time.time() - started) * 1000, 1)
+                  return 0, None, ms, f"{type(e).__name__}: {e}"
+
+          results = []
+          def record(capability, model, verdict, **extra):
+              results.append({"capability": capability, "model": model,
+                              "verdict": verdict, "evidence_class": "MEASURED", **extra})
+              print(f"  {capability:<24} {model:<44} {verdict}")
+
+          # --- TTS: produce speech from text this job chose ------------------
+          SPOKEN = "the quick brown fox jumps over the lazy dog"
+          status, body, ms, err = call("@cf/myshell-ai/melotts",
+                                       {"prompt": SPOKEN, "lang": "en"})
+          audio_b64 = None
+          if status == 200 and body:
+              audio_b64 = (body.get("result") or {}).get("audio") if "result" in body else None
+              if audio_b64:
+                  record("text_to_speech", "@cf/myshell-ai/melotts", "PRODUCED_AUDIO",
+                         http=status, latency_ms=ms, audio_b64_len=len(audio_b64))
+              elif body.get("_binary_bytes"):
+                  audio_b64 = base64.b64encode(body["_raw"]).decode()
+                  record("text_to_speech", "@cf/myshell-ai/melotts", "PRODUCED_AUDIO",
+                         http=status, latency_ms=ms, audio_bytes=body["_binary_bytes"])
+              else:
+                  record("text_to_speech", "@cf/myshell-ai/melotts", "NO_AUDIO_RETURNED",
+                         http=status, latency_ms=ms, keys=list(body)[:6])
+          else:
+              record("text_to_speech", "@cf/myshell-ai/melotts", "FAILED",
+                     http=status, latency_ms=ms, error=err)
+
+          # --- ASR: transcribe the audio the TTS model just produced ---------
+          # Neither model can pass by echoing: the ASR model never sees SPOKEN.
+          def score_transcript(text):
+              want = set(SPOKEN.split())
+              got = set((text or "").lower().replace(".", "").replace(",", "").split())
+              hit = len(want & got)
+              return hit, len(want), round(hit / len(want), 3)
+
+          if audio_b64:
+              for asr in ("@cf/openai/whisper-large-v3-turbo", "@cf/openai/whisper"):
+                  status, body, ms, err = call(asr, {"audio": audio_b64})
+                  if status == 200 and body:
+                      text = ((body.get("result") or {}).get("text") or "")
+                      hit, total, ratio = score_transcript(text)
+                      record("speech_to_text", asr,
+                             "TRANSCRIBED" if ratio >= 0.7 else "TRANSCRIBED_POOR",
+                             http=status, latency_ms=ms, transcript=text[:200],
+                             words_matched=f"{hit}/{total}", word_recall=ratio,
+                             round_trip="audio produced by melotts from text the ASR never saw")
+                      break
+                  record("speech_to_text", asr, "FAILED", http=status,
+                         latency_ms=ms, error=err)
+          else:
+              record("speech_to_text", "@cf/openai/whisper-large-v3-turbo", "NOT_ATTEMPTED",
+                     reason="no audio was produced, so there was nothing to transcribe")
+
+          # --- Vision / OCR: read an image rendered in this job --------------
+          img_b64 = base64.b64encode(open("vision-input.png", "rb").read()).decode()
+          for vision in ("@cf/moondream/moondream3.1-9B-A2B", "@cf/llava-hf/llava-1.5-7b-hf"):
+              status, body, ms, err = call(vision, {
+                  "image": list(base64.b64decode(img_b64)),
+                  "prompt": "What word is written in this image? Answer with the word only.",
+                  "max_tokens": 32})
+              if status == 200 and body:
+                  desc = ((body.get("result") or {}).get("description")
+                          or (body.get("result") or {}).get("response") or "")
+                  ok = "harmony" in desc.lower()
+                  record("ocr_text_in_image", vision,
+                         "READ_CORRECTLY" if ok else "READ_INCORRECTLY",
+                         http=status, latency_ms=ms, answer=desc[:200],
+                         expected="HARMONY")
+                  status2, body2, ms2, err2 = call(vision, {
+                      "image": list(base64.b64decode(img_b64)),
+                      "prompt": "What coloured shape is in this image? Answer briefly.",
+                      "max_tokens": 32})
+                  if status2 == 200 and body2:
+                      d2 = ((body2.get("result") or {}).get("description")
+                            or (body2.get("result") or {}).get("response") or "")
+                      ok2 = "circle" in d2.lower() and "red" in d2.lower()
+                      record("vision_grounding", vision,
+                             "GROUNDED" if ok2 else "NOT_GROUNDED",
+                             http=status2, latency_ms=ms2, answer=d2[:200],
+                             expected="red circle")
+                  break
+              record("ocr_text_in_image", vision, "FAILED", http=status,
+                     latency_ms=ms, error=err)
+
+          # --- Embeddings: a real vector, with a real dimension --------------
+          status, body, ms, err = call("@cf/baai/bge-m3",
+                                       {"text": ["a document about harbours",
+                                                 "a document about harbors"]})
+          if status == 200 and body:
+              data = (body.get("result") or {}).get("data") or []
+              dim = len(data[0]) if data else 0
+              record("document_embedding", "@cf/baai/bge-m3",
+                     "EMBEDDED" if dim > 0 else "NO_VECTOR",
+                     http=status, latency_ms=ms, vectors=len(data), dimensions=dim)
+          else:
+              record("document_embedding", "@cf/baai/bge-m3", "FAILED",
+                     http=status, latency_ms=ms, error=err)
+
+          passed = {"PRODUCED_AUDIO", "TRANSCRIBED", "READ_CORRECTLY",
+                    "GROUNDED", "EMBEDDED"}
+          covered = sorted({r["capability"] for r in results if r["verdict"] in passed})
+          json.dump({
+              "benchmark": "wave4_multimodal_v1",
+              "ran_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "provider": "cloudflare_workers_ai",
+              "plan_can_bill": False,
+              "evidence_class": "MEASURED",
+              "method": ("inputs built in this job, not fetched: speech synthesised from "
+                         "text the ASR model never saw, and an image rendered with a known "
+                         "word and shape. Scored strictly against those known answers."),
+              "results": results,
+              "capabilities_measured_covered": covered,
+              "status": "RAN",
+          }, open("wave4-benchmark.json", "w"), indent=2)
+          print()
+          print("covered by measurement:", covered)
+          PY
+          cat wave4-benchmark.json | head -40
+
+      - name: Publish the measurement
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create wave4-benchmark --notes \
+            "Wave 4 multimodal capability measurement. Real inference." 2>/dev/null || true
+          gh release upload wave4-benchmark wave4-benchmark.json --clobber
