@@ -48,17 +48,23 @@ jobs:
           max_per_publisher = 2
           max_file_bytes = 6_000_000_000
           picked = []
+          seen = set()
 
           for publisher in publishers:
               publisher_picks = 0
               try:
-                  models = list(api.list_models(author=publisher, filter='gguf', sort='lastModified', direction=-1, limit=40, full=True))
-              except Exception:
+                  # Some official GGUF repos do not carry a stable `gguf` tag.
+                  # Search by repo/file naming, then inspect actual files below.
+                  models = list(api.list_models(author=publisher, search='GGUF', sort='lastModified', direction=-1, limit=60, full=True))
+              except Exception as exc:
+                  print(f'DISCOVERY_SKIP publisher={publisher} error={type(exc).__name__}')
                   continue
               for model in models:
                   if publisher_picks >= max_per_publisher or len(picked) >= max_models:
                       break
                   repo_id = model.id
+                  if repo_id in seen:
+                      continue
                   revision = getattr(model, 'sha', None) or 'main'
                   try:
                       files = api.list_repo_files(repo_id=repo_id, revision=revision, repo_type='model')
@@ -75,7 +81,6 @@ jobs:
 
                   chosen = None
                   for filename in ordered:
-                      # Skip obvious auxiliary/projector/tokenizer GGUFs for the text-model preload lane.
                       lower = filename.lower()
                       if any(x in lower for x in ('mmproj', 'projector', 'tokenizer')):
                           continue
@@ -111,6 +116,7 @@ jobs:
                       'size_bytes': size,
                       'license_declared': license_name,
                   })
+                  seen.add(repo_id)
                   publisher_picks += 1
 
           matrix = {'include': picked}
@@ -157,12 +163,16 @@ jobs:
           LICENSE_DECLARED: ${{ matrix.license_declared }}
         run: |
           set -euo pipefail
-          ACTUAL_SHA="$(sha256sum "staged/$MODEL_FILE" | awk '{print $1}')"
           ACTUAL_SIZE="$(stat -c %s "staged/$MODEL_FILE")"
           test "$ACTUAL_SIZE" = "$DISCOVERED_SIZE"
           python - <<'PY'
-          import datetime, json, os, pathlib
+          import datetime, hashlib, json, os, pathlib
           p = pathlib.Path('staged')
+          model_path = p / os.environ['MODEL_FILE']
+          h = hashlib.sha256()
+          with model_path.open('rb') as f:
+              for chunk in iter(lambda: f.read(8 * 1024 * 1024), b''):
+                  h.update(chunk)
           manifest = {
               'stage': 'PREFETCH_ONLY_NOT_ADMITTED',
               'authority': False,
@@ -171,7 +181,7 @@ jobs:
               'immutable_revision': os.environ['REVISION'],
               'filename': os.environ['MODEL_FILE'],
               'size_bytes': int(os.environ['DISCOVERED_SIZE']),
-              'sha256_downloaded_bytes': __import__('hashlib').sha256((p / os.environ['MODEL_FILE']).read_bytes()).hexdigest(),
+              'sha256_downloaded_bytes': h.hexdigest(),
               'license_declared_upstream': os.environ.get('LICENSE_DECLARED') or None,
               'source_url': f"https://huggingface.co/{os.environ['REPO_ID']}/resolve/{os.environ['REVISION']}/{os.environ['MODEL_FILE']}",
               'staged_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
