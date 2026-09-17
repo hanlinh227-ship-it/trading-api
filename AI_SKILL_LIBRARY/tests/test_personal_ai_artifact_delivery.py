@@ -8,6 +8,7 @@ from pathlib import Path
 from AI_SKILL_LIBRARY.v4.control_plane.artifact_delivery import (
     DeliveryError,
     build_delivery_candidate,
+    load_canonical_candidate,
     verify_staged_artifact,
 )
 
@@ -59,6 +60,15 @@ class ArtifactDeliveryContractTests(unittest.TestCase):
         self.assertEqual(candidate.lifecycle_state, "QUARANTINED")
         self.assertFalse(candidate.activation_permitted)
 
+    def test_repository_candidate_is_resolved_dynamically_from_canonical_files(self):
+        root = Path(__file__).resolve().parents[2]
+        candidate = load_canonical_candidate(root)
+        self.assertTrue(candidate.model_id)
+        self.assertTrue(candidate.immutable_revision)
+        self.assertTrue(candidate.sha256)
+        self.assertGreater(candidate.size_bytes, 0)
+        self.assertFalse(candidate.activation_permitted)
+
     def test_candidate_fails_closed_when_source_is_not_pinned_to_identity_revision(self):
         record = self._record()
         record["weights_source"] = "https://example.invalid/org/model/resolve/main/model.gguf"
@@ -69,6 +79,12 @@ class ArtifactDeliveryContractTests(unittest.TestCase):
         record = self._record()
         del record["artifact_identity"]["size_bytes"]
         with self.assertRaisesRegex(DeliveryError, "size_bytes"):
+            build_delivery_candidate(record)
+
+    def test_blocked_quarantine_state_never_becomes_delivery_candidate(self):
+        record = self._record()
+        record["admission_evidence"]["quarantine_status"] = "blocked"
+        with self.assertRaisesRegex(DeliveryError, "quarantine"):
             build_delivery_candidate(record)
 
     def test_verified_bytes_emit_bounded_manifest_without_activating_model(self):
