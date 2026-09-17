@@ -37,6 +37,30 @@ FIXTURE = {
     "official_upstream": "https://example.invalid/fixture",
     "weights_source": "https://example.invalid/fixture/weights",
     "upstream_revision": "0123456789abcdef0123456789abcdef01234567",
+    "immutable_revision": "0123456789abcdef0123456789abcdef01234567",
+    "artifact": {
+        "filename": "fixture-model-a-Q4_K_M.gguf",
+        "format": "gguf",
+        "sha256": "0" * 64,
+        "size_bytes": 4_000_000_000,
+        "quantization": "Q4_K_M",
+    },
+    "lineage_id": "fixture::a::Q4_K_M::0123456789abcdef0123456789abcdef01234567",
+    "zero_cost_eligible": True,
+    "offline_ready": False,
+    "admission_evidence": ["https://example.invalid/fixture/commit"],
+    "safe_admission": {
+        "safe_format": True,
+        "pickle_risk": False,
+        "trust_remote_code_required": False,
+        "custom_code_required": False,
+        "provenance_verified": True,
+        "license_verified": True,
+        "digest_verified": False,
+        "isolated_first_load_required": True,
+        "egress_required": True,
+        "quarantine_policy": "admit_metadata_only; isolated_first_load",
+    },
     "release_date": "2026-01-01",
     "license_name": "Apache-2.0",
     "license_url": "https://example.invalid/license",
@@ -79,9 +103,15 @@ HOST = HostFacts(system="Linux", machine="x86_64", release="6.8.0")
 
 def record(**overrides):
     row = copy.deepcopy(FIXTURE)
+    # The record carries both revision fields and they must agree, so driving
+    # one from a test drives both unless the test sets them apart on purpose.
+    if "upstream_revision" in overrides and "immutable_revision" not in overrides:
+        overrides["immutable_revision"] = overrides["upstream_revision"]
     for key, value in overrides.items():
         if isinstance(value, dict) and isinstance(row.get(key), dict):
-            row[key] = {**row[key], **value}
+            merged = {**row[key], **value}
+            # An explicit None clears a nested field rather than setting it.
+            row[key] = {k: v for k, v in merged.items() if v is not None}
         else:
             row[key] = value
     return row
@@ -106,12 +136,32 @@ class SchemaFidelityTests(unittest.TestCase):
         errors = sorted(Draft202012Validator(model_schema).iter_errors(FIXTURE), key=str)
         self.assertEqual(errors, [], "projection fixture no longer matches the registry schema")
 
-    def test_the_canonical_registry_is_still_readable_and_empty(self):
+    def test_the_canonical_registry_projects_its_merged_rows(self):
+        """Reads the real registry on main - nothing here writes to it."""
         registry = load_registry(ROOT)
         self.assertEqual(registry["registry_id"], "OPEN_MODEL_UNIVERSE")
         self.assertEqual(registry["policy"]["paid_fallback"], "NO_PAID_FALLBACK")
-        # Population is the research lane's Phase D. Nothing here adds rows.
-        self.assertEqual(project_registry(registry), ())
+
+        results = project_registry(registry, snapshot=snapshot(), available_runtimes=["llama.cpp"])
+        self.assertEqual(len(results), len(registry["models"]))
+        for result in results:
+            with self.subTest(model_id=result.model_id):
+                # Every merged row must project without an exclusion; a row that
+                # cannot be projected is a contract break between the lanes.
+                self.assertEqual(result.exclusion_reasons, (), result.model_id)
+                self.assertTrue(result.placeable)
+                self.assertTrue(result.profile.revision)
+                self.assertTrue(result.profile.artifact_hash)
+
+    def test_the_merged_canonical_row_is_acquisition_eligible(self):
+        registry = load_registry(ROOT)
+        if not registry.get("models"):
+            self.skipTest("no canonical row merged yet")
+        result = project_registry(registry, snapshot=snapshot(), available_runtimes=["llama.cpp"])[0]
+        self.assertEqual(result.admission_status, AdmissionStatus.ADMITTED)
+        self.assertTrue(result.profile.acquisition_eligible)
+        # RAM is deliberately unmeasured upstream and must stay unknown here.
+        self.assertIsNone(result.profile.ram_mb)
 
     def test_every_privacy_class_maps_to_a_real_ceiling(self):
         for value in PRIVACY_CLASS_MAP.values():
@@ -180,6 +230,11 @@ class UnknownPreservationTests(unittest.TestCase):
         self.assertIsNone(profile.vram_mb)
         self.assertEqual(profile.gpu_viable, Tri.UNKNOWN)
 
+    def test_a_fully_identified_record_is_admitted_for_acquisition(self):
+        result = project_record(record(), snapshot=snapshot())
+        self.assertEqual(result.admission_status, AdmissionStatus.ADMITTED)
+        self.assertTrue(result.profile.acquisition_eligible)
+
     def test_a_null_context_window_stays_none(self):
         result = project_record(record(context_window=None), snapshot=snapshot())
         self.assertIsNone(result.profile.context_limit)
@@ -197,25 +252,32 @@ class UnknownPreservationTests(unittest.TestCase):
 
 class AcquisitionEligibilityTests(unittest.TestCase):
     def test_a_record_without_artifact_identity_is_restricted_not_admitted(self):
-        result = project_record(record(), snapshot=snapshot())
+        stripped = record()
+        stripped["artifact"] = {k: v for k, v in stripped["artifact"].items()
+                                if k not in ("sha256", "size_bytes")}
+        result = project_record(stripped, snapshot=snapshot())
         self.assertEqual(result.admission_status, AdmissionStatus.RESTRICTED)
         self.assertFalse(result.profile.acquisition_eligible)
         self.assertTrue(any("hash" in reason for reason in result.exclusion_reasons))
         self.assertTrue(any("size" in reason for reason in result.exclusion_reasons))
 
     def test_a_restricted_record_is_still_placeable_from_cache(self):
-        self.assertTrue(project_record(record(), snapshot=snapshot()).placeable)
+        stripped = record()
+        stripped["artifact"] = {k: v for k, v in stripped["artifact"].items() if k != "sha256"}
+        self.assertTrue(project_record(stripped, snapshot=snapshot()).placeable)
 
     def test_artifact_identity_admits_the_record_for_acquisition(self):
         result = project_record(
-            record(artifact_hash="a" * 64, artifact_size_bytes=4_000_000_000), snapshot=snapshot()
+            record(artifact={"sha256": "a" * 64, "size_bytes": 4_000_000_000}), snapshot=snapshot()
         )
         self.assertEqual(result.admission_status, AdmissionStatus.ADMITTED)
         self.assertTrue(result.profile.acquisition_eligible)
         self.assertEqual(result.profile.disk_mb, 4_000_000_000 // (1024 * 1024))
 
     def test_a_missing_size_alone_still_blocks_acquisition(self):
-        result = project_record(record(artifact_hash="a" * 64), snapshot=snapshot())
+        stripped = record()
+        stripped["artifact"] = {k: v for k, v in stripped["artifact"].items() if k != "size_bytes"}
+        result = project_record(stripped, snapshot=snapshot())
         self.assertFalse(result.profile.acquisition_eligible)
         self.assertIsNone(result.profile.disk_mb)
 
@@ -342,7 +404,7 @@ class RuntimeStateClaimTests(unittest.TestCase):
 
     def test_projection_result_is_json_safe(self):
         payload = project_record(record(), snapshot=snapshot()).to_dict()
-        self.assertEqual(json.loads(json.dumps(payload))["admission_status"], "RESTRICTED")
+        self.assertEqual(json.loads(json.dumps(payload))["admission_status"], "ADMITTED")
 
 
 class BatchTests(unittest.TestCase):

@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from AI_SKILL_LIBRARY.v4.local_runtime.acquisition import AcquisitionRequest, precondition_refusals
 from AI_SKILL_LIBRARY.v4.local_runtime.admission import ArtifactEvidence, evaluate as evaluate_artifact
 from AI_SKILL_LIBRARY.v4.local_runtime.backends import detect_llama_cpp
+from AI_SKILL_LIBRARY.v4.local_runtime.identity import artifact_block
 from AI_SKILL_LIBRARY.v4.local_runtime.lifecycle import ModelState
 from AI_SKILL_LIBRARY.v4.local_runtime.projection import (
     ProjectionResult,
@@ -59,13 +60,19 @@ from AI_SKILL_LIBRARY.v4.local_runtime.scheduler import (
 #: What a registry row must carry before this lane can acquire its artifact.
 #: Printed in the plan so the gap is actionable rather than merely reported.
 REQUIRED_ARTIFACT_FIELDS = (
-    "artifact_filename",
-    "artifact_format",
-    "artifact_sha256",
-    "artifact_size_bytes",
-    "quantization",
-    "upstream_revision",
+    "artifact.filename",
+    "artifact.format",
+    "artifact.sha256",
+    "artifact.size_bytes",
+    "artifact.quantization",
+    "immutable_revision",
 )
+
+
+def _first(values: Any) -> str | None:
+    if isinstance(values, (list, tuple)) and values:
+        return str(values[0])
+    return None
 
 
 def build_registry_claim(profile: ModelProfile) -> RegistryClaim:
@@ -97,9 +104,18 @@ def build_acquisition_request(
     Never performs it. Returning `(None, reasons)` is the expected result for a
     registry that does not yet carry artifact identity.
     """
-    filename = record.get("artifact_filename") or record.get("filename")
+    artifact = artifact_block(record)
+    filename = artifact.get("filename")
     if not filename or not profile.artifact_hash or profile.artifact_size_bytes is None:
-        missing = [name for name in REQUIRED_ARTIFACT_FIELDS if not record.get(name)]
+        present = {
+            "artifact.filename": artifact.get("filename"),
+            "artifact.format": artifact.get("format"),
+            "artifact.sha256": artifact.get("sha256"),
+            "artifact.size_bytes": artifact.get("size_bytes"),
+            "artifact.quantization": artifact.get("quantization"),
+            "immutable_revision": record.get("immutable_revision") or record.get("upstream_revision"),
+        }
+        missing = [name for name, value in present.items() if not value]
         return None, (
             f"artifact identity incomplete; registry row lacks: {', '.join(missing) or 'artifact fields'}",
         )
@@ -116,26 +132,45 @@ def build_acquisition_request(
         runtime=profile.runtime,
         supported_runtimes=profile.runtime_support,
         disk_budget_bytes=disk_budget_bytes,
+        artifact_format=artifact.get("format"),
+        quantization=artifact.get("quantization") or profile.quantization,
+        license_admission_ref=_first(record.get("admission_evidence")),
+        provenance_ref=_first(record.get("source_evidence")),
+        safe_format_verified=bool((record.get("safe_admission") or {}).get("safe_format")),
+        remote_code_allowed=False,
+        sandbox_required=True,
+        egress_allowed=False,
     )
     return request, precondition_refusals(request)
 
 
 def artifact_evidence(record: Mapping[str, Any], profile: ModelProfile) -> ArtifactEvidence:
-    """Assemble what the safe-loader boundary needs to see."""
+    """Assemble what the safe-loader boundary needs to see.
+
+    Planning asks a hypothetical - *would this load be admitted under the
+    conditions the loader is required to provide* - so the sandbox and
+    egress-denied flags are set here. They are conditions the plan reports, not
+    permissions it grants: the real load re-evaluates against what it is
+    actually given, and refuses if the caller did not honour them.
+    """
+    artifact = artifact_block(record)
+    safe = record.get("safe_admission") or {}
     return ArtifactEvidence(
         model_id=profile.model_id,
-        filename=record.get("artifact_filename") or record.get("filename"),
-        artifact_format=record.get("artifact_format"),
+        filename=artifact.get("filename"),
+        artifact_format=artifact.get("format"),
         sha256=profile.artifact_hash,
         size_bytes=profile.artifact_size_bytes,
-        quantization=profile.quantization,
+        quantization=artifact.get("quantization") or profile.quantization,
         revision=profile.revision,
         runtime=profile.runtime,
         runtime_support=profile.runtime_support,
-        license_verified=profile.license_verified,
-        provenance_verified=bool(record.get("source_evidence")),
-        trust_remote_code=bool(record.get("trust_remote_code")),
-        custom_model_code=bool(record.get("custom_model_code")),
+        license_verified=bool(safe.get("license_verified", profile.license_verified)),
+        provenance_verified=bool(safe.get("provenance_verified") or record.get("source_evidence")),
+        trust_remote_code=bool(safe.get("trust_remote_code_required")),
+        custom_model_code=bool(safe.get("custom_code_required")),
+        sandbox_available=True,
+        egress_denied=True,
     )
 
 
