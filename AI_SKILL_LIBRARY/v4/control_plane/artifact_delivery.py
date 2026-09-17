@@ -34,6 +34,7 @@ _REQUIRED_IDENTITY_FIELDS = (
     "quantization",
 )
 _DELIVERABLE_STATES = frozenset({"QUARANTINED", "APPROVED", "AVAILABLE"})
+_DELIVERABLE_QUARANTINE_STATES = frozenset({"quarantined", "clear"})
 
 
 class DeliveryError(ValueError):
@@ -132,6 +133,8 @@ def _presecurity_delivery_eligible(record: Mapping[str, Any]) -> None:
     _require(evidence.get("custom_code_required") is False,
              "custom executable code requirement blocks delivery")
     _require(evidence.get("malware_scan_status") != "fail", "failed malware evidence blocks delivery")
+    _require(str(evidence.get("quarantine_status") or "unknown") in _DELIVERABLE_QUARANTINE_STATES,
+             "quarantine status blocks artifact delivery")
 
 
 def build_delivery_candidate(record: Mapping[str, Any]) -> DeliveryCandidate:
@@ -255,13 +258,15 @@ def verify_staged_artifact(
     actual_sha = _sha256(artifact_path)
     _require(actual_sha == candidate.sha256,
              f"sha256 mismatch: expected {candidate.sha256}, got {actual_sha}")
+    magic_verified: bool | None = None
     if candidate.artifact_format == "gguf":
         with artifact_path.open("rb") as handle:
             _require(handle.read(4) == b"GGUF", "GGUF magic validation failed")
+        magic_verified = True
 
     timestamp = verified_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     security_pass = malware_scan_status == "pass"
-    handoff_permitted = security_pass
+    handoff_permitted = security_pass and candidate.quarantine_state in _DELIVERABLE_QUARANTINE_STATES
     return {
         "schema_version": 1,
         "manifest_type": "PERSONAL_AI_ARTIFACT_DELIVERY_V1",
@@ -285,7 +290,7 @@ def verify_staged_artifact(
             "verifier_version": verifier_version,
             "size_verified": True,
             "sha256_verified": True,
-            "format_magic_verified": candidate.artifact_format != "gguf" or True,
+            "format_magic_verified": magic_verified,
         },
         "security": {
             "malware_scan_status": malware_scan_status,
