@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 import unittest
@@ -8,14 +9,27 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
+TOOLS = ROOT / "AI_SKILL_LIBRARY/v4/tools"
 CONTRACT = ROOT / "AI_SKILL_LIBRARY/v4/control_plane/chatgpt_brain_contract.yaml"
 SCHEMA = ROOT / "AI_SKILL_LIBRARY/v4/schemas/chatgpt_brain_contract.schema.json"
+CI_VALIDATE = TOOLS / "ci_validate.py"
+
+
+def load_tool(name: str):
+    path = TOOLS / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class ChatGPTBrainIngressContractTests(unittest.TestCase):
-    def test_contract_and_schema_exist(self):
+    def test_contract_schema_and_validator_exist(self):
         self.assertTrue(CONTRACT.is_file())
         self.assertTrue(SCHEMA.is_file())
+        self.assertTrue((TOOLS / "validate_brain_ingress_contract.py").is_file())
 
     def test_ingress_cannot_bypass_task_router_or_choose_model(self):
         data = yaml.safe_load(CONTRACT.read_text(encoding="utf-8"))
@@ -55,12 +69,7 @@ class ChatGPTBrainIngressContractTests(unittest.TestCase):
                 "response",
             ],
         )
-        self.assertIs(data["authority"]["routing"], False)
-        self.assertIs(data["authority"]["reasoning"], False)
-        self.assertIs(data["authority"]["permission"], False)
-        self.assertIs(data["authority"]["memory"], False)
-        self.assertIs(data["authority"]["project_truth"], False)
-        self.assertIs(data["authority"]["final_answer"], False)
+        self.assertTrue(all(value is False for value in data["authority"].values()))
 
     def test_response_contract_has_no_hidden_reasoning(self):
         data = yaml.safe_load(CONTRACT.read_text(encoding="utf-8"))
@@ -99,6 +108,14 @@ class ChatGPTBrainIngressContractTests(unittest.TestCase):
             {"version", "contract_id", "authority", "ingress", "brain_flow", "response", "privacy"},
         )
         self.assertFalse(schema["additionalProperties"])
+
+    def test_validator_accepts_checked_in_contract(self):
+        validator = load_tool("validate_brain_ingress_contract")
+        self.assertEqual(validator.validate_contract(CONTRACT, SCHEMA), [])
+
+    def test_canonical_ci_runs_ingress_validator(self):
+        text = CI_VALIDATE.read_text(encoding="utf-8")
+        self.assertIn("AI_SKILL_LIBRARY/v4/tools/validate_brain_ingress_contract.py", text)
 
 
 if __name__ == "__main__":
