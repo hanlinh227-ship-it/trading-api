@@ -44,9 +44,6 @@ jobs:
           const x=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
           if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.provider!=='ai_horde'||!Array.isArray(x.models))process.exit(4);
           console.log('IMAGE_RENDER_MODELS=PASS count='+x.models.length);
-          // Runtime discovery evidence: which models the free provider actually serves
-          // right now, and with how many workers. The model vault may only record a
-          // runtime provider for a model that appears here with capacity.
           const served=x.models
             .map(m=>({name:String(m&&m.name||''),workers:Number(m&&m.workerCount||0),queued:Number(m&&m.queued||0),eta:Number(m&&m.eta||0)}))
             .filter(m=>m.name)
@@ -75,26 +72,22 @@ jobs:
           status="$(curl -fsS --connect-timeout 5 --max-time 20 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/batch/status?id=$batch_id")"
           printf '%s\n' "$status" | BATCH_ID="$batch_id" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(x.ok!==true||x.state?.batch_id!==process.env.BATCH_ID||x.summary?.status!=='cancelled')process.exit(8);console.log('IMAGE_RENDER_BATCH_STATUS=PASS '+x.state.batch_id)})"
 
-          # probe=1 collects live runtime evidence with one tiny 256x256 generation, so the
-          # activation report reflects what actually answered in production.
           activation="$(curl -fsS --connect-timeout 5 --max-time 45 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/v3/activation?probe=1")"
           printf '%s\n' "$activation" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);
           if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.autoPurchase!==false)process.exit(9);
           if(!Array.isArray(x.models)||!Array.isArray(x.providers))process.exit(10);
-          // A model reported ACTIVE in production must have a runtime provider behind it.
           for(const m of x.models){if(m.tasks.some(t=>t.status==='ACTIVE')&&(!m.runtimeProviders||m.runtimeProviders.length===0))process.exit(11);}
-          for(const p of (x.probe&&x.probe.providers)||[])console.log('IMAGE_RUNTIME_PROBE provider='+p.providerId+' discovered='+p.runtimeDiscovered.ok+' healthy='+p.health.ok+' detail='+p.health.detail);
+          for(const p of (x.probe&&x.probe.providers)||[]){
+            console.log('IMAGE_RUNTIME_PROBE provider='+p.providerId+' discovered='+p.runtimeDiscovered.ok+' healthy='+p.health.ok+' detail='+p.health.detail);
+            for(const [task,e] of Object.entries(p.taskHealth||{}))console.log('IMAGE_RUNTIME_TASK_PROBE provider='+p.providerId+' task='+task+' ok='+Boolean(e&&e.ok)+' model='+(e&&e.model||'none')+' detail='+(e&&e.detail||'none')+' waitState='+(e&&e.waitState||'none'));
+          }
           for(const m of x.models)for(const t of m.tasks)console.log('IMAGE_ACTIVATION model='+m.modelId+' task='+t.taskType+' stage='+t.stage+' status='+t.status+' blockers='+t.blockers.join('|'));
           console.log('IMAGE_V3_ACTIVATION=PASS active='+x.summary.ACTIVE+' candidate='+x.summary.CANDIDATE+' bottleneck='+x.nextBottleneck);})"
 
-          # probe=1 so the reported states are verified rather than assumed: a bound runtime
-          # that does not answer must never read AVAILABLE.
           capabilities="$(curl -fsS --connect-timeout 5 --max-time 45 -H "x-image-render-token: $MODEL_MESH_EXECUTION_TOKEN" "$WORKER_BASE_URL/brain/image/v3/capabilities?probe=1")"
           printf '%s\n' "$capabilities" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);
           if(x.ok!==true||x.mode!=='FREE_ONLY'||x.paidFallback!==false||x.localRuntimeRequired!==false)process.exit(12);
-          // Reference work must stay fail-closed until a reference-safe free runtime exists.
           if(x.runtimeVerifiedThisRequest!==true)process.exit(13);
-          // A runtime may only read AVAILABLE when the probe in this same request verified it.
           const verified=['AVAILABLE','UNAVAILABLE','UNVERIFIED','WAITING_FOR_SAFE_FREE_RUNTIME','WAITING_FOR_FREE_COMPUTE'];
           if(!verified.includes(x.referenceSafeRuntime)||!verified.includes(x.visualCriticRuntime))process.exit(14);
           if(x.referenceSafeRuntime==='AVAILABLE'&&x.taskAvailability.REFERENCE_GENERATION!=='AVAILABLE')process.exit(15);
