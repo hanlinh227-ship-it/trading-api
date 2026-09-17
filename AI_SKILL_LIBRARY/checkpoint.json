@@ -127,5 +127,8 @@
   "vnext_integration_adapter_tool_path": "AI_SKILL_LIBRARY/v4/tools/integration_adapters.py",
   "adaptive_execution_tool_path": "AI_SKILL_LIBRARY/v4/tools/adaptive_execution.py",
   "free_model_discovery_tool_path": "AI_SKILL_LIBRARY/v4/tools/discover_free_models.py",
-  "legion_runtime_tool_path": "AI_SKILL_LIBRARY/v4/tools/legion.py"
+  "legion_runtime_tool_path": "AI_SKILL_LIBRARY/v4/tools/legion.py",
+  "memory_continuity_policy_path": "AI_SKILL_LIBRARY/v4/memory_continuity/policy.yaml",
+  "memory_continuity_resolver_path": "AI_SKILL_LIBRARY/v4/tools/memory_continuity.py",
+  "memory_continuity_focus_path": "AI_SKILL_LIBRARY/v4/memory_continuity/focus.json"
 }
