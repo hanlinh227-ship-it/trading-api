@@ -10,7 +10,7 @@ packaging); both are recorded below rather than lowered.
   read from the working tree at `dec4a3e`).
 - Branch: `claude/modest-knuth-f0dby3`
 - Commits: `d3685f9` (upstream audit intake), `b9d3817` (adapters, validator,
-  tests, wiring)
+  tests, wiring), `b8a69d3` (handoff), plus the Langfuse licence re-audit commit
 
 ## Files changed
 
@@ -19,7 +19,7 @@ packaging); both are recorded below rather than lowered.
 | `AI_SKILL_LIBRARY/v4/integrations/brain_expansion_adapters.yaml` | new — audited provenance + normalized contract for all 8 candidates |
 | `AI_SKILL_LIBRARY/v4/tools/brain_expansion_adapters.py` | new — shared contract + 5 lane adapters |
 | `AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py` | new — authority/activation validator |
-| `AI_SKILL_LIBRARY/tests/test_brain_expansion_integrations.py` | new — 50 tests |
+| `AI_SKILL_LIBRARY/tests/test_brain_expansion_integrations.py` | new — 52 tests |
 | `AI_SKILL_LIBRARY/checkpoint.json` | 3 canonical pointers added |
 | `AI_SKILL_LIBRARY/v4/tools/ci_validate.py` | new validator added to the single CI entrypoint |
 
@@ -60,7 +60,7 @@ are inert by construction.
 python3 -m pip install -r AI_SKILL_LIBRARY/requirements.txt      # PyYAML + jsonschema
 python3 -m unittest AI_SKILL_LIBRARY.tests.test_brain_expansion_integrations
     -> before implementation: FAILED (failures=47, errors=3)     # RED
-    -> after  implementation: Ran 50 tests ... OK                # GREEN
+    -> after  implementation: Ran 52 tests ... OK                # GREEN
 python3 AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py
     -> BRAIN_EXPANSION_VALIDATE=PASS errors=0
 python3 AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha $(git rev-parse HEAD)
@@ -76,8 +76,8 @@ cycle, release and retrieval-index freshness, consolidation invariants, and the
 unit suites. All PASS.
 
 **Baseline comparison:** baseline at `dec4a3e` was `CI_VALIDATE=PASS failures=0`
-with `458 + 46` tests. Final is `CI_VALIDATE=PASS failures=0` with `508 + 46`
-tests — exactly the 50 added tests, no pre-existing test changed or removed.
+with `458 + 46` tests. Final is `CI_VALIDATE=PASS failures=0` with `510 + 46`
+tests — exactly the 52 added tests, no pre-existing test changed or removed.
 **Protected regressions in correctness, verification, safety and authority: 0.**
 
 ## Runtime verification evidence
@@ -128,14 +128,27 @@ file; scanned and clean.
 
 ## Unresolved blockers
 
-1. **Langfuse licence ambiguity (blocks executable dependency, not the lane).**
-   `LICENSE` at `v4.37.0` grants MIT Expat for most content but places `ee/`,
-   `web/src/ee/` and `worker/src/ee/` under the separate commercial licence in
-   `ee/LICENSE`, so GitHub classifies the repo `NOASSERTION`, which is not in the
-   registry's auto-approved set. The adapter is vendor-neutral and imports
-   nothing upstream, so the observability lane still works; only a dependency on
-   the monorepo is blocked. Resolving it needs a licence decision scoped to the
-   MIT-licensed subset or the separately published SDK.
+1. **Langfuse licence — re-audited 2026-09-17, gate stays closed.** Both licence
+   files were read directly from the canonical upstream at the pinned tag
+   `v4.37.0`, not from the GitHub SPDX label and not from memory. `/LICENSE`
+   grants MIT Expat for content outside `ee/`, `web/src/ee/` and
+   `worker/src/ee/`; `ee/LICENSE` is the Langfuse Enterprise License (Copyright
+   2023-2026 ClickHouse, Inc.) and states it is "forbidden to copy, merge,
+   publish, distribute, sublicense, and/or sell the Software" without a valid
+   Enterprise License. The finding is **determinate, not unverifiable**: the
+   repository is open-core/mixed, so it carries no single auto-approved SPDX
+   licence and stays outside `ALLOWED_LICENSES`. Conclusion is unchanged —
+   Langfuse remains `enabled: false` with no executable dependency, and the
+   adapter stays vendor-neutral, so the observability lane still functions.
+
+   A clean unblock path is now recorded with pinned provenance but is **not**
+   activated: `langfuse/langfuse-python` `v4.15.4`
+   (`6c3842a3b8b96df0326dcfeca04dd7a1c1cbcdd9`) is single-licensed MIT — LICENSE
+   text verified at the tag, `pyproject.toml` declares `license = "MIT"`, and it
+   has no `ee/` directory. Using it would still require explicit
+   dependency + network-egress authorization, a transitive-licence review and a
+   sandbox run; none of those were taken here. A test asserts this record cannot
+   be read as an activation.
 
 2. **Release packaging deferred (gate respected, not lowered).** Releases are
    immutable, so the new files cannot join `4.13.0` in place. Cutting a successor

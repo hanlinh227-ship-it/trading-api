@@ -98,6 +98,32 @@ class UpstreamAuditRecords(unittest.TestCase):
         self.assertEqual(langfuse["upstream"]["license_status"], "ambiguous")
         self.assertFalse(tool.may_add_executable_dependency(langfuse))
 
+    def test_langfuse_license_reaudit_keeps_the_gate_closed(self):
+        """The re-audit is recorded as evidence and does not relax anything."""
+        reg = registry()
+        tool = adapters_tool()
+        langfuse = reg["candidates"]["langfuse"]
+        self.assertEqual(langfuse["upstream"]["license_status"], "ambiguous")
+        self.assertFalse(langfuse["enabled"])
+        self.assertFalse(langfuse["executable_dependency_added"])
+        self.assertFalse(tool.may_add_executable_dependency(langfuse))
+        reaudit = langfuse["audit"]["license_reaudit"]
+        for marker in ("ee/LICENSE", "pinned tag", "gate stays closed"):
+            self.assertIn(marker, reaudit)
+
+    def test_recorded_activation_path_is_documentation_not_activation(self):
+        """A cleanly-licensed alternative upstream must not become an activation."""
+        reg = registry()
+        path = reg["candidates"]["langfuse"]["activation_path"]
+        self.assertFalse(path["executable_dependency_added"])
+        self.assertFalse(path["enabled"])
+        self.assertRegex(str(path["ref"]), r"^[0-9a-f]{40}$")
+        self.assertTrue(path["still_required_before_use"])
+        # It is not a candidate, so it cannot be promoted through the registry.
+        self.assertNotIn(path["candidate_upstream"], reg["candidates"])
+        # And it does not change how the Langfuse candidate itself is classified.
+        self.assertEqual(adapters_tool().activation_state(reg["candidates"]["langfuse"]), "sandbox_ready")
+
     def test_no_candidate_added_an_executable_dependency_in_this_change(self):
         reg = registry()
         for candidate_id, record in reg["candidates"].items():

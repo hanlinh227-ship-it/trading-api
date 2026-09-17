@@ -56,7 +56,7 @@ candidates:
     runtime_evidence: null
     rollback: "Unset BRAIN_EXPANSION_LANGFUSE_ENABLED (or set it false). The adapter then emits nothing and the stable request path is unchanged."
     blockers:
-      - "license_ambiguous: langfuse/langfuse is a mixed-license monorepo. LICENSE at v4.37.0 grants MIT Expat for most content but places ee/, web/src/ee/ and worker/src/ee/ under the separate commercial licence in ee/LICENSE, so GitHub classifies the repository as NOASSERTION. Executable dependency on the monorepo is blocked; the adapter is vendor-neutral and imports nothing from upstream."
+      - "license_ambiguous: langfuse/langfuse is a mixed-license (open-core) monorepo. Re-audited 2026-09-17 by reading both licence files directly from the canonical upstream at the pinned tag v4.37.0. /LICENSE grants MIT Expat for content outside ee/, web/src/ee/ and worker/src/ee/; ee/LICENSE is the Langfuse Enterprise License (Copyright 2023-2026 ClickHouse, Inc.) which states it is 'forbidden to copy, merge, publish, distribute, sublicense, and/or sell the Software' without a valid Langfuse Enterprise License. The repository therefore carries no single auto-approved SPDX licence (GitHub reports NOASSERTION) and is outside the registry's ALLOWED_LICENSES. Executable dependency on the monorepo stays blocked; the adapter is vendor-neutral and imports nothing from upstream."
     upstream:
       repo: langfuse/langfuse
       default_branch: main
@@ -66,9 +66,29 @@ candidates:
       license_status: ambiguous
       archived: false
       audited_at: '2026-09-17'
+    # A cleanly-licensed upstream exists, but recording it is NOT activation.
+    # Depending on it would still be an executable-dependency plus network-egress
+    # decision that this change does not take. Langfuse stays disabled with no
+    # dependency; this block only documents the concrete unblock path so a future
+    # promotion does not have to redo the audit.
+    activation_path:
+      candidate_upstream: langfuse/langfuse-python
+      tag: v4.15.4
+      ref: 6c3842a3b8b96df0326dcfeca04dd7a1c1cbcdd9
+      license: MIT
+      license_status: verified
+      license_evidence: "LICENSE read from the canonical upstream at the pinned tag: 'MIT License, Copyright (c) 2022 Finto Technologies'. pyproject.toml declares license = \"MIT\" with license-files = [\"LICENSE\"]. No ee/ directory exists, so unlike the monorepo it is single-licensed."
+      distribution: "PyPI package `langfuse` 4.15.4, requires-python >=3.10,<4.0; OpenTelemetry-based SDK."
+      executable_dependency_added: false
+      enabled: false
+      still_required_before_use:
+        - explicit_dependency_and_network_egress_authorization
+        - transitive_dependency_licence_review
+        - sandbox_run_with_sanitized_events_only
     audit:
       maintenance: "Active. Pushed 2026-09-17; ~34.7k stars; no archive or disable flag."
-      dependency_license_concerns: "ee/ subtree is commercially licensed; any vendoring or self-hosting of the monorepo must exclude it. The separately published client SDK is not depended upon here."
+      license_reaudit: "2026-09-17, canonical upstream at pinned tag v4.37.0. Read /LICENSE (MIT Expat core) and ee/LICENSE (Langfuse Enterprise License, ClickHouse Inc.) directly from the repository rather than relying on the GitHub SPDX label or on memory. Finding is determinate: the repository is open-core/mixed, not merely unclassified. Conclusion unchanged - not a single auto-approved licence, so the executable-dependency gate stays closed."
+      dependency_license_concerns: "ee/ subtree is commercially licensed; any vendoring or self-hosting of the monorepo must exclude it. The separately published client SDK (see activation_path) is single-licensed MIT but is deliberately not depended upon here."
       supply_chain_risk: "Not taken: no npm/PyPI package and no upstream source is installed. Risk surface is limited to the repository audit itself."
       network_behavior: "None. The adapter hands a sanitized dict to an injected exporter callable; the repository ships no exporter that opens a socket."
       overlap: "Strengthens the existing stable observability contract (v4/stable/observability.yaml). Adds no new telemetry field and no new persistence location."
