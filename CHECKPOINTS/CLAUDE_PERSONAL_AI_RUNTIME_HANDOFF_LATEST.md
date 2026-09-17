@@ -12,92 +12,130 @@
 |---|---|
 | Repository | `hanlinh227-ship-it/trading-api` |
 | Branch | `claude/magical-euler-uu98r8` |
-| HEAD SHA | `e899887a52f3cbead5b94bd7fbfb2c52ddfcda2a` |
-| Base main SHA | `c5ad9112de60223ef9e1175bb5bcc1fcdfdf163f` |
-| PR number | none opened yet — not requested |
-| Rollback point | `c5ad9112de60223ef9e1175bb5bcc1fcdfdf163f` (branch is additive; deleting `AI_SKILL_LIBRARY/v4/local_runtime/` and the six `test_local_runtime_*.py` files restores main exactly) |
+| HEAD SHA | `3c805aeeaa2b90811611b254aaea2c7a8c68a261` |
+| Base main SHA | `063c6217d00800a497ffd6b2e118d2cf5f72e5e8` |
+| behind_by | **0** |
+| ahead_by | 9 |
+| PR | [#428](https://github.com/hanlinh227-ship-it/trading-api/pull/428) — open, mergeable, not for automatic merge |
+| Rollback point | `063c6217d00800a497ffd6b2e118d2cf5f72e5e8` |
 
-Canonical state read at session start: `AI_SKILL_LIBRARY/checkpoint.json`
-(`GITHUB_BRAIN_V4`, 4.0.0, latest closure
-`CHECKPOINTS/BRAIN_EXPANSION_BROWSER_RUNTIME_4_15_0_CLOSURE_2026-09-17.md`).
-`CHECKPOINTS/OPEN_MODEL_UNIVERSE_WORK_HANDOFF_LATEST.md` **does not exist** —
-the research lane has not published a handoff yet, so no integration contract
-from Work was available to build against. Branch was cut from `origin/main` at
-the SHA above, which is the merge of PR #425.
+Main moved twice during this session (`c5ad9112` → `2e3a8f6e` → `063c6217`).
+The coordinator's quoted `8acafcf2` was already stale on arrival; the branch is
+reconciled against the newest `origin/main` above, not that SHA. Integration was
+by **merge**, not rebase: the branch is published and PR #428 references it, so
+rewriting its history would invalidate every existing checkout and review anchor.
 
 ---
 
-## Overlap / conflict map
+## Blocker status
 
-Nothing in this lane touches a file the research lane is populating.
-
-| Area | Owner | This lane's contact |
+| ID | Status | Note |
 |---|---|---|
-| `AI_SKILL_LIBRARY/v4/model_mesh/*` (providers, active, discovery, catalogs) | ChatGPT Work | **read-only, untouched** |
-| `AI_SKILL_LIBRARY/v4/legion/*`, `evergreen/*`, `learning/*` | existing Brain | untouched |
-| `AI_SKILL_LIBRARY/checkpoint.json`, `v4/stable/*` | canonical Brain | untouched |
-| `AI_SKILL_LIBRARY/v4/local_runtime/*` | **Claude (this lane)** | new package |
-| `AI_SKILL_LIBRARY/tests/test_local_runtime_*.py` | **Claude (this lane)** | new tests |
-
-**Shared files touched: none.** No registry, catalog, policy or checkpoint file
-was modified. A test asserts the canonical checkpoint carries no reference to
-this plane, so the stable brain keeps working with the whole package deleted.
-
-One standing tension to flag, not a conflict: the canonical
-`AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml` declares
-`local_install_required: false` / `local_cli_execution: false` for the stable
-request path, while this project is local-first. Resolved by keeping this plane
-**non-authoritative and opt-in** — it is contracts and decision logic, activates
-no runtime (`ADAPTER_TARGETS` is all `activated: False`), and is not resolvable
-from the checkpoint. If the plane is ever to run in the stable path, that policy
-is the file to amend, and it belongs to the canonical Brain, not to this lane.
+| **B6 RUNTIME_MAIN_RECONCILIATION** | **CLOSED** | behind_by=0; lifecycle split landed; CI_VALIDATE=PASS |
+| **B5 SAFE_MODEL_ADMISSION** | **CLOSED (runtime side)** | format allowlist, pickle refusal, remote-code policy gate, first-load sandbox + egress deny, quarantine |
+| **B1 REAL_LOCAL_RUNTIME** | **PARTIAL** | real llama.cpp engine installed and driven; no canonical artifact to load |
+| **B2 REAL_CANONICAL_INFERENCE** | **BLOCKED** | see *The one blocker* below |
+| B3 GOLDEN_E2E / B4 OFFLINE_E2E | blocked behind B2 | |
 
 ---
 
-## Completed workstreams
+## The one blocker: no model artifact is reachable from this environment
 
-| § | Workstream | Module | State |
+This is environmental, not a code gap. Measured, not inferred:
+
+```
+huggingface.co:443      CONNECT -> 403  (agent proxy: "policy denial")
+cdn-lfs.huggingface.co  unreachable
+hf-mirror.com           unreachable
+modelscope.cn           unreachable
+github.com release assets -> 403
+raw.githubusercontent.com -> 200  (works, but hosts no complete GGUF)
+pypi.org / files.pythonhosted.org -> 200 (allow-listed)
+```
+
+The proxy's own status endpoint reports the denial explicitly:
+`{"kind":"connect_rejected","detail":"gateway answered 403 to CONNECT (policy
+denial or upstream failure)","host":"huggingface.co:443"}`.
+
+What that permitted, and what it did not:
+
+* **Permitted.** A genuine llama.cpp was built from source via PyPI
+  (`llama-cpp-python 0.3.35`, compiled with cmake/gcc on this host). It reports
+  real CPU feature detection from the compiled library:
+  `AVX512 = 1 | AVX512_VNNI = 1 | AMX_INT8 = 1 | LLAMAFILE = 1 | OPENMP = 1`.
+  A real GGUF was fetched from `raw.githubusercontent.com` and verified by magic
+  bytes, and real llama.cpp was driven against it.
+* **Not permitted.** Any complete, generative model. The only GGUF files
+  reachable are llama.cpp's committed *vocab-only* fixtures, which carry no
+  tensors. Loading one produces a real, correctly-normalized failure
+  (`ValueError: Failed to load model` → `CAPABILITY_MISMATCH`) — genuine
+  evidence that the guard works, and not generation.
+
+**A tiny randomly-initialised GGUF was deliberately not built.** It would have
+produced a green "real inference" line, but random weights are synthetic bytes
+and the output would be meaningless. That would be a fabricated milestone, which
+is worse than a blocked one.
+
+### FIRST_VALID_MODEL_RECORD_REQUIRED
+
+Unblocking needs either an egress allowance for `huggingface.co` (plus
+`cdn-lfs.huggingface.co`), or the artifact staged into the environment by
+another route. Plus a registry row carrying:
+
+```
+model_id, family, variant, upstream_revision (immutable, not main/latest/head),
+artifact_filename, artifact_format, artifact_sha256, artifact_size_bytes,
+quantization, runtime_support, hardware_profile, context_window,
+privacy_class, cost_class, license_verified, source_evidence
+```
+
+The candidate named by the integration lane (Qwen3-0.6B, Q8_0, GGUF) and the
+SHA-256 quoted in chat are **recorded here as unverified** and are deliberately
+not written into any code path. Per instruction, that value is not canonical
+evidence; the runtime will consume whatever the Work record publishes and will
+verify the digest itself against the bytes it downloads.
+
+### Zero code change needed when it arrives
+
+The activation hook is live: set `LOCAL_RUNTIME_TEST_GGUF` to a complete GGUF
+and `AI_SKILL_LIBRARY/tests/test_local_runtime_real_backend.py::RealGenerationTests`
+loads it, generates, asserts on real output, proves warm residency on the second
+call, and emits a populated evidence envelope. It currently reports
+`skipped: no real GGUF artifact available`.
+
+---
+
+## What landed this session
+
+| § | Item | Module | Status |
 |---|---|---|---|
-| 3 / A | Model runtime lifecycle | `lifecycle.py` | complete |
-| 4 / B | Auto wake / sleep | `scheduler.py` | complete |
-| 5 / C | Compute resource registry | `resources.py` | complete |
-| 6 / D | Hardware-aware scheduler | `scheduler.py` | complete |
-| 7 / E | JIT model acquisition | `acquisition.py` | complete |
-| 8 / F | Cache manager | `cache.py` | complete |
-| 9 / G | Runtime abstraction | `runtime.py` | contracts + probes + negotiation complete; **no adapter activated** |
-| 10 | Capability negotiation | `runtime.py` | complete |
-| 11 | Priority queue P0–P5 | `scheduler.py` | admission classes + preemptibility complete |
-| 12 | Circuit breaker / failover | `resilience.py` | complete |
-| 13 | Multi-worker contract | `workers.py` | registration lifecycle + attestation complete |
-| 14 | Cross-machine preparation | `workers.py` | endpoint-addressed contracts; **transport not implemented** |
-| 16 | Authority invariants | `federation.py` + tests | asserted by test |
+| B6 | Governance/residency split | `residency.py` | done |
+| B6 | Plane boundary, one entry door | `reconciliation.py` | done |
+| 3 | Immutable artifact identity | `identity.py` | done |
+| B5 | Safe-artifact admission | `admission.py` | done |
+| 5 | Acquisition contract extension | `acquisition.py` | done |
+| 2/4 | Registry projection seam | `projection.py` | done |
+| 3/5 | Projection + placement plan CLI | `v4/tools/local_runtime_plan.py` | done |
+| 4 | Execution evidence envelope | `evidence.py` | done |
+| 9 | Observation envelope | `telemetry.py` | done |
+| 8 | llama.cpp CLI adapter | `backends/llama_cpp.py` | done |
+| 2 | llama.cpp in-process adapter | `backends/llama_cpp_python.py` | **real engine driven** |
 
-### Files changed
+### Evaluator gap status
 
-All additions, under `AI_SKILL_LIBRARY/`:
-
-```
-v4/local_runtime/__init__.py        public surface
-v4/local_runtime/lifecycle.py       16-state machine, transition graph, audit trail
-v4/local_runtime/resources.py       cross-OS compute snapshot, watermarks
-v4/local_runtime/scheduler.py       placement, wake/sleep, priority admission
-v4/local_runtime/acquisition.py     pinned-revision download, resume, checksum, atomic finalize
-v4/local_runtime/cache.py           scored eviction, protected kinds
-v4/local_runtime/resilience.py      failure classification, circuit breaker, retry/failover
-v4/local_runtime/runtime.py         adapter ABC, capability negotiation, RuntimeMesh
-v4/local_runtime/workers.py         worker states, attestation, eligibility
-v4/local_runtime/federation.py      serve() entry point and containment boundary
-
-tests/test_local_runtime_lifecycle.py     19
-tests/test_local_runtime_resources.py     18
-tests/test_local_runtime_scheduler.py     36
-tests/test_local_runtime_acquisition.py   22
-tests/test_local_runtime_cache.py         21
-tests/test_local_runtime_resilience.py    21
-tests/test_local_runtime_runtime.py       25
-tests/test_local_runtime_workers.py       30
-tests/test_local_runtime_federation.py    18
-```
+| Gap | Status |
+|---|---|
+| 001 genuine adapter + real generation | adapter real and driven; **generation blocked on artifact** |
+| 002 worker binding | done — `worker_id` on the envelope |
+| 003 revision + sha256 binding | done — carried from identity through to evidence |
+| 004 actual quantization | done — `actual_quantization` is the loaded one; the probe advertises an empty supported-set on purpose |
+| 005 backend version identity | **done with real data** — `llama-cpp-python/0.3.35` |
+| 006 queue_wait_ms | done — measured from admission, not estimated |
+| 007 load_latency_ms | done — measured around the real load |
+| 008 inference_latency_ms | done — measured around the real call |
+| 009 start/end/total | done — monotonic durations, UTC stamps, separately |
+| 010 peak RAM/VRAM | done — `PeakSampler` threads RSS sampling; a snapshot pair is not a peak |
+| 011 normalized failures | done — full evaluator vocabulary, `fallback_used`, `attempted_runtimes` |
 
 ---
 
@@ -105,127 +143,74 @@ tests/test_local_runtime_federation.py    18
 
 ```
 python -m unittest discover -s AI_SKILL_LIBRARY/tests -p "test_local_runtime_*.py"
-  -> 210 passed
+  -> 353 passed, 1 skipped (the real-generation hook, awaiting an artifact)
 
 python -m unittest discover -s AI_SKILL_LIBRARY/tests -p "test_*.py"
-  -> 832 passed, 3 skipped, 0 failed
+  -> 988 passed, 4 skipped
+
+python -m unittest discover -s tests -p "test_*.py"     -> 46 passed
+
+python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --root . --source-sha $(git rev-parse HEAD)
+  -> CI_VALIDATE=PASS failures=0
+     (authority, router, security, runtime, V4, Model Mesh, Legion,
+      Open Model Universe, Brain Expansion, skill gateway, release,
+      retrieval index, consolidation all PASS)
 ```
 
-CI picks these up automatically: `AI_SKILL_LIBRARY/v4/tools/ci_validate.py`
-discovers `AI_SKILL_LIBRARY/tests`, which `.github/workflows/ai-skill-library-ci.yml`
-runs on every push and PR touching `AI_SKILL_LIBRARY/**`. Dependencies are the
-existing `AI_SKILL_LIBRARY/requirements.txt`; this lane adds none — it is
-stdlib only.
-
-Every test from the §15 required list is covered:
-
-| Required test | Where |
-|---|---|
-| valid model lifecycle | `test_canonical_cold_start_path` |
-| invalid transition rejection | `InvalidTransitionTests` (8 tests) |
-| auto wake | `test_a_sleeping_model_is_woken_for_the_task` |
-| auto sleep | `SleepPolicyTests` (6 tests) |
-| warm model preference | `test_fast_tier_takes_a_warm_model_over_a_better_cold_one` |
-| RAM overcommit prevention | `test_ram_overcommit_is_refused`, `test_reserve_headroom_is_not_spendable` |
-| VRAM overcommit prevention | `test_vram_overcommit_is_refused` |
-| disk pressure | `DiskPressureTests`, `test_disk_pressure_blocks_acquisition_only` |
-| corrupted download | `test_corruption_of_a_finalised_artifact_is_detected` |
-| checksum mismatch | `test_checksum_mismatch_fails_and_cleans_up` |
-| interrupted download | `test_interrupted_download_resumes_from_the_offset` |
-| runtime crash | `test_a_runtime_crash_is_an_outcome_not_an_exception` |
-| worker disappearance | `test_a_worker_that_disappears_goes_offline` |
-| no internet | `test_no_internet_is_a_status_not_an_exception` |
-| all workers unavailable | `test_all_workers_unavailable_is_an_empty_result` |
-| no eligible FREE_ONLY worker | `test_no_eligible_free_only_candidate_never_falls_back_to_paid` |
-| priority scheduling | `PriorityQueueTests`, `WatermarkAdmissionTests` |
-| background yields to interactive | `BackgroundYieldTests` (3 tests) |
-| stable Brain survives runtime failure | `ContainmentTests`, `test_the_stable_brain_does_not_depend_on_this_plane` |
+The lane adds no dependency to the repository. `llama-cpp-python` was installed
+into this session's interpreter to prove the backend and is deliberately **not**
+added to `requirements.txt`: the adapter degrades to unhealthy without it, and
+every test skips rather than substituting a fake.
 
 ---
 
 ## Design decisions worth carrying forward
 
-1. **Unknown is never zero.** An unreadable RAM/VRAM/disk figure is `None` and
-   named in `unknown_dimensions`. Treating it as 0 refuses every placement;
-   treating it as plentiful invites an OOM. The scheduler is told it does not
-   know and refuses to prove a fit it cannot prove.
-2. **Resident vs. allocating.** Only `WAKE`/`LOAD_FROM_CACHE`/`ACQUIRE` are
-   fit-checked. A `RUNNING` model already holds its memory; refusing it for
-   lack of free memory would evict work to make room for itself.
-3. **Failure kind drives the response.** Timeout → retry here; OOM/disk-full →
-   open the breaker at once (it reproduces exactly); quota → failover only.
-   `UNKNOWN` stays `UNKNOWN` rather than being guessed into a policy.
-4. **Transport failure keeps the partial; checksum failure deletes it.**
-   Resuming corrupt bytes only rebuilds the corruption.
-5. **Observation beats the registry.** A model advertised at 128k that loaded at
-   32k negotiates against 32k, and the contradiction is recorded in
-   `downgrades` rather than smoothed over.
-6. **Authority is structural, not conventional.** `routing_authority` and
-   friends are class attributes fixed at `False`, not constructor arguments, so
-   `WorkerRecord(..., routing_authority=True)` is a `TypeError`.
-7. **`serve()` is a containment boundary.** Every module is written not to
-   raise, but that is a claim about today's code. The wrapper makes it
-   structural: a future bug anywhere in the plane returns `degraded=True`, not a
-   traceback climbing into the router.
+1. **Governance and residency are different questions.** A model can be
+   `APPROVED` and `COLD` at once. One enum forced a choice between facts that
+   were both true.
+2. **A registry row is a claim; a claim is not evidence.** Rows start
+   INELIGIBLE and earn admission. A row claiming `RUNNING` means somebody typed
+   `RUNNING` into YAML.
+3. **Identity is a tuple, never a name.** `model_id` does not say which bytes
+   ran; revision + quantization + content hash do.
+4. **Null is unknown; zero is a measurement.** `peak_vram_mb: 0.0` means measured
+   and unused. `null` means nobody looked.
+5. **Measured, never estimated.** The scheduler's `estimated_start_s` is a
+   planning figure and never reaches evidence.
+6. **A checksum proves identity, not safety.** Hence the first-load sandbox and
+   egress denial, independent of provenance review.
+7. **Absent evidence is a refusal.** An unreadable format field is exactly where
+   guessing is worst.
 
 ---
 
-## Blockers
+## Boundaries held
 
-**Runtime blockers:** none. The lane is stdlib-only and fully tested.
-
-**Dependency blockers:** none for the work completed. Activating any adapter in
-`ADAPTER_TARGETS` needs its runtime installed and proven in a real environment;
-that is deliberately out of scope until an activation lane exists (the Brain
-Expansion activation jobs in `ai-skill-library-ci.yml` are the pattern to copy).
-
-**Open decision for the canonical Brain, not this lane:**
-`AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml` currently forbids local execution
-in the stable request path. Local-first execution cannot be switched on without
-amending that policy. Nothing here depends on the answer.
-
----
-
-## Integration points expected from ChatGPT Work
-
-This lane consumes, and does not produce, the following. Each has a typed shape
-already in the code, so wiring is a translation step rather than a redesign.
-
-| Needed from Work | Consumed as | Where |
-|---|---|---|
-| Open Model Universe registry entries (id, ram/vram/disk, runtime, context, capabilities, quality, specializations, licence/approval) | `scheduler.ModelProfile` | `scheduler.py` |
-| Per-model zero-cost entitlement and privacy ceiling | `ModelProfile.zero_cost`, `.max_privacy` | `scheduler.py` |
-| Official source metadata: URI, **pinned revision**, size, sha256 | `acquisition.AcquisitionRequest` | `acquisition.py` |
-| Registry capability claims for negotiation | `runtime.RegistryClaim` | `runtime.py` |
-| Champion/challenger + benchmark quality scores | `ModelProfile.quality`, `CacheEntry.quality` | `scheduler.py`, `cache.py` |
-| Family grouping / replacement availability | `CacheEntry.replacement_available`, `.specialization_score` | `cache.py` |
-
-Note for Work: acquisition **refuses** `main`, `master`, `latest`, `head`,
-`trunk`, `dev` and `stable` as revisions, and refuses a model with no declared
-size or sha256. Registry entries without a pinned revision and a checksum cannot
-be acquired at all.
+* No registry, catalog or governance file was modified. `registry.yaml` remains
+  the research lane's, with `models: []` untouched.
+* `AI_SKILL_LIBRARY/runtime/cloud_runtime.yaml` was **not** changed. Its
+  `local_install_required: false` / `local_cli_execution: false` still sit in
+  tension with a local-first federation; that policy belongs to the canonical
+  Brain. This plane stays non-authoritative, opt-in and unresolvable from the
+  checkpoint, so nothing depends on the answer.
+* No fabricated model rows, revisions or checksums were written anywhere.
+* `task_router` remains sole routing authority; every new class declares
+  `routing_authority = False` and a test asserts it.
 
 ---
 
 ## Next exact task
 
-Wire the plane to real registry data behind a compile step, without giving it
-authority: a `v4/tools/local_runtime_plan.py` that reads the Model Mesh's
-existing `active.json` / `providers.yaml`, projects each entry into a
-`ModelProfile`, runs `detect_resources()` on the host, and emits a placement
-plan as JSON evidence — read-only, no execution, no writes to any Work-owned
-file. That closes the loop from registry to placement decision and produces the
-first real evidence artifact for this lane.
-
-### Next exact command
+Blocked on the artifact, not on code. When a model record and reachable artifact
+exist:
 
 ```bash
 git fetch origin && git checkout claude/magical-euler-uu98r8
-python -m unittest discover -s AI_SKILL_LIBRARY/tests -p "test_local_runtime_*.py"
-# then TDD the new tool:
-#   AI_SKILL_LIBRARY/tests/test_local_runtime_plan_tool.py
-#   AI_SKILL_LIBRARY/v4/tools/local_runtime_plan.py
+export LOCAL_RUNTIME_TEST_GGUF=/path/to/<artifact>.gguf
+python -m unittest AI_SKILL_LIBRARY.tests.test_local_runtime_real_backend -v
+python AI_SKILL_LIBRARY/v4/tools/local_runtime_plan.py --root . --output /tmp/plan.json
 ```
 
-Do **not** modify `AI_SKILL_LIBRARY/v4/model_mesh/*` to make the projection fit.
-If a field is missing, record the gap here and project a conservative default.
+The first command produces the real generation and the populated evidence
+envelope. The second shows the registry row projecting into a placement plan.
