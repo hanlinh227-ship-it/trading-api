@@ -109,7 +109,75 @@ jobs:
               base = upstream.split("/", 1)[1]
               return [f"{c}/{base}-GGUF" for c in CONVERTERS]
 
-          def conversion_provenance(repo_id: str, revision: str) -> dict:
+          # GGUF metadata value types, needed only so unknown values can be
+          # skipped correctly while walking to the ones that matter.
+          _GGUF_SCALAR = {0: 1, 1: 1, 2: 2, 3: 2, 4: 4, 5: 4, 6: 4, 7: 1, 10: 8, 11: 8, 12: 8}
+
+          def _gguf_kv(buf: bytes) -> dict:
+              """Parse the metadata block at the head of a GGUF file.
+
+              This is where a conversion records what it was made from:
+              general.base_model.N.repo_url and .version, general.quantized_by,
+              general.quantization_version. A README can claim anything; these
+              keys are written by the converter into the artifact itself, so
+              they are the authoritative answer and the only one worth closing a
+              provenance question on.
+              """
+              import struct
+              if len(buf) < 24 or buf[:4] != b"GGUF":
+                  return {}
+              off = 4
+              (version,) = struct.unpack_from("<I", buf, off); off += 4
+              off += 8  # tensor_count
+              (kv_count,) = struct.unpack_from("<Q", buf, off); off += 8
+
+              def rd_str():
+                  nonlocal off
+                  (n,) = struct.unpack_from("<Q", buf, off); off += 8
+                  v = buf[off:off + n]; off += n
+                  return v.decode("utf-8", errors="replace")
+
+              def skip_value(vt):
+                  nonlocal off
+                  if vt == 8:
+                      rd_str()
+                  elif vt == 9:
+                      (et,) = struct.unpack_from("<I", buf, off); off += 4
+                      (n,) = struct.unpack_from("<Q", buf, off); off += 8
+                      for _ in range(n):
+                          skip_value(et)
+                  else:
+                      off += _GGUF_SCALAR.get(vt, 0)
+
+              out = {}
+              for _ in range(min(kv_count, 4096)):
+                  if off + 12 > len(buf):
+                      break
+                  try:
+                      key = rd_str()
+                      (vt,) = struct.unpack_from("<I", buf, off); off += 4
+                      if vt == 8:
+                          out[key] = rd_str()
+                      else:
+                          skip_value(vt)
+                  except Exception:
+                      break
+              out["_gguf_version"] = version
+              return out
+
+          def _gguf_head(repo_id: str, revision: str, filename: str, nbytes: int = 2_000_000) -> bytes:
+              """Just the head of the artifact. The metadata lives at the front,
+              so a Range request answers the provenance question without pulling
+              gigabytes that would then have to be thrown away."""
+              import urllib.parse, urllib.request
+              url = (f"https://huggingface.co/{repo_id}/resolve/{revision}/"
+                     f"{urllib.parse.quote(filename)}")
+              req = urllib.request.Request(url, headers={"Range": f"bytes=0-{nbytes - 1}"})
+              with urllib.request.urlopen(req, timeout=120) as resp:
+                  return resp.read()
+
+          def conversion_provenance(repo_id: str, revision: str,
+                                    filename: str | None = None) -> dict:
               """What a conversion must be able to say about itself.
 
               A GGUF is a derived artifact. Its digest proves only that these
@@ -117,23 +185,60 @@ jobs:
               from. So the fields that matter are the source repo and revision
               it was converted from, and the tool that did it - without those,
               a digest is provenance for nothing.
+
+              Read in order of authority: the artifact's own embedded metadata
+              first, then the model card, then the README prose. A README
+              sentence is the weakest of the three and is used only to fill a
+              field the artifact itself left empty.
               """
               found = {"base_model": None, "base_revision": None,
-                       "converter_tool": None, "readme_excerpt": None}
+                       "converter_tool": None, "readme_excerpt": None,
+                       "evidence_source": {}}
+
+              # 1. The artifact itself.
+              if filename:
+                  try:
+                      meta = _gguf_kv(_gguf_head(repo_id, revision, filename))
+                      repo_url = (meta.get("general.base_model.0.repo_url")
+                                  or meta.get("general.base_model.0.name"))
+                      if repo_url:
+                          found["base_model"] = repo_url
+                          found["evidence_source"]["base_model"] = "gguf_metadata"
+                      ver = meta.get("general.base_model.0.version")
+                      if ver:
+                          found["base_revision"] = ver
+                          found["evidence_source"]["base_revision"] = "gguf_metadata"
+                      qb = meta.get("general.quantized_by")
+                      qv = meta.get("general.quantization_version")
+                      if qb or qv:
+                          found["converter_tool"] = " ".join(
+                              x for x in (qb, f"quantization_version={qv}" if qv else None) if x)
+                          found["evidence_source"]["converter_tool"] = "gguf_metadata"
+                      found["gguf_metadata_keys_seen"] = sorted(
+                          k for k in meta if k.startswith("general."))
+                  except Exception as exc:
+                      found["gguf_metadata_error"] = f"{type(exc).__name__}: {exc}"
+
+              # 2. The model card.
               try:
                   info = api.model_info(repo_id=repo_id, files_metadata=False)
               except Exception:
                   return found
               card = getattr(info, "cardData", None) or {}
-              if isinstance(card, dict):
+              if isinstance(card, dict) and not found["base_model"]:
                   base = card.get("base_model")
                   if isinstance(base, list):
                       base = base[0] if base else None
-                  found["base_model"] = base
+                  if base:
+                      found["base_model"] = base
+                      found["evidence_source"]["base_model"] = "model_card"
               for tag in (getattr(info, "tags", None) or []):
                   tag = str(tag)
                   if tag.startswith("base_model:") and not found["base_model"]:
                       found["base_model"] = tag.split(":", 1)[1]
+                      found["evidence_source"]["base_model"] = "hub_tag"
+
+              # 3. The README, weakest and last.
               try:
                   from huggingface_hub import hf_hub_download
                   readme = pathlib.Path(hf_hub_download(
@@ -141,14 +246,21 @@ jobs:
                   text = readme.read_text(encoding="utf-8", errors="replace")
                   found["readme_excerpt"] = text[:1500]
                   import re
-                  m = re.search(r"llama\.cpp release (b\d+)", text)
-                  if m:
-                      found["converter_tool"] = f"llama.cpp {m.group(1)}"
-                  m = re.search(r"[0-9a-f]{40}", text)
-                  if m:
-                      found["base_revision"] = m.group(0)
+                  if not found["converter_tool"]:
+                      m = re.search(r"llama\.cpp release (b\d+)", text)
+                      if m:
+                          found["converter_tool"] = f"llama.cpp {m.group(1)}"
+                          found["evidence_source"]["converter_tool"] = "readme_prose"
+                  if not found["base_revision"]:
+                      m = re.search(r"[0-9a-f]{40}", text)
+                      if m:
+                          found["base_revision"] = m.group(0)
+                          found["evidence_source"]["base_revision"] = "readme_prose"
               except Exception:
                   pass
+
+              found["provenance_complete"] = bool(
+                  found["base_model"] and found["base_revision"] and found["converter_tool"])
               return found
 
           def inspect(repo_id: str) -> dict | None:
@@ -260,7 +372,8 @@ jobs:
                       picked = choose(repo)
                       if not picked:
                           continue
-                      prov = conversion_provenance(repo["repo_id"], repo["revision"])
+                      prov = conversion_provenance(
+                          repo["repo_id"], repo["revision"], picked.get("filename"))
                       row["community_candidates"].append({
                           "repo_id": repo["repo_id"],
                           "immutable_revision": repo["revision"],
@@ -269,8 +382,13 @@ jobs:
                           **picked,
                           "size_gb": round(picked["size_bytes"] / 1e9, 2),
                           "conversion_provenance": prov,
+                          # All three, not two. The base revision is the field
+                          # that pins WHICH weights were converted, and omitting
+                          # it from the check made "complete" mean less than the
+                          # rule it was enforcing.
                           "provenance_complete": bool(
-                              prov.get("base_model") and prov.get("converter_tool")),
+                              prov.get("base_model") and prov.get("base_revision")
+                              and prov.get("converter_tool")),
                       })
 
               if row["selected"] is None:
