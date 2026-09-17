@@ -1,0 +1,55 @@
+version: 1
+status: active
+enabled: true
+authority: false
+routing_authority: false
+reasoning_authority: false
+execution_authority: false
+stable_mutation: false
+role: context_only
+
+activation:
+  surface: new_chat_bootstrap
+  mode: project_scoped_fail_closed
+  automatic_resume: true
+  require_current_project_authority_gate: true
+  require_verified_active_state: true
+  ambiguity_action: no_resume
+
+scope:
+  cross_project_read: false
+  cross_project_write: false
+  explicit_project_must_match_exactly: true
+  one_primary_focus_required_for_implicit_resume: true
+
+writes:
+  durable_direct_write: false
+  candidate_gate_required: true
+  existing_memory_lifecycle_required: true
+  raw_private_chat_allowed: false
+  unreviewed_runtime_state_allowed: false
+
+privacy:
+  reject_sensitive_data: true
+  forbidden: [credentials, api_keys, private_keys, secrets, seed_phrases, session_tokens, raw_private_chat]
+
+external_inspiration:
+  executable_dependency_added: false
+  repositories:
+    - {repo: rohitg00/agentmemory, concepts: [provenance, supersession, hybrid_retrieval]}
+    - {repo: mem0ai/mem0, concepts: [scoped_durable_facts, dedup_update]}
+    - {repo: getzep/graphiti, concepts: [temporal_validity, supersession]}
+    - {repo: mem0ai/openmemory, concepts: [portable_session_handoff]}
+    - {repo: topoteretes/cognee, concepts: [knowledge_consolidation]}
+    - {repo: langchain-ai/langmem, concepts: [memory_consolidation]}
+    - {repo: letta-ai/letta, concepts: [stateful_agent_memory]}
+    - {repo: supermemoryai/supermemory, concepts: [cross_llm_memory]}
+
+protected_subsystems:
+  mutate: false
+  paths:
+    - cloudflare-worker/image-render/
+    - TRADING_STATE
+    - IMAGE_RENDER_BATCH
+    - IMAGE_LOGICAL_JOB
+    - provider_mesh
