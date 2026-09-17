@@ -27,6 +27,8 @@ def load_tool(name: str):
 
 
 def model_record(index: int) -> dict:
+    revision = f"{index:040x}"[-40:]
+    digest = f"{index:064x}"[-64:]
     return {
         "model_id": f"example/model-{index}",
         "family": f"family-{index}",
@@ -36,7 +38,15 @@ def model_record(index: int) -> dict:
         "runtime_build": "unresolved",
         "official_upstream": "https://example.invalid/official",
         "weights_source": "https://example.invalid/weights",
-        "upstream_revision": "unresolved",
+        "upstream_revision": revision,
+        "immutable_revision": revision,
+        "artifact": {
+            "filename": f"model-{index}.gguf",
+            "format": "gguf",
+            "sha256": digest,
+            "size_bytes": 1,
+            "quantization": "none",
+        },
         "release_date": None,
         "license_name": "unresolved",
         "license_url": "https://example.invalid/license",
@@ -49,6 +59,8 @@ def model_record(index: int) -> dict:
         "open_weight": False,
         "api_required": False,
         "paid_token_required": False,
+        "zero_cost_eligible": True,
+        "offline_ready": False,
         "local_runtime_possible": False,
         "capabilities": {},
         "hardware_profile": {
@@ -67,6 +79,20 @@ def model_record(index: int) -> dict:
         "latency_class": "unverified",
         "privacy_class": "unverified",
         "cost_class": "zero_paid_token_candidate",
+        "lineage_id": f"example-lineage-{index}",
+        "admission_evidence": ["https://example.invalid/official"],
+        "safe_admission": {
+            "safe_format": False,
+            "pickle_risk": False,
+            "trust_remote_code_required": False,
+            "custom_code_required": False,
+            "provenance_verified": False,
+            "license_verified": False,
+            "digest_verified": False,
+            "isolated_first_load_required": True,
+            "egress_required": True,
+            "quarantine_policy": "metadata_only",
+        },
         "lifecycle_state": "QUARANTINED",
         "health": "unknown",
         "last_verified": None,
@@ -109,14 +135,24 @@ class OpenModelUniverseContractTests(unittest.TestCase):
         self.assertIn("AI_SKILL_LIBRARY/v4/tools/validate_open_model_universe.py", text)
         self.assertIn('"validate_open_model_universe.py"', text)
 
-    def test_checked_in_registry_is_empty_authority_free_and_not_active(self):
+    def test_checked_in_registry_has_one_authority_free_admission_record_not_active_runtime(self):
         data = yaml.safe_load(REGISTRY.read_text(encoding="utf-8"))
         self.assertEqual(data["registry_id"], "OPEN_MODEL_UNIVERSE")
-        self.assertEqual(data["models"], [])
+        self.assertEqual(len(data["models"]), 1)
+        row = data["models"][0]
+        self.assertEqual(row["model_id"], "qwen3-0.6b-q8_0-gguf")
+        self.assertEqual(row["immutable_revision"], "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa")
+        self.assertEqual(row["artifact"]["sha256"], "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031")
+        self.assertEqual(row["artifact"]["size_bytes"], 639446688)
+        self.assertEqual(row["runtime_support"], ["llama_cpp"])
+        self.assertEqual(row["lifecycle_state"], "APPROVED")
+        self.assertIs(row["offline_ready"], False)
+        self.assertIs(row["safe_admission"]["digest_verified"], False)
         self.assertEqual(data["policy"]["cost_policy"], "OPEN_MODEL_ZERO_TOKEN_FIRST")
         self.assertEqual(data["policy"]["paid_fallback"], "NO_PAID_FALLBACK")
         self.assertIs(data["policy"]["registry_implies_activation"], False)
         self.assertTrue(all(value is False for value in data["authority"].values()))
+        self.assertIs(row["authority"], False)
 
     def test_lifecycle_vocabulary_and_safe_transitions_are_explicit(self):
         universe = load_tool("open_model_universe")
@@ -141,7 +177,7 @@ class OpenModelUniverseContractTests(unittest.TestCase):
     def test_valid_empty_and_large_registry_documents_pass(self):
         validator = load_tool("validate_open_model_universe")
         self.assertEqual(validator.validate_document(registry_document()), [])
-        large = registry_document([model_record(index) for index in range(1000)])
+        large = registry_document([model_record(index) for index in range(1, 1001)])
         self.assertEqual(validator.validate_document(large), [])
 
     def test_duplicate_model_identity_fails_closed(self):
