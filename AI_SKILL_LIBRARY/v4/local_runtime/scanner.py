@@ -153,6 +153,60 @@ class _Reader:
         raise ScanError(f"unknown metadata value type {value_type}")
 
 
+def read_value(reader: "_Reader", value_type: int) -> Any:
+    """Read one scalar metadata value. Arrays are skipped, not materialised."""
+    if value_type in _FIXED:
+        fmt, size = _FIXED[value_type]
+        return reader.unpack(fmt, size)
+    if value_type == _STRING:
+        return reader.string()
+    reader.skip_value(value_type)
+    return None
+
+
+def gguf_metadata(path: Path | str, keys: frozenset[str] | set[str] | None = None) -> dict[str, Any]:
+    """Read selected scalar metadata keys from a GGUF header.
+
+    Exists so facts about a model - its context length, its declared
+    architecture - can be taken *from the artifact* rather than from a model
+    card or from what the family is assumed to use. A registry field filled in
+    from reputation is not evidence; this reads the bytes.
+
+    It reuses the same bounded reader as the structural scan, so it inherits
+    every limit there and evaluates nothing. Arrays (vocabularies, merges) are
+    skipped rather than loaded, which keeps this cheap on a multi-gigabyte file.
+    Unreadable metadata yields no key rather than a guessed value.
+    """
+    file_path = Path(path)
+    wanted = set(keys) if keys else None
+    found: dict[str, Any] = {}
+    try:
+        size = file_path.stat().st_size
+        with file_path.open("rb") as handle:
+            reader = _Reader(handle, size)
+            if reader.read(4) != GGUF_MAGIC:
+                return {}
+            version = reader.unpack("<I", 4)
+            if version not in SUPPORTED_VERSIONS:
+                return {}
+            reader.unpack("<Q", 8)                     # tensor_count
+            kv_count = reader.unpack("<Q", 8)
+            if kv_count > MAX_KV_PAIRS:
+                return {}
+            for _ in range(kv_count):
+                key = reader.string()
+                value_type = reader.unpack("<I", 4)
+                if wanted is not None and key not in wanted:
+                    reader.skip_value(value_type)
+                    continue
+                value = read_value(reader, value_type)
+                if value is not None:
+                    found[key] = value
+    except (ScanError, OSError, struct.error):
+        return found
+    return found
+
+
 def scan_gguf(path: Path | str) -> ScanResult:
     """Parse a GGUF container structurally. Never executes, never raises."""
     file_path = Path(path)

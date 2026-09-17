@@ -116,9 +116,22 @@ def safe_arithmetic_value(expression: str) -> tuple[Any, str | None]:
         return None, f"evaluation_failed: {type(exc).__name__}"
 
 
-def _first_number(text: str) -> float | None:
-    match = re.search(r"-?\d+(?:\.\d+)?", text or "")
-    return float(match.group(0)) if match else None
+def _final_number(text: str) -> float | None:
+    """The last number on the answer's first line: the model's final answer.
+
+    Taking the *first* number marked a correct answer wrong whenever the model
+    showed its working - Granite answered "9 * 3 = 27 dollars", which is right,
+    and was scored against the 9. Reading the last number is the ordinary
+    convention for a worked answer and is not gameable the way "the expected
+    number appears somewhere" would be: a model that lists candidates still has
+    to end on the right one.
+
+    Scoped to the first line so a few-shot continuation spilling into the next
+    question cannot supply the number.
+    """
+    first_line = (text or "").strip().splitlines()[0] if (text or "").strip() else ""
+    matches = re.findall(r"-?\d+(?:\.\d+)?", first_line)
+    return float(matches[-1]) if matches else None
 
 
 def _has_vietnamese_diacritics(text: str) -> bool:
@@ -145,7 +158,7 @@ def verify(category: str, expectation: Mapping[str, Any], output: str) -> dict[s
 
     if category == "MATH":
         expected = float(expectation["expected_number"])
-        observed = _first_number(text)
+        observed = _final_number(text)
         if observed is None:
             failures.append("no_number_in_output")
         elif abs(observed - expected) > 1e-9:

@@ -1,8 +1,10 @@
 {
-  "baseline_status": "NOT_READY",
-  "prompts_hash": "283b05ec694008e11d1f664691364b395afae62a041b070c5df69c6f0abb0faf",
-  "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-  "passed": 10,
+  "baseline_status": "READY",
+  "model_id": "Qwen/Qwen3-4B-GGUF",
+  "model_selected_because": "highest measured capability 0.916667 of 4 admitted and measured models",
+  "prompts_hash": "2591256e1a55823083b654b2c277bef28bf5d9a9078a1034354868e0114a826d",
+  "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+  "passed": 12,
   "reproducible": 12,
   "total": 12,
   "wave_report": {
@@ -13,31 +15,31 @@
         "schema": "benchmark_run_v1",
         "task_id": "code-01",
         "category": "CODING",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "CODING",
         "verifier_passed": true,
         "failure": null,
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:code-01",
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:code-01",
         "output": " 12 + 30\n\nTask: compute ",
         "repeat_output": " 12 + 30\n\nTask: compute ",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 431.726,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3000.96,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 447.776,
+          "inference_latency_ms": 3052.996,
           "tokens_output": 12
         }
       },
@@ -45,31 +47,31 @@
         "schema": "benchmark_run_v1",
         "task_id": "code-02",
         "category": "CODING",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "CODING",
         "verifier_passed": true,
         "failure": null,
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:code-02",
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:code-02",
         "output": " 100 - 45\n\nTask: compute",
         "repeat_output": " 100 - 45\n\nTask: compute",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 446.807,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 2969.876,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 451.023,
+          "inference_latency_ms": 2988.778,
           "tokens_output": 12
         }
       },
@@ -77,31 +79,31 @@
         "schema": "benchmark_run_v1",
         "task_id": "gr-01",
         "category": "GENERAL_REASONING",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "RESEARCH",
         "verifier_passed": true,
         "failure": null,
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:gr-01",
-        "output": " Tokyo\n\nQ: What is the capital of France?\nA",
-        "repeat_output": " Tokyo\n\nQ: What is the capital of France?\nA",
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:gr-01",
+        "output": " Tokyo\n\nQ: What is the chemical symbol for water?\n",
+        "repeat_output": " Tokyo\n\nQ: What is the chemical symbol for water?\n",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 481.982,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3120.211,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 475.477,
+          "inference_latency_ms": 3068.638,
           "tokens_output": 12
         }
       },
@@ -109,36 +111,31 @@
         "schema": "benchmark_run_v1",
         "task_id": "gr-02",
         "category": "GENERAL_REASONING",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "RESEARCH",
-        "verifier_passed": false,
-        "failure": {
-          "verifier_failures": [
-            "asserted_contradiction:oxygen",
-            "expected_answer_absent"
-          ]
-        },
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:gr-02",
-        "output": " Oxygen\n\nQ: What is the name of the first planet",
-        "repeat_output": " Oxygen\n\nQ: What is the name of the first planet",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:gr-02",
+        "output": " Carbon dioxide\n\nQ: What is the capital of France?\n",
+        "repeat_output": " Carbon dioxide\n\nQ: What is the capital of France?\n",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 472.987,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3057.077,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 479.822,
+          "inference_latency_ms": 2978.44,
           "tokens_output": 12
         }
       },
@@ -146,31 +143,31 @@
         "schema": "benchmark_run_v1",
         "task_id": "gr-03",
         "category": "GENERAL_REASONING",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "RESEARCH",
         "verifier_passed": true,
         "failure": null,
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:gr-03",
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:gr-03",
         "output": " 7\n\nQ: What is the capital of France?\n",
         "repeat_output": " 7\n\nQ: What is the capital of France?\n",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 454.365,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3147.409,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 452.083,
+          "inference_latency_ms": 3066.601,
           "tokens_output": 12
         }
       },
@@ -178,31 +175,31 @@
         "schema": "benchmark_run_v1",
         "task_id": "math-01",
         "category": "MATH",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "MATH",
         "verifier_passed": true,
         "failure": null,
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:math-01",
-        "output": " 60\n\nQ: What is 100",
-        "repeat_output": " 60\n\nQ: What is 100",
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:math-01",
+        "output": " 60\n\nQ: What is the capital of France",
+        "repeat_output": " 60\n\nQ: What is the capital of France",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 466.45,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3021.347,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 465.935,
+          "inference_latency_ms": 3077.44,
           "tokens_output": 12
         }
       },
@@ -210,31 +207,31 @@
         "schema": "benchmark_run_v1",
         "task_id": "math-02",
         "category": "MATH",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "MATH",
         "verifier_passed": true,
         "failure": null,
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:math-02",
-        "output": " 27\n\nQ: What is the sum of the numbers 1 to",
-        "repeat_output": " 27\n\nQ: What is the sum of the numbers 1 to",
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:math-02",
+        "output": " 27\n\nQ: What is the capital of France?\nA: Paris",
+        "repeat_output": " 27\n\nQ: What is the capital of France?\nA: Paris",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 585.28,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3964.443,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 591.839,
+          "inference_latency_ms": 3966.653,
           "tokens_output": 16
         }
       },
@@ -242,31 +239,31 @@
         "schema": "benchmark_run_v1",
         "task_id": "so-01",
         "category": "STRUCTURED_OUTPUT",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "STRUCTURED_OUTPUT",
         "verifier_passed": true,
         "failure": null,
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:so-01",
-        "output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 25\nOutput: {\"name\": \"Alice\", \"",
-        "repeat_output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 25\nOutput: {\"name\": \"Alice\", \"",
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:so-01",
+        "output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 28\nOutput: {\"name\": \"Alice\", \"",
+        "repeat_output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 28\nOutput: {\"name\": \"Alice\", \"",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 1040.267,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 7128.564,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 1005.466,
+          "inference_latency_ms": 7308.145,
           "tokens_output": 32
         }
       },
@@ -274,31 +271,31 @@
         "schema": "benchmark_run_v1",
         "task_id": "so-02",
         "category": "STRUCTURED_OUTPUT",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "STRUCTURED_OUTPUT",
         "verifier_passed": true,
         "failure": null,
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:so-02",
-        "output": " {\"city\": \"Lisbon\", \"country\": \"Portugal\"}\n\nInput: city Paris, country France\nOutput: {\"city\": \"Paris\", \"",
-        "repeat_output": " {\"city\": \"Lisbon\", \"country\": \"Portugal\"}\n\nInput: city Paris, country France\nOutput: {\"city\": \"Paris\", \"",
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:so-02",
+        "output": " {\"city\": \"L Lisbon\", \"country\": \"Portugal\"}\n\nWait, why is the first input's country \"Italy\" and the second's \"Port",
+        "repeat_output": " {\"city\": \"L Lisbon\", \"country\": \"Portugal\"}\n\nWait, why is the first input's country \"Italy\" and the second's \"Port",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 1021.288,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 7275.049,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 999.337,
+          "inference_latency_ms": 7260.768,
           "tokens_output": 32
         }
       },
@@ -306,63 +303,63 @@
         "schema": "benchmark_run_v1",
         "task_id": "vi-01",
         "category": "VIETNAMESE",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "VIETNAMESE",
         "verifier_passed": true,
         "failure": null,
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:vi-01",
-        "output": " Paris.\n\nTrả lời ngắn gọn bằng tiếng Anh.\n\nAnswer: Paris.\n\nTrả lời ngắn gọn bằng tiếng Việt",
-        "repeat_output": " Paris.\n\nTrả lời ngắn gọn bằng tiếng Anh.\n\nAnswer: Paris.\n\nTrả lời ngắn gọn bằng tiếng Việt",
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:vi-01",
+        "output": " Paris.\n\nĐúng. Thủ đô của nước Pháp là Paris. ✅\nParis là thủ đô của Pháp. ✅",
+        "repeat_output": " Paris.\n\nĐúng. Thủ đô của nước Pháp là Paris. ✅\nParis là thủ đô của Pháp. ✅",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 745.542,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 5514.13,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 754.834,
-          "tokens_output": 24
+          "inference_latency_ms": 5450.72,
+          "tokens_output": 25
         }
       },
       {
         "schema": "benchmark_run_v1",
         "task_id": "vi-02",
         "category": "VIETNAMESE",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "VIETNAMESE",
         "verifier_passed": true,
         "failure": null,
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:vi-02",
-        "output": " 7 ngày.\n\nTrả lời ngắn gọn bằng tiếng Anh.\n\nAnswer: 7 days.\n\nTrả lời ngắn",
-        "repeat_output": " 7 ngày.\n\nTrả lời ngắn gọn bằng tiếng Anh.\n\nAnswer: 7 days.\n\nTrả lời ngắn",
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:vi-02",
+        "output": " 7 ngày.\n\nHỏi: Một tuần có bao nhiêu ngày?\nĐáp: 7 ngày.\n\nHỏi",
+        "repeat_output": " 7 ngày.\n\nHỏi: Một tuần có bao nhiêu ngày?\nĐáp: 7 ngày.\n\nHỏi",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 739.33,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 5230.728,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 745.69,
+          "inference_latency_ms": 5413.52,
           "tokens_output": 24
         }
       },
@@ -370,63 +367,614 @@
         "schema": "benchmark_run_v1",
         "task_id": "vi-03",
         "category": "VIETNAMESE",
-        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
         "family": "Qwen3",
-        "revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
-        "artifact_hash": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
-        "quantization": "Q8_0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
         "runtime": "llama.cpp",
         "runtime_version": "llama-cpp-python/0.3.35",
-        "environment_fingerprint": "b7b3c301c98a1ac57312af3ba2fc485a",
-        "prompt_version": "wave0-prompts-v2",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
         "benchmark_version": "wave0-v1",
         "real_inference": true,
         "reproducible": true,
         "verifier": "VIETNAMESE",
-        "verifier_passed": false,
-        "failure": {
-          "verifier_failures": [
-            "expected_term_absent"
-          ]
-        },
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:vi-03",
-        "output": " Bắc.\n\nTrả lời ngắn gọn bằng tiếng Anh.\n\nAnswer: The sun rises in the north.\n\nTrả lời",
-        "repeat_output": " Bắc.\n\nTrả lời ngắn gọn bằng tiếng Anh.\n\nAnswer: The sun rises in the north.\n\nTrả lời",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:vi-03",
+        "output": " Đông.\n\nHỏi: Mặt trời lặn ở hướng nào?\nĐáp: Mặt trời lặn ở hướng",
+        "repeat_output": " Đông.\n\nHỏi: Mặt trời lặn ở hướng nào?\nĐáp: Mặt trời lặn ở hướng",
         "cold_metrics": {
-          "load_latency_ms": 2800.488,
-          "inference_latency_ms": 736.905,
-          "peak_ram_mb": 1823.97
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 5314.533,
+          "peak_ram_mb": 5461.31
         },
         "warm_metrics": {
-          "inference_latency_ms": 739.808,
+          "inference_latency_ms": 5340.703,
           "tokens_output": 24
         }
       }
     ],
-    "failures": [
+    "failures": [],
+    "readiness_failures": [],
+    "ready_to_freeze": true
+  },
+  "baseline": {
+    "baseline_id": "PERSONAL_AI_BASELINE_001",
+    "model_id": "Qwen/Qwen3-4B-GGUF",
+    "family": "Qwen3",
+    "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+    "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+    "quantization": "Q4_K_M",
+    "runtime": "llama.cpp",
+    "runtime_version": "llama-cpp-python/0.3.35",
+    "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+    "prompt_version": "wave0-prompts-v3",
+    "benchmark_version": "wave0-v1",
+    "wave0_results": [
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "code-01",
+        "category": "CODING",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "CODING",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:code-01",
+        "output": " 12 + 30\n\nTask: compute ",
+        "repeat_output": " 12 + 30\n\nTask: compute ",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3000.96,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3052.996,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "code-02",
+        "category": "CODING",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "CODING",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:code-02",
+        "output": " 100 - 45\n\nTask: compute",
+        "repeat_output": " 100 - 45\n\nTask: compute",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 2969.876,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 2988.778,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-01",
+        "category": "GENERAL_REASONING",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:gr-01",
+        "output": " Tokyo\n\nQ: What is the chemical symbol for water?\n",
+        "repeat_output": " Tokyo\n\nQ: What is the chemical symbol for water?\n",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3120.211,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3068.638,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-02",
+        "category": "GENERAL_REASONING",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:gr-02",
+        "output": " Carbon dioxide\n\nQ: What is the capital of France?\n",
+        "repeat_output": " Carbon dioxide\n\nQ: What is the capital of France?\n",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3057.077,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 2978.44,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-03",
+        "category": "GENERAL_REASONING",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:gr-03",
+        "output": " 7\n\nQ: What is the capital of France?\n",
+        "repeat_output": " 7\n\nQ: What is the capital of France?\n",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3147.409,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3066.601,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "math-01",
+        "category": "MATH",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "MATH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:math-01",
+        "output": " 60\n\nQ: What is the capital of France",
+        "repeat_output": " 60\n\nQ: What is the capital of France",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3021.347,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3077.44,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "math-02",
+        "category": "MATH",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "MATH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:math-02",
+        "output": " 27\n\nQ: What is the capital of France?\nA: Paris",
+        "repeat_output": " 27\n\nQ: What is the capital of France?\nA: Paris",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 3964.443,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 3966.653,
+          "tokens_output": 16
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "so-01",
+        "category": "STRUCTURED_OUTPUT",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "STRUCTURED_OUTPUT",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:so-01",
+        "output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 28\nOutput: {\"name\": \"Alice\", \"",
+        "repeat_output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 28\nOutput: {\"name\": \"Alice\", \"",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 7128.564,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 7308.145,
+          "tokens_output": 32
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "so-02",
+        "category": "STRUCTURED_OUTPUT",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "STRUCTURED_OUTPUT",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:so-02",
+        "output": " {\"city\": \"L Lisbon\", \"country\": \"Portugal\"}\n\nWait, why is the first input's country \"Italy\" and the second's \"Port",
+        "repeat_output": " {\"city\": \"L Lisbon\", \"country\": \"Portugal\"}\n\nWait, why is the first input's country \"Italy\" and the second's \"Port",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 7275.049,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 7260.768,
+          "tokens_output": 32
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-01",
+        "category": "VIETNAMESE",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:vi-01",
+        "output": " Paris.\n\nĐúng. Thủ đô của nước Pháp là Paris. ✅\nParis là thủ đô của Pháp. ✅",
+        "repeat_output": " Paris.\n\nĐúng. Thủ đô của nước Pháp là Paris. ✅\nParis là thủ đô của Pháp. ✅",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 5514.13,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 5450.72,
+          "tokens_output": 25
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-02",
+        "category": "VIETNAMESE",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:vi-02",
+        "output": " 7 ngày.\n\nHỏi: Một tuần có bao nhiêu ngày?\nĐáp: 7 ngày.\n\nHỏi",
+        "repeat_output": " 7 ngày.\n\nHỏi: Một tuần có bao nhiêu ngày?\nĐáp: 7 ngày.\n\nHỏi",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 5230.728,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 5413.52,
+          "tokens_output": 24
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-03",
+        "category": "VIETNAMESE",
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "artifact_hash": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "2767410d2d9f202f7376a33d5c6a31c2",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:vi-03",
+        "output": " Đông.\n\nHỏi: Mặt trời lặn ở hướng nào?\nĐáp: Mặt trời lặn ở hướng",
+        "repeat_output": " Đông.\n\nHỏi: Mặt trời lặn ở hướng nào?\nĐáp: Mặt trời lặn ở hướng",
+        "cold_metrics": {
+          "load_latency_ms": 5116.296,
+          "inference_latency_ms": 5314.533,
+          "peak_ram_mb": 5461.31
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 5340.703,
+          "tokens_output": 24
+        }
+      }
+    ],
+    "cold_metrics": [
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 3000.96,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 2969.876,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 3120.211,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 3057.077,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 3147.409,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 3021.347,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 3964.443,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 7128.564,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 7275.049,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 5514.13,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 5230.728,
+        "peak_ram_mb": 5461.31
+      },
+      {
+        "load_latency_ms": 5116.296,
+        "inference_latency_ms": 5314.533,
+        "peak_ram_mb": 5461.31
+      }
+    ],
+    "warm_metrics": [
+      {
+        "inference_latency_ms": 3052.996,
+        "tokens_output": 12
+      },
+      {
+        "inference_latency_ms": 2988.778,
+        "tokens_output": 12
+      },
+      {
+        "inference_latency_ms": 3068.638,
+        "tokens_output": 12
+      },
+      {
+        "inference_latency_ms": 2978.44,
+        "tokens_output": 12
+      },
+      {
+        "inference_latency_ms": 3066.601,
+        "tokens_output": 12
+      },
+      {
+        "inference_latency_ms": 3077.44,
+        "tokens_output": 12
+      },
+      {
+        "inference_latency_ms": 3966.653,
+        "tokens_output": 16
+      },
+      {
+        "inference_latency_ms": 7308.145,
+        "tokens_output": 32
+      },
+      {
+        "inference_latency_ms": 7260.768,
+        "tokens_output": 32
+      },
+      {
+        "inference_latency_ms": 5450.72,
+        "tokens_output": 25
+      },
+      {
+        "inference_latency_ms": 5413.52,
+        "tokens_output": 24
+      },
+      {
+        "inference_latency_ms": 5340.703,
+        "tokens_output": 24
+      }
+    ],
+    "failure_rate": 0.0,
+    "verifier_results": [
+      {
+        "task_id": "code-01",
+        "passed": true
+      },
+      {
+        "task_id": "code-02",
+        "passed": true
+      },
+      {
+        "task_id": "gr-01",
+        "passed": true
+      },
       {
         "task_id": "gr-02",
-        "failure": {
-          "verifier_failures": [
-            "asserted_contradiction:oxygen",
-            "expected_answer_absent"
-          ]
-        },
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:gr-02"
+        "passed": true
+      },
+      {
+        "task_id": "gr-03",
+        "passed": true
+      },
+      {
+        "task_id": "math-01",
+        "passed": true
+      },
+      {
+        "task_id": "math-02",
+        "passed": true
+      },
+      {
+        "task_id": "so-01",
+        "passed": true
+      },
+      {
+        "task_id": "so-02",
+        "passed": true
+      },
+      {
+        "task_id": "vi-01",
+        "passed": true
+      },
+      {
+        "task_id": "vi-02",
+        "passed": true
       },
       {
         "task_id": "vi-03",
-        "failure": {
-          "verifier_failures": [
-            "expected_term_absent"
-          ]
-        },
-        "raw_run_ref": "ee18e02cb87de9249cebf984aa0255b5:b7b3c301c98a1ac57312af3ba2fc485a:vi-03"
+        "passed": true
       }
     ],
-    "readiness_failures": [
-      "verifier_or_run_failure"
+    "raw_run_refs": [
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:code-01",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:code-02",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:gr-01",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:gr-02",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:gr-03",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:math-01",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:math-02",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:so-01",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:so-02",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:vi-01",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:vi-02",
+      "0af309b5b9d552063c8cc76f9415130a:2767410d2d9f202f7376a33d5c6a31c2:vi-03"
     ],
-    "ready_to_freeze": false
+    "frozen": true
   }
 }

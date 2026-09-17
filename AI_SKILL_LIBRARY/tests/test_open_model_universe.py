@@ -150,7 +150,11 @@ class OpenModelUniverseContractTests(unittest.TestCase):
     def test_checked_in_registry_is_authority_free_and_not_active(self):
         data = yaml.safe_load(REGISTRY.read_text(encoding="utf-8"))
         self.assertEqual(data["registry_id"], "OPEN_MODEL_UNIVERSE")
-        self.assertEqual(len(data["models"]), 1)
+        # Not a count. How many models are registered is an operational fact
+        # that changes every time one is admitted; what must hold is that
+        # registration confers nothing. Asserting "exactly 1" made admitting a
+        # second model look like a contract breach.
+        self.assertTrue(data["models"])
         self.assertFalse(data["policy"]["registry_implies_activation"])
         self.assertTrue(all(value is False for value in data["authority"].values()))
 

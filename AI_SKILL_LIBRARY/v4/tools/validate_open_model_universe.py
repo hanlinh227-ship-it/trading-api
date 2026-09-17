@@ -137,6 +137,35 @@ def _risk_acceptance_refusals(model: dict, index: int) -> list[str]:
     return errors
 
 
+def _scan_reference_refusals(model: dict, index: int) -> list[str]:
+    """A cited scan must be a scan of *these* bytes.
+
+    The same rule as capability evidence, for the same reason. A scan result is
+    only meaningful because it names the digest it examined; a reference whose
+    digest does not match this record's artifact is a clearance borrowed from a
+    different file, which is precisely how one model's approval becomes
+    another's.
+
+    Also refuses a reference that claims a pass the admission evidence does not,
+    so the citation cannot quietly outrank the field it supports.
+    """
+    errors: list[str] = []
+    reference = model.get("malware_scan_reference")
+    if not isinstance(reference, dict):
+        return errors
+    declared = str((model.get("artifact_identity") or {}).get("sha256") or "")
+    cited = str(reference.get("artifact_sha256") or "")
+    if declared and cited != declared:
+        errors.append(
+            f"malware scan reference is bound to different artifact bytes at models[{index}]"
+        )
+    if not str(reference.get("signature_database_version") or "").strip():
+        errors.append(
+            f"malware scan reference records no signature database version at models[{index}]"
+        )
+    return errors
+
+
 def _capability_refusals(model: dict, index: int) -> list[str]:
     """A capability score above zero must be backed by a measurement.
 
@@ -303,6 +332,7 @@ def validate_document(document: object, schema: dict | None = None) -> list[str]
         # capability score is a defect the moment it is written down, not
         # the moment the model becomes selectable.
         errors.extend(_capability_refusals(model, index))
+        errors.extend(_scan_reference_refusals(model, index))
 
         for field in URL_FIELDS:
             if _unsafe_https_url(model.get(field)):

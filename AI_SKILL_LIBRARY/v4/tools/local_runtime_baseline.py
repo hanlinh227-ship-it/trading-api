@@ -73,7 +73,7 @@ def environment_fingerprint(identity, backend_version: str, context_limit: int) 
     return hashlib.sha256(body.encode("utf-8")).hexdigest()[:32]
 
 
-def run(root: Path, cache: Path) -> dict[str, Any]:
+def run(root: Path, cache: Path, model_id: str | None = None) -> dict[str, Any]:
     tasks = load_wave0(root)
     prompt_doc = load_prompts()
     prompts = prompt_doc["prompts"]
@@ -82,13 +82,39 @@ def run(root: Path, cache: Path) -> dict[str, Any]:
         raise Wave0Error(f"no prompt for canonical tasks: {missing}")
 
     registry = load_registry(root)
-    record = None
-    for candidate in registry.get("models") or []:
-        if project_record(candidate, available_runtimes=["llama.cpp"]).placeable:
-            record = candidate
-            break
-    if record is None:
-        return {"baseline_status": "REFUSED", "reason": "no governance-admitted local model"}
+    record = selected_reason = None
+    if model_id:
+        record = next((m for m in registry.get("models") or []
+                       if str(m.get("model_id")) == model_id), None)
+        if record is None:
+            return {"baseline_status": "REFUSED", "reason": f"no registry row for {model_id}"}
+        if not project_record(record, available_runtimes=["llama.cpp"]).placeable:
+            return {"baseline_status": "REFUSED", "reason": f"{model_id} is not cleared for placement"}
+        selected_reason = "explicitly requested"
+    else:
+        # Pick by measured capability, not by registry order. Taking the first
+        # admitted row made the baseline depend on where a model happened to be
+        # written down, which is how the weakest admitted model ends up being
+        # the one the baseline is frozen against.
+        #
+        # A capability only counts when its evidence names this record's own
+        # digest, so an unmeasured model cannot win by declaring a number.
+        ranked = []
+        for candidate in registry.get("models") or []:
+            if not project_record(candidate, available_runtimes=["llama.cpp"]).placeable:
+                continue
+            digest = str((candidate.get("artifact_identity") or {}).get("sha256") or "")
+            evidence = (candidate.get("capability_evidence") or {}).get("text_reasoning") or {}
+            if str(evidence.get("artifact_sha256") or "") != digest or not digest:
+                continue
+            ranked.append((float(evidence.get("score") or 0.0), candidate))
+        if not ranked:
+            return {"baseline_status": "REFUSED",
+                    "reason": "no governance-admitted local model carries a measured capability"}
+        ranked.sort(key=lambda pair: pair[0], reverse=True)
+        record = ranked[0][1]
+        selected_reason = (f"highest measured capability {ranked[0][0]} of "
+                           f"{len(ranked)} admitted and measured models")
 
     identity, reasons = from_record(record)
     if identity is None:
@@ -168,6 +194,8 @@ def run(root: Path, cache: Path) -> dict[str, Any]:
     report = ingest_wave0(tasks, runs)
     payload: dict[str, Any] = {
         "baseline_status": "READY" if report["ready_to_freeze"] else "NOT_READY",
+        "model_id": identity.model_id,
+        "model_selected_because": selected_reason,
         "prompts_hash": prompts_hash(prompt_doc),
         "environment_fingerprint": fingerprint,
         "passed": sum(1 for r in runs if r["verifier_passed"]),
@@ -185,10 +213,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Wave 0 baseline")
     parser.add_argument("--root", type=Path, default=repo_root)
     parser.add_argument("--cache", type=Path, default=repo_root / ".model-cache")
+    parser.add_argument("--model-id", default=None,
+                        help="force a model; default is the highest measured capability")
     parser.add_argument("--evidence", type=Path, default=None)
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    result = run(args.root, args.cache)
+    result = run(args.root, args.cache, args.model_id)
     text = json.dumps(result, indent=2, ensure_ascii=False)
     if args.evidence:
         args.evidence.parent.mkdir(parents=True, exist_ok=True)

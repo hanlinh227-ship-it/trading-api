@@ -1,5 +1,5 @@
 {
-  "prompt_version": "wave0-prompts-v2",
+  "prompt_version": "wave0-prompts-v3",
   "benchmark_version": "wave0-v1",
   "notes": "Prompts and expectations for the canonical 12 Wave 0 tasks. The task ids and categories come from v4/control_plane/wave0.json and are not redefined here. Frozen by content hash before any model was run against them.",
   "decoding": {
@@ -125,5 +125,5 @@
       "max_tokens": 16
     }
   },
-  "revision_note": "v2 rewrites the three Vietnamese prompts in actual Vietnamese. v1 wrote them with diacritics stripped, which is not Vietnamese text, while the verifier requires a Vietnamese answer - an unfair test rather than a measurement. Found after running v1; both results are recorded. No other prompt or expectation was changed, and in particular gr-02 was left alone: the model answered 'Oxygen' when asked which gas plants absorb, which is a real error and not the harness's fault."
+  "revision_note": "v2 rewrites the three Vietnamese prompts in actual Vietnamese. v1 wrote them with diacritics stripped, which is not Vietnamese text, while the verifier requires a Vietnamese answer - an unfair test rather than a measurement. Found after running v1; both results are recorded. No other prompt or expectation was changed, and in particular gr-02 was left alone: the model answered 'Oxygen' when asked which gas plants absorb, which is a real error and not the harness's fault. v3 changes no prompt. It records that the MATH verifier now reads the final number on the answer's first line rather than the first number, because the first-number rule scored a correct worked answer ('9 * 3 = 27 dollars') against the 9. Found by running Granite; all models were re-measured under v3 so no result mixes the two rules."
 }

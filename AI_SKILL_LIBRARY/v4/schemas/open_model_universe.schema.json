@@ -197,7 +197,21 @@
         "admission_evidence": {"$ref": "#/$defs/admission_evidence"},
         "model_mesh_local_candidate_eligible": {"type": "boolean"},
         "operator_risk_acceptance": {"$ref": "#/$defs/operator_risk_acceptance"},
+        "malware_scan_reference": {"$ref": "#/$defs/malware_scan_reference"},
         "capability_evidence": {"type": "object", "description": "Per-capability measurement evidence. A declared capability score above zero must be backed by a matching entry here - the registry may not assert a capability nobody measured.", "additionalProperties": {"$ref": "#/$defs/capability_measurement"}}
+      },
+      "additionalProperties": false
+    },
+    "malware_scan_reference": {
+      "type": "object",
+      "description": "Provenance for a signature-based malware scan performed outside this runtime. Bound to the digest it scanned, so a result can never be applied to different bytes. It records where a finding came from; it never replaces admission_evidence.malware_scan_status.",
+      "required": ["engine", "signature_database_version", "scanned_at", "scanned_by", "artifact_sha256"],
+      "properties": {
+        "engine": {"type": "string", "minLength": 1},
+        "signature_database_version": {"type": "string", "minLength": 1},
+        "scanned_at": {"type": "string", "minLength": 1},
+        "scanned_by": {"type": "string", "minLength": 1},
+        "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       },
       "additionalProperties": false
     },

@@ -38,6 +38,11 @@ def quarantined_registry(**overrides):
     quarantine blocks is the invariant worth testing.
     """
     registry = copy.deepcopy(canonical_registry())
+    # These fixtures are about one record's governance state, so they carry one
+    # record. They used to inherit however many the canonical registry held,
+    # which meant every test here started failing the moment Wave 1 admitted a
+    # second model - for reasons that had nothing to do with what they test.
+    registry["models"] = registry["models"][:1]
     record = registry["models"][0]
     record.pop("operator_risk_acceptance", None)
     record["lifecycle_state"] = "QUARANTINED"
@@ -57,6 +62,11 @@ def cleared_registry(**overrides):
     modified, and nothing here clears quarantine anywhere it would persist.
     """
     registry = copy.deepcopy(canonical_registry())
+    # These fixtures are about one record's governance state, so they carry one
+    # record. They used to inherit however many the canonical registry held,
+    # which meant every test here started failing the moment Wave 1 admitted a
+    # second model - for reasons that had nothing to do with what they test.
+    registry["models"] = registry["models"][:1]
     record = registry["models"][0]
     record.pop("operator_risk_acceptance", None)
     record["lifecycle_state"] = "AVAILABLE"
