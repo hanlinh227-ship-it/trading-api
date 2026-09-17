@@ -1,0 +1,334 @@
+# Wave 3 candidate discovery and staging, run where Hugging Face is reachable.
+#
+# The runtime cannot see huggingface.co - CONNECT is 403 at its gateway - so it
+# cannot answer the question Wave 3 starts with: does an official GGUF artifact
+# exist for this candidate at all, and at what revision, size and digest? Three
+# of the five Wave 3 candidates publish safetensors upstream, and whether their
+# publisher also ships a GGUF is a fact about the world, not something to assume
+# from the model's popularity.
+#
+# So discovery happens on a runner and the answer comes back as a release asset,
+# because release assets are the one route this runtime can read.
+#
+# Discovery is the default and it downloads no weights. Staging is opt-in per
+# candidate and refuses anything above `max_gb`, because the runtime's disk
+# watermark is already CRITICAL and an artifact that cannot be held is worse
+# than one that was never fetched.
+#
+# Nothing here admits anything. Every artifact it publishes is marked
+# not-admitted, and the digest it records is re-verified by the runtime against
+# its own copy of the bytes - a publisher asserting a digest is not the same as
+# having checked one.
+#
+# Publisher repositories are read from the Wave 3 knowledge manifest rather than
+# written here, so this workflow cannot quietly widen the candidate set.
+name: Wave 3 model discovery
+
+on:
+  push:
+    branches: ['claude/magical-euler-uu98r8']
+    paths:
+      - .github/workflows/wave3-model-discovery.yml
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Comma-separated candidate ids to download (blank = discover only)
+        required: false
+        default: ''
+      max_gb:
+        description: Refuse to stage an artifact larger than this
+        required: false
+        default: '6'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wave3-model-discovery
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      report: ${{ steps.discover.outputs.report }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ask Hugging Face what actually exists
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet 'huggingface_hub>=0.25,<2' pyyaml
+          python - <<'PY'
+          import json, os, pathlib, datetime
+          import yaml
+          from huggingface_hub import HfApi, hf_hub_url, get_hf_file_metadata
+
+          api = HfApi()
+          manifest = yaml.safe_load(pathlib.Path(
+              "AI_SKILL_LIBRARY/v4/open_model_universe/wave3_knowledge_candidates.yaml"
+          ).read_text(encoding="utf-8"))
+
+          # Preference order matters: an artifact published by the model's own
+          # author carries provenance a third-party requantization does not.
+          # A community GGUF is reported, never silently preferred.
+          PREFERRED_QUANTS = ("Q4_K_M", "Q4_K_S", "Q4_0", "Q5_K_M", "Q8_0")
+          SKIP = ("mmproj", "projector", "tokenizer", "vocab")
+
+          def official_gguf_repos(upstream: str) -> list[str]:
+              """Repos by the same author that might hold the GGUF build."""
+              author = upstream.split("/", 1)[0]
+              base = upstream.split("/", 1)[1]
+              return [upstream, f"{author}/{base}-GGUF", f"{author}/{base}-gguf"]
+
+          def inspect(repo_id: str) -> dict | None:
+              try:
+                  info = api.model_info(repo_id=repo_id, files_metadata=False)
+              except Exception as exc:
+                  return {"repo_id": repo_id, "exists": False,
+                          "error": f"{type(exc).__name__}: {exc}"}
+              revision = getattr(info, "sha", None)
+              try:
+                  files = api.list_repo_files(repo_id=repo_id, revision=revision)
+              except Exception as exc:
+                  return {"repo_id": repo_id, "exists": True, "revision": revision,
+                          "error": f"{type(exc).__name__}: {exc}", "gguf_files": []}
+              ggufs = [f for f in files if f.lower().endswith(".gguf")
+                       and not any(s in f.lower() for s in SKIP)]
+              card = getattr(info, "cardData", None) or {}
+              licence = card.get("license") if isinstance(card, dict) else None
+              gated = bool(getattr(info, "gated", False))
+              return {
+                  "repo_id": repo_id,
+                  "exists": True,
+                  "gated": gated,
+                  "revision": revision,
+                  "license_declared": licence,
+                  "gguf_files": sorted(ggufs),
+              }
+
+          def choose(repo: dict) -> dict | None:
+              ordered = []
+              for quant in PREFERRED_QUANTS:
+                  ordered += [f for f in repo["gguf_files"]
+                              if quant.lower() in f.lower() and f not in ordered]
+              ordered += [f for f in repo["gguf_files"] if f not in ordered]
+              for filename in ordered:
+                  try:
+                      meta = get_hf_file_metadata(
+                          hf_hub_url(repo["repo_id"], filename, revision=repo["revision"]))
+                  except Exception:
+                      continue
+                  size = int(meta.size or 0)
+                  if size <= 0:
+                      continue
+                  return {"filename": filename, "size_bytes": size}
+              return None
+
+          findings = []
+          for candidate in manifest.get("candidates", []):
+              upstream = str(candidate.get("upstream"))
+              row = {
+                  "candidate_id": candidate.get("id"),
+                  "upstream": upstream,
+                  "manifest_state": candidate.get("state"),
+                  "repos_checked": [],
+                  "selected": None,
+              }
+              # A candidate the manifest itself gates on a human decision is not
+              # probed for a download path. Finding one would only create the
+              # temptation to use it.
+              if candidate.get("state") == "HUMAN_LICENSE_GATE_REQUIRED":
+                  row["skipped"] = "human licence gate; not probed for staging"
+                  findings.append(row)
+                  continue
+              for repo_id in official_gguf_repos(upstream):
+                  repo = inspect(repo_id)
+                  row["repos_checked"].append(repo)
+                  if repo.get("exists") and repo.get("gguf_files") and not repo.get("gated"):
+                      picked = choose(repo)
+                      if picked:
+                          row["selected"] = {
+                              "repo_id": repo["repo_id"],
+                              "immutable_revision": repo["revision"],
+                              "license_declared": repo["license_declared"],
+                              "official_publisher_artifact": True,
+                              **picked,
+                              "size_gb": round(picked["size_bytes"] / 1e9, 2),
+                          }
+                          break
+              if row["selected"] is None:
+                  row["conclusion"] = (
+                      "no ungated GGUF published by this model's own author; a "
+                      "community requantization would need its conversion provenance "
+                      "established before it could be considered"
+                  )
+              findings.append(row)
+
+          report = {
+              "tool": "wave3-model-discovery",
+              "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+              "stage": "DISCOVERY_ONLY_NOT_ADMITTED",
+              "governance_effect": "none",
+              "model_mesh_effect": "none",
+              "findings": findings,
+          }
+          pathlib.Path("wave3-discovery.json").write_text(
+              json.dumps(report, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(report, indent=2))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write("report=" + json.dumps(
+                  {"include": [f for f in findings if f.get("selected")]},
+                  separators=(",", ":")) + "\n")
+          PY
+
+      - name: Publish the discovery report where the runtime can read it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=wave3-discovery
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "Wave 3 discovery" \
+              --notes "Discovery output only. No model is admitted, staged or mesh-eligible by this release."
+          gh release upload "$TAG" wave3-discovery.json --clobber
+
+  stage:
+    needs: discover
+    if: github.event.inputs.stage != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.discover.outputs.report) }}
+    steps:
+      - name: Skip candidates this run was not asked to stage
+        id: gate
+        env:
+          REQUESTED: ${{ github.event.inputs.stage }}
+          CANDIDATE: ${{ matrix.candidate_id }}
+          SIZE_BYTES: ${{ matrix.selected.size_bytes }}
+          MAX_GB: ${{ github.event.inputs.max_gb }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          WANTED=false
+          IFS=',' read -ra ids <<< "$REQUESTED"
+          for id in "${ids[@]}"; do
+            [ "$(echo "$id" | xargs)" = "$CANDIDATE" ] && WANTED=true
+          done
+          LIMIT=$(python -c "print(int(float('$MAX_GB') * 1e9))")
+          if [ "$WANTED" != "true" ]; then
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$CANDIDATE not requested"
+          elif [ "$SIZE_BYTES" -gt "$LIMIT" ]; then
+            # Refused here rather than after the download, which is the whole
+            # point of having a limit.
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "::error::$CANDIDATE is $SIZE_BYTES bytes, over the $MAX_GB GB limit"
+            exit 1
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download the exact pinned revision
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          REPO_ID: ${{ matrix.selected.repo_id }}
+          REVISION: ${{ matrix.selected.immutable_revision }}
+          MODEL_FILE: ${{ matrix.selected.filename }}
+          EXPECTED_SIZE: ${{ matrix.selected.size_bytes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staged
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
+            "https://huggingface.co/${REPO_ID}/resolve/${REVISION}/${MODEL_FILE}?download=true" \
+            -o "staged/$(basename "$MODEL_FILE")"
+          ACTUAL=$(stat -c %s "staged/$(basename "$MODEL_FILE")")
+          if [ "$ACTUAL" != "$EXPECTED_SIZE" ]; then
+            echo "::error::size mismatch: got $ACTUAL, discovery said $EXPECTED_SIZE"
+            exit 1
+          fi
+
+      - name: Record the transport identity
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          CANDIDATE: ${{ matrix.candidate_id }}
+          REPO_ID: ${{ matrix.selected.repo_id }}
+          REVISION: ${{ matrix.selected.immutable_revision }}
+          MODEL_FILE: ${{ matrix.selected.filename }}
+          LICENSE_DECLARED: ${{ matrix.selected.license_declared }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import datetime, hashlib, json, os, pathlib
+          staged = pathlib.Path("staged")
+          name = os.path.basename(os.environ["MODEL_FILE"])
+          path = staged / name
+          digest = hashlib.sha256()
+          with path.open("rb") as handle:
+              for chunk in iter(lambda: handle.read(8 << 20), b""):
+                  digest.update(chunk)
+          manifest = {
+              "stage": "PREFETCH_ONLY_NOT_ADMITTED",
+              "wave": 3,
+              "authority": False,
+              "candidate_id": os.environ["CANDIDATE"],
+              "repo_id": os.environ["REPO_ID"],
+              "immutable_revision": os.environ["REVISION"],
+              "filename": name,
+              "size_bytes": path.stat().st_size,
+              "sha256_downloaded_bytes": digest.hexdigest(),
+              "license_declared_upstream": os.environ.get("LICENSE_DECLARED") or None,
+              "source_url": (f"https://huggingface.co/{os.environ['REPO_ID']}/resolve/"
+                             f"{os.environ['REVISION']}/{os.environ['MODEL_FILE']}"),
+              "staged_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+              "governance_effect": "none",
+              "model_mesh_effect": "none",
+              "runtime_activation_effect": "none",
+              "required_before_admission": [
+                  "independent provenance and licence review",
+                  "signature malware scan",
+                  "digest-bound artifact intake",
+                  "structural and safe-format validation",
+                  "isolated first load with egress denied",
+                  "real inference",
+                  "digest-bound capability benchmark",
+              ],
+          }
+          (staged / f"{os.environ['CANDIDATE']}.manifest.json").write_text(
+              json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(manifest, indent=2))
+          PY
+
+      - name: Publish as release assets
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANDIDATE: ${{ matrix.candidate_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="wave3-staged-${CANDIDATE}"
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "Wave 3 staged: ${CANDIDATE}" \
+              --notes "Prefetch transport only. Not admitted, not mesh-eligible, no capability claimed."
+          # Release assets cap at 2 GiB, so a larger artifact is split and the
+          # runtime reassembles it before verifying the whole file's digest.
+          # Parts are never verified individually in place of the whole.
+          cd staged
+          for f in *.gguf; do
+            SIZE=$(stat -c %s "$f")
+            if [ "$SIZE" -gt 2000000000 ]; then
+              split -b 1900000000 -d -a 2 "$f" "$f.part"
+              rm -f "$f"
+            fi
+          done
+          gh release upload "$TAG" * --clobber
