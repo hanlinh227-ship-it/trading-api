@@ -1,0 +1,200 @@
+name: Stage open model prefetch wave 2
+
+on:
+  push:
+    branches: [ops/model-artifact-staging]
+    paths:
+      - .github/workflows/stage-open-model-prefetch-wave2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: open-model-prefetch-wave2
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+      count: ${{ steps.discover.outputs.count }}
+    steps:
+      - name: Discover bounded public GGUF candidates from trusted publishers
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet 'huggingface_hub>=0.25,<2'
+          python - <<'PY'
+          import json, os
+          from huggingface_hub import HfApi, hf_hub_url, get_hf_file_metadata
+
+          api = HfApi()
+          publishers = [
+              'Qwen',
+              'ibm-granite',
+              'HuggingFaceTB',
+              'google',
+              'microsoft',
+              'mistralai',
+              'deepseek-ai',
+              'allenai',
+          ]
+          preferred_quants = ('Q4_K_M', 'Q5_K_M', 'Q8_0', 'Q4_0')
+          max_models = 12
+          max_per_publisher = 2
+          max_file_bytes = 6_000_000_000
+          picked = []
+
+          for publisher in publishers:
+              publisher_picks = 0
+              try:
+                  models = list(api.list_models(author=publisher, filter='gguf', sort='lastModified', direction=-1, limit=40, full=True))
+              except Exception:
+                  continue
+              for model in models:
+                  if publisher_picks >= max_per_publisher or len(picked) >= max_models:
+                      break
+                  repo_id = model.id
+                  revision = getattr(model, 'sha', None) or 'main'
+                  try:
+                      files = api.list_repo_files(repo_id=repo_id, revision=revision, repo_type='model')
+                  except Exception:
+                      continue
+                  ggufs = [f for f in files if f.lower().endswith('.gguf')]
+                  if not ggufs:
+                      continue
+
+                  ordered = []
+                  for q in preferred_quants:
+                      ordered.extend([f for f in ggufs if q.lower() in f.lower() and f not in ordered])
+                  ordered.extend([f for f in ggufs if f not in ordered])
+
+                  chosen = None
+                  for filename in ordered:
+                      # Skip obvious auxiliary/projector/tokenizer GGUFs for the text-model preload lane.
+                      lower = filename.lower()
+                      if any(x in lower for x in ('mmproj', 'projector', 'tokenizer')):
+                          continue
+                      try:
+                          meta = get_hf_file_metadata(hf_hub_url(repo_id, filename, revision=revision))
+                          size = int(meta.size or 0)
+                      except Exception:
+                          continue
+                      if size <= 0 or size > max_file_bytes:
+                          continue
+                      chosen = (filename, size)
+                      break
+
+                  if not chosen:
+                      continue
+
+                  filename, size = chosen
+                  license_name = None
+                  card = getattr(model, 'cardData', None)
+                  if isinstance(card, dict):
+                      license_name = card.get('license')
+                  elif card is not None:
+                      try:
+                          license_name = card.get('license')
+                      except Exception:
+                          pass
+
+                  picked.append({
+                      'publisher': publisher,
+                      'repo_id': repo_id,
+                      'revision': revision,
+                      'filename': filename,
+                      'size_bytes': size,
+                      'license_declared': license_name,
+                  })
+                  publisher_picks += 1
+
+          matrix = {'include': picked}
+          compact = json.dumps(matrix, separators=(',', ':'))
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
+              f.write(f'matrix={compact}\n')
+              f.write(f'count={len(picked)}\n')
+          print(json.dumps({'count': len(picked), 'candidates': picked}, indent=2))
+          if not picked:
+              raise SystemExit('No eligible public GGUF candidates discovered')
+          PY
+
+  stage:
+    needs: discover
+    if: needs.discover.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    steps:
+      - name: Download exact discovered revision
+        shell: bash
+        env:
+          REPO_ID: ${{ matrix.repo_id }}
+          REVISION: ${{ matrix.revision }}
+          MODEL_FILE: ${{ matrix.filename }}
+        run: |
+          set -euo pipefail
+          mkdir -p staged
+          URL="https://huggingface.co/${REPO_ID}/resolve/${REVISION}/${MODEL_FILE}?download=true"
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
+            "$URL" -o "staged/$MODEL_FILE"
+
+      - name: Record transport identity and staging manifest
+        shell: bash
+        env:
+          PUBLISHER: ${{ matrix.publisher }}
+          REPO_ID: ${{ matrix.repo_id }}
+          REVISION: ${{ matrix.revision }}
+          MODEL_FILE: ${{ matrix.filename }}
+          DISCOVERED_SIZE: ${{ matrix.size_bytes }}
+          LICENSE_DECLARED: ${{ matrix.license_declared }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(sha256sum "staged/$MODEL_FILE" | awk '{print $1}')"
+          ACTUAL_SIZE="$(stat -c %s "staged/$MODEL_FILE")"
+          test "$ACTUAL_SIZE" = "$DISCOVERED_SIZE"
+          python - <<'PY'
+          import datetime, json, os, pathlib
+          p = pathlib.Path('staged')
+          manifest = {
+              'stage': 'PREFETCH_ONLY_NOT_ADMITTED',
+              'authority': False,
+              'publisher': os.environ['PUBLISHER'],
+              'repo_id': os.environ['REPO_ID'],
+              'immutable_revision': os.environ['REVISION'],
+              'filename': os.environ['MODEL_FILE'],
+              'size_bytes': int(os.environ['DISCOVERED_SIZE']),
+              'sha256_downloaded_bytes': __import__('hashlib').sha256((p / os.environ['MODEL_FILE']).read_bytes()).hexdigest(),
+              'license_declared_upstream': os.environ.get('LICENSE_DECLARED') or None,
+              'source_url': f"https://huggingface.co/{os.environ['REPO_ID']}/resolve/{os.environ['REVISION']}/{os.environ['MODEL_FILE']}",
+              'staged_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'governance_effect': 'none',
+              'model_mesh_effect': 'none',
+              'runtime_activation_effect': 'none',
+              'required_before_admission': [
+                  'independent provenance/license review',
+                  'digest-bound artifact intake',
+                  'safe-format and structural validation',
+                  'isolated first load',
+                  'real inference',
+                  'capability benchmark',
+              ],
+          }
+          (p / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Upload prefetched candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: prefetch-${{ matrix.publisher }}-${{ strategy.job-index }}
+          path: staged/
+          retention-days: 3
+          if-no-files-found: error
+          compression-level: 0
