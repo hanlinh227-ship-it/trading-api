@@ -24,6 +24,7 @@ could support: "supports Q4 and Q8" does not say which produced this output.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import threading
 import time
@@ -131,6 +132,8 @@ class PeakSampler:
 @dataclass(frozen=True)
 class ExecutionEvidence:
     # -- identity ----------------------------------------------------------
+    request_id: str | None = None
+    task_id: str | None = None
     worker_id: str | None = None
     model_id: str | None = None
     model_revision: str | None = None
@@ -179,7 +182,7 @@ class ExecutionEvidence:
 
     def missing_fields(self) -> tuple[str, ...]:
         required = (
-            "worker_id", "model_id", "model_revision", "artifact_sha256",
+            "request_id", "task_id", "worker_id", "model_id", "model_revision", "artifact_sha256",
             "actual_quantization", "runtime_id", "runtime_version", "backend",
             "backend_version", "placement_action", "cold_or_warm_start",
             "load_latency_ms", "inference_latency_ms", "total_latency_ms",
@@ -195,6 +198,8 @@ class ExecutionEvidence:
         return {
             "execution_evidence": {
                 "authority": self.authority,
+                "request_id": self.request_id,
+                "task_id": self.task_id,
                 "worker_id": self.worker_id,
                 "model_id": self.model_id,
                 "model_revision": self.model_revision,
@@ -257,6 +262,19 @@ class EvidenceRecorder:
         self._inference_started: float | None = None
 
     def describe(self, **fields: Any) -> "EvidenceRecorder":
+        """Record identity/runtime fields.
+
+        Unknown names are rejected here rather than accepted and blown up later
+        in `finish()`. A typo at the call site should fail at the call site -
+        deferring it means the failure surfaces only on the code path that
+        actually completes a run, which is the worst possible time to find it.
+        """
+        known = {f.name for f in dataclasses.fields(ExecutionEvidence)}
+        unknown = sorted(set(fields) - known)
+        if unknown:
+            raise TypeError(
+                f"ExecutionEvidence has no field(s) {unknown}; known fields: {sorted(known)}"
+            )
         self._fields.update({key: value for key, value in fields.items() if value is not None})
         return self
 

@@ -27,6 +27,8 @@ class FakeClock:
 def full_recorder(mono, wall, admitted_at=None):
     recorder = EvidenceRecorder(monotonic=mono, wall=wall, admitted_at=admitted_at)
     recorder.describe(
+        request_id="req-1",
+        task_id="task-1",
         worker_id="w-local",
         model_id="m",
         model_revision="abc123",
@@ -140,8 +142,8 @@ class CompletenessTests(unittest.TestCase):
     def test_an_undescribed_run_names_what_is_missing(self):
         evidence = ExecutionEvidence()
         self.assertFalse(evidence.complete)
-        for field in ("worker_id", "model_id", "artifact_sha256", "actual_quantization",
-                      "backend_version", "peak_ram_mb"):
+        for field in ("request_id", "task_id", "worker_id", "model_id", "artifact_sha256",
+                      "actual_quantization", "backend_version", "peak_ram_mb"):
             self.assertIn(field, evidence.missing_fields())
 
     def test_evidence_is_never_authoritative(self):
@@ -166,7 +168,8 @@ class CompletenessTests(unittest.TestCase):
         recorder.begin(cold_or_warm="COLD", placement_action="ACQUIRE")
         payload = json.loads(json.dumps(recorder.finish(peak_ram_mb=1.0).to_dict()))
         body = payload["execution_evidence"]
-        for key in ("worker_id", "model_id", "model_revision", "artifact_sha256",
+        for key in ("request_id", "task_id", "worker_id", "model_id", "model_revision",
+                    "artifact_sha256",
                     "actual_quantization", "runtime_id", "runtime_version", "backend",
                     "backend_version", "placement_action", "cold_or_warm_start",
                     "timing", "resources", "tokens", "failure", "fallback_used",
@@ -187,6 +190,13 @@ class CompletenessTests(unittest.TestCase):
         )
         self.assertTrue(evidence.fallback_used)
         self.assertEqual(evidence.attempted_runtimes, ("vllm", "llama.cpp"))
+
+    def test_an_unknown_field_is_rejected_at_the_call_site(self):
+        mono, wall = FakeClock(), FakeClock(1_700_000_000.0)
+        recorder = EvidenceRecorder(monotonic=mono, wall=wall)
+        with self.assertRaises(TypeError) as caught:
+            recorder.describe(no_such_field="x")
+        self.assertIn("no_such_field", str(caught.exception))
 
     def test_a_failure_carries_its_kind_and_source(self):
         mono, wall = FakeClock(), FakeClock(1_700_000_000.0)
