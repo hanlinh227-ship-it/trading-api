@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chatgpt_brain_ingress.schema.json",
+  "title": "ChatGPT to Brain ingress",
+  "type": "object",
+  "required": ["source", "request", "project_context", "conversation_context", "desired_depth", "attachments", "constraints", "privacy_class"],
+  "properties": {
+    "source": {"type": "string", "minLength": 1},
+    "request": {"type": "string", "minLength": 1},
+    "project_context": {"type": ["object", "null"]},
+    "conversation_context": {"type": ["object", "null"]},
+    "desired_depth": {"enum": ["FAST", "STANDARD", "DEEP"]},
+    "attachments": {"type": "array", "items": {"type": "object"}},
+    "constraints": {"type": "object"},
+    "privacy_class": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "SECRET"]}
+  },
+  "additionalProperties": false
+}
