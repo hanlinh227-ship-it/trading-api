@@ -58,20 +58,39 @@ Qwen3-Coder candidate.
 
 ## The one operator action outstanding
 
-Grant the repository's `CLOUDFLARE_API_TOKEN` the **Workers AI: Read**
-permission, or add a second token carrying it.
+Workers AI is still refused on the operator's Cloudflare account. Three probe
+rounds narrowed it as far as it can be narrowed from here.
 
-Probe run 35245779094 presented the existing token to the Workers AI run API for
-all three recorded models; Cloudflare answered HTTP 401 / error 10000 on each.
-The credential exists and its scope does not cover this API.
+**Established** (probe run 35252697668, 2026-09-17T17:29:54Z):
 
-This is a token scope change only — **no new account, no plan change, no
-payment**. The Workers Free plan already includes 10,000 Neurons per day and has
-no billing path, so it cannot be charged.
+- the stored token is valid and active — `/user/tokens/verify` returns 200;
+- it is scoped to exactly one account, and `CLOUDFLARE_ACCOUNT_ID` **is** that
+  account;
+- the account id is a well-formed 32-character hex id;
+- Workers AI is refused on that account anyway — 403 on `ai/models/search`, 401
+  with error 10000 on `ai/run` for all three recorded models.
 
-Once granted, re-dispatch `wave3-model-discovery.yml` with
-`probe_workers_ai: yes`. A `FREE_TIER_SERVES_IT` verdict on `@cf/openai/gpt-oss-20b`
-moves it to `AVAILABLE_SERVERLESS` with no other change.
+**Not established:** whether the GitHub secret holds the newly scoped token or
+the previous deploy token. A valid old token also verifies 200, so the verify
+result cannot tell them apart. The token id is recorded in
+`CHECKPOINTS/evidence/WORKERS_AI_FREE_TIER_PROBE.json` precisely so a person can.
+
+**What to do:** compare that token id with the token that was given Workers AI
+permissions.
+
+- **If it differs** — replace the `CLOUDFLARE_API_TOKEN` secret's *value* with
+  the new token. The permissions are already right; the secret is still holding
+  the old token.
+- **If it matches** — re-open that token in the Cloudflare dashboard and confirm
+  the Workers AI permission was saved through to the end rather than left on the
+  edit screen.
+
+Neither path involves a new account, a plan change or a payment. Workers Free
+already carries the 10,000 daily Neuron allowance and has no billing path.
+
+Then re-dispatch `wave3-model-discovery.yml` with `probe_workers_ai: yes`. A
+`FREE_TIER_SERVES_IT` verdict on `@cf/openai/gpt-oss-20b` moves it to
+`AVAILABLE_SERVERLESS` with no other change.
 
 ## Evidence
 

@@ -1,6 +1,19 @@
 {
   "probe": "workers_ai_free_tier",
-  "probed_at": "2026-09-17T16:18:46Z",
+  "probed_at": "2026-09-17T17:29:54Z",
+  "preflight": {
+    "token_verify_http": "200",
+    "workers_ai_models_search_http": "403",
+    "account_id_wellformed": true,
+    "account_id_length": 32,
+    "token_id": "0588ba27362792672f5dfca9f351c4c0",
+    "token_status": "active",
+    "token_id_note": "a non-secret identifier, shown beside the token in the Cloudflare dashboard. Compare it with the token you edited: if it differs, the GitHub secret still holds the previous token and needs its value replaced, not its permissions changed.",
+    "accounts_token_can_see": "1",
+    "account_names_token_can_see": "Hanlinh227@gmail.com's Account",
+    "configured_account_is_one_the_token_can_see": true,
+    "diagnosis": "the token verifies and is scoped to this very account, yet Workers AI is refused on it, so the Workers AI permission is not in effect on the token the secret actually holds. Two things to check, in this order. First, confirm the GitHub secret CLOUDFLARE_API_TOKEN holds the token whose id is 0588ba27362792672f5dfca9f351c4c0 - a valid old deploy token also verifies 200, so a passing verify does not mean the secret was replaced. Second, if that is the right token, re-open it in the dashboard and confirm the Workers AI permission was saved through to the end rather than left on the edit screen"
+  },
   "plan_can_bill": false,
   "plan_evidence": "Workers Free has no paid path; past the allowance requests fail",
   "status": "PROBED",
@@ -33,7 +46,15 @@
       "verdict": "TOKEN_LACKS_WORKERS_AI_PERMISSION"
     }
   ],
-  "reclassified_note": "The probe ran and Cloudflare answered. HTTP 401 with error 10000 means the repository's Cloudflare token was presented and rejected for the Workers AI API - the credential exists, its scope does not cover this. Recorded as a named blocker with a remedy rather than as an unknown.",
-  "run_url": "https://github.com/hanlinh227-ship-it/trading-api/actions/runs/35245779094",
-  "operator_action_required": "Grant the repository's CLOUDFLARE_API_TOKEN the 'Workers AI: Read' permission, or add a separate token with it. No account change, plan change or payment is involved; the Workers Free plan already includes the daily Neuron allowance."
+  "run_url": "https://github.com/hanlinh227-ship-it/trading-api/actions/runs/35252697668",
+  "established": [
+    "the stored token is valid and active (/user/tokens/verify returned 200)",
+    "the token is scoped to exactly one account, and CLOUDFLARE_ACCOUNT_ID is that account",
+    "CLOUDFLARE_ACCOUNT_ID is a well-formed 32-character hex account id",
+    "Workers AI is refused on that account: 403 on models/search, 401 on ai/run"
+  ],
+  "not_established": [
+    "whether the GitHub secret holds the newly scoped token or the previous deploy token - a valid old token also verifies 200, so the verify result cannot distinguish them. The token id is reported so the operator can."
+  ],
+  "operator_action_required": "Compare the token id above with the token that was given Workers AI permissions. If it differs, replace the CLOUDFLARE_API_TOKEN secret's VALUE with the new token. If it matches, re-open that token in the Cloudflare dashboard and confirm the Workers AI permission was saved through to the end. No plan change or payment is involved either way."
 }

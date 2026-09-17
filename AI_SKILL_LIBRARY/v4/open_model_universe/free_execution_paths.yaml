@@ -109,18 +109,27 @@ paths:
       holding the repository's Cloudflare credential; see verification_state.
     verification_state: AUTH_REQUIRED
     verification_evidence: >-
-      probe run 35245779094 (2026-09-17T16:18:46Z, branch head 2ffb6c26): the
-      repository's CLOUDFLARE_API_TOKEN was presented to the Workers AI run API
-      for all three recorded models and Cloudflare answered HTTP 401 with error
-      10000 on each. The credential exists and was rejected for this API, which
-      is a scope fact, not a pricing or availability one. No model was served,
-      so nothing here is VERIFIED_AVAILABLE and no free-tier eligibility was
-      established either way.
+      probe run 35252697668 (2026-09-17T17:29:54Z, branch head 486fa406), after the
+      operator reported updating the token. Four facts are established and one is
+      not. Established: the stored token is valid and active (/user/tokens/verify
+      200); it is scoped to exactly one account and CLOUDFLARE_ACCOUNT_ID is that
+      account; the account id is a well-formed 32-character hex id; and Workers AI
+      is refused on that account anyway - 403 on models/search, 401 with error
+      10000 on ai/run for all three recorded models. Not established: whether the
+      secret holds the newly scoped token or the previous deploy token, because a
+      valid old token also verifies 200. The token id is recorded in
+      CHECKPOINTS/evidence/WORKERS_AI_FREE_TIER_PROBE.json so the operator can tell.
+      No model was served, so nothing here is VERIFIED_AVAILABLE and free-tier
+      eligibility remains unestablished in either direction.
     operator_action_required: >-
-      Grant the repository's CLOUDFLARE_API_TOKEN the "Workers AI: Read"
-      permission, or add a second token carrying it. This is a token scope
-      change only - no new account, no plan change, no payment. The Workers Free
-      plan already includes the 10,000 daily Neuron allowance and cannot bill.
+      Compare the token id in the probe evidence with the token that was given
+      Workers AI permissions. If it differs, replace the CLOUDFLARE_API_TOKEN
+      secret's VALUE with the new token - its permissions are already right, the
+      secret is simply still holding the old one. If it matches, re-open that
+      token in the Cloudflare dashboard and confirm the Workers AI permission was
+      saved through to the end rather than left on the edit screen. Neither path
+      involves a new account, a plan change or a payment; the Workers Free plan
+      already carries the 10,000 daily Neuron allowance and cannot bill.
     notes: >-
       A hosted catalog, and that is the load-bearing limit. It serves models
       Cloudflare has published under @cf/ ids; there is no documented path for
