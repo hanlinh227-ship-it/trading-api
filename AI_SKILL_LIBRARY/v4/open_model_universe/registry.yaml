@@ -27,7 +27,7 @@ models:
     official_upstream: https://huggingface.co/Qwen/Qwen3-0.6B
     weights_source: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/8e42d41f70cb6c571f58c3f31bd9287b372d97cc/Qwen3-0.6B-Q8_0.gguf
     upstream_revision: 8e42d41f70cb6c571f58c3f31bd9287b372d97cc
-    release_date: 2025-05-05
+    release_date: "2025-05-05"
     license_name: Apache-2.0
     license_url: https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/ef4088322893040952513f532f736ddeab518403/LICENSE
     license_class: permissive
