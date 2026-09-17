@@ -1,0 +1,21 @@
+version: 1
+registry_id: OPEN_MODEL_UNIVERSE
+
+policy:
+  cost_policy: OPEN_MODEL_ZERO_TOKEN_FIRST
+  paid_fallback: NO_PAID_FALLBACK
+  registry_implies_activation: false
+  auto_download: false
+
+authority:
+  routing: false
+  reasoning: false
+  permission: false
+  memory: false
+  project_truth: false
+  final_answer: false
+
+# Population is a separate, evidence-heavy phase. A row may be added only after
+# official-source, per-release licence, revision, and provenance review.
+models: []
+

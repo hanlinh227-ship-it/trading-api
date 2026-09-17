@@ -1,7 +1,7 @@
 """Single validation entrypoint for GITHUB_BRAIN_V4 (local and CI).
 
 Runs every validator exactly once, in a fixed order, and reports one summary:
-  legacy validators -> V4 validators -> Universal Fabric + Model Mesh + Legion safety validators ->
+  legacy validators -> V4 validators -> Universal Fabric + Model Mesh + Open Model Universe + Legion safety validators ->
   Skill Gateway snapshot compile/validate -> Model Mesh snapshot compile/validate ->
   Active Candidate Index compile/validate -> release + retrieval-index freshness ->
   consolidation invariants -> unit tests (optional)
@@ -33,6 +33,7 @@ VALIDATORS = (
     "AI_SKILL_LIBRARY/validate_skill_gateway.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_universal_fabric.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh.py",
+    "AI_SKILL_LIBRARY/v4/tools/validate_open_model_universe.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_legion.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py",
 )
@@ -165,7 +166,12 @@ def run_validators(
     root = Path(root).resolve()
     failures: list[str] = []
     py = sys.executable
-    rooted = {"validate_universal_fabric.py", "validate_model_mesh.py", "validate_legion.py"}
+    rooted = {
+        "validate_universal_fabric.py",
+        "validate_model_mesh.py",
+        "validate_open_model_universe.py",
+        "validate_legion.py",
+    }
     for rel in VALIDATORS:
         cmd = [py, rel]
         if Path(rel).name in rooted:
