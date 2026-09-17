@@ -147,8 +147,44 @@ class FirstModelRecordTests(unittest.TestCase):
         self.assertEqual(identity["size_bytes"], 639446688)
         self.assertEqual(identity["format"], "gguf")
         self.assertEqual(identity["quantization"], "Q8_0")
-        self.assertFalse(model["model_mesh_local_candidate_eligible"])
-        self.assertIn(model["lifecycle_state"], {"QUARANTINED", "REGISTERED", "APPROVED"})
+
+    def test_the_record_is_only_mesh_eligible_once_admission_justifies_it(self):
+        """Governance state is a decision; what it must rest on is the rule.
+
+        This previously pinned the row to ineligible and to a pre-approval
+        lifecycle state, which captured where the record happened to be rather
+        than what must be true of it. An operator can legitimately advance it,
+        so the assertion is now on the justification instead.
+        """
+        registry = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
+        model = registry["models"][0]
+        if not model.get("model_mesh_local_candidate_eligible"):
+            self.assertIn(
+                model["lifecycle_state"],
+                {"DISCOVERED", "QUARANTINED", "REGISTERED", "APPROVED"},
+            )
+            return
+
+        self.assertEqual(model["lifecycle_state"], "AVAILABLE")
+        evidence = model["admission_evidence"]
+        for field in ("license_verified", "provenance_verified", "safe_format_verified",
+                      "pickle_safe"):
+            self.assertIs(evidence[field], True, field)
+        for field in ("trust_remote_code_required", "custom_code_required"):
+            self.assertIs(evidence[field], False, field)
+        self.assertEqual(evidence["quarantine_status"], "clear")
+
+        if evidence["malware_scan_status"] != "pass":
+            # Accepted rather than scanned: the acceptance must be complete,
+            # bound to these bytes, and must not overstate itself.
+            acceptance = model["operator_risk_acceptance"]
+            self.assertEqual(evidence["malware_scan_status"], "not_run")
+            self.assertEqual(acceptance["scope"], "single_artifact")
+            self.assertEqual(acceptance["artifact_sha256"], model["artifact_identity"]["sha256"])
+            self.assertEqual(acceptance["covers"], ["malware_scan_status"])
+            self.assertIs(acceptance["is_a_scan_result"], False)
+            self.assertTrue(acceptance["accepted_by"])
+            self.assertIn("signature_based_malware_scan", acceptance["missing_evidence"])
 
 
 if __name__ == "__main__":

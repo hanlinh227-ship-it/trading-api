@@ -49,3 +49,5 @@ solana-wallet*.json
 # Local/runtime trading state
 runtime-data/
 data/private/
+.model-cache/
+.model-staging/

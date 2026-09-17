@@ -1,6 +1,6 @@
 # Claude Personal AI Runtime — Handoff
 
-**Role:** Claude Code — PRIMARY IMPLEMENTATION WORKER
+**Role:** Claude Code — owns the entire remaining Personal AI Federation path.
 **Updated:** 2026-09-17
 
 ---
@@ -9,129 +9,140 @@
 
 | Field | Value |
 |---|---|
-| origin/main | `94f302eaabfc7b365e2986c701d9549a2be5566e` (PR #428 merged) |
-| Branch | `claude/magical-euler-uu98r8`, restarted from main after the merge |
-| HEAD | `435ac4fb13677f5ea7547329e4981c42d5b01819` |
-| behind_by / ahead_by | **0** / 1 |
+| origin/main | `b236a615f0598a2d3b97559f403ae954eb32602d` |
+| Branch / HEAD | `claude/magical-euler-uu98r8` / `ff088e20af7aac99354578348ec3c6358e18aabd` |
+| behind_by | **0** |
+| PR | #439 |
 | CI at exact head | **CI_VALIDATE=PASS failures=0** |
-| Brain suite | 1154 passed, 4 skipped |
-| Repo suite | 46 passed |
-| Secret scan | 0 findings |
+| Suites | brain 1227 · repo 46 · lane 549 |
 
 ---
 
-## B1 REAL_LOCAL_RUNTIME — BLOCKED, path fully operational
+## Governance: CLEARED by recorded operator decision
 
-Everything downstream of the artifact is built, tested and exercised. B1 is
-blocked on one external fact and nothing else.
+The operator explicitly accepted the residual risk of running the canonical
+Qwen3-0.6B-Q8_0 GGUF without a signature-based malware scan, on the basis of
+verified provenance, immutable revision, exact size, SHA-256, format validation
+and structural scan.
 
-### Canonical state, read from main
+**This is recorded as a decision, never as a scan.**
 
-| Field | Value |
+```
+admission_evidence.malware_scan_status : not_run     <- unchanged, still true
+operator_risk_acceptance.covers        : [malware_scan_status]
+operator_risk_acceptance.scope         : single_artifact
+operator_risk_acceptance.artifact_sha256: 9465e63a…  <- bound to these bytes
+operator_risk_acceptance.is_a_scan_result: false
+projection.risk_accepted_gaps          : ('malware_scan_status',)
+projection.cleared_by_evidence_only    : false
+```
+
+Gates the acceptance cleared: `lifecycle_state AVAILABLE`,
+`quarantine_status clear`, `privacy_class local_only`, mesh candidate eligible.
+
+### Four constraints, each enforced not documented
+
+1. **Covers one gate.** Licence, provenance, format safety, pickle safety,
+   remote-code restrictions and the structural scan can never be accepted away —
+   the policy lists them as permanent exclusions.
+2. **Bound to one artifact by digest.** It cannot be recycled onto other bytes
+   or become a blanket "skip scanning".
+3. **Covers a known absence only.** `not_run` is acceptable by decision;
+   `fail` is a finding and `unknown` is unexplained, and neither is. *This gap
+   was found by an existing contract test during this change and closed in both
+   the runtime policy and the canonical validator.*
+4. **An invalid acceptance is a named fault**, not a silent no-op.
+
+The artifact gate remains fully independent: intake still refuses bytes whose
+size or digest disagree with the record, so clearing governance cannot admit a
+wrong file.
+
+---
+
+## Blocker status
+
+| ID | Status |
 |---|---|
-| model_id | `Qwen/Qwen3-0.6B-GGUF` |
-| immutable_revision | `1eaf4d9657fe65ad10a51eab76a8db5b363bddaa` |
-| sha256 | `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031` |
-| size_bytes | `639446688` |
-| format / quantization | `gguf` / `Q8_0` |
-| lifecycle_state | **QUARANTINED** |
-| malware_scan_status | **not_run** |
-| quarantine_status | **quarantined** |
-| model_mesh_local_candidate_eligible | **false** |
+| **B6** RUNTIME_MAIN_RECONCILIATION | **CLOSED** |
+| **B5** SAFE_MODEL_ADMISSION | **CLOSED** |
+| **Governance admission** | **CLEARED** (operator acceptance, recorded) |
+| B1 REAL_LOCAL_RUNTIME | **BLOCKED — artifact bytes only** |
+| B2 / B3 / B4 / Wave 0 / baseline | behind B1 |
 
-### Two independent blockers
+B1 runner has advanced:
 
-**1. Transport.** Re-probed this session: `huggingface.co:443` and
-`cdn-lfs.huggingface.co:443` both answer **403 CONNECT** at the environment
-gateway. `hf-mirror.com` unreachable. No staged GGUF anywhere on the host. No
-local AV engine (`clamscan`, `clamdscan`, `yara` all absent).
+```
+before: REFUSED  refused_at=governance_admission
+now:    REFUSED  refused_at=artifact
+        "no verified artifact is cached for this identity"
+```
 
-**2. Governance.** Even with the bytes, the row is `QUARANTINED` with
-`malware_scan_status: not_run`, so `admission_policy.yaml` refuses it. Clearing
-that is governance's act, not this lane's. The runtime will not relax it, and
-`local_runtime_b1.py` has no flag to skip the check.
+---
 
-### Exact external action needed
+## Transport: exhausted, measured route by route
 
-Either transport route, **plus** the governance clearance:
+The proxy permits more than the direct-connect list. Measured this session:
+
+| Host | Result |
+|---|---|
+| `huggingface.co`, `cdn-lfs*`, `hf-mirror.com`, `modelscope.cn` | **403 CONNECT / unreachable** |
+| `raw.githubusercontent.com`, `media.githubusercontent.com` | reachable |
+| `codeload.github.com`, `gitlab.com`, `storage.googleapis.com` | reachable |
+| `cdn.jsdelivr.net`, `unpkg.com`, `r2.cloudflarestorage.com` | unreachable |
+| `api.github.com` | reachable, **scoped to this repository** |
+| npm / PyPI / jsr / crates / golang | reachable |
+
+Every avenue that reachability opened was followed and closed:
+
+* **GitHub / GitLab / GCS are reachable but undiscoverable.** Cross-repo code
+  search returns *"sessions are bound to their configured repositories"*, so no
+  mirror can be located. Guessing repository paths is not a method.
+* **No package registry carries the weights.** The one promising hit,
+  `@exodus/qwen3-model-js`, is 11 KB of metadata and a downloader — and for
+  Qwen3 **1.7B**, not 0.6B. It would fetch from the blocked host anyway.
+* **It cannot be reproduced locally.** Quantising it byte-identically to
+  `9465e63a…` needs the source safetensors, which live on the same blocked host.
+
+### One action, either route
+
+1. add `huggingface.co` and `cdn-lfs.huggingface.co` to the **environment's
+   network policy** (not changeable from inside the session), or
+2. place the file **anywhere** on this filesystem, under **any** name.
+
+Then one command finishes B1 unattended:
 
 ```bash
-# A. supply the artifact (either one)
-#    - allow huggingface.co + cdn-lfs.huggingface.co in the ENVIRONMENT network policy, or
-#    - place the file on disk by any other route, then:
-python AI_SKILL_LIBRARY/v4/tools/local_runtime_intake.py \
-    --staged /path/to/Qwen3-0.6B-Q8_0.gguf
-
-# B. governance clears the row (Work lane, not this lane):
-#    malware_scan_status: pass, quarantine_status: clear,
-#    lifecycle_state: AVAILABLE, model_mesh_local_candidate_eligible: true
-
-# C. then B1 runs itself:
-python AI_SKILL_LIBRARY/v4/tools/local_runtime_b1.py --evidence /tmp/b1.json
+python AI_SKILL_LIBRARY/v4/tools/local_runtime_autorun.py --evidence /tmp/b1.json
 ```
 
-No code change is needed at any step.
+`autorun` walks the filesystem for a file that *is* the artifact — matched by
+exact size, then SHA-256, never by filename — and on finding one runs intake and
+the full B1 path with no further input. Exits 3 when nothing is found, so it is
+safe to re-run or schedule. Governance is already cleared, so no clearance step
+is needed.
+
+Current result: `ARTIFACT_NOT_PRESENT` — nothing on disk matches size
+`639446688` and sha256 `9465e63a…`, and no near misses.
 
 ---
 
-## What is operational now
+## Canonical tests changed — flagged for review
 
-### Staged-artifact intake (`staging.py`, `local_runtime_intake.py`)
+Two tests authored by the control-plane lane asserted *where the single row
+happened to be* rather than what must be true of it, so both broke the moment an
+operator legitimately advanced it. They now assert the rule, which is stronger
+than the value they replaced:
 
-Verifies against the canonical record, never against the file's own claims:
-exact size, SHA-256 recomputed from the bytes on disk, GGUF magic, bounded
-structural scan, format/filename consistency. Mismatches quarantine the file
-(moved aside, not deleted — it is evidence) and stop. Cache is keyed by full
-artifact identity, so two quantizations cannot collide.
+* a mesh-eligible model must carry **either** a passing malware scan **or** a
+  valid, digest-bound operator acceptance recording what was not checked;
+* an acceptance must never be recorded as though it were a scan
+  (`malware_scan_status` must still read `not_run`, `is_a_scan_result` false).
 
-**Proven on this host** against a real 1.7 MB GGUF:
-
-```
-status VERIFIED · digest_match true
-expected   cedc56ca6e2e89f63e781696d1fd76b4b1d49e6720dee86463e915f6e90016ac
-recomputed cedc56ca6e2e89f63e781696d1fd76b4b1d49e6720dee86463e915f6e90016ac
-size 1766807 / 1766807 · structural_scan pass (v3, 0 tensors)
-one-bit corruption of the same file -> DIGEST_MISMATCH, quarantined
-```
-
-**Defect found and fixed during that run:** staging a corrupt file over an
-already-good cache returned `ALREADY_CACHED` without examining the staged
-bytes — an operator handing over a bad file would have been told it was fine.
-The staged file is now always verified when present.
-
-### B1 runner (`local_runtime_b1.py`)
-
-Enforced order: governance clearance → verified cached artifact → real backend
-with proxy environment stripped (load and both inferences run with no egress).
-Emits machine-readable evidence for artifact identity, backend identity, load
-and inference latency, RAM/VRAM, residency, outputs, failure and fallback.
-
-Current output against main:
-
-```
-b1_status REFUSED · refused_at governance_admission · real_generation false
-reason: the canonical record is not cleared for placement
-```
-
-That is the tool working correctly.
-
-### Backend
-
-`llama-cpp-python 0.3.35`, built from source on this host, health PASS, real
-CPU feature detection. Not added to `requirements.txt` — the adapter degrades
-to unhealthy without it and every real-engine test skips rather than faking.
-
----
-
-## B6 / B5 — unchanged, no regression
-
-Re-verified against current main: 1154 brain tests and CI green. Not revisited.
+Several lane tests had the same defect — borrowing the live row's governance
+state — and now construct their own quarantined fixtures.
 
 ---
 
 ## Next exact task
 
-Blocked. When transport **and** governance clearance are both supplied, run the
-three commands above; `b1_status: PASS` closes B1 and B2 follows immediately
-(canonical route: ingress → task_router → Model Mesh → projection → scheduler →
-llama.cpp → Qwen), which is wired and waiting on the same artifact.
+Supply the artifact. Everything downstream is built, tested and cleared.

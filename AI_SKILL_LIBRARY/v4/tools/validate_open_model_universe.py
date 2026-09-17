@@ -61,6 +61,82 @@ def _unsafe_https_url(value: object) -> bool:
     return any(key.lower() in SENSITIVE_QUERY_KEYS for key, _ in parse_qsl(parsed.query, keep_blank_values=True))
 
 
+#: Gates an operator acceptance may stand in for. Nothing else, ever - licence,
+#: provenance, format safety, pickle safety and remote-code restrictions are
+#: either obtainable anywhere or are the reason the artifact is safe to open.
+_ACCEPTABLE_GAPS = frozenset({"malware_scan_status"})
+
+_ACCEPTANCE_REQUIRED_FIELDS = (
+    "accepted_by", "accepted_at", "artifact_sha256", "basis", "missing_evidence", "scope",
+)
+
+
+def _risk_acceptance_refusals(model: dict, index: int) -> list[str]:
+    """Why this row's operator acceptance does not stand in for a malware scan."""
+    acceptance = model.get("operator_risk_acceptance")
+    if not isinstance(acceptance, dict):
+        return [
+            f"admission blocks local candidate: malware_scan_status must be pass, or a valid "
+            f"operator_risk_acceptance must be recorded, at models[{index}]"
+        ]
+
+    # An acceptance covers a known *absence* of evidence, never an adverse or
+    # ambiguous result. "not_run" is a thing an operator can knowingly accept;
+    # "fail" and "unknown" are not - the first is a finding and the second means
+    # something happened that nobody has explained.
+    status = (model.get("admission_evidence") or {}).get("malware_scan_status")
+    if status != "not_run":
+        return [
+            f"admission blocks local candidate: malware_scan_status is {status!r}; an operator "
+            f"acceptance may only cover 'not_run', at models[{index}]"
+        ]
+
+    errors: list[str] = []
+    for field in _ACCEPTANCE_REQUIRED_FIELDS:
+        value = acceptance.get(field)
+        if not (value if isinstance(value, (list, tuple)) else str(value or "").strip()):
+            errors.append(f"operator_risk_acceptance.{field} is required at models[{index}]")
+
+    if acceptance.get("scope") not in (None, "single_artifact"):
+        errors.append(
+            f"operator_risk_acceptance.scope must be single_artifact at models[{index}]; "
+            f"a blanket acceptance is refused"
+        )
+
+    # Bound to the exact bytes it was granted for, so it cannot be recycled.
+    declared = str(acceptance.get("artifact_sha256") or "").strip().lower()
+    actual = str((model.get("artifact_identity") or {}).get("sha256") or "").strip().lower()
+    if declared and actual and declared != actual:
+        errors.append(
+            f"operator_risk_acceptance.artifact_sha256 does not match artifact_identity.sha256 "
+            f"at models[{index}]"
+        )
+
+    covers = set(acceptance.get("covers") or [])
+    forbidden = sorted(covers - _ACCEPTABLE_GAPS)
+    if forbidden:
+        errors.append(
+            f"operator_risk_acceptance may not cover {forbidden} at models[{index}]"
+        )
+    if "malware_scan_status" not in covers:
+        errors.append(
+            f"operator_risk_acceptance does not cover malware_scan_status at models[{index}]"
+        )
+
+    # The decision must not be dressed up as a finding.
+    if acceptance.get("is_a_scan_result") is not False:
+        errors.append(
+            f"operator_risk_acceptance must record is_a_scan_result: false at models[{index}]"
+        )
+    admission = model.get("admission_evidence") or {}
+    if admission.get("malware_scan_status") == "pass":
+        errors.append(
+            f"malware_scan_status must not be reported as pass when it was accepted rather "
+            f"than scanned, at models[{index}]"
+        )
+    return errors
+
+
 def _admission_refusals(model: dict, index: int) -> list[str]:
     errors: list[str] = []
     if not model.get("model_mesh_local_candidate_eligible"):
@@ -81,7 +157,11 @@ def _admission_refusals(model: dict, index: int) -> list[str]:
     if admission.get("custom_code_required") is not False:
         errors.append(f"admission blocks local candidate: custom_code_required must be false at models[{index}]")
     if admission.get("malware_scan_status") != "pass":
-        errors.append(f"admission blocks local candidate: malware_scan_status must be pass at models[{index}]")
+        # A named, digest-bound operator acceptance may stand in for a scan that
+        # cannot be run in the deploying environment. It is a recorded decision,
+        # never a substituted finding: malware_scan_status must still read its
+        # true value, and the acceptance has to be complete enough to audit.
+        errors.extend(_risk_acceptance_refusals(model, index))
     if admission.get("quarantine_status") != "clear":
         errors.append(f"admission blocks local candidate: quarantine_status must be clear at models[{index}]")
     if model.get("artifact_identity", {}).get("format") == "other":

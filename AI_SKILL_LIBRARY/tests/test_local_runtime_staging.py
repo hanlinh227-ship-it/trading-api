@@ -233,10 +233,13 @@ class StagedIntakeTests(unittest.TestCase):
     def test_a_verified_artifact_of_a_quarantined_model_stays_unplaceable(self):
         """The bytes being right does not make the model runnable."""
         from AI_SKILL_LIBRARY.v4.local_runtime.projection import project_record
-        result = intake_staged_artifact(self.stage(), self.record, root=self.root)
+        quarantined = copy.deepcopy(self.record)
+        quarantined.pop("operator_risk_acceptance", None)
+        quarantined["lifecycle_state"] = "QUARANTINED"
+        quarantined["admission_evidence"]["quarantine_status"] = "quarantined"
+        result = intake_staged_artifact(self.stage(), quarantined, root=self.root)
         self.assertTrue(result.verified)
-        self.assertEqual(self.record["lifecycle_state"], "QUARANTINED")
-        projected = project_record(self.record)
+        projected = project_record(quarantined)
         self.assertFalse(projected.placeable)
 
     def test_result_is_json_safe(self):
