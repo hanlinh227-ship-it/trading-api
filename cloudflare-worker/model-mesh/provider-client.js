@@ -40,6 +40,20 @@ function normalizedResult(worker,route,startedAt,completedAt,result){
 
 export async function providerConfigurationStatus(modelSnapshot,env={}){return providerRuntimeStatus(modelSnapshot,env);}
 
+export async function executeSelectedModelWorker({selectedWorker,env={},text,route={},modelSnapshot,fetchImpl=fetch}={}){
+  if(!selectedWorker)throw new Error('MODEL_MESH_SELECTED_WORKER_REQUIRED');
+  if(typeof text!=='string'||!text.trim())throw new Error('MODEL_MESH_WORKER_TEXT_REQUIRED');
+  const startedAt=nowIso();
+  const worker=resolveRuntimeWorker(selectedWorker);
+  const result=worker?await callProvider(worker,env,[{role:'user',content:text}],fetchImpl):{ok:false,status:0,category:'UNKNOWN_SANITIZED'};
+  const completedAt=nowIso();
+  const normalized=normalizedResult(worker||selectedWorker,route,startedAt,completedAt,result);
+  const healthStore=resolveModelHealthStore(env);
+  await recordModelExecutionHealth(healthStore,selectedWorker,{ok:Boolean(result.ok),category:result.category,latencyMs:normalized.latency_ms,retryAfter:result.retryAfter,resetAt:result.resetAt},{sourceSha:modelSnapshot?.source_sha||''});
+  return normalized;
+}
+
+
 const DEFAULT_MAX_CANDIDATES_PER_PROVIDER=3;
 const MODEL_SCOPED_FAILURES=new Set(['MODEL_NOT_FOUND','MODEL_GONE','FREE_ENTITLEMENT_INVALID','REQUEST_INVALID']);
 
@@ -139,16 +153,7 @@ export function createMeshExecutor({fetchImpl=fetch,selfHealProbe=null}={}){
       scheduleSelfHeal({env,ctx,probeProviders:selfHealProbe,modelSnapshot});
       return json({ok:false,error:'no_eligible_free_worker'},503);
     }
-    const healthStore=resolveModelHealthStore(env);
-    const messages=[{role:'user',content:body.text}];
-    const run=async selectedWorker=>{
-      const startedAt=nowIso();const worker=resolveRuntimeWorker(selectedWorker);
-      const result=worker?await callProvider(worker,env,messages,fetchImpl):{ok:false,status:0,category:'UNKNOWN_SANITIZED'};
-      const completedAt=nowIso(),normalized=normalizedResult(worker||selectedWorker,route,startedAt,completedAt,result);
-      const persist=recordModelExecutionHealth(healthStore,selectedWorker,{ok:Boolean(result.ok),category:result.category,latencyMs:normalized.latency_ms,retryAfter:result.retryAfter,resetAt:result.resetAt},{sourceSha:modelSnapshot?.source_sha||''});
-      await persist;
-      return normalized;
-    };
+    const run=selectedWorker=>executeSelectedModelWorker({selectedWorker,env,text:body.text,route,modelSnapshot,fetchImpl});
     const settled=await Promise.allSettled(selected.map(run));
     const results=settled.map((item,index)=>item.status==='fulfilled'?item.value:normalizedResult(selected[index],route,nowIso(),nowIso(),{ok:false,status:0,error:'worker_failure'}));
     return json({ok:true,mode:'FREE_ONLY',routingAuthority:false,reasoningAuthority:false,workerCount:results.length,results});
