@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {BYBIT_AUTO_CONFIG,bybitExecutionMode,bybitExecutionAllowsOrders} from './bybit-auto-config.js';
+import {BYBIT_AUTO_CONFIG,bybitAutoConfig,bybitExecutionMode,bybitExecutionAllowsOrders} from './bybit-auto-config.js';
 import {handleBybitControlApi} from './bybit-control-plane.js';
 import {BYBIT_RUNTIME_CONTRACT,BYBIT_AUTO_VERSION,LEGACY_BYBIT_MULTI_COIN_DISABLED} from './bybit-runtime-contract.js';
 import {BYBIT_TRADE_UNIVERSE,isSupportedTradeSymbol} from './bybit-coin-profiles.js';
@@ -31,6 +31,12 @@ assert.equal(BYBIT_RUNTIME_CONTRACT.demoExecutionSupported,true);
 assert.equal(bybitExecutionMode({BYBIT_AUTO_DEMO:'true'}),'DEMO');
 assert.equal(bybitExecutionAllowsOrders('DEMO'),true);
 assert.equal(bybitExecutionMode({BYBIT_AUTO_DEMO:'true',BYBIT_AUTO_LIVE:'true',BYBIT_BTC_LIVE_ACK:'true'}),'BLOCKED');
+const widenAttempt=bybitAutoConfig({BYBIT_BTC_MAX_ACTIVE_RISK_PCT:'12',BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT:'85'});
+assert.equal(widenAttempt.risk.maxActiveRiskPct,6);
+assert.equal(widenAttempt.risk.maxPortfolioMarginPct,65);
+const tightenAttempt=bybitAutoConfig({BYBIT_BTC_MAX_ACTIVE_RISK_PCT:'3.5',BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT:'50'});
+assert.equal(tightenAttempt.risk.maxActiveRiskPct,3.5);
+assert.equal(tightenAttempt.risk.maxPortfolioMarginPct,50);
 assert.deepEqual(BYBIT_AUTO_CONFIG.portfolio.concurrentByEquity,[{equityUsd:0,max:1}]);
 
 // Broad crypto discovery remains available as read-only/research evidence only.
