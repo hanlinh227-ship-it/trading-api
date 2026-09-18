@@ -54,6 +54,16 @@ COMMIT_ARG_NAMES = ("commitSha", "commit", "sha")
 
 _SHA_RE = re.compile(r"^[0-9a-f]{40}\Z")
 
+#: Sent on every request, including the anonymous control.
+#:
+#: urllib defaults to "Python-urllib/3.x", which edge layers - Cloudflare among
+#: them, and Railway's API sits behind one - routinely answer with a blanket 403
+#: before the request ever reaches the application. That is indistinguishable in
+#: the log from "your token was rejected", and it is what two different tokens
+#: failing identically pointed at. Naming the caller costs nothing and removes
+#: a failure mode that reads as someone else's fault.
+USER_AGENT = "trading-api-railway-deploy/1.0 (+https://github.com/hanlinh227-ship-it/trading-api)"
+
 
 #: GraphQL error text that means "this token is not accepted", as opposed to
 #: "this request was wrong" or "the API is not there". Railway phrases the
@@ -83,7 +93,7 @@ class Failure(RuntimeError):
 
 
 def _post(query: str, variables: dict, token: str, scheme: str) -> dict:
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", "User-Agent": USER_AGENT}
     if scheme == "bearer":
         headers["Authorization"] = "Bearer %s" % token
     else:
@@ -133,7 +143,7 @@ def _unauthenticated_status() -> str:
     request = urllib.request.Request(
         ENDPOINT,
         data=json.dumps({"query": "query { __typename }"}).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "User-Agent": USER_AGENT},
         method="POST",
     )
     try:

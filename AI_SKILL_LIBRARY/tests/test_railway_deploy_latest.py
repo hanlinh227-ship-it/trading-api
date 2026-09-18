@@ -304,6 +304,50 @@ class AnonymousControlTests(unittest.TestCase):
         self.assertNotIn("project-access-token", lowered)
 
 
+class UserAgentTests(unittest.TestCase):
+    """Two different tokens failed identically with 403, which is not what a
+    credential problem looks like.
+
+    urllib sends "Python-urllib/3.x" unless told otherwise, and edge layers -
+    Railway's API sits behind one - answer that with a blanket 403 before the
+    request reaches the application. In the log that is indistinguishable from a
+    rejected token, which is how a rotated credential changed nothing.
+    """
+
+    def _headers_of(self, send):
+        captured = {}
+
+        def capture(request, timeout=None):
+            captured.update(request.headers)
+            raise deploy.urllib.error.HTTPError(
+                deploy.ENDPOINT, 403, "no", {}, None)
+
+        original = deploy.urllib.request.urlopen
+        deploy.urllib.request.urlopen = capture
+        try:
+            send()
+        except deploy.Failure:
+            pass
+        finally:
+            deploy.urllib.request.urlopen = original
+        return {k.lower(): v for k, v in captured.items()}
+
+    def test_the_authenticated_request_names_the_caller(self):
+        headers = self._headers_of(
+            lambda: deploy._post("query { __typename }", {}, "tok", "bearer"))
+        self.assertEqual(headers.get("User-agent".lower()), deploy.USER_AGENT)
+
+    def test_the_anonymous_control_names_the_caller_too(self):
+        """The control is only a control if it is shaped like the real request;
+        a probe blocked for a different reason answers a different question."""
+        headers = self._headers_of(deploy._unauthenticated_status)
+        self.assertEqual(headers.get("User-agent".lower()), deploy.USER_AGENT)
+
+    def test_the_agent_is_never_the_urllib_default(self):
+        self.assertNotIn("Python-urllib", deploy.USER_AGENT)
+        self.assertTrue(deploy.USER_AGENT.strip())
+
+
 class WorkflowWiringTests(unittest.TestCase):
     """The gates around the deploy, asserted against the workflow itself."""
 
