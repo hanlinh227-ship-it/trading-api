@@ -2,48 +2,56 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "experience_ledger.schema.json",
   "title": "Experience ledger - sanitized observable outcomes of executed work",
-  "description": "What can be observed from outside a run: which class of request it was, which role and skill answered it, which model ran it, how long it took, whether the verifier accepted it, and where it escalated. What happened inside the model is deliberately not representable here. The row is a closed field set: an unknown field is rejected rather than stored, so a prompt body or a reasoning trace cannot arrive by accident through a caller that forgot to strip it. Privacy is therefore a property of the shape, not of the discipline of whoever writes to it.",
+  "description": "What can be observed from outside a run: which class of request it was, which role and skill answered it, which model ran it, how long it took, whether the verifier accepted it, and where it escalated. What happened inside the model is deliberately not representable here. The row is a closed field set: an unknown field is rejected rather than stored, so a prompt body or a reasoning trace cannot arrive by accident through a caller that forgot to strip it. The closed field set alone is not enough, though - a field typed merely 'string' is a 2KB slot that will hold a prompt body or an API key as happily as it holds 'coding'. Every field here is therefore typed as what it actually is: a classifier, an identifier, a reference or a timestamp, each bounded by pattern and length in the manner of universal_entry_request.schema.json. Privacy is a property of the shape, not of the discipline of whoever writes to it.",
   "type": "object",
   "required": ["version", "ledger_id", "authority", "stable_write", "authority_flags", "experiences"],
   "properties": {
     "version": {"const": 1},
     "ledger_id": {"const": "EXPERIENCE_LEDGER"},
-    "purpose": {"type": "string", "minLength": 1},
+    "purpose": {"type": "string", "minLength": 1, "maxLength": 500},
     "authority": {"const": false},
     "stable_write": {"const": false},
     "authority_flags": {"$ref": "#/$defs/authority_flags"},
     "experiences": {
+      "description": "Bounded so the ledger stays a reviewable git artifact rather than an unbounded append target. A run that needs more rows than this needs rotation, not a bigger file.",
       "type": "array",
+      "maxItems": 10000,
       "items": {
         "type": "object",
         "required": ["experience_id", "timestamp", "request_class", "success"],
         "properties": {
-          "experience_id": {"type": "string", "minLength": 1},
-          "timestamp": {"type": "string", "format": "date-time"},
-          "request_class": {"type": "string", "minLength": 1},
+          "experience_id": {"$ref": "#/$defs/identifier"},
+          "timestamp": {"$ref": "#/$defs/timestamp"},
+          "request_class": {"$ref": "#/$defs/class_token"},
           "role_id": {
             "description": "A role branch id. Matched by shape, not by an enumerated copy: the canonical list lives in AI_SKILL_LIBRARY/v4/model_mesh/role_branches.yaml.",
             "type": "string",
+            "maxLength": 64,
             "pattern": "^[A-Z][A-Z0-9_]*_BRANCH$"
           },
-          "skill_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-          "model_id": {"type": "string", "minLength": 1},
-          "provider_id": {"type": "string", "minLength": 1},
-          "worker_id": {"type": "string", "minLength": 1},
+          "skill_ids": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+          "model_id": {"$ref": "#/$defs/identifier"},
+          "provider_id": {"$ref": "#/$defs/identifier"},
+          "worker_id": {"$ref": "#/$defs/identifier"},
           "latency_ms": {"type": "number", "minimum": 0},
           "success": {"type": "boolean"},
-          "failure_class": {"type": ["string", "null"], "minLength": 1},
+          "failure_class": {
+            "description": "A class of failure, never the failure text. An exception message or a stack trace is prose and would carry whatever the caller had in scope.",
+            "type": ["string", "null"],
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"
+          },
           "verifier_passed": {"enum": [true, false, "unknown"]},
           "retry_count": {"type": "integer", "minimum": 0},
-          "escalation_path": {"type": "array", "items": {"type": "string", "minLength": 1}},
-          "fallback_path": {"type": "array", "items": {"type": "string", "minLength": 1}},
-          "resource_observation": {"type": "string", "minLength": 1},
-          "quota_impact": {"type": "string", "minLength": 1},
+          "escalation_path": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/identifier"}},
+          "fallback_path": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/identifier"}},
+          "resource_observation": {"$ref": "#/$defs/class_token"},
+          "quota_impact": {"$ref": "#/$defs/class_token"},
           "user_feedback_signal": {
             "description": "A normalized signal only. Feedback is evidence, never promotion authority, and never the user's words verbatim.",
             "enum": ["none", "accepted", "rejected", "corrected", "preference_stated"]
           },
-          "evidence_ref": {"type": "string", "minLength": 1}
+          "evidence_ref": {"$ref": "#/$defs/evidence_ref"}
         },
         "additionalProperties": false
       }
@@ -51,6 +59,33 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "class_token": {
+      "description": "A classifier drawn from a small controlled vocabulary - 'coding', 'timeout.upstream', 'quota-exhausted'. Lower-case, punctuation-limited and short, because a classifier that can hold a sentence can hold a prompt, and a classifier that can hold 2KB can hold a credential.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"
+    },
+    "identifier": {
+      "description": "An identifier as the Model Mesh and Free Worker Mesh actually write them: 'Qwen/Qwen3-8B-GGUF', '@cf/baai/bge-m3', 'cf-worker-01'. Wider than class_token because real model ids carry an owner prefix, a leading '@' and a quantization suffix; still narrow enough to exclude whitespace and '=', so 'API_KEY=sk-live-...' cannot be written here.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^@?[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,127}$"
+    },
+    "evidence_ref": {
+      "description": "A pointer into the existing verifier/evidence path, not a note about one. Either a scheme-qualified reference (artifact://..., https://...) or a repository-relative path whose final segment carries a file extension (CHECKPOINTS/evidence/WAVE0_CAPABILITY_QWEN3_8B.json). Shaped this way so that the placeholders that satisfy a mere minLength - '   ', 'n/a', 'TODO', '-' - do not satisfy an evidence requirement. A gate that accepts 'TODO' as evidence is not a gate.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?:[a-z][a-z0-9+.-]{1,31}://[A-Za-z0-9][A-Za-z0-9._~:/?#@!$&'()*+,;=%-]{2,222}|[A-Za-z0-9][A-Za-z0-9._/-]*/[A-Za-z0-9][A-Za-z0-9._-]*[.][A-Za-z0-9]{1,16})$"
+    },
+    "timestamp": {
+      "description": "ISO-8601 / RFC 3339 instant, enforced by pattern. 'format: date-time' is an annotation: a validator is free to ignore it, and the default one does, so 'not-a-date' validated against a field that looked well typed.",
+      "type": "string",
+      "maxLength": 40,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
     "authority_flags": {
       "description": "Denied by name rather than by omission. The scalar authority:false above is the canonical top-level declaration; these name the specific authorities the ledger does not hold.",
       "type": "object",
@@ -69,7 +104,7 @@
         "trading_authority": {"const": false},
         "reasoning_authority": {"const": false},
         "evidence_authority": {"const": false},
-        "note": {"type": "string"}
+        "note": {"type": "string", "maxLength": 500}
       },
       "additionalProperties": false
     }

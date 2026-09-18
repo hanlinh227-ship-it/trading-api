@@ -122,7 +122,7 @@ files:
   sha256: 1bd919f7ae223c380c4ebf3df245753ab8cf11d04cc319bf6c4f7c774c223529
   role: image_render_policy
 - path: AI_SKILL_LIBRARY/v4/learning/policy.yaml
-  sha256: 83eeac085f3af5b3d1468d3972e1a730928927c11c16c261961e28fa3f0f59c7
+  sha256: ee872569ac62238ecaece8449c1113f5e07b1f09d78f868570579ddfb134bdb3
   role: learning_policy
 - path: AI_SKILL_LIBRARY/v4/learning/sources.yaml
   sha256: 5bded7a1307b2514b105269767eb23a8615fca434d424052501dc61d2ae1f7ad

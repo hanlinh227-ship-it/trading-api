@@ -2,18 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "skill_competency_matrix.schema.json",
   "title": "Skill competency matrix - measured MODEL x SKILL x ROLE competence",
-  "description": "What has actually been measured, not what is hoped for. The matrix is read as evidence by the Model Mesh; it does not select, and a row appearing here activates nothing. The states above MEASURED are the ones a reader would act on, so the requirement that they carry a score, an evidence reference and a measurement time is expressed as a constraint rather than as guidance - a row that claims proficiency without a measurement is rejected, not merely discouraged.",
+  "description": "What has actually been measured, not what is hoped for. The matrix is read as evidence by the Model Mesh; it does not select, and a row appearing here activates nothing. The states a reader would act on - PROFICIENT, PRIMARY and FALLBACK - carry their requirements as constraints rather than as guidance: a row that claims competence without a measurement is rejected, not merely discouraged. FALLBACK is gated alongside the other two because choosing where work lands when the primary path fails is an operational decision (design sections 10 and 15), and an ungated fallback is simply an ungated selection under a quieter name.",
   "type": "object",
   "required": ["version", "matrix_id", "authority", "stable_write", "authority_flags", "rows"],
   "properties": {
     "version": {"const": 1},
     "matrix_id": {"const": "SKILL_COMPETENCY_MATRIX"},
-    "purpose": {"type": "string", "minLength": 1},
+    "purpose": {"type": "string", "minLength": 1, "maxLength": 500},
     "authority": {"const": false},
     "stable_write": {"const": false},
     "authority_flags": {"$ref": "#/$defs/authority_flags"},
     "rows": {
+      "description": "Bounded so the matrix stays a reviewable git artifact. MODEL x SKILL x ROLE grows multiplicatively; a matrix past this size needs partitioning, not a larger single file.",
       "type": "array",
+      "maxItems": 10000,
       "items": {
         "type": "object",
         "required": [
@@ -21,11 +23,12 @@
           "protected_regression_status"
         ],
         "properties": {
-          "model_id": {"type": "string", "minLength": 1},
-          "skill_id": {"type": "string", "minLength": 1},
+          "model_id": {"$ref": "#/$defs/identifier"},
+          "skill_id": {"$ref": "#/$defs/identifier"},
           "role_id": {
             "description": "A role branch id. Matched by shape, not by an enumerated copy: the canonical list lives in AI_SKILL_LIBRARY/v4/model_mesh/role_branches.yaml.",
             "type": "string",
+            "maxLength": 64,
             "pattern": "^[A-Z][A-Z0-9_]*_BRANCH$"
           },
           "state": {
@@ -43,26 +46,32 @@
           "measured_score": {"type": "number", "minimum": 0, "maximum": 1},
           "verifier_pass_rate": {"type": "number", "minimum": 0, "maximum": 1},
           "evidence_refs": {
-            "description": "References into the existing verifier/evidence path. Present on every row - empty while nothing has been measured, non-empty the moment the row claims anything.",
+            "description": "References into the existing verifier/evidence path. Present on every row - empty while nothing has been measured, non-empty the moment the row claims anything. Items are reference-shaped so that a non-empty array is actually evidence; '   ', 'n/a', 'TODO' and '-' satisfied the old minLength gate and satisfy nothing now.",
             "type": "array",
-            "items": {"type": "string", "minLength": 1},
+            "maxItems": 24,
+            "items": {"$ref": "#/$defs/evidence_ref"},
             "uniqueItems": true
           },
           "protected_regression_status": {"enum": ["PASS", "FAIL", "NOT_RUN", "BLOCKED"]},
           "latency_observation_ms": {"type": ["number", "null"], "minimum": 0},
-          "resource_observation": {"type": "string", "minLength": 1},
-          "last_measured_at": {"type": ["string", "null"], "format": "date-time"},
+          "resource_observation": {"$ref": "#/$defs/class_token"},
+          "last_measured_at": {
+            "description": "Enforced by pattern. 'format: date-time' is annotation-only for the default validator, which is how 'tomorrow' produced a valid PRIMARY row.",
+            "type": ["string", "null"],
+            "maxLength": 40,
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$"
+          },
           "promotion_state": {"enum": ["NONE", "CANDIDATE", "PROMOTED", "REJECTED", "QUARANTINED", "ROLLED_BACK"]},
-          "promotion_evidence_ref": {"type": "string", "minLength": 1}
+          "promotion_evidence_ref": {"$ref": "#/$defs/evidence_ref"}
         },
         "additionalProperties": false,
         "allOf": [
           {
-            "description": "PROFICIENT and PRIMARY are the states a reader acts on, so they may only be reached from a measurement: a score, a verifier pass rate, at least one evidence reference, a time the measurement was taken, and protected regressions that actually passed.",
+            "description": "PROFICIENT, PRIMARY and FALLBACK are the states a reader acts on, so they may only be reached from a measurement: a score, a verifier pass rate, at least one evidence reference, a time the measurement was taken, and protected regressions that actually passed. The score floor is 0.35, taken from policy.hard_capability_min_score in AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml rather than invented here - a model below the Mesh's own capability floor is not a model the Mesh would route to, and a matrix row saying otherwise would be evidence for a decision no one would make. Without the floor, a model that scored 0 on every run and passed no verifier validated as PRIMARY.",
             "if": {
               "type": "object",
               "required": ["state"],
-              "properties": {"state": {"enum": ["PROFICIENT", "PRIMARY"]}}
+              "properties": {"state": {"enum": ["PROFICIENT", "PRIMARY", "FALLBACK"]}}
             },
             "then": {
               "required": [
@@ -70,8 +79,10 @@
                 "last_measured_at", "protected_regression_status"
               ],
               "properties": {
+                "measured_score": {"type": "number", "minimum": 0.35},
+                "verifier_pass_rate": {"type": "number", "minimum": 0.35},
                 "evidence_refs": {"minItems": 1},
-                "last_measured_at": {"type": "string", "format": "date-time"},
+                "last_measured_at": {"type": "string"},
                 "protected_regression_status": {"const": "PASS"}
               }
             }
@@ -94,6 +105,26 @@
                 }
               }
             }
+          },
+          {
+            "description": "Design section 20.1: every promoted competency has measured evidence. PROMOTED was previously assertable on a NOT_TESTED row with no evidence at all, and promotion_evidence_ref - the pointer to what the gate was actually shown - was never required. A promotion recorded without the evidence it was granted on is indistinguishable from one that was never granted.",
+            "if": {
+              "type": "object",
+              "required": ["promotion_state"],
+              "properties": {"promotion_state": {"const": "PROMOTED"}}
+            },
+            "then": {
+              "required": [
+                "promotion_evidence_ref", "evidence_refs", "measured_score",
+                "verifier_pass_rate", "last_measured_at", "protected_regression_status"
+              ],
+              "properties": {
+                "evidence_refs": {"minItems": 1},
+                "last_measured_at": {"type": "string"},
+                "protected_regression_status": {"const": "PASS"},
+                "state": {"enum": ["MEASURED", "PROFICIENT", "PRIMARY", "FALLBACK"]}
+              }
+            }
           }
         ]
       }
@@ -101,6 +132,27 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "class_token": {
+      "description": "A classifier drawn from a small controlled vocabulary. Short and punctuation-limited, because a classifier that can hold a sentence can hold a prompt.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"
+    },
+    "identifier": {
+      "description": "An identifier as the Model Mesh actually writes them: 'Qwen/Qwen3-8B-GGUF', '@cf/baai/bge-m3'. Narrow enough to exclude whitespace and '=', so credential-shaped text cannot be written here.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^@?[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,127}$"
+    },
+    "evidence_ref": {
+      "description": "A pointer into the existing verifier/evidence path, not a note about one. Either a scheme-qualified reference (artifact://..., https://...) or a repository-relative path whose final segment carries a file extension (CHECKPOINTS/evidence/WAVE0_CAPABILITY_QWEN3_8B.json).",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?:[a-z][a-z0-9+.-]{1,31}://[A-Za-z0-9][A-Za-z0-9._~:/?#@!$&'()*+,;=%-]{2,222}|[A-Za-z0-9][A-Za-z0-9._/-]*/[A-Za-z0-9][A-Za-z0-9._-]*[.][A-Za-z0-9]{1,16})$"
+    },
     "authority_flags": {
       "description": "Denied by name rather than by omission. The scalar authority:false above is the canonical top-level declaration; these name the specific authorities the matrix does not hold.",
       "type": "object",
@@ -119,7 +171,7 @@
         "trading_authority": {"const": false},
         "reasoning_authority": {"const": false},
         "evidence_authority": {"const": false},
-        "note": {"type": "string"}
+        "note": {"type": "string", "maxLength": 500}
       },
       "additionalProperties": false
     }

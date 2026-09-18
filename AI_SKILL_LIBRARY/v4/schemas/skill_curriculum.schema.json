@@ -78,6 +78,7 @@
       "type": "object",
       "required": [
         "skill_id", "domain", "roles", "triggers", "capabilities", "permissions",
+        "privacy_constraints", "protected_invariants",
         "risk_class", "output_contract", "evals", "verifier_required",
         "promotion_class", "authority"
       ],
@@ -98,8 +99,20 @@
           },
           "additionalProperties": false
         },
-        "privacy_constraints": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
-        "protected_invariants": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "privacy_constraints": {
+          "description": "Required, not optional. Section 4.1 of the design lists privacy constraints among the things a curriculum contains, and section 8 requires the compiler to preserve the original skill's privacy restrictions. An entry that simply omits the field is indistinguishable from one compiled off a skill that had no restrictions to preserve, and the compiler would have no way to tell that it had dropped them.",
+          "type": "array",
+          "maxItems": 64,
+          "items": {"type": "string", "minLength": 1, "maxLength": 200},
+          "uniqueItems": true
+        },
+        "protected_invariants": {
+          "description": "Required, not optional. Tolerance on the protected dimensions of section 12 is zero, and an entry that never names what it must not break cannot be checked for having broken it.",
+          "type": "array",
+          "maxItems": 64,
+          "items": {"type": "string", "minLength": 1, "maxLength": 200},
+          "uniqueItems": true
+        },
         "allowed_tools": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
         "input_contract": {"type": "string", "minLength": 1},
         "risk_class": {"enum": ["A", "B", "C", "D"]},
@@ -110,7 +123,40 @@
         "promotion_class": {"enum": ["A", "B", "C", "D"]},
         "authority": {"$ref": "#/$defs/authority"}
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "description": "Section 11: learning must never lower a risk class. The classes run from A (may auto-promote through the existing evidence gates) to D (never auto-promotes), so a promotion_class earlier in that order than the entry's own risk_class hands a class-D authority, security or trading change the auto-promotion path of a class-A wording tweak. Expressed as a constraint because the alternative is trusting that no compiler ever emits the pair, and the pair validated cleanly before this.",
+          "$comment": "One branch per risk class above A; risk_class A already admits every promotion_class."
+        },
+          {
+            "description": "risk_class B admits only promotion_class B or C or D.",
+            "if": {
+              "type": "object",
+              "required": ["risk_class"],
+              "properties": {"risk_class": {"const": "B"}}
+            },
+            "then": {"properties": {"promotion_class": {"enum": ["B", "C", "D"]}}}
+          },
+          {
+            "description": "risk_class C admits only promotion_class C or D.",
+            "if": {
+              "type": "object",
+              "required": ["risk_class"],
+              "properties": {"risk_class": {"const": "C"}}
+            },
+            "then": {"properties": {"promotion_class": {"enum": ["C", "D"]}}}
+          },
+          {
+            "description": "risk_class D admits only promotion_class D.",
+            "if": {
+              "type": "object",
+              "required": ["risk_class"],
+              "properties": {"risk_class": {"const": "D"}}
+            },
+            "then": {"properties": {"promotion_class": {"enum": ["D"]}}}
+          }
+      ]
     }
   }
 }
