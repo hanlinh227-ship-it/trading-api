@@ -1,0 +1,297 @@
+{
+  "wave0_status": "MEASURED",
+  "measured": true,
+  "artifact_identity": {
+    "model_id": "Qwen/Qwen3-4B-GGUF",
+    "family": "Qwen3",
+    "variant": "4B-Q4_K_M-GGUF",
+    "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+    "artifact_sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+    "artifact_format": "gguf",
+    "quantization": "Q4_K_M",
+    "artifact_size_bytes": 2497280256,
+    "artifact_filename": null,
+    "fingerprint": "0af309b5b9d552063c8cc76f9415130a",
+    "cache_key": "Qwen_Qwen3-4B-GGUF-Q4_K_M@bc640142c66e1fdd-0af309b5b9d5"
+  },
+  "artifact_path": "/home/user/trading-api/.model-cache/models/Qwen_Qwen3-4B-GGUF-Q4_K_M@bc640142c66e1fdd-0af309b5b9d5/Q4_K_M.gguf",
+  "suite_path": "/home/user/trading-api/AI_SKILL_LIBRARY/v4/local_runtime/benchmarks/local_core_reasoning_v1.json",
+  "mesh_capability_floor": 0.35,
+  "clears_mesh_floor": true,
+  "promotable": true,
+  "load_latency_ms": 4148.82,
+  "context_limit": 4096,
+  "host": {
+    "gpus": 0,
+    "ram_total_mb": 16095,
+    "ram_available_mb": 15039,
+    "cpu_logical": 4
+  },
+  "egress": {
+    "denied": true,
+    "removed_env": {
+      "HTTPS_PROXY": "<removed>",
+      "https_proxy": "<removed>"
+    }
+  },
+  "benchmark_run": {
+    "suite_id": "local_core_reasoning",
+    "suite_version": "1.0.0",
+    "suite_hash": "f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957",
+    "capability": "text_reasoning",
+    "model_id": "Qwen/Qwen3-4B-GGUF",
+    "artifact_sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+    "backend_version": "llama-cpp-python/0.3.35",
+    "started_at": "2026-09-17T09:53:43+00:00",
+    "wall_ms": 47920.124,
+    "attempted": 24,
+    "passed": 22,
+    "errors": 0,
+    "score": 0.916667,
+    "run_status": "COMPLETE",
+    "promotable": true,
+    "measurement_kind": "local_suite",
+    "is_public_benchmark": false,
+    "decoding": "greedy/deterministic",
+    "results": [
+      {
+        "item_id": "lg-01",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: All birds have feathers. A robin is a bird. Does a robin have feathers?\n(A) yes\n(B) no\nAnswer:",
+        "generation": " A\n\nQ: Which number is larger",
+        "passed": true,
+        "error": null,
+        "latency_ms": 2894.738
+      },
+      {
+        "item_id": "lg-02",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: No fish can fly. A salmon is a fish. Can a salmon fly?\n(A) no\n(B) yes\nAnswer:",
+        "generation": " A\n\nQ: Which number is larger",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1943.113
+      },
+      {
+        "item_id": "lg-04",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: If it is raining then the ground is wet. The ground is dry. Is it raining?\n(A) yes\n(B) no\nAnswer:",
+        "generation": " B\n\nQ: If it is raining",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1866.749
+      },
+      {
+        "item_id": "lg-05",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: Every student passed. Maria is a student. Did Maria pass?\n(A) yes\n(B) no\nAnswer:",
+        "generation": " A\n\nQ: Which number is larger",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1794.034
+      },
+      {
+        "item_id": "rd-01",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: Tom bought bread, milk and eggs. He did not buy cheese. Did Tom buy cheese?\n(A) yes\n(B) no\nAnswer:",
+        "generation": " B\n\nQ: What is the result",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1827.186
+      },
+      {
+        "item_id": "rd-03",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: Lena speaks French and Spanish but not German. Does Lena speak German?\n(A) no\n(B) yes\nAnswer:",
+        "generation": " A\n\nQ: Which number is larger",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1800.179
+      },
+      {
+        "item_id": "rd-04",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: The library opens at 9 and closes at 5. Is it open at 8 in the morning?\n(A) yes\n(B) no\nAnswer:",
+        "generation": " B\n\nQ: The library opens at",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1858.939
+      },
+      {
+        "item_id": "lg-03",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: Ann is taller than Ben. Ben is taller than Carl. Who is tallest?\n(A) Ben\n(B) Carl\n(C) Ann\nAnswer:",
+        "generation": " C\n\nQ: Which of the following",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1909.999
+      },
+      {
+        "item_id": "lg-06",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: Box A is heavier than Box B. Box C is lighter than Box B. Which box is lightest?\n(A) the first box\n(B) the second box\n(C) the third box\nAnswer:",
+        "generation": " B\n\nQ: Which of the following",
+        "passed": false,
+        "error": null,
+        "latency_ms": 2140.027
+      },
+      {
+        "item_id": "cs-03",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: Water freezes when the temperature falls below:\n(A) 0 degrees Celsius\n(B) 50 degrees Celsius\n(C) 100 degrees Celsius\nAnswer:",
+        "generation": " A\n\nQ: What is the name",
+        "passed": true,
+        "error": null,
+        "latency_ms": 2128.414
+      },
+      {
+        "item_id": "ar-01",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: Sara has 12 apples and gives 5 away. How many does she have left?\n(A) 5\n(B) 12\n(C) 17\n(D) 7\nAnswer:",
+        "generation": " D\n\nQ: What is the sum",
+        "passed": true,
+        "error": null,
+        "latency_ms": 2143.655
+      },
+      {
+        "item_id": "ar-02",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: A box holds 6 pencils. How many pencils are in 4 boxes?\n(A) 10\n(B) 18\n(C) 24\n(D) 64\nAnswer:",
+        "generation": " B\n\nQ: What is the value",
+        "passed": false,
+        "error": null,
+        "latency_ms": 2123.004
+      },
+      {
+        "item_id": "ar-03",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: What is 15 minus 8?\n(A) 8\n(B) 23\n(C) 6\n(D) 7\nAnswer:",
+        "generation": " D\n\nQ: What is the value",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1889.996
+      },
+      {
+        "item_id": "ar-04",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: A train leaves at 2:00 and arrives at 5:00. How many hours is the trip?\n(A) 2\n(B) 3\n(C) 5\n(D) 7\nAnswer:",
+        "generation": " B\n\nQ: What is the value",
+        "passed": true,
+        "error": null,
+        "latency_ms": 2134.547
+      },
+      {
+        "item_id": "ar-05",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: Half of 30 is:\n(A) 10\n(B) 20\n(C) 60\n(D) 15\nAnswer:",
+        "generation": " D\n\nQ: What is the sum",
+        "passed": true,
+        "error": null,
+        "latency_ms": 2143.871
+      },
+      {
+        "item_id": "cs-01",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: You want to keep milk from spoiling. Where do you put it?\n(A) in the oven\n(B) on the windowsill\n(C) in the refrigerator\n(D) in the bathtub\nAnswer:",
+        "generation": " C\n\nQ: What is the name",
+        "passed": true,
+        "error": null,
+        "latency_ms": 2149.308
+      },
+      {
+        "item_id": "cs-02",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: It is pouring with rain outside. What should you take with you?\n(A) a fan\n(B) sunglasses\n(C) a towel rack\n(D) an umbrella\nAnswer:",
+        "generation": " D\n\nQ: What is the result",
+        "passed": true,
+        "error": null,
+        "latency_ms": 2146.486
+      },
+      {
+        "item_id": "cs-04",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: Which of these is a living thing?\n(A) a rock\n(B) a tree\n(C) a chair\n(D) a cloud\nAnswer:",
+        "generation": " B\n\nQ: Which of these is",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1884.677
+      },
+      {
+        "item_id": "cs-05",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: You cut your finger. What do you reach for first?\n(A) a hammer\n(B) a dictionary\n(C) a kettle\n(D) a bandage\nAnswer:",
+        "generation": " D\n\nQ: What is the name",
+        "passed": true,
+        "error": null,
+        "latency_ms": 2097.797
+      },
+      {
+        "item_id": "rd-02",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: The meeting moved from Monday to Thursday. Which day is the meeting on now?\n(A) Monday\n(B) Tuesday\n(C) Thursday\n(D) Friday\nAnswer:",
+        "generation": " C\n\nQ: Which of the following",
+        "passed": true,
+        "error": null,
+        "latency_ms": 2125.089
+      },
+      {
+        "item_id": "sa-01",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: What is the capital city of France? Answer with the city name only.\nAnswer:",
+        "generation": " Paris\n\nQ: What is the capital",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1756.015
+      },
+      {
+        "item_id": "sa-02",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: How many days are there in one week? Answer with a number word.\nAnswer:",
+        "generation": " seven\n\nQ: How many days are",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1731.308
+      },
+      {
+        "item_id": "sa-03",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: What colour is a clear daytime sky? Answer with one word.\nAnswer:",
+        "generation": " blue\n\nQ: What is the capital",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1726.072
+      },
+      {
+        "item_id": "sa-04",
+        "capability": "text_reasoning",
+        "prompt": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B\n\nQ: What is 9 plus 4? Answer with a number only.\nAnswer:",
+        "generation": " 13\n\nQ: What is",
+        "passed": true,
+        "error": null,
+        "latency_ms": 1704.143
+      }
+    ]
+  },
+  "ledger_record": {
+    "evidence_id": "local_core_reasoning-7485fe6f11af-f0a0ae922cf3",
+    "provider_id": "local_runtime",
+    "model_id": "Qwen/Qwen3-4B-GGUF",
+    "model_family": "Qwen3",
+    "capability": "text_reasoning",
+    "benchmark_id": "local_core_reasoning",
+    "benchmark_version": "1.0.0+f0a0ae922cf3",
+    "score": 0.916667,
+    "threshold": 0.35,
+    "passed": true,
+    "measured_at": "2026-09-17T09:53:43+00:00",
+    "source_sha": "2ca72231f2ae0d005f6ac3e4ec72c84e1fc674a3",
+    "environment": {
+      "protocol": "local_inprocess",
+      "runtime": "llama-cpp-python/0.3.35"
+    },
+    "provenance": {
+      "kind": "local_benchmark_run",
+      "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_EVIDENCE.json"
+    }
+  }
+}

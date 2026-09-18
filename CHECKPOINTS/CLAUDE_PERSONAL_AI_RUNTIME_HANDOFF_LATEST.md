@@ -1,137 +1,170 @@
 # Claude Personal AI Runtime — Handoff
 
-**Role:** Claude Code — PRIMARY IMPLEMENTATION WORKER
+**Role:** Claude Code — sole owner of the remaining Personal AI Federation path.
 **Updated:** 2026-09-17
-
----
 
 ## Position
 
 | Field | Value |
 |---|---|
-| origin/main | `94f302eaabfc7b365e2986c701d9549a2be5566e` (PR #428 merged) |
-| Branch | `claude/magical-euler-uu98r8`, restarted from main after the merge |
-| HEAD | `435ac4fb13677f5ea7547329e4981c42d5b01819` |
-| behind_by / ahead_by | **0** / 1 |
-| CI at exact head | **CI_VALIDATE=PASS failures=0** |
-| Brain suite | 1154 passed, 4 skipped |
-| Repo suite | 46 passed |
-| Secret scan | 0 findings |
+| origin/main | `b236a615f0598a2d3b97559f403ae954eb32602d` |
+| Branch | `claude/magical-euler-uu98r8` |
+| PR | **#442** |
+| AI CORE gate | **AI_CORE_RELEASE=PASS passed=9/9** |
+| CI | **CI_VALIDATE=PASS failures=0** |
+| Suites | brain 1543 passed · 5 skipped · 980 subtests |
 
----
-
-## B1 REAL_LOCAL_RUNTIME — BLOCKED, path fully operational
-
-Everything downstream of the artifact is built, tested and exercised. B1 is
-blocked on one external fact and nothing else.
-
-### Canonical state, read from main
-
-| Field | Value |
-|---|---|
-| model_id | `Qwen/Qwen3-0.6B-GGUF` |
-| immutable_revision | `1eaf4d9657fe65ad10a51eab76a8db5b363bddaa` |
-| sha256 | `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031` |
-| size_bytes | `639446688` |
-| format / quantization | `gguf` / `Q8_0` |
-| lifecycle_state | **QUARANTINED** |
-| malware_scan_status | **not_run** |
-| quarantine_status | **quarantined** |
-| model_mesh_local_candidate_eligible | **false** |
-
-### Two independent blockers
-
-**1. Transport.** Re-probed this session: `huggingface.co:443` and
-`cdn-lfs.huggingface.co:443` both answer **403 CONNECT** at the environment
-gateway. `hf-mirror.com` unreachable. No staged GGUF anywhere on the host. No
-local AV engine (`clamscan`, `clamdscan`, `yara` all absent).
-
-**2. Governance.** Even with the bytes, the row is `QUARANTINED` with
-`malware_scan_status: not_run`, so `admission_policy.yaml` refuses it. Clearing
-that is governance's act, not this lane's. The runtime will not relax it, and
-`local_runtime_b1.py` has no flag to skip the check.
-
-### Exact external action needed
-
-Either transport route, **plus** the governance clearance:
+## The gate to run first
 
 ```bash
-# A. supply the artifact (either one)
-#    - allow huggingface.co + cdn-lfs.huggingface.co in the ENVIRONMENT network policy, or
-#    - place the file on disk by any other route, then:
-python AI_SKILL_LIBRARY/v4/tools/local_runtime_intake.py \
-    --staged /path/to/Qwen3-0.6B-Q8_0.gguf
-
-# B. governance clears the row (Work lane, not this lane):
-#    malware_scan_status: pass, quarantine_status: clear,
-#    lifecycle_state: AVAILABLE, model_mesh_local_candidate_eligible: true
-
-# C. then B1 runs itself:
-python AI_SKILL_LIBRARY/v4/tools/local_runtime_b1.py --evidence /tmp/b1.json
+python AI_SKILL_LIBRARY/v4/tools/ai_core_release_gate.py
 ```
 
-No code change is needed at any step.
+Nine checks that re-read every proof **together**. Each part of this lane had
+its own evidence and each was checked alone; nothing asked whether they still
+hold against each other, which is the state in which a lane is most easily
+believed finished. Absent evidence fails the check it belongs to, every recorded
+run must name a digest that is a registry row, and no run may claim routing,
+memory, merge or approval authority.
 
----
+It grants nothing: PASS means the evidence holds, and cutting a release stays a
+human decision. It also runs inside `ci_validate`, because holding together is
+what stops being true silently.
 
-## What is operational now
+## Gate status
 
-### Staged-artifact intake (`staging.py`, `local_runtime_intake.py`)
+| Gate | State | Evidence |
+|---|---|---|
+| B1 real local runtime | **PASS** | `evidence/B1_REAL_INFERENCE_EVIDENCE.json` |
+| B2 canonical route | **PASS** | `evidence/B2_CANONICAL_ROUTE_EVIDENCE.json` |
+| B3 / B4 golden E2E | **PASS** | `evidence/AI_CORE_E2E_EVIDENCE.json` — 14-stage chain, Legion before the mesh |
+| Memory continuity | **RESUMED across processes** | `evidence/AI_CORE_RESUME_EVIDENCE.json` — pid 9016 wrote, pid 9034 resumed |
+| Failure paths | **PROVEN 6/6** | `evidence/FAILURE_PATH_PROOF.json` |
+| Self-development | **PROVEN 9/9** | `evidence/SELFDEV_CYCLE_EVIDENCE.json` |
+| Open model gaps | **0 actionable** | `evidence/SELFDEV_OBSERVED_GAPS.json` (resolved 2) |
+| PERSONAL_AI_BASELINE_001 | **NOT FROZEN** | `evidence/WAVE0_BASELINE_EVIDENCE.json` |
 
-Verifies against the canonical record, never against the file's own claims:
-exact size, SHA-256 recomputed from the bytes on disk, GGUF magic, bounded
-structural scan, format/filename consistency. Mismatches quarantine the file
-(moved aside, not deleted — it is evidence) and stop. Cache is keyed by full
-artifact identity, so two quantizations cannot collide.
+### Why the baseline is still not frozen
 
-**Proven on this host** against a real 1.7 MB GGUF:
+10 of 12 canonical Wave 0 tasks pass on Qwen3-0.6B; 12 of 12 are reproducible.
+Two fail because the model is wrong, not the harness (`gr-02` answered "Oxygen";
+`vi-03` answered "Bắc"). `freeze_baseline` refuses a wave that is not ready and
+there is no override. Re-run it against a stronger admitted model.
+
+## The model universe: 7 admitted, 2 refused by the runtime
+
+| Model | State | Note |
+|---|---|---|
+| Qwen3-0.6B-Q8_0 | AVAILABLE | scan pass, capability 0.75 |
+| Qwen3-1.7B-Q8_0 | AVAILABLE | |
+| Qwen3-4B-Q4_K_M | AVAILABLE | |
+| granite-3.3-2b-instruct-Q4_K_M | AVAILABLE | |
+| SmolLM2-360M-Instruct-Q8_0 | AVAILABLE | |
+| granite-4.2-3b-Q4_K_M | AVAILABLE | capability 0.833 |
+| Phi-3-mini-4k-instruct-q4 | AVAILABLE | capability 0.917 |
+| bitnet-b1.58-2B-4T (I2_S) | **QUARANTINED** | artifact intact; llama.cpp 0.3.35 rejects the format |
+| Ministral-3-3B-Reasoning Q4_K_M | **QUARANTINED** | artifact intact; tokenizer scores missing |
+
+The two refusals are **recorded, not cleared**:
+`evidence/RUNTIME_INCOMPATIBILITY_EVIDENCE.json` holds each digest, the verbatim
+runtime diagnostic, the runtimes tried, and what would reopen the gap. The
+observer reports them as resolved rather than actionable, so they stop
+generating work without the limitation being hidden. A different digest reopens
+the gap.
+
+## Governance: the Qwen3-0.6B acceptance is retired
+
+The operator risk acceptance is **gone**, replaced by a real finding:
 
 ```
-status VERIFIED · digest_match true
-expected   cedc56ca6e2e89f63e781696d1fd76b4b1d49e6720dee86463e915f6e90016ac
-recomputed cedc56ca6e2e89f63e781696d1fd76b4b1d49e6720dee86463e915f6e90016ac
-size 1766807 / 1766807 · structural_scan pass (v3, 0 tensors)
-one-bit corruption of the same file -> DIGEST_MISMATCH, quarantined
+admission_evidence.malware_scan_status : pass
+malware_scan_reference.engine          : ClamAV 1.5.3/28126
+malware_scan_reference.artifact_sha256 : 9465e63a…   <- bound to these bytes
+engine_data_scanned                    : 1.27 GiB over 609.82 MiB read
 ```
 
-**Defect found and fixed during that run:** staging a corrupt file over an
-already-good cache returned `ALREADY_CACHED` without examining the staged
-bytes — an operator handing over a bad file would have been told it was fine.
-The staged file is now always verified when present.
+Keeping both would have left the row asserting that no scan ran beside the scan
+that did — which is exactly the state it was found in, with two comments reading
+"malware_scan_status still reads not_run" above a field reading `pass`.
 
-### B1 runner (`local_runtime_b1.py`)
+**Root cause, now gated:** the validator consulted the acceptance rules only
+when `malware_scan_status` was *not* pass, so an acceptance stopped being
+checked at all once a scan closed its gap, and could outlive it indefinitely.
+`_admission_refusals` refuses a row carrying both. An acceptance is still
+accepted where no scan ran — the missing-engine route stays open.
 
-Enforced order: governance clearance → verified cached artifact → real backend
-with proxy environment stripped (load and both inferences run with no egress).
-Emits machine-readable evidence for artifact identity, backend identity, load
-and inference latency, RAM/VRAM, residency, outputs, failure and fallback.
+## Transport: the block that had already lifted
 
-Current output against main:
+An earlier version of this file recorded B1 as blocked on artifact bytes, with
+`huggingface.co` 403 at the gateway and no reachable mirror. That was true of
+HuggingFace and remains true. What it missed is that the bytes had since been
+published to **this repository's own releases**, and `api.github.com` is
+reachable and scoped to this repository:
 
 ```
-b1_status REFUSED · refused_at governance_admission · real_generation false
-reason: the canonical record is not cleared for placement
+releases/tags/canonical-qwen3-0.6b-q8_0 → Qwen3-0.6B-Q8_0.gguf (639446688 B)
 ```
 
-That is the tool working correctly.
+Fetched through the release asset API, sha256 `9465e63a…` on arrival, intake
+VERIFIED byte for byte, B1 re-run to PASS on this container: cold load 576 ms,
+32 tokens in 1.9 s, peak RAM 1155 MB, egress denied, no fallback.
 
-### Backend
+**Worth keeping:** the blocker was written down as "the artifact cannot be
+obtained" when what had been established was "HuggingFace is unreachable". Those
+are not the same claim. A route that opened later went unnoticed because the
+conclusion had been recorded as final.
 
-`llama-cpp-python 0.3.35`, built from source on this host, health PASS, real
-CPU feature detection. Not added to `requirements.txt` — the adapter degrades
-to unhealthy without it and every real-engine test skips rather than faking.
+## Self-development has carried a real change
 
----
+`AutoDev` had unit tests proving it refuses what it says it refuses, and had
+never carried anything. `v4/tools/local_runtime_selfdev_cycle.py` runs it over a
+real git worktree with gates that are real commands whose exit codes decide the
+result.
 
-## B6 / B5 — unchanged, no regression
+The accepted run reached `READY_TO_MERGE` on four passing gates and stopped —
+approval as `auto_dev` was attempted and refused. The rejected run disabled the
+self-approval guard for real; the tests gate caught it, and the properties that
+matter were demonstrated rather than assumed: `READY_TO_MERGE` unreachable
+afterwards, the failed gate not overwritable with a pass, and rollback verified
+by an empty `git status` against the base.
 
-Re-verified against current main: 1154 brain tests and CI green. Not revisited.
+The change it carried landed: `autorun` printed a bare `{"status":
+"NO_RECORD"}` for any registry holding more than one model — which it has since
+Wave 1 — so its own documented no-argument invocation named neither cause nor
+remedy.
 
----
+## Anti-fabrication rules enforced
 
-## Next exact task
+* a capability score above zero requires a measurement whose score equals it,
+  whose run had no errors, and which is bound to that artifact's digest, so a
+  score can never be inherited by different bytes;
+* admission refuses `context_window: 0` rather than writing an invalid number
+  that reads like a measured one;
+* benchmark suites and prompt sets are frozen by content hash;
+* the mesh ledger `v4/model_mesh/capability_evidence.json` is release-sealed and
+  was deliberately not written to.
 
-Blocked. When transport **and** governance clearance are both supplied, run the
-three commands above; `b1_status: PASS` closes B1 and B2 follows immediately
-(canonical route: ingress → task_router → Model Mesh → projection → scheduler →
-llama.cpp → Qwen), which is wired and waiting on the same artifact.
+## Two cautions for whoever picks this up
+
+**A second session worked this branch concurrently.** Commits for the same work
+landed from both sides and were reconciled by hand. Fetch before assuming local
+state is current, and prefer the stronger of two versions of a test rather than
+whichever arrived last.
+
+**Tests that assert where a row is, rather than what must be true of it, break
+the moment the row legitimately moves.** Three did so this session — pinning an
+acceptance to a named model id, matching a context window against any cached
+artifact, and borrowing the live row's scan status in a fixture about unscanned
+artifacts. Each now asserts the rule, which is stronger than the value it
+replaced.
+
+## Next automatic action
+
+1. Re-run `PERSONAL_AI_BASELINE_001` against Phi-3-mini (highest measured
+   capability, 0.917) and freeze only if it genuinely reaches 12/12.
+2. Populate the capability index from verified evidence only — migration step 1
+   of `docs/superpowers/specs/2026-09-17-brain-fast-reasoning-optimization-design.md`.
+
+## Not started
+
+Trading work. Untouched by design.

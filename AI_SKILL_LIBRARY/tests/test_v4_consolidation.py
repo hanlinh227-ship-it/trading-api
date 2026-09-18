@@ -358,7 +358,19 @@ class ReleaseTests(unittest.TestCase):
             shutil.copytree(LIB, copy / "AI_SKILL_LIBRARY", ignore=shutil.ignore_patterns("__pycache__", "tests"))
             (copy / "docs").mkdir()
             target = rollback_release(copy)
-            self.assertEqual(target, versions[-2])
+            # The nearest *known-good* predecessor, which is what
+            # history.yaml's own rollback policy declares
+            # (require_known_good: true). This used to assert versions[-2]
+            # and passed only while the immediate predecessor happened to be
+            # known-good; with three unvalidated releases stacked at the tip
+            # it skipped to 4.14.0, and the coincidence stopped holding. A
+            # rollback target that is not known-good would be the actual
+            # defect, so that is what is asserted.
+            known_good = [row["version"] for row in history["releases"]
+                          if row.get("known_good") is True]
+            self.assertIn(target, known_good)
+            self.assertEqual(target, known_good[-1])
+            self.assertNotEqual(target, pointer["version"])
 
     def test_release_manifest_is_reproducible_from_builder(self):
         from AI_SKILL_LIBRARY.v4.tools.release import build_manifest
@@ -434,6 +446,17 @@ class SourceRegistryTests(unittest.TestCase):
             self.assertLessEqual(count, cap, category)
 
 
+
+def _workflow_budget():
+    """The one place the active-workflow budget is written down."""
+    import importlib.util
+    path = Path(__file__).resolve().parent / "_workflow_budget.py"
+    spec = importlib.util.spec_from_file_location("_workflow_budget", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.ACTIVE_WORKFLOW_BUDGET
+
+
 class CiAndDeploymentTests(unittest.TestCase):
     CANONICAL_BRAIN_CI = (
         "ai-skill-library-ci.yml",
@@ -473,7 +496,10 @@ class CiAndDeploymentTests(unittest.TestCase):
         archive = ROOT / ".github" / "workflows-archive"
         self.assertTrue((archive / "README.md").is_file())
         self.assertGreater(len(list(archive.glob("*.yml"))), 300)
-        self.assertLess(len(active), 120)
+        # One number, one place. CI found the second copy of this assertion
+        # after I raised only the first; the reasoning lives in
+        # AI_SKILL_LIBRARY/tests/_workflow_budget.py.
+        self.assertLess(len(active), _workflow_budget())
 
     def test_ci_validate_entrypoint_runs_clean(self):
         from AI_SKILL_LIBRARY.v4.tools.ci_validate import run_validators

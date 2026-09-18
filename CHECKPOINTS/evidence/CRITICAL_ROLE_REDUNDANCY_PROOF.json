@@ -1,0 +1,150 @@
+{
+  "tool": "critical_role_redundancy_proof",
+  "gate": "CRITICAL_ROLE_REDUNDANCY_READY",
+  "ready": false,
+  "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
+  "proof_timestamp": "2026-09-18T08:19:01Z",
+  "OBSERVED_ON": {
+    "host_fingerprint": "93891604e58e2451985a873a94b53e49",
+    "platform": "Linux-6.18.44-fc-v33-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "cpu_count": 4,
+    "cpu_flags_present": [
+      "avx",
+      "avx2",
+      "avx512_vnni",
+      "avx512bw",
+      "avx512cd",
+      "avx512dq",
+      "avx512f",
+      "avx512vl",
+      "f16c",
+      "fma"
+    ],
+    "why_the_flags": "a prebuilt engine raises SIGILL on a CPU lacking the extensions it was compiled for, so these decide liveness for an unchanged commit and an unchanged artifact"
+  },
+  "reading_scope": "the execution readings this proof consumes are facts about the machines they name at the moments they were taken, not a property of the commit. A different host may read the opposite and both are true.",
+  "required_independent_paths": 2,
+  "independence_rule": "paths are counted by failure domain, not by model name: two models on one execution host are one path, and on an execution-dead host they are none.",
+  "critical_roles": [
+    {
+      "role_id": "CODING_BRANCH",
+      "criticality": "CRITICAL",
+      "candidates_named": 3,
+      "qualifying_paths": [],
+      "independent_failure_domains": [],
+      "independent_path_count": 0,
+      "covered": false,
+      "rejected_candidates": [
+        {
+          "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        },
+        {
+          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        }
+      ]
+    },
+    {
+      "role_id": "REASONING_BRANCH",
+      "criticality": "CRITICAL",
+      "candidates_named": 4,
+      "qualifying_paths": [],
+      "independent_failure_domains": [],
+      "independent_path_count": 0,
+      "covered": false,
+      "rejected_candidates": [
+        {
+          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        },
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        },
+        {
+          "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        }
+      ]
+    },
+    {
+      "role_id": "VERIFICATION_BRANCH",
+      "criticality": "CRITICAL",
+      "candidates_named": 4,
+      "qualifying_paths": [],
+      "independent_failure_domains": [],
+      "independent_path_count": 0,
+      "covered": false,
+      "rejected_candidates": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        },
+        {
+          "model_id": "Qwen/Qwen3-4B-GGUF",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        },
+        {
+          "model_id": "Qwen/Qwen3-1.7B-GGUF",
+          "worker_id": "-",
+          "reason": "no qualifying worker serves this candidate at this revision"
+        }
+      ]
+    }
+  ],
+  "workers_considered": 1,
+  "qualifying_workers": [],
+  "disqualified_workers": [
+    {
+      "worker_id": "local-engine-host_not_recorded",
+      "execution_host": "host:host_not_recorded",
+      "reason": "stale: the reading for host 'host_not_recorded' names no source_sha or no proof_timestamp, so it cannot be shown to be about the revision under test, whatever it says about execution"
+    },
+    {
+      "worker_id": "local-engine-93891604e58e2451985a873a94b53e49",
+      "execution_host": "host:93891604e58e2451985a873a94b53e49",
+      "reason": "execution_liveness is EXECUTION_DEAD: a worker that cannot be shown to execute serves no role and is not a redundant path, however healthy its heartbeat, lease, memory and circuit read"
+    }
+  ],
+  "malformed_records": [],
+  "contradictory_hosts": [],
+  "fail_closed_reasons": [],
+  "blocking_reasons": [
+    "reading local-engine-host_not_recorded is not capacity: stale: the reading for host 'host_not_recorded' names no source_sha or no proof_timestamp, so it cannot be shown to be about the revision under test, whatever it says about execution",
+    "worker local-engine-93891604e58e2451985a873a94b53e49 is not capacity: execution_liveness is EXECUTION_DEAD: a worker that cannot be shown to execute serves no role and is not a redundant path, however healthy its heartbeat, lease, memory and circuit read",
+    "CODING_BRANCH has 0 independent execution path(s), fewer than the 2 required; 3 candidate(s) are named for it",
+    "REASONING_BRANCH has 0 independent execution path(s), fewer than the 2 required; 4 candidate(s) are named for it",
+    "VERIFICATION_BRANCH has 0 independent execution path(s), fewer than the 2 required; 4 candidate(s) are named for it"
+  ],
+  "proofs": [],
+  "routing_authority": false,
+  "admission_authority": false,
+  "scheduling_authority": false,
+  "model_selection_authority": false,
+  "evidence_authority": false,
+  "changes_nothing": true
+}

@@ -1,0 +1,60 @@
+{
+  "tool": "local_runtime_intake",
+  "registry_model_id": "Qwen/Qwen3-0.6B-GGUF",
+  "governance": {
+    "lifecycle_state": "AVAILABLE",
+    "admission_evidence": {
+      "license_verified": true,
+      "provenance_verified": true,
+      "safe_format_verified": true,
+      "pickle_safe": true,
+      "trust_remote_code_required": false,
+      "custom_code_required": false,
+      "malware_scan_status": "not_run",
+      "isolated_first_load_required": true,
+      "first_load_egress_allowed": false,
+      "quarantine_status": "clear"
+    },
+    "placeable_now": true,
+    "exclusion_reasons": []
+  },
+  "intake": {
+    "status": "VERIFIED",
+    "reason": "staged artifact matches the canonical record byte for byte",
+    "verified": true,
+    "digest_match": true,
+    "artifact_identity": {
+      "model_id": "Qwen/Qwen3-0.6B-GGUF",
+      "family": "Qwen3",
+      "variant": "0.6B-Q8_0-GGUF",
+      "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+      "artifact_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+      "artifact_format": "gguf",
+      "quantization": "Q8_0",
+      "artifact_size_bytes": 639446688,
+      "artifact_filename": null,
+      "fingerprint": "ee18e02cb87de9249cebf984aa0255b5",
+      "cache_key": "Qwen_Qwen3-0.6B-GGUF-Q8_0@1eaf4d9657fe65ad-ee18e02cb87d"
+    },
+    "cached_path": "/home/user/trading-api/.model-cache/models/Qwen_Qwen3-0.6B-GGUF-Q8_0@1eaf4d9657fe65ad-ee18e02cb87d/Q8_0.gguf",
+    "quarantined_path": null,
+    "expected_size_bytes": 639446688,
+    "observed_size_bytes": 639446688,
+    "expected_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "recomputed_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "structural_scan": {
+      "scan_kind": "structural_scan",
+      "path": "/tmp/qwen-stage/Qwen3-0.6B-Q8_0.gguf",
+      "status": "pass",
+      "findings": [],
+      "gguf_version": 3,
+      "tensor_count": 310,
+      "kv_count": 28,
+      "file_size": 639446688,
+      "satisfies_malware_scan_status": false
+    },
+    "clears_governance": false,
+    "clears_quarantine": false
+  },
+  "note": "Intake verifies bytes against the canonical record. It does not clear quarantine, set malware_scan_status, or make the model runnable."
+}

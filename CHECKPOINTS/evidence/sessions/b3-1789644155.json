@@ -1,0 +1,39 @@
+{
+  "checkpoint_id": "b3-1789644155",
+  "resumable": true,
+  "memory_authority": false,
+  "routing_authority": false,
+  "written_at": "2026-09-17T11:22:51.801+00:00",
+  "work_state": {
+    "project_id": "personal-ai-core",
+    "domain": "engineering",
+    "focus": "primary",
+    "lifecycle": "active",
+    "phase": "operational_e2e",
+    "last_completed": "golden_e2e:b3-1789644155",
+    "next_actions": [
+      "verify_cross_session_resume"
+    ],
+    "status": "in_progress",
+    "verified": true,
+    "resume_eligible": true,
+    "last_verified": "2026-09-17T11:22:51.801+00:00",
+    "updated_at": "2026-09-17T11:22:51.801+00:00",
+    "source": "AI_SKILL_LIBRARY/v4/tools/local_runtime_ai_core_e2e.py",
+    "canonical_refs": [
+      "AI_SKILL_LIBRARY/checkpoint.json",
+      "AI_SKILL_LIBRARY/v4/control_plane/e2e.py",
+      "AI_SKILL_LIBRARY/v4/memory_continuity/policy.yaml"
+    ],
+    "authority": false,
+    "routing_authority": false,
+    "reasoning_authority": false,
+    "execution_authority": false,
+    "stable_mutation": false
+  },
+  "answer": " Also, can you explain the difference between a \"shogi\" and a \"shogi\" piece? Wait, that",
+  "verified": true,
+  "evidence_refs": [
+    "0af309b5b9d552063c8cc76f9415130a:b3-1789644155"
+  ]
+}

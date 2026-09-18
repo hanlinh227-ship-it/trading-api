@@ -1,0 +1,25 @@
+"""How many active workflow files this repository allows, stated once.
+
+Two tests asserted this number independently - `test_v4_consolidation` and
+`test_retired_workflow_archive_image_v2` - both with a literal `120`. I raised
+one of them and CI found the other, which is the whole argument for this file:
+a rule written down twice is a rule that will be half-changed.
+
+The budget is housekeeping, not a safety property. It stops retired one-shot
+lanes accumulating, and `.github/workflows-archive/` holds 300+ of them. It was
+raised from 120 to 121 to make room for
+`.github/workflows/production-golden-e2e.yml`, the free ephemeral worker that
+runs the canonical golden chain and is where this repository's semantically
+verified golden evidence now comes from - the thing that takes a personal
+computer off the production path.
+
+Before raising it I looked for a lane to retire in exchange and found none:
+every active workflow's push trigger names a branch that still exists on the
+remote. Earlier in this branch I refused to raise this same number; that refusal
+was right, because raising it then would have dodged a problem rather than paid
+for a capability.
+
+To restore a hard 120: retire a lane into the archive and set this back.
+"""
+
+ACTIVE_WORKFLOW_BUDGET = 121

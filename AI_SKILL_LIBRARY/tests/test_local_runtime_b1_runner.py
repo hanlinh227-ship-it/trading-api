@@ -31,6 +31,30 @@ def canonical_registry():
     return yaml.safe_load(CANONICAL.read_text(encoding="utf-8"))
 
 
+def quarantined_registry(**overrides):
+    """A quarantined registry, constructed rather than borrowed.
+
+    The live row's governance state is a decision that can change; that
+    quarantine blocks is the invariant worth testing.
+    """
+    registry = copy.deepcopy(canonical_registry())
+    # These fixtures are about one record's governance state, so they carry one
+    # record. They used to inherit however many the canonical registry held,
+    # which meant every test here started failing the moment Wave 1 admitted a
+    # second model - for reasons that had nothing to do with what they test.
+    registry["models"] = registry["models"][:1]
+    record = registry["models"][0]
+    record.pop("operator_risk_acceptance", None)
+    record["lifecycle_state"] = "QUARANTINED"
+    record["privacy_class"] = "local_candidate_pending_security_admission"
+    record["model_mesh_local_candidate_eligible"] = False
+    record["admission_evidence"].update(
+        malware_scan_status="not_run", quarantine_status="quarantined"
+    )
+    record.update(overrides)
+    return registry
+
+
 def cleared_registry(**overrides):
     """The canonical registry with governance cleared - a hypothetical future.
 
@@ -38,7 +62,13 @@ def cleared_registry(**overrides):
     modified, and nothing here clears quarantine anywhere it would persist.
     """
     registry = copy.deepcopy(canonical_registry())
+    # These fixtures are about one record's governance state, so they carry one
+    # record. They used to inherit however many the canonical registry held,
+    # which meant every test here started failing the moment Wave 1 admitted a
+    # second model - for reasons that had nothing to do with what they test.
+    registry["models"] = registry["models"][:1]
     record = registry["models"][0]
+    record.pop("operator_risk_acceptance", None)
     record["lifecycle_state"] = "AVAILABLE"
     record["privacy_class"] = "local_only"
     record["model_mesh_local_candidate_eligible"] = True
@@ -56,9 +86,11 @@ def write_registry(root: Path, registry) -> None:
 
 
 class Stage1GovernanceTests(unittest.TestCase):
-    def test_the_real_canonical_registry_refuses_at_governance(self):
+    def test_a_quarantined_registry_refuses_at_governance(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = run(ROOT, Path(tmp), "hello", 8, None)
+            root = Path(tmp) / "repo"
+            write_registry(root, quarantined_registry())
+            result = run(root, Path(tmp) / "cache", "hello", 8, None)
         self.assertEqual(result["b1_status"], "REFUSED")
         self.assertEqual(result["refused_at"], "governance_admission")
         self.assertFalse(result["real_generation"])
@@ -66,14 +98,18 @@ class Stage1GovernanceTests(unittest.TestCase):
 
     def test_the_refusal_names_every_governance_reason(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = run(ROOT, Path(tmp), "hello", 8, None)
+            root = Path(tmp) / "repo"
+            write_registry(root, quarantined_registry())
+            result = run(root, Path(tmp) / "cache", "hello", 8, None)
         reasons = " ".join(result["governance"]["exclusion_reasons"])
         for expected in ("QUARANTINED", "malware_scan_status", "quarantine_status"):
             self.assertIn(expected, reasons)
 
     def test_identity_is_still_read_losslessly_while_refusing(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = run(ROOT, Path(tmp), "hello", 8, None)
+            root = Path(tmp) / "repo"
+            write_registry(root, quarantined_registry())
+            result = run(root, Path(tmp) / "cache", "hello", 8, None)
         identity = result["artifact_identity"]
         self.assertEqual(identity["immutable_revision"], "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa")
         self.assertEqual(
@@ -104,7 +140,7 @@ class Stage2ArtifactTests(unittest.TestCase):
         # Order matters: a missing artifact must never mask a quarantine.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "repo"
-            write_registry(root, canonical_registry())
+            write_registry(root, quarantined_registry())
             result = run(root, Path(tmp) / "cache", "hello", 8, None)
         self.assertEqual(result["refused_at"], "governance_admission")
 
@@ -124,6 +160,7 @@ class Stage2ArtifactTests(unittest.TestCase):
             "sha256": hashlib.sha256(blob).hexdigest(),
             "size_bytes": len(blob),
         }
+        registry["models"][0].pop("operator_risk_acceptance", None)
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "repo"
             cache = Path(tmp) / "cache"
@@ -183,7 +220,9 @@ class EgressDenialTests(unittest.TestCase):
 class NoFabricationTests(unittest.TestCase):
     def test_the_runner_never_reports_generation_it_did_not_do(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = run(ROOT, Path(tmp), "hello", 8, None)
+            root = Path(tmp) / "repo"
+            write_registry(root, quarantined_registry())
+            result = run(root, Path(tmp) / "cache", "hello", 8, None)
         self.assertFalse(result["real_generation"])
         for key in ("cold_generation", "warm_generation"):
             self.assertNotIn(key, result)

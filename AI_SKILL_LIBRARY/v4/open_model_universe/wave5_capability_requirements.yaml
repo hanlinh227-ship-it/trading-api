@@ -1,0 +1,304 @@
+version: 1
+purpose: wave5_capability_requirements_and_measured_coverage
+status: MEASUREMENT_STARTED_NOT_CLOSED  # see wave_closure_gate.py --wave 5
+measured_at: "2026-09-17"
+evidence:
+  - CHECKPOINTS/evidence/WAVE3_CAPABILITY_GAP_MAP.json
+  - CHECKPOINTS/evidence/WAVE3_FEDERATION_PROOF.json
+  - CHECKPOINTS/evidence/WAVE4_MULTIMODAL_BENCHMARK.json
+  - CHECKPOINTS/evidence/WORKERS_AI_FREE_TIER_PROBE.json
+  - CHECKPOINTS/evidence/WAVE5_ADVINT_QWEN3_8B.json
+  - CHECKPOINTS/evidence/WAVE5_ADVINT_QWEN3_4B.json
+
+# Wave 5 is advanced intelligence. Every row below is filled from a recorded
+# run against a frozen suite or a real completion on a verified zero-cost path.
+# Nothing here is filled from a model card, a leaderboard or a vendor page.
+#
+# Two distinctions carried in from Wave 3 and not relaxed:
+#   - a capability with no task is NOT_MEASURED, never a pass inherited from a
+#     model being generally good;
+#   - a provider serving a different model covers the capability under its own
+#     name, and never makes the requested model available.
+#
+# A third distinction Wave 5 adds, because Wave 0's suites saturate: a score of
+# 1.000 on a four-task suite is evidence the suite is too easy, not evidence the
+# capability is solved. Those rows are covered AND flagged saturated, and the
+# flag is the honest part.
+
+architecture:
+  unchanged: true
+  flow: >-
+    USER -> GITHUB_BRAIN_V4 -> task_router -> AI Legion -> Model Mesh
+    -> existing runtime scheduler -> Free Worker Mesh -> worker/provider
+    -> inference -> verifier -> evidence -> synthesis
+  forbidden_additions:
+    - another Brain
+    - another router
+    - another Model Mesh
+    - another model registry
+    - another scheduler
+    - another worker registry
+    - another admission authority
+    - another evidence authority
+
+authority_boundary:
+  finance_analysis_carries_no_trading_authority: true
+  note: >-
+    Wave 5 names finance_analysis as a reading-and-reasoning capability. It
+    carries no order, wallet, transfer, signing or broadcast permission, and no
+    worker gains one by being measured for it. Trading remains out of scope for
+    this wave entirely and is not started here.
+
+capability_requirements:
+
+  - tag: deep_reasoning
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-4B-GGUF"
+    evidence_class: MEASURED
+    saturated: true
+    note: >-
+      1.000 on the frozen Wave 0 reasoning suite, and confirmed live in the
+      federation proof round A with Qwen3-8B as maker and Phi-3-mini as checker.
+      Flagged saturated: a perfect score on a thin suite bounds the suite, not
+      the model.
+
+  - tag: software_engineering
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-4B-GGUF"
+    evidence_class: MEASURED
+    saturated: true
+    note: >-
+      1.000 on the Wave 0 software-engineering tasks. Saturated and thin. This
+      is not evidence of SWE-bench-class ability and must not be read as such.
+
+  - tag: debugging
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    note: >-
+      1.000 measured, and re-run live in federation round C. Thin evidence.
+
+  - tag: code_review
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    saturated: true
+    note: >-
+      1.000 measured; federation round G passed with a real maker/checker pair.
+
+  - tag: verifier
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-4B-GGUF"
+    evidence_class: MEASURED
+    saturated: true
+    note: >-
+      The checker role is the one capability exercised in every federation
+      round rather than only its own, which is the strongest evidence in this
+      file: Phi-3-mini checked nine rounds and the rounds were graded on it.
+
+  - tag: vietnamese
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-4B-GGUF"
+    evidence_class: MEASURED
+    saturated: true
+    note: >-
+      1.000 on the Vietnamese suite and passed live in federation round E.
+
+  - tag: multilingual
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    score: 0.833
+    second_model: "Qwen/Qwen3-4B-GGUF scored 3/6 on the same items - half the
+      8B's result. The two models disagree sharply here and the weaker figure is
+      kept rather than dropped in favour of the better one."
+    note: >-
+      5 of 6 on arithmetic posed in Spanish, French, German, Japanese,
+      Indonesian and Portuguese - six languages, none of them Vietnamese, so
+      nothing is inherited from the Vietnamese score. The Spanish item failed.
+      Measured on the exact local model, not on a provider substitute.
+
+  - tag: long_context
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    score: 0.833
+    second_model: "Qwen/Qwen3-4B-GGUF scored 6/6 on the same items, at the same
+      16384 ceiling. The smaller model beat the larger one here, which is worth
+      recording precisely because it is not the expected direction and the
+      coverage does not rest on one model."
+    measured_at_tokens: 6100
+    note: >-
+      5 of 6 clearance codes recalled from a 400-record ledger of roughly 6,000
+      tokens placed in the prompt, at a 16384 context ceiling. The one failure is
+      the interesting part and is not rounded away: asked for depot-041's code it
+      returned BL2WC, which is depot-297's - it retrieved a real code from the
+      ledger and attached it to the wrong row.
+    measured_ceiling_is_the_claim: >-
+      This covers long_context AT ~6k TOKENS and at nothing larger. It is not
+      evidence at 32k or 128k and must never be cited as such. A 128k window
+      exists on @cf/openai/gpt-oss-20b, but an available window is a
+      specification and not a measurement.
+
+  - tag: tool_calling
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    score: 1.0
+    second_model: "Qwen/Qwen3-4B-GGUF also scored 6/6 on the same items."
+    note: >-
+      6 of 6: well-formed argument shapes against a declared schema, the right
+      response to a rate-limit error, refusing to invent a tool that does not
+      exist, and sequencing a call that depends on another's output.
+    what_it_does_not_cover: >-
+      These items measure judgment ABOUT calls, chosen from options. They do not
+      measure free-form emission of a syntactically valid call into a live tool
+      loop, which is a different task and has not been run.
+
+  - tag: agentic_planning
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    score: 1.0
+    second_model: "Qwen/Qwen3-4B-GGUF also scored 6/6 on the same items."
+    note: >-
+      6 of 6: dependency ordering, stopping when a result contradicts the
+      assumption the rest of the plan rests on, treating a verifier's failure as
+      authoritative over a confident sub-agent, and routing around an exhausted
+      quota rather than retrying it or opening a second account.
+    what_it_does_not_cover: >-
+      This is a model reasoning about plans. AI Legion orchestrating a plan in
+      software is a different claim and is still not measured as one.
+
+  - tag: large_model_synthesis
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/openai/gpt-oss-120b"
+    evidence_class: MEASURED
+    note: >-
+      SYNTHESISED. Given three incident reports that disagree on start time and
+      duration but agree on the cause, it named the agreement: the failed disk
+      in rack 7. Quoting any single source fails, because the scored answer is
+      the intersection rather than any one report.
+    two_harness_faults_found_getting_here: >-
+      The first attempt scored the response id as the answer. The second gave a
+      reasoning model 64 tokens, which it spent entirely on reasoning, returning
+      content null with finish_reason length. The third failed a correct answer
+      because it contained a narrow no-break space. All three were mine, and
+      none of them was evidence about the model.
+    served_by_a_substitute: >-
+      A provider's own model covering the capability under its own name. No
+      requested model became available by it, and the local fleet still has no
+      model of this size.
+
+  - tag: scientific_reasoning
+    declared: true
+    measured_covered: true
+    measured_model: "Qwen/Qwen3-8B-GGUF"
+    evidence_class: MEASURED
+    score: 1.0
+    second_model: "Qwen/Qwen3-4B-GGUF scored 5/6 on the same items."
+    note: >-
+      6 of 6 on items written so the intuitive answer is wrong: what a catalyst
+      does at equilibrium, why a sunlit thermometer stops measuring air
+      temperature, and reading a bookshop/longevity correlation as a shared cause
+      rather than an effect.
+
+  - tag: finance_analysis
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    blocker_class: OUT_OF_SCOPE_THIS_WAVE
+    note: >-
+      NOT_MEASURED, deliberately. Building this suite touches Trading-adjacent
+      material and Trading is not started in this wave. The tag is declared so
+      that the taxonomy is wave-independent; it is covered by nothing.
+
+  - tag: embedding
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/baai/bge-m3"
+    evidence_class: MEASURED
+    note: >-
+      EMBEDDED, two vectors of 1024 real dimensions, on the Workers Free plan.
+      Measured in the Wave 4 benchmark and carried here because embedding is a
+      Wave 5 retrieval dependency.
+
+  - tag: reranking
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/baai/bge-reranker-base"
+    evidence_class: MEASURED
+    note: >-
+      RANKED_CORRECTLY. Given a query about a container running out of disk
+      space and four passages, it put the one that answers it first. The three
+      decoys each share a word with the query - a container ship, a disc brake,
+      proving dough - so lexical overlap alone scores zero. Measured on the
+      Workers Free plan in the Wave 4 benchmark job.
+    served_by_a_substitute: >-
+      This is a provider's own model covering the capability under its own name.
+      No requested model became available by it.
+
+  - tag: retrieval
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/baai/bge-m3"
+    evidence_class: MEASURED
+    score: 1.0
+    note: >-
+      RETRIEVED, recall@1 of 1.0 on four queries against a six-document corpus:
+      embedded with bge-m3, retrieved by cosine similarity, scored against the
+      one passage that answers each query. This is end to end - an embedding
+      model returning vectors is not retrieval working, and the two were kept
+      as separate claims until this measured the second one.
+    measured_ceiling_is_the_claim: >-
+      Six documents. A recall figure at that size says nothing about six
+      million and must not be cited as though it did.
+
+two_models_not_one:
+  suite: local_advanced_intelligence_v1
+  suite_hash: 7b7c361cbfe9
+  runs:
+    - model: "Qwen/Qwen3-8B-GGUF"
+      score: 0.933
+      passed: "28/30"
+      context_limit: 16384
+    - model: "Qwen/Qwen3-4B-GGUF"
+      score: 0.867
+      passed: "26/30"
+      context_limit: 16384
+  why_both: >-
+    A capability covered by exactly one model is a single point of failure the
+    coverage table does not show. Running the same frozen suite on a second
+    admitted model says which of these capabilities the fleet holds twice.
+    tool_calling and agentic_planning are 6/6 on both. long_context is held by
+    both and the 4B is the better of the two. multilingual is held by the 8B
+    alone at any useful level, and that is the thinnest row in this file.
+
+rules_carried_forward:
+  declared_never_qualifies: >-
+    A declared capability advertises; only a measured one makes a worker
+    eligible.
+  saturation_is_reported_not_hidden: >-
+    A 1.000 on a thin suite is flagged saturated. The flag says the suite has
+    stopped discriminating, which is information about the suite.
+  exact_versus_capability_unchanged: >-
+    A provider serving a different model covers a capability under its own name
+    and is never recorded as the requested model being available.
+  execution_proof_unchanged: >-
+    A provider is VERIFIED_AVAILABLE only after a real request returns a real
+    completion on a zero-cost tier.
+  no_trading: >-
+    No Wave 5 capability grants trading, payment, transfer or signing
+    authority, and none is exercised here.

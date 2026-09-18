@@ -1,0 +1,530 @@
+# Federated Free Storage Mesh - provider registry.
+#
+# Registry membership is not admission and not activation. Every external row
+# below is UNVERIFIED and QUARANTINED because nothing here has been checked
+# against a real account: no quota has been observed, no hard stop has been
+# seen, no free tier has been confirmed for this account. Those are the honest
+# values, and Spec S16 requires unknown cost/privacy fields to fail closed.
+#
+# Quota numbers are null rather than the figures a provider's pricing page
+# advertises. A documented free tier is a claim about a product; the mesh needs
+# a fact about this account, and the two differ often enough that recording the
+# first as if it were the second is how a "free" mesh acquires a bill.
+#
+# No credential of any kind belongs in this file - no token, no key, no bucket
+# secret, no account identifier. Adapters resolve credentials from the secret
+# store at runtime; the registry only says which backends exist and what has
+# been proven about them.
+version: 1
+purpose: federated_free_storage_mesh_provider_registry
+authority: false
+authority_flags:
+  storage_authority: false
+  routing_authority: false
+  reasoning_authority: false
+  model_selection_authority: false
+  admission_authority: false
+  scheduling_authority: false
+  merge_authority: false
+  trading_authority: false
+canonical_authority: GITHUB_BRAIN_V4
+policy: AI_SKILL_LIBRARY/v4/storage/policy.yaml
+record_schema: AI_SKILL_LIBRARY/v4/schemas/storage_provider.schema.json
+registry_membership_is_admission: false
+registry_membership_is_activation: false
+accounts_created_here: false
+# Task 8 states the separation the rest of this file depends on. A provider's
+# pricing page is documentation evidence: it is a claim about a product, it
+# changes without notice, it differs by region and it does not survive an
+# expired promotion. What the mesh needs before it writes a byte is account
+# evidence - a quota this account actually has, read at a moment somebody can
+# point at. The two are kept in different fields on purpose
+# (free_status_evidence.evidence_class), and neither quota_total, quota_used,
+# rate_limits nor object_size_limits below carries a figure copied from a
+# vendor page. Every one of them is null, because null is what nobody has
+# measured, and a number nobody measured is the number a "free" mesh acquires a
+# bill through.
+documentation_evidence_is_not_account_evidence: true
+marketing_quota_numbers_recorded: false
+# Spec S17 roles are placement preferences, not bindings and not entitlements.
+provider_roles_are_preferences_not_bindings: true
+
+providers:
+  - provider_id: local_owned_store
+    adapter_type: local_filesystem
+    external: false
+    free_status: NOT_APPLICABLE
+    free_status_evidence:
+      evidence_class: not_applicable
+    quota_total: null
+    quota_used: null
+    hard_stop_verified: true
+    paid_spillover_possible: false
+    privacy_classes_allowed: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    encryption_required_classes: []
+    # The row previously read HEALTHY beside last_probe_at: null - a health
+    # claim with nothing behind it, and the one place this registry applied to
+    # itself a laxer standard than it applies to every external row. Nothing in
+    # this task probes a store or activates a backend, so the honest value is
+    # the one the schema's own comment already states: a provider nobody has
+    # probed is QUARANTINED. It is not a statement that the local disk is
+    # broken; it is a statement that no probe has been run, which is a
+    # different fact and the only one anyone here can evidence. A probe moves
+    # this row to HEALTHY with a timestamp, and the schema now requires the
+    # timestamp to come with it.
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    # A local disk is the natural home for the object tiers that are not
+    # someone else's service: the working set, the warm archive and the cold
+    # one. tiers_allowed was [HOT] while privacy_classes_allowed admitted
+    # LOCAL_ONLY and CONFIDENTIAL, which left a LOCAL_ONLY COLD archive with no
+    # admissible home anywhere in the mesh - LOCAL_ONLY may not leave owned
+    # storage and owned storage served no cold tier. CANONICAL stays with
+    # GitHub and METADATA with the object index; neither is a local-disk role.
+    tiers_allowed: [HOT, WARM, COLD]
+    preferred_tiers: [HOT]
+    retention_policy_class: owned-local
+    acceptable_use_class: owned-storage
+    last_probe_at: null
+    authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
+
+  - provider_id: cloudflare_r2
+    adapter_type: s3_compatible
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    quota_reserved: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [HOT, WARM]
+    preferred_tiers: [HOT]
+    acceptable_use_class: object-storage
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
+    last_probe_at: null
+    authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
+
+  - provider_id: backblaze_b2
+    adapter_type: s3_compatible
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    quota_reserved: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [WARM, COLD]
+    preferred_tiers: [WARM, COLD]
+    acceptable_use_class: object-storage
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
+    last_probe_at: null
+    authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
+
+  - provider_id: oracle_object_storage
+    adapter_type: s3_compatible
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    quota_reserved: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [WARM, COLD]
+    preferred_tiers: [WARM, COLD]
+    acceptable_use_class: object-storage
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
+    last_probe_at: null
+    authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
+
+  - provider_id: huggingface_hub
+    adapter_type: huggingface_hub
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    quota_reserved: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [COLD]
+    preferred_tiers: [COLD]
+    # Spec S17: models, datasets, AI artifacts and benchmark corpora only.
+    # Never a generic log dump.
+    acceptable_use_class: ai-artifacts-only
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
+    last_probe_at: null
+    authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
+
+  - provider_id: google_drive
+    adapter_type: google_drive_api
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    quota_reserved: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [HUMAN_BACKUP]
+    preferred_tiers: [HUMAN_BACKUP]
+    acceptable_use_class: human-backup-only
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
+    last_probe_at: null
+    authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
+
+  - provider_id: onedrive
+    adapter_type: microsoft_graph_api
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    quota_reserved: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [HUMAN_BACKUP]
+    preferred_tiers: [HUMAN_BACKUP]
+    acceptable_use_class: human-backup-only
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
+    last_probe_at: null
+    authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
+
+  - provider_id: dropbox
+    adapter_type: dropbox_api
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    quota_reserved: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [HUMAN_BACKUP]
+    preferred_tiers: [HUMAN_BACKUP]
+    acceptable_use_class: human-backup-only
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
+    last_probe_at: null
+    authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
+
+  # Metadata and object index only. Spec S6/S18/S25: Supabase holds the
+  # manifest, never the objects, and is never authority. The connected account
+  # currently has no project, and none is created by this registry.
+  - provider_id: supabase
+    adapter_type: supabase_metadata
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    quota_reserved: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: false
+    tiers_allowed: [METADATA]
+    preferred_tiers: [METADATA]
+    object_size_limits:
+      max_object_bytes: null
+    # Unobserved, exactly as every other row's are.
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
+    acceptable_use_class: metadata-index-only
+    last_probe_at: null
+    authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false

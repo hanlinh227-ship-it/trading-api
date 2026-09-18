@@ -1,0 +1,19 @@
+{
+  "wave0_status": "REFUSED",
+  "refused_at": "load",
+  "reason": "LlamaCppError: failed to load /home/user/trading-api/.model-cache/models/mistralai_Ministral-3-3B-Reasoning-2512-GGUF-Q4_K_M@b432f0a2c144af8a-a27ad6277e4a/Q4_K_M.gguf: Failed to load model from file: /home/user/trading-api/.model-cache/models/mistralai_Ministral-3-3B-Reasoning-2512-GGUF-Q4_K_M@b432f0a2c144af8a-a27ad6277e4a/Q4_K_M.gguf",
+  "measured": false,
+  "artifact_identity": {
+    "model_id": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
+    "family": "Ministral",
+    "variant": "Ministral-3-3B-Reasoning-2512-Q4_K_M",
+    "immutable_revision": "b432f0a2c144af8a1937b06e2ea7f75ebb4d0b31",
+    "artifact_sha256": "7e9516cc01a039bb3e2d41227cdf388849bc1c942c4624c84567b1684cd9c0fc",
+    "artifact_format": "gguf",
+    "quantization": "Q4_K_M",
+    "artifact_size_bytes": 2147021472,
+    "artifact_filename": null,
+    "fingerprint": "a27ad6277e4acc88f143f166b5db78fb",
+    "cache_key": "mistralai_Ministral-3-3B-Reasoning-2512-GGUF-Q4_K_M@b432f0a2c144af8a-a27ad6277e4a"
+  }
+}

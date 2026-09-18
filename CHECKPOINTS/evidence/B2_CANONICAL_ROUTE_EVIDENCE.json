@@ -1,0 +1,133 @@
+{
+  "b2_status": "PASS",
+  "prompt": "What is the capital of France?",
+  "model_named_at_ingress": false,
+  "request_id": "b2-1789643770",
+  "canonical_route_ok": true,
+  "reason": "canonical route completed with real inference",
+  "stages": [
+    {
+      "stage": "ingress",
+      "ok": true,
+      "detail": "request accepted",
+      "data": {
+        "prompt_chars": 30,
+        "model_named_at_ingress": false
+      }
+    },
+    {
+      "stage": "task_router",
+      "ok": true,
+      "detail": "core/core_reasoning",
+      "data": {
+        "router": "task_router",
+        "domain": "core",
+        "primary_skill": "core_reasoning",
+        "model_named_at_ingress": false
+      }
+    },
+    {
+      "stage": "governance_admission",
+      "ok": true,
+      "detail": "7 admitted",
+      "data": {
+        "model_ids": [
+          "Qwen/Qwen3-0.6B-GGUF",
+          "Qwen/Qwen3-1.7B-GGUF",
+          "ibm-granite/granite-3.3-2b-instruct-GGUF",
+          "Qwen/Qwen3-4B-GGUF",
+          "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+          "ibm-granite/granite-4.2-3b-GGUF",
+          "microsoft/Phi-3-mini-4k-instruct-gguf"
+        ]
+      }
+    },
+    {
+      "stage": "model_mesh",
+      "ok": true,
+      "detail": "selected Qwen/Qwen3-4B-GGUF",
+      "data": {
+        "selected": "Qwen/Qwen3-4B-GGUF",
+        "rejections": [],
+        "selection_authority": "model_mesh"
+      }
+    },
+    {
+      "stage": "artifact",
+      "ok": true,
+      "detail": "verified from cache",
+      "data": {
+        "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5"
+      }
+    },
+    {
+      "stage": "scheduler",
+      "ok": true,
+      "detail": "LOAD_FROM_CACHE",
+      "data": {
+        "runtime": "llama.cpp",
+        "estimated_start_s": 15.0
+      }
+    },
+    {
+      "stage": "runtime",
+      "ok": true,
+      "detail": "real tokens generated",
+      "data": {
+        "inference_latency_ms": 5342.465,
+        "tokens_output": 24,
+        "residency": [
+          "READY",
+          "WARM",
+          "READY"
+        ]
+      }
+    }
+  ],
+  "output": " \n\nThe capital of France is Paris. Paris is not only the capital of France but also a major cultural and historical center",
+  "execution_evidence": {
+    "authority": false,
+    "request_id": "b2-1789643770",
+    "task_id": "b2-1789643770",
+    "worker_id": "local",
+    "model_id": "Qwen/Qwen3-4B-GGUF",
+    "model_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+    "artifact_sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+    "artifact_fingerprint": "0af309b5b9d552063c8cc76f9415130a",
+    "actual_quantization": "Q4_K_M",
+    "runtime_id": "llama.cpp",
+    "runtime_version": "llama-cpp-python/0.3.35",
+    "backend": "llama.cpp",
+    "backend_version": "llama-cpp-python/0.3.35",
+    "placement_action": "LOAD_FROM_CACHE",
+    "cold_or_warm_start": "COLD",
+    "timing": {
+      "queue_wait_ms": 0.075,
+      "load_latency_ms": 3961.511,
+      "inference_latency_ms": 5342.909,
+      "total_latency_ms": 9304.424,
+      "start_time": "2026-09-17T11:16:21.321+00:00",
+      "end_time": "2026-09-17T11:16:30.625+00:00"
+    },
+    "resources": {
+      "peak_ram_mb": 5465.48,
+      "peak_vram_mb": 0.0
+    },
+    "tokens": {
+      "input": 7,
+      "output": 24
+    },
+    "failure": {
+      "kind": "NONE",
+      "source": null
+    },
+    "fallback_used": false,
+    "attempted_runtimes": [],
+    "real_generated_output_ref": null,
+    "complete": true,
+    "missing_fields": []
+  },
+  "routing_authority": "task_router",
+  "model_selection_authority": "model_mesh",
+  "runtime_residency_authority": "claude_local_runtime"
+}

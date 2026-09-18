@@ -1,6 +1,183 @@
 {
-  "version": 1,
-  "routing_authority": false,
   "reasoning_authority": false,
-  "records": []
+  "records": [
+    {
+      "benchmark_id": "local_core_reasoning",
+      "benchmark_version": "1.0.0+f0a0ae922cf3",
+      "capability": "text_reasoning",
+      "environment": {
+        "protocol": "local_inprocess",
+        "runtime": "llama-cpp-python/0.3.35"
+      },
+      "evidence_id": "local_core_reasoning-48ab3034d0dd-f0a0ae922cf3",
+      "measured_at": "2026-09-17T10:56:43+00:00",
+      "model_family": "SmolLM2",
+      "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+      "passed": true,
+      "provenance": {
+        "kind": "local_benchmark_run",
+        "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_SMOLLM2_360M.json"
+      },
+      "provider_id": "local_runtime",
+      "score": 0.583333,
+      "source_sha": "1c0906a21badfbbc7dcf22a7f48ffaa7eab58ab5",
+      "threshold": 0.35
+    },
+    {
+      "benchmark_id": "local_core_reasoning",
+      "benchmark_version": "1.0.0+f0a0ae922cf3",
+      "capability": "text_reasoning",
+      "environment": {
+        "protocol": "local_inprocess",
+        "runtime": "llama-cpp-python/0.3.35"
+      },
+      "evidence_id": "local_core_reasoning-9465e63a22ad-f0a0ae922cf3",
+      "measured_at": "2026-09-17T08:54:59+00:00",
+      "model_family": "Qwen3",
+      "model_id": "Qwen/Qwen3-0.6B-GGUF",
+      "passed": true,
+      "provenance": {
+        "kind": "local_benchmark_run",
+        "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_EVIDENCE.json"
+      },
+      "provider_id": "local_runtime",
+      "score": 0.75,
+      "source_sha": "231c53c1e958c3d3e438b534e9346e8458e3c050",
+      "threshold": 0.35
+    },
+    {
+      "benchmark_id": "local_core_reasoning",
+      "benchmark_version": "1.0.0+f0a0ae922cf3",
+      "capability": "text_reasoning",
+      "environment": {
+        "protocol": "local_inprocess",
+        "runtime": "llama-cpp-python/0.3.35"
+      },
+      "evidence_id": "local_core_reasoning-061b54daade0-f0a0ae922cf3",
+      "measured_at": "2026-09-17T09:45:13+00:00",
+      "model_family": "Qwen3",
+      "model_id": "Qwen/Qwen3-1.7B-GGUF",
+      "passed": true,
+      "provenance": {
+        "kind": "local_benchmark_run",
+        "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_QWEN3_1_7B.json"
+      },
+      "provider_id": "local_runtime",
+      "score": 0.833333,
+      "source_sha": "2ca72231f2ae0d005f6ac3e4ec72c84e1fc674a3",
+      "threshold": 0.35
+    },
+    {
+      "benchmark_id": "local_core_reasoning",
+      "benchmark_version": "1.0.0+f0a0ae922cf3",
+      "capability": "text_reasoning",
+      "environment": {
+        "protocol": "local_inprocess",
+        "runtime": "llama-cpp-python/0.3.35"
+      },
+      "evidence_id": "local_core_reasoning-7485fe6f11af-f0a0ae922cf3",
+      "measured_at": "2026-09-17T09:53:43+00:00",
+      "model_family": "Qwen3",
+      "model_id": "Qwen/Qwen3-4B-GGUF",
+      "passed": true,
+      "provenance": {
+        "kind": "local_benchmark_run",
+        "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_QWEN3_4B.json"
+      },
+      "provider_id": "local_runtime",
+      "score": 0.916667,
+      "source_sha": "2ca72231f2ae0d005f6ac3e4ec72c84e1fc674a3",
+      "threshold": 0.35
+    },
+    {
+      "benchmark_id": "local_core_reasoning",
+      "benchmark_version": "1.0.0+f0a0ae922cf3",
+      "capability": "text_reasoning",
+      "environment": {
+        "protocol": "local_inprocess",
+        "runtime": "llama-cpp-python/0.3.35"
+      },
+      "evidence_id": "local_core_reasoning-d98cdcbd03e1-f0a0ae922cf3",
+      "measured_at": "2026-09-17T13:19:47+00:00",
+      "model_family": "Qwen3",
+      "model_id": "Qwen/Qwen3-8B-GGUF",
+      "passed": true,
+      "provenance": {
+        "kind": "local_benchmark_run",
+        "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_QWEN3_8B.json"
+      },
+      "provider_id": "local_runtime",
+      "score": 1.0,
+      "source_sha": "32d3c5bf958815dcbee4e1ebe83b820e0ae11b5a",
+      "threshold": 0.35
+    },
+    {
+      "benchmark_id": "local_core_reasoning",
+      "benchmark_version": "1.0.0+f0a0ae922cf3",
+      "capability": "text_reasoning",
+      "environment": {
+        "protocol": "local_inprocess",
+        "runtime": "llama-cpp-python/0.3.35"
+      },
+      "evidence_id": "local_core_reasoning-ac71e9e32c0b-f0a0ae922cf3",
+      "measured_at": "2026-09-17T09:45:42+00:00",
+      "model_family": "Granite",
+      "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+      "passed": true,
+      "provenance": {
+        "kind": "local_benchmark_run",
+        "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_GRANITE_3_3_2B.json"
+      },
+      "provider_id": "local_runtime",
+      "score": 0.791667,
+      "source_sha": "2ca72231f2ae0d005f6ac3e4ec72c84e1fc674a3",
+      "threshold": 0.35
+    },
+    {
+      "benchmark_id": "local_core_reasoning",
+      "benchmark_version": "1.0.0+f0a0ae922cf3",
+      "capability": "text_reasoning",
+      "environment": {
+        "protocol": "local_inprocess",
+        "runtime": "llama-cpp-python/0.3.35"
+      },
+      "evidence_id": "local_core_reasoning-e04066639658-f0a0ae922cf3",
+      "measured_at": "2026-09-17T11:07:58+00:00",
+      "model_family": "granite",
+      "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+      "passed": true,
+      "provenance": {
+        "kind": "local_benchmark_run",
+        "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_GRANITE_4_2_3B.json"
+      },
+      "provider_id": "local_runtime",
+      "score": 0.75,
+      "source_sha": "dd0a8ddfd53f070c2bda6fb16ad0a10b859c8678",
+      "threshold": 0.35
+    },
+    {
+      "benchmark_id": "local_core_reasoning",
+      "benchmark_version": "1.0.0+f0a0ae922cf3",
+      "capability": "text_reasoning",
+      "environment": {
+        "protocol": "local_inprocess",
+        "runtime": "llama-cpp-python/0.3.35"
+      },
+      "evidence_id": "local_core_reasoning-8a83c7fb9049-f0a0ae922cf3",
+      "measured_at": "2026-09-17T11:08:46+00:00",
+      "model_family": "Phi",
+      "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "passed": true,
+      "provenance": {
+        "kind": "local_benchmark_run",
+        "reference": "CHECKPOINTS/evidence/WAVE0_CAPABILITY_PHI3_MINI.json"
+      },
+      "provider_id": "local_runtime",
+      "score": 0.916667,
+      "source_sha": "dd0a8ddfd53f070c2bda6fb16ad0a10b859c8678",
+      "threshold": 0.35
+    }
+  ],
+  "routing_authority": false,
+  "version": 1
 }

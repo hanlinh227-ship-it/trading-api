@@ -18,3 +18,46 @@ hidden_reasoning_persistence: forbidden
 secret_ingestion_without_authorization: forbidden
 financial_execution_by_learning: forbidden
 promotion_requires_evidence: true
+
+# Storage output contract (design 2026-09-18, spec S29). The Fabric writes
+# experience summaries, replay bundles, competency evidence and benchmark
+# outputs, and those bytes now have somewhere to go. What it may say about that
+# destination is a storage *class* - a criticality name already defined in
+# AI_SKILL_LIBRARY/v4/storage/policy.yaml - and nothing else. Choosing the
+# backend, widening cloud eligibility, overriding placement, privacy or
+# retention, and forcing replication all remain the storage mesh's own
+# subordinate machinery under GITHUB_BRAIN_V4. Declared explicitly rather than
+# left absent: an unstated default is not a contract, and the absence is what a
+# later edit would quietly fill in.
+storage_provider_selection_authority: false
+storage_outputs:
+  may_request_storage_classes: [IMPORTANT, REPRODUCIBLE, EPHEMERAL]
+  may_select_provider: false
+  may_override_placement_policy: false
+  may_bypass_privacy: false
+  may_bypass_retention: false
+  may_force_replication: false
+  may_widen_cloud_eligibility: false
+
+# Continuous Skill Learning Fabric (design 2026-09-18). These are the data and
+# evidence surfaces the Fabric writes. Declaring them here keeps them discoverable
+# from the existing learning policy instead of introducing a second policy file,
+# and restates the boundary at the point where the paths become known: the Fabric
+# proposes, the existing gates decide, and nothing below is a new authority.
+continuous_skill_learning:
+  curriculum_path: AI_SKILL_LIBRARY/v4/learning/skill_curriculum.yaml
+  competency_matrix_path: AI_SKILL_LIBRARY/v4/learning/skill_competency_matrix.json
+  experience_ledger_path: AI_SKILL_LIBRARY/v4/learning/experience_ledger.json
+  learning_cycles_path: AI_SKILL_LIBRARY/v4/learning/learning_cycles.yaml
+  promotion_evidence_path: AI_SKILL_LIBRARY/v4/learning/promotion_evidence.json
+  routing_authority: false
+  reasoning_authority: false
+  model_selection_authority: false
+  admission_authority: false
+  scheduling_authority: false
+  evidence_authority: false
+  stable_write_authority: false
+  merge_authority: false
+  trading_authority: false
+  stable_write_allowed: false
+  weight_fine_tuning_required: false

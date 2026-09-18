@@ -51,7 +51,10 @@ models:
     paid_token_required: false
     local_runtime_possible: true
     capabilities:
-      text_reasoning: 0.0
+      # Measured, not declared. See capability_evidence below for the run that
+      # produced this number and CHECKPOINTS/evidence/WAVE0_CAPABILITY_EVIDENCE.json
+      # for all 24 raw generations it was counted from.
+      text_reasoning: 0.75
     hardware_profile:
       minimum_ram_gb: null
       recommended_ram_gb: null
@@ -68,12 +71,22 @@ models:
       conversion_owner: Qwen
       conversion_verified: false
     context_window: 40960
-    benchmark_profile: unverified
-    quality_class: unverified
+    benchmark_profile: local_core_reasoning@1.0.0+f0a0ae922cf3
+    # Locally measured against a small private suite - deliberately NOT
+    # "verified", which would imply a public benchmark this score is not
+    # comparable to.
+    quality_class: locally_measured
+    # Latency was measured too, but no latency taxonomy has been defined yet,
+    # so there is no honest class to put here.
     latency_class: unverified
-    privacy_class: local_candidate_pending_security_admission
+    # Security admission is established by a real signature scan run in CI - see
+    # malware_scan_reference below. Before that scan existed, an operator risk
+    # acceptance stood in its place; it is kept below, marked superseded, as the
+    # record of a decision that was actually made. It is history, not evidence:
+    # nothing admits this model on its strength any more.
+    privacy_class: local_only
     cost_class: owned_hardware_zero_marginal
-    lifecycle_state: QUARANTINED
+    lifecycle_state: AVAILABLE
     health: unknown
     last_verified: '2026-09-17T05:00:00Z'
     authority: false
@@ -93,11 +106,968 @@ models:
       pickle_safe: true
       trust_remote_code_required: false
       custom_code_required: false
-      malware_scan_status: not_run
+      malware_scan_status: pass
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: clear
+    model_mesh_local_candidate_eligible: true
+    capability_evidence:
+      text_reasoning:
+        score: 0.75
+        benchmark_id: local_core_reasoning
+        benchmark_version: 1.0.0
+        suite_hash: f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957
+        is_public_benchmark: false
+        attempted: 24
+        passed: 18
+        errors: 0
+        measured_at: '2026-09-17T08:54:59+00:00'
+        artifact_sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+        runtime: llama-cpp-python/0.3.35
+        evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_EVIDENCE.json
+    source_evidence:
+      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
+      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
+    # Retained as history. On 2026-09-17 no signature engine was installable in
+    # the runtime, and the operator accepted that gap knowingly for these exact
+    # bytes. The CI scan below later closed it. Deleting this would erase the
+    # fact that the decision was made - superseding it does not.
+    #
+    # Every field below describes that moment. `missing_evidence` is what was
+    # missing *then*; `superseded_by` is what supplies it now.
+    operator_risk_acceptance:
+      accepted_by: hanlinh227-ship-it (repository operator)
+      accepted_at: '2026-09-17T05:00:00Z'
+      artifact_sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+      basis: >-
+        Operator accepts the canonical Qwen3-0.6B-Q8_0 GGUF on verified provenance,
+        immutable revision 1eaf4d9657fe65ad10a51eab76a8db5b363bddaa, exact size
+        639446688 bytes, SHA-256 verification, format validation and GGUF structural
+        scan. No signature-based malware engine was installable in the runtime at
+        that time; the residual risk was accepted knowingly.
+      missing_evidence:
+        - signature_based_malware_scan
+      covers:
+        - malware_scan_status
+      scope: single_artifact
+      is_a_scan_result: false
+      superseded_by: >-
+        malware_scan_reference: ClamAV 1.5.3, signature database 28126, run in CI
+        against artifact_sha256 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+        with the whole artifact read.
+      superseded_at: '2026-09-17T11:19:31Z'
+      note: >-
+        Historical operator risk acceptance, no longer load-bearing. It is not a
+        scan result and never was; malware_scan_status now reads pass because a
+        real scan ran, not because of this record.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T11:21:52+00:00'
+      scanned_by: github-actions
+      artifact_sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+  - model_id: Qwen/Qwen3-1.7B-GGUF
+    family: Qwen3
+    variant: 1.7B-Q8_0-GGUF
+    base_model: Qwen/Qwen3-1.7B
+    quantization: Q8_0
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/Qwen/Qwen3-1.7B-GGUF
+    weights_source: https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/Qwen3-1.7B-Q8_0.gguf
+    upstream_revision: 90862c4b9d2787eaed51d12237eafdfe7c5f6077
+    release_date: null
+    license_name: apache-2.0
+    license_url: https://huggingface.co/Qwen/Qwen3-1.7B-GGUF
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      # No capability has been measured for this model. It declares
+      # none, and a score can only arrive from its own benchmark run -
+      # Qwen3-0.6B's measurement is bound to a different digest.
+      text_reasoning: 0.833333
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [Q8_0]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp]
+    offline_eligible: true
+    lineage:
+      source_model_id: Qwen/Qwen3-1.7B
+      source_revision: null
+      conversion_owner: Qwen
+      conversion_verified: false
+    # Read from the GGUF header of these exact bytes.
+    context_window: 40960
+    benchmark_profile: local_core_reasoning@1.0.0+f0a0ae922cf3
+    quality_class: locally_measured
+    latency_class: unverified
+    privacy_class: local_only
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: AVAILABLE
+    health: unknown
+    last_verified: '2026-09-17T09:43:48Z'
+    authority: false
+    source_evidence:
+      - https://huggingface.co/Qwen/Qwen3-1.7B-GGUF
+      - https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/Qwen3-1.7B-Q8_0.gguf
+    artifact_identity:
+      model_id: Qwen/Qwen3-1.7B-GGUF
+      family: Qwen3
+      variant: 1.7B-Q8_0-GGUF
+      immutable_revision: 90862c4b9d2787eaed51d12237eafdfe7c5f6077
+      sha256: 061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a
+      size_bytes: 1834426016
+      format: gguf
+      quantization: Q8_0
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: pass
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: clear
+    model_mesh_local_candidate_eligible: true
+    # Signature scan run in CI, where an engine and a signature
+    # database are reachable. Bound to the digest above: the runtime
+    # recomputes it from its own copy, so this result cannot apply
+    # to any other bytes.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T09:34:59+00:00'
+      scanned_by: github-actions
+      artifact_sha256: 061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a
+    capability_evidence:
+      text_reasoning:
+        score: 0.833333
+        benchmark_id: local_core_reasoning
+        benchmark_version: 1.0.0
+        suite_hash: f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957
+        is_public_benchmark: false
+        attempted: 24
+        passed: 20
+        errors: 0
+        measured_at: '2026-09-17T09:45:13+00:00'
+        artifact_sha256: 061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a
+        runtime: llama-cpp-python/0.3.35
+        evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_QWEN3_1_7B.json
+  - model_id: ibm-granite/granite-3.3-2b-instruct-GGUF
+    family: Granite
+    variant: 3.3-2B-Instruct-Q4_K_M-GGUF
+    base_model: ibm-granite/granite-3.3-2b-instruct
+    quantization: Q4_K_M
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF
+    weights_source: https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF/resolve/7cdf86ccd1f1bb3491c9b7017b033f2e51367397/granite-3.3-2b-instruct-Q4_K_M.gguf
+    upstream_revision: 7cdf86ccd1f1bb3491c9b7017b033f2e51367397
+    release_date: null
+    license_name: apache-2.0
+    license_url: https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      # No capability has been measured for this model. It declares
+      # none, and a score can only arrive from its own benchmark run -
+      # Qwen3-0.6B's measurement is bound to a different digest.
+      text_reasoning: 0.791667
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [Q4_K_M]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp]
+    offline_eligible: true
+    lineage:
+      source_model_id: ibm-granite/granite-3.3-2b-instruct
+      source_revision: null
+      conversion_owner: ibm-granite
+      conversion_verified: false
+    # Read from the GGUF header of these exact bytes.
+    context_window: 131072
+    benchmark_profile: local_core_reasoning@1.0.0+f0a0ae922cf3
+    quality_class: locally_measured
+    latency_class: unverified
+    privacy_class: local_only
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: AVAILABLE
+    health: unknown
+    last_verified: '2026-09-17T09:43:49Z'
+    authority: false
+    source_evidence:
+      - https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF
+      - https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF/resolve/7cdf86ccd1f1bb3491c9b7017b033f2e51367397/granite-3.3-2b-instruct-Q4_K_M.gguf
+    artifact_identity:
+      model_id: ibm-granite/granite-3.3-2b-instruct-GGUF
+      family: Granite
+      variant: 3.3-2B-Instruct-Q4_K_M-GGUF
+      immutable_revision: 7cdf86ccd1f1bb3491c9b7017b033f2e51367397
+      sha256: ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852
+      size_bytes: 1545303328
+      format: gguf
+      quantization: Q4_K_M
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: pass
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: clear
+    model_mesh_local_candidate_eligible: true
+    # Signature scan run in CI, where an engine and a signature
+    # database are reachable. Bound to the digest above: the runtime
+    # recomputes it from its own copy, so this result cannot apply
+    # to any other bytes.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T09:40:01+00:00'
+      scanned_by: github-actions
+      artifact_sha256: ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852
+    # The artifact itself declares general.license: apache-2.0
+    capability_evidence:
+      text_reasoning:
+        score: 0.791667
+        benchmark_id: local_core_reasoning
+        benchmark_version: 1.0.0
+        suite_hash: f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957
+        is_public_benchmark: false
+        attempted: 24
+        passed: 19
+        errors: 0
+        measured_at: '2026-09-17T09:45:42+00:00'
+        artifact_sha256: ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852
+        runtime: llama-cpp-python/0.3.35
+        evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_GRANITE_3_3_2B.json
+  - model_id: Qwen/Qwen3-4B-GGUF
+    family: Qwen3
+    variant: 4B-Q4_K_M-GGUF
+    base_model: Qwen/Qwen3-4B
+    quantization: Q4_K_M
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/Qwen/Qwen3-4B-GGUF
+    weights_source: https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf
+    upstream_revision: bc640142c66e1fdd12af0bd68f40445458f3869b
+    release_date: null
+    license_name: apache-2.0
+    license_url: https://huggingface.co/Qwen/Qwen3-4B-GGUF
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      # No capability has been measured for this model. It declares
+      # none, and a score can only arrive from its own benchmark run -
+      # Qwen3-0.6B's measurement is bound to a different digest.
+      text_reasoning: 0.916667
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [Q4_K_M]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp]
+    offline_eligible: true
+    lineage:
+      source_model_id: Qwen/Qwen3-4B
+      source_revision: null
+      conversion_owner: Qwen
+      conversion_verified: false
+    # Read from the GGUF header of these exact bytes.
+    context_window: 40960
+    benchmark_profile: local_core_reasoning@1.0.0+f0a0ae922cf3
+    quality_class: locally_measured
+    latency_class: unverified
+    privacy_class: local_only
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: AVAILABLE
+    health: unknown
+    last_verified: '2026-09-17T09:53:13Z'
+    authority: false
+    source_evidence:
+      - https://huggingface.co/Qwen/Qwen3-4B-GGUF
+      - https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf
+    artifact_identity:
+      model_id: Qwen/Qwen3-4B-GGUF
+      family: Qwen3
+      variant: 4B-Q4_K_M-GGUF
+      immutable_revision: bc640142c66e1fdd12af0bd68f40445458f3869b
+      sha256: 7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5
+      size_bytes: 2497280256
+      format: gguf
+      quantization: Q4_K_M
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: pass
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: clear
+    model_mesh_local_candidate_eligible: true
+    # Signature scan run in CI, where an engine and a signature
+    # database are reachable. Bound to the digest above: the runtime
+    # recomputes it from its own copy, so this result cannot apply
+    # to any other bytes.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T09:48:49+00:00'
+      scanned_by: github-actions
+      artifact_sha256: 7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5
+    capability_evidence:
+      text_reasoning:
+        score: 0.916667
+        benchmark_id: local_core_reasoning
+        benchmark_version: 1.0.0
+        suite_hash: f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957
+        is_public_benchmark: false
+        attempted: 24
+        passed: 22
+        errors: 0
+        measured_at: '2026-09-17T09:53:43+00:00'
+        artifact_sha256: 7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5
+        runtime: llama-cpp-python/0.3.35
+        evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_QWEN3_4B.json
+  - model_id: HuggingFaceTB/SmolLM2-360M-Instruct-GGUF
+    family: SmolLM2
+    variant: smollm2-360m-instruct-q8_0
+    base_model: HuggingFaceTB/SmolLM2-360M-Instruct
+    quantization: Q8_0
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF
+    weights_source: https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/593b5a2e04c8f3e4ee880263f93e0bd2901ad47f/smollm2-360m-instruct-q8_0.gguf
+    upstream_revision: 593b5a2e04c8f3e4ee880263f93e0bd2901ad47f
+    release_date: null
+    license_name: apache-2.0
+    license_url: https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      # No capability has been measured for this model. It declares
+      # none, and a score can only arrive from its own benchmark run -
+      # Qwen3-0.6B's measurement is bound to a different digest.
+      text_reasoning: 0.583333
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [Q8_0]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp]
+    offline_eligible: true
+    lineage:
+      source_model_id: HuggingFaceTB/SmolLM2-360M-Instruct
+      source_revision: null
+      conversion_owner: HuggingFaceTB
+      conversion_verified: false
+    # Read from the GGUF header of these exact bytes.
+    context_window: 8192
+    benchmark_profile: local_core_reasoning@1.0.0+f0a0ae922cf3
+    quality_class: locally_measured
+    latency_class: unverified
+    privacy_class: local_only
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: AVAILABLE
+    health: unknown
+    last_verified: '2026-09-17T10:55:33Z'
+    authority: false
+    source_evidence:
+      - https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF
+      - https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/593b5a2e04c8f3e4ee880263f93e0bd2901ad47f/smollm2-360m-instruct-q8_0.gguf
+    artifact_identity:
+      model_id: HuggingFaceTB/SmolLM2-360M-Instruct-GGUF
+      family: SmolLM2
+      variant: smollm2-360m-instruct-q8_0
+      immutable_revision: 593b5a2e04c8f3e4ee880263f93e0bd2901ad47f
+      sha256: 48ab3034d0dd401fbc721eb1df3217902fee7dab9078992d66431f09b7750201
+      size_bytes: 386404992
+      format: gguf
+      quantization: Q8_0
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: pass
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: clear
+    model_mesh_local_candidate_eligible: true
+    # Signature scan run in CI, where an engine and a signature
+    # database are reachable. Bound to the digest above: the runtime
+    # recomputes it from its own copy, so this result cannot apply
+    # to any other bytes.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T10:48:50+00:00'
+      scanned_by: github-actions
+      artifact_sha256: 48ab3034d0dd401fbc721eb1df3217902fee7dab9078992d66431f09b7750201
+    # The artifact itself declares general.license: apache-2.0
+    capability_evidence:
+      text_reasoning:
+        score: 0.583333
+        benchmark_id: local_core_reasoning
+        benchmark_version: 1.0.0
+        suite_hash: f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957
+        is_public_benchmark: false
+        attempted: 24
+        passed: 14
+        errors: 0
+        measured_at: '2026-09-17T10:56:43+00:00'
+        artifact_sha256: 48ab3034d0dd401fbc721eb1df3217902fee7dab9078992d66431f09b7750201
+        runtime: llama-cpp-python/0.3.35
+        evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_SMOLLM2_360M.json
+  - model_id: microsoft/bitnet-b1.58-2B-4T-gguf
+    family: bitnet
+    variant: ggml-model-i2_s
+    base_model: microsoft/bitnet-b1.58-2B-4T-gguf
+    quantization: I2_S
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf
+    weights_source: https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/a1f2f1c765812aa8af3f6eda4a313707064bba15/ggml-model-i2_s.gguf
+    upstream_revision: a1f2f1c765812aa8af3f6eda4a313707064bba15
+    release_date: null
+    license_name: mit
+    license_url: https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      # No capability has been measured for this model. It declares
+      # none, and a score can only arrive from its own benchmark run -
+      # Qwen3-0.6B's measurement is bound to a different digest.
+      text_reasoning: 0.0
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [I2_S]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp]
+    offline_eligible: true
+    lineage:
+      source_model_id: microsoft/bitnet-b1.58-2B-4T-gguf
+      source_revision: null
+      conversion_owner: microsoft
+      conversion_verified: false
+    # Read from the GGUF header of these exact bytes.
+    context_window: 4096
+    benchmark_profile: unverified
+    quality_class: unverified
+    latency_class: unverified
+    privacy_class: local_only
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: QUARANTINED
+    health: unknown
+    last_verified: '2026-09-17T10:55:34Z'
+    authority: false
+    source_evidence:
+      - https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf
+      - https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/a1f2f1c765812aa8af3f6eda4a313707064bba15/ggml-model-i2_s.gguf
+    artifact_identity:
+      model_id: microsoft/bitnet-b1.58-2B-4T-gguf
+      family: bitnet
+      variant: ggml-model-i2_s
+      immutable_revision: a1f2f1c765812aa8af3f6eda4a313707064bba15
+      sha256: 4221b252fdd5fd25e15847adfeb5ee88886506ba50b8a34548374492884c2162
+      size_bytes: 1187801280
+      format: gguf
+      quantization: I2_S
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: pass
       isolated_first_load_required: true
       first_load_egress_allowed: false
       quarantine_status: quarantined
     model_mesh_local_candidate_eligible: false
+    # Signature scan run in CI, where an engine and a signature
+    # database are reachable. Bound to the digest above: the runtime
+    # recomputes it from its own copy, so this result cannot apply
+    # to any other bytes.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T10:50:47+00:00'
+      scanned_by: github-actions
+      artifact_sha256: 4221b252fdd5fd25e15847adfeb5ee88886506ba50b8a34548374492884c2162
+    # Quarantined on runtime compatibility, not on the artifact. The bytes
+    # match their digest and passed the structural scan; this llama.cpp build
+    # cannot read them. A different engine build may be able to.
+    runtime_compatibility:
+      loadable: false
+      runtime: llama-cpp-python/0.3.35
+      artifact_is_intact: true
+      engine_diagnostic: >-
+        (no engine diagnostic captured)
+      evidence_ref: CHECKPOINTS/evidence/RUNTIME_LOAD_VERIFICATION.json
+  - model_id: mistralai/Ministral-3-3B-Reasoning-2512-GGUF
+    family: Ministral
+    variant: Ministral-3-3B-Reasoning-2512-Q4_K_M
+    base_model: mistralai/Ministral-3-3B-Reasoning-2512
+    quantization: Q4_K_M
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/mistralai/Ministral-3-3B-Reasoning-2512-GGUF
+    weights_source: https://huggingface.co/mistralai/Ministral-3-3B-Reasoning-2512-GGUF/resolve/b432f0a2c144af8a1937b06e2ea7f75ebb4d0b31/Ministral-3-3B-Reasoning-2512-Q4_K_M.gguf
+    upstream_revision: b432f0a2c144af8a1937b06e2ea7f75ebb4d0b31
+    release_date: null
+    license_name: apache-2.0
+    license_url: https://huggingface.co/mistralai/Ministral-3-3B-Reasoning-2512-GGUF
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      # No capability has been measured for this model. It declares
+      # none, and a score can only arrive from its own benchmark run -
+      # Qwen3-0.6B's measurement is bound to a different digest.
+      text_reasoning: 0.0
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [Q4_K_M]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp]
+    offline_eligible: true
+    lineage:
+      source_model_id: mistralai/Ministral-3-3B-Reasoning-2512
+      source_revision: null
+      conversion_owner: mistralai
+      conversion_verified: false
+    # Read from the GGUF header of these exact bytes.
+    context_window: 262144
+    benchmark_profile: unverified
+    quality_class: unverified
+    latency_class: unverified
+    privacy_class: local_only
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: QUARANTINED
+    health: unknown
+    last_verified: '2026-09-17T10:55:35Z'
+    authority: false
     source_evidence:
-      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF
-      - https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf
+      - https://huggingface.co/mistralai/Ministral-3-3B-Reasoning-2512-GGUF
+      - https://huggingface.co/mistralai/Ministral-3-3B-Reasoning-2512-GGUF/resolve/b432f0a2c144af8a1937b06e2ea7f75ebb4d0b31/Ministral-3-3B-Reasoning-2512-Q4_K_M.gguf
+    artifact_identity:
+      model_id: mistralai/Ministral-3-3B-Reasoning-2512-GGUF
+      family: Ministral
+      variant: Ministral-3-3B-Reasoning-2512-Q4_K_M
+      immutable_revision: b432f0a2c144af8a1937b06e2ea7f75ebb4d0b31
+      sha256: 7e9516cc01a039bb3e2d41227cdf388849bc1c942c4624c84567b1684cd9c0fc
+      size_bytes: 2147021472
+      format: gguf
+      quantization: Q4_K_M
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: pass
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: quarantined
+    model_mesh_local_candidate_eligible: false
+    # Signature scan run in CI, where an engine and a signature
+    # database are reachable. Bound to the digest above: the runtime
+    # recomputes it from its own copy, so this result cannot apply
+    # to any other bytes.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T10:53:41+00:00'
+      scanned_by: github-actions
+      artifact_sha256: 7e9516cc01a039bb3e2d41227cdf388849bc1c942c4624c84567b1684cd9c0fc
+    # The artifact itself declares general.license: apache-2.0
+    # Quarantined on runtime compatibility, not on the artifact. The bytes
+    # match their digest and passed the structural scan; this llama.cpp build
+    # cannot read them. A different engine build may be able to.
+    runtime_compatibility:
+      loadable: false
+      runtime: llama-cpp-python/0.3.35
+      artifact_is_intact: true
+      engine_diagnostic: >-
+        (no engine diagnostic captured)
+      evidence_ref: CHECKPOINTS/evidence/RUNTIME_LOAD_VERIFICATION.json
+  - model_id: ibm-granite/granite-4.2-3b-GGUF
+    family: granite
+    variant: granite-4.2-3b-Q4_K_M
+    base_model: ibm-granite/granite-4.2-3b
+    quantization: Q4_K_M
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF
+    weights_source: https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF/resolve/c40945d71cd90f249a56985e8155551a9188dc30/granite-4.2-3b-Q4_K_M.gguf
+    upstream_revision: c40945d71cd90f249a56985e8155551a9188dc30
+    release_date: null
+    license_name: apache-2.0
+    license_url: https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      # No capability has been measured for this model. It declares
+      # none, and a score can only arrive from its own benchmark run -
+      # Qwen3-0.6B's measurement is bound to a different digest.
+      text_reasoning: 0.75
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [Q4_K_M]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp]
+    offline_eligible: true
+    lineage:
+      source_model_id: ibm-granite/granite-4.2-3b
+      source_revision: null
+      conversion_owner: ibm-granite
+      conversion_verified: false
+    # Read from the GGUF header of these exact bytes.
+    context_window: 131072
+    benchmark_profile: local_core_reasoning@1.0.0+f0a0ae922cf3
+    quality_class: locally_measured
+    latency_class: unverified
+    privacy_class: local_only
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: AVAILABLE
+    health: unknown
+    last_verified: '2026-09-17T11:06:56Z'
+    authority: false
+    source_evidence:
+      - https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF
+      - https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF/resolve/c40945d71cd90f249a56985e8155551a9188dc30/granite-4.2-3b-Q4_K_M.gguf
+    artifact_identity:
+      model_id: ibm-granite/granite-4.2-3b-GGUF
+      family: granite
+      variant: granite-4.2-3b-Q4_K_M
+      immutable_revision: c40945d71cd90f249a56985e8155551a9188dc30
+      sha256: e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5
+      size_bytes: 2244011552
+      format: gguf
+      quantization: Q4_K_M
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: pass
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: clear
+    model_mesh_local_candidate_eligible: true
+    # Signature scan run in CI, where an engine and a signature
+    # database are reachable. Bound to the digest above: the runtime
+    # recomputes it from its own copy, so this result cannot apply
+    # to any other bytes.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T10:56:37+00:00'
+      scanned_by: github-actions
+      artifact_sha256: e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5
+    # The artifact itself declares general.license: apache-2.0
+    capability_evidence:
+      text_reasoning:
+        score: 0.75
+        benchmark_id: local_core_reasoning
+        benchmark_version: 1.0.0
+        suite_hash: f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957
+        is_public_benchmark: false
+        attempted: 24
+        passed: 18
+        errors: 0
+        measured_at: '2026-09-17T11:07:58+00:00'
+        artifact_sha256: e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5
+        runtime: llama-cpp-python/0.3.35
+        evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_GRANITE_4_2_3B.json
+  - model_id: microsoft/Phi-3-mini-4k-instruct-gguf
+    family: Phi
+    variant: Phi-3-mini-4k-instruct-q4
+    base_model: microsoft/Phi-3-mini-4k-instruct-gguf
+    quantization: Q4
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf
+    weights_source: https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/a64113399c2f6b8ad3e11c394733a2ddadaa7f33/Phi-3-mini-4k-instruct-q4.gguf
+    upstream_revision: a64113399c2f6b8ad3e11c394733a2ddadaa7f33
+    release_date: null
+    license_name: mit
+    license_url: https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      # No capability has been measured for this model. It declares
+      # none, and a score can only arrive from its own benchmark run -
+      # Qwen3-0.6B's measurement is bound to a different digest.
+      text_reasoning: 0.916667
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [Q4]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp]
+    offline_eligible: true
+    lineage:
+      source_model_id: microsoft/Phi-3-mini-4k-instruct-gguf
+      source_revision: null
+      conversion_owner: microsoft
+      conversion_verified: false
+    # Read from the GGUF header of these exact bytes.
+    context_window: 4096
+    benchmark_profile: local_core_reasoning@1.0.0+f0a0ae922cf3
+    quality_class: locally_measured
+    latency_class: unverified
+    privacy_class: local_only
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: AVAILABLE
+    health: unknown
+    last_verified: '2026-09-17T11:06:56Z'
+    authority: false
+    source_evidence:
+      - https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf
+      - https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/a64113399c2f6b8ad3e11c394733a2ddadaa7f33/Phi-3-mini-4k-instruct-q4.gguf
+    artifact_identity:
+      model_id: microsoft/Phi-3-mini-4k-instruct-gguf
+      family: Phi
+      variant: Phi-3-mini-4k-instruct-q4
+      immutable_revision: a64113399c2f6b8ad3e11c394733a2ddadaa7f33
+      sha256: 8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef
+      size_bytes: 2393231072
+      format: gguf
+      quantization: Q4
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: pass
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: clear
+    model_mesh_local_candidate_eligible: true
+    # Signature scan run in CI, where an engine and a signature
+    # database are reachable. Bound to the digest above: the runtime
+    # recomputes it from its own copy, so this result cannot apply
+    # to any other bytes.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T10:59:43+00:00'
+      scanned_by: github-actions
+      artifact_sha256: 8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef
+    capability_evidence:
+      text_reasoning:
+        score: 0.916667
+        benchmark_id: local_core_reasoning
+        benchmark_version: 1.0.0
+        suite_hash: f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957
+        is_public_benchmark: false
+        attempted: 24
+        passed: 22
+        errors: 0
+        measured_at: '2026-09-17T11:08:46+00:00'
+        artifact_sha256: 8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef
+        runtime: llama-cpp-python/0.3.35
+        evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_PHI3_MINI.json
+  - model_id: Qwen/Qwen3-8B-GGUF
+    family: Qwen3
+    variant: 8B-Q4_K_M-GGUF
+    base_model: Qwen/Qwen3-8B
+    quantization: Q4_K_M
+    runtime_build: unresolved
+    official_upstream: https://huggingface.co/Qwen/Qwen3-8B-GGUF
+    weights_source: https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf
+    upstream_revision: 7c41481f57cb95916b40956ab2f0b139b296d974
+    release_date: null
+    license_name: apache-2.0
+    license_url: https://huggingface.co/Qwen/Qwen3-8B-GGUF
+    license_class: permissive
+    license_verified: true
+    commercial_use: true
+    self_hostable: true
+    redistribution: allowed
+    derivative_training: allowed
+    open_weight: true
+    api_required: false
+    paid_token_required: false
+    local_runtime_possible: true
+    capabilities:
+      # No capability has been measured for this model. It declares
+      # none, and a score can only arrive from its own benchmark run -
+      # Qwen3-0.6B's measurement is bound to a different digest.
+      text_reasoning: 1.0
+    hardware_profile:
+      minimum_ram_gb: null
+      recommended_ram_gb: null
+      minimum_vram_gb: null
+      recommended_vram_gb: null
+      quantization_options: [Q4_K_M]
+      cpu_viable: unknown
+      apple_silicon_viable: unknown
+    runtime_support: [llama_cpp]
+    offline_eligible: true
+    lineage:
+      source_model_id: Qwen/Qwen3-8B
+      source_revision: null
+      conversion_owner: Qwen
+      conversion_verified: false
+    # Read from the GGUF header of these exact bytes.
+    context_window: 40960
+    benchmark_profile: local_core_reasoning@1.0.0+f0a0ae922cf3
+    quality_class: locally_measured
+    latency_class: unverified
+    privacy_class: local_only
+    cost_class: owned_hardware_zero_marginal
+    lifecycle_state: AVAILABLE
+    health: unknown
+    last_verified: '2026-09-17T13:18:34Z'
+    authority: false
+    source_evidence:
+      - https://huggingface.co/Qwen/Qwen3-8B-GGUF
+      - https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf
+    artifact_identity:
+      model_id: Qwen/Qwen3-8B-GGUF
+      family: Qwen3
+      variant: 8B-Q4_K_M-GGUF
+      immutable_revision: 7c41481f57cb95916b40956ab2f0b139b296d974
+      sha256: d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785
+      size_bytes: 5027783488
+      format: gguf
+      quantization: Q4_K_M
+    admission_evidence:
+      license_verified: true
+      provenance_verified: true
+      safe_format_verified: true
+      pickle_safe: true
+      trust_remote_code_required: false
+      custom_code_required: false
+      malware_scan_status: pass
+      isolated_first_load_required: true
+      first_load_egress_allowed: false
+      quarantine_status: clear
+    model_mesh_local_candidate_eligible: true
+    # Signature scan run in CI, where an engine and a signature
+    # database are reachable. Bound to the digest above: the runtime
+    # recomputes it from its own copy, so this result cannot apply
+    # to any other bytes.
+    malware_scan_reference:
+      engine: ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026
+      signature_database_version: '28126'
+      scanned_at: '2026-09-17T13:17:02+00:00'
+      scanned_by: github-actions
+      artifact_sha256: d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785
+    capability_evidence:
+      text_reasoning:
+        score: 1.0
+        benchmark_id: local_core_reasoning
+        benchmark_version: 1.0.0
+        suite_hash: f0a0ae922cf30412b33bc23c9583f253236307e7e06d98d920b87e6260af0957
+        is_public_benchmark: false
+        attempted: 24
+        passed: 24
+        errors: 0
+        measured_at: '2026-09-17T13:19:47+00:00'
+        artifact_sha256: d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785
+        runtime: llama-cpp-python/0.3.35
+        evidence_ref: CHECKPOINTS/evidence/WAVE0_CAPABILITY_QWEN3_8B.json

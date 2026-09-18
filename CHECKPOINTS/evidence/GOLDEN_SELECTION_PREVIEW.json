@@ -1,0 +1,15 @@
+{
+  "status": "SELECTED",
+  "tool": "golden_selection_preview",
+  "request": "What is the capital city of Japan? Answer briefly.",
+  "routed_by": "task_router",
+  "specialist_group": "GENERAL_REASONING",
+  "selected_model_id": "Qwen/Qwen3-8B-GGUF",
+  "candidate_key": "local_runtime:Qwen/Qwen3-8B-GGUF",
+  "artifact_sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+  "immutable_revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+  "candidates_considered": 8,
+  "authority": false,
+  "model_selection_authority": false,
+  "note": "reports the selection Model Mesh makes; it does not make one, and staging a different model would not change this answer"
+}

@@ -1,0 +1,185 @@
+{
+  "tool": "federation_status_scopes",
+  "source_sha": "d240bcaa5c84d3e168de430ef09a526acc2a0a96",
+  "proof_timestamp": "2026-09-18T09:42:27Z",
+  "OBSERVED_ON": {
+    "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "cpu_count": 4,
+    "cpu_flags_present": [
+      "avx",
+      "avx2",
+      "f16c",
+      "fma"
+    ],
+    "why_the_flags": "a prebuilt engine raises SIGILL on a CPU lacking the extensions it was compiled for, so these decide liveness for an unchanged commit and an unchanged artifact"
+  },
+  "scope_vocabulary": {
+    "HISTORICAL": "it happened, and nothing here says it still holds",
+    "CANONICAL_VERIFIED": "bound to a revision that still describes HEAD, on whatever host; this is what 'the federation has been verified' means",
+    "CURRENT_ENV": "canonical, and taken on this machine inside the freshness window; this is what 'it works here, now' means",
+    "CURRENT_LIVE_PROBE": "produced by a probe this run executed, not read from a file"
+  },
+  "classification_vocabulary": {
+    "VERIFIED_LIVE_NOW": "something this run executed against it came back",
+    "VERIFIED_HISTORICALLY": "a bound, still-describing-HEAD record says it worked; no one has asked it anything since",
+    "CONFIGURED_NOT_PROBED": "the registries name it and nothing has tried it",
+    "CATALOG_ONLY": "it appears in a catalogue of candidates and is configured nowhere",
+    "CREDENTIAL_REQUIRED": "reaching it needs a credential this environment does not hold; that is a fact about this environment, not about it",
+    "LICENSE_GATE_REQUIRED": "reaching it needs a licence acceptance that has not been recorded",
+    "UNAVAILABLE": "it was reached, or reachably attempted, and cannot serve"
+  },
+  "CURRENT_ENV_24X7_READY": true,
+  "CANONICAL_24X7_FEDERATION_READY": true,
+  "CURRENT_ENV_ACTIVE_WORKERS": 1,
+  "CANONICAL_VERIFIED_WORKERS": 1,
+  "CURRENT_PROVIDER_LIVENESS": [
+    {
+      "provider_id": "ephemeral-local-0",
+      "current_classification": "VERIFIED_LIVE_NOW",
+      "current_why": "something this run executed against it came back",
+      "historical_classification": "VERIFIED_HISTORICALLY",
+      "historical_evidence": {
+        "binding": "BOUND_TO_REVISION",
+        "freshness": "CURRENT_REVISION",
+        "locality": "THIS_HOST",
+        "scope": "CURRENT_ENV",
+        "source_sha": "d240bcaa5c84d3e168de430ef09a526acc2a0a96",
+        "proof_timestamp": "2026-09-18T09:39:55Z",
+        "age_seconds": 152,
+        "reasons": [
+          "bound to HEAD d240bcaa5c84d3e168de430ef09a526acc2a0a96"
+        ],
+        "evidence": "WORKER_EXECUTION_LIVENESS.json",
+        "claim_field": "EXECUTION_LIVE",
+        "claims_pass": true
+      },
+      "counts_as_canonical": true
+    },
+    {
+      "provider_id": "github_actions_ubuntu_latest",
+      "current_classification": "CREDENTIAL_REQUIRED",
+      "current_why": "reaching it needs a credential this environment does not hold; that is a fact about this environment, not about it",
+      "historical_classification": "CONFIGURED_NOT_PROBED",
+      "historical_evidence": null,
+      "counts_as_canonical": false
+    },
+    {
+      "provider_id": "cloudflare_workers_ai",
+      "current_classification": "CREDENTIAL_REQUIRED",
+      "current_why": "reaching it needs a credential this environment does not hold; that is a fact about this environment, not about it",
+      "historical_classification": "VERIFIED_HISTORICALLY",
+      "historical_evidence": {
+        "binding": "UNBOUND",
+        "freshness": "NOT_APPLICABLE",
+        "locality": "NO_HOST_RECORDED",
+        "scope": "HISTORICAL",
+        "source_sha": null,
+        "proof_timestamp": null,
+        "age_seconds": null,
+        "reasons": [
+          "the document names no source_sha, or no proof_timestamp, so nothing says which revision or which moment it describes"
+        ],
+        "evidence": "WORKERS_AI_FREE_TIER_PROBE.json",
+        "claim_field": "status",
+        "claims_pass": true
+      },
+      "counts_as_canonical": false
+    },
+    {
+      "provider_id": "nvidia_nim",
+      "current_classification": "CREDENTIAL_REQUIRED",
+      "current_why": "reaching it needs a credential this environment does not hold; that is a fact about this environment, not about it",
+      "historical_classification": "CONFIGURED_NOT_PROBED",
+      "historical_evidence": null,
+      "counts_as_canonical": false
+    }
+  ],
+  "LAST_VERIFIED_AT": "2026-09-18T09:42:27Z",
+  "EVIDENCE_FRESHNESS": {
+    "FEDERATION_24X7_PROOF.json": {
+      "binding": "BOUND_TO_REVISION",
+      "freshness": "CURRENT_REVISION",
+      "locality": "THIS_HOST",
+      "scope": "CURRENT_ENV",
+      "source_sha": "d240bcaa5c84d3e168de430ef09a526acc2a0a96",
+      "proof_timestamp": "2026-09-18T09:42:02Z",
+      "age_seconds": 25,
+      "reasons": [
+        "bound to HEAD d240bcaa5c84d3e168de430ef09a526acc2a0a96"
+      ],
+      "claim_field": "federation_status",
+      "claims_pass": true
+    },
+    "FREE_WORKER_MESH_PROOF.json": {
+      "binding": "BOUND_TO_REVISION",
+      "freshness": "CURRENT_REVISION",
+      "locality": "THIS_HOST",
+      "scope": "CURRENT_ENV",
+      "source_sha": "d240bcaa5c84d3e168de430ef09a526acc2a0a96",
+      "proof_timestamp": "2026-09-18T09:42:27Z",
+      "age_seconds": 0,
+      "reasons": [
+        "bound to HEAD d240bcaa5c84d3e168de430ef09a526acc2a0a96"
+      ],
+      "claim_field": "mesh_status",
+      "claims_pass": true
+    },
+    "CRITICAL_ROLE_REDUNDANCY_PROOF.json": {
+      "binding": "BOUND_TO_REVISION",
+      "freshness": "STALE_REVISION",
+      "locality": "OTHER_HOST",
+      "scope": "HISTORICAL",
+      "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
+      "proof_timestamp": "2026-09-18T08:19:01Z",
+      "age_seconds": 5006,
+      "reasons": [
+        "d53e99e534cc2587ef9969be95308400fede73eb is an ancestor of HEAD, but AI_SKILL_LIBRARY/ or cloudflare-worker/ moved between them"
+      ],
+      "claim_field": "ready",
+      "claims_pass": false
+    },
+    "WORKER_EXECUTION_LIVENESS.json": {
+      "binding": "BOUND_TO_REVISION",
+      "freshness": "CURRENT_REVISION",
+      "locality": "THIS_HOST",
+      "scope": "CURRENT_ENV",
+      "source_sha": "d240bcaa5c84d3e168de430ef09a526acc2a0a96",
+      "proof_timestamp": "2026-09-18T09:39:55Z",
+      "age_seconds": 152,
+      "reasons": [
+        "bound to HEAD d240bcaa5c84d3e168de430ef09a526acc2a0a96"
+      ],
+      "claim_field": "EXECUTION_LIVE",
+      "claims_pass": true
+    },
+    "MEMORY_CONTINUITY_PROOF.json": {
+      "binding": "UNBOUND",
+      "freshness": "NOT_APPLICABLE",
+      "locality": "NO_HOST_RECORDED",
+      "scope": "HISTORICAL",
+      "source_sha": null,
+      "proof_timestamp": null,
+      "age_seconds": null,
+      "claims_pass": false,
+      "claim_field": "ready",
+      "reasons": [
+        "absent"
+      ]
+    }
+  },
+  "work_audit_reconciliation": {
+    "present": false,
+    "rows": [],
+    "rejected_rows": [],
+    "note": "candidate evidence; sets no flag in this tool",
+    "reason": "no matrix supplied; every provider below is classified from this repository's own evidence alone"
+  },
+  "authority": false,
+  "routing_authority": false,
+  "model_selection_authority": false,
+  "admission_authority": false,
+  "scheduling_authority": false,
+  "changes_nothing": true
+}

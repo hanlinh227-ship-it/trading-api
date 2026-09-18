@@ -1,0 +1,23 @@
+{
+  "gate": "DISASTER_RECOVERY_READY",
+  "ready": true,
+  "source_sha": "fd2c5f8cc2cab052ca465f1a53815e02b7c210fa",
+  "backup_identity": "obj_822e4b6dbebf1eb8c7ade854e6b1eb91709e2af1743f20bbae800a1cd8b03f79@sha256:822e4b6dbebf1eb8c7ade854e6b1eb91709e2af1743f20bbae800a1cd8b03f79",
+  "restored_identity": "obj_822e4b6dbebf1eb8c7ade854e6b1eb91709e2af1743f20bbae800a1cd8b03f79@sha256:822e4b6dbebf1eb8c7ade854e6b1eb91709e2af1743f20bbae800a1cd8b03f79",
+  "integrity_verified": true,
+  "primary_removed_before_restore": true,
+  "restore_destination_was_empty": true,
+  "restore_scope": "METADATA_PLANE_ONLY",
+  "object_transport": "LOCAL_FILESYSTEM_COPY",
+  "proofs": [
+    "backup_written_through_recovery_contract=pass",
+    "manifest_verification_ran=pass",
+    "primary_removed_before_restore=pass",
+    "restore_destination_was_empty=pass",
+    "restored_index_rebuilt_from_snapshot=pass",
+    "restored_bytes_match_snapshot_pointer=pass",
+    "restored_bytes_carry_the_recorded_revision=pass",
+    "restored_manifest_verified=pass",
+    "evidence_bound_to_source_sha=pass"
+  ]
+}

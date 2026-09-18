@@ -1,0 +1,269 @@
+{
+  "tool": "federation_24x7_proof",
+  "federation_status": "PROVEN",
+  "rounds_passed": 22,
+  "rounds_total": 22,
+  "rounds": [
+    {
+      "round": "A",
+      "scenario": "baseline_federation_serves",
+      "passed": true,
+      "failures": [],
+      "federation_state": "HEALTHY",
+      "placed_on": "host-0"
+    },
+    {
+      "round": "B",
+      "scenario": "local_worker_offline_blocks_local_roles",
+      "passed": true,
+      "failures": [],
+      "local_roles": 9,
+      "example_before": "AVAILABLE_PRIMARY",
+      "example_after": "BLOCKED"
+    },
+    {
+      "round": "C",
+      "scenario": "stale_heartbeat_fails_over",
+      "passed": true,
+      "failures": [],
+      "placed_on": "host-0",
+      "expired": [
+        "laptop-0"
+      ]
+    },
+    {
+      "round": "D",
+      "scenario": "breaker_removes_a_failing_path",
+      "passed": true,
+      "failures": [],
+      "breaker": "OPEN",
+      "placed_on": "host-0"
+    },
+    {
+      "round": "E",
+      "scenario": "exhausted_quota_is_bypassed",
+      "passed": true,
+      "failures": [],
+      "placed_on": "host-0"
+    },
+    {
+      "round": "F",
+      "scenario": "two_simultaneous_failures_refuse_explicitly",
+      "passed": true,
+      "failures": [],
+      "outcome": "CAPABILITY_TEMPORARILY_UNAVAILABLE",
+      "reason": "2 worker(s) were considered and each refused"
+    },
+    {
+      "round": "G",
+      "scenario": "privacy_outranks_availability",
+      "passed": true,
+      "failures": [],
+      "outcome": "CAPABILITY_TEMPORARILY_UNAVAILABLE",
+      "reason": "1 worker(s) were considered and each refused"
+    },
+    {
+      "round": "H",
+      "scenario": "provider_loss_blocks_provider_only_roles",
+      "passed": true,
+      "failures": [],
+      "serverless_roles": [
+        "MEMORY_BRANCH",
+        "RETRIEVAL_BRANCH",
+        "SPEECH_BRANCH",
+        "VISION_BRANCH"
+      ],
+      "surviving_paths": [
+        "ephemeral-local-0"
+      ],
+      "states": {
+        "MEMORY_BRANCH": "BLOCKED",
+        "RETRIEVAL_BRANCH": "BLOCKED",
+        "SPEECH_BRANCH": "BLOCKED",
+        "VISION_BRANCH": "BLOCKED"
+      }
+    },
+    {
+      "round": "I",
+      "scenario": "health_reflects_coverage_not_liveness",
+      "passed": true,
+      "failures": [],
+      "federation_state": "CRITICAL",
+      "reason": "CRITICAL role(s) cannot be served: REASONING_BRANCH, CODING_BRANCH, VERIFICATION_BRANCH"
+    },
+    {
+      "round": "J",
+      "scenario": "recovery_needs_no_manual_rewrite",
+      "passed": true,
+      "failures": [],
+      "federation_state": "HEALTHY",
+      "placed_on": "host-0"
+    },
+    {
+      "round": "K",
+      "scenario": "worker_auto_join_needs_no_authority_change",
+      "passed": true,
+      "failures": [],
+      "before": "CAPABILITY_TEMPORARILY_UNAVAILABLE",
+      "after": "EXACT_MODEL_WORKER"
+    },
+    {
+      "round": "L",
+      "scenario": "hot_model_is_immediately_callable",
+      "passed": true,
+      "failures": [],
+      "reading": "HOT",
+      "hotness": 1.0
+    },
+    {
+      "round": "M",
+      "scenario": "idle_model_is_demoted",
+      "passed": true,
+      "failures": [],
+      "action": "HOT -> WARM",
+      "reasons": [
+        "no observed demand in the window",
+        "role criticality CRITICAL",
+        "cold load is 9000 ms, which is worth avoiding"
+      ]
+    },
+    {
+      "round": "N",
+      "scenario": "hot_is_earned_not_assigned",
+      "passed": true,
+      "failures": [],
+      "large_rare": {
+        "model_id": "big/rare-30b",
+        "hotness_score": 0.092,
+        "recommended_residency": "COLD",
+        "reasons": [
+          "no observed demand in the window",
+          "role criticality NORMAL",
+          "22000 MB resident is expensive for a HOT slot",
+          "cold load is 40000 ms, which is worth avoiding",
+          "below the warm threshold; JIT or cold load on demand"
+        ],
+        "requests_in_window": 0,
+        "peak_ram_mb": 22000.0,
+        "cold_load_ms": 40000.0,
+        "role_criticality": "NORMAL"
+      },
+      "small_busy": {
+        "model_id": "small/busy",
+        "hotness_score": 1.0,
+        "recommended_residency": "HOT",
+        "reasons": [
+          "25 of 30 observed requests",
+          "role criticality CRITICAL",
+          "cold load is 9000 ms, which is worth avoiding"
+        ],
+        "requests_in_window": 25,
+        "peak_ram_mb": 1800.0,
+        "cold_load_ms": 9000.0,
+        "role_criticality": "CRITICAL"
+      }
+    },
+    {
+      "round": "O",
+      "scenario": "cold_artifact_reads_jit_not_callable",
+      "passed": true,
+      "failures": [],
+      "reading": "JIT"
+    },
+    {
+      "round": "P",
+      "scenario": "sleeping_is_not_broken",
+      "passed": true,
+      "failures": [],
+      "sleeping": "SLEEPING",
+      "broken": "OFFLINE"
+    },
+    {
+      "round": "Q",
+      "scenario": "provider_model_costs_no_residency",
+      "passed": true,
+      "failures": [],
+      "provider_models": [
+        "@cf/baai/bge-m3",
+        "@cf/baai/bge-reranker-base",
+        "@cf/deepgram/aura-1",
+        "@cf/llava-hf/llava-1.5-7b-hf",
+        "@cf/openai/whisper-large-v3-turbo"
+      ]
+    },
+    {
+      "round": "R",
+      "scenario": "worker_vanishing_clears_its_claims",
+      "passed": true,
+      "failures": [],
+      "online": false,
+      "state": "OFFLINE"
+    },
+    {
+      "round": "S",
+      "scenario": "minimum_service_profile_is_met",
+      "passed": true,
+      "failures": [],
+      "roles": [
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH",
+        "CODING_BRANCH"
+      ],
+      "unmet": []
+    },
+    {
+      "round": "T",
+      "scenario": "normal_service_profile_is_met",
+      "passed": true,
+      "failures": [],
+      "roles": [
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH",
+        "CODING_BRANCH",
+        "PLANNING_BRANCH",
+        "TOOL_USE_BRANCH",
+        "RESEARCH_BRANCH",
+        "RETRIEVAL_BRANCH",
+        "VIETNAMESE_BRANCH",
+        "MULTILINGUAL_BRANCH"
+      ],
+      "unmet": []
+    },
+    {
+      "round": "U",
+      "scenario": "profile_stops_claiming_when_paths_go",
+      "passed": true,
+      "failures": [],
+      "unmet": [
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH",
+        "CODING_BRANCH"
+      ]
+    },
+    {
+      "round": "V",
+      "scenario": "live_federated_role_execution",
+      "passed": true,
+      "failures": [],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "collaboration_mode": "MAKER_CHECKER",
+      "models_run": [
+        "Qwen/Qwen3-8B-GGUF",
+        "microsoft/Phi-3-mini-4k-instruct-gguf"
+      ],
+      "answer": "<think>\nOkay, let's see. The question is: If every A is a B, and every B is a C, is every A a C? I need to answer yes or no and give a short reason.\n\nFirst, I",
+      "routing_authority": "task_router",
+      "model_selection_authority": "model_mesh",
+      "resolved_by_vote": false,
+      "all_models_are_role_mapped": true
+    }
+  ],
+  "note": "every round breaks something real and asks the existing mesh what it does. A round that could not run does not pass.",
+  "routing_authority": false,
+  "admission_authority": false,
+  "scope": "HISTORICAL",
+  "scope_note": "Preserved verbatim from revision e5778642758ac618ddfbaae03d7927442c7d18f0, before this document was regenerated with a revision, a timestamp and a host attached. It records that every round including the live inference round passed on the machine that ran it. It names no revision, no moment and no host, so it can be quoted as history and as nothing else: it is not canonical, it is not current, and it does not say the live round would pass here. Kept because a credential-less environment reading 21/22 must not be allowed to erase the fact that 22/22 was once recorded.",
+  "binding": "UNBOUND",
+  "supersedes_nothing": true
+}

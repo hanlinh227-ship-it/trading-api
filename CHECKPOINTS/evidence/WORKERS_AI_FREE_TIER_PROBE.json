@@ -1,0 +1,58 @@
+{
+  "probe": "workers_ai_free_tier",
+  "probed_at": "2026-09-17T17:45:43Z",
+  "preflight": {
+    "token_verify_http": "200",
+    "workers_ai_models_search_http": "200",
+    "account_id_wellformed": true,
+    "account_id_length": 32,
+    "token_id": "473fb9710c77fb3bc23eacd73131ce36",
+    "token_status": "active",
+    "token_id_note": "a non-secret identifier, shown beside the token in the Cloudflare dashboard. Compare it with the token you edited: if it differs, the GitHub secret still holds the previous token and needs its value replaced, not its permissions changed.",
+    "accounts_token_can_see": "0",
+    "account_names_token_can_see": "",
+    "configured_account_is_one_the_token_can_see": false,
+    "diagnosis": "the token verifies but CLOUDFLARE_ACCOUNT_ID is not among the accounts this token can see, so the token and the account id belong to different accounts. Fix whichever is wrong: point the secret at the account the token is scoped to, or re-scope the token. Accounts this token can see: none"
+  },
+  "plan_can_bill": false,
+  "plan_evidence": "Workers Free has no paid path; past the allowance requests fail",
+  "status": "PROBED",
+  "results": [
+    {
+      "requested_model_id": "openai/gpt-oss-20b",
+      "provider_model_id": "@cf/openai/gpt-oss-20b",
+      "match": "EXACT",
+      "http_status": "200",
+      "cloudflare_error_code": null,
+      "returned_a_completion": true,
+      "verdict": "FREE_TIER_SERVES_IT"
+    },
+    {
+      "requested_model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "provider_model_id": "@cf/qwen/qwen2.5-coder-32b-instruct",
+      "match": "CAPABILITY",
+      "http_status": "200",
+      "cloudflare_error_code": null,
+      "returned_a_completion": true,
+      "verdict": "FREE_TIER_SERVES_IT"
+    },
+    {
+      "requested_model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+      "provider_model_id": "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+      "match": "CAPABILITY",
+      "http_status": "200",
+      "cloudflare_error_code": null,
+      "returned_a_completion": true,
+      "verdict": "FREE_TIER_SERVES_IT"
+    }
+  ],
+  "run_url": "https://github.com/hanlinh227-ship-it/trading-api/actions/runs/35254843871",
+  "established": [
+    "the stored token is valid and active (/user/tokens/verify returned 200)",
+    "the token reads the Workers AI catalog on the configured account (200)",
+    "all three recorded models returned HTTP 200 with a real completion",
+    "@cf/openai/gpt-oss-20b served a completion on the Workers Free plan - the exact model the Open Model Universe named, executing at zero cost"
+  ],
+  "correction": "The preflight's own diagnosis line in this run is wrong and has been fixed since. It read 'CLOUDFLARE_ACCOUNT_ID is not among the accounts this token can see', but listing accounts requires Account Settings Read, which a token scoped only to Workers AI correctly does not carry. Zero visible accounts is expected for a minimal token and is not evidence of a mismatch. The diagnosis now checks success first, so a working token is never reported as broken. The model results in this file were always correct; only the narrative line was not.",
+  "operator_action_required": null
+}

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "matrix_id": "SKILL_COMPETENCY_MATRIX",
+  "purpose": "measured MODEL x SKILL x ROLE competence, seeded empty because nothing has been measured yet",
+  "authority": false,
+  "stable_write": false,
+  "authority_flags": {
+    "routing_authority": false,
+    "reasoning_authority": false,
+    "model_selection_authority": false,
+    "admission_authority": false,
+    "scheduling_authority": false,
+    "evidence_authority": false,
+    "stable_write_authority": false,
+    "merge_authority": false,
+    "trading_authority": false,
+    "note": "Read as evidence by the Model Mesh. A row here activates nothing and selects nothing."
+  },
+  "rows": []
+}

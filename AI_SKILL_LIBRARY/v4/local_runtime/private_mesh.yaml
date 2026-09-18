@@ -1,0 +1,58 @@
+schema_version: 1
+contract: private_mesh_adapter
+status: non_authoritative_transport_only
+
+supported_backends:
+  - tailscale
+  - headscale
+
+default_backend: tailscale
+provider_neutral_escape_backend: headscale
+
+purpose: >-
+  Private-mesh connectivity is transport and convenience only. It never grants
+  or implies worker admission, attestation, eligibility, capability, privacy
+  permission, routing eligibility, or execution authority.
+
+membership_semantics:
+  network_membership_implies_worker_admission: false
+  network_membership_implies_attestation: false
+  network_membership_implies_eligibility: false
+  network_membership_implies_capability: false
+  network_membership_implies_privacy_permission: false
+  network_membership_implies_routing_eligibility: false
+  network_membership_implies_execution_authority: false
+
+same_host_aliases:
+  separate_mesh_identities_count_as_independent_execution_paths: false
+  note: >-
+    Same-host aliases never count as independent execution paths merely due to
+    separate mesh identities.
+
+authority_flags:
+  routing_authority: false
+  scheduling_authority: false
+  worker_admission_authority: false
+  model_selection_authority: false
+  trading_authority: false
+
+policy_precedence:
+  privacy_free_only_policy_outranks_capacity_and_connectivity: true
+
+vendor_neutrality:
+  tailscale_may_be_convenience_default_where_configured: true
+  vendor_dependency_may_become_authority: false
+  headscale_is_provider_neutral_self_hosted_escape_contract: true
+
+forbidden_components:
+  creates_worker_registry: false
+  creates_router: false
+  creates_scheduler: false
+  creates_provider_registry: false
+  creates_model_selector: false
+
+fail_closed:
+  unknown_backend_rejected: true
+  configuration_implying_automatic_worker_admission_rejected: true
+  on_unknown_backend: reject
+  on_implied_automatic_worker_admission: reject

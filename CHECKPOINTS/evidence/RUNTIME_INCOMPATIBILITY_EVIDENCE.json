@@ -1,0 +1,63 @@
+{
+ "evidence": "RUNTIME_INCOMPATIBILITY",
+ "version": 1,
+ "observed_at": "2026-09-17T11:18:27+00:00",
+ "authority": false,
+ "routing_authority": false,
+ "reasoning_authority": false,
+ "note": "A verified inability of the available runtimes to load an intact artifact. This is not an admission, not a capability measurement, and not a licence decision. Each record is bound to the artifact's SHA-256, so it can never be inherited by different bytes, and it names the runtimes actually tried, so a runtime that was never tried cannot be claimed to have failed.",
+ "records": [
+  {
+   "model_id": "microsoft/bitnet-b1.58-2B-4T-gguf",
+   "artifact_sha256": "4221b252fdd5fd25e15847adfeb5ee88886506ba50b8a34548374492884c2162",
+   "artifact_size_bytes": 1187801280,
+   "quantization": "I2_S",
+   "artifact_intact": true,
+   "artifact_intact_basis": "sha256 recomputed from the downloaded bytes equals the staged digest in staging_manifest.json",
+   "verdict": "INCOMPATIBLE_WITH_AVAILABLE_RUNTIMES",
+   "capability_measured": false,
+   "lifecycle_state_kept": "QUARANTINED",
+   "runtime_diagnostic": "gguf_init_from_reader: tensor 'blk.0.ffn_down.weight' of type 36 (TYPE_IQ4_NL_4_4 REMOVED, use IQ4_NL with runtime repacking) has 6912 elements per row, not a multiple of block size (0); gguf_init_from_reader: failed to read tensor info; llama_model_load: error loading model: llama_model_loader: failed to load model",
+   "cause": "The artifact stores tensors under a type id this llama.cpp build maps to a removed quantization. BitNet's I2_S ternary format is served by the BitNet fork of llama.cpp, not by upstream llama-cpp-python.",
+   "runtimes_tried": [
+    {
+     "runtime": "llama_cpp_python",
+     "runtime_version": "0.3.35",
+     "loaded": false,
+     "failed_at": "load",
+     "error_type": "ValueError"
+    }
+   ],
+   "revisit_if": [
+    "a BitNet-capable backend (upstream I2_S support, or the microsoft/BitNet fork) is added to AI_SKILL_LIBRARY/v4/local_runtime/backends",
+    "the upstream publishes a re-quantized artifact under a different digest"
+   ]
+  },
+  {
+   "model_id": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
+   "artifact_sha256": "7e9516cc01a039bb3e2d41227cdf388849bc1c942c4624c84567b1684cd9c0fc",
+   "artifact_size_bytes": 2147021472,
+   "quantization": "Q4_K_M",
+   "artifact_intact": true,
+   "artifact_intact_basis": "sha256 recomputed from the downloaded bytes equals the staged digest in staging_manifest.json",
+   "verdict": "INCOMPATIBLE_WITH_AVAILABLE_RUNTIMES",
+   "capability_measured": false,
+   "lifecycle_state_kept": "QUARANTINED",
+   "runtime_diagnostic": "llama_model_loader: - kv 0: general.architecture str = mistral3; llama_model_load: error loading model: error loading model vocabulary: invalid gguf type for tokenizer.ggml.scores; llama_model_load_from_file_impl: failed to load model",
+   "cause": "The architecture is mistral3 and the tokenizer stores ggml.scores under a gguf type this llama.cpp build rejects. The tensor data itself parsed: the loader read 53 f32, 156 q4_K and 27 q6_K tensors before refusing the vocabulary. This is a newer model format than the available build supports.",
+   "runtimes_tried": [
+    {
+     "runtime": "llama_cpp_python",
+     "runtime_version": "0.3.35",
+     "loaded": false,
+     "failed_at": "load_vocabulary",
+     "error_type": "ValueError"
+    }
+   ],
+   "revisit_if": [
+    "llama-cpp-python is upgraded to a build whose gguf vocabulary reader accepts the mistral3 tokenizer.ggml.scores type",
+    "the upstream publishes a re-converted artifact under a different digest"
+   ]
+  }
+ ]
+}

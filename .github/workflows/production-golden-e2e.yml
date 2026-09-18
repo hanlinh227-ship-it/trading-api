@@ -1,0 +1,376 @@
+# The production golden run, on a worker nobody has to own.
+#
+# The golden evidence has been regenerable only on a machine with a working
+# llama.cpp, which made a personal PC a production dependency: with that machine
+# off, `ai_core_release_gate` stays red and nothing can clear it. This runs the
+# same canonical chain on a free GitHub-hosted runner instead.
+#
+# Zero-cost, and checked rather than assumed: this repository is PUBLIC, where
+# standard GitHub-hosted runners carry no charge. The preflight below refuses if
+# that ever stops being true, and the job pins `runs-on: ubuntu-latest` so a
+# larger paid runner cannot be substituted by editing a variable.
+#
+# Ephemeral by construction, never a daemon: dispatch -> lease -> execute ->
+# upload evidence -> release. No schedule, no self-retrigger, a hard timeout and
+# a concurrency group of one.
+#
+# It fakes nothing. The model is fetched at its pinned revision, admitted
+# through the same digest-verifying intake the local path uses, and the answer
+# is re-checked by the same semantic verifier that is refusing today. If the
+# model does not say Tokyo, this job fails and the gate stays red.
+
+name: Production Golden E2E
+
+on:
+  # A workflow that exists only on a feature branch is not dispatchable by name
+  # - the API answers 404 until it reaches the default branch. So the trigger is
+  # a push that touches THIS FILE, on this branch only. That keeps the job
+  # deliberate rather than ambient: ordinary commits do not start a 60-minute
+  # inference run, and re-running it is an explicit edit to the workflow itself.
+  # `workflow_dispatch` stays for when this reaches the default branch.
+  push:
+    branches: [claude/magical-euler-uu98r8]
+    paths: ['.github/workflows/production-golden-e2e.yml']
+  workflow_dispatch:
+    inputs:
+      model_id:
+        description: "Override the model. Empty means: stage whatever Model Mesh selects."
+        required: false
+        default: ""
+      commit_evidence:
+        description: "Push the regenerated evidence back to the branch"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: production-golden-e2e
+  cancel-in-progress: false
+
+jobs:
+  golden:
+    # Pinned. A paid larger runner must not be reachable by editing an input.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.repository == 'hanlinh227-ship-it/trading-api'
+    env:
+      CANONICAL_REQUEST: "What is the capital city of Japan? Answer briefly."
+      CACHE_DIR: .model-cache
+      STAGING_DIR: .model-staging
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ask Model Mesh which models a full run needs
+        id: selection
+        run: |
+          set -euo pipefail
+          # The golden chain runs ONE model. The live rounds in the free-worker
+          # and 24x7 proofs run a maker AND a checker, so a worker that staged
+          # only the golden primary reached real inference and then failed with
+          # "no verified artifact cached" for the checker - a correct refusal to
+          # a question nobody had prepared for. This asks for the whole set.
+          override='${{ inputs.model_id }}'
+          if [ -n "${override}" ]; then
+            echo "MODEL_SOURCE=dispatch_input"
+            printf '%s\n' "${override}" > required-models.txt
+          else
+            echo "MODEL_SOURCE=model_mesh"
+            python AI_SKILL_LIBRARY/v4/tools/golden_selection_preview.py \
+              --print-required-models > required-models.txt
+            python AI_SKILL_LIBRARY/v4/tools/golden_selection_preview.py \
+              --evidence CHECKPOINTS/evidence/GOLDEN_SELECTION_PREVIEW.json
+          fi
+          echo "REQUIRED_MODELS:"; cat required-models.txt
+          echo "model_id=$(head -n1 required-models.txt)" >> "$GITHUB_OUTPUT"
+          echo "cache_key=$(sha256sum required-models.txt | cut -c1-32)" >> "$GITHUB_OUTPUT"
+
+      - name: Lease - acquire
+        id: lease
+        run: |
+          set -euo pipefail
+          echo "EPHEMERAL_LEASE=acquired"
+          echo "LEASE_ID=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Zero-cost preflight
+        run: |
+          set -euo pipefail
+          # Checked, not assumed. On a private repository these minutes are
+          # metered, and this job must not be the thing that starts billing.
+          visibility="$(curl -sS -H "Authorization: Bearer ${{ github.token }}" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin).get("visibility"))')"
+          echo "REPO_VISIBILITY=${visibility}"
+          if [ "${visibility}" != "public" ]; then
+            echo "REFUSED: standard runners are free on public repositories only."
+            echo "ZERO_COST_POLICY_PRESERVED=false"
+            exit 1
+          fi
+          echo "ZERO_COST_POLICY_PRESERVED=true"
+          echo "PAID_FALLBACK_PRESENT=false"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+          # A prebuilt wheel where one exists; building from source on a runner
+          # costs more wall-clock than the inference it enables.
+          python -m pip install llama-cpp-python --prefer-binary
+          python -c "import llama_cpp; print('LLAMA_CPP_VERSION=%s' % llama_cpp.__version__)"
+
+      - name: Prove the engine executes here
+        run: |
+          set -euo pipefail
+          # The same subprocess probe the local path uses, for the same reason:
+          # SIGILL is not an exception and an in-process probe would take the
+          # prober down with it. This is the step that decides whether this
+          # runner can do what the container that wrote this workflow cannot.
+          python AI_SKILL_LIBRARY/v4/tools/worker_execution_liveness.py \
+            --evidence CHECKPOINTS/evidence/WORKER_EXECUTION_LIVENESS.json
+          state="$(python -c "import json;print(json.load(open('CHECKPOINTS/evidence/WORKER_EXECUTION_LIVENESS.json'))['execution_liveness'])")"
+          echo "WORKER_EXECUTION_LIVENESS=${state}"
+          if [ "${state}" != "EXECUTION_LIVE" ]; then
+            echo "REFUSED: this runner reports ${state}; it cannot produce a real run."
+            exit 1
+          fi
+
+      - name: Cache the artifacts by the model set
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STAGING_DIR }}
+          key: gguf-set-${{ steps.selection.outputs.cache_key }}
+
+      - name: Fetch, verify and admit every required model
+        run: |
+          set -euo pipefail
+          mkdir -p "${STAGING_DIR}"
+          while read -r model_id; do
+            [ -n "${model_id}" ] || continue
+            echo "=== ${model_id}"
+            eval "$(python - "${model_id}" <<'PY'
+          import json, sys, yaml
+          model_id = sys.argv[1]
+          rows = yaml.safe_load(
+              open("AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml"))["models"]
+          row = next((r for r in rows if r.get("model_id") == model_id), None)
+          if row is None:
+              raise SystemExit("REFUSED: %s is not in the registry" % model_id)
+          if row.get("lifecycle_state") != "AVAILABLE":
+              raise SystemExit("REFUSED: %s is %s" % (model_id, row.get("lifecycle_state")))
+          identity = row["artifact_identity"]
+          entries = json.load(
+              open("AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json"))["entries"]
+          entry = next((e for e in entries if e.get("hf_repo") == model_id), None)
+          if entry is None:
+              raise SystemExit("REFUSED: %s has no staging manifest entry" % model_id)
+          # Two documents name this digest. If they disagree, neither is
+          # authoritative and this job must not pick one.
+          if entry.get("expected_sha256") != identity.get("sha256"):
+              raise SystemExit("REFUSED: registry and manifest disagree on %s" % model_id)
+          print("ART_URL=%s" % row["weights_source"])
+          print("ART_SHA=%s" % identity["sha256"])
+          print("ART_FILE=%s" % entry["filename"])
+          print("ART_MANIFEST_ID=%s" % entry["id"])
+          PY
+          )"
+            target="${STAGING_DIR}/${ART_FILE}"
+            if [ ! -f "${target}" ]; then
+              curl -fSL --retry 3 --retry-delay 5 -o "${target}" "${ART_URL}"
+            else
+              echo "ARTIFACT_CACHE=hit ${ART_FILE}"
+            fi
+            actual="$(sha256sum "${target}" | cut -d' ' -f1)"
+            if [ "${actual}" != "${ART_SHA}" ]; then
+              echo "REFUSED: fetched bytes do not match the pinned digest for ${model_id}"
+              exit 1
+            fi
+            # Verify: digest, declared size, structural GGUF scan. Admits nothing.
+            python AI_SKILL_LIBRARY/v4/tools/local_runtime_staging_verify.py \
+              --staging "${STAGING_DIR}" --cache "${CACHE_DIR}" \
+              --only "${ART_MANIFEST_ID}" >/dev/null
+            # Admit: the canonical intake, keyed by the REGISTRY model_id.
+            python AI_SKILL_LIBRARY/v4/tools/local_runtime_intake.py \
+              --staged "${target}" --root . --cache-root "${CACHE_DIR}" \
+              --model-id "${model_id}" \
+              --output "CHECKPOINTS/evidence/LOCAL_RUNTIME_INTAKE.json" >/dev/null
+            python - <<'PY'
+          import json
+          intake = json.load(
+              open("CHECKPOINTS/evidence/LOCAL_RUNTIME_INTAKE.json")).get("intake") or {}
+          print("INTAKE_STATUS=%s digest_match=%s"
+                % (intake.get("status"), intake.get("digest_match")))
+          if not intake.get("verified"):
+              raise SystemExit("REFUSED: intake did not accept: %s" % intake.get("reason"))
+          PY
+          done < required-models.txt
+
+      - name: Run the canonical golden chain
+        run: |
+          set -euo pipefail
+          # task_router -> AI Legion -> Model Mesh -> scheduler -> admitted model
+          # -> real inference -> semantic verifier -> synthesis -> checkpoint.
+          # The tool owns that ordering; this supplies only the canonical request.
+          python AI_SKILL_LIBRARY/v4/tools/local_runtime_ai_core_e2e.py \
+            --request "${CANONICAL_REQUEST}" \
+            --cache "${CACHE_DIR}" \
+            --evidence CHECKPOINTS/evidence/B3_B4_GOLDEN_E2E_EVIDENCE.json
+          # Two documents record "the AI CORE golden run" and the gate prefers
+          # the first, falling back to the second. Writing only one left the
+          # other frozen at an older run forever - ignored by the gate, still
+          # read by humans and by the continuity test, which then compared this
+          # run's resume against a run from days earlier. One run, recorded at
+          # both canonical names, so they cannot drift apart again.
+          cp CHECKPOINTS/evidence/B3_B4_GOLDEN_E2E_EVIDENCE.json \
+             CHECKPOINTS/evidence/AI_CORE_E2E_EVIDENCE.json
+
+      - name: Prove continuity in a second process
+        run: |
+          set -euo pipefail
+          # `--evidence` is not optional here. Without it the resume runs, prints,
+          # and writes nothing - so AI_CORE_RESUME_EVIDENCE.json kept naming an
+          # older checkpoint while the fresh run wrote a new one, and the gate
+          # correctly reported "a different checkpoint was resumed". The run was
+          # fine; the evidence of it was never recorded. Second time I have made
+          # exactly this mistake with a tool whose evidence path is opt-in.
+          python AI_SKILL_LIBRARY/v4/tools/local_runtime_ai_core_e2e.py --resume \
+            --evidence CHECKPOINTS/evidence/AI_CORE_RESUME_EVIDENCE.json
+          python - <<'PY'
+          import json
+          resumed = json.load(
+              open("CHECKPOINTS/evidence/AI_CORE_RESUME_EVIDENCE.json"))
+          golden = json.load(
+              open("CHECKPOINTS/evidence/B3_B4_GOLDEN_E2E_EVIDENCE.json"))
+          written = (golden.get("checkpoint") or {}).get("checkpoint_id")
+          print("CHECKPOINT_WRITTEN=%s" % written)
+          print("CHECKPOINT_RESUMED=%s" % resumed.get("checkpoint_id"))
+          if resumed.get("checkpoint_id") != written:
+              raise SystemExit(
+                  "REFUSED: the second process resumed a different checkpoint "
+                  "than this run wrote; continuity is not proved")
+          PY
+
+      - name: Re-check the answer with the verifier that refuses today
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, sys
+          sys.path.insert(0, ".")
+          from AI_SKILL_LIBRARY.v4.local_runtime.golden_e2e import (
+              CANONICAL_GOLDEN_REQUEST, make_verifier)
+          evidence = json.load(
+              open("CHECKPOINTS/evidence/B3_B4_GOLDEN_E2E_EVIDENCE.json"))
+          report = make_verifier(CANONICAL_GOLDEN_REQUEST)(
+              "core_reasoning", evidence["runtime_evidence"])
+          print("SEMANTIC_GOLDEN_VERIFIED=%s" % report["passed"])
+          for failure in report["failures"]:
+              print("  %s" % failure)
+          if not report["passed"]:
+              raise SystemExit(
+                  "REFUSED: the run completed and its answer still does not "
+                  "satisfy the canonical oracle. Do not edit the answer.")
+          PY
+
+      - name: Regenerate the proofs this runner can now measure
+        run: |
+          set -euo pipefail
+          python AI_SKILL_LIBRARY/v4/tools/federation_24x7_proof.py \
+            --evidence CHECKPOINTS/evidence/FEDERATION_24X7_PROOF.json || true
+          python AI_SKILL_LIBRARY/v4/tools/free_worker_mesh_proof.py \
+            --evidence CHECKPOINTS/evidence/FREE_WORKER_MESH_PROOF.json || true
+          python AI_SKILL_LIBRARY/v4/tools/federation_status_scopes.py \
+            --evidence CHECKPOINTS/evidence/FEDERATION_STATUS_SCOPES.json || true
+
+      - name: Return the evidence to the branch
+        if: inputs.commit_evidence != 'false' || github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          # Evidence only. Nothing under AI_SKILL_LIBRARY/ moves, so each
+          # document's source_sha keeps describing the code it was run against.
+          changed="$(git status --short CHECKPOINTS/evidence | wc -l)"
+          if [ "${changed}" = "0" ]; then
+            echo "NO_EVIDENCE_CHANGED"; exit 0
+          fi
+          git config user.name 'Production Golden E2E'
+          git config user.email 'production-golden-e2e@users.noreply.github.com'
+          git add CHECKPOINTS/evidence
+          git commit -m "evidence(ai-core): golden E2E from a free ephemeral worker" \
+                     -m "Produced by .github/workflows/production-golden-e2e.yml on a GitHub-hosted ubuntu-latest runner against source_sha ${SOURCE_SHA}, executing ${{ steps.selection.outputs.model_id }} at its pinned digest. The semantic verifier was re-run against the canonical request and passed before this commit was made. No personal hardware was involved and no paid resource was used."
+
+          # The job takes minutes - a 5 GB fetch and CPU inference on an 8B
+          # model - and the branch moves while it runs. Run 5 produced a fully
+          # verified golden answer and then lost the push to a non-fast-forward,
+          # because a commit landed on the branch mid-run. Rebase onto whatever
+          # arrived and try again; an evidence-only commit replays cleanly
+          # unless someone touched the same files, and if they did, that is a
+          # real conflict to surface rather than overwrite.
+          pushed=false
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              pushed=true; break
+            fi
+            echo "PUSH_RETRY=${attempt} reason=branch_moved"
+            git fetch origin "${GITHUB_REF_NAME}"
+            if ! git rebase "origin/${GITHUB_REF_NAME}"; then
+              git rebase --abort || true
+              echo "REFUSED: the evidence conflicts with a change that landed"
+              echo "mid-run. Not overwriting it."
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
+          if [ "${pushed}" != "true" ]; then
+            echo "REFUSED: could not return the evidence after 3 attempts"
+            exit 1
+          fi
+
+      - name: Release gate
+        run: |
+          set -euo pipefail
+          # Summary first. The gate prints its whole evidence set as JSON, and
+          # in a 1700-line log the one line that says WHICH check failed is the
+          # hardest to find. Naming the failures before the dump is the
+          # difference between a diagnosis and another run.
+          python AI_SKILL_LIBRARY/v4/tools/ai_core_release_gate.py \
+            --evidence CHECKPOINTS/evidence/AI_CORE_RELEASE_GATE.json || true
+          python - <<'PY'
+          import json, sys
+          d = json.load(open("CHECKPOINTS/evidence/AI_CORE_RELEASE_GATE.json"))
+          print("AI_CORE_RELEASE=%s passed=%s/%s"
+                % (d["verdict"], d["checks_passed"], d["checks_run"]))
+          print("SEMANTIC_GOLDEN_VERIFIED=%s" % d.get("SEMANTIC_GOLDEN_VERIFIED"))
+          print("RELEASE_ELIGIBLE=%s" % d.get("release_eligible"))
+          for check in d["checks"]:
+              if check["passed"]:
+                  continue
+              print("FAILED_CHECK=%s" % check["check"])
+              print("  requirement: %s" % check["requirement"])
+              for failure in check["failures"]:
+                  print("  - %s" % str(failure)[:400])
+          sys.exit(0 if d["verdict"] == "PASS" else 1)
+          PY
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-golden-e2e-evidence
+          path: CHECKPOINTS/evidence/
+          retention-days: 14
+
+      - name: Lease - release
+        if: always()
+        run: |
+          echo "EPHEMERAL_LEASE=released"
+          echo "WORKER_DEREGISTERED=true"

@@ -1,0 +1,78 @@
+{
+  "staging_verify": "PASS",
+  "verified": 3,
+  "total": 3,
+  "admits_nothing": true,
+  "malware_scan_performed": false,
+  "results": [
+    {
+      "id": "qwen3-1.7b-q8_0",
+      "family": "Qwen3",
+      "filename": "Qwen3-1.7B-Q8_0.gguf",
+      "path": "/home/user/trading-api/.model-staging/Qwen3-1.7B-Q8_0.gguf",
+      "reassembled_from_parts": false,
+      "size_bytes": 1834426016,
+      "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+      "immutable_revision": "90862c4b9d2787eaed51d12237eafdfe7c5f6077",
+      "revision_status": "verified_by_lfs_oid",
+      "verified": true,
+      "structural_scan": {
+        "scan_kind": "structural_scan",
+        "path": "/home/user/trading-api/.model-staging/Qwen3-1.7B-Q8_0.gguf",
+        "status": "pass",
+        "findings": [],
+        "gguf_version": 3,
+        "tensor_count": 310,
+        "kv_count": 28,
+        "file_size": 1834426016,
+        "satisfies_malware_scan_status": false
+      }
+    },
+    {
+      "id": "qwen3-4b-q4_k_m",
+      "family": "Qwen3",
+      "filename": "Qwen3-4B-Q4_K_M.gguf",
+      "path": "/home/user/trading-api/.model-staging/Qwen3-4B-Q4_K_M.gguf",
+      "reassembled_from_parts": true,
+      "size_bytes": 2497280256,
+      "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+      "revision_status": "verified_by_lfs_oid",
+      "verified": true,
+      "structural_scan": {
+        "scan_kind": "structural_scan",
+        "path": "/home/user/trading-api/.model-staging/Qwen3-4B-Q4_K_M.gguf",
+        "status": "pass",
+        "findings": [],
+        "gguf_version": 3,
+        "tensor_count": 398,
+        "kv_count": 28,
+        "file_size": 2497280256,
+        "satisfies_malware_scan_status": false
+      }
+    },
+    {
+      "id": "granite-3.3-2b-instruct-q4_k_m",
+      "family": "Granite",
+      "filename": "granite-3.3-2b-instruct-Q4_K_M.gguf",
+      "path": "/home/user/trading-api/.model-staging/granite-3.3-2b-instruct-Q4_K_M.gguf",
+      "reassembled_from_parts": false,
+      "size_bytes": 1545303328,
+      "sha256": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+      "immutable_revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+      "revision_status": "verified_by_lfs_oid",
+      "verified": true,
+      "structural_scan": {
+        "scan_kind": "structural_scan",
+        "path": "/home/user/trading-api/.model-staging/granite-3.3-2b-instruct-Q4_K_M.gguf",
+        "status": "pass",
+        "findings": [],
+        "gguf_version": 3,
+        "tensor_count": 362,
+        "kv_count": 40,
+        "file_size": 1545303328,
+        "satisfies_malware_scan_status": false
+      }
+    }
+  ]
+}

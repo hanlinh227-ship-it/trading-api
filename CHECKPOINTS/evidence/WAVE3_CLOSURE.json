@@ -1,0 +1,100 @@
+{
+  "tool": "wave3_closure_gate",
+  "WAVE3_OPERATIONAL_CLOSED": true,
+  "WAVE3_ALL_EXACT_MODELS_AVAILABLE": false,
+  "exact_models_without_an_executable_path": [
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+    "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+    "google/gemma-3-4b-it",
+    "microsoft/Phi-4-mini-instruct"
+  ],
+  "candidates": [
+    {
+      "candidate_id": "qwen3-8b-gguf",
+      "upstream": "Qwen/Qwen3-8B-GGUF",
+      "terminal_state": "AVAILABLE_LOCAL",
+      "is_terminal": true,
+      "exact_model_executable": true,
+      "blocker_is_evidenced": true,
+      "capability_fallback": null
+    },
+    {
+      "candidate_id": "qwen3-coder-30b-a3b-instruct",
+      "upstream": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "terminal_state": "REMOTE_WORKER_REQUIRED",
+      "is_terminal": true,
+      "exact_model_executable": false,
+      "blocker_is_evidenced": true,
+      "capability_fallback": "SEPARATE FACT, never a substitute for the line above: Cloudflare serves @cf/qwen/qwen2.5-coder-32b-instruct at zero cost, free tier proven by real completion. It covers the coding capability under its own name. It is a different generation and a dense 32B rather than a 30B MoE. No measurement taken on it may be recorded against Qwen3-Coder-30B-A3B-Instruct."
+    },
+    {
+      "candidate_id": "gpt-oss-20b",
+      "upstream": "openai/gpt-oss-20b",
+      "terminal_state": "AVAILABLE_SERVERLESS",
+      "is_terminal": true,
+      "exact_model_executable": true,
+      "blocker_is_evidenced": true,
+      "capability_fallback": null
+    },
+    {
+      "candidate_id": "phi-4-mini-instruct",
+      "upstream": "microsoft/Phi-4-mini-instruct",
+      "terminal_state": "QUARANTINED_PROVENANCE",
+      "is_terminal": true,
+      "exact_model_executable": false,
+      "blocker_is_evidenced": true,
+      "capability_fallback": null
+    },
+    {
+      "candidate_id": "deepseek-r1-distill-qwen-7b",
+      "upstream": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+      "terminal_state": "QUARANTINED_PROVENANCE",
+      "is_terminal": true,
+      "exact_model_executable": false,
+      "blocker_is_evidenced": true,
+      "capability_fallback": null
+    },
+    {
+      "candidate_id": "gemma-3-4b-it",
+      "upstream": "google/gemma-3-4b-it",
+      "terminal_state": "DEFERRED_TO_WAVE4",
+      "is_terminal": true,
+      "exact_model_executable": false,
+      "blocker_is_evidenced": true,
+      "capability_fallback": null
+    }
+  ],
+  "proofs": {
+    "FREE_WORKER_MESH": "PROVEN",
+    "WAVE3_FEDERATION": "PROVEN",
+    "GPT_OSS_SERVERLESS": "PROVEN",
+    "FALLBACK_PATH": "PROVEN"
+  },
+  "capability_coverage": {
+    "deep_reasoning": true,
+    "coding": true,
+    "debugging": true,
+    "code_review": true,
+    "verifier_checker": true,
+    "vietnamese_reasoning": true,
+    "synthesis_generalist": true
+  },
+  "authorized_paths_explored": [
+    {
+      "provider_id": "ephemeral-local-0",
+      "verification_state": "VERIFIED_AVAILABLE"
+    },
+    {
+      "provider_id": "github_actions_ubuntu_latest",
+      "verification_state": "VERIFIED_LIMITED"
+    },
+    {
+      "provider_id": "cloudflare_workers_ai",
+      "verification_state": "VERIFIED_AVAILABLE"
+    }
+  ],
+  "failures": [],
+  "note": "Closing Wave 3 and every candidate being available are different facts. This gate reports both and lets neither stand in for the other. A capability fallback counts towards coverage under the substitute's own name, never as the requested model's availability.",
+  "routing_authority": false,
+  "admission_authority": false
+}

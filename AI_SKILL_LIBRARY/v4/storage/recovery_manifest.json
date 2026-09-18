@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "manifest_schema_version": 1,
+  "generated_at": "2026-09-18T00:00:00Z",
+  "canonical_authority": "GITHUB_BRAIN_V4",
+  "authority": false,
+  "authority_flags": {
+    "storage_authority": false,
+    "routing_authority": false,
+    "reasoning_authority": false,
+    "model_selection_authority": false,
+    "admission_authority": false,
+    "scheduling_authority": false,
+    "merge_authority": false,
+    "trading_authority": false
+  },
+  "metadata_service": {
+    "provider_id": "supabase",
+    "role": "metadata_and_object_index_only",
+    "authority": false,
+    "project_exists_verified": false,
+    "last_successful_export_ref": null
+  },
+  "pointers": {
+    "storage_policy": "AI_SKILL_LIBRARY/v4/storage/policy.yaml",
+    "provider_registry": "AI_SKILL_LIBRARY/v4/storage/providers.yaml",
+    "object_manifest_schema": "AI_SKILL_LIBRARY/v4/schemas/storage_object_manifest.schema.json",
+    "provider_schema": "AI_SKILL_LIBRARY/v4/schemas/storage_provider.schema.json",
+    "portable_state_contract": "AI_SKILL_LIBRARY/v4/runtime/shared_state.yaml"
+  },
+  "caps": {
+    "max_entries": 256,
+    "max_bytes": 262144,
+    "max_string": 256
+  },
+  "entry_count": 0,
+  "truncated": false,
+  "omitted_entries": 0,
+  "critical_object_index": [],
+  "entries": []
+}

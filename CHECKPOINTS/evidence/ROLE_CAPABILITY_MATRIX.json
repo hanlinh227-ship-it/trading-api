@@ -1,0 +1,2487 @@
+{
+  "tool": "role_capability_matrix",
+  "ROLE_CAPABILITY_MATRIX": [
+    {
+      "role_id": "REASONING_BRANCH",
+      "legion_division": "core",
+      "criticality": "CRITICAL",
+      "required_capabilities": [
+        "deep_reasoning",
+        "text_reasoning"
+      ],
+      "composition": "MAKER_CHECKER",
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ],
+      "residency_target": "HOT",
+      "status": "AVAILABLE_PRIMARY",
+      "primary": {
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.512576,
+        "per_capability": {
+          "deep_reasoning": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "deep_reasoning",
+            "specialization_score": 0.512576,
+            "measured_score": 0.916667,
+            "confidence": 0.6,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE0_CAPABILITY_QWEN3_4B.json"
+          },
+          "text_reasoning": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "text_reasoning",
+            "specialization_score": 0.854294,
+            "measured_score": 0.916667,
+            "confidence": 1.0,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE0_CAPABILITY_QWEN3_4B.json"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE0_CAPABILITY_QWEN3_4B.json"
+        ]
+      },
+      "secondary": {
+        "model_id": "Qwen/Qwen3-8B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.51,
+        "per_capability": {
+          "deep_reasoning": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "deep_reasoning",
+            "specialization_score": 0.51,
+            "measured_score": 1.0,
+            "confidence": 0.6,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE0_CAPABILITY_QWEN3_8B.json"
+          },
+          "text_reasoning": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "text_reasoning",
+            "specialization_score": 0.85,
+            "measured_score": 1.0,
+            "confidence": 1.0,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE0_CAPABILITY_QWEN3_8B.json"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE0_CAPABILITY_QWEN3_8B.json"
+        ]
+      },
+      "fallback": {
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.507122,
+        "per_capability": {
+          "deep_reasoning": {
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "capability": "deep_reasoning",
+            "specialization_score": 0.507122,
+            "measured_score": 0.916667,
+            "confidence": 0.6,
+            "efficiency_factor": 0.922041,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE0_CAPABILITY_PHI3_MINI.json"
+          },
+          "text_reasoning": {
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "capability": "text_reasoning",
+            "specialization_score": 0.845204,
+            "measured_score": 0.916667,
+            "confidence": 1.0,
+            "efficiency_factor": 0.922041,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE0_CAPABILITY_PHI3_MINI.json"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE0_CAPABILITY_PHI3_MINI.json"
+        ]
+      },
+      "emergency_fallback": {
+        "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.35,
+        "per_capability": {
+          "deep_reasoning": {
+            "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+            "capability": "deep_reasoning",
+            "specialization_score": 0.35,
+            "measured_score": 0.583333,
+            "confidence": 0.6,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE0_CAPABILITY_SMOLLM2_360M.json"
+          },
+          "text_reasoning": {
+            "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+            "capability": "text_reasoning",
+            "specialization_score": 0.583333,
+            "measured_score": 0.583333,
+            "confidence": 1.0,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE0_CAPABILITY_SMOLLM2_360M.json"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE0_CAPABILITY_SMOLLM2_360M.json"
+        ]
+      },
+      "reserve": [
+        {
+          "model_id": "Qwen/Qwen3-1.7B-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.5,
+          "per_capability": {
+            "deep_reasoning": {
+              "model_id": "Qwen/Qwen3-1.7B-GGUF",
+              "capability": "deep_reasoning",
+              "specialization_score": 0.5,
+              "measured_score": 0.833333,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_QWEN3_1_7B.json"
+            },
+            "text_reasoning": {
+              "model_id": "Qwen/Qwen3-1.7B-GGUF",
+              "capability": "text_reasoning",
+              "specialization_score": 0.833333,
+              "measured_score": 0.833333,
+              "confidence": 1.0,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_QWEN3_1_7B.json"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "WAVE0_CAPABILITY_QWEN3_1_7B.json"
+          ]
+        },
+        {
+          "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.475,
+          "per_capability": {
+            "deep_reasoning": {
+              "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+              "capability": "deep_reasoning",
+              "specialization_score": 0.475,
+              "measured_score": 0.791667,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_GRANITE_3_3_2B.json"
+            },
+            "text_reasoning": {
+              "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+              "capability": "text_reasoning",
+              "specialization_score": 0.791667,
+              "measured_score": 0.791667,
+              "confidence": 1.0,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_GRANITE_3_3_2B.json"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "WAVE0_CAPABILITY_GRANITE_3_3_2B.json"
+          ]
+        },
+        {
+          "model_id": "Qwen/Qwen3-0.6B-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.45,
+          "per_capability": {
+            "deep_reasoning": {
+              "model_id": "Qwen/Qwen3-0.6B-GGUF",
+              "capability": "deep_reasoning",
+              "specialization_score": 0.45,
+              "measured_score": 0.75,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_EVIDENCE.json"
+            },
+            "text_reasoning": {
+              "model_id": "Qwen/Qwen3-0.6B-GGUF",
+              "capability": "text_reasoning",
+              "specialization_score": 0.75,
+              "measured_score": 0.75,
+              "confidence": 1.0,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_EVIDENCE.json"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "WAVE0_CAPABILITY_EVIDENCE.json"
+          ]
+        },
+        {
+          "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.45,
+          "per_capability": {
+            "deep_reasoning": {
+              "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+              "capability": "deep_reasoning",
+              "specialization_score": 0.45,
+              "measured_score": 0.75,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_GRANITE_4_2_3B.json"
+            },
+            "text_reasoning": {
+              "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+              "capability": "text_reasoning",
+              "specialization_score": 0.75,
+              "measured_score": 0.75,
+              "confidence": 1.0,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_GRANITE_4_2_3B.json"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "WAVE0_CAPABILITY_GRANITE_4_2_3B.json"
+          ]
+        }
+      ],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "deep_reasoning": [
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.512576,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.51,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "score": 0.507122,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ],
+        "text_reasoning": [
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.854294,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.85,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "score": 0.845204,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "deep_reasoning",
+        "text_reasoning"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "deep_reasoning": "Qwen/Qwen3-4B-GGUF",
+        "text_reasoning": "Qwen/Qwen3-4B-GGUF"
+      },
+      "candidate_count": 8,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "Qwen/Qwen3-4B-GGUF",
+        "Qwen/Qwen3-8B-GGUF",
+        "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "Qwen/Qwen3-1.7B-GGUF",
+        "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "Qwen/Qwen3-0.6B-GGUF",
+        "ibm-granite/granite-4.2-3b-GGUF",
+        "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "CODING_BRANCH",
+      "legion_division": "engineering",
+      "criticality": "CRITICAL",
+      "required_capabilities": [
+        "coding",
+        "software_engineering",
+        "debugging"
+      ],
+      "composition": "CODER_REVIEWER",
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ],
+      "residency_target": "WARM",
+      "status": "AVAILABLE_PRIMARY",
+      "primary": {
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.2,
+        "per_capability": {
+          "coding": {
+            "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+            "capability": "coding",
+            "specialization_score": 0.5,
+            "measured_score": 0.5,
+            "confidence": 1.0,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          },
+          "software_engineering": {
+            "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+            "capability": "software_engineering",
+            "specialization_score": 0.2,
+            "measured_score": 1.0,
+            "confidence": 0.2,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 2 scored item(s)",
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          },
+          "debugging": {
+            "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+            "capability": "debugging",
+            "specialization_score": 0.833333,
+            "measured_score": 0.833333,
+            "confidence": 1.0,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "local_engineering_judgment@1.0.0",
+          "wave0"
+        ]
+      },
+      "secondary": {
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.186391,
+        "per_capability": {
+          "coding": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "coding",
+            "specialization_score": 0.465978,
+            "measured_score": 0.5,
+            "confidence": 1.0,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          },
+          "software_engineering": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "software_engineering",
+            "specialization_score": 0.186391,
+            "measured_score": 1.0,
+            "confidence": 0.2,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 2 scored item(s)",
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          },
+          "debugging": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "debugging",
+            "specialization_score": 0.77663,
+            "measured_score": 0.833333,
+            "confidence": 1.0,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "local_engineering_judgment@1.0.0",
+          "wave0"
+        ]
+      },
+      "fallback": {
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.184408,
+        "per_capability": {
+          "coding": {
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "capability": "coding",
+            "specialization_score": 0.614694,
+            "measured_score": 0.666667,
+            "confidence": 1.0,
+            "efficiency_factor": 0.922041,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          },
+          "software_engineering": {
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "capability": "software_engineering",
+            "specialization_score": 0.184408,
+            "measured_score": 1.0,
+            "confidence": 0.2,
+            "efficiency_factor": 0.922041,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 2 scored item(s)",
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          },
+          "debugging": {
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "capability": "debugging",
+            "specialization_score": 0.614694,
+            "measured_score": 0.666667,
+            "confidence": 1.0,
+            "efficiency_factor": 0.922041,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "local_engineering_judgment@1.0.0",
+          "wave0"
+        ]
+      },
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "coding": [
+          {
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "score": 0.614694,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+            "score": 0.5,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.465978,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ],
+        "software_engineering": [
+          {
+            "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+            "score": 0.2,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-0.6B-GGUF",
+            "score": 0.2,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-1.7B-GGUF",
+            "score": 0.2,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ],
+        "debugging": [
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.85,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-0.6B-GGUF",
+            "score": 0.833333,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+            "score": 0.833333,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "coding",
+        "software_engineering",
+        "debugging"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "coding": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "software_engineering": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+        "debugging": "Qwen/Qwen3-8B-GGUF"
+      },
+      "candidate_count": 3,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "ibm-granite/granite-4.2-3b-GGUF",
+        "Qwen/Qwen3-4B-GGUF",
+        "microsoft/Phi-3-mini-4k-instruct-gguf"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "VERIFICATION_BRANCH",
+      "legion_division": "verification",
+      "criticality": "CRITICAL",
+      "required_capabilities": [
+        "verifier_checker",
+        "code_review"
+      ],
+      "composition": "MAKER_CHECKER",
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ],
+      "residency_target": "HOT",
+      "status": "AVAILABLE_PRIMARY",
+      "primary": {
+        "model_id": "Qwen/Qwen3-8B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.51,
+        "per_capability": {
+          "verifier_checker": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "verifier_checker",
+            "specialization_score": 0.51,
+            "measured_score": 1.0,
+            "confidence": 0.6,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          },
+          "code_review": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "code_review",
+            "specialization_score": 0.51,
+            "measured_score": 1.0,
+            "confidence": 0.6,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "local_engineering_judgment@1.0.0"
+        ]
+      },
+      "secondary": {
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.465978,
+        "per_capability": {
+          "verifier_checker": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "verifier_checker",
+            "specialization_score": 0.559174,
+            "measured_score": 1.0,
+            "confidence": 0.6,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          },
+          "code_review": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "code_review",
+            "specialization_score": 0.465978,
+            "measured_score": 0.833333,
+            "confidence": 0.6,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "local_engineering_judgment@1.0.0"
+        ]
+      },
+      "fallback": {
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.46102,
+        "per_capability": {
+          "verifier_checker": {
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "capability": "verifier_checker",
+            "specialization_score": 0.46102,
+            "measured_score": 0.833333,
+            "confidence": 0.6,
+            "efficiency_factor": 0.922041,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          },
+          "code_review": {
+            "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+            "capability": "code_review",
+            "specialization_score": 0.46102,
+            "measured_score": 0.833333,
+            "confidence": 0.6,
+            "efficiency_factor": 0.922041,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "local_engineering_judgment@1.0.0"
+        ]
+      },
+      "emergency_fallback": {
+        "model_id": "Qwen/Qwen3-1.7B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.3,
+        "per_capability": {
+          "verifier_checker": {
+            "model_id": "Qwen/Qwen3-1.7B-GGUF",
+            "capability": "verifier_checker",
+            "specialization_score": 0.3,
+            "measured_score": 0.5,
+            "confidence": 0.6,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          },
+          "code_review": {
+            "model_id": "Qwen/Qwen3-1.7B-GGUF",
+            "capability": "code_review",
+            "specialization_score": 0.5,
+            "measured_score": 0.833333,
+            "confidence": 0.6,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "local_engineering_judgment@1.0.0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "local_engineering_judgment@1.0.0"
+        ]
+      },
+      "reserve": [
+        {
+          "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.4,
+          "per_capability": {
+            "verifier_checker": {
+              "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+              "capability": "verifier_checker",
+              "specialization_score": 0.6,
+              "measured_score": 1.0,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "local_engineering_judgment@1.0.0"
+            },
+            "code_review": {
+              "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+              "capability": "code_review",
+              "specialization_score": 0.4,
+              "measured_score": 0.666667,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "local_engineering_judgment@1.0.0"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "local_engineering_judgment@1.0.0"
+          ]
+        },
+        {
+          "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.4,
+          "per_capability": {
+            "verifier_checker": {
+              "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+              "capability": "verifier_checker",
+              "specialization_score": 0.4,
+              "measured_score": 0.666667,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "local_engineering_judgment@1.0.0"
+            },
+            "code_review": {
+              "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+              "capability": "code_review",
+              "specialization_score": 0.5,
+              "measured_score": 0.833333,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "local_engineering_judgment@1.0.0"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "local_engineering_judgment@1.0.0"
+          ]
+        }
+      ],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "verifier_checker": [
+          {
+            "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+            "score": 0.6,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.559174,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.51,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ],
+        "code_review": [
+          {
+            "model_id": "Qwen/Qwen3-0.6B-GGUF",
+            "score": 0.6,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.51,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-1.7B-GGUF",
+            "score": 0.5,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "verifier_checker",
+        "code_review"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "verifier_checker": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "code_review": "Qwen/Qwen3-0.6B-GGUF"
+      },
+      "candidate_count": 6,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "Qwen/Qwen3-8B-GGUF",
+        "Qwen/Qwen3-4B-GGUF",
+        "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "ibm-granite/granite-4.2-3b-GGUF",
+        "Qwen/Qwen3-1.7B-GGUF"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "PLANNING_BRANCH",
+      "legion_division": "core",
+      "criticality": "HIGH",
+      "required_capabilities": [
+        "agentic_planning"
+      ],
+      "composition": "PLANNER_EXECUTOR_CHECKER",
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ],
+      "residency_target": "WARM",
+      "status": "AVAILABLE_PRIMARY",
+      "primary": {
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.931957,
+        "per_capability": {
+          "agentic_planning": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "agentic_planning",
+            "specialization_score": 0.931957,
+            "measured_score": 1.0,
+            "confidence": 1.0,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE5_ADVINT_QWEN3_4B.json"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE5_ADVINT_QWEN3_4B.json"
+        ]
+      },
+      "secondary": {
+        "model_id": "Qwen/Qwen3-8B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.85,
+        "per_capability": {
+          "agentic_planning": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "agentic_planning",
+            "specialization_score": 0.85,
+            "measured_score": 1.0,
+            "confidence": 1.0,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE5_ADVINT_QWEN3_8B.json"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE5_ADVINT_QWEN3_8B.json"
+        ]
+      },
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "agentic_planning": [
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.931957,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.85,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "agentic_planning"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "agentic_planning": "Qwen/Qwen3-4B-GGUF"
+      },
+      "candidate_count": 2,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "Qwen/Qwen3-4B-GGUF",
+        "Qwen/Qwen3-8B-GGUF"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "TOOL_USE_BRANCH",
+      "legion_division": "automation",
+      "criticality": "HIGH",
+      "required_capabilities": [
+        "tool_calling"
+      ],
+      "composition": null,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ],
+      "residency_target": "WARM",
+      "status": "AVAILABLE_PRIMARY",
+      "primary": {
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.931957,
+        "per_capability": {
+          "tool_calling": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "tool_calling",
+            "specialization_score": 0.931957,
+            "measured_score": 1.0,
+            "confidence": 1.0,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE5_ADVINT_QWEN3_4B.json"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE5_ADVINT_QWEN3_4B.json"
+        ]
+      },
+      "secondary": {
+        "model_id": "Qwen/Qwen3-8B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.85,
+        "per_capability": {
+          "tool_calling": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "tool_calling",
+            "specialization_score": 0.85,
+            "measured_score": 1.0,
+            "confidence": 1.0,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE5_ADVINT_QWEN3_8B.json"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE5_ADVINT_QWEN3_8B.json"
+        ]
+      },
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "tool_calling": [
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.931957,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.85,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "tool_calling"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "tool_calling": "Qwen/Qwen3-4B-GGUF"
+      },
+      "candidate_count": 2,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "Qwen/Qwen3-4B-GGUF",
+        "Qwen/Qwen3-8B-GGUF"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "RESEARCH_BRANCH",
+      "legion_division": "research",
+      "criticality": "HIGH",
+      "required_capabilities": [
+        "long_context",
+        "synthesis_generalist"
+      ],
+      "composition": "RETRIEVER_REASONER",
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL"
+      ],
+      "residency_target": "COLD",
+      "status": "AVAILABLE_PRIMARY",
+      "primary": {
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.559174,
+        "per_capability": {
+          "long_context": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "long_context",
+            "specialization_score": 0.931957,
+            "measured_score": 1.0,
+            "confidence": 1.0,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE5_ADVINT_QWEN3_4B.json"
+          },
+          "synthesis_generalist": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "synthesis_generalist",
+            "specialization_score": 0.559174,
+            "measured_score": 1.0,
+            "confidence": 0.6,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE5_ADVINT_QWEN3_4B.json",
+          "wave0"
+        ]
+      },
+      "secondary": {
+        "model_id": "Qwen/Qwen3-8B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.51,
+        "per_capability": {
+          "long_context": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "long_context",
+            "specialization_score": 0.708333,
+            "measured_score": 0.833333,
+            "confidence": 1.0,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE5_ADVINT_QWEN3_8B.json"
+          },
+          "synthesis_generalist": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "synthesis_generalist",
+            "specialization_score": 0.51,
+            "measured_score": 1.0,
+            "confidence": 0.6,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE5_ADVINT_QWEN3_8B.json",
+          "wave0"
+        ]
+      },
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "long_context": [
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.931957,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.708333,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ],
+        "synthesis_generalist": [
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.559174,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-1.7B-GGUF",
+            "score": 0.55,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+            "score": 0.55,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "long_context",
+        "synthesis_generalist"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "long_context": "Qwen/Qwen3-4B-GGUF",
+        "synthesis_generalist": "Qwen/Qwen3-4B-GGUF"
+      },
+      "candidate_count": 2,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "Qwen/Qwen3-4B-GGUF",
+        "Qwen/Qwen3-8B-GGUF"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "RETRIEVAL_BRANCH",
+      "legion_division": "data_rag",
+      "criticality": "HIGH",
+      "required_capabilities": [
+        "embedding",
+        "retrieval",
+        "reranking"
+      ],
+      "composition": "RETRIEVER_REASONER",
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL"
+      ],
+      "residency_target": "SERVERLESS",
+      "status": "AVAILABLE_FALLBACK_ONLY",
+      "primary": {
+        "covers": "PIPELINE",
+        "model_id": "@cf/baai/bge-m3 + @cf/baai/bge-reranker-base",
+        "stages": {
+          "embedding": "@cf/baai/bge-m3",
+          "retrieval": "@cf/baai/bge-m3",
+          "reranking": "@cf/baai/bge-reranker-base"
+        },
+        "specialization_score": 0.166667,
+        "execution_mode": "CAPABILITY_PROVIDER",
+        "placement": "SERVERLESS",
+        "evidence_refs": [
+          "WAVE4_MULTIMODAL_BENCHMARK.json"
+        ]
+      },
+      "secondary": null,
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "PIPELINE",
+      "per_capability_paths": {
+        "embedding": [
+          {
+            "model_id": "@cf/baai/bge-m3",
+            "score": 0.166667,
+            "placement": "SERVERLESS",
+            "execution_mode": "CAPABILITY_PROVIDER"
+          }
+        ],
+        "retrieval": [
+          {
+            "model_id": "@cf/baai/bge-m3",
+            "score": 0.166667,
+            "placement": "SERVERLESS",
+            "execution_mode": "CAPABILITY_PROVIDER"
+          }
+        ],
+        "reranking": [
+          {
+            "model_id": "@cf/baai/bge-reranker-base",
+            "score": 0.166667,
+            "placement": "SERVERLESS",
+            "execution_mode": "CAPABILITY_PROVIDER"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "embedding",
+        "retrieval",
+        "reranking"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "embedding": "@cf/baai/bge-m3",
+        "retrieval": "@cf/baai/bge-m3",
+        "reranking": "@cf/baai/bge-reranker-base"
+      },
+      "candidate_count": 0,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": false,
+      "all_candidates": [],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "MEMORY_BRANCH",
+      "legion_division": "data_rag",
+      "criticality": "HIGH",
+      "required_capabilities": [
+        "embedding",
+        "retrieval"
+      ],
+      "composition": null,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ],
+      "residency_target": "SERVERLESS",
+      "status": "AVAILABLE_FALLBACK_ONLY",
+      "primary": {
+        "model_id": "@cf/baai/bge-m3",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.166667,
+        "per_capability": {
+          "embedding": {
+            "model_id": "@cf/baai/bge-m3",
+            "capability": "embedding",
+            "specialization_score": 0.166667,
+            "measured_score": 1.0,
+            "confidence": 0.166667,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 1 scored item(s)"
+            ],
+            "execution_mode": "CAPABILITY_PROVIDER",
+            "placement": "SERVERLESS",
+            "evidence_ref": "WAVE4_MULTIMODAL_BENCHMARK.json"
+          },
+          "retrieval": {
+            "model_id": "@cf/baai/bge-m3",
+            "capability": "retrieval",
+            "specialization_score": 0.166667,
+            "measured_score": 1.0,
+            "confidence": 0.166667,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 1 scored item(s)"
+            ],
+            "execution_mode": "CAPABILITY_PROVIDER",
+            "placement": "SERVERLESS",
+            "evidence_ref": "WAVE4_MULTIMODAL_BENCHMARK.json"
+          }
+        },
+        "execution_mode": "CAPABILITY_PROVIDER",
+        "placement": "SERVERLESS",
+        "evidence_refs": [
+          "WAVE4_MULTIMODAL_BENCHMARK.json"
+        ]
+      },
+      "secondary": null,
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "embedding": [
+          {
+            "model_id": "@cf/baai/bge-m3",
+            "score": 0.166667,
+            "placement": "SERVERLESS",
+            "execution_mode": "CAPABILITY_PROVIDER"
+          }
+        ],
+        "retrieval": [
+          {
+            "model_id": "@cf/baai/bge-m3",
+            "score": 0.166667,
+            "placement": "SERVERLESS",
+            "execution_mode": "CAPABILITY_PROVIDER"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "embedding",
+        "retrieval"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "embedding": "@cf/baai/bge-m3",
+        "retrieval": "@cf/baai/bge-m3"
+      },
+      "candidate_count": 1,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "@cf/baai/bge-m3"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "VISION_BRANCH",
+      "legion_division": "uxui",
+      "criticality": "NORMAL",
+      "required_capabilities": [
+        "vision",
+        "image_understanding"
+      ],
+      "composition": "VISION_OCR_CROSSCHECK",
+      "privacy_classes": [
+        "PUBLIC"
+      ],
+      "residency_target": "SERVERLESS",
+      "status": "AVAILABLE_FALLBACK_ONLY",
+      "primary": {
+        "model_id": "@cf/llava-hf/llava-1.5-7b-hf",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.166667,
+        "per_capability": {
+          "vision": {
+            "model_id": "@cf/llava-hf/llava-1.5-7b-hf",
+            "capability": "vision",
+            "specialization_score": 0.166667,
+            "measured_score": 1.0,
+            "confidence": 0.166667,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 1 scored item(s)"
+            ],
+            "execution_mode": "CAPABILITY_PROVIDER",
+            "placement": "SERVERLESS",
+            "evidence_ref": "WAVE4_MULTIMODAL_BENCHMARK.json"
+          },
+          "image_understanding": {
+            "model_id": "@cf/llava-hf/llava-1.5-7b-hf",
+            "capability": "image_understanding",
+            "specialization_score": 0.166667,
+            "measured_score": 1.0,
+            "confidence": 0.166667,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 1 scored item(s)"
+            ],
+            "execution_mode": "CAPABILITY_PROVIDER",
+            "placement": "SERVERLESS",
+            "evidence_ref": "WAVE4_MULTIMODAL_BENCHMARK.json"
+          }
+        },
+        "execution_mode": "CAPABILITY_PROVIDER",
+        "placement": "SERVERLESS",
+        "evidence_refs": [
+          "WAVE4_MULTIMODAL_BENCHMARK.json"
+        ]
+      },
+      "secondary": null,
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "vision": [
+          {
+            "model_id": "@cf/llava-hf/llava-1.5-7b-hf",
+            "score": 0.166667,
+            "placement": "SERVERLESS",
+            "execution_mode": "CAPABILITY_PROVIDER"
+          }
+        ],
+        "image_understanding": [
+          {
+            "model_id": "@cf/llava-hf/llava-1.5-7b-hf",
+            "score": 0.166667,
+            "placement": "SERVERLESS",
+            "execution_mode": "CAPABILITY_PROVIDER"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "vision",
+        "image_understanding"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "vision": "@cf/llava-hf/llava-1.5-7b-hf",
+        "image_understanding": "@cf/llava-hf/llava-1.5-7b-hf"
+      },
+      "candidate_count": 1,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "@cf/llava-hf/llava-1.5-7b-hf"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "DOCUMENT_OCR_BRANCH",
+      "legion_division": "data_rag",
+      "criticality": "NORMAL",
+      "required_capabilities": [
+        "ocr",
+        "document_understanding"
+      ],
+      "composition": "VISION_OCR_CROSSCHECK",
+      "privacy_classes": [
+        "PUBLIC"
+      ],
+      "residency_target": "SERVERLESS",
+      "status": "DEGRADED",
+      "primary": null,
+      "secondary": null,
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "NOTHING",
+      "per_capability_paths": {
+        "ocr": [
+          {
+            "model_id": "@cf/llava-hf/llava-1.5-7b-hf",
+            "score": 0.166667,
+            "placement": "SERVERLESS",
+            "execution_mode": "CAPABILITY_PROVIDER"
+          }
+        ],
+        "document_understanding": []
+      },
+      "capabilities_covered": [
+        "ocr"
+      ],
+      "capabilities_uncovered": [
+        "document_understanding"
+      ],
+      "pipeline": {
+        "ocr": "@cf/llava-hf/llava-1.5-7b-hf",
+        "document_understanding": null
+      },
+      "candidate_count": 0,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": false,
+      "all_candidates": [],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "SPEECH_BRANCH",
+      "legion_division": "creative",
+      "criticality": "NORMAL",
+      "required_capabilities": [
+        "speech_to_text",
+        "text_to_speech"
+      ],
+      "composition": null,
+      "privacy_classes": [
+        "PUBLIC"
+      ],
+      "residency_target": "SERVERLESS",
+      "status": "AVAILABLE_FALLBACK_ONLY",
+      "primary": {
+        "covers": "PIPELINE",
+        "model_id": "@cf/deepgram/aura-1 + @cf/openai/whisper-large-v3-turbo",
+        "stages": {
+          "speech_to_text": "@cf/openai/whisper-large-v3-turbo",
+          "text_to_speech": "@cf/deepgram/aura-1"
+        },
+        "specialization_score": 0.166667,
+        "execution_mode": "CAPABILITY_PROVIDER",
+        "placement": "SERVERLESS",
+        "evidence_refs": [
+          "WAVE4_MULTIMODAL_BENCHMARK.json"
+        ]
+      },
+      "secondary": null,
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "PIPELINE",
+      "per_capability_paths": {
+        "speech_to_text": [
+          {
+            "model_id": "@cf/openai/whisper-large-v3-turbo",
+            "score": 0.166667,
+            "placement": "SERVERLESS",
+            "execution_mode": "CAPABILITY_PROVIDER"
+          }
+        ],
+        "text_to_speech": [
+          {
+            "model_id": "@cf/deepgram/aura-1",
+            "score": 0.166667,
+            "placement": "SERVERLESS",
+            "execution_mode": "CAPABILITY_PROVIDER"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "speech_to_text",
+        "text_to_speech"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "speech_to_text": "@cf/openai/whisper-large-v3-turbo",
+        "text_to_speech": "@cf/deepgram/aura-1"
+      },
+      "candidate_count": 0,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": false,
+      "all_candidates": [],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "MULTILINGUAL_BRANCH",
+      "legion_division": "core",
+      "criticality": "NORMAL",
+      "required_capabilities": [
+        "multilingual"
+      ],
+      "composition": null,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ],
+      "residency_target": "WARM",
+      "status": "AVAILABLE_PRIMARY",
+      "primary": {
+        "model_id": "Qwen/Qwen3-8B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.708333,
+        "per_capability": {
+          "multilingual": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "multilingual",
+            "specialization_score": 0.708333,
+            "measured_score": 0.833333,
+            "confidence": 1.0,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE5_ADVINT_QWEN3_8B.json"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE5_ADVINT_QWEN3_8B.json"
+        ]
+      },
+      "secondary": {
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.465978,
+        "per_capability": {
+          "multilingual": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "multilingual",
+            "specialization_score": 0.465978,
+            "measured_score": 0.5,
+            "confidence": 1.0,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE5_ADVINT_QWEN3_4B.json"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE5_ADVINT_QWEN3_4B.json"
+        ]
+      },
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "multilingual": [
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.708333,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.465978,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "multilingual"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "multilingual": "Qwen/Qwen3-8B-GGUF"
+      },
+      "candidate_count": 2,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "Qwen/Qwen3-8B-GGUF",
+        "Qwen/Qwen3-4B-GGUF"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "VIETNAMESE_BRANCH",
+      "legion_division": "core",
+      "criticality": "HIGH",
+      "required_capabilities": [
+        "vietnamese_reasoning"
+      ],
+      "composition": null,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ],
+      "residency_target": "WARM",
+      "status": "AVAILABLE_PRIMARY",
+      "primary": {
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.279587,
+        "per_capability": {
+          "vietnamese_reasoning": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "vietnamese_reasoning",
+            "specialization_score": 0.279587,
+            "measured_score": 1.0,
+            "confidence": 0.3,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 3 scored item(s)",
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "wave0"
+        ]
+      },
+      "secondary": {
+        "model_id": "Qwen/Qwen3-8B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.255,
+        "per_capability": {
+          "vietnamese_reasoning": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "vietnamese_reasoning",
+            "specialization_score": 0.255,
+            "measured_score": 1.0,
+            "confidence": 0.3,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 3 scored item(s)",
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "wave0"
+        ]
+      },
+      "fallback": {
+        "model_id": "Qwen/Qwen3-0.6B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.2,
+        "per_capability": {
+          "vietnamese_reasoning": {
+            "model_id": "Qwen/Qwen3-0.6B-GGUF",
+            "capability": "vietnamese_reasoning",
+            "specialization_score": 0.2,
+            "measured_score": 0.666667,
+            "confidence": 0.3,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 3 scored item(s)",
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "wave0"
+        ]
+      },
+      "emergency_fallback": {
+        "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.2,
+        "per_capability": {
+          "vietnamese_reasoning": {
+            "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+            "capability": "vietnamese_reasoning",
+            "specialization_score": 0.2,
+            "measured_score": 0.666667,
+            "confidence": 0.3,
+            "efficiency_factor": 1.0,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 3 scored item(s)",
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "wave0"
+        ]
+      },
+      "reserve": [
+        {
+          "model_id": "Qwen/Qwen3-1.7B-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.2,
+          "per_capability": {
+            "vietnamese_reasoning": {
+              "model_id": "Qwen/Qwen3-1.7B-GGUF",
+              "capability": "vietnamese_reasoning",
+              "specialization_score": 0.2,
+              "measured_score": 0.666667,
+              "confidence": 0.3,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "thin evidence: 3 scored item(s)",
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "wave0"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "wave0"
+          ]
+        },
+        {
+          "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.2,
+          "per_capability": {
+            "vietnamese_reasoning": {
+              "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+              "capability": "vietnamese_reasoning",
+              "specialization_score": 0.2,
+              "measured_score": 0.666667,
+              "confidence": 0.3,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "thin evidence: 3 scored item(s)",
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "wave0"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "wave0"
+          ]
+        }
+      ],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "vietnamese_reasoning": [
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.279587,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.255,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-0.6B-GGUF",
+            "score": 0.2,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "vietnamese_reasoning"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "vietnamese_reasoning": "Qwen/Qwen3-4B-GGUF"
+      },
+      "candidate_count": 6,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "Qwen/Qwen3-4B-GGUF",
+        "Qwen/Qwen3-8B-GGUF",
+        "Qwen/Qwen3-0.6B-GGUF",
+        "Qwen/Qwen3-1.7B-GGUF",
+        "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "ibm-granite/granite-4.2-3b-GGUF"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "SCIENCE_TECH_BRANCH",
+      "legion_division": "academic",
+      "criticality": "NORMAL",
+      "required_capabilities": [
+        "scientific_reasoning",
+        "math_quant"
+      ],
+      "composition": null,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL"
+      ],
+      "residency_target": "COLD",
+      "status": "AVAILABLE_PRIMARY",
+      "primary": {
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.186391,
+        "per_capability": {
+          "scientific_reasoning": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "scientific_reasoning",
+            "specialization_score": 0.77663,
+            "measured_score": 0.833333,
+            "confidence": 1.0,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE5_ADVINT_QWEN3_4B.json"
+          },
+          "math_quant": {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "capability": "math_quant",
+            "specialization_score": 0.186391,
+            "measured_score": 1.0,
+            "confidence": 0.2,
+            "efficiency_factor": 0.931957,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 2 scored item(s)",
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE5_ADVINT_QWEN3_4B.json",
+          "wave0"
+        ]
+      },
+      "secondary": {
+        "model_id": "Qwen/Qwen3-8B-GGUF",
+        "covers": "WHOLE_ROLE",
+        "specialization_score": 0.17,
+        "per_capability": {
+          "scientific_reasoning": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "scientific_reasoning",
+            "specialization_score": 0.85,
+            "measured_score": 1.0,
+            "confidence": 1.0,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "WAVE5_ADVINT_QWEN3_8B.json"
+          },
+          "math_quant": {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "capability": "math_quant",
+            "specialization_score": 0.17,
+            "measured_score": 1.0,
+            "confidence": 0.2,
+            "efficiency_factor": 0.85,
+            "evidence_class": "MEASURED",
+            "penalties": [
+              "thin evidence: 2 scored item(s)",
+              "suite saturated: the score bounds the suite, not the model"
+            ],
+            "execution_mode": "EXACT_MODEL",
+            "placement": "LOCAL",
+            "evidence_ref": "wave0"
+          }
+        },
+        "execution_mode": "EXACT_MODEL",
+        "placement": "LOCAL",
+        "evidence_refs": [
+          "WAVE5_ADVINT_QWEN3_8B.json",
+          "wave0"
+        ]
+      },
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "WHOLE_ROLE_MODEL",
+      "per_capability_paths": {
+        "scientific_reasoning": [
+          {
+            "model_id": "Qwen/Qwen3-8B-GGUF",
+            "score": 0.85,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-4B-GGUF",
+            "score": 0.77663,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ],
+        "math_quant": [
+          {
+            "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+            "score": 0.2,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-0.6B-GGUF",
+            "score": 0.2,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          },
+          {
+            "model_id": "Qwen/Qwen3-1.7B-GGUF",
+            "score": 0.2,
+            "placement": "LOCAL",
+            "execution_mode": "EXACT_MODEL"
+          }
+        ]
+      },
+      "capabilities_covered": [
+        "scientific_reasoning",
+        "math_quant"
+      ],
+      "capabilities_uncovered": [],
+      "pipeline": {
+        "scientific_reasoning": "Qwen/Qwen3-8B-GGUF",
+        "math_quant": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF"
+      },
+      "candidate_count": 2,
+      "independent_paths": 1,
+      "redundant": false,
+      "single_path_risk": true,
+      "all_candidates": [
+        "Qwen/Qwen3-4B-GGUF",
+        "Qwen/Qwen3-8B-GGUF"
+      ],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "FINANCE_ANALYSIS_BRANCH",
+      "legion_division": "quant_research",
+      "criticality": "OPPORTUNISTIC",
+      "required_capabilities": [
+        "finance_analysis"
+      ],
+      "composition": null,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ],
+      "residency_target": "COLD",
+      "status": "UNAVAILABLE",
+      "primary": null,
+      "secondary": null,
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "NOTHING",
+      "per_capability_paths": {
+        "finance_analysis": []
+      },
+      "capabilities_covered": [],
+      "capabilities_uncovered": [
+        "finance_analysis"
+      ],
+      "pipeline": {
+        "finance_analysis": null
+      },
+      "candidate_count": 0,
+      "independent_paths": 0,
+      "redundant": false,
+      "single_path_risk": false,
+      "all_candidates": [],
+      "placeholder": false,
+      "research_only": true,
+      "trading_authority": false
+    },
+    {
+      "role_id": "CREATIVE_MULTIMODAL_BRANCH",
+      "legion_division": "creative",
+      "criticality": "OPPORTUNISTIC",
+      "required_capabilities": [
+        "creative_writing",
+        "image_generation"
+      ],
+      "composition": null,
+      "privacy_classes": [
+        "PUBLIC"
+      ],
+      "residency_target": "SERVERLESS",
+      "status": "UNAVAILABLE",
+      "primary": null,
+      "secondary": null,
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "NOTHING",
+      "per_capability_paths": {
+        "creative_writing": [],
+        "image_generation": []
+      },
+      "capabilities_covered": [],
+      "capabilities_uncovered": [
+        "creative_writing",
+        "image_generation"
+      ],
+      "pipeline": {
+        "creative_writing": null,
+        "image_generation": null
+      },
+      "candidate_count": 0,
+      "independent_paths": 0,
+      "redundant": false,
+      "single_path_risk": false,
+      "all_candidates": [],
+      "placeholder": false,
+      "research_only": false,
+      "trading_authority": false
+    },
+    {
+      "role_id": "FUTURE_SPECIALIST_BRANCH",
+      "legion_division": "core",
+      "criticality": "OPPORTUNISTIC",
+      "required_capabilities": [
+        "future_multimodal"
+      ],
+      "composition": null,
+      "privacy_classes": [
+        "PUBLIC"
+      ],
+      "residency_target": "COLD",
+      "status": "PLACEHOLDER",
+      "primary": null,
+      "secondary": null,
+      "fallback": null,
+      "emergency_fallback": null,
+      "reserve": [],
+      "served_by": "NOTHING",
+      "per_capability_paths": {
+        "future_multimodal": []
+      },
+      "capabilities_covered": [],
+      "capabilities_uncovered": [
+        "future_multimodal"
+      ],
+      "pipeline": {
+        "future_multimodal": null
+      },
+      "candidate_count": 0,
+      "independent_paths": 0,
+      "redundant": false,
+      "single_path_risk": false,
+      "all_candidates": [],
+      "placeholder": true,
+      "research_only": false,
+      "trading_authority": false
+    }
+  ],
+  "role_branch_count": 17,
+  "roles_requiring_a_path": 16,
+  "roles_with_a_path": 13,
+  "roles_unavailable": [
+    "CREATIVE_MULTIMODAL_BRANCH",
+    "FINANCE_ANALYSIS_BRANCH"
+  ],
+  "roles_degraded": [
+    "DOCUMENT_OCR_BRANCH"
+  ],
+  "roles_blocked": [],
+  "single_path_risks": [
+    "CODING_BRANCH",
+    "MEMORY_BRANCH",
+    "MULTILINGUAL_BRANCH",
+    "PLANNING_BRANCH",
+    "REASONING_BRANCH",
+    "RESEARCH_BRANCH",
+    "RETRIEVAL_BRANCH",
+    "SCIENCE_TECH_BRANCH",
+    "SPEECH_BRANCH",
+    "TOOL_USE_BRANCH",
+    "VERIFICATION_BRANCH",
+    "VIETNAMESE_BRANCH",
+    "VISION_BRANCH"
+  ],
+  "role_redundancy_gaps": [
+    "CODING_BRANCH (CRITICAL): 3 candidate(s) across 1 independent path(s)",
+    "MEMORY_BRANCH (HIGH): 1 candidate(s) across 1 independent path(s)",
+    "PLANNING_BRANCH (HIGH): 2 candidate(s) across 1 independent path(s)",
+    "REASONING_BRANCH (CRITICAL): 8 candidate(s) across 1 independent path(s)",
+    "RESEARCH_BRANCH (HIGH): 2 candidate(s) across 1 independent path(s)",
+    "RETRIEVAL_BRANCH (HIGH): 0 candidate(s) across 1 independent path(s)",
+    "TOOL_USE_BRANCH (HIGH): 2 candidate(s) across 1 independent path(s)",
+    "VERIFICATION_BRANCH (CRITICAL): 6 candidate(s) across 1 independent path(s)",
+    "VIETNAMESE_BRANCH (HIGH): 6 candidate(s) across 1 independent path(s)"
+  ],
+  "merged_branches": {
+    "GENERAL_FAST_BRANCH": {
+      "into": "REASONING_BRANCH",
+      "as": "the fast tier of its escalation ladder",
+      "why": "Same capability, different cost point. A separate branch would duplicate every mapping and then have to be kept in sync with it."
+    },
+    "HEAVY_REASONING_BRANCH": {
+      "into": "REASONING_BRANCH",
+      "as": "the heavy tier of its escalation ladder",
+      "why": "Escalation is a property of one responsibility, not a second one. Keeping them apart would mean the escalation target lived outside the branch that escalates."
+    },
+    "SYSTEMS_ENGINEERING_BRANCH": {
+      "into": "CODING_BRANCH",
+      "why": "software_engineering and coding are measured by the same suite on the same models, and every candidate ranks the same on both. Two branches over one body of evidence is fragmentation."
+    },
+    "AUDIO_BRANCH": {
+      "into": "SPEECH_BRANCH",
+      "why": "The only audio capabilities with a model behind them are speech-to-text and text-to-speech. audio_understanding has no model in any verified catalog, so an AUDIO branch would exist to hold a gap. The gap is recorded in Wave 4 where it belongs."
+    }
+  },
+  "failures": [
+    "DOCUMENT_OCR_BRANCH: DEGRADED - ocr measured, document_understanding has no measured path",
+    "FINANCE_ANALYSIS_BRANCH: no measured path for finance_analysis; never measured on any model: finance_analysis",
+    "CREATIVE_MULTIMODAL_BRANCH: no measured path for creative_writing, image_generation; never measured on any model: creative_writing, image_generation"
+  ],
+  "scoring": {
+    "floor": 0.35,
+    "role_score_is": "the weakest required capability, never the mean",
+    "reputation_term": "none; there is no field through which one could enter",
+    "thin_evidence": "discounted by scored-item count",
+    "saturated_suite": "confidence in the ranking reduced, score left alone"
+  },
+  "note": "A mapping here is derived from recorded runs and can move when a new run lands. A CAPABILITY_PROVIDER primary means the role has a path, not a local one, and never that the requested model is available.",
+  "routing_authority": false,
+  "model_selection_authority": false,
+  "admission_authority": false,
+  "scheduling_authority": false
+}

@@ -1,0 +1,19 @@
+{
+  "wave0_status": "REFUSED",
+  "refused_at": "load",
+  "reason": "LlamaCppError: failed to load /home/user/trading-api/.model-cache/models/microsoft_bitnet-b1.58-2B-4T-gguf-I2_S@a1f2f1c765812aa8-59609bb1ff58/I2_S.gguf: Failed to load model from file: /home/user/trading-api/.model-cache/models/microsoft_bitnet-b1.58-2B-4T-gguf-I2_S@a1f2f1c765812aa8-59609bb1ff58/I2_S.gguf",
+  "measured": false,
+  "artifact_identity": {
+    "model_id": "microsoft/bitnet-b1.58-2B-4T-gguf",
+    "family": "bitnet",
+    "variant": "ggml-model-i2_s",
+    "immutable_revision": "a1f2f1c765812aa8af3f6eda4a313707064bba15",
+    "artifact_sha256": "4221b252fdd5fd25e15847adfeb5ee88886506ba50b8a34548374492884c2162",
+    "artifact_format": "gguf",
+    "quantization": "I2_S",
+    "artifact_size_bytes": 1187801280,
+    "artifact_filename": null,
+    "fingerprint": "59609bb1ff5855c1c9ac5282d541dd68",
+    "cache_key": "microsoft_bitnet-b1.58-2B-4T-gguf-I2_S@a1f2f1c765812aa8-59609bb1ff58"
+  }
+}

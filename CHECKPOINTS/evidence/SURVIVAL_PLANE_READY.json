@@ -1,0 +1,13 @@
+{
+  "gate": "SURVIVAL_PLANE_READY",
+  "proofs": [
+    "[cpython 3.11.15 path:sha256:ca3ed784184f1b3bb7c3539bfb45e71710cd27667424f92c2d5bb4df9c107c23] preflight_pytest_importable=fail -> exit 1",
+    "[cpython 3.11.15 path:sha256:ca3ed784184f1b3bb7c3539bfb45e71710cd27667424f92c2d5bb4df9c107c23] -m unittest AI_SKILL_LIBRARY.tests.test_survival_policy -v -> exit 0",
+    "[cpython 3.11.15 path:sha256:ca3ed784184f1b3bb7c3539bfb45e71710cd27667424f92c2d5bb4df9c107c23] -m unittest AI_SKILL_LIBRARY.tests.test_survival_secrets -v -> exit 0",
+    "[cpython 3.11.15 path:sha256:ca3ed784184f1b3bb7c3539bfb45e71710cd27667424f92c2d5bb4df9c107c23] -m unittest AI_SKILL_LIBRARY.tests.test_survival_provenance -v -> exit 0",
+    "[cpython 3.11.15 path:sha256:ca3ed784184f1b3bb7c3539bfb45e71710cd27667424f92c2d5bb4df9c107c23] -m pytest -q AI_SKILL_LIBRARY/tests/test_survival_recovery.py -> exit 1",
+    "[cpython 3.11.15 path:sha256:ca3ed784184f1b3bb7c3539bfb45e71710cd27667424f92c2d5bb4df9c107c23] -m pytest -q AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py -> exit 1"
+  ],
+  "ready": false,
+  "source_sha": "fd2c5f8cc2cab052ca465f1a53815e02b7c210fa"
+}

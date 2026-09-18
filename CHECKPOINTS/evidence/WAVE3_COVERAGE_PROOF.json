@@ -1,0 +1,200 @@
+{
+  "tool": "wave3_coverage_proof",
+  "coverage_floor": 0.35,
+  "core_targets": [
+    {
+      "target": "deep_reasoning",
+      "state": "COVERED_MEASURED",
+      "reason": null,
+      "measured_score": 1.0,
+      "current_best_model": "Qwen/Qwen3-4B-GGUF",
+      "artifact_digest": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
+      "measurement_depth": "3 task(s)",
+      "thin_evidence": true,
+      "saturated": true,
+      "saturation_note": "7 of 8 models score 1.0 on 3 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "latency_ms": 7480.892,
+      "peak_ram_mb": 4721.73,
+      "reliability": "12/12 reproducible"
+    },
+    {
+      "target": "coding",
+      "state": "COVERED_MEASURED",
+      "reason": null,
+      "measured_score": 0.666667,
+      "current_best_model": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "artifact_digest": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+      "evidence_source": "WAVE0_BASELINE_PHI3_MINI.json",
+      "measurement_depth": "6 task(s)",
+      "thin_evidence": true,
+      "saturated": false,
+      "saturation_note": null,
+      "latency_ms": 6012.869,
+      "peak_ram_mb": 5118.38,
+      "reliability": "12/12 reproducible"
+    },
+    {
+      "target": "verifier_checker",
+      "state": "COVERED_MEASURED",
+      "reason": null,
+      "measured_score": 1.0,
+      "current_best_model": "Qwen/Qwen3-4B-GGUF",
+      "artifact_digest": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
+      "measurement_depth": "6 task(s)",
+      "thin_evidence": true,
+      "saturated": true,
+      "saturation_note": "3 of 8 models score 1.0 on 6 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "latency_ms": 7480.892,
+      "peak_ram_mb": 4721.73,
+      "reliability": "12/12 reproducible"
+    }
+  ],
+  "core_covered_or_deferred": true,
+  "reported_targets": [
+    {
+      "target": "vietnamese_reasoning",
+      "state": "COVERED_MEASURED",
+      "reason": null,
+      "measured_score": 1.0,
+      "current_best_model": "Qwen/Qwen3-4B-GGUF",
+      "artifact_digest": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
+      "measurement_depth": "3 task(s)",
+      "thin_evidence": true,
+      "saturated": true,
+      "saturation_note": "2 of 8 models score 1.0 on 3 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "latency_ms": 7480.892,
+      "peak_ram_mb": 4721.73,
+      "reliability": "12/12 reproducible"
+    },
+    {
+      "target": "software_engineering",
+      "state": "COVERED_MEASURED",
+      "reason": null,
+      "measured_score": 1.0,
+      "current_best_model": "Qwen/Qwen3-4B-GGUF",
+      "artifact_digest": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
+      "measurement_depth": "2 task(s)",
+      "thin_evidence": true,
+      "saturated": true,
+      "saturation_note": "8 of 8 models score 1.0 on 2 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "latency_ms": 7480.892,
+      "peak_ram_mb": 4721.73,
+      "reliability": "12/12 reproducible"
+    },
+    {
+      "target": "synthesis_generalist",
+      "state": "COVERED_MEASURED",
+      "reason": null,
+      "measured_score": 1.0,
+      "current_best_model": "Qwen/Qwen3-4B-GGUF",
+      "artifact_digest": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "evidence_source": "WAVE0_BASELINE_EVIDENCE.json",
+      "measurement_depth": "12 task(s)",
+      "thin_evidence": false,
+      "saturated": true,
+      "saturation_note": "2 of 8 models score 1.0 on 12 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "latency_ms": 7480.892,
+      "peak_ram_mb": 4721.73,
+      "reliability": "12/12 reproducible"
+    },
+    {
+      "target": "debugging",
+      "state": "COVERED_MEASURED",
+      "reason": null,
+      "measured_score": 1.0,
+      "current_best_model": "Qwen/Qwen3-8B-GGUF",
+      "artifact_digest": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "evidence_source": "WAVE0_BASELINE_QWEN3_8B.json",
+      "measurement_depth": "6 task(s)",
+      "thin_evidence": true,
+      "saturated": false,
+      "saturation_note": null,
+      "latency_ms": 8355.914,
+      "peak_ram_mb": 8637.62,
+      "reliability": "12/12 reproducible"
+    },
+    {
+      "target": "code_review",
+      "state": "COVERED_MEASURED",
+      "reason": null,
+      "measured_score": 1.0,
+      "current_best_model": "Qwen/Qwen3-8B-GGUF",
+      "artifact_digest": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "evidence_source": "WAVE0_BASELINE_QWEN3_8B.json",
+      "measurement_depth": "6 task(s)",
+      "thin_evidence": true,
+      "saturated": true,
+      "saturation_note": "2 of 8 models score 1.0 on 6 task(s); this suite cannot rank them, so 'current best' is one of several equals, not a measured leader",
+      "latency_ms": 8355.914,
+      "peak_ram_mb": 8637.62,
+      "reliability": "12/12 reproducible"
+    }
+  ],
+  "deferred_targets": [
+    {
+      "target": "long_context",
+      "state": "INTENTIONALLY_DEFERRED",
+      "reason": "No suite exercises a long context, and adding one is a measurement change rather than a fleet change. Deferred rather than claimed: the fleet may well handle it, and nothing here has shown that it does.",
+      "measured_score": null,
+      "current_best_model": null,
+      "artifact_digest": null
+    },
+    {
+      "target": "multilingual_reasoning",
+      "state": "INTENTIONALLY_DEFERRED",
+      "reason": "Only Vietnamese is measured. One non-English language is evidence about that language, not about multilingual capability.",
+      "measured_score": null,
+      "current_best_model": null,
+      "artifact_digest": null
+    },
+    {
+      "target": "multimodal",
+      "state": "INTENTIONALLY_DEFERRED",
+      "reason": "Wave 3 is reasoning, coding and verification. Vision, OCR, document and audio are Wave 4, and the only multimodal candidate also requires a licence a person must accept.",
+      "measured_score": null,
+      "current_best_model": null,
+      "artifact_digest": null
+    },
+    {
+      "target": "tool_calling",
+      "state": "INTENTIONALLY_DEFERRED",
+      "reason": "No admitted model is exercised through a tool-calling harness by any current suite.",
+      "measured_score": null,
+      "current_best_model": null,
+      "artifact_digest": null
+    }
+  ],
+  "candidates_contributing_nothing": [
+    {
+      "candidate_id": "qwen3-coder-30b-a3b-instruct",
+      "state": "RESOURCE_INFEASIBLE"
+    },
+    {
+      "candidate_id": "gpt-oss-20b",
+      "state": "RESOURCE_INFEASIBLE"
+    },
+    {
+      "candidate_id": "phi-4-mini-instruct",
+      "state": "QUARANTINED_WITH_ACTIONABLE_GAP"
+    },
+    {
+      "candidate_id": "deepseek-r1-distill-qwen-7b",
+      "state": "QUARANTINED_WITH_ACTIONABLE_GAP"
+    },
+    {
+      "candidate_id": "gemma-3-4b-it",
+      "state": "HUMAN_LICENSE_GATE_REQUIRED"
+    }
+  ],
+  "sources": {
+    "gap_map": true,
+    "candidate_states": true,
+    "documentation_claims_used": false
+  },
+  "observer_gap_count_is_not_coverage": true,
+  "note": "Coverage is read from the measured fleet, never from the candidate list. A candidate that is infeasible, unavailable or licence-gated contributes nothing here."
+}

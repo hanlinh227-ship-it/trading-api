@@ -136,19 +136,75 @@ class AdmissionContractTests(unittest.TestCase):
 
 
 class FirstModelRecordTests(unittest.TestCase):
-    def test_exactly_one_real_model_record_is_present(self):
+    def test_the_canonical_first_record_is_still_exactly_itself(self):
+        """The original record must not drift as other models are added.
+
+        This used to assert the registry held exactly one model, which stopped
+        being a contract the moment Wave 1 admitted more. The part worth
+        keeping is that the first real record's identity is unchanged - every
+        field of it, because identity is a tuple and a single altered field
+        makes it a different artifact.
+        """
         registry = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
-        self.assertEqual(len(registry["models"]), 1)
+        model = next(m for m in registry["models"]
+                     if m["model_id"] == "Qwen/Qwen3-0.6B-GGUF")
+        self.assertEqual(model["artifact_identity"], {
+            "model_id": "Qwen/Qwen3-0.6B-GGUF",
+            "family": "Qwen3",
+            "variant": "0.6B-Q8_0-GGUF",
+            "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+            "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+            "size_bytes": 639446688,
+            "format": "gguf",
+            "quantization": "Q8_0",
+        })
+
+    def test_every_record_carries_a_distinct_artifact_identity(self):
+        """No model may be admitted on another's bytes."""
+        registry = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
+        digests = [m["artifact_identity"]["sha256"] for m in registry["models"]]
+        self.assertEqual(len(digests), len(set(digests)))
+        for model in registry["models"]:
+            with self.subTest(model_id=model["model_id"]):
+                self.assertEqual(len(model["artifact_identity"]["sha256"]), 64)
+
+    def test_the_record_is_only_mesh_eligible_once_admission_justifies_it(self):
+        """Governance state is a decision; what it must rest on is the rule.
+
+        This previously pinned the row to ineligible and to a pre-approval
+        lifecycle state, which captured where the record happened to be rather
+        than what must be true of it. An operator can legitimately advance it,
+        so the assertion is now on the justification instead.
+        """
+        registry = yaml.safe_load(REGISTRY_PATH.read_text(encoding="utf-8"))
         model = registry["models"][0]
-        identity = model["artifact_identity"]
-        self.assertEqual(identity["model_id"], "Qwen/Qwen3-0.6B-GGUF")
-        self.assertEqual(identity["immutable_revision"], "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa")
-        self.assertEqual(identity["sha256"], "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031")
-        self.assertEqual(identity["size_bytes"], 639446688)
-        self.assertEqual(identity["format"], "gguf")
-        self.assertEqual(identity["quantization"], "Q8_0")
-        self.assertFalse(model["model_mesh_local_candidate_eligible"])
-        self.assertIn(model["lifecycle_state"], {"QUARANTINED", "REGISTERED", "APPROVED"})
+        if not model.get("model_mesh_local_candidate_eligible"):
+            self.assertIn(
+                model["lifecycle_state"],
+                {"DISCOVERED", "QUARANTINED", "REGISTERED", "APPROVED"},
+            )
+            return
+
+        self.assertEqual(model["lifecycle_state"], "AVAILABLE")
+        evidence = model["admission_evidence"]
+        for field in ("license_verified", "provenance_verified", "safe_format_verified",
+                      "pickle_safe"):
+            self.assertIs(evidence[field], True, field)
+        for field in ("trust_remote_code_required", "custom_code_required"):
+            self.assertIs(evidence[field], False, field)
+        self.assertEqual(evidence["quarantine_status"], "clear")
+
+        if evidence["malware_scan_status"] != "pass":
+            # Accepted rather than scanned: the acceptance must be complete,
+            # bound to these bytes, and must not overstate itself.
+            acceptance = model["operator_risk_acceptance"]
+            self.assertEqual(evidence["malware_scan_status"], "not_run")
+            self.assertEqual(acceptance["scope"], "single_artifact")
+            self.assertEqual(acceptance["artifact_sha256"], model["artifact_identity"]["sha256"])
+            self.assertEqual(acceptance["covers"], ["malware_scan_status"])
+            self.assertIs(acceptance["is_a_scan_result"], False)
+            self.assertTrue(acceptance["accepted_by"])
+            self.assertIn("signature_based_malware_scan", acceptance["missing_evidence"])
 
 
 if __name__ == "__main__":

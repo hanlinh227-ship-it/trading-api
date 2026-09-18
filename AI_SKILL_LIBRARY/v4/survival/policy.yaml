@@ -1,0 +1,32 @@
+version: 1
+name: survival_policy
+fail_closed: true
+authority:
+  routing: false
+  reasoning: false
+  scheduling: false
+  merge: false
+  deployment: false
+  trading: false
+placement:
+  allowed:
+    - LOCAL_ONLY
+  deny_remote: true
+paid_paths:
+  deny: true
+  markers:
+    - paid
+    - billing
+    - invoice
+    - charge
+    - subscription
+    - premium
+providers:
+  verified:
+    - local
+    - local_vault
+  deny_unverified: true
+secrets:
+  allow_plaintext_serialization: false
+  log_values: false
+  persist_values: false

@@ -32,3 +32,26 @@ learning:
   autonomous_promotion_classes: [A, B]
   approval_required_classes: [C, D]
   permission_widening: false
+subordinate_subsystems:
+  federated_free_storage_mesh:
+    role: subordinate_persistence_and_placement
+    extends: AI_SKILL_LIBRARY/v4/runtime/shared_state.yaml#interfaces.ObjectStore
+    policy: AI_SKILL_LIBRARY/v4/storage/policy.yaml
+    providers: AI_SKILL_LIBRARY/v4/storage/providers.yaml
+    provider_schema: AI_SKILL_LIBRARY/v4/schemas/storage_provider.schema.json
+    object_manifest_schema: AI_SKILL_LIBRARY/v4/schemas/storage_object_manifest.schema.json
+    learning_may_request_storage_classes: true
+    learning_storage_provider_selection_authority: false
+    canonical_authority: github
+    storage_authority: false
+    routing_authority: false
+    reasoning_authority: false
+    model_selection_authority: false
+    admission_authority: false
+    scheduling_authority: false
+    merge_authority: false
+    trading_authority: false
+    paid_storage_allowed: false
+    overage_allowed: false
+    secrets_allowed: false
+    second_portable_state_abstraction: false

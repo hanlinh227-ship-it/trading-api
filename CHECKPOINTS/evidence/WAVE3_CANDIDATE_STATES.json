@@ -1,0 +1,164 @@
+{
+  "tool": "wave3_candidate_states",
+  "candidates": [
+    {
+      "candidate_id": "qwen3-8b-gguf",
+      "actionable_gap": null,
+      "upstream": "Qwen/Qwen3-8B-GGUF",
+      "state": "AVAILABLE",
+      "terminal": true,
+      "findings": [
+        "admitted with digest-bound evidence in the registry"
+      ],
+      "resource_state": "RESOURCE_FEASIBLE",
+      "estimated_artifact_mb": 5030,
+      "estimated_runtime_ram_mb": 10060,
+      "upstream_artifact": {
+        "repo_id": "Qwen/Qwen3-8B-GGUF",
+        "immutable_revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+        "license_declared": "apache-2.0",
+        "license_source": "repo_tag",
+        "license_files": [
+          "LICENSE"
+        ],
+        "official_publisher_artifact": true,
+        "filename": "Qwen3-8B-Q4_K_M.gguf",
+        "size_bytes": 5027783488,
+        "size_gb": 5.03
+      },
+      "roles_hypothesised": [
+        "deep_reasoning",
+        "vietnamese_reasoning",
+        "synthesis_generalist"
+      ],
+      "deferred_to_wave": null
+    },
+    {
+      "candidate_id": "qwen3-coder-30b-a3b-instruct",
+      "actionable_gap": null,
+      "upstream": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "state": "RESOURCE_INFEASIBLE",
+      "terminal": true,
+      "findings": [
+        "needs ~18600 MB on disk and 15893 MB is free; downloading it would fill the disk before the file finished",
+        "no ungated GGUF published by this model's own author; a community requantization would need its conversion provenance established before it could be considered"
+      ],
+      "resource_state": "RESOURCE_INFEASIBLE",
+      "estimated_artifact_mb": 18600,
+      "estimated_runtime_ram_mb": 37200,
+      "upstream_artifact": null,
+      "roles_hypothesised": [
+        "coding",
+        "software_engineering",
+        "debugging",
+        "code_review"
+      ],
+      "deferred_to_wave": null
+    },
+    {
+      "candidate_id": "gpt-oss-20b",
+      "actionable_gap": null,
+      "upstream": "openai/gpt-oss-20b",
+      "state": "RESOURCE_INFEASIBLE",
+      "terminal": true,
+      "findings": [
+        "needs ~25600 MB resident (weights plus KV cache and compute buffer) and 15355 MB is available",
+        "no ungated GGUF published by this model's own author; a community requantization would need its conversion provenance established before it could be considered"
+      ],
+      "resource_state": "RESOURCE_INFEASIBLE",
+      "estimated_artifact_mb": 12800,
+      "estimated_runtime_ram_mb": 25600,
+      "upstream_artifact": null,
+      "roles_hypothesised": [
+        "deep_reasoning",
+        "verifier_checker",
+        "synthesis_generalist"
+      ],
+      "deferred_to_wave": null
+    },
+    {
+      "candidate_id": "phi-4-mini-instruct",
+      "actionable_gap": "establish the conversion provenance of a community GGUF build (converter, source revision, digest), or wait for the model's own author to publish one",
+      "upstream": "microsoft/Phi-4-mini-instruct",
+      "state": "QUARANTINED_WITH_ACTIONABLE_GAP",
+      "terminal": true,
+      "findings": [
+        "no ungated GGUF published by this model's own author; a community requantization would need its conversion provenance established before it could be considered"
+      ],
+      "resource_state": "RESOURCE_FEASIBLE",
+      "estimated_artifact_mb": 2500,
+      "estimated_runtime_ram_mb": 5000,
+      "upstream_artifact": null,
+      "roles_hypothesised": [
+        "verifier_checker",
+        "fast_low_resource_worker",
+        "multilingual_reasoning"
+      ],
+      "deferred_to_wave": null
+    },
+    {
+      "candidate_id": "deepseek-r1-distill-qwen-7b",
+      "actionable_gap": "establish the conversion provenance of a community GGUF build (converter, source revision, digest), or wait for the model's own author to publish one",
+      "upstream": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+      "state": "QUARANTINED_WITH_ACTIONABLE_GAP",
+      "terminal": true,
+      "findings": [
+        "no ungated GGUF published by this model's own author; a community requantization would need its conversion provenance established before it could be considered"
+      ],
+      "resource_state": "RESOURCE_FEASIBLE",
+      "estimated_artifact_mb": 4680,
+      "estimated_runtime_ram_mb": 9360,
+      "upstream_artifact": null,
+      "roles_hypothesised": [
+        "deep_reasoning",
+        "verifier_checker"
+      ],
+      "deferred_to_wave": null
+    },
+    {
+      "candidate_id": "gemma-3-4b-it",
+      "actionable_gap": null,
+      "upstream": "google/gemma-3-4b-it",
+      "state": "HUMAN_LICENSE_GATE_REQUIRED",
+      "terminal": true,
+      "findings": [
+        "Hugging Face access requires a person to review and accept Google's Gemma usage licence. Accepting terms on the operator's behalf is not something this tool may do, so the candidate stops here whatever its resource profile.",
+        "Wave 3 is reasoning, coding and verification. Vision and multimodal are Wave 4, so this candidate is out of scope for Wave 3 independently of its licence gate."
+      ],
+      "resource_state": "HUMAN_LICENSE_GATE_REQUIRED",
+      "estimated_artifact_mb": 2600,
+      "estimated_runtime_ram_mb": 5200,
+      "upstream_artifact": null,
+      "roles_hypothesised": [
+        "multilingual_reasoning",
+        "vision"
+      ],
+      "deferred_to_wave": 4
+    }
+  ],
+  "by_state": {
+    "AVAILABLE": [
+      "qwen3-8b-gguf"
+    ],
+    "HUMAN_LICENSE_GATE_REQUIRED": [
+      "gemma-3-4b-it"
+    ],
+    "QUARANTINED_WITH_ACTIONABLE_GAP": [
+      "deepseek-r1-distill-qwen-7b",
+      "phi-4-mini-instruct"
+    ],
+    "RESOURCE_INFEASIBLE": [
+      "gpt-oss-20b",
+      "qwen3-coder-30b-a3b-instruct"
+    ]
+  },
+  "non_terminal": [],
+  "all_terminal": true,
+  "sources": {
+    "preflight": true,
+    "discovery": true,
+    "gap_map": true
+  },
+  "admits_nothing": true,
+  "accepts_no_licence": true
+}

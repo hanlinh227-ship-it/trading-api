@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "AI_SKILL_LIBRARY/v4/always_on/job.schema.json",
+  "title": "Always-On Durable Job Contract",
+  "description": "Durable job envelope for Always-On execution. Non-authoritative: this contract grants no routing, scheduling, trading, model-selection, merge, or deployment authority. GITHUB_BRAIN_V4 remains the sole Brain; task_router remains the sole routing authority; Model Mesh remains the model/provider selector.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "request_id",
+    "project_id",
+    "role_id",
+    "capability",
+    "privacy_class",
+    "priority",
+    "idempotency_key",
+    "attempt",
+    "max_attempts",
+    "created_at",
+    "available_at",
+    "deadline_at",
+    "lease_owner",
+    "lease_expires_at",
+    "source_revision",
+    "evidence_refs",
+    "authority"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "role_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "capability": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "privacy_class": {
+      "type": "string",
+      "enum": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ]
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "max_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "available_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "deadline_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "lease_owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "lease_expires_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "source_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 1024,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      }
+    },
+    "authority": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

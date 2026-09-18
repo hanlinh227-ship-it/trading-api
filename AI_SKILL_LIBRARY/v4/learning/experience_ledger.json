@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "ledger_id": "EXPERIENCE_LEDGER",
+  "purpose": "sanitized observable execution outcomes; the row shape is closed so unknown fields are rejected rather than stored",
+  "authority": false,
+  "stable_write": false,
+  "authority_flags": {
+    "routing_authority": false,
+    "reasoning_authority": false,
+    "model_selection_authority": false,
+    "admission_authority": false,
+    "scheduling_authority": false,
+    "evidence_authority": false,
+    "stable_write_authority": false,
+    "merge_authority": false,
+    "trading_authority": false,
+    "note": "No hidden reasoning, raw prompt content or credential material is representable in a row."
+  },
+  "experiences": []
+}

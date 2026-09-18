@@ -49,3 +49,7 @@ solana-wallet*.json
 # Local/runtime trading state
 runtime-data/
 data/private/
+
+# Local model artifact cache. Verified weights live here; never committed.
+.model-cache/
+.model-staging/
