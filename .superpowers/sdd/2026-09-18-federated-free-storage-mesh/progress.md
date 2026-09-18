@@ -551,3 +551,60 @@ COPIED_SOURCE_RETAINED.
 2. **`ObjectReceipt.size_bytes` widened to `int | None`.** A `head` that asserted nothing
    now carries None rather than being coerced to 0 - "the provider said nothing" is not
    "the object is empty". Both consumers treat None as not-agreement.
+
+| 6 | committed, review pending | 10f50e87 | subagent | 100 focused (9 skipped) / 817 storage | pending | - | encryption.py. AEAD injected, never imported. |
+
+## Ruling 007 — I was wrong about the crypto library, and the correction matters
+Before dispatching Task 6 I settled the plan's step-1 dependency gate and told the
+implementer "`cryptography` 41.0.7 imports in this container". **That was wrong in the way
+that counts.** The bare package name imports; the AEAD path does not. `from
+cryptography.hazmat.primitives.ciphers.aead import AESGCM` fails on a missing
+`_cffi_backend` and then **panics out of the pyo3 Rust bindings as
+`pyo3_runtime.PanicException` - a BaseException that `except Exception:` walks straight
+past.** I verified it myself after the implementer reported it.
+
+A library that imports but panics on use is worse than an absent one: `try: import X except
+ImportError:` does not catch it, and the process dies somewhere unrelated. The half of the
+gate I got right stands and is the load-bearing half: `AI_SKILL_LIBRARY/requirements.txt`
+declares only PyYAML and jsonschema, every workflow installs exactly that file, and
+`cryptography` is present here only as an unselected extra of PyJWT and oauthlib. So a hard
+import would have been wrong for two independent reasons rather than one.
+
+### What a reviewer must do to enable a real AEAD backend
+1. Add `cryptography>=41,<46` (or pynacl) to `AI_SKILL_LIBRARY/requirements.txt`. **Nothing
+   else enables it** - CI installs only that file. In this container it also needs the
+   `cffi`/`_cffi_backend` wheel, which is missing.
+2. About twenty lines of adapter, already written as `RealAeadAdapter` in the test file.
+3. Nothing in `encryption.py` changes; no refusal moves; `policy.yaml` already lists the
+   algorithms. **I did not add the dependency - that decision is the owner's.**
+
+## Task 6 — what I verified
+817 storage tests green (9 skipped, all `RealAeadTests`). `AUTHORITY = False`,
+`CRYPTOGRAPHY_IMPLEMENTED_HERE = False`. The module's entire import set is
+`base64, dataclasses, json, re, secrets` plus this lane - no `hashlib`, `hmac`, `struct` or
+`binascii`, checked by AST rather than by grep. The encryption checkers are the **identical
+callable objects** as `manifest._ENCRYPTION_FIELD_CHECKS` (verified with `is`, not
+equality), so a fifth copy cannot drift, and `ENCRYPTION_METADATA_FIELDS` is derived from
+the table exactly as `recovery.SNAPSHOT_FIELDS` is.
+
+The test double is not a cipher and contains no construction anyone could mistake for one:
+`seal` performs no transformation, it escrows the plaintext under a random token. Three
+independent gates stop it being used as a backend.
+
+### Carried forward, stated rather than buried
+- **The 9 `RealAeadTests` have never executed.** The ct||tag convention matches
+  `AESGCM.encrypt`/`.decrypt` by reading, but nobody has observed this module round-trip a
+  real AEAD. Reviewed, not run.
+- **The plan's own sample `key_ref = "storage/key-1"` is refused by the checked-in
+  contract** - no scheme, and it reads like an object-storage path, which is exactly what
+  S22 forbids. The implementation conformed to the schema and used
+  `secretstore://mesh/object-dek/current`. **The plan text is the thing that should change.**
+- Key zeroisation is not possible in Python. The module does the reachable part - the key
+  is never an attribute, never outlives the call, never formatted into a message, and is
+  `del`'d in a `finally` - and says so plainly rather than implying more.
+- `ALLOWED_ALGORITHMS` is read from policy.yaml at import time, so importing the module
+  reads a file; manifest.py defers this to call time.
+- `ENCRYPTION_IMPLEMENTED_HERE` was deliberately not defined here: policy.yaml pins it
+  false for the contracts package, and setting it true would read as a contradiction.
+  `CRYPTOGRAPHY_IMPLEMENTED_HERE = False` and `AEAD_PROVIDER_REQUIRED = True` are the more
+  precise claims.
