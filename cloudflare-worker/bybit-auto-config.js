@@ -123,6 +123,18 @@ export const BYBIT_AUTO_CONFIG={
       {ddPct:20,multiplier:0}
     ]
   },
+  aiLearning:{
+    enabled:true,
+    authority:'POST_TRADE_EVIDENCE_CANDIDATES_ONLY',
+    autoMutateLive:false,
+    autoIncreaseRisk:false,
+    minClosedTradesBeforeCandidate:30,
+    minPerRegimeSamples:12,
+    rollingWindows:[30,75,150],
+    metrics:['net_expectancy_r','win_rate_context','profit_factor','max_adverse_excursion_r','max_favorable_excursion_r','slippage_bps','fee_cost_bps','stop_sweep_then_thesis_recovery','target_miss_then_reversal','ai_veto_precision'],
+    boundedCandidateAdjustments:{entryThresholdPct:10,stopNoiseBufferPct:15,targetRPct:10,aiRiskReductionPct:15},
+    promotionRequires:['DEMO_EVIDENCE','INDEPENDENT_CHECK','NO_RISK_CEILING_EXPANSION','ROLLBACK_SNAPSHOT'],
+  },
   positionControl:{
     authority:'MULTI_STAGE_THESIS_INVALIDATION_HOLD_WINNERS',
     instabilityExit:true,
