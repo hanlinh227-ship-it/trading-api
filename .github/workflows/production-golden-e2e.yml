@@ -34,9 +34,9 @@ on:
   workflow_dispatch:
     inputs:
       model_id:
-        description: "Registry model to execute (must be admitted and AVAILABLE)"
+        description: "Override the model. Empty means: stage whatever Model Mesh selects."
         required: false
-        default: "Qwen/Qwen3-0.6B-GGUF"
+        default: ""
       commit_evidence:
         description: "Push the regenerated evidence back to the branch"
         required: false
@@ -57,7 +57,6 @@ jobs:
     if: github.repository == 'hanlinh227-ship-it/trading-api'
     env:
       CANONICAL_REQUEST: "What is the capital city of Japan? Answer briefly."
-      MODEL_ID: ${{ inputs.model_id || 'Qwen/Qwen3-0.6B-GGUF' }}
       CACHE_DIR: .model-cache
       STAGING_DIR: .model-staging
 
@@ -65,6 +64,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Ask Model Mesh which model it will execute
+        id: selection
+        run: |
+          set -euo pipefail
+          # The workflow does not choose the model. Staging the smallest
+          # admitted one was a guess, and the mesh selects on measured
+          # capability, so the runtime asked the cache for a model that was
+          # never staged and refused - "no verified artifact cached for this
+          # identity", which is the correct answer to the wrong preparation.
+          # An explicit input still wins, for the exact-artifact proof.
+          override='${{ inputs.model_id }}'
+          if [ -n "${override}" ]; then
+            echo "MODEL_SOURCE=dispatch_input"
+            echo "model_id=${override}" >> "$GITHUB_OUTPUT"
+          else
+            selected="$(python AI_SKILL_LIBRARY/v4/tools/golden_selection_preview.py \
+              --print-model-id \
+              --evidence CHECKPOINTS/evidence/GOLDEN_SELECTION_PREVIEW.json)"
+            echo "MODEL_SOURCE=model_mesh"
+            echo "model_id=${selected}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Lease - acquire
         id: lease
@@ -129,7 +150,7 @@ jobs:
           set -euo pipefail
           python - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os, yaml
-          model_id = os.environ["MODEL_ID"]
+          model_id = "${{ steps.selection.outputs.model_id }}"
           rows = yaml.safe_load(
               open("AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml"))["models"]
           row = next((r for r in rows if r.get("model_id") == model_id), None)
@@ -226,7 +247,7 @@ jobs:
             --staged "${STAGING_DIR}/${{ steps.artifact.outputs.filename }}" \
             --root . \
             --cache-root "${CACHE_DIR}" \
-            --model-id "${MODEL_ID}" \
+            --model-id "${{ steps.selection.outputs.model_id }}" \
             --output CHECKPOINTS/evidence/LOCAL_RUNTIME_INTAKE.json
           python - <<'PY'
           import json
@@ -318,7 +339,7 @@ jobs:
           git config user.email 'production-golden-e2e@users.noreply.github.com'
           git add CHECKPOINTS/evidence
           git commit -m "evidence(ai-core): golden E2E from a free ephemeral worker" \
-                     -m "Produced by .github/workflows/production-golden-e2e.yml on a GitHub-hosted ubuntu-latest runner against source_sha ${SOURCE_SHA}, executing ${MODEL_ID} at its pinned digest. The semantic verifier was re-run against the canonical request and passed before this commit was made. No personal hardware was involved and no paid resource was used."
+                     -m "Produced by .github/workflows/production-golden-e2e.yml on a GitHub-hosted ubuntu-latest runner against source_sha ${SOURCE_SHA}, executing ${{ steps.selection.outputs.model_id }} at its pinned digest. The semantic verifier was re-run against the canonical request and passed before this commit was made. No personal hardware was involved and no paid resource was used."
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Lease - release
