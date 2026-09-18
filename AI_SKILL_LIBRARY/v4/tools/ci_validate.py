@@ -30,6 +30,7 @@ VALIDATORS = (
     "AI_SKILL_LIBRARY/validate_v3.py",
     "AI_SKILL_LIBRARY/validate_v4.py",
     "AI_SKILL_LIBRARY/validate_skill_registry.py",
+    "AI_SKILL_LIBRARY/v4/tools/validate_upstream_knowledge_fusion.py",
     "AI_SKILL_LIBRARY/validate_skill_gateway.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_universal_fabric.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh.py",
