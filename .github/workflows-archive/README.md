@@ -1,17 +1,28 @@
-# Archived workflows (COLD tier)
+# Retired workflow history (COLD tier)
 
-These workflows belong to execution authorities that `docs/checkpoints/CURRENT_HANDOFF.md` retired
-(Meme runtime, Signal V10/V11 hub). Every file here was a one-shot trigger (push gated on its own
-path or `workflow_dispatch`) and none is part of canonical CI or production deployment.
+Retired one-shot workflow definitions are intentionally **not kept in the current
+working tree**. They are preserved by Git history, which is the correct archival
+surface for execution definitions that no longer have authority.
 
-GitHub Actions does not evaluate files in this directory, so a push to `main` no longer parses
-~320 inert workflow definitions. Git history is preserved; nothing was deleted.
+Why:
+- archived YAML still bloated every clone/checkout;
+- 300+ retired files added search noise and false conflict candidates;
+- none belongs to canonical CI or production deployment;
+- GITHUB_BRAIN_V4 must not preload or route through retired execution lanes.
 
-Restore (only after an explicit migration re-authorizes that runtime):
+Current-tree policy:
+- keep this README only as the tombstone/pointer;
+- keep retired workflows out of `.github/workflows/`;
+- recover an old definition from Git history only after an explicit migration
+  re-authorizes that runtime.
+
+Example recovery:
 
 ```bash
-git mv .github/workflows-archive/<name>.yml .github/workflows/<name>.yml
+git log --all -- .github/workflows-archive/<name>.yml
+git show <historical-commit>:.github/workflows-archive/<name>.yml
 ```
 
-Archived on 2026-09-12 by the GITHUB_BRAIN_V4 consolidation (see
-`AI_SKILL_LIBRARY/v4/audit/BRAIN_CONSOLIDATION_2026-09-12.md`).
+The original retirement was performed by the 2026-09-12 GITHUB_BRAIN_V4
+consolidation. See
+`AI_SKILL_LIBRARY/v4/audit/BRAIN_CONSOLIDATION_2026-09-12.md`.
