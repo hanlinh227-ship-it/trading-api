@@ -119,9 +119,7 @@ jobs:
           pathlib.Path('/tmp/free-ai-results.json').write_text(json.dumps(out))
           PY
 
-      - name: Publish sanitized acceleration handoff to PR 442
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Publish sanitized acceleration handoff to job summary
         shell: bash
         run: |
           set -euo pipefail
@@ -155,5 +153,8 @@ jobs:
           body='\n'.join(lines)[:30000]
           pathlib.Path('/tmp/pr-comment.md').write_text(body)
           PY
-          gh api "repos/${GITHUB_REPOSITORY}/issues/442/comments" -f body=@/tmp/pr-comment.md
+          cat /tmp/pr-comment.md >> "${GITHUB_STEP_SUMMARY}"
           echo "FREE_AI_ACCELERATOR_HANDOFF=PASS"
+          echo "----- FREE_AI_ACCELERATOR_RESULT_BEGIN -----"
+          cat /tmp/pr-comment.md
+          echo "----- FREE_AI_ACCELERATOR_RESULT_END -----"
