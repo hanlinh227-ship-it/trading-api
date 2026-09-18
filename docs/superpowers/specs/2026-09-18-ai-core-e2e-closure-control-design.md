@@ -190,6 +190,8 @@ Primary surfaces:
 
 Backend readiness is necessary but not sufficient.
 
+Reuse the existing production canary surface `cloudflare-worker/validate-universal-canary.mjs`; do not create a second Front Door canary framework. Extend only what is missing from that canary and its existing test.
+
 The existing Front Door work has already proven:
 
 - backend route readiness
@@ -203,7 +205,7 @@ The existing Front Door work has already proven:
 1. native ChatGPT account/platform authorization; and
 2. a live production canary proving the real front-door path.
 
-No repository-only test may manufacture this proof.
+No repository-only test may manufacture this proof. The existing canary already exercises project state write, independent Claude bootstrap/resume, stale-write 409, project isolation, and exact source SHA. Any extension should add only missing anti-cache/live-account evidence rather than duplicate those checks.
 
 ## 5. Final Aggregation
 
@@ -240,6 +242,14 @@ The aggregator must not set any underlying gate itself.
 ## 6. Evidence Discipline
 
 Every load-bearing evidence file must name the exact revision it proves.
+
+Canonical CI collection is itself load-bearing. At the current PR state, four merged test modules contain 41 module-level pytest functions that `unittest` does not collect:
+- `test_survival_plane_proof.py`
+- `test_survival_recovery.py`
+- `test_always_on_retry.py`
+- `test_always_on_reconciler.py`
+
+Closure requires canonical CI to execute those tests explicitly (for example, a focused pytest CI step) or to convert them without changing assertions. A green CI run that silently omits them does not count as closure evidence.
 
 Evidence may be advisory or authoritative only according to existing repository authority rules. Model outputs are always advisory until deterministic tests or existing evidence tooling verifies the claim.
 
