@@ -231,6 +231,123 @@ class AuthDiagnosisTests(unittest.TestCase):
         self.assertFalse(failure.auth_rejected)
 
 
+class AnonymousControlTests(unittest.TestCase):
+    """A refusal cannot say whether it is ABOUT the token.
+
+    The real run refused our token with 403 under both schemes. An endpoint that
+    answers EVERYONE with 403 would look exactly the same, and the two call for
+    opposite actions: rotate a credential, or stop touching the credential and
+    look at the endpoint. The anonymous request is the control that separates
+    them, so these tests damage it and require the message still distinguish.
+    """
+
+    def _both_refused_message(self, anonymous):
+        def responder(query, variables, token, scheme):
+            raise deploy.Failure("Railway API returned HTTP 403",
+                                 auth_rejected=True)
+
+        original_post, original_anon = deploy._post, deploy._unauthenticated_status
+        deploy._post = responder
+        deploy._unauthenticated_status = lambda: anonymous
+        try:
+            with self.assertRaises(deploy.Failure) as caught:
+                deploy.authenticate("token-value")
+            return str(caught.exception)
+        finally:
+            deploy._post, deploy._unauthenticated_status = original_post, original_anon
+
+    def test_the_anonymous_result_is_reported_alongside_the_refusals(self):
+        message = self._both_refused_message("HTTP 401")
+        self.assertIn("HTTP 401", message)
+        self.assertIn("UNAUTHENTICATED", message)
+
+    def test_the_message_names_both_readings_so_neither_is_assumed(self):
+        message = self._both_refused_message("HTTP 403")
+        self.assertIn("read and rejected", message)
+        self.assertIn("not the thing", message)
+
+    def test_the_control_never_replaces_the_failure_it_explains(self):
+        """If the control probe itself explodes, the refusal must still be
+        raised - diagnostics that can mask the fault they describe are worse
+        than none."""
+        original = deploy.urllib.request.urlopen
+
+        def boom(request, timeout=None):
+            raise RuntimeError("control probe exploded")
+
+        deploy.urllib.request.urlopen = boom
+        try:
+            status = deploy._unauthenticated_status()
+        finally:
+            deploy.urllib.request.urlopen = original
+        self.assertIn("unreachable", status)
+        self.assertIn("RuntimeError", status)
+
+    def test_the_control_sends_no_credential(self):
+        """It is only a control if it carries nothing; a probe that leaked the
+        token would answer a different question and expose it to a wrong host."""
+        captured = {}
+
+        def capture(request, timeout=None):
+            captured["headers"] = dict(request.headers)
+            raise deploy.urllib.error.HTTPError(
+                deploy.ENDPOINT, 401, "no", {}, None)
+
+        original = deploy.urllib.request.urlopen
+        deploy.urllib.request.urlopen = capture
+        try:
+            deploy._unauthenticated_status()
+        finally:
+            deploy.urllib.request.urlopen = original
+        lowered = {k.lower() for k in captured["headers"]}
+        self.assertNotIn("authorization", lowered)
+        self.assertNotIn("project-access-token", lowered)
+
+
+class UserAgentTests(unittest.TestCase):
+    """Two different tokens failed identically with 403, which is not what a
+    credential problem looks like.
+
+    urllib sends "Python-urllib/3.x" unless told otherwise, and edge layers -
+    Railway's API sits behind one - answer that with a blanket 403 before the
+    request reaches the application. In the log that is indistinguishable from a
+    rejected token, which is how a rotated credential changed nothing.
+    """
+
+    def _headers_of(self, send):
+        captured = {}
+
+        def capture(request, timeout=None):
+            captured.update(request.headers)
+            raise deploy.urllib.error.HTTPError(
+                deploy.ENDPOINT, 403, "no", {}, None)
+
+        original = deploy.urllib.request.urlopen
+        deploy.urllib.request.urlopen = capture
+        try:
+            send()
+        except deploy.Failure:
+            pass
+        finally:
+            deploy.urllib.request.urlopen = original
+        return {k.lower(): v for k, v in captured.items()}
+
+    def test_the_authenticated_request_names_the_caller(self):
+        headers = self._headers_of(
+            lambda: deploy._post("query { __typename }", {}, "tok", "bearer"))
+        self.assertEqual(headers.get("User-agent".lower()), deploy.USER_AGENT)
+
+    def test_the_anonymous_control_names_the_caller_too(self):
+        """The control is only a control if it is shaped like the real request;
+        a probe blocked for a different reason answers a different question."""
+        headers = self._headers_of(deploy._unauthenticated_status)
+        self.assertEqual(headers.get("User-agent".lower()), deploy.USER_AGENT)
+
+    def test_the_agent_is_never_the_urllib_default(self):
+        self.assertNotIn("Python-urllib", deploy.USER_AGENT)
+        self.assertTrue(deploy.USER_AGENT.strip())
+
+
 class WorkflowWiringTests(unittest.TestCase):
     """The gates around the deploy, asserted against the workflow itself."""
 
