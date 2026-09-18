@@ -25,6 +25,26 @@ def triage_gap(gap: dict, existing_skills: list[dict]) -> dict:
     if not gap_id or not domain or not capability:
         raise ValueError("gap_missing_required_fields")
 
+    source_kind = str(gap.get("source_kind") or "failure").strip()
+    if source_kind not in {"failure", "curriculum_gap", "competency_gap"}:
+        raise ValueError("gap_source_kind_invalid")
+    evidence_refs = gap.get("evidence_refs", [])
+    if source_kind == "competency_gap":
+        if not isinstance(evidence_refs, list) or not evidence_refs or any(
+            not isinstance(ref, str) or not ref.strip() for ref in evidence_refs
+        ):
+            return {
+                "gap_id": gap_id,
+                "action": "discard",
+                "target_skill_id": None,
+                "promotion_class": _promotion_class(gap),
+                "reason": "competency_gap_missing_evidence",
+                "stable_write": False,
+                "routing_authority": False,
+                "source_kind": source_kind,
+                "evidence_refs": sorted(set(str(x).strip() for x in evidence_refs if str(x).strip())),
+            }
+
     for row in existing_skills if isinstance(existing_skills, list) else []:
         if not isinstance(row, dict) or str(row.get("domain") or "") != domain:
             continue
@@ -48,6 +68,8 @@ def triage_gap(gap: dict, existing_skills: list[dict]) -> dict:
             "reason": "distinct_contract_not_proven",
             "stable_write": False,
             "routing_authority": False,
+            "source_kind": source_kind,
+            "evidence_refs": sorted(set(str(x).strip() for x in evidence_refs if str(x).strip())),
         }
 
     return {
@@ -57,6 +79,8 @@ def triage_gap(gap: dict, existing_skills: list[dict]) -> dict:
         "promotion_class": _promotion_class(gap),
         "stable_write": False,
         "routing_authority": False,
+        "source_kind": source_kind,
+        "evidence_refs": sorted(set(str(x).strip() for x in evidence_refs if str(x).strip())),
     }
 
 
