@@ -71,78 +71,62 @@ jobs:
           from pathlib import Path
           current_validate=Path("cloudflare-worker/validate-universal-canary.mjs").read_text(encoding="utf-8")
           current_test=Path("cloudflare-worker/test-universal-canary.mjs").read_text(encoding="utf-8")
-          prompt = """Implement ONLY the approved AI CORE E2E Closure Task 5 by hardening the EXISTING production canary. Do not create a second canary.
+          prompt = """Fix the single load-bearing review finding in the current Task 5 implementation.
           
-          Return one JSON object with exactly one key named files. files must map exactly these two repository paths to their complete UTF-8 contents:
+          Return one JSON object with exactly one key named files. files must map exactly:
           cloudflare-worker/validate-universal-canary.mjs
           cloudflare-worker/test-universal-canary.mjs
           
-          Repository constraints:
-          - GITHUB_BRAIN_V4 remains sole Brain authority.
-          - task_router remains sole routing authority.
-          - no merge/deploy/trading/evidence authority.
-          - FRONT_DOOR_READY MUST remain false unless native ChatGPT account/platform authorization is independently proven outside repo-only tests.
-          - Do not change any other file.
-          - Preserve all existing canary behavior and checks.
+          REVIEW FINDING:
+          The current generic runUniversalCanary() reports frontDoor.liveCanaryPass=true and frontDoorEvidence.live_canary_pass=true even when the caller injects a fake fetchImpl in a unit test. Its proof text says a deployed-worker canary ran. This violates the higher-level closure rule: repository-only/mock tests must never manufacture live production proof.
           
-          Required changes:
-          1. Add per-run anti-cache/live-proof hardening to every HTTP request made by runUniversalCanary.
-          2. runUniversalCanary accepts an optional canaryNonce argument. If absent, generate one with globalThis.crypto.randomUUID() when available, otherwise a bounded timestamp/random fallback. Validate/sanitize the nonce to a conservative ASCII token shape and bounded length.
-          3. Every request must:
-             - append a query parameter named __canary_nonce carrying the same per-run nonce, preserving existing query params like project_id;
-             - send Cache-Control: no-store;
-             - send Pragma: no-cache;
-             - send X-Canary-Nonce with the same nonce;
-             - preserve x-brain-client, Authorization, Content-Type, method, and body semantics.
-          4. Keep sourceSha exact validation as-is or stricter; do not weaken 40-hex source SHA requirements.
-          5. The successful returned result must add:
-             frontDoor.liveCanaryPass = true
-             frontDoor.cacheBypassProven = true
-             while accountIntegrationProven stays false and ready stays false.
-          6. The successful returned result must include a normalized frontDoorEvidence object with exactly these load-bearing fields:
+          REQUIRED FIX:
+          1. Preserve all anti-cache behavior already implemented:
+             - per-run __canary_nonce on every request,
+             - cache-control=no-store,
+             - pragma=no-cache,
+             - x-canary-nonce,
+             - exact sourceSha validation,
+             - no token leakage.
+          2. The reusable runUniversalCanary() function MUST NOT claim live-production proof merely because its request logic succeeded. It may report deterministic canary/backend logic results, but:
+             - do not set liveCanaryPass=true from the generic/mockable function;
+             - do not return evidence claiming a deployed/live canary ran.
+          3. Live production proof may be created only in main(), after main invokes runUniversalCanary with the real default global fetch against WORKER_BASE_URL and real environment-provided client service tokens.
+          4. In main(), after that real call succeeds:
+             - log LIVE_PRODUCTION_CANARY=PASS;
+             - log CACHE_BYPASS_PROVEN=PASS;
+             - keep ACCOUNT_INTEGRATION_PROVEN=FALSE;
+             - keep FRONT_DOOR_READY=FALSE.
+          5. Add an internal, non-exported live evidence builder used by main only. Its output shape:
              source_sha: exact sourceSha
-             gate: "FRONT_DOOR_READY"
+             gate: FRONT_DOOR_READY
              ready: false
-             proofs: a non-empty array of non-blank strings including evidence for:
-               live production service-principal canary,
-               cache-busted/no-store requests,
-               project-state round trip,
-               fresh Claude bootstrap/resume,
-               stale-version 409,
-               project isolation
+             proofs: non-empty non-blank strings for live service-principal canary, cache bypass, project-state round trip, fresh Claude bootstrap/resume, stale-version 409, project isolation
              live_canary_pass: true
              cache_bypass_proven: true
              account_integration_proven: false
-             blocking_reason: "native_account_authorization_not_proven"
-             This shape is advisory/input evidence only. It must never claim ready=true from repo-only execution.
-          7. main() must log LIVE_PRODUCTION_CANARY=PASS and CACHE_BYPASS_PROVEN=PASS only after runUniversalCanary completes successfully. It must still log ACCOUNT_INTEGRATION_PROVEN=FALSE and FRONT_DOOR_READY=FALSE.
-          8. Never serialize or print client tokens. Existing sanitizeCheck behavior must remain.
-          9. Do not add dependencies or network endpoints.
+             blocking_reason: native_account_authorization_not_proven
+             The builder must not include tokens, endpoint URL, raw responses, or nonce.
+          6. If FRONT_DOOR_EVIDENCE_OUTPUT is a non-empty environment path, main may atomically write that live evidence JSON after the real canary succeeds. Use only Node built-ins. If unset, do not write a file.
+          7. Unit tests must verify:
+             - injected fake fetch path still validates anti-cache headers/query on every request;
+             - generic runUniversalCanary result does NOT claim live production canary success and does not contain proof text claiming deployed/live execution;
+             - accountIntegrationProven remains false and ready remains false;
+             - malformed nonce is rejected before fetch;
+             - existing project-state/bootstrap/409/isolation/high-risk behavior remains;
+             - tokens never appear in returned generic result.
+          8. Do not create another canary, endpoint, workflow, dependency, or readiness authority.
+          9. Do not weaken existing tests or source SHA checks.
           
-          Tests in test-universal-canary.mjs must remain deterministic and must verify:
-          - a fixed injected canaryNonce can be used;
-          - EVERY recorded request URL includes __canary_nonce with the exact fixed nonce;
-          - EVERY recorded request has cache-control=no-store, pragma=no-cache, x-canary-nonce=<fixed nonce>;
-          - existing Authorization and x-brain-client assertions remain;
-          - existing project state, bootstrap, 409, isolation and high-risk checks still pass;
-          - result.frontDoor.liveCanaryPass === true;
-          - result.frontDoor.cacheBypassProven === true;
-          - result.frontDoor.accountIntegrationProven === false;
-          - result.frontDoor.ready === false;
-          - frontDoorEvidence has exact source_sha/gate/ready/blocking fields and every proof is a non-blank string;
-          - tokens do not occur in JSON.stringify(result.frontDoorEvidence);
-          - malformed/unsafe canaryNonce is rejected before fetch is called.
-          Use only Node built-ins already available; no package changes.
-          
-          Run target after applying:
+          Run:
           node cloudflare-worker/test-universal-canary.mjs
           
-          Current validate-universal-canary.mjs follows:
+          Current validate file:
           ---BEGIN VALIDATE---
           """ + current_validate + """
           ---END VALIDATE---
           
-          Current test-universal-canary.mjs follows:
+          Current test file:
           ---BEGIN TEST---
           """ + current_test + """
           ---END TEST---
