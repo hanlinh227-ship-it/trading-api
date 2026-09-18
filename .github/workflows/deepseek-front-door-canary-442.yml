@@ -72,82 +72,82 @@ jobs:
           current_validate=Path("cloudflare-worker/validate-universal-canary.mjs").read_text(encoding="utf-8")
           current_test=Path("cloudflare-worker/test-universal-canary.mjs").read_text(encoding="utf-8")
           prompt = """Implement ONLY the approved AI CORE E2E Closure Task 5 by hardening the EXISTING production canary. Do not create a second canary.
-
-Return one JSON object with exactly one key named files. files must map exactly these two repository paths to their complete UTF-8 contents:
-cloudflare-worker/validate-universal-canary.mjs
-cloudflare-worker/test-universal-canary.mjs
-
-Repository constraints:
-- GITHUB_BRAIN_V4 remains sole Brain authority.
-- task_router remains sole routing authority.
-- no merge/deploy/trading/evidence authority.
-- FRONT_DOOR_READY MUST remain false unless native ChatGPT account/platform authorization is independently proven outside repo-only tests.
-- Do not change any other file.
-- Preserve all existing canary behavior and checks.
-
-Required changes:
-1. Add per-run anti-cache/live-proof hardening to every HTTP request made by runUniversalCanary.
-2. runUniversalCanary accepts an optional canaryNonce argument. If absent, generate one with globalThis.crypto.randomUUID() when available, otherwise a bounded timestamp/random fallback. Validate/sanitize the nonce to a conservative ASCII token shape and bounded length.
-3. Every request must:
-   - append a query parameter named __canary_nonce carrying the same per-run nonce, preserving existing query params like project_id;
-   - send Cache-Control: no-store;
-   - send Pragma: no-cache;
-   - send X-Canary-Nonce with the same nonce;
-   - preserve x-brain-client, Authorization, Content-Type, method, and body semantics.
-4. Keep sourceSha exact validation as-is or stricter; do not weaken 40-hex source SHA requirements.
-5. The successful returned result must add:
-   frontDoor.liveCanaryPass = true
-   frontDoor.cacheBypassProven = true
-   while accountIntegrationProven stays false and ready stays false.
-6. The successful returned result must include a normalized frontDoorEvidence object with exactly these load-bearing fields:
-   source_sha: exact sourceSha
-   gate: "FRONT_DOOR_READY"
-   ready: false
-   proofs: a non-empty array of non-blank strings including evidence for:
-     live production service-principal canary,
-     cache-busted/no-store requests,
-     project-state round trip,
-     fresh Claude bootstrap/resume,
-     stale-version 409,
-     project isolation
-   live_canary_pass: true
-   cache_bypass_proven: true
-   account_integration_proven: false
-   blocking_reason: "native_account_authorization_not_proven"
-   This shape is advisory/input evidence only. It must never claim ready=true from repo-only execution.
-7. main() must log LIVE_PRODUCTION_CANARY=PASS and CACHE_BYPASS_PROVEN=PASS only after runUniversalCanary completes successfully. It must still log ACCOUNT_INTEGRATION_PROVEN=FALSE and FRONT_DOOR_READY=FALSE.
-8. Never serialize or print client tokens. Existing sanitizeCheck behavior must remain.
-9. Do not add dependencies or network endpoints.
-
-Tests in test-universal-canary.mjs must remain deterministic and must verify:
-- a fixed injected canaryNonce can be used;
-- EVERY recorded request URL includes __canary_nonce with the exact fixed nonce;
-- EVERY recorded request has cache-control=no-store, pragma=no-cache, x-canary-nonce=<fixed nonce>;
-- existing Authorization and x-brain-client assertions remain;
-- existing project state, bootstrap, 409, isolation and high-risk checks still pass;
-- result.frontDoor.liveCanaryPass === true;
-- result.frontDoor.cacheBypassProven === true;
-- result.frontDoor.accountIntegrationProven === false;
-- result.frontDoor.ready === false;
-- frontDoorEvidence has exact source_sha/gate/ready/blocking fields and every proof is a non-blank string;
-- tokens do not occur in JSON.stringify(result.frontDoorEvidence);
-- malformed/unsafe canaryNonce is rejected before fetch is called.
-Use only Node built-ins already available; no package changes.
-
-Run target after applying:
-node cloudflare-worker/test-universal-canary.mjs
-
-Current validate-universal-canary.mjs follows:
----BEGIN VALIDATE---
-""" + current_validate + """
----END VALIDATE---
-
-Current test-universal-canary.mjs follows:
----BEGIN TEST---
-""" + current_test + """
----END TEST---
-
-Return no prose outside the JSON object."""
+          
+          Return one JSON object with exactly one key named files. files must map exactly these two repository paths to their complete UTF-8 contents:
+          cloudflare-worker/validate-universal-canary.mjs
+          cloudflare-worker/test-universal-canary.mjs
+          
+          Repository constraints:
+          - GITHUB_BRAIN_V4 remains sole Brain authority.
+          - task_router remains sole routing authority.
+          - no merge/deploy/trading/evidence authority.
+          - FRONT_DOOR_READY MUST remain false unless native ChatGPT account/platform authorization is independently proven outside repo-only tests.
+          - Do not change any other file.
+          - Preserve all existing canary behavior and checks.
+          
+          Required changes:
+          1. Add per-run anti-cache/live-proof hardening to every HTTP request made by runUniversalCanary.
+          2. runUniversalCanary accepts an optional canaryNonce argument. If absent, generate one with globalThis.crypto.randomUUID() when available, otherwise a bounded timestamp/random fallback. Validate/sanitize the nonce to a conservative ASCII token shape and bounded length.
+          3. Every request must:
+             - append a query parameter named __canary_nonce carrying the same per-run nonce, preserving existing query params like project_id;
+             - send Cache-Control: no-store;
+             - send Pragma: no-cache;
+             - send X-Canary-Nonce with the same nonce;
+             - preserve x-brain-client, Authorization, Content-Type, method, and body semantics.
+          4. Keep sourceSha exact validation as-is or stricter; do not weaken 40-hex source SHA requirements.
+          5. The successful returned result must add:
+             frontDoor.liveCanaryPass = true
+             frontDoor.cacheBypassProven = true
+             while accountIntegrationProven stays false and ready stays false.
+          6. The successful returned result must include a normalized frontDoorEvidence object with exactly these load-bearing fields:
+             source_sha: exact sourceSha
+             gate: "FRONT_DOOR_READY"
+             ready: false
+             proofs: a non-empty array of non-blank strings including evidence for:
+               live production service-principal canary,
+               cache-busted/no-store requests,
+               project-state round trip,
+               fresh Claude bootstrap/resume,
+               stale-version 409,
+               project isolation
+             live_canary_pass: true
+             cache_bypass_proven: true
+             account_integration_proven: false
+             blocking_reason: "native_account_authorization_not_proven"
+             This shape is advisory/input evidence only. It must never claim ready=true from repo-only execution.
+          7. main() must log LIVE_PRODUCTION_CANARY=PASS and CACHE_BYPASS_PROVEN=PASS only after runUniversalCanary completes successfully. It must still log ACCOUNT_INTEGRATION_PROVEN=FALSE and FRONT_DOOR_READY=FALSE.
+          8. Never serialize or print client tokens. Existing sanitizeCheck behavior must remain.
+          9. Do not add dependencies or network endpoints.
+          
+          Tests in test-universal-canary.mjs must remain deterministic and must verify:
+          - a fixed injected canaryNonce can be used;
+          - EVERY recorded request URL includes __canary_nonce with the exact fixed nonce;
+          - EVERY recorded request has cache-control=no-store, pragma=no-cache, x-canary-nonce=<fixed nonce>;
+          - existing Authorization and x-brain-client assertions remain;
+          - existing project state, bootstrap, 409, isolation and high-risk checks still pass;
+          - result.frontDoor.liveCanaryPass === true;
+          - result.frontDoor.cacheBypassProven === true;
+          - result.frontDoor.accountIntegrationProven === false;
+          - result.frontDoor.ready === false;
+          - frontDoorEvidence has exact source_sha/gate/ready/blocking fields and every proof is a non-blank string;
+          - tokens do not occur in JSON.stringify(result.frontDoorEvidence);
+          - malformed/unsafe canaryNonce is rejected before fetch is called.
+          Use only Node built-ins already available; no package changes.
+          
+          Run target after applying:
+          node cloudflare-worker/test-universal-canary.mjs
+          
+          Current validate-universal-canary.mjs follows:
+          ---BEGIN VALIDATE---
+          """ + current_validate + """
+          ---END VALIDATE---
+          
+          Current test-universal-canary.mjs follows:
+          ---BEGIN TEST---
+          """ + current_test + """
+          ---END TEST---
+          
+          Return no prose outside the JSON object."""
           request={
             "model": "deepseek-chat",
             "max_tokens": 8000,
