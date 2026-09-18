@@ -312,21 +312,8 @@ jobs:
           python AI_SKILL_LIBRARY/v4/tools/federation_status_scopes.py \
             --evidence CHECKPOINTS/evidence/FEDERATION_STATUS_SCOPES.json || true
 
-      - name: Release gate
-        run: |
-          set -euo pipefail
-          python AI_SKILL_LIBRARY/v4/tools/ai_core_release_gate.py
-
-      - name: Upload evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-golden-e2e-evidence
-          path: CHECKPOINTS/evidence/
-          retention-days: 14
-
       - name: Return the evidence to the branch
-        if: inputs.commit_evidence == 'true'
+        if: inputs.commit_evidence != 'false' || github.event_name == 'push'
         run: |
           set -euo pipefail
           # Evidence only. Nothing under AI_SKILL_LIBRARY/ moves, so each
@@ -341,6 +328,40 @@ jobs:
           git commit -m "evidence(ai-core): golden E2E from a free ephemeral worker" \
                      -m "Produced by .github/workflows/production-golden-e2e.yml on a GitHub-hosted ubuntu-latest runner against source_sha ${SOURCE_SHA}, executing ${{ steps.selection.outputs.model_id }} at its pinned digest. The semantic verifier was re-run against the canonical request and passed before this commit was made. No personal hardware was involved and no paid resource was used."
           git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Release gate
+        run: |
+          set -euo pipefail
+          # Summary first. The gate prints its whole evidence set as JSON, and
+          # in a 1700-line log the one line that says WHICH check failed is the
+          # hardest to find. Naming the failures before the dump is the
+          # difference between a diagnosis and another run.
+          python AI_SKILL_LIBRARY/v4/tools/ai_core_release_gate.py \
+            --evidence CHECKPOINTS/evidence/AI_CORE_RELEASE_GATE.json || true
+          python - <<'PY'
+          import json, sys
+          d = json.load(open("CHECKPOINTS/evidence/AI_CORE_RELEASE_GATE.json"))
+          print("AI_CORE_RELEASE=%s passed=%s/%s"
+                % (d["verdict"], d["checks_passed"], d["checks_run"]))
+          print("SEMANTIC_GOLDEN_VERIFIED=%s" % d.get("SEMANTIC_GOLDEN_VERIFIED"))
+          print("RELEASE_ELIGIBLE=%s" % d.get("release_eligible"))
+          for check in d["checks"]:
+              if check["passed"]:
+                  continue
+              print("FAILED_CHECK=%s" % check["check"])
+              print("  requirement: %s" % check["requirement"])
+              for failure in check["failures"]:
+                  print("  - %s" % str(failure)[:400])
+          sys.exit(0 if d["verdict"] == "PASS" else 1)
+          PY
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-golden-e2e-evidence
+          path: CHECKPOINTS/evidence/
+          retention-days: 14
 
       - name: Lease - release
         if: always()
