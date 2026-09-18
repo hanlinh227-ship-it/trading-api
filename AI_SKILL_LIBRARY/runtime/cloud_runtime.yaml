@@ -46,8 +46,9 @@ production_verification:
   exact_source_sha_required: true
   primary_health_required: true
   live_research_smoke_required: true
-  required_research_venues:
+  preferred_research_venues:
     - okx
+  min_research_providers: 2
   live_execution_smoke_required: false
   required_execution_venues: []
   private_execution_capability_optional: true
