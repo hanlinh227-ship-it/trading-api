@@ -197,5 +197,7 @@
   "all_models_exact": false,
   "all_workers_online": true,
   "wave1_reconciled": true,
-  "wave2_reconciled": true
+  "wave2_reconciled": true,
+  "upstream_knowledge_fusion_path": "AI_SKILL_LIBRARY/v4/integrations/upstream_knowledge_fusion.yaml",
+  "upstream_knowledge_fusion_validator_path": "AI_SKILL_LIBRARY/v4/tools/validate_upstream_knowledge_fusion.py"
 }

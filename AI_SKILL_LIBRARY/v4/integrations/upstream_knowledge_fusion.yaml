@@ -1,0 +1,404 @@
+version: 1
+purpose: bounded_upstream_capability_knowledge_fusion_for_all_ai
+status: reference_registry_active_no_executable_dependencies
+audited_at: '2026-09-19'
+brain_authority: GITHUB_BRAIN_V4
+routing_authority: false
+reasoning_authority: false
+model_selection_authority: false
+stable_mutation: false
+
+selection:
+  load_after_domain_selection: true
+  preload_all_entries: false
+  exact_capability_match_first: true
+  max_candidates_per_request: 3
+  fast_profile: index_only
+  standard_profile_max_candidates: 2
+  deep_profile_max_candidates: 3
+  unresolved_material_conflict: escalate
+  unknown_entry_action: quarantine_no_routing
+
+safety:
+  upstream_is_reference_not_authority: true
+  code_reuse_default: false
+  executable_dependency_default: false
+  auto_activate_default: false
+  permission_expansion: false
+  provider_or_framework_cannot_replace_task_router: true
+  provider_or_framework_cannot_replace_model_mesh: true
+  provider_or_framework_cannot_replace_legion: true
+  provider_or_framework_cannot_replace_memory_continuity: true
+  project_authority_precedes_upstream_patterns: true
+  stable_security_precedes_upstream_patterns: true
+  development_lab_cannot_write_stable_directly: true
+  manual_review_licenses_never_enable_code_reuse: true
+  archived_upstreams_never_become_runtime_dependencies: true
+
+canonical_targets:
+  desktop_actions: future_bounded_desktop_action_adapter
+  worker_orchestration: AI_SKILL_LIBRARY/v4/legion
+  workflow_execution: AI_SKILL_LIBRARY/v4/tools/legion.py
+  control_tower_ux: control-center
+  runtime_fabric: AI_SKILL_LIBRARY/v4/local_runtime/runtime.py
+  learning_lab: AI_SKILL_LIBRARY/v4/learning
+  observability: AI_SKILL_LIBRARY/v4/stable/observability.yaml
+  retrieval: AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
+  document_intelligence: AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml
+  creative_visual: AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml
+  prompt_media: AI_SKILL_LIBRARY/v4/mesh/domains/prompt_media.yaml
+
+entries:
+  - id: agent_desktop
+    repo: lahfir/agent-desktop
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [engineering]
+    absorbs: [accessibility_tree_snapshot, stable_ui_refs, snapshot_act_verify, retry_safe_desktop_actions]
+    integration_target: desktop_actions
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: munder_difflin
+    repo: chaitanyagiri/munder-difflin
+    license: MIT
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [engineering, core]
+    absorbs: [worker_presence, agent_mailbox, worker_lifecycle, subscription_cli_orchestration, multi_agent_office_patterns]
+    integration_target: worker_orchestration
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: dify
+    repo: langgenius/dify
+    license: NOASSERTION
+    license_status: manual_review
+    archived: false
+    status: manual_review_reference
+    mode: reference_pattern
+    domains: [engineering, core, data_docs]
+    absorbs: [visual_workflow_dsl, rag_pipeline_composition, plugin_contracts, run_debugging, deployment_workflow_ux]
+    integration_target: workflow_execution
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: autogpt
+    repo: Significant-Gravitas/AutoGPT
+    license: NOASSERTION
+    license_status: manual_review
+    archived: false
+    status: manual_review_reference
+    mode: reference_pattern
+    domains: [engineering, core]
+    absorbs: [trigger_semantics, scheduled_agent_runs, block_graph_execution, run_history, human_attention_queue]
+    integration_target: workflow_execution
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: sim
+    repo: simstudioai/sim
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [engineering, core, design_2d]
+    absorbs: [collaborative_agent_workspace, visual_workflow_canvas, integration_catalog, run_monitoring, scheduled_workflows]
+    integration_target: control_tower_ux
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: openclaw
+    repo: openclaw/openclaw
+    license: NOASSERTION
+    license_status: manual_review
+    archived: false
+    status: manual_review_reference
+    mode: reference_pattern
+    domains: [engineering, core]
+    absorbs: [multi_channel_gateway, daemon_lifecycle, device_pairing, mobile_reachability, channel_adapter_patterns]
+    integration_target: worker_orchestration
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: open_webui
+    repo: open-webui/open-webui
+    license: NOASSERTION
+    license_status: manual_review
+    archived: false
+    status: manual_review_reference
+    mode: reference_pattern
+    domains: [design_2d, engineering, core]
+    absorbs: [multi_model_ui, queued_messages, live_execution_checklists, pwa_patterns, run_history_ux, model_switching_ux, telemetry_dashboard_patterns]
+    integration_target: control_tower_ux
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: ollama
+    repo: ollama/ollama
+    license: MIT
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: strengthen_existing
+    domains: [engineering]
+    absorbs: [local_model_lifecycle, model_packaging, simple_local_api, local_model_launch_patterns]
+    integration_target: runtime_fabric
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: vllm
+    repo: vllm-project/vllm
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: strengthen_existing
+    domains: [engineering]
+    absorbs: [continuous_batching, paged_attention, high_throughput_serving, openai_compatible_serving, multi_lora_serving]
+    integration_target: runtime_fabric
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: transformers
+    repo: huggingface/transformers
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: strengthen_existing
+    domains: [engineering]
+    absorbs: [model_definition_compatibility, multimodal_model_contracts, inference_training_interop]
+    integration_target: runtime_fabric
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: unsloth
+    repo: unslothai/unsloth
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [core, engineering]
+    absorbs: [efficient_finetuning, lora_workflows, gguf_export_patterns, local_training_optimization]
+    integration_target: learning_lab
+    development_lab_only: true
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: openpipe_art
+    repo: OpenPipe/ART
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [core, engineering]
+    absorbs: [trajectory_collection, reward_driven_agent_training, grpo_patterns, challenger_training, multi_step_agent_rl]
+    integration_target: learning_lab
+    development_lab_only: true
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: opik
+    repo: comet-ml/opik
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [engineering, core]
+    absorbs: [llm_tracing, agent_trace_evaluation, prompt_evaluation, production_monitoring, experiment_comparison]
+    integration_target: observability
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: airweave
+    repo: airweave-ai/airweave
+    license: MIT
+    license_status: verified
+    archived: true
+    status: historical_reference
+    mode: reference_pattern
+    domains: [core, data_docs, engineering]
+    absorbs: [connector_sync, unified_context_retrieval, source_indexing, ingestion_normalization]
+    integration_target: retrieval
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: firecrawl
+    repo: firecrawl/firecrawl
+    license: AGPL-3.0
+    license_status: verified_restrictive
+    archived: false
+    status: reference_only_license_restricted
+    mode: reference_pattern
+    domains: [core, data_docs, engineering]
+    absorbs: [web_crawl_contracts, html_to_clean_context, batch_crawl_semantics, javascript_page_ingestion, web_map_patterns]
+    integration_target: retrieval
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: chandra
+    repo: datalab-to/chandra
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [data_docs, academic]
+    absorbs: [complex_document_ocr, table_layout_recovery, forms_handwriting_layout, structured_document_output]
+    integration_target: document_intelligence
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: comfyui
+    repo: Comfy-Org/ComfyUI
+    license: GPL-3.0
+    license_status: verified_restrictive
+    archived: false
+    status: reference_only_license_restricted
+    mode: strengthen_existing
+    domains: [prompt_media, design_2d, design_3d]
+    absorbs: [node_graph_composition, deterministic_visual_pipeline, reusable_nodes, workflow_serialization]
+    integration_target: creative_visual
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: langchain
+    repo: langchain-ai/langchain
+    license: MIT
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [engineering, core]
+    absorbs: [tool_abstraction, runnable_composition, stateful_agent_patterns, checkpoint_retry_handoff_patterns]
+    integration_target: workflow_execution
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: opencode
+    repo: anomalyco/opencode
+    license: MIT
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: strengthen_existing
+    domains: [engineering]
+    absorbs: [provider_agnostic_coding_agent, client_server_worker, terminal_worker_patterns, provider_discovery]
+    integration_target: worker_orchestration
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: remotion_cuongit_template
+    repo: Cuongyd196/remotion-cuongit-template
+    license: UNKNOWN
+    license_status: manual_review
+    archived: false
+    status: manual_review_reference
+    mode: reference_pattern
+    domains: [prompt_media, writing, design_2d]
+    absorbs: [video_as_code_scene_composition, frame_accurate_audio_sync, reusable_scene_templates, agent_driven_video_generation]
+    integration_target: prompt_media
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: auto_video_gen
+    repo: Cuongyd196/auto-video-gen
+    license: MIT
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [prompt_media, writing, design_2d]
+    absorbs: [url_to_script_pipeline, tts_duration_alignment, scene_generation, motion_graphics_pipeline, ffmpeg_finalization]
+    integration_target: prompt_media
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: auto_compare_video
+    repo: Cuongyd196/auto-compare-video
+    license: NOASSERTION
+    license_status: manual_review
+    archived: false
+    status: manual_review_reference
+    mode: reference_pattern
+    domains: [prompt_media, writing, design_2d]
+    absorbs: [immutable_design_contract, template_factory, batch_video_generation, duration_validation, content_only_variation]
+    integration_target: prompt_media
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
