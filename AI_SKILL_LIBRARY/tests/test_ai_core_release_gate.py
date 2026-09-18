@@ -352,3 +352,43 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TwoCopiesAreNotTwoChancesTests(unittest.TestCase):
+    """Writing the same run to two names must not make damaging one harmless."""
+
+    def test_a_damaged_primary_is_not_rescued_by_the_fallback(self):
+        from AI_SKILL_LIBRARY.v4.tools.ai_core_release_gate import (
+            GOLDEN_EVIDENCE_PREFERENCE, golden_evidence_source)
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = _sandbox(Path(raw))
+            primary, fallback = GOLDEN_EVIDENCE_PREFERENCE
+            # Both present and valid, as the production worker now leaves them.
+            shutil.copy2(tmp / EVIDENCE / primary, tmp / EVIDENCE / fallback)
+            (tmp / EVIDENCE / primary).write_text("{not json", encoding="utf-8")
+            # The damaged file is still the one being judged - the gate does not
+            # quietly move on to the intact copy behind it.
+            self.assertEqual(golden_evidence_source(tmp), primary)
+            self.assertEqual(gate(tmp)["verdict"], "FAIL")
+
+    def test_an_absent_primary_still_falls_back(self):
+        """The case the fallback exists for: an older checkpoint."""
+        from AI_SKILL_LIBRARY.v4.tools.ai_core_release_gate import (
+            GOLDEN_EVIDENCE_PREFERENCE, golden_evidence_source)
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = _sandbox(Path(raw))
+            primary, fallback = GOLDEN_EVIDENCE_PREFERENCE
+            shutil.copy2(tmp / EVIDENCE / primary, tmp / EVIDENCE / fallback)
+            (tmp / EVIDENCE / primary).unlink()
+            self.assertEqual(golden_evidence_source(tmp), fallback)
+            self.assertEqual(gate(tmp)["verdict"], "PASS")
+
+    def test_a_primary_without_a_verdict_still_falls_back(self):
+        from AI_SKILL_LIBRARY.v4.tools.ai_core_release_gate import (
+            GOLDEN_EVIDENCE_PREFERENCE, golden_evidence_source)
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = _sandbox(Path(raw))
+            primary, fallback = GOLDEN_EVIDENCE_PREFERENCE
+            shutil.copy2(tmp / EVIDENCE / primary, tmp / EVIDENCE / fallback)
+            _edit(tmp, primary, lambda d: d.pop("ai_core_e2e", None))
+            self.assertEqual(golden_evidence_source(tmp), fallback)
