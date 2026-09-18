@@ -1,0 +1,48 @@
+name: MultiCoin Scalp Flow ML 80pct OOS
+
+on:
+  push:
+    branches:
+      - research/bybit-multicoin-oos80-20260905
+    paths:
+      - 'research/bybit_multicoin_scalp_rr_v4.py'
+      - 'research/bybit_multicoin_scalp_flow_ml_v7.py'
+      - '.github/workflows/bybit-multicoin-stateflow-80pct.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: bybit-multicoin-scalp-rr-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 18
+      matrix:
+        symbol: [BTCUSDT,ETHUSDT,BNBUSDT,XRPUSDT,SOLUSDT,TRXUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT,LTCUSDT,BCHUSDT,XLMUSDT,DOTUSDT,NEARUSDT,UNIUSDT,AAVEUSDT,HBARUSDT]
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ML dependencies
+        run: python3 -m pip install --disable-pip-version-check --quiet numpy scikit-learn
+      - name: Run taker-flow 5m scalp ML fixed-RR V7
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          SYMBOL='${{ matrix.symbol }}'
+          python3 research/bybit_multicoin_scalp_flow_ml_v7.py --symbols "$SYMBOL" --out "research/results/${SYMBOL}-v7.json" 2>&1 | tee "research/results/${SYMBOL}-v7.txt"
+      - name: Upload V7 symbol report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bybit-${{ matrix.symbol }}-scalp-flow-ml-v7
+          path: |
+            research/results/${{ matrix.symbol }}-v7.json
+            research/results/${{ matrix.symbol }}-v7.txt
+          retention-days: 30
