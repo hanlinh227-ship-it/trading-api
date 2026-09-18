@@ -39,10 +39,9 @@ from pathlib import Path, PurePosixPath
 
 #: The lane's entire remit for the current bounded task. Exact paths only.
 ALLOWED_FILES = {
-    "AI_SKILL_LIBRARY/v4/survival/artifact_scan.py",
-    "AI_SKILL_LIBRARY/tests/test_artifact_scan.py",
-    "AI_SKILL_LIBRARY/v4/survival/provenance.py",
-    "AI_SKILL_LIBRARY/tests/test_survival_provenance.py",
+    "AI_SKILL_LIBRARY/v4/survival/recovery.py",
+    "AI_SKILL_LIBRARY/v4/survival/recovery_policy.yaml",
+    "AI_SKILL_LIBRARY/tests/test_survival_recovery.py",
 }
 
 #: Closed vocabulary. A reason is produced here and never interpolates any part

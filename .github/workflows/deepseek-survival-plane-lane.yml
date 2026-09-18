@@ -1,4 +1,4 @@
-name: DeepSeek Lane — Survival Artifact Trust
+name: DeepSeek Lane — Survival Recovery Contract
 
 on:
   push:
@@ -36,10 +36,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           set -euo pipefail
-          if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
-            echo "DEEPSEEK_SECRET_PRESENT=MISSING"
-            exit 1
-          fi
+          test -n "${DEEPSEEK_API_KEY:-}"
           echo "DEEPSEEK_SECRET_PRESENT=PRESENT"
 
       - name: Build narrow coding request
@@ -47,22 +44,22 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-
-          prompt = '''Implement only Tasks 3 and 4 of the approved Survival Plane plan.
-          Return one JSON object with exactly one key, "files". "files" must map exactly these four repository paths to complete UTF-8 file contents:
-          AI_SKILL_LIBRARY/v4/survival/artifact_scan.py
-          AI_SKILL_LIBRARY/tests/test_artifact_scan.py
-          AI_SKILL_LIBRARY/v4/survival/provenance.py
-          AI_SKILL_LIBRARY/tests/test_survival_provenance.py
+          prompt = '''Implement only Task 5 of the approved Survival Plane plan: backup/restore contract.
+          Return one JSON object with exactly one key, "files". "files" must map exactly these three repository paths to complete UTF-8 file contents:
+          AI_SKILL_LIBRARY/v4/survival/recovery.py
+          AI_SKILL_LIBRARY/v4/survival/recovery_policy.yaml
+          AI_SKILL_LIBRARY/tests/test_survival_recovery.py
 
           Requirements:
-          - Python 3 and pytest/unittest-compatible tests.
-          - Task 3: implement ScanEvidence(scanner, artifact_sha256, vulnerabilities, secrets_found, passed), an evidence parser, and a fail-closed admission/trust gate. A Trivy command adapter may be invoked only when installed; tests must use fixtures and must not require Trivy.
-          - Task 4: implement ArtifactProvenance(sha256, source_revision, signer_ref, sbom_ref, verified) and validation requiring artifact hash, signer/provenance, source revision, and SBOM reference consistency. Cosign/CycloneDX/SPDX are evidence only; tests use fixtures and require no external binaries.
-          - Protected artifact admission fails closed when scan/provenance evidence is missing, mismatched, unverified, reports secrets, or otherwise fails.
+          - Implement create_recovery_manifest(...)->dict and verify_restore(restored, expected)->RecoveryReport.
+          - The recovery manifest must be bounded, deterministic where inputs are the same, reference hashes rather than plaintext secrets, and carry enough metadata to verify a faithful restore.
+          - verify_restore must fail closed on missing objects, unexpected objects where policy forbids them, hash mismatch, malformed manifest, or incomplete required metadata.
+          - Backup is never considered healthy merely because creation succeeded; restore verification is authoritative for recovery readiness.
+          - restic/OpenTofu/Ansible are external mechanics behind the contract; tests must not require those tools or network access.
+          - recovery_policy.yaml must define conservative restore verification requirements and no authority flags.
           - routing/reasoning/scheduling/merge/deployment/trading authority are all false.
-          - Do not modify Storage Mesh files, checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, or Tasks 1-2 files.
-          - Do not add dependencies and do not include Markdown fences or commentary outside the JSON object.
+          - Do not modify Storage Mesh files, checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, or Tasks 1-4 files.
+          - No new dependencies. Return no Markdown or prose outside the JSON object.
           '''
           request = {
               "model": "deepseek-chat",
@@ -70,19 +67,18 @@ jobs:
               "temperature": 0,
               "response_format": {"type": "json_object"},
               "messages": [
-                  {"role": "system", "content": "You are a bounded coding worker. Obey the exact file allowlist and return complete files only. Your entire reply must be one JSON object: the first character you emit is { and the final character you emit is }. No prose, no explanation, no Markdown fences, nothing before or after the object. The object has exactly one key, \"files\", mapping exactly the four allowed repository paths to complete UTF-8 file contents. Keep implementations minimal and focused."},
+                  {"role": "system", "content": "You are a bounded coding worker. Reply with one JSON object only, first character { and final character }. The object has exactly one key, \"files\", mapping exactly the three allowed paths to complete file contents. Keep code minimal, testable, fail-closed, and within scope."},
                   {"role": "user", "content": prompt},
               ],
           }
           Path('/tmp/deepseek-request.json').write_text(json.dumps(request), encoding='utf-8')
           PY
 
-      - name: Prove the output contract offline before spending anything
+      - name: Prove output contract offline
         run: |
           set -euo pipefail
           python3 -m unittest AI_SKILL_LIBRARY.tests.test_deepseek_lane_apply
           echo "DEEPSEEK_PARSER_TESTS=PASS"
-          echo "DEEPSEEK_OWNERSHIP_TESTS=PASS"
           echo "DEEPSEEK_APPLY_TESTS=PASS"
 
       - name: Run one bounded DeepSeek coding call
@@ -96,18 +92,14 @@ jobs:
             -H 'Content-Type: application/json' \
             --data-binary @/tmp/deepseek-request.json \
             https://api.deepseek.com/v1/chat/completions || echo 000)"
-          if [ "${code}" != "200" ]; then
-            echo "DEEPSEEK_API_HEALTH=FAIL"
-            echo "DEEPSEEK_API_HTTP=${code}"
-            exit 1
-          fi
+          test "${code}" = "200"
           echo "DEEPSEEK_API_HEALTH=PASS"
           python3 .github/scripts/deepseek_lane_apply.py /tmp/deepseek-response.json .
 
       - name: Enforce file ownership
         run: |
           set -euo pipefail
-          allowed='^(AI_SKILL_LIBRARY/v4/survival/(artifact_scan\.py|provenance\.py)|AI_SKILL_LIBRARY/tests/(test_artifact_scan\.py|test_survival_provenance\.py))$'
+          allowed='^(AI_SKILL_LIBRARY/v4/survival/(recovery\.py|recovery_policy\.yaml)|AI_SKILL_LIBRARY/tests/test_survival_recovery\.py)$'
           unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
@@ -119,22 +111,19 @@ jobs:
       - name: Run focused tests
         run: |
           python3 -m pip install -r AI_SKILL_LIBRARY/requirements.txt pytest
-          python3 -m pytest -q \
-            AI_SKILL_LIBRARY/tests/test_artifact_scan.py \
-            AI_SKILL_LIBRARY/tests/test_survival_provenance.py
+          python3 -m pytest -q AI_SKILL_LIBRARY/tests/test_survival_recovery.py
           echo "DEEPSEEK_TESTS=PASS"
 
-      - name: Commit DeepSeek artifact-trust tasks
+      - name: Commit DeepSeek recovery contract
         run: |
           set -euo pipefail
           git config user.name 'DeepSeek Coding Lane'
           git config user.email 'deepseek-lane@users.noreply.github.com'
           git add \
-            AI_SKILL_LIBRARY/v4/survival/artifact_scan.py \
-            AI_SKILL_LIBRARY/v4/survival/provenance.py \
-            AI_SKILL_LIBRARY/tests/test_artifact_scan.py \
-            AI_SKILL_LIBRARY/tests/test_survival_provenance.py
-          git commit -m 'feat(survival): add artifact scan and provenance contracts'
+            AI_SKILL_LIBRARY/v4/survival/recovery.py \
+            AI_SKILL_LIBRARY/v4/survival/recovery_policy.yaml \
+            AI_SKILL_LIBRARY/tests/test_survival_recovery.py
+          git commit -m 'feat(survival): add backup and restore verification contract'
           git push origin HEAD:work/deepseek-survival-plane-442
-          echo "DEEPSEEK_ARTIFACT_TRUST_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_RECOVERY_COMMIT=$(git rev-parse HEAD)"
           echo "DEEPSEEK_CODING_LANE_READY=PASS"
