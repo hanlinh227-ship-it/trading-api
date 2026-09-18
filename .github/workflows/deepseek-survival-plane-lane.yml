@@ -1,4 +1,4 @@
-name: DeepSeek Lane — Survival Policy and Secrets
+name: DeepSeek Lane — Survival Artifact Trust
 
 on:
   push:
@@ -48,22 +48,20 @@ jobs:
           import json
           from pathlib import Path
 
-          prompt = '''Implement only Tasks 1 and 2 of the approved Survival Plane plan.
-          Return one JSON object with exactly one key, "files". "files" must map exactly these five repository paths to complete UTF-8 file contents:
-          AI_SKILL_LIBRARY/v4/survival/policy.yaml
-          AI_SKILL_LIBRARY/v4/survival/policy_adapter.py
-          AI_SKILL_LIBRARY/v4/survival/secrets.py
-          AI_SKILL_LIBRARY/tests/test_survival_policy.py
-          AI_SKILL_LIBRARY/tests/test_survival_secrets.py
+          prompt = '''Implement only Tasks 3 and 4 of the approved Survival Plane plan.
+          Return one JSON object with exactly one key, "files". "files" must map exactly these four repository paths to complete UTF-8 file contents:
+          AI_SKILL_LIBRARY/v4/survival/artifact_scan.py
+          AI_SKILL_LIBRARY/tests/test_artifact_scan.py
+          AI_SKILL_LIBRARY/v4/survival/provenance.py
+          AI_SKILL_LIBRARY/tests/test_survival_provenance.py
 
           Requirements:
-          - Python 3, YAML policy, pytest/unittest-compatible tests.
-          - Implement evaluate_policy(input_doc) -> Decision(allow: bool, reasons: list[str]).
-          - Fail closed for LOCAL_ONLY placement violations, paid paths, and unverified providers.
-          - Add an immutable SecretRef(provider, path, version) and resolve_secret(ref, backend).
-          - Reject plaintext secret serialization and never log or persist resolved secret values.
+          - Python 3 and pytest/unittest-compatible tests.
+          - Task 3: implement ScanEvidence(scanner, artifact_sha256, vulnerabilities, secrets_found, passed), an evidence parser, and a fail-closed admission/trust gate. A Trivy command adapter may be invoked only when installed; tests must use fixtures and must not require Trivy.
+          - Task 4: implement ArtifactProvenance(sha256, source_revision, signer_ref, sbom_ref, verified) and validation requiring artifact hash, signer/provenance, source revision, and SBOM reference consistency. Cosign/CycloneDX/SPDX are evidence only; tests use fixtures and require no external binaries.
+          - Protected artifact admission fails closed when scan/provenance evidence is missing, mismatched, unverified, reports secrets, or otherwise fails.
           - routing/reasoning/scheduling/merge/deployment/trading authority are all false.
-          - Do not modify Storage Mesh files, checkpoint.json, shared_state.yaml, universal_fabric.yaml, or release pointers.
+          - Do not modify Storage Mesh files, checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, or Tasks 1-2 files.
           - Do not add dependencies and do not include Markdown fences or commentary outside the JSON object.
           '''
           request = {
@@ -72,7 +70,7 @@ jobs:
               "temperature": 0,
               "response_format": {"type": "json_object"},
               "messages": [
-                  {"role": "system", "content": "You are a bounded coding worker. Obey the exact file allowlist and return complete files only. Your entire reply must be one JSON object: the first character you emit is { and the final character you emit is }. No prose, no explanation, no Markdown fences, nothing before or after the object. The object has exactly one key, \"files\", mapping exactly the five allowed repository paths to complete UTF-8 file contents. The complete JSON object with all five files must fit in this response. Keep implementations minimal and focused; do not add commentary, examples, or extra helpers beyond the stated requirements."},
+                  {"role": "system", "content": "You are a bounded coding worker. Obey the exact file allowlist and return complete files only. Your entire reply must be one JSON object: the first character you emit is { and the final character you emit is }. No prose, no explanation, no Markdown fences, nothing before or after the object. The object has exactly one key, \"files\", mapping exactly the four allowed repository paths to complete UTF-8 file contents. The complete JSON object with all four files must fit in this response. Keep implementations minimal and focused; do not add commentary, examples, or extra helpers beyond the stated requirements."},
                   {"role": "user", "content": prompt},
               ],
           }
@@ -112,7 +110,37 @@ jobs:
       - name: Enforce file ownership
         run: |
           set -euo pipefail
-          allowed='^(AI_SKILL_LIBRARY/v4/survival/(policy.yaml|policy_adapter.py|secrets.py)|AI_SKILL_LIBRARY/tests/test_survival_(policy|secrets).py)$'
+          allowed='^(AI_SKILL_LIBRARY/v4/survival/(artifact_scan.py|provenance.py)|AI_SKILL_LIBRARY/tests/(test_artifact_scan.py|test_survival_provenance.py))
+          unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
+          if [ -n "${unexpected}" ]; then
+            echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
+            exit 1
+          fi
+          echo "DEEPSEEK_FILE_OWNERSHIP=PASS"
+
+      - name: Run focused tests
+        run: |
+          python3 -m pip install -r AI_SKILL_LIBRARY/requirements.txt pytest
+          python3 -m pytest -q \
+            AI_SKILL_LIBRARY/tests/test_artifact_scan.py \
+            AI_SKILL_LIBRARY/tests/test_survival_provenance.py
+          echo "DEEPSEEK_TESTS=PASS"
+
+      - name: Commit DeepSeek artifact-trust tasks
+        run: |
+          set -euo pipefail
+          git config user.name 'DeepSeek Coding Lane'
+          git config user.email 'deepseek-lane@users.noreply.github.com'
+          git add \
+            AI_SKILL_LIBRARY/v4/survival/artifact_scan.py \
+            AI_SKILL_LIBRARY/v4/survival/provenance.py \
+            AI_SKILL_LIBRARY/tests/test_artifact_scan.py \
+            AI_SKILL_LIBRARY/tests/test_survival_provenance.py
+          git commit -m 'feat(survival): add artifact scan and provenance contracts'
+          git push origin HEAD:work/deepseek-survival-plane-442
+          echo "DEEPSEEK_ARTIFACT_TRUST_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_CODING_LANE_READY=PASS"
+
           unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"

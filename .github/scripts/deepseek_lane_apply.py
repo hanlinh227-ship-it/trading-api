@@ -26,7 +26,7 @@ public Actions log is exactly where a token should not.
 Writes are all-or-nothing. The previous version validated file contents inside
 the write loop, so a bad fifth file left four already written to the working
 tree - a partial application the ownership guard would then have to catch.
-Every file is validated first; nothing is written until all five pass.
+Every file is validated first; nothing is written until the full allowlisted set passes.
 
 Usage: deepseek_lane_apply.py <response.json> <repo-root>
 """
@@ -37,13 +37,12 @@ import json
 import sys
 from pathlib import Path, PurePosixPath
 
-#: The lane's entire remit. Not a prefix rule, not a glob - five exact paths.
+#: The lane's entire remit for the current bounded task. Exact paths only.
 ALLOWED_FILES = {
-    "AI_SKILL_LIBRARY/v4/survival/policy.yaml",
-    "AI_SKILL_LIBRARY/v4/survival/policy_adapter.py",
-    "AI_SKILL_LIBRARY/v4/survival/secrets.py",
-    "AI_SKILL_LIBRARY/tests/test_survival_policy.py",
-    "AI_SKILL_LIBRARY/tests/test_survival_secrets.py",
+    "AI_SKILL_LIBRARY/v4/survival/artifact_scan.py",
+    "AI_SKILL_LIBRARY/tests/test_artifact_scan.py",
+    "AI_SKILL_LIBRARY/v4/survival/provenance.py",
+    "AI_SKILL_LIBRARY/tests/test_survival_provenance.py",
 }
 
 #: Closed vocabulary. A reason is produced here and never interpolates any part
@@ -203,7 +202,7 @@ def unwrap_payload(content: str, finish_reason: str) -> dict:
 
 
 def validate_files(payload: dict) -> dict:
-    """Every check before any write. All five, or none."""
+    """Every check before any write. Full allowlisted set, or none."""
     if "files" not in payload:
         reject("files_missing")
     files = payload["files"]
