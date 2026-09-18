@@ -55,8 +55,31 @@ COMMIT_ARG_NAMES = ("commitSha", "commit", "sha")
 _SHA_RE = re.compile(r"^[0-9a-f]{40}\Z")
 
 
+#: GraphQL error text that means "this token is not accepted", as opposed to
+#: "this request was wrong" or "the API is not there". Railway phrases the
+#: refusal in the error body rather than the HTTP status in some cases, so the
+#: status alone is not enough to tell the two apart.
+_AUTH_REJECTION_RE = re.compile(
+    # "Not Authorized" is Railway's own wording and does NOT contain
+    # "unauthorized"; a test asserting the real string is what caught that.
+    r"unauthori[sz]|not\s+authori[sz]ed|unauthenticat|not\s+authenticated|"
+    r"forbidden|invalid\s+token|access\s+denied|missing\s+credentials",
+    re.I,
+)
+
+
 class Failure(RuntimeError):
-    """Something that must stop the deploy, with a message an operator can act on."""
+    """Something that must stop the deploy, with a message an operator can act on.
+
+    `auth_rejected` records WHY this stopped, which the message alone cannot:
+    True means the API answered and refused this token, False means the API
+    never got to judge the token at all. Conflating the two is how an operator
+    ends up rotating a perfectly good token because the endpoint was wrong.
+    """
+
+    def __init__(self, message: str, *, auth_rejected: bool = False) -> None:
+        super().__init__(message)
+        self.auth_rejected = auth_rejected
 
 
 def _post(query: str, variables: dict, token: str, scheme: str) -> dict:
@@ -75,31 +98,58 @@ def _post(query: str, variables: dict, token: str, scheme: str) -> dict:
         with urllib.request.urlopen(request, timeout=60) as response:
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        raise Failure("Railway API returned HTTP %s" % exc.code) from None
+        # 401/403 is the API refusing this token. Any other status is the API
+        # refusing the REQUEST, or not being this API at all - a 404 from a
+        # stale endpoint must never read as "your token is bad".
+        raise Failure(
+            "Railway API returned HTTP %s" % exc.code,
+            auth_rejected=exc.code in (401, 403),
+        ) from None
     except urllib.error.URLError as exc:
-        raise Failure("Railway API unreachable: %s" % type(exc).__name__) from None
+        raise Failure(
+            "Railway API unreachable: %s" % type(exc).__name__,
+            auth_rejected=False,
+        ) from None
     if body.get("errors"):
         # Messages come from Railway and can quote the request, so only the
         # message text is surfaced and never the variables, which hold the token
         # in no case but would hold ids in every case.
-        raise Failure("; ".join(str(e.get("message"))[:200] for e in body["errors"]))
+        messages = [str(e.get("message"))[:200] for e in body["errors"]]
+        joined = "; ".join(messages)
+        raise Failure(joined, auth_rejected=bool(_AUTH_REJECTION_RE.search(joined)))
     return body.get("data") or {}
 
 
 def authenticate(token: str) -> str:
     """Which auth header this token wants. Account and project tokens differ."""
     probe = "query { __typename }"
+    refusals = []
     for scheme in ("bearer", "project"):
         try:
             _post(probe, {}, token, scheme)
             print("RAILWAY_AUTH_SCHEME=%s" % scheme)
             return scheme
-        except Failure:
-            continue
+        except Failure as exc:
+            if not exc.auth_rejected:
+                # The API did not refuse the token - it could not be asked. The
+                # other scheme would fail identically, and telling an operator
+                # to check their token here sends them to rotate a credential
+                # that was never the problem.
+                raise Failure(
+                    "the Railway API could not be reached or did not answer as "
+                    "expected at %s, so the token was never judged: %s. This is "
+                    "NOT an authentication failure - check the endpoint and "
+                    "network before touching RAILWAY_TOKEN."
+                    % (ENDPOINT, exc),
+                    auth_rejected=False,
+                ) from None
+            refusals.append("%s: %s" % (scheme, exc))
     raise Failure(
-        "the token was rejected under both Authorization: Bearer and "
-        "Project-Access-Token. Check RAILWAY_TOKEN is a current Railway token "
-        "with access to this project.")
+        "the token was refused by the Railway API under both Authorization: "
+        "Bearer and Project-Access-Token (%s). Check RAILWAY_TOKEN is a current "
+        "Railway token with access to this project." % "; ".join(refusals),
+        auth_rejected=True,
+    )
 
 
 def deploy_mutations(token: str, scheme: str) -> dict[str, list[str]]:

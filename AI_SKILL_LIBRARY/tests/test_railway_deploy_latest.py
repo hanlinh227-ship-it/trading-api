@@ -110,6 +110,127 @@ class RefusalTests(unittest.TestCase):
                     os.environ[k] = v
 
 
+class AuthDiagnosisTests(unittest.TestCase):
+    """The first real main run failed here, and the message sent the operator to
+    the wrong place.
+
+    `authenticate` caught every Failure alike, so "Railway refused this token"
+    and "Railway was never reached" both printed "check RAILWAY_TOKEN". That is
+    one label covering two different facts - the same defect this branch has now
+    found repeatedly - and the cost is real: it invites rotating a credential
+    that was never broken while the actual cause (endpoint, egress, an API that
+    is not this API) goes unexamined.
+
+    Each test below DAMAGES one case and demands the diagnosis distinguish it.
+    """
+
+    def _authenticate_with(self, responder):
+        original = deploy._post
+        deploy._post = responder
+        try:
+            return deploy.authenticate("token-value")
+        finally:
+            deploy._post = original
+
+    def test_a_401_is_an_auth_rejection_and_the_other_scheme_is_tried(self):
+        seen = []
+
+        def responder(query, variables, token, scheme):
+            seen.append(scheme)
+            if scheme == "bearer":
+                raise deploy.Failure("Railway API returned HTTP 401",
+                                     auth_rejected=True)
+            return {}
+
+        self.assertEqual(self._authenticate_with(responder), "project")
+        self.assertEqual(seen, ["bearer", "project"])
+
+    def test_both_schemes_refused_says_refused_and_names_each_reason(self):
+        def responder(query, variables, token, scheme):
+            raise deploy.Failure("HTTP 403 for %s" % scheme, auth_rejected=True)
+
+        with self.assertRaises(deploy.Failure) as caught:
+            self._authenticate_with(responder)
+        message = str(caught.exception)
+        self.assertIn("refused", message)
+        self.assertIn("RAILWAY_TOKEN", message)
+        self.assertIn("HTTP 403 for bearer", message)
+        self.assertIn("HTTP 403 for project", message)
+        self.assertTrue(caught.exception.auth_rejected)
+
+    def test_an_unreachable_api_is_not_reported_as_a_bad_token(self):
+        """The case that would have misdirected a real operator."""
+        def responder(query, variables, token, scheme):
+            raise deploy.Failure("Railway API unreachable: URLError",
+                                 auth_rejected=False)
+
+        with self.assertRaises(deploy.Failure) as caught:
+            self._authenticate_with(responder)
+        message = str(caught.exception)
+        self.assertIn("NOT an authentication failure", message)
+        self.assertFalse(caught.exception.auth_rejected)
+
+    def test_a_non_auth_failure_stops_immediately_without_trying_the_other(self):
+        """A wrong endpoint fails identically under both schemes, so retrying
+        only buys a second misleading line."""
+        seen = []
+
+        def responder(query, variables, token, scheme):
+            seen.append(scheme)
+            raise deploy.Failure("Railway API returned HTTP 404",
+                                 auth_rejected=False)
+
+        with self.assertRaises(deploy.Failure):
+            self._authenticate_with(responder)
+        self.assertEqual(seen, ["bearer"])
+
+    def _post_against_http(self, code):
+        """Drive the real `_post` into an HTTPError of `code` and return what it
+        decided, so the classification is tested rather than restated."""
+        import urllib.error
+        import urllib.request
+
+        def raiser(request, timeout=None):
+            raise urllib.error.HTTPError(
+                deploy.ENDPOINT, code, "boom", {}, None)
+
+        original = urllib.request.urlopen
+        urllib.request.urlopen = raiser
+        try:
+            with self.assertRaises(deploy.Failure) as caught:
+                deploy._post("query { __typename }", {}, "tok", "bearer")
+            return caught.exception
+        finally:
+            urllib.request.urlopen = original
+
+    def test_http_401_and_403_classify_as_auth_rejections(self):
+        for code in (401, 403):
+            with self.subTest(code=code):
+                self.assertTrue(self._post_against_http(code).auth_rejected)
+
+    def test_other_http_statuses_never_claim_the_token_was_rejected(self):
+        """A 404 from a stale endpoint and a 500 from a bad day are both the API
+        failing to judge the token, not judging it badly."""
+        for code in (400, 404, 429, 500, 502):
+            with self.subTest(code=code):
+                failure = self._post_against_http(code)
+                self.assertFalse(failure.auth_rejected)
+                self.assertIn(str(code), str(failure))
+
+    def test_graphql_wording_decides_when_the_status_cannot(self):
+        """Railway phrases some refusals in the body with a 200 status, so the
+        status alone cannot classify them."""
+        self.assertTrue(deploy._AUTH_REJECTION_RE.search("Not Authorized"))
+        self.assertTrue(deploy._AUTH_REJECTION_RE.search("unauthenticated"))
+        self.assertTrue(deploy._AUTH_REJECTION_RE.search("Invalid token"))
+        self.assertIsNone(deploy._AUTH_REJECTION_RE.search(
+            "Cannot query field \"nope\" on type \"Mutation\""))
+
+    def test_a_schema_error_is_not_mistaken_for_an_auth_problem(self):
+        failure = deploy.Failure("Cannot query field x", auth_rejected=False)
+        self.assertFalse(failure.auth_rejected)
+
+
 class WorkflowWiringTests(unittest.TestCase):
     """The gates around the deploy, asserted against the workflow itself."""
 
