@@ -60,8 +60,9 @@ The Legion never becomes a second trading authority. Final chain:
 - Losses contract risk twice: the capital base falls immediately and the drawdown multiplier reduces percentage risk.
 - DD governor: 2% x0.92, 5% x0.80, 8% x0.65, 10% x0.55, 15% x0.30, 20% new-risk lock.
 - Active risk 6% normal, 8% temporary A+.
-- Margin cap stays 65% at every account size; target reserve >=25%. Larger accounts do not unlock a wider portfolio margin cap.
-- Unlimited strategic trade count; actual entries are constrained by risk/margin/market state, not a daily quota.
+- The full account balance may be used as eligible capital/margin capacity: portfolio margin cap 100%, per-position margin cap 100%, minimum reserve 0%. This does NOT mean 100% stop-loss risk; per-entry and active-risk limits remain enforced.
+- No daily loss limit, no daily profit cap, no daily max-trade count, no daily target and no time-based daily lock. The engine may keep trading while valid setups exist.
+- Unlimited strategic trade count; actual entries are constrained by per-trade risk, active-risk capacity, drawdown state, market quality, AI evidence and exchange margin—not by a daily quota.
 - Winner pyramiding ON; risk recycling ON.
 - Add-to-loser OFF; martingale OFF; grid rescue OFF.
 
