@@ -1,0 +1,134 @@
+name: DeepSeek Lane — Survival Policy and Secrets
+
+on:
+  push:
+    branches: [work/deepseek-survival-plane-442]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deepseek-survival-plane-442
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    if: github.repository == 'hanlinh227-ship-it/trading-api' && github.actor == 'hanlinh227-ship-it'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/deepseek-survival-plane-442
+          fetch-depth: 0
+
+      - name: Declare bounded authority
+        run: |
+          echo "routing_authority=false"
+          echo "reasoning_authority=false"
+          echo "scheduling_authority=false"
+          echo "merge_authority=false"
+          echo "deployment_authority=false"
+          echo "trading_authority=false"
+
+      - name: Verify secret presence by name only
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+            echo "DEEPSEEK_SECRET_PRESENT=MISSING"
+            exit 1
+          fi
+          echo "DEEPSEEK_SECRET_PRESENT=PRESENT"
+
+      - name: Build narrow coding request
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          prompt = '''Implement only Tasks 1 and 2 of the approved Survival Plane plan.
+          Return one JSON object with exactly one key, "files". "files" must map exactly these five repository paths to complete UTF-8 file contents:
+          AI_SKILL_LIBRARY/v4/survival/policy.yaml
+          AI_SKILL_LIBRARY/v4/survival/policy_adapter.py
+          AI_SKILL_LIBRARY/v4/survival/secrets.py
+          AI_SKILL_LIBRARY/tests/test_survival_policy.py
+          AI_SKILL_LIBRARY/tests/test_survival_secrets.py
+
+          Requirements:
+          - Python 3, YAML policy, pytest/unittest-compatible tests.
+          - Implement evaluate_policy(input_doc) -> Decision(allow: bool, reasons: list[str]).
+          - Fail closed for LOCAL_ONLY placement violations, paid paths, and unverified providers.
+          - Add an immutable SecretRef(provider, path, version) and resolve_secret(ref, backend).
+          - Reject plaintext secret serialization and never log or persist resolved secret values.
+          - routing/reasoning/scheduling/merge/deployment/trading authority are all false.
+          - Do not modify Storage Mesh files, checkpoint.json, shared_state.yaml, universal_fabric.yaml, or release pointers.
+          - Do not add dependencies and do not include Markdown fences or commentary outside the JSON object.
+          '''
+          request = {
+              "model": "deepseek-chat",
+              "max_tokens": 6000,
+              "temperature": 0.1,
+              "response_format": {"type": "json_object"},
+              "messages": [
+                  {"role": "system", "content": "You are a bounded coding worker. Obey the exact file allowlist and return complete files only."},
+                  {"role": "user", "content": prompt},
+              ],
+          }
+          Path('/tmp/deepseek-request.json').write_text(json.dumps(request), encoding='utf-8')
+          PY
+
+      - name: Run one bounded DeepSeek coding call
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /tmp/deepseek-response.json -w '%{http_code}' \
+            --connect-timeout 15 --max-time 240 \
+            -H "Authorization: Bearer ${DEEPSEEK_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/deepseek-request.json \
+            https://api.deepseek.com/v1/chat/completions || echo 000)"
+          if [ "${code}" != "200" ]; then
+            echo "DEEPSEEK_API_HEALTH=FAIL"
+            echo "DEEPSEEK_API_HTTP=${code}"
+            exit 1
+          fi
+          echo "DEEPSEEK_API_HEALTH=PASS"
+          python3 .github/scripts/deepseek_lane_apply.py /tmp/deepseek-response.json .
+
+      - name: Enforce file ownership
+        run: |
+          set -euo pipefail
+          allowed='^(AI_SKILL_LIBRARY/v4/survival/(policy.yaml|policy_adapter.py|secrets.py)|AI_SKILL_LIBRARY/tests/test_survival_(policy|secrets).py)$'
+          unexpected="$(git status --short | awk '{print $2}' | grep -Ev "${allowed}" || true)"
+          if [ -n "${unexpected}" ]; then
+            echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
+            exit 1
+          fi
+          echo "DEEPSEEK_FILE_OWNERSHIP=PASS"
+
+      - name: Run focused tests
+        run: |
+          python3 -m pip install -r AI_SKILL_LIBRARY/requirements.txt pytest
+          python3 -m pytest -q \
+            AI_SKILL_LIBRARY/tests/test_survival_policy.py \
+            AI_SKILL_LIBRARY/tests/test_survival_secrets.py
+          echo "DEEPSEEK_TESTS=PASS"
+
+      - name: Commit first DeepSeek task
+        run: |
+          set -euo pipefail
+          git config user.name 'DeepSeek Coding Lane'
+          git config user.email 'deepseek-lane@users.noreply.github.com'
+          git add \
+            AI_SKILL_LIBRARY/v4/survival/policy.yaml \
+            AI_SKILL_LIBRARY/v4/survival/policy_adapter.py \
+            AI_SKILL_LIBRARY/v4/survival/secrets.py \
+            AI_SKILL_LIBRARY/tests/test_survival_policy.py \
+            AI_SKILL_LIBRARY/tests/test_survival_secrets.py
+          git commit -m 'feat(survival): add policy and secret-reference contracts'
+          git push origin HEAD:work/deepseek-survival-plane-442
+          echo "DEEPSEEK_FIRST_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_CODING_LANE_READY=PASS"
