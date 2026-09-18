@@ -56,6 +56,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from AI_SKILL_LIBRARY.v4.storage import manifest as manifest_module
+from AI_SKILL_LIBRARY.v4.storage import mesh_validator
 from AI_SKILL_LIBRARY.v4.storage import encryption
 
 from AI_SKILL_LIBRARY.tests.test_storage_metadata import (
@@ -174,6 +175,65 @@ class KeyProviderDouble:
 
 def provider(**kwargs):
     return KeyProviderDouble(**kwargs)
+
+
+class KeyRefSensitiveProvider(KeyProviderDouble):
+    """A key provider that actually *looks at* the reference it is handed.
+
+    ``KeyProviderDouble.key_for`` ignores its argument and always returns the
+    same key, which is why the key-lookup failure branch of the decrypt path was
+    unreachable from every fixture in this file: a mutated ``key_ref`` reached
+    an AEAD that then failed authentication, and the refusal nobody could see
+    was the one raised *before* that, when the secret store cannot resolve the
+    reference at all.
+
+    A real secret store resolves some references and not others. So does this.
+    """
+
+    def __init__(self, *args, known=(KEY_REF,), **kwargs):
+        super().__init__(*args, **kwargs)
+        self._known = frozenset(known)
+
+    def key_for(self, key_ref):
+        if key_ref not in self._known:
+            raise NotCryptographyError("no such key reference in this store")
+        return super().key_for(key_ref)
+
+
+def known_ref_provider(**kwargs):
+    return KeyRefSensitiveProvider(**kwargs)
+
+
+class UndeclaredAead:
+    """A vault-backed AEAD that says nothing about being a test double.
+
+    Used where the subject of the test is the *provider*'s self-declaration:
+    a ``VaultTestDouble`` here would trip its own gate first and the test would
+    pass for a reason it is not about.
+    """
+
+    algorithm = "aead-standard-library"
+    key_length = 32
+    nonce_length = 12
+    tag_length = 16
+
+    def __init__(self):
+        self._inner = VaultTestDouble(encryption.TEST_DOUBLE_ACKNOWLEDGEMENT)
+
+    def seal(self, *args):
+        return self._inner.seal(*args)
+
+    def open(self, *args):
+        return self._inner.open(*args)
+
+
+def double_for(algorithm, **overrides):
+    """A vault double shaped the way ``algorithm`` says it must be shaped."""
+    key_length, nonce_length, tag_length = encryption.ALGORITHM_SHAPES[algorithm]
+    kwargs = {"algorithm": algorithm, "key_length": key_length,
+              "nonce_length": nonce_length, "tag_length": tag_length}
+    kwargs.update(overrides)
+    return VaultTestDouble(encryption.TEST_DOUBLE_ACKNOWLEDGEMENT, **kwargs)
 
 
 def seal(payload=PLAINTEXT, key_provider=None, key_ref=KEY_REF):
@@ -488,11 +548,13 @@ class FailClosedTests(unittest.TestCase):
                         allow_test_double=True)
 
     def test_every_policy_algorithm_is_accepted(self):
+        # Shaped per algorithm now: a provider that names a construction and
+        # then declares some other construction's parameters is refused, so the
+        # double has to declare the shape that goes with the name it uses.
         for algorithm in encryption.ALLOWED_ALGORITHMS:
             with self.subTest(algorithm=algorithm):
-                aead = VaultTestDouble(encryption.TEST_DOUBLE_ACKNOWLEDGEMENT,
-                                       algorithm=algorithm)
-                encrypted, keys = seal(key_provider=provider(aead=aead))
+                encrypted, keys = seal(
+                    key_provider=provider(aead=double_for(algorithm)))
                 self.assertEqual(encrypted.metadata()["algorithm"], algorithm)
 
     def test_a_key_provider_returning_none_or_nothing_refuses(self):
@@ -561,6 +623,266 @@ class FailClosedTests(unittest.TestCase):
                     encryption.encrypt_for_storage(
                         PLAINTEXT, provider(aead=aead), KEY_REF,
                         allow_test_double=True)
+
+
+class AlgorithmShapeTests(unittest.TestCase):
+    """Finding 2. The attested algorithm and the parameters actually used.
+
+    ``key_length``, ``nonce_length`` and ``tag_length`` used to be bounded
+    independently of each other and of the algorithm *name*, and the name went
+    straight into ``metadata()`` and from there into the manifest, which Spec
+    S23 makes a rebuild input. A provider could therefore declare
+    ``aes-256-gcm`` with a 128-bit key, a 64-bit nonce and a 96-bit tag, round
+    trip cleanly, and leave behind a manifest attesting a construction that was
+    not performed.
+    """
+
+    def test_every_policy_algorithm_has_a_declared_shape(self):
+        self.assertEqual(set(encryption.ALGORITHM_SHAPES),
+                         set(encryption.ALLOWED_ALGORITHMS))
+        for algorithm, shape in encryption.ALGORITHM_SHAPES.items():
+            with self.subTest(algorithm=algorithm):
+                key_length, nonce_length, tag_length = shape
+                self.assertIn(key_length, encryption.ALLOWED_KEY_BYTES)
+                self.assertGreaterEqual(nonce_length, encryption.MIN_NONCE_BYTES)
+                self.assertLessEqual(nonce_length, encryption.MAX_NONCE_BYTES)
+                self.assertGreaterEqual(tag_length, encryption.MIN_TAG_BYTES)
+                self.assertLessEqual(tag_length, encryption.MAX_TAG_BYTES)
+
+    def test_a_provider_whose_shape_contradicts_its_name_is_refused(self):
+        # The exact reproduction from the review.
+        aead = VaultTestDouble(encryption.TEST_DOUBLE_ACKNOWLEDGEMENT,
+                               algorithm="aes-256-gcm", key_length=16,
+                               nonce_length=8, tag_length=12)
+        with self.assertRaises(encryption.EncryptionUnavailable):
+            encryption.encrypt_for_storage(
+                PLAINTEXT, provider(aead=aead, key=b"k" * 16), KEY_REF,
+                allow_test_double=True)
+
+    def test_each_parameter_alone_is_enough_to_refuse(self):
+        for algorithm in encryption.ALLOWED_ALGORITHMS:
+            key_length, nonce_length, tag_length = \
+                encryption.ALGORITHM_SHAPES[algorithm]
+            for override in ({"key_length": 16 if key_length != 16 else 24},
+                             {"nonce_length": 24 if nonce_length != 24 else 12},
+                             {"tag_length": 24 if tag_length != 24 else 16}):
+                with self.subTest(algorithm=algorithm, override=override):
+                    aead = double_for(algorithm, **override)
+                    with self.assertRaises(encryption.EncryptionUnavailable):
+                        encryption.encrypt_for_storage(
+                            PLAINTEXT, provider(aead=aead, key=b"k" * 32),
+                            KEY_REF, allow_test_double=True)
+
+    def test_the_shape_table_is_derived_from_policy_yaml(self):
+        policy = ((mesh_validator.load_policy().get("encryption") or {})
+                  .get("allowed_algorithms") or [])
+        self.assertEqual(set(encryption.ALGORITHM_SHAPES), set(policy))
+
+    def test_an_algorithm_with_no_known_shape_fails_closed(self):
+        # A construction added to policy.yaml without a shape here must refuse,
+        # not fall back to the old independent bounds.
+        saved = dict(encryption.ALGORITHM_SHAPES)
+        try:
+            encryption.ALGORITHM_SHAPES.pop("aead-standard-library")
+            aead = VaultTestDouble(encryption.TEST_DOUBLE_ACKNOWLEDGEMENT)
+            with self.assertRaises(encryption.EncryptionUnavailable):
+                encryption.encrypt_for_storage(PLAINTEXT, provider(aead=aead),
+                                               KEY_REF, allow_test_double=True)
+        finally:
+            encryption.ALGORITHM_SHAPES.clear()
+            encryption.ALGORITHM_SHAPES.update(saved)
+
+    def test_the_generated_nonce_is_at_least_96_bits(self):
+        # This module generates the nonce itself with secrets.token_bytes, so
+        # the floor is not "the smallest nonce some construction accepts" - it
+        # is the smallest nonce that is safe to pick at random. 64 bits collides
+        # near 2**32 objects and a repeat is catastrophic for GCM.
+        self.assertGreaterEqual(encryption.MIN_NONCE_BYTES, 12)
+        for algorithm in encryption.ALLOWED_ALGORITHMS:
+            with self.subTest(algorithm=algorithm):
+                self.assertGreaterEqual(
+                    encryption.ALGORITHM_SHAPES[algorithm][1], 12)
+
+    def test_the_metadata_algorithm_matches_the_parameters_used(self):
+        for algorithm in encryption.ALLOWED_ALGORITHMS:
+            with self.subTest(algorithm=algorithm):
+                aead = double_for(algorithm)
+                encrypted, _ = seal(key_provider=provider(aead=aead))
+                self.assertEqual(encrypted.metadata()["algorithm"], algorithm)
+                self.assertEqual(
+                    len(base64.b64decode(encrypted.metadata()["nonce"])),
+                    encryption.ALGORITHM_SHAPES[algorithm][1])
+                self.assertEqual(
+                    len(base64.b64decode(encrypted.metadata()["tag"])),
+                    encryption.ALGORITHM_SHAPES[algorithm][2])
+
+
+class SelfDeclarationGateTests(unittest.TestCase):
+    """Finding 3. The one gate in this module that used to fail *open*.
+
+    ``_attr`` wrapped ``getattr`` but the truth test happened outside it, so an
+    object whose ``__bool__`` raised escaped as a raw exception carrying its own
+    message into the traceback, and a ``is_test_double`` *property* that raised
+    was swallowed into ``None`` - falsy - which skipped the gate entirely and
+    let a non-cryptographic double through as a real backend.
+    """
+
+    def test_an_unreadable_self_declaration_is_treated_as_a_double(self):
+        class UnreadableDeclaration:
+            test_double_acknowledgement = encryption.TEST_DOUBLE_ACKNOWLEDGEMENT
+            aead = UndeclaredAead()
+
+            @property
+            def is_test_double(self):
+                raise RuntimeError("cannot say")
+
+            def key_for(self, key_ref):
+                return b"k" * 32
+
+        with self.assertRaises(encryption.EncryptionUnavailable):
+            encryption.encrypt_for_storage(PLAINTEXT, UnreadableDeclaration(),
+                                           KEY_REF, allow_test_double=False)
+
+    def test_a_declaration_whose_bool_raises_does_not_escape(self):
+        class NeedleBool:
+            def __bool__(self):
+                raise RuntimeError("secret was " + SMUGGLED_CREDENTIAL)
+
+        class NeedleProvider:
+            is_test_double = NeedleBool()
+            test_double_acknowledgement = encryption.TEST_DOUBLE_ACKNOWLEDGEMENT
+            aead = UndeclaredAead()
+
+            def key_for(self, key_ref):
+                return b"k" * 32
+
+        text = formatted_traceback(encryption.encrypt_for_storage, PLAINTEXT,
+                                   NeedleProvider(), KEY_REF,
+                                   allow_test_double=False)
+        self.assertNotIn(SMUGGLED_CREDENTIAL, text)
+        self.assertIn("EncryptionUnavailable", text)
+
+
+class PolicyAgreementTests(unittest.TestCase):
+    """Finding 4. ``metadata_fields_allowed`` is enforced by nothing.
+
+    ``grep -rn metadata_fields_allowed --include=*.py`` returns nothing, so the
+    list in ``policy.yaml`` and the fields this module actually emits could
+    disagree in silence - and did: ``key_rotation_generation`` was missing from
+    the policy list while every ``metadata()`` call emitted it. This test is the
+    enforcement that was absent.
+    """
+
+    def test_policy_lists_exactly_the_fields_this_module_emits(self):
+        allowed = ((mesh_validator.load_policy().get("encryption") or {})
+                   .get("metadata_fields_allowed") or [])
+        self.assertEqual(set(allowed), set(encryption.ENCRYPTION_METADATA_FIELDS))
+
+
+class UploadPlanConstructionTests(unittest.TestCase):
+    """Finding 6. ``UploadPlan`` is exported, so it is constructible.
+
+    Its docstring says "produced only by ``prepare_upload``" but it is a plain
+    frozen dataclass in ``__all__``: a caller could build a plaintext
+    CONFIDENTIAL object labelled ``CLIENT_SIDE_ENCRYPTED`` and hand it to an
+    adapter, which is Spec S4's exact failure with the one check that exists to
+    prevent it stepped around.
+    """
+
+    def test_a_plaintext_confidential_plan_cannot_be_constructed(self):
+        with self.assertRaises(ValueError):
+            encryption.UploadPlan(payload=b"PLAINTEXT",
+                                  privacy_class="CONFIDENTIAL",
+                                  encryption_state="CLIENT_SIDE_ENCRYPTED",
+                                  encryption={})
+
+    def test_a_confidential_plan_with_no_encryption_state_is_refused(self):
+        with self.assertRaises(ValueError):
+            encryption.UploadPlan(payload=b"PLAINTEXT",
+                                  privacy_class="CONFIDENTIAL",
+                                  encryption_state="NONE", encryption=None)
+
+    def test_a_local_only_plan_cannot_be_constructed_at_all(self):
+        with self.assertRaises(ValueError):
+            encryption.UploadPlan(payload=b"x", privacy_class="LOCAL_ONLY",
+                                  encryption_state="NONE", encryption=None)
+
+    def test_an_unknown_privacy_class_or_state_is_refused(self):
+        with self.assertRaises(ValueError):
+            encryption.UploadPlan(payload=b"x", privacy_class="SECRET",
+                                  encryption_state="NONE", encryption=None)
+        with self.assertRaises(ValueError):
+            encryption.UploadPlan(payload=b"x", privacy_class="PUBLIC",
+                                  encryption_state="MAYBE", encryption=None)
+
+    def test_a_plain_state_with_encryption_metadata_is_refused(self):
+        encrypted, _ = seal()
+        with self.assertRaises(ValueError):
+            encryption.UploadPlan(payload=b"x", privacy_class="PUBLIC",
+                                  encryption_state="NONE",
+                                  encryption=encrypted.metadata())
+
+    def test_the_plan_prepare_upload_produces_still_constructs(self):
+        encrypted, _ = seal()
+        plan = encryption.prepare_upload({"privacy_class": "CONFIDENTIAL"},
+                                         encrypted=encrypted)
+        self.assertEqual(plan.encryption_state, "CLIENT_SIDE_ENCRYPTED")
+        self.assertEqual(plan.payload, encrypted.ciphertext)
+
+
+class CanonicalMetadataTests(unittest.TestCase):
+    """Finding 7. Base64 slack bits make the metadata non-canonical.
+
+    A 16-byte tag leaves two unused bits in the last base64 character, so four
+    distinct strings decode to the same bytes. In a content-addressed mesh where
+    manifests are compared and deduplicated, two byte-different manifests
+    describing the identical object is a hazard, and all four used to decrypt.
+    """
+
+    @staticmethod
+    def _slack(value):
+        """The same bytes, re-spelled with the unused trailing bits set.
+
+        Only a value whose length is not a multiple of three has slack bits; a
+        12-byte nonce encodes to 16 characters with none, so that case skips
+        rather than pretending to test something.
+        """
+        raw = base64.b64decode(value, validate=True)
+        alphabet = ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+                    "0123456789+/")
+        last = max(i for i, ch in enumerate(value) if ch != "=")
+        for candidate in alphabet:
+            if candidate == value[last]:
+                continue
+            spelled = value[:last] + candidate + value[last + 1:]
+            try:
+                if base64.b64decode(spelled, validate=True) == raw:
+                    return spelled
+            except Exception:  # noqa: BLE001
+                continue
+        raise unittest.SkipTest("this length has no base64 slack bits")
+
+    def test_a_non_canonical_tag_is_refused(self):
+        encrypted, keys = seal()
+        spelled = self._slack(encrypted.metadata()["tag"])
+        with self.assertRaises((ValueError, encryption.DecryptionFailed)):
+            encryption.decrypt_from_storage(
+                encrypted.replace(tag=spelled), keys, allow_test_double=True)
+
+    def test_a_non_canonical_nonce_is_refused(self):
+        encrypted, keys = seal()
+        spelled = self._slack(encrypted.metadata()["nonce"])
+        with self.assertRaises((ValueError, encryption.DecryptionFailed)):
+            encryption.decrypt_from_storage(
+                encrypted.replace(nonce=spelled), keys, allow_test_double=True)
+
+    def test_what_this_module_emits_is_already_canonical(self):
+        encrypted, _ = seal()
+        for field in ("nonce", "tag"):
+            value = encrypted.metadata()[field]
+            self.assertEqual(
+                base64.b64encode(base64.b64decode(value, validate=True)).decode(),
+                value, field)
 
 
 class KeyReferenceTests(unittest.TestCase):
@@ -673,18 +995,59 @@ class TamperTests(unittest.TestCase):
                      provider(aead=aead, key=secrets.token_bytes(32)))
 
     def test_every_refusal_reads_the_same(self):
-        # No oracle: a caller must not be able to tell *which* part failed.
-        encrypted, keys = seal()
+        # No oracle: a caller must not be able to tell *which* part failed -
+        # and the *type* of the exception is as much of an oracle as its text.
+        #
+        # The provider here resolves KEY_REF and nothing else, which is the
+        # branch every other fixture in this file cannot reach:
+        # ``KeyProviderDouble.key_for`` ignores its argument, so a mutated
+        # reference always resolved to a key and always failed at the AEAD. A
+        # real secret store says "no such reference", and if that answer comes
+        # back as a different exception type than a wrong key does, an attacker
+        # who can submit objects enumerates the secret-store namespace.
+        keys = known_ref_provider()
+        encrypted, _ = seal(key_provider=keys)
         messages = set()
+        types = set()
         for mutated in (encrypted.replace(ciphertext=tamper(encrypted.ciphertext)),
                         encrypted.replace(ciphertext=encrypted.ciphertext[:-1]),
-                        encrypted.replace(key_ref="env://SOMETHING_ELSE")):
+                        encrypted.replace(key_ref="env://SOMETHING_ELSE"),
+                        encrypted.replace(key_ref="secretstore://mesh/absent"),
+                        encrypted.replace(key_rotation_generation=9)):
             try:
                 encryption.decrypt_from_storage(mutated, keys,
                                                 allow_test_double=True)
-            except encryption.DecryptionFailed as exc:
+            except BaseException as exc:  # noqa: BLE001 - the type is the subject
                 messages.add(str(exc))
+                types.add(type(exc))
+            else:  # pragma: no cover - a returned plaintext is the worst case
+                self.fail("a mutated object decrypted")
+        self.assertEqual(types, {encryption.DecryptionFailed}, types)
         self.assertEqual(len(messages), 1, messages)
+
+    def test_an_unresolvable_key_reference_is_not_an_existence_oracle(self):
+        # Finding 1. A key_ref the secret store cannot resolve and a key_ref it
+        # resolves to the wrong key must be the same refusal. Anything else
+        # enumerates which references exist - the namespace Spec S22/S23 treat
+        # as sensitive rebuild input.
+        keys = known_ref_provider()
+        encrypted, _ = seal(key_provider=keys)
+        with self.assertRaises(encryption.DecryptionFailed):
+            encryption.decrypt_from_storage(
+                encrypted.replace(key_ref="secretstore://mesh/does-not-exist"),
+                keys, allow_test_double=True)
+
+    def test_a_secret_store_that_is_down_is_not_an_oracle_either(self):
+        # The same branch reached the other way: the store answers nothing at
+        # all for every reference. Still DecryptionFailed, because by this point
+        # attacker-controlled fields have already been read.
+        aead = VaultTestDouble(encryption.TEST_DOUBLE_ACKNOWLEDGEMENT)
+        encrypted, _ = seal(key_provider=provider(aead=aead))
+        broken = provider(aead=aead,
+                          raises=NotCryptographyError("secret store is down"))
+        with self.assertRaises(encryption.DecryptionFailed):
+            encryption.decrypt_from_storage(encrypted, broken,
+                                            allow_test_double=True)
 
     def test_a_decrypt_of_a_non_encrypted_object_refuses(self):
         keys = provider()
@@ -922,6 +1285,14 @@ class DegradeDoNotCrashTests(unittest.TestCase):
     ``bytes`` is a ``collections.abc.Sequence``, which is how a bytes object
     walks through a "is this a sequence of records" check, so byte strings are
     in the sweep on purpose.
+
+    These used to be ``try: call(value) except ALLOWED: pass`` with no ``else``
+    and no assertion, which detects a crash and is blind to the worse outcome: a
+    hostile value silently *accepted*. A regression that made ``prepare_upload``
+    return a plan for ``encrypted=b"x"`` passed this class untouched. Every
+    value that is known to be invalid for a given argument is now asserted to
+    refuse, and the one argument with valid members - a payload, where ``b""``
+    and ``bytearray(b"x")`` are legitimate - says so explicitly.
     """
 
     HOSTILE = (None, "", "x", b"", b"x", bytearray(b"x"), 0, 1, -1, 1.5, True,
@@ -931,54 +1302,79 @@ class DegradeDoNotCrashTests(unittest.TestCase):
     ALLOWED = (ValueError, encryption.EncryptionUnavailable,
                encryption.DecryptionFailed)
 
+    @staticmethod
+    def _is_valid_payload(value):
+        return type(value) in (bytes, bytearray)
+
+    def refuses(self, call, value):
+        """The value must refuse, with one of the contract's own exceptions."""
+        try:
+            result = call(value)
+        except self.ALLOWED:
+            return
+        except BaseException as exc:  # noqa: BLE001 - an escape is the bug
+            self.fail(f"escaped as {type(exc).__name__}")
+        self.fail(f"accepted a hostile value and returned {type(result).__name__}")
+
     def test_encrypt_refuses_every_hostile_argument(self):
         for value in self.HOSTILE:
-            for call in (
-                lambda v: encryption.encrypt_for_storage(
-                    v, provider(), KEY_REF, allow_test_double=True),
-                lambda v: encryption.encrypt_for_storage(
-                    PLAINTEXT, v, KEY_REF, allow_test_double=True),
-                lambda v: encryption.encrypt_for_storage(
-                    PLAINTEXT, provider(), v, allow_test_double=True),
-            ):
-                with self.subTest(value=repr(value)[:24]):
-                    try:
-                        call(value)
-                    except self.ALLOWED:
-                        pass
+            with self.subTest(value=repr(value)[:24]):
+                if not self._is_valid_payload(value):
+                    self.refuses(
+                        lambda v: encryption.encrypt_for_storage(
+                            v, provider(), KEY_REF, allow_test_double=True),
+                        value)
+                self.refuses(
+                    lambda v: encryption.encrypt_for_storage(
+                        PLAINTEXT, v, KEY_REF, allow_test_double=True), value)
+                self.refuses(
+                    lambda v: encryption.encrypt_for_storage(
+                        PLAINTEXT, provider(), v, allow_test_double=True), value)
+
+    def test_a_legitimate_payload_is_still_accepted(self):
+        # The other half of the assertion above: the values excluded from the
+        # sweep are excluded because they are valid, not because they are
+        # awkward.
+        for value in (b"", b"x", bytearray(b"x")):
+            with self.subTest(value=repr(value)):
+                encrypted, keys = seal(payload=value)
+                self.assertEqual(
+                    encryption.decrypt_from_storage(encrypted, keys,
+                                                    allow_test_double=True),
+                    bytes(value))
 
     def test_decrypt_refuses_every_hostile_argument(self):
         encrypted, keys = seal()
         for value in self.HOSTILE:
             with self.subTest(value=repr(value)[:24]):
-                try:
-                    encryption.decrypt_from_storage(value, keys,
-                                                    allow_test_double=True)
-                except self.ALLOWED:
-                    pass
-                try:
-                    encryption.decrypt_from_storage(encrypted, value,
-                                                    allow_test_double=True)
-                except self.ALLOWED:
-                    pass
+                self.refuses(
+                    lambda v: encryption.decrypt_from_storage(
+                        v, keys, allow_test_double=True), value)
+                self.refuses(
+                    lambda v: encryption.decrypt_from_storage(
+                        encrypted, v, allow_test_double=True), value)
 
     def test_prepare_upload_refuses_every_hostile_argument(self):
         for value in self.HOSTILE:
             with self.subTest(value=repr(value)[:24]):
-                try:
-                    encryption.prepare_upload(value, payload=PLAINTEXT)
-                except self.ALLOWED:
-                    pass
-                try:
-                    encryption.prepare_upload({"privacy_class": "PUBLIC"},
-                                              payload=value)
-                except self.ALLOWED:
-                    pass
-                try:
-                    encryption.prepare_upload({"privacy_class": "CONFIDENTIAL"},
-                                              encrypted=value)
-                except self.ALLOWED:
-                    pass
+                self.refuses(
+                    lambda v: encryption.prepare_upload(v, payload=PLAINTEXT),
+                    value)
+                if not self._is_valid_payload(value):
+                    self.refuses(
+                        lambda v: encryption.prepare_upload(
+                            {"privacy_class": "PUBLIC"}, payload=v), value)
+                self.refuses(
+                    lambda v: encryption.prepare_upload(
+                        {"privacy_class": "CONFIDENTIAL"}, encrypted=v), value)
+
+    def test_prepare_upload_still_accepts_a_legitimate_payload(self):
+        for value in (b"", b"x", bytearray(b"x")):
+            with self.subTest(value=repr(value)):
+                plan = encryption.prepare_upload({"privacy_class": "PUBLIC"},
+                                                 payload=value)
+                self.assertEqual(plan.encryption_state, "NONE")
+                self.assertEqual(plan.payload, bytes(value))
 
 
 def _probe_for_a_real_aead():  # pragma: no cover - availability, not behaviour

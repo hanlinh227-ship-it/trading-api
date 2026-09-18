@@ -61,9 +61,29 @@ established, and it is what is used here.
 ``scheme_version`` and ``key_rotation_generation`` are bound as associated data,
 so re-pointing a ciphertext at a different key is an authentication failure
 rather than a decrypt-with-whatever-is-there. Every failure on the decrypt path
-raises ``DecryptionFailed`` with one identical message, so a caller cannot use
-the refusal as an oracle for which part they got wrong, and no path returns
-bytes that were not authenticated.
+after an attacker-controlled field has been read raises ``DecryptionFailed``
+with one identical message - including a ``key_ref`` the secret store cannot
+resolve at all, which used to escape as ``EncryptionUnavailable`` and therefore
+told a caller which references exist - so a caller cannot use the refusal, its
+text *or its type*, as an oracle for which part they got wrong.
+
+Two things that sentence does not claim, stated here rather than left to be
+discovered:
+
+*"No path returns bytes that were not authenticated" is true modulo the
+injected primitive.* This module verifies nothing itself and cannot: a
+``seal``/``open`` pair that returns attacker-chosen bytes for any input - a
+primitive that lies - has those bytes returned to the caller, and no check here
+would notice. The gates around injection (``is_test_double``, the
+acknowledgement, ``allow_test_double``, the algorithm vocabulary and now the
+parameter shapes) are about which provider gets used; the authentication itself
+is the provider's, and trusting it is the design.
+
+*Constructing an ``EncryptedObject`` with an unknown keyword raises ``TypeError``
+from the dataclass machinery, and that message does quote the keyword name.* The
+redaction discipline in this file covers the paths it owns; the dataclass
+constructor is not one of them. ``replace()`` is the supported way to change a
+field, its keyword set is closed, and its refusals redact.
 
 This module decides no placement. ``AUTHORITY`` is ``False`` and so are all
 eight flags.
@@ -126,9 +146,21 @@ TEST_DOUBLE_ACKNOWLEDGEMENT = (
 
 #: Spec S21's closed vocabulary, read from ``policy.yaml`` rather than restated.
 #: Adding a construction is a deliberate edit to that file, which is the point.
-ALLOWED_ALGORITHMS = tuple(
-    (_mesh_validator.load_policy().get("encryption") or {})
-    .get("allowed_algorithms") or ())
+#:
+#: This is a **snapshot taken at import**, while ``manifest._check_encryption_
+#: algorithm`` re-reads ``policy.yaml`` on every call. In a long-lived process
+#: that edits the policy file in place the two can disagree, and the manifest's
+#: fresh read is the authority; treat this tuple as advisory - it is here so a
+#: caller can see the vocabulary without a file read, not so anything can be
+#: decided from it. ``_algorithm_of`` validates through the manifest checker and
+#: not against this tuple, so the drift cannot make anything more permissive.
+def _policy_algorithms():
+    """The current ``encryption.allowed_algorithms``, read fresh."""
+    return tuple((_mesh_validator.load_policy().get("encryption") or {})
+                 .get("allowed_algorithms") or ())
+
+
+ALLOWED_ALGORITHMS = _policy_algorithms()
 
 #: Key sizes a standard AEAD accepts. Not a preference: a construction that
 #: wants some other length is not one of the constructions ``policy.yaml``
@@ -137,15 +169,66 @@ ALLOWED_KEY_BYTES = (16, 24, 32)
 
 #: Nonce and tag travel in the manifest, where the schema bounds both strings to
 #: 32 characters. 24 raw bytes is exactly 32 base64 characters, which is also
-#: the largest standard AEAD nonce (XChaCha20's 192-bit nonce); 8 bytes is the
-#: smallest nonce any of these constructions uses, and 12 bytes (96 bits) is the
-#: standard tag floor. The upper bounds are not taste - a longer value cannot be
-#: represented in the metadata field at all, so it is refused up front rather
-#: than after the expensive part.
-MIN_NONCE_BYTES = 8
+#: the largest standard AEAD nonce (XChaCha20's 192-bit nonce), and 12 bytes
+#: (96 bits) is the standard tag floor. The upper bounds are not taste - a
+#: longer value cannot be represented in the metadata field at all, so it is
+#: refused up front rather than after the expensive part.
+#:
+#: These are coarse gates and not the check that matters: ``ALGORITHM_SHAPES``
+#: below reconciles all three against the algorithm the provider *names*.
+#:
+#: The nonce floor is 12 and not 8 because **this module generates the nonce
+#: itself** (``secrets.token_bytes(aead.nonce_length)``). The question is
+#: therefore not "what is the smallest nonce some AEAD accepts" but "what is the
+#: smallest nonce that is safe to pick at random": 64 bits collides near 2**32
+#: objects by the birthday bound, and a repeated nonce under GCM is not a
+#: degraded property but authenticator recovery. 96 bits is the floor, and no
+#: construction in ``policy.yaml`` wanted less anyway.
+MIN_NONCE_BYTES = 12
 MAX_NONCE_BYTES = 24
 MIN_TAG_BYTES = 12
 MAX_TAG_BYTES = 24
+
+#: The parameters that go with each construction's **name**.
+#:
+#: Key, nonce and tag lengths used to be bounded independently of each other and
+#: of the algorithm, and the algorithm was checked separately against
+#: ``policy.yaml``. Nothing reconciled the two, so a provider could declare
+#: ``aes-256-gcm`` with a 128-bit key, a 64-bit nonce and a 96-bit tag, round
+#: trip cleanly, and write ``"algorithm": "aes-256-gcm"`` into ``metadata()`` -
+#: which lands in the manifest, which Spec S23 makes a rebuild input. The
+#: metadata would be attesting a construction that was not performed.
+#:
+#: These are the standard parameters of the named constructions and not a
+#: choice made here: AES-GCM, AES-GCM-SIV and ChaCha20-Poly1305 are 256-bit key,
+#: 96-bit nonce, 128-bit tag; XChaCha20-Poly1305 differs only in its 192-bit
+#: nonce, which is the whole point of the X. ``aead-standard-library`` is the
+#: neutral placeholder ``policy.yaml`` carries for the contract tests while the
+#: backend is owned elsewhere; it is given an **explicit** entry at the modern
+#: standard shape (32/12/16) rather than being exempted, because an exemption is
+#: a hole shaped exactly like the thing this table exists to close - a provider
+#: that wants looser parameters would simply name the placeholder.
+_KNOWN_ALGORITHM_SHAPES = {
+    "aead-standard-library": (32, 12, 16),
+    "aes-256-gcm": (32, 12, 16),
+    "aes-256-gcm-siv": (32, 12, 16),
+    "chacha20-poly1305": (32, 12, 16),
+    "xchacha20-poly1305": (32, 24, 16),
+}
+
+#: Derived from ``policy.yaml``, never typed out beside it. An algorithm the
+#: policy allows and this table has no shape for is absent here and therefore
+#: **refused**: a construction whose parameters nobody has written down cannot
+#: be reconciled with the name it puts in the manifest, and failing closed makes
+#: adding one a deliberate two-line edit rather than a silent widening.
+ALGORITHM_SHAPES = {name: _KNOWN_ALGORITHM_SHAPES[name]
+                    for name in ALLOWED_ALGORITHMS
+                    if name in _KNOWN_ALGORITHM_SHAPES}
+
+#: Named rather than left implicit, so a policy edit that outruns the shape
+#: table is visible to a reader and to a test instead of only to a refusal.
+ALGORITHMS_WITHOUT_A_KNOWN_SHAPE = tuple(
+    name for name in ALLOWED_ALGORITHMS if name not in _KNOWN_ALGORITHM_SHAPES)
 
 #: Client-side encryption buffers the whole object in memory twice, once as
 #: plaintext and once as ciphertext. 64 MiB is the point past which that stops
@@ -186,11 +269,21 @@ class DecryptionFailed(RuntimeError):
     """The ciphertext did not authenticate, so no plaintext is returned.
 
     One exception with one message for every cause - wrong key, tampered
-    ciphertext, tampered tag, tampered nonce, re-pointed key reference,
-    truncation, an unknown scheme version. Distinguishing them for the caller
-    would hand an attacker an oracle, and none of the distinctions is useful to
-    a legitimate caller, who has exactly one recovery: get the right key and the
-    untouched bytes.
+    ciphertext, tampered tag, tampered nonce, re-pointed key reference, a key
+    reference the secret store cannot resolve at all, a secret store that is
+    down, truncation, a non-canonical base64 spelling, an unknown scheme
+    version. Distinguishing them for the caller would hand an attacker an
+    oracle, and none of the distinctions is useful to a legitimate caller, who
+    has exactly one recovery: get the right key and the untouched bytes.
+
+    The *type* is part of that. An unresolvable key reference used to raise
+    ``EncryptionUnavailable`` instead, which let anyone who could submit objects
+    and read the exception type enumerate which references exist in the secret
+    store - the namespace Spec S22/S23 treat as sensitive rebuild input.
+    Environment problems found *before* any attacker-controlled field is read
+    (no provider, no AEAD, a provider whose shape contradicts its name) still
+    raise ``EncryptionUnavailable``: they are facts about the caller's own
+    process and say nothing about the object.
     """
 
 
@@ -322,6 +415,14 @@ class EncryptedObject:
                     "module buffers in memory")
         for field in ENCRYPTION_METADATA_FIELDS:
             _bounded(field, getattr(self, field))
+        for field in ("nonce", "tag"):
+            if _b64_canonical(getattr(self, field)) is None:
+                _refuse(field,
+                        "is not the canonical base64 spelling of its own bytes. "
+                        "Base64 slack bits let several strings decode to the "
+                        "same value, and in a content-addressed mesh two "
+                        "byte-different manifests for one object is a "
+                        "deduplication hazard")
 
     def metadata(self):
         """Spec S21: algorithm, version and a key *reference* only.
@@ -362,14 +463,75 @@ class EncryptedObject:
 class UploadPlan:
     """What may be handed to a storage adapter, and under what encryption state.
 
-    Produced only by ``prepare_upload``, which is the one place Spec S4's
-    "CONFIDENTIAL leaves owned storage encrypted or not at all" is enforced.
+    Produced by ``prepare_upload``, which is where Spec S4's "CONFIDENTIAL
+    leaves owned storage encrypted or not at all" is decided. It is also
+    exported, and therefore constructible: a frozen dataclass in ``__all__``
+    with no validation let a caller build
+    ``UploadPlan(payload=b"PLAINTEXT", privacy_class="CONFIDENTIAL",
+    encryption_state="CLIENT_SIDE_ENCRYPTED", encryption={})`` and hand it to an
+    adapter - a plaintext CONFIDENTIAL object labelled as ciphertext, which is
+    Spec S4's exact failure with the one check that exists to prevent it stepped
+    around. The docstring said "produced only by ``prepare_upload``" and nothing
+    made that true.
+
+    So the rule is re-checked here rather than only at the factory. The type
+    stays exported, because callers need it for ``isinstance``; what changes is
+    that constructing one directly is no longer a way to skip Spec S4. This is a
+    consistency check on a plan and not a second decision: it can refuse a plan,
+    it cannot approve one ``prepare_upload`` would have refused.
     """
 
     payload: bytes
     privacy_class: str
     encryption_state: str
     encryption: dict = None
+
+    #: The two states a plan may carry. A third would be a claim about the
+    #: object nobody in this module can verify.
+    ENCRYPTION_STATES = ("NONE", "CLIENT_SIDE_ENCRYPTED")
+
+    def __post_init__(self):
+        if type(self.payload) is bytearray:
+            object.__setattr__(self, "payload", bytes(self.payload))
+        if type(self.payload) is not bytes:
+            _refuse("payload", "must be bytes")
+        if self.privacy_class not in PRIVACY_CLASSES:
+            _refuse("privacy_class",
+                    f"is not one of {list(PRIVACY_CLASSES)}; an unrecognised "
+                    "class fails closed rather than defaulting")
+        if self.privacy_class in NEVER_UPLOADED:
+            _refuse("privacy_class",
+                    "is LOCAL_ONLY, which must never be uploaded to third-party "
+                    "storage. Encrypting it does not change that: an encrypted "
+                    "upload is still an upload (Spec S4)")
+        if self.encryption_state not in self.ENCRYPTION_STATES:
+            _refuse("encryption_state",
+                    f"is not one of {list(self.ENCRYPTION_STATES)}")
+        if self.encryption_state == "NONE":
+            if self.encryption is not None:
+                _refuse("encryption",
+                        "is present on a plan that says the object is "
+                        "plaintext; a plan cannot say at once that there is "
+                        "nothing to decrypt and that a key opens it")
+            if self.privacy_class in ENCRYPTION_REQUIRED_CLASSES:
+                _refuse("encryption_state",
+                        f"is NONE for a {self.privacy_class} object. Spec S4 "
+                        "and policy.yaml "
+                        "privacy.CONFIDENTIAL.client_encryption_required leave "
+                        "no plaintext path out of owned storage for this class")
+            return
+        if not isinstance(self.encryption, dict):
+            _refuse("encryption",
+                    "is absent from a plan claiming the payload is ciphertext. "
+                    "An unverifiable encryption claim is how a plaintext object "
+                    "comes to be treated as ciphertext (Spec S4)")
+        if set(self.encryption) != set(ENCRYPTION_METADATA_FIELDS):
+            _refuse("encryption",
+                    "is not the metadata of an encrypted object: the field set "
+                    "is exactly the schema's, so a mapping that merely looks "
+                    "the part is refused rather than forwarded")
+        for field in ENCRYPTION_METADATA_FIELDS:
+            _bounded(field, self.encryption[field])
 
     def __repr__(self):
         return (f"UploadPlan(privacy_class={self.privacy_class!r}, "
@@ -388,6 +550,27 @@ def _attr(obj, name):
         return None
 
 
+def _declares_double(obj):
+    """Does this object declare itself a non-cryptographic stand-in?
+
+    ``_attr`` wraps only the ``getattr``; the *truth test* used to happen
+    outside it, and both halves of that were wrong. An attribute whose
+    ``__bool__`` raises escaped as a raw exception carrying its own message into
+    the traceback - the module's one credential-leak path - and an
+    ``is_test_double`` *property* that raised was swallowed to ``None``, which
+    is falsy, which skipped the gate and let a non-cryptographic double through
+    as a real backend. That is the only gate in this module that failed *open*.
+
+    An object that cannot say what it is is treated as a double. The cost of
+    being wrong in that direction is a refusal; the cost of being wrong in the
+    other direction is real data protected by a dict.
+    """
+    try:
+        return bool(getattr(obj, "is_test_double", False))
+    except Exception:  # noqa: BLE001 - an unreadable declaration is a refusal
+        return True
+
+
 def _test_double_gate(obj, allow_test_double, *, what):
     """Refuse a non-cryptographic stand-in unless three things all line up.
 
@@ -397,7 +580,7 @@ def _test_double_gate(obj, allow_test_double, *, what):
     not a gate; three that must agree cannot be tripped by a provider that
     merely looks the part.
     """
-    if not _attr(obj, "is_test_double"):
+    if not _declares_double(obj):
         return
     if allow_test_double is not True:
         _unavailable(
@@ -443,7 +626,36 @@ def _aead_of(key_provider, *, allow_test_double):
             "the AEAD provider declares an authentication tag outside "
             f"{MIN_TAG_BYTES}..{MAX_TAG_BYTES} bytes, which is what the "
             "manifest's 32-character tag field can represent")
+    _reconcile_shape(aead)
     return aead
+
+
+def _reconcile_shape(aead):
+    """The declared parameters must be the ones the declared *name* means.
+
+    The bounds above are coarse and independent of each other; this is the check
+    that the three of them together are the construction the provider says it
+    is. Without it, ``metadata()`` - and therefore the manifest, and therefore
+    Spec S23's rebuild input - attests an algorithm nobody performed.
+
+    An algorithm with no entry in ``ALGORITHM_SHAPES`` is refused rather than
+    waved through on the coarse bounds alone.
+    """
+    algorithm = _algorithm_of(aead)
+    shape = ALGORITHM_SHAPES.get(algorithm)
+    if shape is None:
+        _unavailable(
+            "the AEAD provider declares an algorithm this module has no "
+            "parameter shape for, so the name it would write into the manifest "
+            "cannot be reconciled with what it actually does")
+    if (_attr(aead, "key_length"), _attr(aead, "nonce_length"),
+            _attr(aead, "tag_length")) != shape:
+        _unavailable(
+            "the AEAD provider declares parameters that are not the ones its "
+            "declared algorithm uses. The algorithm name goes into the object "
+            "manifest, which Spec S23 makes a rebuild input, so metadata that "
+            "attests a construction which was not performed is refused here "
+            "rather than written down")
 
 
 def _algorithm_of(aead):
@@ -547,6 +759,32 @@ def _b64(raw):
     return base64.b64encode(raw).decode("ascii")
 
 
+def _b64_canonical(value):
+    """The bytes a base64 string spells, but only if it spells them canonically.
+
+    Base64 leaves unused bits in the final character when the input length is
+    not a multiple of three: a 16-byte tag has two, so four distinct strings
+    decode to the same bytes and all four used to round trip. This mesh is
+    content-addressed and its manifests are compared and deduplicated, so two
+    byte-different manifests describing the identical object is a hazard on its
+    own, before anything is decrypted. One spelling is admitted: the one this
+    module emits.
+
+    Returns ``None`` rather than raising, so each caller can refuse in its own
+    vocabulary - ``_refuse`` at construction, ``_failed`` on the decrypt path
+    where a distinguishable refusal would be an oracle.
+    """
+    if not isinstance(value, str):
+        return None
+    try:
+        raw = base64.b64decode(value, validate=True)
+    except Exception:  # noqa: BLE001
+        return None
+    if _b64(raw) != value:
+        return None
+    return raw
+
+
 # --- the contract -------------------------------------------------------------
 
 
@@ -596,9 +834,13 @@ def encrypt_for_storage(payload, key_provider, key_ref, *,
 def decrypt_from_storage(encrypted, key_provider, *, allow_test_double=False):
     """Authenticate and decrypt an ``EncryptedObject``, or refuse.
 
-    There is no path through this function that returns bytes the AEAD did not
-    authenticate, and every refusal raises ``DecryptionFailed`` with the same
-    message, so the caller learns that it failed and not which part failed.
+    There is no path through this function that returns bytes the injected AEAD
+    did not authenticate - the qualification is in the module docstring: a
+    primitive that lies is believed - and every refusal reached after an
+    attacker-controlled field has been read raises ``DecryptionFailed`` with the
+    same message, so the caller learns that it failed and not which part failed.
+    The refusals raised before that point, by ``_aead_of``, are about the
+    caller's own process rather than about this object.
     """
     if not isinstance(encrypted, EncryptedObject):
         _refuse("encrypted",
@@ -610,16 +852,29 @@ def decrypt_from_storage(encrypted, key_provider, *, allow_test_double=False):
         _failed()
     if encrypted.scheme_version != SCHEME_VERSION:
         _failed()
-    try:
-        nonce = base64.b64decode(encrypted.nonce, validate=True)
-        tag = base64.b64decode(encrypted.tag, validate=True)
-    except Exception:  # noqa: BLE001
+    nonce = _b64_canonical(encrypted.nonce)
+    tag = _b64_canonical(encrypted.tag)
+    if nonce is None or tag is None:
+        # Undecodable and non-canonical are the same refusal here. The
+        # constructor already rejects both, so reaching this is an object built
+        # around ``__post_init__``; it is still not told which half it got wrong.
         _failed()
     if len(nonce) != aead.nonce_length or len(tag) != aead.tag_length:
         _failed()
     associated_data = _associated_data(encrypted.algorithm, encrypted.key_ref,
                                        encrypted.key_rotation_generation)
-    key = _key_material(key_provider, encrypted.key_ref, aead)
+    try:
+        key = _key_material(key_provider, encrypted.key_ref, aead)
+    except EncryptionUnavailable:
+        # The key reference is attacker-controlled. A secret store that cannot
+        # resolve it and a secret store that resolves it to the wrong key have
+        # to be one refusal: a caller who can submit objects and read the
+        # *exception type* would otherwise enumerate which references exist,
+        # which is the namespace Spec S22/S23 treat as sensitive rebuild input.
+        # Provider and AEAD-shape problems found by ``_aead_of`` above, before
+        # any attacker-controlled field has been read, legitimately stay
+        # ``EncryptionUnavailable``: they say nothing about this object.
+        _failed()
     try:
         plaintext = aead.open(key, nonce, encrypted.ciphertext + tag,
                               associated_data)
@@ -698,7 +953,8 @@ __all__ = [
     "AUTHORITY", "AUTHORITY_FLAGS", "CANONICAL_AUTHORITY", "ROUTED_BY",
     "CRYPTOGRAPHY_IMPLEMENTED_HERE", "AEAD_PROVIDER_REQUIRED",
     "PERMITTED_IMPORTS", "SCHEME_VERSION", "TEST_DOUBLE_ACKNOWLEDGEMENT",
-    "ALLOWED_ALGORITHMS", "ALLOWED_KEY_BYTES", "MIN_NONCE_BYTES",
+    "ALLOWED_ALGORITHMS", "ALGORITHM_SHAPES",
+    "ALGORITHMS_WITHOUT_A_KNOWN_SHAPE", "ALLOWED_KEY_BYTES", "MIN_NONCE_BYTES",
     "MAX_NONCE_BYTES", "MIN_TAG_BYTES", "MAX_TAG_BYTES", "MAX_PAYLOAD_BYTES",
     "NEVER_UPLOADED", "ENCRYPTION_REQUIRED_CLASSES",
     "ENCRYPTION_METADATA_VALUE_CHECKS", "ENCRYPTION_METADATA_FIELDS",

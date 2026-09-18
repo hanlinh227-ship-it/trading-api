@@ -608,3 +608,65 @@ independent gates stop it being used as a backend.
   false for the contracts package, and setting it true would read as a contradiction.
   `CRYPTOGRAPHY_IMPLEMENTED_HERE = False` and `AEAD_PROVIDER_REQUIRED = True` are the more
   precise claims.
+
+| 6 | done | 1d735a79 | subagent | 123 focused (10 skipped) / 840 storage | review: 7 findings, 2 MAJOR | 1 | Oracle on the decrypt path; attested algorithm never reconciled with parameters. |
+
+## Task 6 review — the strongest review in this lane, and two things it caught
+Under sustained attack the reviewer confirmed what the module claims: no invented
+cryptography (AST-verified - the only `BinOp` in the file is a set union), no key material
+escaping across 21 needle probes through `traceback.format_exception`, the AAD genuinely
+binding `key_ref`, the identical-callable structural guard, and a fail-closed matrix that
+refused everything thrown at it. Two things it caught anyway.
+
+**The decrypt path was a key-reference existence oracle.** `_key_material` sat outside any
+conversion to `DecryptionFailed`, while every other failure on that path called `_failed()`.
+So an unresolvable `key_ref` raised `EncryptionUnavailable` and a wrong-but-resolvable one
+raised `DecryptionFailed` - different types, from attacker-supplied input. Anyone able to
+submit objects and watch the exception type enumerates which key references exist in the
+secret store, which is the namespace S22/S23 treat as sensitive rebuild input. It falsified
+the module's own "every refusal is identical" claim in three separate docstrings.
+
+**Why the suite could not see it is the part worth keeping.** `KeyProviderDouble.key_for`
+ignores its argument and always returns the same key, so the key-lookup failure branch was
+unreachable from every fixture in the file. The test that was supposed to prove the
+identical-refusal invariant had never once exercised the branch that broke it. The fix adds
+a key-ref-sensitive fixture and asserts the exception *type* as well as the message.
+
+**The attested algorithm was never reconciled with the parameters actually used.** Key,
+nonce and tag lengths were bounded independently, so an AEAD declaring `aes-256-gcm` with a
+16-byte key and an 8-byte nonce was accepted, round-tripped, and wrote
+`"algorithm": "aes-256-gcm"` into the manifest - metadata attesting a construction that was
+not performed, and an S23 rebuild input. Compounding it, this module *generates* the nonce,
+so `MIN_NONCE_BYTES = 8` permitted handing GCM a random 64-bit nonce, where a birthday
+collision near 2^32 objects is catastrophic. No algorithm in policy.yaml uses an 8-byte
+nonce, so the floor bought nothing and cost a real hazard.
+
+Now `ALGORITHM_SHAPES` is derived from policy.yaml's allowed list, `_reconcile_shape`
+refuses any provider whose declared triple disagrees with the name it will write, and
+`MIN_NONCE_BYTES` is 12.
+
+### The judgement call I agree with
+`aead-standard-library`, policy.yaml's contract-test placeholder, got an **explicit** shape
+entry rather than an exemption. An exemption would be a hole shaped exactly like the one
+the table closes: a provider wanting loose parameters would simply name the placeholder.
+
+### Controller verification
+840 storage tests green (10 skipped). `MIN_NONCE_BYTES = 12`. All five policy algorithms
+have shapes and `ALGORITHMS_WITHOUT_A_KNOWN_SHAPE` is empty. Key resolution is wrapped,
+`_declares_double` and `_b64_canonical` are present, and `metadata_fields_allowed` now
+carries `key_rotation_generation`. **RELEASE_CHECK=PASS** - I checked specifically, because
+editing a release-sealed file requires a digest refresh; the storage policy.yaml is not one
+of the pinned files, so none was needed.
+
+### Carried forward
+- **The lying-primitive gap is documented, not closed.** A primitive whose `open` returns
+  attacker-chosen bytes for any input is believed. The module verifies nothing itself and
+  cannot close this without implementing cryptography. "No path returns bytes that were not
+  authenticated" is true only modulo the injected primitive, and the docstring now says so.
+- The 9 RealAeadTests still skip, so shape reconciliation and canonical base64 are exercised
+  against a real AES-GCM adapter only by shape agreement, not by an actual run.
+- `metadata_fields_allowed` is enforced by exactly one test in this suite and by no
+  production code path. Either wire it into manifest.py or drop it - an owner decision.
+- The nonce half of the canonical-base64 test *skips*: a 12-byte nonce encodes to 16
+  characters with no slack bits, so there is no alternative spelling to construct. The
+  helper raises SkipTest rather than pretending to test something.

@@ -179,7 +179,7 @@ encryption:
   required_classes: [CONFIDENTIAL]
   client_side_before_upload: true
   authenticated_encryption_required: true
-  metadata_fields_allowed: [algorithm, scheme_version, key_ref, nonce, tag]
+  metadata_fields_allowed: [algorithm, scheme_version, key_ref, key_rotation_generation, nonce, tag]
   # The algorithm field sits inside the encryption block, next to key_ref. As a
   # free-form classifier it was 64 lower-case characters wide - the exact shape
   # of a raw hex private key - so the one field in the mesh most likely to be
