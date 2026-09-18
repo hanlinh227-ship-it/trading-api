@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "skill_competency_matrix.schema.json",
+  "title": "Skill competency matrix - measured MODEL x SKILL x ROLE competence",
+  "description": "What has actually been measured, not what is hoped for. The matrix is read as evidence by the Model Mesh; it does not select, and a row appearing here activates nothing. The states above MEASURED are the ones a reader would act on, so the requirement that they carry a score, an evidence reference and a measurement time is expressed as a constraint rather than as guidance - a row that claims proficiency without a measurement is rejected, not merely discouraged.",
+  "type": "object",
+  "required": ["version", "matrix_id", "authority", "stable_write", "authority_flags", "rows"],
+  "properties": {
+    "version": {"const": 1},
+    "matrix_id": {"const": "SKILL_COMPETENCY_MATRIX"},
+    "purpose": {"type": "string", "minLength": 1},
+    "authority": {"const": false},
+    "stable_write": {"const": false},
+    "authority_flags": {"$ref": "#/$defs/authority_flags"},
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "model_id", "skill_id", "role_id", "state", "evidence_refs",
+          "protected_regression_status"
+        ],
+        "properties": {
+          "model_id": {"type": "string", "minLength": 1},
+          "skill_id": {"type": "string", "minLength": 1},
+          "role_id": {
+            "description": "A role branch id. Matched by shape, not by an enumerated copy: the canonical list lives in AI_SKILL_LIBRARY/v4/model_mesh/role_branches.yaml.",
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*_BRANCH$"
+          },
+          "state": {
+            "enum": [
+              "NOT_TESTED",
+              "ELIGIBLE",
+              "LEARNING",
+              "MEASURED",
+              "PROFICIENT",
+              "PRIMARY",
+              "FALLBACK",
+              "QUARANTINED"
+            ]
+          },
+          "measured_score": {"type": "number", "minimum": 0, "maximum": 1},
+          "verifier_pass_rate": {"type": "number", "minimum": 0, "maximum": 1},
+          "evidence_refs": {
+            "description": "References into the existing verifier/evidence path. Present on every row - empty while nothing has been measured, non-empty the moment the row claims anything.",
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          },
+          "protected_regression_status": {"enum": ["PASS", "FAIL", "NOT_RUN", "BLOCKED"]},
+          "latency_observation_ms": {"type": ["number", "null"], "minimum": 0},
+          "resource_observation": {"type": "string", "minLength": 1},
+          "last_measured_at": {"type": ["string", "null"], "format": "date-time"},
+          "promotion_state": {"enum": ["NONE", "CANDIDATE", "PROMOTED", "REJECTED", "QUARANTINED", "ROLLED_BACK"]},
+          "promotion_evidence_ref": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "description": "PROFICIENT and PRIMARY are the states a reader acts on, so they may only be reached from a measurement: a score, a verifier pass rate, at least one evidence reference, a time the measurement was taken, and protected regressions that actually passed.",
+            "if": {
+              "type": "object",
+              "required": ["state"],
+              "properties": {"state": {"enum": ["PROFICIENT", "PRIMARY"]}}
+            },
+            "then": {
+              "required": [
+                "measured_score", "verifier_pass_rate", "evidence_refs",
+                "last_measured_at", "protected_regression_status"
+              ],
+              "properties": {
+                "evidence_refs": {"minItems": 1},
+                "last_measured_at": {"type": "string", "format": "date-time"},
+                "protected_regression_status": {"const": "PASS"}
+              }
+            }
+          },
+          {
+            "description": "The mirror of the above: a row that has been given a score is no longer untested, so it may not keep claiming that it is.",
+            "if": {
+              "type": "object",
+              "required": ["measured_score"],
+              "properties": {"measured_score": {"type": "number"}}
+            },
+            "then": {
+              "required": ["evidence_refs", "last_measured_at"],
+              "properties": {
+                "evidence_refs": {"minItems": 1},
+                "state": {
+                  "enum": [
+                    "LEARNING", "MEASURED", "PROFICIENT", "PRIMARY", "FALLBACK", "QUARANTINED"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "authority_flags": {
+      "description": "Denied by name rather than by omission. The scalar authority:false above is the canonical top-level declaration; these name the specific authorities the matrix does not hold.",
+      "type": "object",
+      "required": [
+        "routing_authority", "model_selection_authority", "admission_authority",
+        "scheduling_authority", "stable_write_authority", "merge_authority",
+        "trading_authority"
+      ],
+      "properties": {
+        "routing_authority": {"const": false},
+        "model_selection_authority": {"const": false},
+        "admission_authority": {"const": false},
+        "scheduling_authority": {"const": false},
+        "stable_write_authority": {"const": false},
+        "merge_authority": {"const": false},
+        "trading_authority": {"const": false},
+        "reasoning_authority": {"const": false},
+        "evidence_authority": {"const": false},
+        "note": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "ledger_id": "LEARNING_PROMOTION_EVIDENCE",
+  "purpose": "per-cycle promotion evidence produced for the existing gates to read; it records a decision, it does not make one",
+  "authority": false,
+  "stable_write": false,
+  "authority_flags": {
+    "routing_authority": false,
+    "reasoning_authority": false,
+    "model_selection_authority": false,
+    "admission_authority": false,
+    "scheduling_authority": false,
+    "evidence_authority": false,
+    "stable_write_authority": false,
+    "merge_authority": false,
+    "trading_authority": false,
+    "note": "Existing promotion gates decide. This surface only carries what they were shown."
+  },
+  "records": []
+}

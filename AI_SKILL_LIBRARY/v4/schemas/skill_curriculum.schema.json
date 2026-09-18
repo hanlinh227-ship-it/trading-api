@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "skill_curriculum.schema.json",
+  "title": "Skill curriculum - authority-free training and evaluation material for canonical skills",
+  "description": "A curriculum is what a skill teaches and how a run against it is judged. It is compiled from a canonical skill manifest and never replaces it: the manifest keeps the permissions, the router keeps the routing, the Model Mesh keeps the model. A curriculum entry that widened any of those would be describing a skill that does not exist.",
+  "type": "object",
+  "required": ["version", "status", "authority", "stable_write_allowed", "curricula"],
+  "properties": {
+    "version": {"const": 1},
+    "status": {"const": "CANONICAL"},
+    "purpose": {"type": "string", "minLength": 1},
+    "authority": {"$ref": "#/$defs/authority"},
+    "stable_write_allowed": {"const": false},
+    "source_of_truth": {
+      "description": "Where the material is compiled from. Recorded so a curriculum can be regenerated rather than edited into divergence from the skill it describes.",
+      "type": "object",
+      "properties": {
+        "skill_manifests": {"type": "string", "minLength": 1},
+        "role_vocabulary": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "curricula": {"type": "array", "items": {"$ref": "#/$defs/curriculum"}}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "authority": {
+      "description": "Denied by name rather than by omission. A file that never mentions routing does not tell a reader whether it routes.",
+      "type": "object",
+      "required": [
+        "routing_authority", "reasoning_authority", "model_selection_authority",
+        "admission_authority", "scheduling_authority", "evidence_authority",
+        "stable_write_authority", "merge_authority", "trading_authority"
+      ],
+      "properties": {
+        "routing_authority": {"const": false},
+        "reasoning_authority": {"const": false},
+        "model_selection_authority": {"const": false},
+        "admission_authority": {"const": false},
+        "scheduling_authority": {"const": false},
+        "evidence_authority": {"const": false},
+        "stable_write_authority": {"const": false},
+        "merge_authority": {"const": false},
+        "trading_authority": {"const": false},
+        "note": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "role_id": {
+      "description": "A role branch id. Matched by shape, not by an enumerated copy: the canonical list lives in AI_SKILL_LIBRARY/v4/model_mesh/role_branches.yaml and a second copy here would be a second vocabulary to keep in sync.",
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*_BRANCH$"
+    },
+    "example": {
+      "type": "object",
+      "required": ["example_id", "kind", "summary"],
+      "properties": {
+        "example_id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["positive", "negative", "failure"]},
+        "summary": {"type": "string", "minLength": 1},
+        "source_ref": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "eval": {
+      "description": "A frozen, replayable unit. suite_hash binds a score to the exact suite that produced it, so a reworded suite cannot inherit an old result.",
+      "type": "object",
+      "required": ["eval_id", "suite_hash", "replay_frozen"],
+      "properties": {
+        "eval_id": {"type": "string", "minLength": 1},
+        "suite_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "replay_frozen": {"const": true},
+        "source_ref": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "curriculum": {
+      "type": "object",
+      "required": [
+        "skill_id", "domain", "roles", "triggers", "capabilities", "permissions",
+        "risk_class", "output_contract", "evals", "verifier_required",
+        "promotion_class", "authority"
+      ],
+      "properties": {
+        "skill_id": {"type": "string", "minLength": 1},
+        "domain": {"type": "string", "minLength": 1},
+        "roles": {"type": "array", "items": {"$ref": "#/$defs/role_id"}, "uniqueItems": true},
+        "triggers": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "capabilities": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "permissions": {
+          "description": "Inherited from the skill manifest verbatim. The ceiling is the manifest's; compilation may narrow the description of it but never widen what it permits.",
+          "type": "object",
+          "required": ["inherited_from", "permission_ceiling", "widened_by_learning"],
+          "properties": {
+            "inherited_from": {"type": "string", "minLength": 1},
+            "permission_ceiling": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+            "widened_by_learning": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "privacy_constraints": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "protected_invariants": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "allowed_tools": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "input_contract": {"type": "string", "minLength": 1},
+        "risk_class": {"enum": ["A", "B", "C", "D"]},
+        "output_contract": {"type": "string", "minLength": 1},
+        "examples": {"type": "array", "items": {"$ref": "#/$defs/example"}},
+        "evals": {"type": "array", "items": {"$ref": "#/$defs/eval"}},
+        "verifier_required": {"const": true},
+        "promotion_class": {"enum": ["A", "B", "C", "D"]},
+        "authority": {"$ref": "#/$defs/authority"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

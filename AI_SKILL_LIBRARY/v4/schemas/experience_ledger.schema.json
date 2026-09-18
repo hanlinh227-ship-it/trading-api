@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "experience_ledger.schema.json",
+  "title": "Experience ledger - sanitized observable outcomes of executed work",
+  "description": "What can be observed from outside a run: which class of request it was, which role and skill answered it, which model ran it, how long it took, whether the verifier accepted it, and where it escalated. What happened inside the model is deliberately not representable here. The row is a closed field set: an unknown field is rejected rather than stored, so a prompt body or a reasoning trace cannot arrive by accident through a caller that forgot to strip it. Privacy is therefore a property of the shape, not of the discipline of whoever writes to it.",
+  "type": "object",
+  "required": ["version", "ledger_id", "authority", "stable_write", "authority_flags", "experiences"],
+  "properties": {
+    "version": {"const": 1},
+    "ledger_id": {"const": "EXPERIENCE_LEDGER"},
+    "purpose": {"type": "string", "minLength": 1},
+    "authority": {"const": false},
+    "stable_write": {"const": false},
+    "authority_flags": {"$ref": "#/$defs/authority_flags"},
+    "experiences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["experience_id", "timestamp", "request_class", "success"],
+        "properties": {
+          "experience_id": {"type": "string", "minLength": 1},
+          "timestamp": {"type": "string", "format": "date-time"},
+          "request_class": {"type": "string", "minLength": 1},
+          "role_id": {
+            "description": "A role branch id. Matched by shape, not by an enumerated copy: the canonical list lives in AI_SKILL_LIBRARY/v4/model_mesh/role_branches.yaml.",
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*_BRANCH$"
+          },
+          "skill_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "model_id": {"type": "string", "minLength": 1},
+          "provider_id": {"type": "string", "minLength": 1},
+          "worker_id": {"type": "string", "minLength": 1},
+          "latency_ms": {"type": "number", "minimum": 0},
+          "success": {"type": "boolean"},
+          "failure_class": {"type": ["string", "null"], "minLength": 1},
+          "verifier_passed": {"enum": [true, false, "unknown"]},
+          "retry_count": {"type": "integer", "minimum": 0},
+          "escalation_path": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "fallback_path": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "resource_observation": {"type": "string", "minLength": 1},
+          "quota_impact": {"type": "string", "minLength": 1},
+          "user_feedback_signal": {
+            "description": "A normalized signal only. Feedback is evidence, never promotion authority, and never the user's words verbatim.",
+            "enum": ["none", "accepted", "rejected", "corrected", "preference_stated"]
+          },
+          "evidence_ref": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "authority_flags": {
+      "description": "Denied by name rather than by omission. The scalar authority:false above is the canonical top-level declaration; these name the specific authorities the ledger does not hold.",
+      "type": "object",
+      "required": [
+        "routing_authority", "model_selection_authority", "admission_authority",
+        "scheduling_authority", "stable_write_authority", "merge_authority",
+        "trading_authority"
+      ],
+      "properties": {
+        "routing_authority": {"const": false},
+        "model_selection_authority": {"const": false},
+        "admission_authority": {"const": false},
+        "scheduling_authority": {"const": false},
+        "stable_write_authority": {"const": false},
+        "merge_authority": {"const": false},
+        "trading_authority": {"const": false},
+        "reasoning_authority": {"const": false},
+        "evidence_authority": {"const": false},
+        "note": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

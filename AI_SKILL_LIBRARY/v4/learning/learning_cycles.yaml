@@ -1,0 +1,62 @@
+version: 1
+purpose: bounded_replay_driven_learning_cycles
+status: CANONICAL
+
+# A learning cycle is bounded work over a frozen replay set. It ends in evidence
+# and a decision made elsewhere: promote, reject, quarantine or escalate to a
+# human. The states below are the only ones a cycle can be in, which is what
+# makes "still running" distinguishable from "quietly abandoned".
+
+authority: false
+
+authority_flags:
+  routing_authority: false
+  reasoning_authority: false
+  model_selection_authority: false
+  admission_authority: false
+  scheduling_authority: false
+  evidence_authority: false
+  stable_write_authority: false
+  merge_authority: false
+  trading_authority: false
+  note: >-
+    Cycles are scheduled by the existing runtime scheduler and judged by the
+    existing verifier. This file describes the shape of a cycle, not who runs it.
+
+stable_write_allowed: false
+
+states:
+  - OBSERVED
+  - REPLAY_FROZEN
+  - EVALUATED
+  - PROMOTION_CANDIDATE
+  - REJECTED
+  - HUMAN_GATE
+  - COMPLETE
+
+requirements:
+  frozen_replay: true
+  verifier_required: true
+  protected_regressions_max: 0
+  stable_direct_write: false
+
+# Zero tolerance on protected dimensions, per the design's section 12. These are
+# not scored against a budget; one regression ends the cycle.
+protected_dimensions:
+  - reliability
+  - security
+  - instruction_adherence
+  - vietnamese_retention
+  - privacy_policy
+  - authority_invariants
+  - provenance_requirements
+
+on_failure:
+  preserve_champion: true
+  record_evidence: true
+  retain_rollback_target: true
+  degrade_stable_behaviour: false
+
+on_ambiguous_verifier_result: block_promotion
+on_missing_evidence: remain_not_tested
+on_security_or_authority_conflict: reject_candidate
