@@ -27,6 +27,13 @@ class CurriculumCompilerTests(unittest.TestCase):
             }),
             encoding="utf-8",
         )
+        (root / "AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml").write_text(
+            yaml.safe_dump({
+                "policy": {"hard_capability_weight_threshold": 0.7},
+                "domains": {"core": {"capabilities": {"text_reasoning": 0.95, "planning": 0.65}}},
+            }),
+            encoding="utf-8",
+        )
         return root
 
     def test_compiler_discovers_every_manifest_skill_deterministically(self):
