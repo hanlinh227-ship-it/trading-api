@@ -73,7 +73,7 @@ class ZeroLocalManifestTests(unittest.TestCase):
         production = text.split("  production-smoke:", 1)[1]
         self.assertIn('"action":"snapshot"', production)
         self.assertIn('"preferredVenue":"okx"', production)
-        self.assertIn("freshProviders.size<2", production)
+        self.assertIn("len(fresh_providers) < 2", production)
         self.assertIn("LIVE_RESEARCH_SMOKE=PASS", production)
         self.assertNotIn("'bybit LONG BTCUSDT ask'", production)
         self.assertNotIn("'bybit SHORT BTCUSDT bid'", production)
@@ -132,7 +132,8 @@ class CanonicalRuntimeContractTests(unittest.TestCase):
         self.assertIs(verification["exact_source_sha_required"], True)
         self.assertIs(verification["primary_health_required"], True)
         self.assertIs(verification["live_research_smoke_required"], True)
-        self.assertEqual(verification["required_research_venues"], ["okx"])
+        self.assertEqual(verification["preferred_research_venues"], ["okx"])
+        self.assertEqual(verification["min_research_providers"], 2)
         self.assertIs(verification["live_execution_smoke_required"], False)
         self.assertEqual(verification["required_execution_venues"], [])
         self.assertIs(verification["private_execution_capability_optional"], True)
