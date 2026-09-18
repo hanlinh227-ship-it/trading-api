@@ -345,7 +345,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node validate-universal-canary.mjs
+          # Secret/version propagation at the Cloudflare edge can lag the exact
+          # revision health endpoint by a few seconds. Retry the SAME strict
+          # canary rather than weakening any assertion. A persistent auth,
+          # routing, state or isolation failure still fails the deployment.
+          for attempt in 1 2 3 4 5 6; do
+            if node validate-universal-canary.mjs; then
+              echo "UNIVERSAL_CANARY_PROPAGATION_TOLERANCE=PASS attempt=$attempt"
+              exit 0
+            fi
+            echo "UNIVERSAL_CANARY_RETRY attempt=$attempt"
+            sleep 5
+          done
+          echo "UNIVERSAL_CANARY_PROPAGATION_TOLERANCE=FAIL"
+          exit 1
 
       - name: Production brain route matrix with propagation tolerance
         shell: bash
