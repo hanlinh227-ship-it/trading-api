@@ -102,8 +102,15 @@ const noDelay=async()=>{};
   const stale=await readModelHealth(kv,baseModel,{sourceSha:SHA,nowMs:t0+31*60_000});
   assert.equal(stale.state,'DEGRADED');
   assert.equal(stale.category,'STALE_EVIDENCE');
+  // Another revision reads its own empty bucket. It cannot inherit this
+  // revision's evidence, and - the failure that made this matter - a probe
+  // running under it cannot overwrite this revision's evidence either.
   const otherRevision=await readModelHealth(kv,baseModel,{sourceSha:'d'.repeat(40),nowMs:t0+60_000});
-  assert.equal(otherRevision.category,'SOURCE_REVISION_MISMATCH');
+  assert.notEqual(otherRevision.state,'LIVE_HEALTHY');
+  assert.equal(otherRevision.category,'NO_LIVE_EVIDENCE');
+  await writeProbeHealth(kv,baseModel,{ok:false,category:'RATE_LIMITED'},{sourceSha:'d'.repeat(40),nowMs:t0+61_000,delay:noDelay});
+  const stillOurs=await readModelHealth(kv,baseModel,{sourceSha:SHA,nowMs:t0+62_000});
+  assert.equal(stillOurs.state,'LIVE_HEALTHY','a probe under another revision must not destroy this revision\'s evidence');
 }
 
 const skillSnapshot={source_sha:SHA,fallback_primary_skill:'core_reasoning',capsules:{core_reasoning:{domain:'core',capsule_hash:'h'}}};

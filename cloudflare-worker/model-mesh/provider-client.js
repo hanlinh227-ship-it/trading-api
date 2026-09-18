@@ -79,6 +79,9 @@ export function createProviderProbe({fetchImpl=fetch,maxParallel=4,maxCandidates
       const latencyMs=Math.max(0,Date.now()-started),category=result.ok?null:(result.category||classifyProviderFailure({status:result.status}));
       const health=await writeProbeHealth(healthStore,model,{ok:Boolean(result.ok),category,latencyMs,retryAfter:result.retryAfter,resetAt:result.resetAt},{sourceSha:modelSnapshot?.source_sha||''});
       const row={providerId:model.provider_id,modelId:model.model_id,configured:true,ok:Boolean(result.ok),status:Number(result.status||0),latencyMs,category,state:health.state,evidencePersisted:Boolean(health.persisted)};
+      // Carried, never hidden: this row's state came from a newer observation
+      // than ours, so a reader must not infer the state from `ok`.
+      if(health.superseded===true){row.superseded=true;row.supersededReason=health.supersededReason||'superseded_by_newer_observation';}
       if(result.status===429){row.retryAfter=result.retryAfter||null;row.resetAt=result.resetAt||null;}
       return row;
     };
@@ -107,7 +110,12 @@ export function createProviderProbe({fetchImpl=fetch,maxParallel=4,maxCandidates
       const settled=await Promise.allSettled(batch.map(probeProvider));
       settled.forEach((item,offset)=>results.push(item.status==='fulfilled'?item.value:{providerId:batch[offset][0].provider_id,modelId:batch[offset][0].model_id,configured:false,ok:false,status:0,latencyMs:0,category:'UNKNOWN_SANITIZED',state:'DEGRADED',evidencePersisted:false,candidatesProbed:0,candidatesAvailable:batch[offset].length,attemptedModelIds:[],providerExhausted:false}));
     }
-    return {ok:true,mode:'FREE_ONLY',routingAuthority:false,reasoningAuthority:false,probedProviderCount:results.length,successfulProviderCount:results.filter(row=>row.ok).length,results};
+    return {ok:true,mode:'FREE_ONLY',routingAuthority:false,reasoningAuthority:false,probedProviderCount:results.length,
+      successfulProviderCount:results.filter(row=>row.ok).length,
+      // What the mesh will actually read, which is what the overlay compares
+      // against. Kept separate from the call-succeeded count on purpose.
+      liveHealthyProviderCount:results.filter(row=>row.configured===true&&row.ok===true&&row.state==='LIVE_HEALTHY').length,
+      results};
   };
 }
 
