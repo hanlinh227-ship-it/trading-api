@@ -23,6 +23,7 @@ aliases:
   deployment: ["triển khai", "deploy", "production", "ci cd"]
   automation: ["tự động hóa", "automation", "workflow"]
   trading_router: ["quét market", "tìm entry", "giao dịch live", "quét thị trường", "market entry"]
+  multi_market_analysis: ["tìm lệnh forex", "quét forex", "tìm setup forex", "quét coin", "tìm lệnh coin", "tìm setup crypto", "quét futures", "tìm lệnh futures", "tìm setup nq futures", "quét forex coin future", "quét forex crypto futures"]
   crypto: ["crypto", "bitcoin", "btc", "altcoin", "coin"]
   forex: ["forex", "ngoại hối", "fx"]
   futures: ["futures", "future", "perpetual"]
@@ -103,9 +104,6 @@ profile_escalation:
     - "destructive"
     - "thanh toán"
     - "financial action"
-    # Financial / wallet actions (security.yaml risk class: financial). English and
-    # Vietnamese, accented and unaccented, because runtime matching is NFKC+lowercase
-    # only and does not fold diacritics.
     - "thanh toan"
     - "payment"
     - "withdraw"
@@ -130,7 +128,6 @@ profile_escalation:
     - "bridge asset"
     - "bridge token"
     - "wallet signing"
-    # Credential-sensitive (security.yaml risk class: credential_sensitive)
     - "api key"
     - "secret"
     - "seed phrase"
@@ -138,7 +135,6 @@ profile_escalation:
     - "cum tu khoi phuc"
     - "passphrase"
     - "mat khau"
-    # Destructive (security.yaml risk class: destructive)
     - "xóa"
     - "xoa"
     - "delete"
@@ -147,14 +143,12 @@ profile_escalation:
     - "destroy"
     - "delete production"
     - "xoa du lieu"
-    # Permission change (runtime.yaml DEEP trigger)
     - "permission"
     - "phân quyền"
     - "phan quyen"
     - "cấp quyền"
     - "cap quyen"
     - "revoke scope"
-    # Deployment / runtime and live/trading synonyms already mirrored by the adapter floor table
     - "triển khai"
     - "trien khai"
     - "realtime"
