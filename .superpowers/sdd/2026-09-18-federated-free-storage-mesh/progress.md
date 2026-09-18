@@ -315,3 +315,63 @@ record of what exists is uncertain. Same reasoning as Ruling 005.
 Third time this session an incomplete fixture of my own looked like a module bug. Recording
 it because the pattern is now a habit worth naming: when a fail-closed module refuses my
 test input, the first hypothesis should be my input.
+
+## Task 4 hand-back — arrived after the snapshot commit, and confirms it
+The implementer handed back after I committed 46d7d746 and confirms that commit holds its
+final state, including the last hardening pass. So Ruling 006's exception turned out to
+have committed complete work rather than a half-finished tree. That is luck, not
+vindication: I could not know it at the time, which is exactly why the commit says
+unreviewed on its face.
+
+### What I verified myself
+Caps are real values, not decoration: 256 entries / 256 KiB / 256 characters per string.
+The snapshot is a 13-field whitelist projection, not a copy. The adapter has no
+provisioning method of any kind (`provision`/`create_table`/`ensure`/`migrate` all absent)
+and imports no driver — no `psycopg`, no `supabase`, no `create_client`, no `cursor(`, no
+`execute(`. The credential is not a constructor parameter and not an attribute; a
+zero-argument `credential_provider` is called per request, so the key never rests on the
+object.
+
+`SNAPSHOT_ENCRYPTION_FIELDS = ("algorithm", "scheme_version", "key_ref")` — `nonce`, `tag`
+and `key_rotation_generation` are excluded.
+
+### Decision the owner should confirm: key_ref reaches GitHub
+Three of six encryption fields reach the checkpoint, including `key_ref`. It is a
+*reference* (`env://NAME`-shaped, re-validated on the way back in) and never key material,
+and Spec S23 lists key references as a rebuild input — without it a CLIENT_SIDE_ENCRYPTED
+object cannot be reconstructed as a valid record at all, because manifest requires
+algorithm/scheme_version/key_ref together. The implementer stated the trade honestly and
+asked. **I am not deciding this alone.** If the owner wants `key_ref` out of Git, the
+consequence is that encrypted objects become unrebuildable from the snapshot alone.
+
+### Other judgement calls, recorded not buried
+- **Reads require health, which is stricter than Spec S18.** S18 permits "existing runtime
+  reads may use cached manifest state where policy allows"; the implementer read that as a
+  cache layer *above* the store rather than the store serving stale rows, so
+  `get_manifest`/`list_manifests` raise `MetadataStoreUnavailable`. I agree: a store that
+  answers from stale state while unhealthy is how a destructive action gets the wrong
+  answer. If caching is wanted it belongs in a decorator.
+- **A snapshot naming a backend no longer in providers.yaml fails the whole rebuild**, not
+  just that entry. Fail-closed and correct per S19/S20 (a lost provider is marked
+  OFFLINE/QUARANTINED, its registry row is not deleted), but it is an operational sharp
+  edge worth knowing before a real disaster drill.
+- `healthy()` catches `BaseException` including KeyboardInterrupt. Deliberate: it is an I/O
+  boundary whose caller is a destructive-action gate. Ctrl-C during a probe yields False.
+- `MAX_RECORD_BYTES`/`MAX_SNAPSHOT_BYTES` are unreachable by well-formed input today —
+  defence in depth against a future carelessly-bounded field, and the code says so rather
+  than implying they do work they do not.
+
+### Two things carried into Task 5
+1. `manifest.py` still needs `with_placement(...)` preserving `object_id` and
+   `content_sha256`. Task 4 worked around it (`rebuild_manifest` has no bytes, so it builds
+   validated dicts directly), but that means manifest-record construction now exists in
+   **two** places. Task 5's rebalance path will hit this properly.
+2. The shared working tree bit the implementer: it measured 274 failures / 23 errors that
+   were my uncommitted in-flight Task 3 edits, not its own work. Two agents in one checkout
+   is a real cost of Ruling 001 and worth naming.
+
+### Fourth fixture false alarm
+My probe could not instantiate the MetadataStore ABC (it requires private hooks), and
+before that I checked `key_ref` at the wrong granularity — it lives inside the nested
+`encryption` projection, not in ENTRY_FIELDS. Both times the module was right and my probe
+was wrong. Noted for the fourth time this session.
