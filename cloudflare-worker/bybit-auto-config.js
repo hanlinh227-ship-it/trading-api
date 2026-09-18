@@ -20,7 +20,7 @@ const BTC_EXECUTION_PORTFOLIO_POLICY=Object.freeze({
 export const BYBIT_AUTO_CONFIG={
   symbol:BYBIT_EXECUTION_SYMBOL,symbols:BYBIT_EXECUTION_UNIVERSE,multiAsset:false,portfolio:BTC_EXECUTION_PORTFOLIO_POLICY,category:'linear',settleCoin:'USDT',
   strategyAuthority:'BYBIT-BTC-STATEFLOW-2.1',
-  trigger:{authority:'VPS_WS_MARKET_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
+  trigger:{authority:'CLOUD_BYBIT_WS_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
   leverage:{
     min:3,max:125,authority:'EXCHANGE_CAPPED_CONTINUOUS_CAPITAL_LEVERAGE',holdConstantInsideOpenCluster:true,profitFloorAdaptive:true,profitFloorMax:125,exchangeInstrumentCapRequired:true,
     equityAdaptive:{enabled:true,steps:[
