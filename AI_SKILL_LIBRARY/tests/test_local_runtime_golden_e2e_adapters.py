@@ -12,6 +12,7 @@ import unittest
 from pathlib import Path
 
 from AI_SKILL_LIBRARY.v4.local_runtime.golden_e2e import (
+    CANONICAL_GOLDEN_REQUEST,
     GoldenE2EError,
     admitted_candidates,
     declared_identities,
@@ -19,6 +20,7 @@ from AI_SKILL_LIBRARY.v4.local_runtime.golden_e2e import (
     ingress,
     make_router,
     make_selector,
+    make_verifier,
     observed_offline,
     synthesis,
     verifier,
@@ -66,6 +68,28 @@ class VerifierTests(unittest.TestCase):
     def test_an_identity_that_is_not_digest_bound_fails(self):
         row = good_execution() | {"artifact_identity": {"sha256": "short"}}
         self.assertIn("artifact_identity_not_digest_bound", verifier("k", row)["failures"])
+
+    def test_canonical_golden_wrong_answer_fails_semantically(self):
+        row = good_execution() | {"output": "shogi is a Japanese board game"}
+        result = make_verifier("What is the capital city of Japan? Answer briefly.")(
+            "core_reasoning", row
+        )
+        self.assertFalse(result["passed"])
+        self.assertIn("semantic_answer_mismatch", result["failures"])
+
+    def test_canonical_golden_correct_answer_passes_semantically(self):
+        row = good_execution() | {"output": "Tokyo."}
+        result = make_verifier("What is the capital city of Japan? Answer briefly.")(
+            "core_reasoning", row
+        )
+        self.assertTrue(result["passed"], result["failures"])
+
+    def test_arbitrary_request_cannot_earn_golden_semantic_pass(self):
+        result = make_verifier("Tell me something interesting.")(
+            "core_reasoning", good_execution()
+        )
+        self.assertFalse(result["passed"])
+        self.assertIn("semantic_oracle_unavailable", result["failures"])
 
 
 class OfflineObservationTests(unittest.TestCase):
@@ -181,9 +205,55 @@ class CommittedEvidenceTests(unittest.TestCase):
         executed = self.evidence["runtime_evidence"]["artifact_identity"]
         self.assertEqual(selected, executed)
 
-    def test_the_committed_evidence_still_satisfies_the_verifier(self):
-        result = verifier("core_reasoning", self.evidence["runtime_evidence"])
-        self.assertTrue(result["passed"], result["failures"])
+    #: The closed set of ways semantic verification can refuse. Named here so a
+    #: test can require "it refused" without pinning which refusal - the two
+    #: are different facts about the evidence, not about the verifier, and
+    #: which one fires depends on what the committed evidence happens to hold.
+    SEMANTIC_REFUSALS = ("semantic_oracle_unavailable", "semantic_answer_mismatch")
+
+    def test_the_committed_evidence_is_rechecked_semantically(self):
+        """Never passes. Which refusal fires is the evidence's business.
+
+        This asserted `semantic_answer_mismatch` and was red on the branch it
+        arrived from, deterministically and on every host: the committed
+        evidence asks "What is the capital of France?", the canonical golden
+        request asks about Japan, so the verifier refuses at the earlier gate -
+        it will not grade an answer to a question it was not asked. That is the
+        stricter behaviour of the two, and pinning the later reason asserted
+        the evidence was closer to valid than it is.
+        """
+        result = make_verifier(self.evidence["request"])(
+            "core_reasoning", self.evidence["runtime_evidence"]
+        )
+        self.assertFalse(result["passed"])
+        self.assertTrue(
+            set(result["failures"]) & set(self.SEMANTIC_REFUSALS),
+            "committed golden evidence must be refused semantically, got %r"
+            % (result["failures"],),
+        )
+        self.assertIsNone(result["semantic_oracle"])
+
+    def test_a_wrong_answer_to_the_canonical_question_is_a_mismatch(self):
+        """The check the test above was reaching for, exercised directly.
+
+        With the request the oracle actually knows, a wrong answer has to be
+        caught on its content rather than on its question, so `semantic_answer_
+        mismatch` gets a deterministic test of its own instead of riding on
+        stale evidence that trips a different gate.
+        """
+        execution = dict(self.evidence["runtime_evidence"])
+        execution["output"] = "The capital of France is Paris."
+        result = make_verifier(CANONICAL_GOLDEN_REQUEST)("core_reasoning", execution)
+        self.assertFalse(result["passed"])
+        self.assertIn("semantic_answer_mismatch", result["failures"])
+        self.assertIsNotNone(result["semantic_oracle"])
+
+    def test_the_right_answer_to_the_canonical_question_is_not_a_mismatch(self):
+        """...and the mismatch check is not simply always on."""
+        execution = dict(self.evidence["runtime_evidence"])
+        execution["output"] = "Tokyo."
+        result = make_verifier(CANONICAL_GOLDEN_REQUEST)("core_reasoning", execution)
+        self.assertNotIn("semantic_answer_mismatch", result["failures"])
 
     def test_resource_use_was_measured_not_left_unknown(self):
         self.assertIsInstance(self.evidence["runtime_evidence"]["peak_ram_mb"], (int, float))

@@ -45,12 +45,13 @@ class LiveGateTests(unittest.TestCase):
     def setUpClass(cls):
         cls.result = gate(ROOT)
 
-    def test_the_gate_passes_on_the_committed_evidence(self):
-        self.assertEqual(self.result["verdict"], "PASS", self.result["failed_checks"])
+    def test_the_gate_blocks_stale_semantically_wrong_golden_evidence(self):
+        self.assertEqual(self.result["verdict"], "FAIL")
+        self.assertEqual(self.result["failed_checks"], ["golden_e2e"])
 
-    def test_every_check_ran(self):
-        self.assertEqual(self.result["checks_passed"], self.result["checks_run"])
-        self.assertEqual(self.result["failed_checks"], [])
+    def test_every_check_ran_and_only_the_invalid_golden_evidence_is_blocking(self):
+        self.assertEqual(self.result["checks_passed"], self.result["checks_run"] - 1)
+        self.assertEqual(self.result["failed_checks"], ["golden_e2e"])
 
     def test_each_check_states_what_it_required(self):
         """A check whose requirement is unreadable cannot be reviewed."""
@@ -116,6 +117,28 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
                   lambda d: d.__setitem__("trace", shortened))
 
         self._assert_fails("golden_e2e", damage)
+
+    def test_a_semantically_wrong_golden_answer_is_refused(self):
+        def damage(tmp):
+            _edit(
+                tmp,
+                "AI_CORE_E2E_EVIDENCE.json",
+                lambda d: d["runtime_evidence"].__setitem__(
+                    "output", "This answer is unrelated to the question."
+                ),
+            )
+
+        self._assert_fails("golden_e2e", damage)
+
+    def test_a_semantically_correct_golden_answer_clears_that_failure(self):
+        def repair(tmp):
+            _edit(
+                tmp,
+                "AI_CORE_E2E_EVIDENCE.json",
+                lambda d: d["runtime_evidence"].__setitem__("output", "Tokyo."),
+            )
+
+        self._assert_passes("golden_e2e", repair)
 
     def test_a_specialist_assigned_after_model_selection_is_refused(self):
         """Order is the claim: a role applied to a decision already taken is a label."""

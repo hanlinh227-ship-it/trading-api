@@ -36,9 +36,9 @@ from AI_SKILL_LIBRARY.v4.local_runtime.golden_e2e import (  # noqa: E402
     make_router,
     make_runtime,
     make_selector,
+    make_verifier,
     records_by_key,
     synthesis,
-    verifier,
 )
 from AI_SKILL_LIBRARY.v4.tools.memory_continuity import select_continuation  # noqa: E402
 
@@ -95,7 +95,7 @@ def run(root: Path, cache: Path, request: str, max_tokens: int) -> dict[str, Any
             legion=make_legion(root),
             selector=make_selector(declared_identities(pairs)),
             runtime=make_runtime(root, cache, records_by_key(pairs), max_tokens=max_tokens),
-            verifier=verifier,
+            verifier=make_verifier(request),
             synthesis=synthesis,
             memory=make_memory(root),
         )
