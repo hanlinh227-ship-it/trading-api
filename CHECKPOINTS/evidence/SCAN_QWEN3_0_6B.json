@@ -1,0 +1,22 @@
+{
+  "model_id": "qwen3-0.6b-q8_0",
+  "filename": "Qwen3-0.6B-Q8_0.gguf",
+  "artifact_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+  "size_bytes": 639446688,
+  "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+  "malware_scan_status": "pass",
+  "scan_exit_code": 0,
+  "engine": "ClamAV 1.5.3/28126/Thu Sep 17 06:24:16 2026",
+  "signature_database_version": "28126",
+  "engine_scanned_file_count": 1,
+  "engine_data_scanned": "1.27 GiB",
+  "engine_read_whole_artifact": true,
+  "chunked": false,
+  "chunk_overlap_bytes": null,
+  "scanned_at": "2026-09-17T11:21:52+00:00",
+  "scanned_by": "github-actions",
+  "scan_kind": "signature_based",
+  "is_a_scan_result": true,
+  "covers_only_this_digest": true,
+  "raw_output": "LibClamAV Warning: Max file-size was set to 4194304000 bytes. Unfortunately, scanning files greater than 2147483647 bytes (2 GiB - 1) is not supported.\nstaged/Qwen3-0.6B-Q8_0.gguf: OK\n\n----------- SCAN SUMMARY -----------\nKnown viruses: 3628071\nEngine version: 1.5.3\nScanned directories: 0\nScanned files: 1\nInfected files: 0\nData scanned: 1.27 GiB\nData read: 609.82 MiB (ratio 2.13:1)\nTime: 41.827 sec (0 m 41 s)\nStart Date: 2026:09:17 11:21:10\nEnd Date:   2026:09:17 11:21:51\n"
+}

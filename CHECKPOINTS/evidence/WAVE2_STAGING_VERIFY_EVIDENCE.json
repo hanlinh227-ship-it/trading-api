@@ -1,0 +1,127 @@
+{
+  "staging_verify": "PASS",
+  "verified": 8,
+  "total": 8,
+  "admits_nothing": true,
+  "malware_scan_performed": false,
+  "results": [
+    {
+      "id": "qwen3-1.7b-q8_0",
+      "filename": "Qwen3-1.7B-Q8_0.gguf",
+      "verified": true,
+      "already_in_verified_cache": true,
+      "path": "/home/user/trading-api/.model-cache/models/Qwen_Qwen3-1.7B-GGUF-Q8_0@90862c4b9d2787ea-ef1c730bb1a9/Q8_0.gguf",
+      "size_bytes": 1834426016,
+      "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+      "reassembled_from_parts": false,
+      "immutable_revision": "90862c4b9d2787eaed51d12237eafdfe7c5f6077",
+      "revision_status": "verified_by_lfs_oid"
+    },
+    {
+      "id": "qwen3-4b-q4_k_m",
+      "filename": "Qwen3-4B-Q4_K_M.gguf",
+      "verified": true,
+      "already_in_verified_cache": true,
+      "path": "/home/user/trading-api/.model-cache/models/Qwen_Qwen3-4B-GGUF-Q4_K_M@bc640142c66e1fdd-0af309b5b9d5/Q4_K_M.gguf",
+      "size_bytes": 2497280256,
+      "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "reassembled_from_parts": false,
+      "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+      "revision_status": "verified_by_lfs_oid"
+    },
+    {
+      "id": "granite-3.3-2b-instruct-q4_k_m",
+      "filename": "granite-3.3-2b-instruct-Q4_K_M.gguf",
+      "verified": true,
+      "already_in_verified_cache": true,
+      "path": "/home/user/trading-api/.model-cache/models/ibm-granite_granite-3.3-2b-instruct-GGUF-Q4_K_M@7cdf86ccd1f1bb34-757ac54a194d/Q4_K_M.gguf",
+      "size_bytes": 1545303328,
+      "sha256": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+      "reassembled_from_parts": false,
+      "immutable_revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+      "revision_status": "verified_by_lfs_oid"
+    },
+    {
+      "id": "smollm2-360m-instruct-gguf-q8-0",
+      "filename": "smollm2-360m-instruct-q8_0.gguf",
+      "verified": true,
+      "already_in_verified_cache": true,
+      "path": "/home/user/trading-api/.model-cache/models/HuggingFaceTB_SmolLM2-360M-Instruct-GGUF-Q8_0@593b5a2e04c8f3e4-e009d9bab3cd/Q8_0.gguf",
+      "size_bytes": 386404992,
+      "sha256": "48ab3034d0dd401fbc721eb1df3217902fee7dab9078992d66431f09b7750201",
+      "reassembled_from_parts": false,
+      "immutable_revision": "593b5a2e04c8f3e4ee880263f93e0bd2901ad47f",
+      "revision_status": "pinned_at_download"
+    },
+    {
+      "id": "bitnet-b1.58-2b-4t-gguf-i2-s",
+      "filename": "ggml-model-i2_s.gguf",
+      "verified": true,
+      "already_in_verified_cache": true,
+      "path": "/home/user/trading-api/.model-cache/models/microsoft_bitnet-b1.58-2B-4T-gguf-I2_S@a1f2f1c765812aa8-59609bb1ff58/I2_S.gguf",
+      "size_bytes": 1187801280,
+      "sha256": "4221b252fdd5fd25e15847adfeb5ee88886506ba50b8a34548374492884c2162",
+      "reassembled_from_parts": false,
+      "immutable_revision": "a1f2f1c765812aa8af3f6eda4a313707064bba15",
+      "revision_status": "pinned_at_download"
+    },
+    {
+      "id": "ministral-3-3b-reasoning-2512-gguf-q4-k-m",
+      "filename": "Ministral-3-3B-Reasoning-2512-Q4_K_M.gguf",
+      "verified": true,
+      "already_in_verified_cache": true,
+      "path": "/home/user/trading-api/.model-cache/models/mistralai_Ministral-3-3B-Reasoning-2512-GGUF-Q4_K_M@b432f0a2c144af8a-a27ad6277e4a/Q4_K_M.gguf",
+      "size_bytes": 2147021472,
+      "sha256": "7e9516cc01a039bb3e2d41227cdf388849bc1c942c4624c84567b1684cd9c0fc",
+      "reassembled_from_parts": false,
+      "immutable_revision": "b432f0a2c144af8a1937b06e2ea7f75ebb4d0b31",
+      "revision_status": "pinned_at_download"
+    },
+    {
+      "id": "granite-4.2-3b-gguf-q4-k-m",
+      "family": "granite",
+      "filename": "granite-4.2-3b-Q4_K_M.gguf",
+      "path": "/home/user/trading-api/.model-staging/granite-4.2-3b-Q4_K_M.gguf",
+      "reassembled_from_parts": false,
+      "size_bytes": 2244011552,
+      "sha256": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+      "immutable_revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+      "revision_status": "pinned_at_download",
+      "verified": true,
+      "structural_scan": {
+        "scan_kind": "structural_scan",
+        "path": "/home/user/trading-api/.model-staging/granite-4.2-3b-Q4_K_M.gguf",
+        "status": "pass",
+        "findings": [],
+        "gguf_version": 3,
+        "tensor_count": 363,
+        "kv_count": 35,
+        "file_size": 2244011552,
+        "satisfies_malware_scan_status": false
+      }
+    },
+    {
+      "id": "phi-3-mini-4k-instruct-gguf-q4",
+      "family": "Phi",
+      "filename": "Phi-3-mini-4k-instruct-q4.gguf",
+      "path": "/home/user/trading-api/.model-staging/Phi-3-mini-4k-instruct-q4.gguf",
+      "reassembled_from_parts": false,
+      "size_bytes": 2393231072,
+      "sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+      "immutable_revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+      "revision_status": "pinned_at_download",
+      "verified": true,
+      "structural_scan": {
+        "scan_kind": "structural_scan",
+        "path": "/home/user/trading-api/.model-staging/Phi-3-mini-4k-instruct-q4.gguf",
+        "status": "pass",
+        "findings": [],
+        "gguf_version": 3,
+        "tensor_count": 195,
+        "kv_count": 24,
+        "file_size": 2393231072,
+        "satisfies_malware_scan_status": false
+      }
+    }
+  ]
+}

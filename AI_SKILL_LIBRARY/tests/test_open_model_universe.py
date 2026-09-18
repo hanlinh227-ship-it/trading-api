@@ -150,10 +150,49 @@ class OpenModelUniverseContractTests(unittest.TestCase):
     def test_checked_in_registry_is_authority_free_and_not_active(self):
         data = yaml.safe_load(REGISTRY.read_text(encoding="utf-8"))
         self.assertEqual(data["registry_id"], "OPEN_MODEL_UNIVERSE")
-        self.assertEqual(len(data["models"]), 1)
-        self.assertFalse(data["models"][0]["model_mesh_local_candidate_eligible"])
+        # Not a count. How many models are registered is an operational fact
+        # that changes every time one is admitted; what must hold is that
+        # registration confers nothing. Asserting "exactly 1" made admitting a
+        # second model look like a contract breach.
+        self.assertTrue(data["models"])
         self.assertFalse(data["policy"]["registry_implies_activation"])
         self.assertTrue(all(value is False for value in data["authority"].values()))
+
+    def test_mesh_eligibility_is_never_granted_without_justifying_evidence(self):
+        """The invariant behind "not active": eligibility must be earned.
+
+        This previously asserted the one checked-in row was ineligible, which
+        captured that row's state at the time rather than the rule. Eligibility
+        is a governance decision that can legitimately be granted, so the rule
+        worth enforcing is that it is never granted for free: a mesh-eligible
+        model must carry either a passing malware scan or a valid, digest-bound
+        operator risk acceptance recording what was not checked.
+        """
+        data = yaml.safe_load(REGISTRY.read_text(encoding="utf-8"))
+        for model in data["models"]:
+            with self.subTest(model_id=model["model_id"]):
+                if not model.get("model_mesh_local_candidate_eligible"):
+                    continue
+                evidence = model.get("admission_evidence") or {}
+                acceptance = model.get("operator_risk_acceptance") or {}
+                scanned = evidence.get("malware_scan_status") == "pass"
+                accepted = (
+                    acceptance.get("scope") == "single_artifact"
+                    and acceptance.get("artifact_sha256")
+                    == (model.get("artifact_identity") or {}).get("sha256")
+                    and "malware_scan_status" in (acceptance.get("covers") or [])
+                    and bool(acceptance.get("accepted_by"))
+                    and bool(acceptance.get("missing_evidence"))
+                )
+                self.assertTrue(
+                    scanned or accepted,
+                    f"{model['model_id']} is mesh-eligible with neither a passing malware "
+                    f"scan nor a valid operator risk acceptance",
+                )
+                # An acceptance must never be recorded as though it were a scan.
+                if accepted and not scanned:
+                    self.assertEqual(evidence.get("malware_scan_status"), "not_run")
+                    self.assertIs(acceptance.get("is_a_scan_result"), False)
 
     def test_lifecycle_vocabulary_is_governance_only(self):
         universe = load_tool("open_model_universe")

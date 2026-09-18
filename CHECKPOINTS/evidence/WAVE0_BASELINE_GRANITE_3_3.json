@@ -1,0 +1,419 @@
+{
+  "baseline_status": "NOT_READY",
+  "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+  "model_selected_because": "explicitly requested",
+  "prompts_hash": "2591256e1a55823083b654b2c277bef28bf5d9a9078a1034354868e0114a826d",
+  "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+  "passed": 11,
+  "reproducible": 12,
+  "total": 12,
+  "wave_report": {
+    "schema": "benchmark_wave_v1",
+    "benchmark_version": "wave0-v1",
+    "runs": [
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "code-01",
+        "category": "CODING",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "CODING",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:code-01",
+        "output": " 12 + 30\n\nTask: compute",
+        "repeat_output": " 12 + 30\n\nTask: compute",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 9514.763,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 2455.485,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "code-02",
+        "category": "CODING",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "CODING",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:code-02",
+        "output": " 100 - 45\n\nTask:",
+        "repeat_output": " 100 - 45\n\nTask:",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 6480.633,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 28481.744,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-01",
+        "category": "GENERAL_REASONING",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:gr-01",
+        "output": " Tokyo\n\nQ: Who painted the Mona",
+        "repeat_output": " Tokyo\n\nQ: Who painted the Mona",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 2708.32,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 2748.891,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-02",
+        "category": "GENERAL_REASONING",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:gr-02",
+        "output": " Carbon dioxide\n\nQ: Who painted",
+        "repeat_output": " Carbon dioxide\n\nQ: Who painted",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 2795.303,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 2806.726,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-03",
+        "category": "GENERAL_REASONING",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:gr-03",
+        "output": " 7\n\nQ: Who wrote the novel \"1",
+        "repeat_output": " 7\n\nQ: Who wrote the novel \"1",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 2748.491,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 2766.304,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "math-01",
+        "category": "MATH",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "MATH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:math-01",
+        "output": " 60\n\nQ: Who painted the Mon",
+        "repeat_output": " 60\n\nQ: Who painted the Mon",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 18217.106,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 2917.001,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "math-02",
+        "category": "MATH",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "MATH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:math-02",
+        "output": " 9 * 3 = 27 dollars\n\nQ: Who",
+        "repeat_output": " 9 * 3 = 27 dollars\n\nQ: Who",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 3560.626,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 7769.67,
+          "tokens_output": 16
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "so-01",
+        "category": "STRUCTURED_OUTPUT",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "STRUCTURED_OUTPUT",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:so-01",
+        "output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Charlie, age 29\nOutput: {\"name\": \"",
+        "repeat_output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Charlie, age 29\nOutput: {\"name\": \"",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 5293.363,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 5253.025,
+          "tokens_output": 32
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "so-02",
+        "category": "STRUCTURED_OUTPUT",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "STRUCTURED_OUTPUT",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:so-02",
+        "output": " {\"city\": \"Lisbon\", \"country\": \"Portugal\"}\n\nInput: city Paris, country France\nOutput: {\"city\": \"",
+        "repeat_output": " {\"city\": \"Lisbon\", \"country\": \"Portugal\"}\n\nInput: city Paris, country France\nOutput: {\"city\": \"",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 5240.281,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 7236.038,
+          "tokens_output": 32
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-01",
+        "category": "VIETNAMESE",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:vi-01",
+        "output": " Paris.\n\nThủ đô là một thành phố, nghĩa là một th",
+        "repeat_output": " Paris.\n\nThủ đô là một thành phố, nghĩa là một th",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 4566.148,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 4647.716,
+          "tokens_output": 24
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-02",
+        "category": "VIETNAMESE",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:vi-02",
+        "output": " 7 ngày.\n\nNgữ cảnh:\n\nMột tuần có 7 ngày",
+        "repeat_output": " 7 ngày.\n\nNgữ cảnh:\n\nMột tuần có 7 ngày",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 4315.499,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 4326.68,
+          "tokens_output": 24
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-03",
+        "category": "VIETNAMESE",
+        "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+        "family": "Granite",
+        "revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+        "artifact_hash": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "quantization": "Q4_K_M",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "c6f39424dac3ef0f45870e2ad34a970d",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": false,
+        "failure": {
+          "verifier_failures": [
+            "expected_term_absent"
+          ]
+        },
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:vi-03",
+        "output": " Bắc.\n\nMặt trời mọc ở hướng Bắc là v",
+        "repeat_output": " Bắc.\n\nMặt trời mọc ở hướng Bắc là v",
+        "cold_metrics": {
+          "load_latency_ms": 1761.729,
+          "inference_latency_ms": 4529.387,
+          "peak_ram_mb": 2968.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 4528.839,
+          "tokens_output": 24
+        }
+      }
+    ],
+    "failures": [
+      {
+        "task_id": "vi-03",
+        "failure": {
+          "verifier_failures": [
+            "expected_term_absent"
+          ]
+        },
+        "raw_run_ref": "757ac54a194d97ce2d96b9caa62b0089:c6f39424dac3ef0f45870e2ad34a970d:vi-03"
+      }
+    ],
+    "readiness_failures": [
+      "verifier_or_run_failure"
+    ],
+    "ready_to_freeze": false
+  }
+}

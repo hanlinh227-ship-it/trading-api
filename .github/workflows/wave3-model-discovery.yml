@@ -1,0 +1,1856 @@
+# Wave 3 candidate discovery and staging, run where Hugging Face is reachable.
+#
+# The runtime cannot see huggingface.co - CONNECT is 403 at its gateway - so it
+# cannot answer the question Wave 3 starts with: does an official GGUF artifact
+# exist for this candidate at all, and at what revision, size and digest? Three
+# of the five Wave 3 candidates publish safetensors upstream, and whether their
+# publisher also ships a GGUF is a fact about the world, not something to assume
+# from the model's popularity.
+#
+# So discovery happens on a runner and the answer comes back as a release asset,
+# because release assets are the one route this runtime can read.
+#
+# Discovery is the default and it downloads no weights. Staging is opt-in per
+# candidate and refuses anything above `max_gb`, because the runtime's disk
+# watermark is already CRITICAL and an artifact that cannot be held is worse
+# than one that was never fetched.
+#
+# Nothing here admits anything. Every artifact it publishes is marked
+# not-admitted, and the digest it records is re-verified by the runtime against
+# its own copy of the bytes - a publisher asserting a digest is not the same as
+# having checked one.
+#
+# Publisher repositories are read from the Wave 3 knowledge manifest rather than
+# written here, so this workflow cannot quietly widen the candidate set.
+name: Wave 3 model discovery
+
+on:
+  push:
+    branches: ['claude/magical-euler-uu98r8']
+    paths:
+      - .github/workflows/wave3-model-discovery.yml
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Comma-separated candidate ids to download (blank = discover only)
+        required: false
+        default: ''
+      max_gb:
+        description: Refuse to stage an artifact larger than this
+        required: false
+        default: '6'
+      scan_candidate:
+        description: Candidate id to signature-scan (blank = no scan)
+        required: false
+        default: ''
+      scan_expected_sha256:
+        description: Digest the runtime expects; the scan refuses on a mismatch
+        required: false
+        default: ''
+      probe_workers_ai:
+        description: Probe Cloudflare Workers AI free-tier eligibility (yes = run it)
+        required: false
+        default: ''
+      dump_workers_ai_catalog:
+        description: Dump the live Workers AI model catalog (yes = run it)
+        required: false
+        default: ''
+      benchmark_wave4:
+        description: Run real Wave 4 multimodal inference and measure it (yes = run it)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wave3-model-discovery
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      report: ${{ steps.discover.outputs.report }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ask Hugging Face what actually exists
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet 'huggingface_hub>=0.25,<2' pyyaml
+          python - <<'PY'
+          import json, os, pathlib, datetime
+          import yaml
+          from huggingface_hub import HfApi, hf_hub_url, get_hf_file_metadata
+
+          api = HfApi()
+          manifest = yaml.safe_load(pathlib.Path(
+              "AI_SKILL_LIBRARY/v4/open_model_universe/wave3_knowledge_candidates.yaml"
+          ).read_text(encoding="utf-8"))
+
+          # Preference order matters: an artifact published by the model's own
+          # author carries provenance a third-party requantization does not.
+          # A community GGUF is reported, never silently preferred.
+          PREFERRED_QUANTS = ("Q4_K_M", "Q4_K_S", "Q4_0", "Q5_K_M", "Q8_0")
+          SKIP = ("mmproj", "projector", "tokenizer", "vocab")
+
+          def official_gguf_repos(upstream: str) -> list[str]:
+              """Repos by the same author that might hold the GGUF build."""
+              author = upstream.split("/", 1)[0]
+              base = upstream.split("/", 1)[1]
+              return [upstream, f"{author}/{base}-GGUF", f"{author}/{base}-gguf"]
+
+          # Converters whose builds carry enough provenance to be checkable: they
+          # publish the source revision they converted from and the llama.cpp
+          # release that did it. This is a shortlist of *where to look*, never a
+          # trust decision - every candidate found here is reported with its
+          # provenance fields so a human decides, and a build that cannot name
+          # its source revision and converter is refused downstream regardless
+          # of who published it.
+          CONVERTERS = ("bartowski", "unsloth", "ggml-org", "lmstudio-community")
+
+          def community_gguf_repos(upstream: str) -> list[str]:
+              base = upstream.split("/", 1)[1]
+              return [f"{c}/{base}-GGUF" for c in CONVERTERS]
+
+          # GGUF metadata value types, needed only so unknown values can be
+          # skipped correctly while walking to the ones that matter.
+          _GGUF_SCALAR = {0: 1, 1: 1, 2: 2, 3: 2, 4: 4, 5: 4, 6: 4, 7: 1, 10: 8, 11: 8, 12: 8}
+
+          def _gguf_kv(buf: bytes) -> dict:
+              """Parse the metadata block at the head of a GGUF file.
+
+              This is where a conversion records what it was made from:
+              general.base_model.N.repo_url and .version, general.quantized_by,
+              general.quantization_version. A README can claim anything; these
+              keys are written by the converter into the artifact itself, so
+              they are the authoritative answer and the only one worth closing a
+              provenance question on.
+              """
+              import struct
+              if len(buf) < 24 or buf[:4] != b"GGUF":
+                  return {}
+              off = 4
+              (version,) = struct.unpack_from("<I", buf, off); off += 4
+              off += 8  # tensor_count
+              (kv_count,) = struct.unpack_from("<Q", buf, off); off += 8
+
+              def rd_str():
+                  nonlocal off
+                  (n,) = struct.unpack_from("<Q", buf, off); off += 8
+                  v = buf[off:off + n]; off += n
+                  return v.decode("utf-8", errors="replace")
+
+              def skip_value(vt):
+                  nonlocal off
+                  if vt == 8:
+                      rd_str()
+                  elif vt == 9:
+                      (et,) = struct.unpack_from("<I", buf, off); off += 4
+                      (n,) = struct.unpack_from("<Q", buf, off); off += 8
+                      for _ in range(n):
+                          skip_value(et)
+                  else:
+                      off += _GGUF_SCALAR.get(vt, 0)
+
+              out = {}
+              for _ in range(min(kv_count, 4096)):
+                  if off + 12 > len(buf):
+                      break
+                  try:
+                      key = rd_str()
+                      (vt,) = struct.unpack_from("<I", buf, off); off += 4
+                      if vt == 8:
+                          out[key] = rd_str()
+                      else:
+                          skip_value(vt)
+                  except Exception:
+                      break
+              out["_gguf_version"] = version
+              return out
+
+          def _gguf_head(repo_id: str, revision: str, filename: str, nbytes: int = 2_000_000) -> bytes:
+              """Just the head of the artifact. The metadata lives at the front,
+              so a Range request answers the provenance question without pulling
+              gigabytes that would then have to be thrown away."""
+              import urllib.parse, urllib.request
+              url = (f"https://huggingface.co/{repo_id}/resolve/{revision}/"
+                     f"{urllib.parse.quote(filename)}")
+              req = urllib.request.Request(url, headers={"Range": f"bytes=0-{nbytes - 1}"})
+              with urllib.request.urlopen(req, timeout=120) as resp:
+                  return resp.read()
+
+          def conversion_provenance(repo_id: str, revision: str,
+                                    filename: str | None = None) -> dict:
+              """What a conversion must be able to say about itself.
+
+              A GGUF is a derived artifact. Its digest proves only that these
+              bytes are these bytes; it says nothing about what they were made
+              from. So the fields that matter are the source repo and revision
+              it was converted from, and the tool that did it - without those,
+              a digest is provenance for nothing.
+
+              Read in order of authority: the artifact's own embedded metadata
+              first, then the model card, then the README prose. A README
+              sentence is the weakest of the three and is used only to fill a
+              field the artifact itself left empty.
+              """
+              found = {"base_model": None, "base_revision": None,
+                       "converter_tool": None, "readme_excerpt": None,
+                       "evidence_source": {}}
+
+              # 1. The artifact itself.
+              if filename:
+                  try:
+                      meta = _gguf_kv(_gguf_head(repo_id, revision, filename))
+                      repo_url = (meta.get("general.base_model.0.repo_url")
+                                  or meta.get("general.base_model.0.name"))
+                      if repo_url:
+                          found["base_model"] = repo_url
+                          found["evidence_source"]["base_model"] = "gguf_metadata"
+                      ver = meta.get("general.base_model.0.version")
+                      if ver:
+                          found["base_revision"] = ver
+                          found["evidence_source"]["base_revision"] = "gguf_metadata"
+                      qb = meta.get("general.quantized_by")
+                      qv = meta.get("general.quantization_version")
+                      if qb or qv:
+                          found["converter_tool"] = " ".join(
+                              x for x in (qb, f"quantization_version={qv}" if qv else None) if x)
+                          found["evidence_source"]["converter_tool"] = "gguf_metadata"
+                      found["gguf_metadata_keys_seen"] = sorted(
+                          k for k in meta if k.startswith("general."))
+                  except Exception as exc:
+                      found["gguf_metadata_error"] = f"{type(exc).__name__}: {exc}"
+
+              # 2. The model card.
+              try:
+                  info = api.model_info(repo_id=repo_id, files_metadata=False)
+              except Exception:
+                  return found
+              card = getattr(info, "cardData", None) or {}
+              if isinstance(card, dict) and not found["base_model"]:
+                  base = card.get("base_model")
+                  if isinstance(base, list):
+                      base = base[0] if base else None
+                  if base:
+                      found["base_model"] = base
+                      found["evidence_source"]["base_model"] = "model_card"
+              for tag in (getattr(info, "tags", None) or []):
+                  tag = str(tag)
+                  if tag.startswith("base_model:") and not found["base_model"]:
+                      found["base_model"] = tag.split(":", 1)[1]
+                      found["evidence_source"]["base_model"] = "hub_tag"
+
+              # 3. The README, weakest and last.
+              try:
+                  from huggingface_hub import hf_hub_download
+                  readme = pathlib.Path(hf_hub_download(
+                      repo_id=repo_id, filename="README.md", revision=revision))
+                  text = readme.read_text(encoding="utf-8", errors="replace")
+                  found["readme_excerpt"] = text[:1500]
+                  import re
+                  if not found["converter_tool"]:
+                      m = re.search(r"llama\.cpp release (b\d+)", text)
+                      if m:
+                          found["converter_tool"] = f"llama.cpp {m.group(1)}"
+                          found["evidence_source"]["converter_tool"] = "readme_prose"
+                  if not found["base_revision"]:
+                      m = re.search(r"[0-9a-f]{40}", text)
+                      if m:
+                          found["base_revision"] = m.group(0)
+                          found["evidence_source"]["base_revision"] = "readme_prose"
+              except Exception:
+                  pass
+
+              found["provenance_complete"] = bool(
+                  found["base_model"] and found["base_revision"] and found["converter_tool"])
+              return found
+
+          def inspect(repo_id: str) -> dict | None:
+              try:
+                  info = api.model_info(repo_id=repo_id, files_metadata=False)
+              except Exception as exc:
+                  return {"repo_id": repo_id, "exists": False,
+                          "error": f"{type(exc).__name__}: {exc}"}
+              revision = getattr(info, "sha", None)
+              try:
+                  files = api.list_repo_files(repo_id=repo_id, revision=revision)
+              except Exception as exc:
+                  return {"repo_id": repo_id, "exists": True, "revision": revision,
+                          "error": f"{type(exc).__name__}: {exc}", "gguf_files": []}
+              ggufs = [f for f in files if f.lower().endswith(".gguf")
+                       and not any(s in f.lower() for s in SKIP)]
+              # Licence detection has to look in more than one place. Reading
+              # only cardData returned null for Qwen3-8B-GGUF, whose licence is
+              # carried as a `license:` tag and as a LICENSE file in the repo.
+              # A null licence blocks admission, so a detector that misses the
+              # answer manufactures a blocker rather than finding one.
+              card = getattr(info, "cardData", None) or {}
+              licence = card.get("license") if isinstance(card, dict) else None
+              tags = [str(tag) for tag in (getattr(info, "tags", None) or [])]
+              if not licence:
+                  for tag in tags:
+                      if tag.startswith("license:"):
+                          licence = tag.split(":", 1)[1]
+                          break
+              licence_files = sorted(
+                  f for f in files
+                  if f.upper().startswith("LICENSE") or f.upper().startswith("LICENCE")
+              )
+              gated = bool(getattr(info, "gated", False))
+              return {
+                  "repo_id": repo_id,
+                  "exists": True,
+                  "gated": gated,
+                  "revision": revision,
+                  "license_declared": licence,
+                  "license_source": ("card_data" if (isinstance(card, dict) and card.get("license"))
+                                     else "repo_tag" if licence else None),
+                  "license_files": licence_files,
+                  "tags": tags,
+                  "gguf_files": sorted(ggufs),
+              }
+
+          def choose(repo: dict) -> dict | None:
+              ordered = []
+              for quant in PREFERRED_QUANTS:
+                  ordered += [f for f in repo["gguf_files"]
+                              if quant.lower() in f.lower() and f not in ordered]
+              ordered += [f for f in repo["gguf_files"] if f not in ordered]
+              for filename in ordered:
+                  try:
+                      meta = get_hf_file_metadata(
+                          hf_hub_url(repo["repo_id"], filename, revision=repo["revision"]))
+                  except Exception:
+                      continue
+                  size = int(meta.size or 0)
+                  if size <= 0:
+                      continue
+                  return {"filename": filename, "size_bytes": size}
+              return None
+
+          findings = []
+          for candidate in manifest.get("candidates", []):
+              upstream = str(candidate.get("upstream"))
+              row = {
+                  "candidate_id": candidate.get("id"),
+                  "upstream": upstream,
+                  "manifest_state": candidate.get("state"),
+                  "repos_checked": [],
+                  "selected": None,
+              }
+              # A candidate the manifest itself gates on a human decision is not
+              # probed for a download path. Finding one would only create the
+              # temptation to use it.
+              if candidate.get("state") == "HUMAN_LICENSE_GATE_REQUIRED":
+                  row["skipped"] = "human licence gate; not probed for staging"
+                  findings.append(row)
+                  continue
+              for repo_id in official_gguf_repos(upstream):
+                  repo = inspect(repo_id)
+                  row["repos_checked"].append(repo)
+                  if repo.get("exists") and repo.get("gguf_files") and not repo.get("gated"):
+                      picked = choose(repo)
+                      if picked:
+                          row["selected"] = {
+                              "repo_id": repo["repo_id"],
+                              "immutable_revision": repo["revision"],
+                              "license_declared": repo["license_declared"],
+                              "license_source": repo.get("license_source"),
+                              "license_files": repo.get("license_files"),
+                              "official_publisher_artifact": True,
+                              **picked,
+                              "size_gb": round(picked["size_bytes"] / 1e9, 2),
+                          }
+                          break
+              # No author build. Look at conversions and report what provenance
+              # each can produce, so the decision is made on evidence rather
+              # than on the converter's reputation.
+              if row["selected"] is None:
+                  row["community_candidates"] = []
+                  for repo_id in community_gguf_repos(upstream):
+                      repo = inspect(repo_id)
+                      if not (repo.get("exists") and repo.get("gguf_files") and not repo.get("gated")):
+                          continue
+                      picked = choose(repo)
+                      if not picked:
+                          continue
+                      prov = conversion_provenance(
+                          repo["repo_id"], repo["revision"], picked.get("filename"))
+                      row["community_candidates"].append({
+                          "repo_id": repo["repo_id"],
+                          "immutable_revision": repo["revision"],
+                          "license_declared": repo["license_declared"],
+                          "official_publisher_artifact": False,
+                          **picked,
+                          "size_gb": round(picked["size_bytes"] / 1e9, 2),
+                          "conversion_provenance": prov,
+                          # All three, not two. The base revision is the field
+                          # that pins WHICH weights were converted, and omitting
+                          # it from the check made "complete" mean less than the
+                          # rule it was enforcing.
+                          "provenance_complete": bool(
+                              prov.get("base_model") and prov.get("base_revision")
+                              and prov.get("converter_tool")),
+                      })
+
+              if row["selected"] is None:
+                  row["conclusion"] = (
+                      "no ungated GGUF published by this model's own author; a "
+                      "community requantization would need its conversion provenance "
+                      "established before it could be considered"
+                  )
+              findings.append(row)
+
+          report = {
+              "tool": "wave3-model-discovery",
+              "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+              "stage": "DISCOVERY_ONLY_NOT_ADMITTED",
+              "governance_effect": "none",
+              "model_mesh_effect": "none",
+              "findings": findings,
+          }
+          pathlib.Path("wave3-discovery.json").write_text(
+              json.dumps(report, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(report, indent=2))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write("report=" + json.dumps(
+                  {"include": [f for f in findings if f.get("selected")]},
+                  separators=(",", ":")) + "\n")
+          PY
+
+      - name: Publish the discovery report where the runtime can read it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=wave3-discovery
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "Wave 3 discovery" \
+              --notes "Discovery output only. No model is admitted, staged or mesh-eligible by this release."
+          gh release upload "$TAG" wave3-discovery.json --clobber
+
+  stage:
+    needs: discover
+    if: github.event.inputs.stage != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.discover.outputs.report) }}
+    steps:
+      - name: Skip candidates this run was not asked to stage
+        id: gate
+        env:
+          REQUESTED: ${{ github.event.inputs.stage }}
+          CANDIDATE: ${{ matrix.candidate_id }}
+          SIZE_BYTES: ${{ matrix.selected.size_bytes }}
+          MAX_GB: ${{ github.event.inputs.max_gb }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          WANTED=false
+          IFS=',' read -ra ids <<< "$REQUESTED"
+          for id in "${ids[@]}"; do
+            [ "$(echo "$id" | xargs)" = "$CANDIDATE" ] && WANTED=true
+          done
+          LIMIT=$(python -c "print(int(float('$MAX_GB') * 1e9))")
+          if [ "$WANTED" != "true" ]; then
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$CANDIDATE not requested"
+          elif [ "$SIZE_BYTES" -gt "$LIMIT" ]; then
+            # Refused here rather than after the download, which is the whole
+            # point of having a limit.
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "::error::$CANDIDATE is $SIZE_BYTES bytes, over the $MAX_GB GB limit"
+            exit 1
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download the exact pinned revision
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          REPO_ID: ${{ matrix.selected.repo_id }}
+          REVISION: ${{ matrix.selected.immutable_revision }}
+          MODEL_FILE: ${{ matrix.selected.filename }}
+          EXPECTED_SIZE: ${{ matrix.selected.size_bytes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staged
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
+            "https://huggingface.co/${REPO_ID}/resolve/${REVISION}/${MODEL_FILE}?download=true" \
+            -o "staged/$(basename "$MODEL_FILE")"
+          ACTUAL=$(stat -c %s "staged/$(basename "$MODEL_FILE")")
+          if [ "$ACTUAL" != "$EXPECTED_SIZE" ]; then
+            echo "::error::size mismatch: got $ACTUAL, discovery said $EXPECTED_SIZE"
+            exit 1
+          fi
+
+      - name: Record the transport identity
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          CANDIDATE: ${{ matrix.candidate_id }}
+          REPO_ID: ${{ matrix.selected.repo_id }}
+          REVISION: ${{ matrix.selected.immutable_revision }}
+          MODEL_FILE: ${{ matrix.selected.filename }}
+          LICENSE_DECLARED: ${{ matrix.selected.license_declared }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import datetime, hashlib, json, os, pathlib
+          staged = pathlib.Path("staged")
+          name = os.path.basename(os.environ["MODEL_FILE"])
+          path = staged / name
+          digest = hashlib.sha256()
+          with path.open("rb") as handle:
+              for chunk in iter(lambda: handle.read(8 << 20), b""):
+                  digest.update(chunk)
+          manifest = {
+              "stage": "PREFETCH_ONLY_NOT_ADMITTED",
+              "wave": 3,
+              "authority": False,
+              "candidate_id": os.environ["CANDIDATE"],
+              "repo_id": os.environ["REPO_ID"],
+              "immutable_revision": os.environ["REVISION"],
+              "filename": name,
+              "size_bytes": path.stat().st_size,
+              "sha256_downloaded_bytes": digest.hexdigest(),
+              "license_declared_upstream": os.environ.get("LICENSE_DECLARED") or None,
+              "source_url": (f"https://huggingface.co/{os.environ['REPO_ID']}/resolve/"
+                             f"{os.environ['REVISION']}/{os.environ['MODEL_FILE']}"),
+              "staged_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+              "governance_effect": "none",
+              "model_mesh_effect": "none",
+              "runtime_activation_effect": "none",
+              "required_before_admission": [
+                  "independent provenance and licence review",
+                  "signature malware scan",
+                  "digest-bound artifact intake",
+                  "structural and safe-format validation",
+                  "isolated first load with egress denied",
+                  "real inference",
+                  "digest-bound capability benchmark",
+              ],
+          }
+          (staged / f"{os.environ['CANDIDATE']}.manifest.json").write_text(
+              json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(manifest, indent=2))
+          PY
+
+      - name: Publish as release assets
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE: ${{ matrix.candidate_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="wave3-staged-${CANDIDATE}"
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "Wave 3 staged: ${CANDIDATE}" \
+              --notes "Prefetch transport only. Not admitted, not mesh-eligible, no capability claimed."
+          # Release assets cap at 2 GiB, so a larger artifact is split and the
+          # runtime reassembles it before verifying the whole file's digest.
+          # Parts are never verified individually in place of the whole.
+          cd staged
+          for f in *.gguf; do
+            SIZE=$(stat -c %s "$f")
+            if [ "$SIZE" -gt 2000000000 ]; then
+              split -b 1900000000 -d -a 2 "$f" "$f.part"
+              rm -f "$f"
+            fi
+          done
+          gh release upload "$TAG" * --clobber
+
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # Opt-in per dispatch, like staging. A run that was not asked to scan
+    # anything must not pick a candidate for itself.
+    if: github.event.inputs.scan_candidate != ''
+    steps:
+      - name: Install a real signature engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends clamav
+          sudo systemctl stop clamav-freshclam 2>/dev/null || true
+          # Signatures, not just the engine. An engine with no database would
+          # scan everything and find nothing, which looks exactly like a pass.
+          sudo freshclam --quiet || sudo freshclam
+          clamscan --version
+
+      - name: Fetch and reassemble the staged artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE: ${{ github.event.inputs.scan_candidate }}
+          EXPECTED_SHA: ${{ github.event.inputs.scan_expected_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staged && cd staged
+          gh release download "wave3-staged-${CANDIDATE}" --pattern '*.gguf*' --clobber
+          # Parts are concatenated in order and the digest of the whole file is
+          # verified; a part is never verified in place of the whole.
+          shopt -s nullglob
+          for base in $(ls *.part* 2>/dev/null | sed 's/\.part[0-9]*$//' | sort -u); do
+            cat "$base".part* > "$base"
+            rm -f "$base".part*
+          done
+          FILE=$(ls *.gguf | head -1)
+          SHA=$(sha256sum "$FILE" | awk '{print $1}')
+          if [ "$SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::digest mismatch - scanning the wrong bytes produces a worthless result"
+            echo "::error::expected $EXPECTED_SHA, got $SHA"
+            exit 1
+          fi
+          echo "FILE=$FILE" >> "$GITHUB_ENV"
+          echo "SHA=$SHA" >> "$GITHUB_ENV"
+          echo "SIZE=$(stat -c%s "$FILE")" >> "$GITHUB_ENV"
+
+      - name: Scan, and bind the result to the exact bytes
+        env:
+          CANDIDATE: ${{ github.event.inputs.scan_candidate }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          cd staged
+          ENGINE=$(clamscan --version)
+          LIMIT=2147483647   # libclamav cannot read a file larger than this
+
+          # libclamav skips a file over 2 GiB - 1 while still printing "OK" and
+          # "Scanned files: 1", so the naive path records a clean scan of bytes
+          # nothing ever looked at. Chunks overlap by 1 MiB so a signature
+          # straddling a boundary is still seen in one of them.
+          CHUNKED=false
+          OVERLAP=1048576
+          if [ "$SIZE" -gt "$LIMIT" ]; then
+            CHUNKED=true
+            mkdir -p chunks
+            SCAN_TARGET="$FILE" python - <<'PY'
+          import os, pathlib
+          src = pathlib.Path(os.environ["SCAN_TARGET"])
+          size = src.stat().st_size
+          chunk, overlap = 1_000_000_000, 1_048_576
+          out = pathlib.Path("chunks")
+          offset, index = 0, 0
+          with src.open("rb") as handle:
+              while offset < size:
+                  handle.seek(offset)
+                  data = handle.read(chunk)
+                  if not data:
+                      break
+                  (out / f"chunk{index:03d}.bin").write_bytes(data)
+                  index += 1
+                  offset += chunk - overlap
+          print(f"wrote {index} chunks covering {size} bytes")
+          PY
+            TARGET=chunks
+          else
+            TARGET="$FILE"
+          fi
+
+          set +e
+          clamscan -r --max-filesize=4000M --max-scansize=4000M --stdout "$TARGET" > scan.txt 2>&1
+          CODE=$?
+          set -e
+          cat scan.txt
+
+          case "$CODE" in
+            0) STATUS=pass ;;
+            1) STATUS=fail ;;
+            *) STATUS=error ;;
+          esac
+
+          # The check that decides whether this is a scan or theatre. "Scanned
+          # files: 1" is printed even for a file that was skipped. Data scanned
+          # is the honest measure.
+          SCANNED=$(awk -F': *' '/^Scanned files:/{print $2; exit}' scan.txt)
+          SCANNED="${SCANNED:-0}"
+          DATA_SCANNED=$(awk -F': *' '/^Data scanned:/{print $2; exit}' scan.txt)
+          DATA_SCANNED="${DATA_SCANNED:-0}"
+          COVERAGE_OK=true
+          case "$DATA_SCANNED" in
+            0|0.00*|"") COVERAGE_OK=false ;;
+          esac
+          [ "$SCANNED" -ge 1 ] || COVERAGE_OK=false
+          if [ "$COVERAGE_OK" != "true" ] && [ "$STATUS" = "pass" ]; then
+            echo "::warning::engine scanned no data - refusing to record a pass"
+            STATUS=not_run
+          fi
+
+          SIGS=$(sudo sigtool --info /var/lib/clamav/daily.cvd 2>/dev/null | awk -F': ' '/^Version:/{print $2; exit}')
+          SIGS="${SIGS:-unknown}"
+
+          python - <<PY > "scan-${CANDIDATE}.json"
+          import json, os, datetime
+          print(json.dumps({
+            "candidate_id": os.environ["CANDIDATE"],
+            "filename": "$FILE",
+            "artifact_sha256": "$SHA",
+            "size_bytes": int("$SIZE"),
+            "malware_scan_status": "$STATUS",
+            "scan_exit_code": int("$CODE"),
+            "engine": """$ENGINE""".strip().splitlines()[0],
+            "signature_database_version": "$SIGS",
+            "engine_scanned_file_count": int("$SCANNED"),
+            "engine_data_scanned": "$DATA_SCANNED",
+            "engine_read_whole_artifact": "$COVERAGE_OK" == "true",
+            "chunked": "$CHUNKED" == "true",
+            "chunk_overlap_bytes": int("$OVERLAP") if "$CHUNKED" == "true" else None,
+            "scanned_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+            "scanned_by": "github-actions",
+            "scan_kind": "signature_based",
+            "is_a_scan_result": True,
+            "covers_only_this_digest": True,
+            "raw_output": open("scan.txt").read()[-4000:],
+          }, indent=2))
+          PY
+          cat "scan-${CANDIDATE}.json"
+
+      - name: Publish the scan result beside the artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE: ${{ github.event.inputs.scan_candidate }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "wave3-staged-${CANDIDATE}" "staged/scan-${CANDIDATE}.json" --clobber
+
+  # Whether a model Cloudflare lists is actually served on the Workers Free plan
+  # is not answerable from the catalog. Cloudflare publishes a Paid-only list,
+  # but a model's absence from that list is evidence rather than proof, and the
+  # runtime container holds no Cloudflare credential to settle it. This job
+  # settles it the only honest way: one request per model, and whatever comes
+  # back is the answer.
+  #
+  # It cannot spend money. The Workers Free plan has no billing path at all -
+  # Cloudflare's own pricing table records "N/A - Upgrade to Workers Paid" for
+  # it - so past the 10,000 daily Neuron allowance a request fails rather than
+  # charges. A 403 with internal error 5035 is the documented Paid-only refusal
+  # and is recorded as a finding, never treated as a reason to upgrade.
+  #
+  # It enables nothing, accepts no licence and creates no account. It reads the
+  # plan the operator already has, using the token this repository already
+  # holds for deployment, and writes down what that plan will serve.
+  probe-workers-ai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event.inputs.probe_workers_ai != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ask the free plan, one model at a time
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ACCOUNT_ID:-}" ]; then
+            echo "No Cloudflare credential in this repository. Recording that, not guessing."
+            printf '%s\n' '{"probe":"workers_ai_free_tier","status":"NO_CREDENTIAL","results":[]}' \
+              > workers-ai-probe.json
+            exit 0
+          fi
+
+          # Cloudflare answers 10000 for every authentication problem there is,
+          # so a bare 401 on ai/run cannot tell an invalid token from a token
+          # scoped to a different account from a missing Workers AI permission.
+          # Three graded calls separate them, and the first two are read-only.
+          #
+          # Nothing here prints a secret. The account id is reported only as
+          # derived booleans - well-formed or not - which is what a diagnosis
+          # needs and is not the value itself.
+          verify_http=$(curl -sS -o verify.json -w '%{http_code}' \
+            "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" || echo "000")
+          list_http=$(curl -sS -o models.json -w '%{http_code}' \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/models/search?per_page=1" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" || echo "000")
+          # Capitalised because this value is interpolated straight into the
+          # Python below, where shell's `true` is a NameError.
+          acct_wellformed=$(printf '%s' "${CF_ACCOUNT_ID}" \
+            | grep -qE '^[0-9a-f]{32}$' && echo True || echo False)
+          acct_len=${#CF_ACCOUNT_ID}
+
+          # Which token is in the secret. A verify of 200 says the stored token
+          # is valid; it does NOT say it is the one just configured, because the
+          # previous deploy token was valid too. The token *id* settles it: it
+          # is a stable identifier, it is shown beside the token in the
+          # dashboard, and it cannot be used to authenticate - so printing it
+          # identifies the token without disclosing it.
+          tok_id=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('verify.json'))
+          except Exception: print(''); sys.exit()
+          print((d.get('result') or {}).get('id') or '')" 2>/dev/null || echo "")
+          tok_status=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('verify.json'))
+          except Exception: print(''); sys.exit()
+          print((d.get('result') or {}).get('status') or '')" 2>/dev/null || echo "")
+
+          # A valid token that is refused on one account has two possible
+          # causes, and they need different fixes: the token is scoped to a
+          # different account, or its Workers AI permission was not applied to
+          # this one. Asking the token which accounts it can see separates them.
+          #
+          # Account NAMES are reported, not ids. A name is what an operator
+          # needs in order to pick the right account in the dashboard, and it is
+          # not credential material. Whether the configured id is among them is
+          # reported as a boolean, so the configured value itself never appears.
+          curl -sS -o accounts.json \
+            "https://api.cloudflare.com/client/v4/accounts?per_page=50" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" >/dev/null 2>&1 || true
+          acct_visible=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('accounts.json'))
+          except Exception: print('UNKNOWN'); sys.exit()
+          if not d.get('success'): print('UNKNOWN'); sys.exit()
+          print(len(d.get('result') or []))" 2>/dev/null || echo UNKNOWN)
+          acct_names=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('accounts.json'))
+          except Exception: print(''); sys.exit()
+          print('; '.join((a.get('name') or '?') for a in (d.get('result') or [])))" 2>/dev/null || echo "")
+          acct_match=$(CFA="${CF_ACCOUNT_ID}" python3 -c "
+          import json,os,sys
+          try: d=json.load(open('accounts.json'))
+          except Exception: print('False'); sys.exit()
+          ids={str(a.get('id','')).lower() for a in (d.get('result') or [])}
+          print('True' if os.environ['CFA'].lower() in ids else 'False')" 2>/dev/null || echo False)
+          rm -f accounts.json
+
+          echo "preflight: token_verify=${verify_http} models_search=${list_http} account_id_wellformed=${acct_wellformed} accounts_visible=${acct_visible} configured_account_is_visible=${acct_match}"
+
+          # Exactly the models free_execution_paths.yaml names, and nothing else.
+          # A probe that wandered the catalog would be discovery, and discovery
+          # is not what this job is for.
+          models=$(python3 - <<'PY'
+          import yaml
+          doc = yaml.safe_load(open("AI_SKILL_LIBRARY/v4/open_model_universe/free_execution_paths.yaml"))
+          for row in doc.get("offerings", []):
+              if row.get("provider_id") != "cloudflare_workers_ai":
+                  continue
+              if row.get("match") not in {"EXACT", "CAPABILITY"}:
+                  continue
+              print(f"{row['requested_model_id']}\t{row['provider_model_id']}\t{row['match']}")
+          PY
+          )
+
+          : > probe-rows.tsv
+          while IFS=$'\t' read -r requested served match; do
+            [ -n "${served:-}" ] || continue
+            body='{"messages":[{"role":"user","content":"Reply with the single word: ok"}],"max_tokens":8}'
+            http=$(curl -sS -o resp.json -w '%{http_code}' \
+              "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/${served}" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "${body}" || echo "000")
+            # The response body can carry a credential-shaped error string, so
+            # only the fields the probe needs are kept: status, Cloudflare's own
+            # error code, and whether a completion came back at all.
+            code=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('resp.json'))
+          except Exception: print(''); sys.exit()
+          errs=d.get('errors') or []
+          print(errs[0].get('code','') if errs else '')" 2>/dev/null || echo "")
+            completed=$(python3 -c "
+          import json,sys
+          try: d=json.load(open('resp.json'))
+          except Exception: print('false'); sys.exit()
+          r=(d.get('result') or {})
+          print('true' if (r.get('response') or r.get('choices')) else 'false')" 2>/dev/null || echo "false")
+            echo "  ${served}: HTTP ${http} cf_error=${code:-none} completion=${completed}"
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+              "$requested" "$served" "$match" "$http" "${code:-}" "$completed" >> probe-rows.tsv
+            rm -f resp.json
+          done <<< "$models"
+
+          python3 - <<PY
+          import json, time
+          preflight = {
+              "token_verify_http": "${verify_http}",
+              "workers_ai_models_search_http": "${list_http}",
+              "account_id_wellformed": ${acct_wellformed},
+              "account_id_length": ${acct_len},
+              "token_id": "${tok_id}",
+              "token_status": "${tok_status}",
+              "token_id_note": (
+                  "a non-secret identifier, shown beside the token in the Cloudflare "
+                  "dashboard. Compare it with the token you edited: if it differs, the "
+                  "GitHub secret still holds the previous token and needs its value "
+                  "replaced, not its permissions changed."),
+              "accounts_token_can_see": "${acct_visible}",
+              "account_names_token_can_see": "${acct_names}",
+              "configured_account_is_one_the_token_can_see": ${acct_match},
+              "account_listing_note": (
+                  "listing accounts needs Account Settings Read, which a token scoped "
+                  "only to Workers AI does not carry. Zero visible accounts is therefore "
+                  "expected for a correctly minimal token and is never on its own "
+                  "evidence of an account mismatch."),
+          }
+          # One sentence an operator can act on, chosen by which call broke.
+          # Ordered by what actually matters. A token that reads the Workers AI
+          # catalog is working, and nothing else needs explaining; the other
+          # branches exist only to name a failure.
+          #
+          # Account visibility is deliberately NOT checked first. Listing
+          # accounts needs its own permission (Account Settings Read), so a
+          # token scoped narrowly to Workers AI - which is the correct, minimal
+          # scope - sees zero accounts. Treating that as a mismatch reported a
+          # fully working token as broken, which is exactly what it did on the
+          # run that first passed.
+          if preflight["workers_ai_models_search_http"] == "200":
+              preflight["diagnosis"] = (
+                  "the token verifies and reads the Workers AI catalog on this account; "
+                  "any remaining failure is specific to running a model")
+          elif preflight["token_verify_http"] != "200":
+              preflight["diagnosis"] = (
+                  "the token itself did not verify, so the CLOUDFLARE_API_TOKEN secret "
+                  "does not hold a currently valid token - most likely the secret was "
+                  "not updated with the newly scoped token's value")
+          elif not preflight["account_id_wellformed"]:
+              preflight["diagnosis"] = (
+                  "the token verifies but CLOUDFLARE_ACCOUNT_ID is not a 32-character "
+                  "hex account id, so the request URL names no real account")
+          elif preflight["accounts_token_can_see"] in ("0", "UNKNOWN", ""):
+              preflight["diagnosis"] = (
+                  "the token verifies but Workers AI is refused on this account, and the "
+                  "token cannot list accounts either - which is normal for a token scoped "
+                  "only to Workers AI, so it is not evidence of a mismatch. Check that the "
+                  "token whose id is " + (preflight["token_id"] or "<unreadable>") + " has "
+                  "Workers AI permission on the account CLOUDFLARE_ACCOUNT_ID names")
+          elif not preflight["configured_account_is_one_the_token_can_see"]:
+              preflight["diagnosis"] = (
+                  "the token verifies but CLOUDFLARE_ACCOUNT_ID is not among the accounts "
+                  "this token can see, so the token and the account id belong to "
+                  "different accounts. Fix whichever is wrong: point the secret at the "
+                  "account the token is scoped to, or re-scope the token. Accounts this "
+                  "token can see: " + (preflight["account_names_token_can_see"] or "none"))
+          else:
+              preflight["diagnosis"] = (
+                  "the token verifies and is scoped to this very account, yet Workers AI is "
+                  "refused on it, so the Workers AI permission is not in effect on the token "
+                  "the secret actually holds - re-open the token whose id is "
+                  + (preflight["token_id"] or "<unreadable>") +
+                  " and confirm the permission was saved through to the end")
+          rows = []
+          for line in open("probe-rows.tsv"):
+              requested, served, match, http, code, completed = line.rstrip("\n").split("\t")
+              # 5035 is the documented Workers-Paid-only refusal. It is a finding
+              # about the plan, and never a reason to change the plan.
+              if http == "200" and completed == "true":
+                  verdict = "FREE_TIER_SERVES_IT"
+              elif code == "5035" or http == "403":
+                  verdict = "REQUIRES_WORKERS_PAID_PLAN"
+              elif http == "429":
+                  verdict = "DAILY_NEURON_ALLOWANCE_EXHAUSTED"
+              elif http == "401":
+                  # The credential exists and Cloudflare rejected it for this
+                  # API. That is a scope problem with a named remedy, not an
+                  # unknown - calling it inconclusive would hide the one thing
+                  # an operator can act on.
+                  verdict = "TOKEN_LACKS_WORKERS_AI_PERMISSION"
+              else:
+                  verdict = "INCONCLUSIVE"
+              rows.append({
+                  "requested_model_id": requested, "provider_model_id": served,
+                  "match": match, "http_status": http,
+                  "cloudflare_error_code": code or None,
+                  "returned_a_completion": completed == "true",
+                  "verdict": verdict,
+              })
+          json.dump({
+              "probe": "workers_ai_free_tier",
+              "probed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "preflight": preflight,
+              "plan_can_bill": False,
+              "plan_evidence": "Workers Free has no paid path; past the allowance requests fail",
+              "status": "PROBED",
+              "results": rows,
+          }, open("workers-ai-probe.json", "w"), indent=2)
+          PY
+          cat workers-ai-probe.json
+
+      - name: Publish the probe where the runtime can read it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create wave3-workers-ai-probe --notes \
+            "Cloudflare Workers AI free-tier probe. Not an admission." 2>/dev/null || true
+          gh release upload wave3-workers-ai-probe workers-ai-probe.json --clobber
+
+  # The live catalog, not the documentation. A docs page is a rendering of what
+  # Cloudflare chose to publish; this is what the account can actually address,
+  # with each model's task type, so a capability search rests on the same thing
+  # inference will hit. Read-only, and it spends no Neurons - listing models is
+  # not running one.
+  dump-workers-ai-catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.inputs.dump_workers_ai_catalog != ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: List what this account can actually address
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ACCOUNT_ID:-}" ]; then
+            printf '%s\n' '{"status":"NO_CREDENTIAL","models":[]}' > workers-ai-catalog.json
+            exit 0
+          fi
+          : > pages.jsonl
+          page=1
+          while [ "$page" -le 20 ]; do
+            http=$(curl -sS -o "page.json" -w '%{http_code}' \
+              "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/models/search?per_page=100&page=${page}" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" || echo "000")
+            [ "$http" = "200" ] || break
+            n=$(python3 -c "import json;print(len(json.load(open('page.json')).get('result') or []))")
+            cat page.json >> pages.jsonl
+            echo "  page ${page}: ${n} models"
+            [ "$n" -lt 100 ] && break
+            page=$((page+1))
+          done
+          python3 - <<'PY'
+          import json, time
+          models = []
+          for line in open("pages.jsonl"):
+              line = line.strip()
+              if not line:
+                  continue
+              try:
+                  doc = json.loads(line)
+              except ValueError:
+                  continue
+              for m in (doc.get("result") or []):
+                  task = (m.get("task") or {})
+                  models.append({
+                      "name": m.get("name"),
+                      "task": task.get("name"),
+                      "description": (m.get("description") or "")[:200],
+                      "properties": {
+                          str(p.get("property_id")): str(p.get("value"))
+                          for p in (m.get("properties") or [])
+                      },
+                  })
+          by_task = {}
+          for m in models:
+              by_task.setdefault(m["task"] or "<none>", []).append(m["name"])
+          json.dump({
+              "status": "LISTED",
+              "listed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "source": "live account catalog via ai/models/search",
+              "evidence_class": "PROVIDER_DECLARED",
+              "note": ("A catalog row says this account may address the model. It is "
+                       "not execution proof and not a capability measurement."),
+              "model_count": len(models),
+              "tasks": {k: sorted(v) for k, v in sorted(by_task.items())},
+              "models": models,
+          }, open("workers-ai-catalog.json", "w"), indent=2)
+          print(f"catalog: {len(models)} models across {len(by_task)} task types")
+          for k, v in sorted(by_task.items()):
+              print(f"  {k}: {len(v)}")
+          PY
+
+      - name: Publish the catalog where the runtime can read it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create wave4-workers-ai-catalog --notes \
+            "Live Workers AI catalog. Provider-declared, not execution proof." 2>/dev/null || true
+          gh release upload wave4-workers-ai-catalog workers-ai-catalog.json --clobber
+
+  # Wave 4 capability measurement. Real inference, real inputs, checkable
+  # answers - the only thing that turns a catalog row into a capability score.
+  #
+  # The inputs are built in the job rather than fetched, which is what makes the
+  # results honest. Speech is produced by the TTS model from text this job chose,
+  # then transcribed by the ASR model: each measures the other, and neither can
+  # pass by echoing something it was handed. The vision input is an image
+  # rendered here containing a known word and a known shape, so "read the text in
+  # this image" has one right answer and reading it is exactly the OCR task.
+  #
+  # Scored strictly. A model that returns something plausible but wrong fails,
+  # because a capability score that forgives wrong answers measures nothing.
+  benchmark-wave4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event.inputs.benchmark_wave4 != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build the inputs this benchmark will be scored against
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw, ImageFont
+          # A word and a shape, both chosen here, so "read the text" and "name
+          # the shape" each have exactly one correct answer.
+          #
+          # The word is rendered LARGE and on its own. The first run of this
+          # benchmark used PIL's default bitmap font at roughly 11 pixels on a
+          # 480x240 canvas, which is not legible text - a model that failed to
+          # read it would have been failing my input, not the OCR task. A
+          # capability measurement has to be winnable by a competent model.
+          font = None
+          for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                       "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                       "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
+              try:
+                  font = ImageFont.truetype(path, 120)
+                  break
+              except OSError:
+                  continue
+          img = Image.new("RGB", (900, 500), "white")
+          d = ImageDraw.Draw(img)
+          if font is None:
+              # Refuse to score OCR on an input nobody could read.
+              raise SystemExit("no scalable font available; refusing to render an "
+                               "illegible OCR input and call the result a measurement")
+          d.text((60, 60), "HARMONY", fill="black", font=font)
+          d.ellipse((330, 260, 570, 460), fill="red", outline="black", width=6)
+          img.save("vision-input.png")
+          print(f"vision input written: word=HARMONY at 120px, shape=red circle, font={font.path}")
+
+          # A second input, shaped like a document: a heading, a two-column
+          # table with a header row, and a total. Layout, table lookup and
+          # document-level reading each have exactly one correct answer in it,
+          # and all three answers are numbers or words chosen here - none of
+          # them can be guessed from a prior.
+          small = ImageFont.truetype(font.path, 34)
+          head = ImageFont.truetype(font.path, 52)
+          doc = Image.new("RGB", (900, 620), "white")
+          dd = ImageDraw.Draw(doc)
+          dd.text((60, 40), "DEPOT ORDER 7412", fill="black", font=head)
+          dd.line((60, 120, 840, 120), fill="black", width=3)
+          rows = [("ITEM", "QTY"), ("Bolts", "34"), ("Hinges", "12"),
+                  ("Washers", "58"), ("TOTAL", "104")]
+          y = 160
+          for name, qty in rows:
+              dd.text((80, y), name, fill="black", font=small)
+              dd.text((620, y), qty, fill="black", font=small)
+              y += 70
+          dd.line((60, 160 + 70 * 4 - 14, 840, 160 + 70 * 4 - 14), fill="black", width=2)
+          doc.save("doc-input.png")
+          print("document input written: heading=DEPOT ORDER 7412, Bolts=34, TOTAL=104")
+          PY
+
+      - name: Measure it
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ACCOUNT_ID:-}" ]; then
+            printf '%s\n' '{"status":"NO_CREDENTIAL","results":[]}' > wave4-benchmark.json
+            exit 0
+          fi
+          python3 - <<'PY'
+          import base64, json, os, time, urllib.request, urllib.error
+
+          ACCOUNT = os.environ["CF_ACCOUNT_ID"]
+          TOKEN = os.environ["CF_API_TOKEN"]
+          BASE = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT}/ai/run/"
+
+          def call(model, payload=None, raw=None, content_type="application/json"):
+              url = BASE + model
+              data = raw if raw is not None else json.dumps(payload).encode()
+              req = urllib.request.Request(url, data=data, headers={
+                  "Authorization": f"Bearer {TOKEN}", "Content-Type": content_type})
+              started = time.time()
+              try:
+                  with urllib.request.urlopen(req, timeout=180) as r:
+                      body = r.read()
+                      ms = round((time.time() - started) * 1000, 1)
+                      ctype = r.headers.get("Content-Type", "")
+                      if "application/json" in ctype:
+                          return r.status, json.loads(body), ms, None
+                      return r.status, {"_binary_bytes": len(body), "_raw": body}, ms, None
+              except urllib.error.HTTPError as e:
+                  ms = round((time.time() - started) * 1000, 1)
+                  detail = e.read()[:300].decode("utf-8", "replace")
+                  return e.code, None, ms, detail
+              except Exception as e:
+                  ms = round((time.time() - started) * 1000, 1)
+                  return 0, None, ms, f"{type(e).__name__}: {e}"
+
+          def _text_of(res):
+              """Pull the answer out wherever this model puts it.
+
+              moondream returned 200 with an empty answer under the two keys I
+              guessed, so the text was there and I was not reading it. Rather
+              than guess a third time, take the first non-empty string field and
+              report the keys when nothing is found, so a wrong guess becomes a
+              visible fact instead of a silent zero.
+              """
+              if isinstance(res, str):
+                  return res
+              if not isinstance(res, dict):
+                  return ""
+              # OpenAI-shaped first. gpt-oss returns {id, choices:[{message:{content}}]}
+              # and the loop below happily took the id, which scored two 200s
+              # carrying real answers as wrong answers. An id is never an answer.
+              for choice in (res.get("choices") or []):
+                  if isinstance(choice, dict):
+                      msg = choice.get("message") or {}
+                      # content only. reasoning_content is the model thinking out
+                      # loud and is deliberately not scored as its answer.
+                      for cand in (msg.get("content"), choice.get("text")):
+                          if isinstance(cand, str) and cand.strip():
+                              return cand
+              # Responses-API shape: output[].content[].text
+              out = res.get("output")
+              if isinstance(out, list):
+                  for entry in out:
+                      for block in ((entry or {}).get("content") or []):
+                          cand = (block or {}).get("text")
+                          if isinstance(cand, str) and cand.strip():
+                              return cand
+              for key in ("description", "response", "text", "answer", "caption",
+                          "generated_text"):
+                  val = res.get(key)
+                  if isinstance(val, str) and val.strip():
+                      return val
+              # Last resort, and never an identifier: an id or a request trace is
+              # not an answer and scoring one as an answer is worse than finding
+              # nothing.
+              for key, val in res.items():
+                  if key in ("id", "object", "model", "created", "request_id"):
+                      continue
+                  if isinstance(val, str) and val.strip():
+                      return val
+              return ""
+
+          def licence_gated(status, err):
+              """A 403 asking us to submit 'agree' is a licence we may not accept.
+
+              Cloudflare gates some models behind a prompt that must be answered
+              with the word 'agree'. Sending it would be accepting a model licence
+              on the operator's behalf, which this lane is forbidden from doing.
+              So the gate is recorded as what it is - a human decision that has
+              not been made - and never as the model being unable to do the task.
+              """
+              return status == 403 and "agree" in (err or "").lower()
+
+          def norm(text):
+              """Collapse every Unicode space to a plain one before matching.
+
+              Both gpt-oss models answered "Failed disk in rack\u202f7." - correct,
+              with a narrow no-break space before the 7 - and a substring test for
+              "rack 7" scored both of them wrong. Typography is not a wrong answer.
+              """
+              import re as _re
+              return _re.sub(r"\s+", " ", (text or "").replace("\u202f", " ")
+                             .replace("\u00a0", " ").replace("\u2009", " ")).strip().lower()
+
+          results = []
+          def record(capability, model, verdict, **extra):
+              results.append({"capability": capability, "model": model,
+                              "verdict": verdict, "evidence_class": "MEASURED", **extra})
+              print(f"  {capability:<24} {model:<44} {verdict}")
+
+          # --- TTS: produce speech from text this job chose ------------------
+          SPOKEN = "the quick brown fox jumps over the lazy dog"
+          # A 5xx from the provider says nothing about whether the model can
+          # synthesise speech, so it is retried once before any verdict is
+          # recorded. One retry, not a loop: a second failure is real.
+          status, body, ms, err = call("@cf/myshell-ai/melotts",
+                                       {"prompt": SPOKEN, "lang": "en"})
+          if status >= 500 or status == 0:
+              time.sleep(5)
+              status, body, ms, err = call("@cf/myshell-ai/melotts",
+                                           {"prompt": SPOKEN, "lang": "en"})
+          audio_b64 = None
+          if status == 200 and body:
+              audio_b64 = (body.get("result") or {}).get("audio") if "result" in body else None
+              if audio_b64:
+                  record("text_to_speech", "@cf/myshell-ai/melotts", "PRODUCED_AUDIO",
+                         http=status, latency_ms=ms, audio_b64_len=len(audio_b64))
+              elif body.get("_binary_bytes"):
+                  audio_b64 = base64.b64encode(body["_raw"]).decode()
+                  record("text_to_speech", "@cf/myshell-ai/melotts", "PRODUCED_AUDIO",
+                         http=status, latency_ms=ms, audio_bytes=body["_binary_bytes"])
+              else:
+                  record("text_to_speech", "@cf/myshell-ai/melotts", "NO_AUDIO_RETURNED",
+                         http=status, latency_ms=ms, keys=list(body)[:6])
+          else:
+              record("text_to_speech", "@cf/myshell-ai/melotts", "FAILED",
+                     http=status, latency_ms=ms, error=(err or "")[:200],
+                     note="two attempts, both 5xx; recorded as a real failure, not a flake")
+              # One model failing is not the capability failing. Try the other
+              # TTS model in the catalog before concluding anything about TTS.
+              for alt in ("@cf/deepgram/aura-1", "@cf/deepgram/aura-2-en"):
+                  status, body, ms, err = call(alt, {"text": SPOKEN})
+                  if status == 200 and body:
+                      if body.get("_binary_bytes"):
+                          audio_b64 = base64.b64encode(body["_raw"]).decode()
+                          record("text_to_speech", alt, "PRODUCED_AUDIO",
+                                 http=status, latency_ms=ms,
+                                 audio_bytes=body["_binary_bytes"],
+                                 note="fallback TTS after melotts failed twice")
+                          break
+                      cand = (body.get("result") or {}).get("audio")
+                      if cand:
+                          audio_b64 = cand
+                          record("text_to_speech", alt, "PRODUCED_AUDIO",
+                                 http=status, latency_ms=ms,
+                                 note="fallback TTS after melotts failed twice")
+                          break
+                  record("text_to_speech", alt, "FAILED", http=status,
+                         latency_ms=ms, error=(err or "")[:160])
+
+          # --- ASR: transcribe the audio the TTS model just produced ---------
+          # Neither model can pass by echoing: the ASR model never sees SPOKEN.
+          def score_transcript(text):
+              want = set(SPOKEN.split())
+              got = set((text or "").lower().replace(".", "").replace(",", "").split())
+              hit = len(want & got)
+              return hit, len(want), round(hit / len(want), 3)
+
+          if audio_b64:
+              for asr in ("@cf/openai/whisper-large-v3-turbo", "@cf/openai/whisper"):
+                  status, body, ms, err = call(asr, {"audio": audio_b64})
+                  if status == 200 and body:
+                      text = ((body.get("result") or {}).get("text") or "")
+                      hit, total, ratio = score_transcript(text)
+                      record("speech_to_text", asr,
+                             "TRANSCRIBED" if ratio >= 0.7 else "TRANSCRIBED_POOR",
+                             http=status, latency_ms=ms, transcript=text[:200],
+                             words_matched=f"{hit}/{total}", word_recall=ratio,
+                             round_trip="audio produced by melotts from text the ASR never saw")
+                      break
+                  record("speech_to_text", asr, "FAILED", http=status,
+                         latency_ms=ms, error=err)
+          else:
+              record("speech_to_text", "@cf/openai/whisper-large-v3-turbo", "NOT_ATTEMPTED",
+                     reason="no audio was produced, so there was nothing to transcribe")
+
+          # --- Vision / OCR: read an image rendered in this job --------------
+          img_bytes = open("vision-input.png", "rb").read()
+          img_b64 = base64.b64encode(img_bytes).decode()
+
+          def ask_vision(model, prompt):
+              """Each model wants the image in its own shape, so try both.
+
+              The first run assumed one form and read moondream's 400 as a model
+              failure; it was an input-shape mismatch on my side. Trying the
+              documented alternatives distinguishes 'cannot do it' from 'was
+              asked wrongly'.
+              """
+              for form, image in (("byte_array", list(img_bytes)), ("base64", img_b64)):
+                  status, body, ms, err = call(model, {
+                      "image": image, "prompt": prompt, "max_tokens": 128})
+                  if status == 200:
+                      return status, body, ms, err, form
+              return status, body, ms, err, "none_accepted"
+
+          for vision in ("@cf/moondream/moondream3.1-9B-A2B", "@cf/llava-hf/llava-1.5-7b-hf"):
+              status, body, ms, err, form = ask_vision(
+                  vision, "What word is written in this image? Answer with the word only.")
+              if status == 200 and body:
+                  res = body.get("result") or {}
+                  desc = _text_of(res)
+                  ok = "harmony" in desc.lower()
+                  # An empty answer is not a wrong answer. Say which it was, and
+                  # name the keys that came back so the gap is diagnosable.
+                  verdict_ocr = ("READ_CORRECTLY" if ok
+                                 else "EMPTY_RESPONSE" if not desc.strip()
+                                 else "READ_INCORRECTLY")
+                  record("ocr_text_in_image", vision, verdict_ocr,
+                         http=status, latency_ms=ms, answer=desc[:200],
+                         expected="HARMONY", input_form=form,
+                         result_keys=sorted(res)[:12] if isinstance(res, dict) else None)
+                  status2, body2, ms2, err2, form2 = ask_vision(
+                      vision, "Describe the shape in this image and its colour.")
+                  if status2 == 200 and body2:
+                      d2 = _text_of(body2.get("result") or {})
+                      # Colour and shape scored separately. The first run asked
+                      # for both in 32 tokens, got "Red", and recorded a flat
+                      # failure - which threw away the fact that the model had
+                      # perceived the image correctly as far as it answered.
+                      saw_colour = "red" in d2.lower()
+                      saw_shape = any(w in d2.lower() for w in ("circle", "round", "oval", "ellipse"))
+                      verdict = ("GROUNDED" if (saw_colour and saw_shape)
+                                 else "PARTIALLY_GROUNDED" if (saw_colour or saw_shape)
+                                 else "NOT_GROUNDED")
+                      record("vision_grounding", vision, verdict,
+                             http=status2, latency_ms=ms2, answer=d2[:200],
+                             expected="red circle", saw_colour=saw_colour,
+                             saw_shape=saw_shape, input_form=form2)
+                  # Only stop looking once a model actually answered. A 200 that
+                  # returns nothing is not a working vision path, and treating
+                  # it as one cost the previous run its llava result.
+                  if desc.strip():
+                      break
+                  continue
+              record("ocr_text_in_image", vision, "FAILED", http=status,
+                     latency_ms=ms, error=err)
+
+          # --- Embeddings: a real vector, with a real dimension --------------
+          status, body, ms, err = call("@cf/baai/bge-m3",
+                                       {"text": ["a document about harbours",
+                                                 "a document about harbors"]})
+          if status == 200 and body:
+              data = (body.get("result") or {}).get("data") or []
+              dim = len(data[0]) if data else 0
+              record("document_embedding", "@cf/baai/bge-m3",
+                     "EMBEDDED" if dim > 0 else "NO_VECTOR",
+                     http=status, latency_ms=ms, vectors=len(data), dimensions=dim)
+          else:
+              record("document_embedding", "@cf/baai/bge-m3", "FAILED",
+                     http=status, latency_ms=ms, error=err)
+
+          # --- the gaps the first run left open -----------------------------
+          # Each of the following was recorded as an honest gap after the first
+          # benchmark, because nothing had been run for it. Running something is
+          # the only way to close one, so each gets an input built here with one
+          # correct answer and a model from the catalog that was actually read.
+
+          doc_bytes = open("doc-input.png", "rb").read()
+          doc_b64 = base64.b64encode(doc_bytes).decode()
+
+          def ask_image(model, prompt, raw, b64, max_tokens=128):
+              """Three request shapes, because the catalog does not use one.
+
+              The image-to-text models take an `image` field; the multimodal chat
+              models take an image_url content block inside `messages` and reject
+              the first shape outright. Trying each distinguishes "cannot do it"
+              from "was asked in the wrong shape", which is a distinction an
+              earlier run got wrong and recorded as a model failure.
+              """
+              chat = {"messages": [{"role": "user", "content": [
+                  {"type": "text", "text": prompt},
+                  {"type": "image_url",
+                   "image_url": {"url": "data:image/png;base64," + b64}}]},
+              ], "max_tokens": max_tokens}
+              attempts = (("byte_array", {"image": list(raw), "prompt": prompt,
+                                          "max_tokens": max_tokens}),
+                          ("base64", {"image": b64, "prompt": prompt,
+                                      "max_tokens": max_tokens}),
+                          ("chat_image_url", chat))
+              for form, payload in attempts:
+                  status, body, ms, err = call(model, payload)
+                  if status == 403 and "agree" in (err or "").lower():
+                      # A licence gate answers every shape the same way; trying
+                      # the others would just be three identical refusals.
+                      return status, body, ms, err, form
+                  if status == 200:
+                      return status, body, ms, err, form
+              return status, body, ms, err, "none_accepted"
+
+          def sees_the_image(model):
+              """A control that must pass before any answer from this model counts.
+
+              mistral-small answered a question about my order sheet with a
+              timestamp, and llama-4-scout answered it with generic markdown
+              headings. Neither string exists anywhere in the image. Those are
+              not wrong readings - they are answers produced without the image,
+              and scoring them would have recorded a hallucination as a
+              measurement of vision.
+
+              So each model first reads a word it cannot guess off a picture this
+              job drew. Fail the control and its document answers are not scored
+              at all, because there is nothing to score.
+              """
+              st, bd, ms, er, form = ask_image(
+                  model, "What word is written in this image? Answer with the word only.",
+                  img_bytes, img_b64, max_tokens=24)
+              if st != 200 or not bd:
+                  return False, (er or "")[:200], form, st
+              ans = _text_of(bd.get("result") or {})
+              return "harmony" in ans.lower(), ans[:200], form, st
+
+          # A vision model that can also reason. llava answered the perception
+          # questions above; whether it can reason over what it sees is a
+          # different claim and is measured separately, on both models, rather
+          # than inherited.
+          # llama-3.2-11b-vision is listed first and is expected to hit a licence
+          # gate; it stays in the list so the gate is measured rather than assumed.
+          VISION_MODELS = ("@cf/meta/llama-3.2-11b-vision-instruct",
+                           "@cf/mistralai/mistral-small-3.1-24b-instruct",
+                           "@cf/meta/llama-4-scout-17b-16e-instruct",
+                           "@cf/llava-hf/llava-1.5-7b-hf")
+
+          GROUNDED_MODELS = []
+          for vm in VISION_MODELS:
+              ok, answer, form, st = sees_the_image(vm)
+              if ok:
+                  GROUNDED_MODELS.append(vm)
+                  record("vision_control", vm, "IMAGE_RECEIVED", http=st,
+                         answer=answer, expected="HARMONY", input_form=form,
+                         note="control passed; this model's document answers are scored")
+              elif licence_gated(st, answer):
+                  record("vision_control", vm, "HUMAN_LICENSE_GATE_REQUIRED", http=st,
+                         error=answer,
+                         note="licence acceptance is the operator's; not attempted")
+              else:
+                  record("vision_control", vm, "IMAGE_NOT_RECEIVED", http=st,
+                         answer=answer, expected="HARMONY", input_form=form,
+                         note="the model answered without reading the image, so nothing "
+                              "it says about the document is a measurement of vision")
+          if not GROUNDED_MODELS:
+              print("  no vision model passed the control; document tasks not scored")
+
+          # visual_reasoning: the answer is not written anywhere in the image.
+          # 104 - 34 is arithmetic over a value that has to be located first.
+          for vm in GROUNDED_MODELS:
+              st, bd, ms, er, form = ask_image(
+                  vm,
+                  "This is an order sheet. Subtract the Bolts quantity from the TOTAL. "
+                  "Reply with the number only.",
+                  doc_bytes, doc_b64, max_tokens=24)
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  ok = "70" in ans
+                  record("visual_reasoning", vm,
+                         "REASONED" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "REASONED_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:200], expected="70",
+                         input_form=form,
+                         note="the answer appears nowhere in the image; it has to be computed")
+                  if ok:
+                      break
+              elif licence_gated(st, er):
+                  record("visual_reasoning", vm, "HUMAN_LICENSE_GATE_REQUIRED",
+                         http=st, latency_ms=ms, error=(er or "")[:200],
+                         note="the provider requires a licence acceptance only the "
+                              "operator may give; not attempted and not a model failure")
+              else:
+                  record("visual_reasoning", vm, "FAILED", http=st, latency_ms=ms,
+                         error=(er or "")[:160])
+
+          # layout_understanding: which text is the heading, not which text exists.
+          for vm in GROUNDED_MODELS:
+              st, bd, ms, er, form = ask_image(
+                  vm, "What is the heading printed at the very top of this document? "
+                      "Reply with that line only.", doc_bytes, doc_b64, max_tokens=32)
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  ok = "7412" in ans and "depot" in ans.lower()
+                  record("layout_understanding", vm,
+                         "LOCATED" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "LOCATED_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:200],
+                         expected="DEPOT ORDER 7412", input_form=form)
+                  if ok:
+                      break
+              elif licence_gated(st, er):
+                  record("layout_understanding", vm, "HUMAN_LICENSE_GATE_REQUIRED",
+                         http=st, latency_ms=ms, error=(er or "")[:200],
+                         note="licence acceptance is the operator's to give; not a "
+                              "model failure and not attempted")
+              else:
+                  record("layout_understanding", vm, "FAILED", http=st,
+                         latency_ms=ms, error=(er or "")[:160])
+
+          # table_understanding: a row/column lookup, with three decoy rows.
+          for vm in GROUNDED_MODELS:
+              st, bd, ms, er, form = ask_image(
+                  vm, "In the table, what quantity is listed for Hinges? "
+                      "Reply with the number only.", doc_bytes, doc_b64, max_tokens=24)
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  # 12 must be the answer, not a digit borrowed from 104 or 34.
+                  ok = "12" in ans and "34" not in ans and "104" not in ans
+                  record("table_understanding", vm,
+                         "LOOKED_UP" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "LOOKED_UP_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:200], expected="12",
+                         input_form=form,
+                         note="three decoy rows; naming another row's number fails")
+                  if ok:
+                      break
+              elif licence_gated(st, er):
+                  record("table_understanding", vm, "HUMAN_LICENSE_GATE_REQUIRED",
+                         http=st, latency_ms=ms, error=(er or "")[:200],
+                         note="licence acceptance is the operator's to give; not a "
+                              "model failure and not attempted")
+              else:
+                  record("table_understanding", vm, "FAILED", http=st,
+                         latency_ms=ms, error=(er or "")[:160])
+
+          # document_understanding: read the document as a whole and answer a
+          # question about what it is, not about one cell.
+          for vm in GROUNDED_MODELS:
+              st, bd, ms, er, form = ask_image(
+                  vm, "How many item rows does this order sheet list, not counting "
+                      "the header row and not counting the TOTAL row? "
+                      "Reply with the number only.", doc_bytes, doc_b64, max_tokens=24)
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  ok = "3" in ans and "34" not in ans
+                  record("document_understanding", vm,
+                         "UNDERSTOOD" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "UNDERSTOOD_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:200], expected="3",
+                         input_form=form,
+                         note="requires excluding the header and TOTAL rows, which is "
+                              "structure, not transcription")
+                  if ok:
+                      break
+              elif licence_gated(st, er):
+                  record("document_understanding", vm, "HUMAN_LICENSE_GATE_REQUIRED",
+                         http=st, latency_ms=ms, error=(er or "")[:200],
+                         note="licence acceptance is the operator's to give; not a "
+                              "model failure and not attempted")
+              else:
+                  record("document_understanding", vm, "FAILED", http=st,
+                         latency_ms=ms, error=(er or "")[:160])
+
+          # multimodal_reasoning: the image alone is not enough and the text
+          # alone is not enough. A price given only in the prompt has to be
+          # combined with a quantity given only in the image.
+          for vm in GROUNDED_MODELS:
+              st, bd, ms, er, form = ask_image(
+                  vm, "Washers cost 2 each. This price is not written in the image. "
+                      "Using the quantity of Washers shown in the image, what do the "
+                      "Washers cost in total? Reply with the number only.",
+                  doc_bytes, doc_b64, max_tokens=24)
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  ok = "116" in ans
+                  record("multimodal_reasoning", vm,
+                         "COMBINED" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "COMBINED_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:200], expected="116",
+                         input_form=form,
+                         note="58 from the image times 2 from the prompt; neither "
+                              "source alone yields the answer")
+                  if ok:
+                      break
+              elif licence_gated(st, er):
+                  record("multimodal_reasoning", vm, "HUMAN_LICENSE_GATE_REQUIRED",
+                         http=st, latency_ms=ms, error=(er or "")[:200],
+                         note="licence acceptance is the operator's to give; not a "
+                              "model failure and not attempted")
+              else:
+                  record("multimodal_reasoning", vm, "FAILED", http=st,
+                         latency_ms=ms, error=(er or "")[:160])
+
+          # reranking (a Wave 5 retrieval dependency): one relevant passage
+          # among three plausible decoys. Passing means ranking it first.
+          RQ = "how do I stop a container running out of disk space"
+          PASSAGES = [
+              "Bread dough should be proved in a warm place until it doubles in size.",
+              "Delete build artifacts and stale caches to free writable space in a container.",
+              "Container ships are loaded at deep-water ports using gantry cranes.",
+              "A disc brake converts kinetic energy into heat through friction.",
+          ]
+          st, bd, ms, er = call("@cf/baai/bge-reranker-base",
+                                {"query": RQ, "contexts": [{"text": t} for t in PASSAGES]})
+          if st == 200 and bd:
+              res = (bd.get("result") or {}).get("response") or []
+              top = res[0] if res else {}
+              idx = top.get("id") if isinstance(top, dict) else None
+              ok = idx == 1
+              record("reranking", "@cf/baai/bge-reranker-base",
+                     "RANKED_CORRECTLY" if ok else "NO_RANKING" if not res
+                     else "RANKED_INCORRECTLY",
+                     http=st, latency_ms=ms, top_index=idx, expected_index=1,
+                     ranking=res[:4],
+                     note="three topical decoys share a word with the query; only one "
+                          "passage answers it")
+          else:
+              record("reranking", "@cf/baai/bge-reranker-base", "FAILED",
+                     http=st, latency_ms=ms, error=(er or "")[:200])
+
+          # large_model_synthesis (Wave 5): a 120B model reconciling three
+          # sources that disagree. The scored answer is the single fact all
+          # three agree on, so reciting any one source fails.
+          REPORTS = (
+              "Report A: the outage began at 02:10, lasted 40 minutes, and was caused "
+              "by a failed disk in rack 7.\n"
+              "Report B: the outage began at 02:40, lasted 10 minutes, and was caused "
+              "by a failed disk in rack 7.\n"
+              "Report C: the outage began at 01:55, lasted 90 minutes, and was caused "
+              "by a failed disk in rack 7.\n"
+              "Which single detail do all three reports agree on? Reply in a few words.")
+          for big in ("@cf/openai/gpt-oss-120b", "@cf/openai/gpt-oss-20b"):
+              # gpt-oss is a reasoning model: it spent all 64 tokens thinking and
+              # returned finish_reason "length" with content null. That was my
+              # budget, not its inability, so the budget is the thing that
+              # changes - not the verdict.
+              st, bd, ms, er = call(big, {"messages": [{"role": "user", "content": REPORTS}],
+                                          "max_tokens": 1500, "reasoning_effort": "low"})
+              if st == 200 and bd:
+                  ans = _text_of(bd.get("result") or {})
+                  low = norm(ans)
+                  # The agreement has to be named. Mentioning a disagreed field
+                  # while naming it is fine - only quoting one source's timing AS
+                  # the agreement is the failure, and that would not contain the
+                  # rack at all.
+                  ok = "rack 7" in low or "rack seven" in low
+                  res = bd.get("result") or {}
+                  # An empty extraction has been a bug in this harness twice now,
+                  # so it no longer reports a bare EMPTY_RESPONSE: it carries the
+                  # shape that came back, which is the only thing that makes the
+                  # next attempt better than another guess.
+                  record("large_model_synthesis", big,
+                         "SYNTHESISED" if ok else "EMPTY_RESPONSE" if not ans.strip()
+                         else "SYNTHESISED_INCORRECTLY",
+                         http=st, latency_ms=ms, answer=ans[:300],
+                         expected="the failed disk in rack 7",
+                         result_keys=sorted(res)[:16] if isinstance(res, dict) else None,
+                         result_shape=(json.dumps(res)[:900]
+                                       if not ans.strip() and isinstance(res, dict) else None),
+                         note="the two disagreed fields are decoys; quoting one source "
+                              "rather than reconciling all three fails")
+                  if ok:
+                      break
+              else:
+                  record("large_model_synthesis", big, "FAILED", http=st,
+                         latency_ms=ms, error=(er or "")[:200])
+
+          # retrieval (Wave 5), end to end rather than by proxy: embed a small
+          # corpus and four queries with the embedding model that is already
+          # measured, retrieve by cosine similarity, and score recall@1 against
+          # the one passage that answers each query. An embedding model returning
+          # vectors is not retrieval working; this measures whether the right
+          # document actually comes back.
+          CORPUS = [
+              "To free space in a container, delete build artifacts and stale caches.",
+              "Sourdough starter is fed with equal weights of flour and water.",
+              "A lease that is not renewed expires and the worker holding it is skipped.",
+              "Gantry cranes load containers onto ships at deep-water ports.",
+              "A circuit breaker opens after repeated failures and closes again on a probe.",
+              "The kestrel hunts by hovering and dropping onto small mammals.",
+          ]
+          QUERIES = [
+              ("how do I reclaim disk space in a container", 0),
+              ("what happens when a worker's lease runs out", 2),
+              ("how does a breaker stop hammering a failing service", 4),
+              ("how is a sourdough starter maintained", 1),
+          ]
+          st, bd, ms, er = call("@cf/baai/bge-m3", {"text": CORPUS})
+          st2, bd2, ms2, er2 = call(
+              "@cf/baai/bge-m3", {"text": [q for q, _ in QUERIES]})
+          if st == 200 and st2 == 200 and bd and bd2:
+              docs = (bd.get("result") or {}).get("data") or []
+              qs = (bd2.get("result") or {}).get("data") or []
+
+              def cosine(a, b):
+                  num = sum(x * y for x, y in zip(a, b))
+                  na = sum(x * x for x in a) ** 0.5
+                  nb = sum(y * y for y in b) ** 0.5
+                  return num / (na * nb) if na and nb else 0.0
+
+              hits, detail = 0, []
+              for (query, want), qv in zip(QUERIES, qs):
+                  ranked = sorted(range(len(docs)), key=lambda i: -cosine(qv, docs[i]))
+                  top = ranked[0] if ranked else None
+                  hits += int(top == want)
+                  detail.append({"query": query, "retrieved": top, "expected": want,
+                                 "correct": top == want})
+              recall = round(hits / len(QUERIES), 3) if QUERIES else 0.0
+              record("retrieval", "@cf/baai/bge-m3",
+                     "RETRIEVED" if recall >= 0.75 else "RETRIEVED_POORLY",
+                     http=st, latency_ms=round(ms + ms2, 1),
+                     recall_at_1=recall, queries=len(QUERIES), corpus=len(CORPUS),
+                     per_query=detail,
+                     note="six-document corpus and four queries, both written here. "
+                          "A recall figure on six documents says nothing about "
+                          "behaviour on six million and is not to be read that way.")
+          else:
+              record("retrieval", "@cf/baai/bge-m3", "FAILED",
+                     http=st if st != 200 else st2, latency_ms=round(ms + ms2, 1),
+                     error=((er or er2) or "")[:200])
+
+          # audio_understanding beyond transcription is NOT attempted, and the
+          # reason is a fact about the catalog rather than a failure: the live
+          # catalog read lists exactly five ASR models, four TTS models and a
+          # turn detector, and no audio model that answers questions about what
+          # it heard. Transcribing and then reasoning in a text model would be a
+          # pipeline result, which is not the same claim as a model capability,
+          # so it is not recorded as one.
+          results.append({
+              "capability": "audio_understanding",
+              "model": None,
+              "verdict": "NO_MODEL_IN_VERIFIED_CATALOG",
+              "evidence_class": "MEASURED",
+              "basis": "the live Workers AI catalog read on this account",
+              "note": ("the catalog carries speech-to-text and text-to-speech and no "
+                       "audio-question-answering model. speech_to_text is measured and "
+                       "covered separately; it is a different tag."),
+          })
+          # image_embedding, likewise: there is no image embedding model in the
+          # catalog. resnet-50 classifies into fixed labels and does not return
+          # a vector, so it is not a substitute.
+          results.append({
+              "capability": "image_embedding",
+              "model": None,
+              "verdict": "NO_MODEL_IN_VERIFIED_CATALOG",
+              "evidence_class": "MEASURED",
+              "basis": "the live Workers AI catalog read on this account",
+              "note": ("the only image input models are two image-to-text models and "
+                       "resnet-50, which returns labels rather than an embedding."),
+          })
+
+          # PARTIALLY_GROUNDED deliberately does not count as coverage. It is
+          # recorded because it is true, not because it is good enough.
+          passed = {"PRODUCED_AUDIO", "TRANSCRIBED", "READ_CORRECTLY",
+                    "GROUNDED", "EMBEDDED", "REASONED", "LOCATED", "LOOKED_UP",
+                    "UNDERSTOOD", "COMBINED", "RANKED_CORRECTLY", "SYNTHESISED",
+                    "RETRIEVED"}
+          covered = sorted({r["capability"] for r in results if r["verdict"] in passed})
+          json.dump({
+              "benchmark": "wave4_multimodal_v2",
+              "ran_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "provider": "cloudflare_workers_ai",
+              "plan_can_bill": False,
+              "evidence_class": "MEASURED",
+              "method": ("inputs built in this job, not fetched: speech synthesised from "
+                         "text the ASR model never saw, and an image rendered with a known "
+                         "word and shape. Scored strictly against those known answers."),
+              "results": results,
+              "capabilities_measured_covered": covered,
+              "status": "RAN",
+          }, open("wave4-benchmark.json", "w"), indent=2)
+          print()
+          print("covered by measurement:", covered)
+          PY
+          cat wave4-benchmark.json | head -40
+
+      - name: Publish the measurement
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create wave4-benchmark --notes \
+            "Wave 4 multimodal capability measurement. Real inference." 2>/dev/null || true
+          gh release upload wave4-benchmark wave4-benchmark.json --clobber

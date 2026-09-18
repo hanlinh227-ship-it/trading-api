@@ -1,0 +1,170 @@
+{
+  "tool": "worker_execution_liveness",
+  "OBSERVED_ON": {
+    "host_fingerprint": "93891604e58e2451985a873a94b53e49",
+    "platform": "Linux-6.18.44-fc-v33-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "cpu_count": 4,
+    "cpu_flags_present": [
+      "avx",
+      "avx2",
+      "avx512_vnni",
+      "avx512bw",
+      "avx512cd",
+      "avx512dq",
+      "avx512f",
+      "avx512vl",
+      "f16c",
+      "fma"
+    ],
+    "why_the_flags": "a prebuilt engine raises SIGILL on a CPU lacking the extensions it was compiled for, so these decide liveness for an unchanged commit and an unchanged artifact"
+  },
+  "reading_scope": "this is a fact about the machine named in OBSERVED_ON at the moment it ran, not a property of the commit. A different host may read the opposite and both are true.",
+  "LOCAL_ENGINE": {
+    "state": "EXECUTION_DEAD",
+    "reason": "the engine probe was killed by signal 4",
+    "signal": 4,
+    "detail": "SIGILL (4): the CPU refused an instruction the installed binary issued. The usual cause is a prebuilt engine meeting a CPU without the extensions it was compiled for, but check OBSERVED_ON.cpu_flags_present before concluding that - a host advertising the expected extensions and still taking SIGILL points elsewhere, to a microarchitecture mismatch or a damaged install. Either way the artifact and the code are unchanged and the machine under them is not."
+  },
+  "EXECUTION_LIVE": false,
+  "roles_with_a_local_primary": [
+    {
+      "role_id": "REASONING_BRANCH",
+      "criticality": "CRITICAL",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "CODING_BRANCH",
+      "criticality": "CRITICAL",
+      "primary_model": "ibm-granite/granite-4.2-3b-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "VERIFICATION_BRANCH",
+      "criticality": "CRITICAL",
+      "primary_model": "Qwen/Qwen3-8B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "PLANNING_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "TOOL_USE_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "RESEARCH_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "MULTILINGUAL_BRANCH",
+      "criticality": "NORMAL",
+      "primary_model": "Qwen/Qwen3-8B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "VIETNAMESE_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "SCIENCE_TECH_BRANCH",
+      "criticality": "NORMAL",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    }
+  ],
+  "roles_stranded_if_the_local_engine_is_dead": [
+    "REASONING_BRANCH",
+    "CODING_BRANCH",
+    "VERIFICATION_BRANCH",
+    "PLANNING_BRANCH",
+    "TOOL_USE_BRANCH",
+    "RESEARCH_BRANCH",
+    "MULTILINGUAL_BRANCH",
+    "VIETNAMESE_BRANCH",
+    "SCIENCE_TECH_BRANCH"
+  ],
+  "critical_roles_stranded": [
+    "REASONING_BRANCH",
+    "CODING_BRANCH",
+    "VERIFICATION_BRANCH"
+  ],
+  "health_fields_that_would_still_read_healthy": [
+    "online",
+    "stale_lease",
+    "last_seen",
+    "ram_available_mb",
+    "disk_free_mb",
+    "circuit",
+    "quota_exhausted"
+  ],
+  "why_this_is_separate": "every existing worker health field describes the host. None of them asks whether the engine runs, so a worker that cannot execute still reports online with a closed circuit. Resource liveness and execution liveness are different facts.",
+  "routing_authority": false,
+  "admission_authority": false,
+  "scheduling_authority": false,
+  "changes_nothing": true,
+  "FEDERATION_IMPACT": "9 role(s) name a local model as primary and cannot be served by it. 3 CRITICAL role(s) have no off-host alternative.",
+  "READINGS_BY_HOST": {
+    "host_not_recorded": {
+      "OBSERVED_ON": {
+        "note": "this reading predates host attribution"
+      },
+      "LOCAL_ENGINE": {
+        "state": "EXECUTION_LIVE",
+        "reason": "the engine imported and identified itself"
+      },
+      "EXECUTION_LIVE": true
+    },
+    "93891604e58e2451985a873a94b53e49": {
+      "OBSERVED_ON": {
+        "host_fingerprint": "93891604e58e2451985a873a94b53e49",
+        "platform": "Linux-6.18.44-fc-v33-x86_64-with-glibc2.39",
+        "machine": "x86_64",
+        "cpu_count": 4,
+        "cpu_flags_present": [
+          "avx",
+          "avx2",
+          "avx512_vnni",
+          "avx512bw",
+          "avx512cd",
+          "avx512dq",
+          "avx512f",
+          "avx512vl",
+          "f16c",
+          "fma"
+        ],
+        "why_the_flags": "a prebuilt engine raises SIGILL on a CPU lacking the extensions it was compiled for, so these decide liveness for an unchanged commit and an unchanged artifact"
+      },
+      "LOCAL_ENGINE": {
+        "state": "EXECUTION_DEAD",
+        "reason": "the engine probe was killed by signal 4",
+        "signal": 4,
+        "detail": "SIGILL (4): the CPU refused an instruction the installed binary issued. The usual cause is a prebuilt engine meeting a CPU without the extensions it was compiled for, but check OBSERVED_ON.cpu_flags_present before concluding that - a host advertising the expected extensions and still taking SIGILL points elsewhere, to a microarchitecture mismatch or a damaged install. Either way the artifact and the code are unchanged and the machine under them is not."
+      },
+      "EXECUTION_LIVE": false
+    }
+  },
+  "hosts_observed": 2,
+  "hosts_where_the_engine_runs": 1,
+  "EXECUTION_IS_HOST_DEPENDENT": true,
+  "host_dependence_note": "the same commit and the same artifacts execute on some of the hosts observed and not on others. Neither reading is wrong. This is the SINGLE_PATH_RISK made concrete: one host holds every local weight, so whether the federation can run locally depends on which machine answered."
+}

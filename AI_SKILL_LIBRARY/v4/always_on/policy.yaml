@@ -1,0 +1,65 @@
+# Always-On Execution Closure - durable job policy (Task 1)
+# Non-authoritative contract. Fail-closed defaults.
+# GITHUB_BRAIN_V4 remains the sole Brain.
+# task_router remains the sole routing authority.
+# Model Mesh remains the model/provider selector.
+
+contract: always_on_job
+version: 1
+
+routing_authority: false
+scheduling_authority: false
+trading_authority: false
+model_selection_authority: false
+merge_authority: false
+deployment_authority: false
+
+paid_execution_fallback:
+  enabled: false
+
+background_processing:
+  mode: event_driven
+  bounded: true
+  busy_polling: false
+  max_concurrency: 1
+  max_attempts: 5
+  attempt_min: 0
+  max_attempts_min: 1
+  max_attempts_max: 1000000
+
+duplicate_delivery:
+  side_effect_safe: true
+  idempotency_key_required: true
+  idempotency_key_unique_per_request: true
+
+privacy_classes:
+  - PUBLIC
+  - INTERNAL
+  - CONFIDENTIAL
+  - LOCAL_ONLY
+
+required_fields:
+  - job_id
+  - request_id
+  - project_id
+  - role_id
+  - capability
+  - privacy_class
+  - priority
+  - idempotency_key
+  - attempt
+  - max_attempts
+  - created_at
+  - available_at
+  - deadline_at
+  - lease_owner
+  - lease_expires_at
+  - source_revision
+  - evidence_refs
+  - authority
+
+authority:
+  required: true
+  const: false
+  default: false
+  fail_closed: true

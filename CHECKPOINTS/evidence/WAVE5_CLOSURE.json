@@ -1,0 +1,192 @@
+{
+  "tool": "wave_closure_gate",
+  "wave": 5,
+  "WAVE5_OPERATIONAL_CLOSED": true,
+  "WAVE5_ALL_CAPABILITIES_COVERED": false,
+  "WAVE5_ALL_EXACT_MODELS_AVAILABLE": false,
+  "capabilities_total": 16,
+  "capabilities_covered": 15,
+  "capabilities_uncovered": [
+    "finance_analysis"
+  ],
+  "measurable_work_outstanding": [],
+  "covered_by_a_provider_substitute": [
+    "embedding",
+    "large_model_synthesis",
+    "reranking",
+    "retrieval"
+  ],
+  "covered_but_suite_saturated": [
+    "code_review",
+    "deep_reasoning",
+    "software_engineering",
+    "verifier",
+    "vietnamese"
+  ],
+  "capabilities": [
+    {
+      "tag": "deep_reasoning",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-4B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": true
+    },
+    {
+      "tag": "software_engineering",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-4B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": true
+    },
+    {
+      "tag": "debugging",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-8B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "code_review",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-8B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": true
+    },
+    {
+      "tag": "verifier",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-4B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": true
+    },
+    {
+      "tag": "vietnamese",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-4B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": true
+    },
+    {
+      "tag": "multilingual",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-8B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "long_context",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-8B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "tool_calling",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-8B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "agentic_planning",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-8B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "large_model_synthesis",
+      "measured_covered": true,
+      "measured_model": "@cf/openai/gpt-oss-120b",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": true,
+      "saturated": false
+    },
+    {
+      "tag": "scientific_reasoning",
+      "measured_covered": true,
+      "measured_model": "Qwen/Qwen3-8B-GGUF",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "finance_analysis",
+      "measured_covered": false,
+      "measured_model": null,
+      "evidence_class": "NONE",
+      "blocker_class": "OUT_OF_SCOPE_THIS_WAVE",
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": false,
+      "saturated": false
+    },
+    {
+      "tag": "embedding",
+      "measured_covered": true,
+      "measured_model": "@cf/baai/bge-m3",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": true,
+      "saturated": false
+    },
+    {
+      "tag": "reranking",
+      "measured_covered": true,
+      "measured_model": "@cf/baai/bge-reranker-base",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": true,
+      "saturated": false
+    },
+    {
+      "tag": "retrieval",
+      "measured_covered": true,
+      "measured_model": "@cf/baai/bge-m3",
+      "evidence_class": "MEASURED",
+      "blocker_class": null,
+      "is_a_requirement": true,
+      "served_by_a_provider_substitute": true,
+      "saturated": false
+    }
+  ],
+  "failures": [],
+  "note": "A wave closes when nothing measurable is left undone, not when the remaining gaps are written down well. Coverage by a provider's own model counts under that model's name and never makes the requested model available. A saturated suite is flagged because a perfect score on a thin suite bounds the suite, not the model.",
+  "routing_authority": false,
+  "admission_authority": false
+}

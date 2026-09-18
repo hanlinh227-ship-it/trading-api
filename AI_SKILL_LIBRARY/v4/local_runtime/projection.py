@@ -123,6 +123,11 @@ class ProjectionResult:
     #: the loader cannot lose it between projection and load.
     first_load_isolation_required: bool = True
     first_load_egress_allowed: bool = False
+    #: Gates satisfied by an operator decision rather than by evidence. Carried
+    #: separately and surfaced everywhere downstream, so a decision can never be
+    #: read as a finding.
+    risk_accepted_gaps: tuple[str, ...] = ()
+    risk_acceptance: Mapping[str, Any] | None = None
 
     @property
     def admitted(self) -> bool:
@@ -143,6 +148,9 @@ class ProjectionResult:
             "acquisition_eligible": bool(self.profile and self.profile.acquisition_eligible),
             "first_load_isolation_required": self.first_load_isolation_required,
             "first_load_egress_allowed": self.first_load_egress_allowed,
+            "risk_accepted_gaps": list(self.risk_accepted_gaps),
+            "risk_acceptance": dict(self.risk_acceptance) if self.risk_acceptance else None,
+            "cleared_by_evidence_only": not self.risk_accepted_gaps,
         }
 
 
@@ -344,11 +352,24 @@ def project_record(
     # clearance at all, so it is treated as absent rather than as consent.
     structured_evidence = evidence if isinstance(evidence, Mapping) else None
 
+    identity_block = record.get(policy.artifact_identity_source)
+    artifact_sha256 = (
+        identity_block.get("sha256") if isinstance(identity_block, Mapping) else None
+    )
+    acceptance = record.get("operator_risk_acceptance")
+    accepted = policy.accepted_gaps(acceptance, artifact_sha256=artifact_sha256)
+    if acceptance is not None and not accepted:
+        # An acceptance that was supplied but is not usable is a fault worth
+        # naming, not something to pass over in silence.
+        reasons.extend(
+            policy.risk_acceptance_refusals(acceptance, artifact_sha256=artifact_sha256)
+        )
+
     governance_refusal = policy.governance_refusal(record.get("lifecycle_state"))
     if governance_refusal:
         reasons.append(governance_refusal)
-    reasons.extend(policy.evidence_refusals(structured_evidence))
-    reasons.extend(policy.identity_refusals(record.get(policy.artifact_identity_source)))
+    reasons.extend(policy.evidence_refusals(structured_evidence, accepted_gaps=accepted))
+    reasons.extend(policy.identity_refusals(identity_block))
 
     for gate in GATES:
         try:
@@ -395,6 +416,8 @@ def project_record(
             unknown_fields=tuple(unknown),
             first_load_isolation_required=isolation_required,
             first_load_egress_allowed=egress_allowed,
+            risk_accepted_gaps=tuple(sorted(accepted)),
+            risk_acceptance=acceptance if accepted else None,
         )
 
     hardware = record.get("hardware_profile") or {}
@@ -466,6 +489,8 @@ def project_record(
         unknown_fields=tuple(dict.fromkeys(unknown)),
         first_load_isolation_required=isolation_required,
         first_load_egress_allowed=egress_allowed,
+        risk_accepted_gaps=tuple(sorted(accepted)),
+        risk_acceptance=acceptance if accepted else None,
     )
 
 

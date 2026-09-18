@@ -1,0 +1,194 @@
+name: DeepSeek Lane — AI CORE Closure Evidence
+
+on:
+  push:
+    branches: [work/deepseek-survival-plane-442]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deepseek-survival-plane-442
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    if: github.repository == 'hanlinh227-ship-it/trading-api' && github.actor == 'hanlinh227-ship-it'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/deepseek-survival-plane-442
+          fetch-depth: 0
+
+      - name: Declare bounded authority
+        run: |
+          echo "routing_authority=false"
+          echo "brain_authority=false"
+          echo "model_selection_authority=false"
+          echo "merge_authority=false"
+          echo "deployment_authority=false"
+          echo "evidence_authority=false"
+          echo "trading_authority=false"
+
+      - name: Verify secret presence by name only
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${DEEPSEEK_API_KEY:-}"
+          echo "DEEPSEEK_SECRET_PRESENT=PRESENT"
+
+      - name: Build narrow coding request
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          prompt = r'''
+          Implement only Task 4A of the approved AI CORE E2E Closure plan: a fail-closed same-revision closure evidence runner.
+          
+          Return one JSON object with exactly one key, "files". "files" must map exactly these two repository paths to complete UTF-8 contents:
+          AI_SKILL_LIBRARY/v4/tools/ai_core_closure_evidence.py
+          AI_SKILL_LIBRARY/tests/test_ai_core_closure_evidence.py
+          
+          Do not modify any other file.
+          
+          Goal:
+          Produce three evidence JSON files bound to one exact source SHA:
+          CONTROL_PLANE_READY.json
+          DURABLE_JOB_READY.json
+          SURVIVAL_PLANE_READY.json
+          
+          Required CLI:
+          python AI_SKILL_LIBRARY/v4/tools/ai_core_closure_evidence.py \
+            --source-sha <7-to-64 lowercase hex sha> \
+            --output-dir <directory> \
+            [--python <python executable>]
+          
+          The runner MUST fail closed and use subprocess execution, not import/test-result guessing.
+          
+          Exact focused checks:
+          
+          CONTROL_PLANE_READY:
+          1. <python> -m unittest AI_SKILL_LIBRARY.tests.test_personal_ai_control_plane_wiring -v
+          
+          DURABLE_JOB_READY:
+          1. <python> -m unittest AI_SKILL_LIBRARY.tests.test_always_on_job_contract -v
+          2. <python> -m pytest -q AI_SKILL_LIBRARY/tests/test_always_on_retry.py
+          3. <python> -m pytest -q AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py
+          
+          SURVIVAL_PLANE_READY:
+          1. <python> -m unittest AI_SKILL_LIBRARY.tests.test_survival_policy -v
+          2. <python> -m unittest AI_SKILL_LIBRARY.tests.test_survival_secrets -v
+          3. <python> -m unittest AI_SKILL_LIBRARY.tests.test_survival_provenance -v
+          4. <python> -m pytest -q AI_SKILL_LIBRARY/tests/test_survival_recovery.py
+          5. <python> -m pytest -q AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py
+          
+          Evidence schema for each file:
+          {
+            "source_sha": "<exact CLI sha>",
+            "gate": "<exact gate name>",
+            "ready": true|false,
+            "proofs": [
+              {
+                "command": ["python", "..."],
+                "returncode": 0|nonzero
+              }
+            ]
+          }
+          
+          Rules:
+          - source sha must match ^[0-9a-f]{7,64}$ or CLI exits 2 without writing ready=true evidence.
+          - output directory may be created if absent.
+          - each gate ready=true only if EVERY command in that gate returns 0.
+          - missing pytest, missing test module, signal termination, timeout, or subprocess exception => corresponding command failure => gate false.
+          - run each command with cwd at repository root resolved from this script location, no shell=True.
+          - never put stdout/stderr contents into evidence; only command argv and returncode, so secrets/provider payloads cannot leak.
+          - bound each subprocess with a timeout <= 180 seconds.
+          - if one gate fails, still run the other gate groups and write all three evidence files.
+          - JSON writes must be atomic (temp file in destination then os.replace).
+          - print exactly:
+            CONTROL_PLANE_READY=true|false
+            DURABLE_JOB_READY=true|false
+            SURVIVAL_PLANE_READY=true|false
+          - exit 0 only if all three gates are true; otherwise exit 1.
+          - no network logic, no secrets, no shared state, no readiness mutation, no release mutation.
+          - Python stdlib only in the runner itself.
+          
+          Unit tests:
+          Use unittest + tempfile + unittest.mock only. Tests MUST NOT run the repository's real suites. Mock subprocess.run and verify:
+          1. all commands zero => all three true, exit 0, exact source_sha, non-empty proofs.
+          2. one durable command fails => durable false, other two can remain true, exit 1.
+          3. one survival command raises TimeoutExpired => survival false, remaining groups still execute.
+          4. invalid source SHA => fail closed and no true evidence.
+          5. subprocess argv uses no shell and cwd equals repo root.
+          6. stdout/stderr from child are not persisted in evidence.
+          7. atomic output leaves no temporary files after success.
+          8. expected exact command inventory is stable, including pytest for the four module-level pytest files.
+          
+          Keep code small and deterministic.
+          Return no prose outside the JSON object.
+          '''
+          request={
+            "model": "deepseek-chat",
+            "max_tokens": 7000,
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+            "messages":[
+              {"role":"system","content":"You are a bounded coding worker. Reply with exactly one JSON object whose only key is files mapping exactly the two allowed paths. No prose."},
+              {"role":"user","content":prompt},
+            ],
+          }
+          Path('/tmp/deepseek-request.json').write_text(json.dumps(request),encoding='utf-8')
+          PY
+
+      - name: Prove output parser offline
+        run: |
+          set -euo pipefail
+          python3 -m unittest AI_SKILL_LIBRARY.tests.test_deepseek_lane_apply
+          echo "DEEPSEEK_PARSER_TESTS=PASS"
+
+      - name: Run one bounded DeepSeek coding call
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /tmp/deepseek-response.json -w '%{http_code}' \
+            --connect-timeout 15 --max-time 240 \
+            -H "Authorization: Bearer ${DEEPSEEK_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/deepseek-request.json \
+            https://api.deepseek.com/v1/chat/completions || echo 000)"
+          test "${code}" = "200"
+          echo "DEEPSEEK_API_HEALTH=PASS"
+          python3 .github/scripts/deepseek_lane_apply.py /tmp/deepseek-response.json .
+
+      - name: Enforce file ownership
+        run: |
+          set -euo pipefail
+          allowed='^(AI_SKILL_LIBRARY/v4/tools/ai_core_closure_evidence\.py|AI_SKILL_LIBRARY/tests/test_ai_core_closure_evidence\.py)$'
+          unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
+          if [ -n "${unexpected}" ]; then
+            echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
+            printf '%s\n' "${unexpected}"
+            exit 1
+          fi
+          echo "DEEPSEEK_FILE_OWNERSHIP=PASS"
+
+      - name: Run focused tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest AI_SKILL_LIBRARY.tests.test_ai_core_closure_evidence -v
+          echo "DEEPSEEK_TESTS=PASS"
+
+      - name: Commit DeepSeek closure evidence runner
+        run: |
+          set -euo pipefail
+          git config user.name 'DeepSeek Coding Lane'
+          git config user.email 'deepseek-lane@users.noreply.github.com'
+          git add AI_SKILL_LIBRARY/v4/tools/ai_core_closure_evidence.py AI_SKILL_LIBRARY/tests/test_ai_core_closure_evidence.py
+          git commit -m 'feat(ai-core): add same-revision closure evidence runner'
+          git push origin HEAD:work/deepseek-survival-plane-442
+          echo "DEEPSEEK_CLOSURE_EVIDENCE_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_CODING_LANE_READY=PASS"

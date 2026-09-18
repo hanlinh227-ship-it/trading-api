@@ -358,7 +358,19 @@ class ReleaseTests(unittest.TestCase):
             shutil.copytree(LIB, copy / "AI_SKILL_LIBRARY", ignore=shutil.ignore_patterns("__pycache__", "tests"))
             (copy / "docs").mkdir()
             target = rollback_release(copy)
-            self.assertEqual(target, versions[-2])
+            # The nearest *known-good* predecessor, which is what
+            # history.yaml's own rollback policy declares
+            # (require_known_good: true). This used to assert versions[-2]
+            # and passed only while the immediate predecessor happened to be
+            # known-good; with three unvalidated releases stacked at the tip
+            # it skipped to 4.14.0, and the coincidence stopped holding. A
+            # rollback target that is not known-good would be the actual
+            # defect, so that is what is asserted.
+            known_good = [row["version"] for row in history["releases"]
+                          if row.get("known_good") is True]
+            self.assertIn(target, known_good)
+            self.assertEqual(target, known_good[-1])
+            self.assertNotEqual(target, pointer["version"])
 
     def test_release_manifest_is_reproducible_from_builder(self):
         from AI_SKILL_LIBRARY.v4.tools.release import build_manifest

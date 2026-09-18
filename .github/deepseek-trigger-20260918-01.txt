@@ -1,0 +1,3 @@
+AUTHORIZED_ONE_SHOT_DEEPSEEK_TRIGGER
+operator_approved=true
+purpose=survival-plane-bounded-task

@@ -39,6 +39,41 @@ candidate_gate:
   malware_scan_status_required: pass
   quarantine_status_required: clear
   unknown_critical_evidence_blocks: true
+
+  # An operator may accept a named, scoped risk when a check cannot be run in
+  # this environment. It is a recorded decision, never a substitute finding:
+  # the underlying evidence field keeps its true value (malware_scan_status
+  # stays not_run) and the acceptance is carried alongside it.
+  #
+  # Deliberately narrow. It covers exactly one gate, it is bound to one
+  # artifact by digest so it cannot become a blanket "skip scanning", and it
+  # can never stand in for licence, provenance, format safety, pickle safety,
+  # remote-code restrictions or the structural scan - those are either
+  # obtainable here or are the reason the format is safe to open at all.
+  operator_risk_acceptance:
+    permitted: true
+    may_substitute_for:
+      - malware_scan_status
+    never_substitutes_for:
+      - license_verified
+      - provenance_verified
+      - safe_format_verified
+      - pickle_safe
+      - trust_remote_code_required
+      - custom_code_required
+      - structural_scan
+    required_fields:
+      - accepted_by
+      - accepted_at
+      - artifact_sha256
+      - basis
+      - missing_evidence
+      - scope
+    scope_must_be: single_artifact
+    must_bind_artifact_digest: true
+    must_record_missing_evidence: true
+    must_not_alter_underlying_evidence: true
+
   blocked_states:
     - DISCOVERED
     - QUARANTINED

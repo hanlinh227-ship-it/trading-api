@@ -1,0 +1,134 @@
+{
+  "wave": "wave2",
+  "selected": 5,
+  "deferred": 6,
+  "total_selected_bytes": 8358470368,
+  "written_to_manifest": [
+    "smollm2-360m-instruct-gguf-q8-0",
+    "bitnet-b1.58-2b-4t-gguf-i2-s",
+    "ministral-3-3b-reasoning-2512-gguf-q4-k-m",
+    "granite-4.2-3b-gguf-q4-k-m",
+    "phi-3-mini-4k-instruct-gguf-q4"
+  ],
+  "admits_nothing": true,
+  "entries": [
+    {
+      "id": "smollm2-360m-instruct-gguf-q8-0",
+      "family": "SmolLM2",
+      "variant": "smollm2-360m-instruct-q8_0",
+      "hf_repo": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+      "filename": "smollm2-360m-instruct-q8_0.gguf",
+      "source_run_id": 35209030539,
+      "artifact_name": "prefetch-HuggingFaceTB-5",
+      "expected_sha256": "48ab3034d0dd401fbc721eb1df3217902fee7dab9078992d66431f09b7750201",
+      "size_bytes": 386404992,
+      "immutable_revision": "593b5a2e04c8f3e4ee880263f93e0bd2901ad47f",
+      "revision_status": "pinned_at_download",
+      "size_tier": "S",
+      "release_tag": "staged-model-smollm2-360m-instruct-gguf-q8-0",
+      "license_gap": "the prefetch index declares no licence for this repo; it must be fetched before admission and is never inferred from the family"
+    },
+    {
+      "id": "bitnet-b1.58-2b-4t-gguf-i2-s",
+      "family": "bitnet",
+      "variant": "ggml-model-i2_s",
+      "hf_repo": "microsoft/bitnet-b1.58-2B-4T-gguf",
+      "filename": "ggml-model-i2_s.gguf",
+      "source_run_id": 35209030539,
+      "artifact_name": "prefetch-microsoft-8",
+      "expected_sha256": "4221b252fdd5fd25e15847adfeb5ee88886506ba50b8a34548374492884c2162",
+      "size_bytes": 1187801280,
+      "immutable_revision": "a1f2f1c765812aa8af3f6eda4a313707064bba15",
+      "revision_status": "pinned_at_download",
+      "size_tier": "A",
+      "release_tag": "staged-model-bitnet-b1.58-2b-4t-gguf-i2-s",
+      "license_gap": "the prefetch index declares no licence for this repo; it must be fetched before admission and is never inferred from the family"
+    },
+    {
+      "id": "ministral-3-3b-reasoning-2512-gguf-q4-k-m",
+      "family": "Ministral",
+      "variant": "Ministral-3-3B-Reasoning-2512-Q4_K_M",
+      "hf_repo": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
+      "filename": "Ministral-3-3B-Reasoning-2512-Q4_K_M.gguf",
+      "source_run_id": 35209030539,
+      "artifact_name": "prefetch-mistralai-10",
+      "expected_sha256": "7e9516cc01a039bb3e2d41227cdf388849bc1c942c4624c84567b1684cd9c0fc",
+      "size_bytes": 2147021472,
+      "immutable_revision": "b432f0a2c144af8a1937b06e2ea7f75ebb4d0b31",
+      "revision_status": "pinned_at_download",
+      "size_tier": "A",
+      "release_tag": "staged-model-ministral-3-3b-reasoning-2512-gguf-q4-k-m",
+      "license_gap": "the prefetch index declares no licence for this repo; it must be fetched before admission and is never inferred from the family"
+    },
+    {
+      "id": "granite-4.2-3b-gguf-q4-k-m",
+      "family": "granite",
+      "variant": "granite-4.2-3b-Q4_K_M",
+      "hf_repo": "ibm-granite/granite-4.2-3b-GGUF",
+      "filename": "granite-4.2-3b-Q4_K_M.gguf",
+      "source_run_id": 35209030539,
+      "artifact_name": "prefetch-ibm-granite-3",
+      "expected_sha256": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+      "size_bytes": 2244011552,
+      "immutable_revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+      "revision_status": "pinned_at_download",
+      "size_tier": "A",
+      "release_tag": "staged-model-granite-4.2-3b-gguf-q4-k-m",
+      "license_gap": "the prefetch index declares no licence for this repo; it must be fetched before admission and is never inferred from the family"
+    },
+    {
+      "id": "phi-3-mini-4k-instruct-gguf-q4",
+      "family": "Phi",
+      "variant": "Phi-3-mini-4k-instruct-q4",
+      "hf_repo": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "filename": "Phi-3-mini-4k-instruct-q4.gguf",
+      "source_run_id": 35209030539,
+      "artifact_name": "prefetch-microsoft-9",
+      "expected_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+      "size_bytes": 2393231072,
+      "immutable_revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+      "revision_status": "pinned_at_download",
+      "size_tier": "A",
+      "release_tag": "staged-model-phi-3-mini-4k-instruct-gguf-q4",
+      "license_gap": "the prefetch index declares no licence for this repo; it must be fetched before admission and is never inferred from the family"
+    }
+  ],
+  "deferrals": [
+    {
+      "repo_id": "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF",
+      "size_bytes": 1055609536,
+      "tier": "A",
+      "deferred_because": "already selected a smollm2 model this wave; prefer a different family"
+    },
+    {
+      "repo_id": "google/gemma-4-E2B-it-qat-q4_0-gguf",
+      "size_bytes": 3349516256,
+      "tier": "B",
+      "deferred_because": "tier B at 3194 MB exceeds this wave's 2500 MB ceiling"
+    },
+    {
+      "repo_id": "Qwen/Qwen3-VL-8B-Thinking-GGUF",
+      "size_bytes": 5027784704,
+      "tier": "B",
+      "deferred_because": "tier B at 4794 MB exceeds this wave's 2500 MB ceiling"
+    },
+    {
+      "repo_id": "google/gemma-4-E4B-it-qat-q4_0-gguf",
+      "size_bytes": 5154941280,
+      "tier": "B",
+      "deferred_because": "tier B at 4916 MB exceeds this wave's 2500 MB ceiling"
+    },
+    {
+      "repo_id": "mistralai/Ministral-3-8B-Reasoning-2512-GGUF",
+      "size_bytes": 5198910368,
+      "tier": "B",
+      "deferred_because": "tier B at 4958 MB exceeds this wave's 2500 MB ceiling"
+    },
+    {
+      "repo_id": "ibm-granite/granite-4.2-8b-GGUF",
+      "size_bytes": 5347917952,
+      "tier": "B",
+      "deferred_because": "tier B at 5100 MB exceeds this wave's 2500 MB ceiling"
+    }
+  ]
+}

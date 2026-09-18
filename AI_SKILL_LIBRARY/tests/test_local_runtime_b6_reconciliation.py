@@ -58,6 +58,26 @@ def canonical_record():
     return copy.deepcopy(canonical_registry()["models"][0])
 
 
+def quarantined_record(**overrides):
+    """A quarantined row, built here rather than borrowed from the live one.
+
+    The live registry's governance state is a decision that can legitimately
+    change; the behaviour under quarantine is an invariant. Tests that borrowed
+    the live row broke the first time an operator cleared it, which is a test
+    defect, not a regression.
+    """
+    record = canonical_record()
+    record.pop("operator_risk_acceptance", None)
+    record["lifecycle_state"] = "QUARANTINED"
+    record["privacy_class"] = "local_candidate_pending_security_admission"
+    record["model_mesh_local_candidate_eligible"] = False
+    record["admission_evidence"].update(
+        malware_scan_status="not_run", quarantine_status="quarantined"
+    )
+    record.update(overrides)
+    return record
+
+
 def cleared_record(**overrides):
     """The canonical row with every gate satisfied - a hypothetical future.
 
@@ -65,6 +85,9 @@ def cleared_record(**overrides):
     model. Nothing here is written back to the registry.
     """
     record = canonical_record()
+    # Evidence gates are tested in isolation, so any operator acceptance on the
+    # live row is removed - otherwise it would mask the gate under test.
+    record.pop("operator_risk_acceptance", None)
     record["lifecycle_state"] = "AVAILABLE"
     record["privacy_class"] = "local_only"
     record["model_mesh_local_candidate_eligible"] = True
@@ -107,7 +130,7 @@ class CanonicalIdentityTests(unittest.TestCase):
                 self.assertTrue(payload.get(alias.get(field, field)), field)
 
     def test_identity_is_not_mutated_by_projection(self):
-        record = canonical_record()
+        record = quarantined_record()
         before = copy.deepcopy(record["artifact_identity"])
         project_record(record, snapshot=snapshot(), available_runtimes=["llama.cpp"])
         self.assertEqual(record["artifact_identity"], before)
@@ -125,7 +148,7 @@ class CanonicalIdentityTests(unittest.TestCase):
         self.assertEqual(profile.variant, "0.6B-Q8_0-GGUF")
 
     def test_identity_drift_between_top_level_and_block_is_refused(self):
-        record = canonical_record()
+        record = quarantined_record()
         record["upstream_revision"] = "f" * 40
         identity, reasons = from_record(record)
         self.assertIsNone(identity)
@@ -135,21 +158,21 @@ class CanonicalIdentityTests(unittest.TestCase):
 class QuarantineTests(unittest.TestCase):
     """QUARANTINED stays non-placeable and non-resident, whatever else is true."""
 
-    def test_the_canonical_row_is_quarantined_on_main(self):
-        record = canonical_record()
+    def test_a_quarantined_row_is_recognised_as_such(self):
+        record = quarantined_record()
         self.assertEqual(record["lifecycle_state"], "QUARANTINED")
         self.assertEqual(record["admission_evidence"]["quarantine_status"], "quarantined")
-        self.assertIs(record["model_mesh_local_candidate_eligible"], False)
 
     def test_a_quarantined_row_is_never_projected(self):
-        result = project_record(canonical_record(), snapshot=snapshot(),
+        result = project_record(quarantined_record(), snapshot=snapshot(),
                                 available_runtimes=["llama.cpp"])
         self.assertEqual(result.admission_status, AdmissionStatus.INELIGIBLE)
         self.assertIsNone(result.profile)
         self.assertTrue(result.exclusion_reasons)
 
-    def test_the_whole_canonical_registry_projects_to_no_candidate(self):
-        results = project_registry(canonical_registry(), snapshot=snapshot(),
+    def test_a_registry_of_quarantined_rows_yields_no_candidate(self):
+        registry = {**canonical_registry(), "models": [quarantined_record()]}
+        results = project_registry(registry, snapshot=snapshot(),
                                    available_runtimes=["llama.cpp"])
         self.assertTrue(results)
         self.assertEqual([r for r in results if r.placeable], [])
@@ -177,7 +200,7 @@ class QuarantineTests(unittest.TestCase):
         self.assertEqual(result.admission_status, AdmissionStatus.INELIGIBLE)
 
     def test_the_runtime_never_rewrites_governance_state_to_pass(self):
-        record = canonical_record()
+        record = quarantined_record()
         project_record(record, snapshot=snapshot(), available_runtimes=["llama.cpp"])
         self.assertEqual(record["lifecycle_state"], "QUARANTINED")
         self.assertEqual(record["admission_evidence"]["quarantine_status"], "quarantined")
@@ -251,9 +274,9 @@ class EvidenceFailClosedTests(unittest.TestCase):
 class PendingSecurityPrivacyTests(unittest.TestCase):
     """`local_candidate_pending_security_admission` is explicit and fail-closed."""
 
-    def test_the_canonical_row_uses_the_pending_class(self):
+    def test_the_pending_class_is_a_real_registry_value(self):
         self.assertEqual(
-            canonical_record()["privacy_class"], "local_candidate_pending_security_admission"
+            quarantined_record()["privacy_class"], "local_candidate_pending_security_admission"
         )
 
     def test_the_pending_class_is_recognised_not_merely_unmapped(self):

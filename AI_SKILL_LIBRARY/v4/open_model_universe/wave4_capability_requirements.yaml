@@ -1,0 +1,303 @@
+version: 1
+purpose: wave4_capability_requirements_and_measured_coverage
+status: MEASURED  # see wave_closure_gate.py --wave 4
+measured_at: "2026-09-17T19:16:06Z"  # wave4_multimodal_v2
+evidence: CHECKPOINTS/evidence/WAVE4_MULTIMODAL_BENCHMARK.json
+
+# Coverage below is MEASURED by real inference against a provider that is
+# VERIFIED_AVAILABLE, with inputs built inside the job so the answers have one
+# correct value. A tag with measured_covered false is an honest gap, not an
+# omission, and no catalog row or provider claim may fill it.
+
+architecture:
+  unchanged: true
+  flow: >-
+    USER -> GITHUB_BRAIN_V4 -> task_router -> AI Legion -> Model Mesh
+    -> existing runtime scheduler -> Free Worker Mesh -> worker/provider
+    -> inference -> verifier -> evidence -> synthesis
+  forbidden_additions:
+    - another Brain
+    - another router
+    - another Model Mesh
+    - another model registry
+    - another scheduler
+    - another worker registry
+    - another admission authority
+    - another evidence authority
+
+capability_requirements:
+  - tag: vision
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/llava-hf/llava-1.5-7b-hf"
+    evidence_class: MEASURED
+    note: >-
+      GROUNDED. Answered 'a red circle with a black outline' for an image
+      rendered in the job with a known shape and colour.
+  - tag: image_understanding
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/llava-hf/llava-1.5-7b-hf"
+    evidence_class: MEASURED
+    note: >-
+      Same measurement as vision; the model described the rendered scene
+      correctly.
+  - tag: visual_reasoning
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: MEASURED_AND_FAILED
+    blocker_class: HUMAN_GATE_REQUIRED
+    blocker_evidence: >-
+      Four image-capable models on the verified zero-cost path were tried.
+      @cf/meta/llama-3.2-11b-vision-instruct returns 403 demanding the prompt
+      'agree' before use - a model licence, which only the operator may accept,
+      so it was not accepted and the model was not used.
+      @cf/llava-hf/llava-1.5-7b-hf passes the image control and genuinely fails
+      this task; it is a 7B captioner reading digits off a page without locating
+      them. @cf/mistralai/mistral-small-3.1-24b-instruct and
+      @cf/meta/llama-4-scout-17b-16e-instruct returned 200 to all three request
+      shapes tried and answered without the image in every case, so their
+      answers were not scored at all.
+    unresolved: >-
+      Whether a fourth request shape would deliver an image to mistral-small or
+      llama-4-scout is not settled. Three documented shapes were tried and none
+      did. That is recorded as unresolved rather than as those models being
+      incapable.
+    measured_failure: >-
+      llava answered 10412 for 104 minus 34. Recorded as a real result about
+      llava rather than as an absence of evidence.
+    note: >-
+      Measured and failed, which is not the same as unmeasured. Describing a
+      rendered shape is perception; computing over a value that has to be
+      located first is reasoning, and only the first of those is covered.
+  - tag: ocr
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/llava-hf/llava-1.5-7b-hf"
+    evidence_class: MEASURED
+    note: >-
+      READ_CORRECTLY. Returned 'Harmony' for HARMONY rendered at 120px. Reading
+      rendered text is the OCR task, so this is measured rather than assumed.
+  - tag: document_understanding
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: MEASURED_AND_FAILED
+    blocker_class: HUMAN_GATE_REQUIRED
+    blocker_evidence: >-
+      Four image-capable models on the verified zero-cost path were tried.
+      @cf/meta/llama-3.2-11b-vision-instruct returns 403 demanding the prompt
+      'agree' before use - a model licence, which only the operator may accept,
+      so it was not accepted and the model was not used.
+      @cf/llava-hf/llava-1.5-7b-hf passes the image control and genuinely fails
+      this task; it is a 7B captioner reading digits off a page without locating
+      them. @cf/mistralai/mistral-small-3.1-24b-instruct and
+      @cf/meta/llama-4-scout-17b-16e-instruct returned 200 to all three request
+      shapes tried and answered without the image in every case, so their
+      answers were not scored at all.
+    unresolved: >-
+      Whether a fourth request shape would deliver an image to mistral-small or
+      llama-4-scout is not settled. Three documented shapes were tried and none
+      did. That is recorded as unresolved rather than as those models being
+      incapable.
+    measured_failure: >-
+      llava answered 10 for a three-row count. Recorded as a real result about
+      llava rather than as an absence of evidence.
+    note: >-
+      Measured and failed. Asked to count item rows excluding the header and the
+      TOTAL row - structure rather than transcription - llava answered 10.
+      document_embedding is covered separately and is a different tag: returning
+      a vector for a document is not understanding one.
+  - tag: layout_understanding
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: MEASURED_AND_FAILED
+    blocker_class: HUMAN_GATE_REQUIRED
+    blocker_evidence: >-
+      Four image-capable models on the verified zero-cost path were tried.
+      @cf/meta/llama-3.2-11b-vision-instruct returns 403 demanding the prompt
+      'agree' before use - a model licence, which only the operator may accept,
+      so it was not accepted and the model was not used.
+      @cf/llava-hf/llava-1.5-7b-hf passes the image control and genuinely fails
+      this task; it is a 7B captioner reading digits off a page without locating
+      them. @cf/mistralai/mistral-small-3.1-24b-instruct and
+      @cf/meta/llama-4-scout-17b-16e-instruct returned 200 to all three request
+      shapes tried and answered without the image in every case, so their
+      answers were not scored at all.
+    unresolved: >-
+      Whether a fourth request shape would deliver an image to mistral-small or
+      llama-4-scout is not settled. Three documented shapes were tried and none
+      did. That is recorded as unresolved rather than as those models being
+      incapable.
+    measured_failure: >-
+      llava answered 'Spot Order 741212' for 'DEPOT ORDER 7412'. Recorded as a
+      real result about llava rather than as an absence of evidence.
+    note: >-
+      Measured and failed. The heading was rendered at 52px at the top of the
+      page above a rule, and the answer came back as a near-miss transcription
+      rather than a located heading.
+  - tag: table_understanding
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: MEASURED_AND_FAILED
+    blocker_class: HUMAN_GATE_REQUIRED
+    blocker_evidence: >-
+      Four image-capable models on the verified zero-cost path were tried.
+      @cf/meta/llama-3.2-11b-vision-instruct returns 403 demanding the prompt
+      'agree' before use - a model licence, which only the operator may accept,
+      so it was not accepted and the model was not used.
+      @cf/llava-hf/llava-1.5-7b-hf passes the image control and genuinely fails
+      this task; it is a 7B captioner reading digits off a page without locating
+      them. @cf/mistralai/mistral-small-3.1-24b-instruct and
+      @cf/meta/llama-4-scout-17b-16e-instruct returned 200 to all three request
+      shapes tried and answered without the image in every case, so their
+      answers were not scored at all.
+    unresolved: >-
+      Whether a fourth request shape would deliver an image to mistral-small or
+      llama-4-scout is not settled. Three documented shapes were tried and none
+      did. That is recorded as unresolved rather than as those models being
+      incapable.
+    measured_failure: >-
+      llava answered 341 for a cell holding 12. Recorded as a real result about
+      llava rather than as an absence of evidence.
+    note: >-
+      Measured and failed. Three decoy rows carried 34, 58 and 104; the answer
+      borrowed digits from them rather than reading the Hinges row.
+  - tag: audio_understanding
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: MEASURED
+    blocker_class: NO_MODEL_IN_VERIFIED_CATALOG
+    blocker_evidence: >-
+      The live catalog read on this account carries five speech-to-text models,
+      four text-to-speech models and a turn detector, and no model that answers
+      questions about what it heard. Transcribing and then reasoning in a text
+      model would be a pipeline result, which is a different claim from a model
+      capability and is not recorded as one.
+    note: >-
+      Only transcription is measured. Broader audio understanding - events,
+      speaker, sentiment - was not tested, so this stays uncovered.
+  - tag: speech_to_text
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/openai/whisper-large-v3-turbo"
+    evidence_class: MEASURED
+    note: >-
+      TRANSCRIBED at 0.875 word recall on audio synthesised in the job from a
+      sentence the ASR model never saw. It misheard 'dog' as 'dot', recorded
+      rather than rounded away.
+  - tag: text_to_speech
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/deepgram/aura-1"
+    evidence_class: MEASURED
+    note: >-
+      PRODUCED_AUDIO. Reached only after melotts returned HTTP 500 twice across
+      two runs and a retry - a real failure - so the fallback that followed is
+      itself a failover measured in practice.
+  - tag: multimodal_reasoning
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: MEASURED_AND_FAILED
+    blocker_class: HUMAN_GATE_REQUIRED
+    blocker_evidence: >-
+      Four image-capable models on the verified zero-cost path were tried.
+      @cf/meta/llama-3.2-11b-vision-instruct returns 403 demanding the prompt
+      'agree' before use - a model licence, which only the operator may accept,
+      so it was not accepted and the model was not used.
+      @cf/llava-hf/llava-1.5-7b-hf passes the image control and genuinely fails
+      this task; it is a 7B captioner reading digits off a page without locating
+      them. @cf/mistralai/mistral-small-3.1-24b-instruct and
+      @cf/meta/llama-4-scout-17b-16e-instruct returned 200 to all three request
+      shapes tried and answered without the image in every case, so their
+      answers were not scored at all.
+    unresolved: >-
+      Whether a fourth request shape would deliver an image to mistral-small or
+      llama-4-scout is not settled. Three documented shapes were tried and none
+      did. That is recorded as unresolved rather than as those models being
+      incapable.
+    measured_failure: >-
+      llava answered 104 for 58 times 2. Recorded as a real result about llava
+      rather than as an absence of evidence.
+    note: >-
+      Measured and failed. The item gives a price only in the prompt and a
+      quantity only in the image, so neither source alone yields the answer;
+      llava returned 104, a number copied off the page. Composing a vision
+      worker with a separate text reasoner would be an AI Legion orchestration
+      result and a different claim from a model doing it, and that has still not
+      been measured.
+  - tag: image_embedding
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: MEASURED
+    blocker_class: NO_MODEL_IN_VERIFIED_CATALOG
+    blocker_evidence: >-
+      The live catalog read on this account has three image-input models: two
+      image-to-text models and @cf/microsoft/resnet-50, which returns fixed
+      labels rather than a vector. A classifier is not an embedding model and is
+      not recorded as a substitute for one.
+    note: >-
+      No image embedding model exists in the verified catalog. A real gap,
+      recorded as one.
+  - tag: document_embedding
+    declared: true
+    measured_covered: true
+    measured_model: "@cf/baai/bge-m3"
+    evidence_class: MEASURED
+    note: >-
+      EMBEDDED. Returned 2 vectors of 1024 real dimensions.
+  - tag: future_multimodal
+    declared: true
+    measured_covered: false
+    measured_model: null
+    evidence_class: NONE
+    blocker_class: PLACEHOLDER_TAG
+    note: >-
+      A forward-looking name so that a later wave declaring a modality needs no
+      new scheduler, router or registry - not a requirement of Wave 4. Excluded
+      from the coverage denominator rather than counted as a failure, because
+      counting an intentionally empty placeholder as a gap would be noise.
+
+rules_carried_forward:
+  declared_never_qualifies: >-
+    A declared capability advertises; only a measured one makes a worker
+    eligible. Every tag above with measured_covered false is ineligible.
+  provenance_unchanged: >-
+    A third-party conversion must name its base model, its base revision and
+    the converter that produced it. Wave 3 closed two candidates as
+    QUARANTINED_PROVENANCE under this rule. Wave 4 does not relax it.
+  exact_versus_capability_unchanged: >-
+    A provider serving a different model covers a capability under its own
+    name and is never recorded as the requested model being available.
+  execution_proof_unchanged: >-
+    A provider is VERIFIED_AVAILABLE only after a real request returns a real
+    completion on a zero-cost tier. Documentation is not execution proof.
+
+observed_failures:
+  - model: "@cf/myshell-ai/melotts"
+    result: HTTP 500 twice, across two runs and a retry
+    treatment: >-
+      Recorded as a real failure, not a flake. One model failing is not the
+      capability failing, so an alternative was tried and text_to_speech is
+      covered by @cf/deepgram/aura-1 instead.
+  - model: "@cf/moondream/moondream3.1-9B-A2B"
+    result: HTTP 200 with an empty result object
+    treatment: >-
+      EMPTY_RESPONSE, which is not a wrong answer and is not a capability
+      claim in either direction. llava answered the same prompts correctly,
+      so vision and OCR coverage rests on llava and not on this.
+
+carried_in_from_wave3:
+  - candidate: google/gemma-3-4b-it
+    state: DEFERRED_TO_WAVE4
+    gate: HUMAN_LICENSE_GATE_REQUIRED
+    note: >-
+      Enters Wave 4 only through the same human licence gate. Never staged,
+      downloaded or admitted. Only the operator may accept the terms, and
+      Wave 4 coverage above does not depend on it.

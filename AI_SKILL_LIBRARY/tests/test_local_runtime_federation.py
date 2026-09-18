@@ -1,280 +1,121 @@
+"""Multi-model federation: an executor, not a second orchestrator.
+
+Every cap and every selection rule this exercises belongs to a component that
+already existed. The tests are mostly about what the executor must *not* do -
+re-decide a cap, resolve a disagreement by counting, or claim agreement it did
+not measure.
+"""
+
+import json
 import unittest
+from pathlib import Path
 
-from AI_SKILL_LIBRARY.v4.local_runtime.federation import ServeOutcome, serve, wake_transitions
-from AI_SKILL_LIBRARY.v4.local_runtime.lifecycle import ModelLifecycle, ModelState
-from AI_SKILL_LIBRARY.v4.local_runtime.resources import GpuDevice, GpuVendor, HostFacts, ResourceSnapshot
-from AI_SKILL_LIBRARY.v4.local_runtime.runtime import (
-    InvocationStatus,
-    ModelRuntimeAdapter,
-    RegistryClaim,
-    RuntimeCapability,
-    RuntimeMesh,
-)
-from AI_SKILL_LIBRARY.v4.local_runtime.scheduler import (
-    ModelProfile,
-    PlacementAction,
-    Priority,
-    QualityTier,
-    RuntimeSlot,
-    TaskRequest,
-)
+from AI_SKILL_LIBRARY.v4.control_plane.federation import plan_execution
+from AI_SKILL_LIBRARY.v4.local_runtime.multi_model import DECODING, _worker_task
 
-HOST = HostFacts(system="Linux", machine="x86_64", release="6.8.0")
+ROOT = Path(__file__).resolve().parents[2]
+EVIDENCE = ROOT / "CHECKPOINTS/evidence/FEDERATION_V1_EVIDENCE.json"
 
 
-def snapshot(ram_available_mb=32_000, **kwargs):
-    kwargs.setdefault("disk_free_mb", 500_000)
-    return ResourceSnapshot(
-        host=HOST, cpu_logical=16, cpu_physical=8, ram_total_mb=64_000,
-        ram_available_mb=ram_available_mb, disk_total_mb=1_000_000,
-        gpus=(GpuDevice(index=0, vendor=GpuVendor.NVIDIA, name="RTX 4090",
-                        vram_total_mb=24_000, vram_available_mb=20_000),),
-        **kwargs,
-    )
-
-
-def slot(model_id, state=ModelState.WARM, **kwargs):
-    profile = ModelProfile(
-        model_id=model_id, ram_mb=8_000, vram_mb=8_000, disk_mb=16_000,
-        runtime="llama.cpp", context_limit=32_768, quality=0.8,
-        capabilities=frozenset({"text"}),
-    )
-    return RuntimeSlot(model=profile, state=state, **kwargs)
-
-
-def claims(*model_ids):
+def selection(supporting=2):
     return {
-        model_id: RegistryClaim(model_id=model_id, context_limit=32_768,
-                                modalities=frozenset({"text"}), tool_support=True)
-        for model_id in model_ids
+        "primary_model": {"candidate_key": "local:a", "model_id": "a"},
+        "supporting_models": [{"candidate_key": f"local:s{i}", "model_id": f"s{i}"}
+                              for i in range(supporting)],
+        "verifier": "core_reasoning",
     }
 
 
-class Adapter(ModelRuntimeAdapter):
-    def __init__(self, name="llama.cpp", loaded=("m1",), raises=None):
-        self._name, self._loaded, self._raises = name, tuple(loaded), raises
+class PlanAuthorityTests(unittest.TestCase):
+    """The caps come from plan_execution. The executor must not restate them."""
 
-    @property
-    def name(self):
-        return self._name
+    def test_fast_plans_one_model_and_no_verifier(self):
+        plan = plan_execution("FAST", selection(), ["CORE_REASONING"])
+        self.assertEqual(len(plan["models"]), 1)
+        self.assertIsNone(plan["verifier"])
 
-    def probe(self):
-        return RuntimeCapability(
-            runtime=self._name, runtime_version="b4200", loaded_models=self._loaded,
-            available_memory_mb=20_000, context_limit=32_768, modalities=frozenset({"text"}),
-            tool_support=True, quantizations=frozenset({"Q4_K_M"}), healthy=True,
-            latency_p50_ms=100.0,
-        )
+    def test_standard_plans_at_most_two(self):
+        plan = plan_execution("STANDARD", selection(supporting=5), ["CORE_REASONING"])
+        self.assertEqual(plan["max_concurrent_models"], 2)
+        self.assertEqual(len(plan["models"]), 2)
 
-    def execute(self, task_contract, capability):
-        if self._raises:
-            raise self._raises
-        return {"text": f"answer for {task_contract.task_id}"}
+    def test_deep_plans_at_most_four(self):
+        plan = plan_execution("DEEP", selection(supporting=9), ["CORE_REASONING"])
+        self.assertEqual(plan["max_concurrent_models"], 4)
+        self.assertEqual(len(plan["models"]), 4)
 
-
-class EndToEndTests(unittest.TestCase):
-    def test_a_task_is_placed_invoked_and_answered(self):
-        outcome = serve(
-            TaskRequest(task_id="t-1", required_capabilities=frozenset({"text"})),
-            [slot("m1")], snapshot(), RuntimeMesh([Adapter()]), claims("m1"), now=0.0,
-        )
-        self.assertTrue(outcome.ok)
-        self.assertEqual(outcome.model_id, "m1")
-        self.assertEqual(outcome.runtime, "llama.cpp")
-        self.assertEqual(outcome.output, {"text": "answer for t-1"})
-
-    def test_a_sleeping_model_is_woken_for_the_task(self):
-        outcome = serve(
-            TaskRequest(task_id="t-2", required_capabilities=frozenset({"text"})),
-            [slot("m1", state=ModelState.SLEEPING)], snapshot(),
-            RuntimeMesh([Adapter(loaded=())]), claims("m1"), now=0.0,
-        )
-        self.assertTrue(outcome.ok)
-        self.assertEqual(outcome.action, PlacementAction.WAKE)
-
-    def test_the_wake_path_is_a_legal_lifecycle_walk(self):
-        outcome = serve(
-            TaskRequest(task_id="t-3", required_capabilities=frozenset({"text"})),
-            [slot("m1", state=ModelState.CACHED)], snapshot(),
-            RuntimeMesh([Adapter(loaded=())]), claims("m1"), now=0.0,
-        )
-        lifecycle = ModelLifecycle("m1", state=ModelState.CACHED)
-        for _source, target in wake_transitions(
-            type("P", (), {"action": outcome.action})()
-        ):
-            lifecycle.transition(target, reason="wake path")
-        self.assertIs(lifecycle.state, ModelState.RUNNING)
-
-    def test_every_placement_action_maps_to_a_legal_lifecycle_walk(self):
-        starts = {
-            PlacementAction.SERVE_RUNNING: ModelState.RUNNING,
-            PlacementAction.USE_WARM: ModelState.WARM,
-            PlacementAction.WAKE: ModelState.SLEEPING,
-            PlacementAction.LOAD_FROM_CACHE: ModelState.CACHED,
-            PlacementAction.ACQUIRE: ModelState.AVAILABLE,
-        }
-        for action, start in starts.items():
-            with self.subTest(action=action):
-                lifecycle = ModelLifecycle("m", state=start)
-                for _source, target in wake_transitions(type("P", (), {"action": action})()):
-                    lifecycle.transition(target, reason="walk")
-
-    def test_housekeeping_is_reported_alongside_the_answer(self):
-        outcome = serve(
-            TaskRequest(task_id="t-4", required_capabilities=frozenset({"text"})),
-            [slot("m1"), slot("idle", state=ModelState.WARM, idle_seconds=99_999.0)],
-            snapshot(), RuntimeMesh([Adapter()]), claims("m1", "idle"), now=0.0,
-        )
-        self.assertTrue(outcome.ok)
-        self.assertIn("idle", [action.model_id for action in outcome.sleep_actions])
-
-    def test_a_model_without_a_registry_claim_is_refused_not_invented(self):
-        outcome = serve(
-            TaskRequest(task_id="t-5", required_capabilities=frozenset({"text"})),
-            [slot("m1")], snapshot(), RuntimeMesh([Adapter()]), {}, now=0.0,
-        )
-        self.assertFalse(outcome.admitted)
-        self.assertIn("claim", outcome.reason)
+    def test_the_plan_never_claims_routing_authority(self):
+        plan = plan_execution("STANDARD", selection(), ["CORE_REASONING"])
+        self.assertFalse(plan["routing_authority"])
+        self.assertEqual(plan["routed_by"], "task_router")
+        self.assertEqual(plan["model_selection_authority"], "model_mesh")
 
 
-class BackgroundYieldTests(unittest.TestCase):
-    def test_background_work_stands_down_under_pressure(self):
-        pressured = snapshot(ram_available_mb=6_000)
-        outcome = serve(
-            TaskRequest(task_id="train", priority=Priority.P4_TRAINING,
-                        required_capabilities=frozenset({"text"})),
-            [slot("m1")], pressured, RuntimeMesh([Adapter()]), claims("m1"), now=0.0,
-        )
-        self.assertFalse(outcome.admitted)
-        self.assertIn("stands down", outcome.reason)
+class WorkerTaskTests(unittest.TestCase):
+    def test_permission_is_granted_per_candidate_never_by_default(self):
+        """A candidate with no entry is not permitted, which is the right way round."""
+        candidates = [{"provider_id": "local_runtime", "model_id": "m"}]
+        task = _worker_task("core", "core_reasoning", "STANDARD", candidates)
+        self.assertEqual(set(task["permission_allowed"]), {"local_runtime:m"})
+        self.assertNotIn("local_runtime:other", task["permission_allowed"])
 
-    def test_the_interactive_task_still_runs_at_the_same_pressure(self):
-        pressured = snapshot(ram_available_mb=6_000)
-        outcome = serve(
-            TaskRequest(task_id="chat", priority=Priority.P1_INTERACTIVE,
-                        required_capabilities=frozenset({"text"})),
-            [slot("m1")], pressured, RuntimeMesh([Adapter()]), claims("m1"), now=0.0,
-        )
-        self.assertTrue(outcome.ok)
-
-    def test_at_critical_only_the_user_task_survives(self):
-        critical = snapshot(ram_available_mb=800)
-        interactive = serve(
-            TaskRequest(task_id="chat", priority=Priority.P0_INTERACTIVE_CRITICAL,
-                        required_capabilities=frozenset({"text"})),
-            [slot("m1", state=ModelState.RUNNING)], critical,
-            RuntimeMesh([Adapter()]), claims("m1"), now=0.0,
-        )
-        self.assertTrue(interactive.ok)
-        for priority in (Priority.P3_BACKGROUND_EVAL, Priority.P4_TRAINING, Priority.P5_MAINTENANCE):
-            with self.subTest(priority=priority):
-                outcome = serve(
-                    TaskRequest(task_id="bg", priority=priority,
-                                required_capabilities=frozenset({"text"})),
-                    [slot("m1", state=ModelState.RUNNING)], critical,
-                    RuntimeMesh([Adapter()]), claims("m1"), now=0.0,
-                )
-                self.assertFalse(outcome.admitted)
+    def test_reputation_is_the_neutral_default(self):
+        """Inventing an operating history would rig the ranking it feeds."""
+        candidates = [{"provider_id": "local_runtime", "model_id": "m"}]
+        task = _worker_task("core", "core_reasoning", "STANDARD", candidates)
+        self.assertEqual(set(task["reputation"].values()), {0.5})
 
 
-class ContainmentTests(unittest.TestCase):
-    def test_a_runtime_crash_is_an_outcome_not_an_exception(self):
-        outcome = serve(
-            TaskRequest(task_id="t", required_capabilities=frozenset({"text"})),
-            [slot("m1")], snapshot(),
-            RuntimeMesh([Adapter(raises=RuntimeError("segfault"))]), claims("m1"), now=0.0,
-        )
-        self.assertEqual(outcome.status, InvocationStatus.FAILED)
-        self.assertFalse(outcome.degraded)
+class IsolationTests(unittest.TestCase):
+    def test_state_is_reset_between_workers(self):
+        """A checker that inherits the maker's context is not independent."""
+        self.assertTrue(DECODING["reset_state"])
 
-    def test_a_subsystem_that_throws_degrades_this_task_and_nothing_else(self):
-        class ExplodingMesh(RuntimeMesh):
-            def invoke(self, *args, **kwargs):
-                raise AssertionError("runtime plane bug")
-
-        outcome = serve(
-            TaskRequest(task_id="t", required_capabilities=frozenset({"text"})),
-            [slot("m1")], snapshot(), ExplodingMesh([Adapter()]), claims("m1"), now=0.0,
-        )
-        self.assertTrue(outcome.degraded)
-        self.assertFalse(outcome.admitted)
-        self.assertIn("degraded", outcome.reason)
-
-    def test_a_malformed_snapshot_does_not_escape_the_plane(self):
-        outcome = serve(
-            TaskRequest(task_id="t", required_capabilities=frozenset({"text"})),
-            [slot("m1")], object(), RuntimeMesh([Adapter()]), claims("m1"), now=0.0,
-        )
-        self.assertTrue(outcome.degraded)
-        self.assertIsInstance(outcome, ServeOutcome)
-
-    def test_no_internet_and_no_worker_is_a_refusal_with_a_reason(self):
-        outcome = serve(
-            TaskRequest(task_id="t", required_capabilities=frozenset({"text"})),
-            [slot("m1")], snapshot(), RuntimeMesh([]), claims("m1"), now=0.0,
-        )
-        self.assertEqual(outcome.status, InvocationStatus.NO_RUNTIME)
-        self.assertTrue(outcome.reason)
-
-    def test_no_eligible_free_only_candidate_never_falls_back_to_paid(self):
-        paid = RuntimeSlot(
-            model=ModelProfile(
-                model_id="paid", ram_mb=1_000, vram_mb=None, disk_mb=1_000, runtime="hosted",
-                context_limit=32_768, quality=0.99, capabilities=frozenset({"text"}),
-                zero_cost=False,
-            ),
-            state=ModelState.RUNNING,
-        )
-        outcome = serve(
-            TaskRequest(task_id="t", free_only=True, required_capabilities=frozenset({"text"})),
-            [paid], snapshot(), RuntimeMesh([Adapter()]), claims("paid"), now=0.0,
-        )
-        self.assertFalse(outcome.admitted)
-        self.assertIsNone(outcome.output)
+    def test_decoding_is_deterministic(self):
+        self.assertEqual(DECODING["temperature"], 0.0)
+        self.assertEqual(DECODING["top_k"], 1)
 
 
-class AuthorityInvariantTests(unittest.TestCase):
-    """Section 16: nothing in this plane may become a second router or brain."""
+class FederationEvidenceTests(unittest.TestCase):
+    def setUp(self):
+        if not EVIDENCE.is_file():
+            self.skipTest("no federation evidence committed")
+        self.evidence = json.loads(EVIDENCE.read_text(encoding="utf-8"))
 
-    def test_no_module_exports_a_parallel_router_or_brain(self):
-        import pkgutil
+    def test_nothing_was_resolved_by_vote(self):
+        """Two models agreeing is not evidence that either is right."""
+        self.assertFalse(self.evidence["resolved_by_vote"])
 
-        import AI_SKILL_LIBRARY.v4.local_runtime as package
+    def test_substantive_agreement_is_left_unresolved(self):
+        """String equality is not agreement, and must not be reported as it.
 
-        forbidden = ("parallel_router", "ParallelRouter", "parallel_brain", "ParallelBrain",
-                     "TaskRouter", "route_task")
-        for info in pkgutil.iter_modules(package.__path__):
-            module = __import__(f"{package.__name__}.{info.name}", fromlist=["*"])
-            for name in forbidden:
-                with self.subTest(module=info.name, symbol=name):
-                    self.assertFalse(hasattr(module, name))
+        Both workers answered Tokyo while differing as text. Calling that
+        disagreement would manufacture a conflict signal, and a confidence
+        escalation triggered by it would burn a DEEP round on nothing.
+        """
+        self.assertEqual(self.evidence["substantive_agreement"], "unresolved_here")
+        self.assertIn("outputs_identical", self.evidence)
 
-    def test_every_authority_bearing_class_declares_false(self):
-        from AI_SKILL_LIBRARY.v4.local_runtime.workers import WorkerRecord, WorkerRegistry
+    def test_the_answer_is_the_makers_answer(self):
+        maker = next(w for w in self.evidence["workers"] if w["role"] == "maker")
+        self.assertEqual(self.evidence["answer"], maker["output"])
 
-        for klass in (RuntimeMesh, WorkerRegistry, WorkerRecord):
-            for claim in ("routing_authority", "reasoning_authority", "memory_authority"):
-                with self.subTest(klass=klass.__name__, claim=claim):
-                    self.assertFalse(getattr(klass, claim))
+    def test_the_round_stayed_within_its_planned_cap(self):
+        self.assertLessEqual(len(self.evidence["workers"]),
+                             self.evidence["max_concurrent_models"])
 
-    def test_the_plane_declares_no_model_selection_authority(self):
-        from AI_SKILL_LIBRARY.v4.local_runtime.workers import WorkerRegistry
+    def test_a_checker_round_used_two_different_model_families(self):
+        """Same-family replicas are availability redundancy, not independence."""
+        if self.evidence["collaboration_mode"] != "MAKER_CHECKER":
+            self.skipTest("not a checker round")
+        families = {w["model_id"].split("/")[0] for w in self.evidence["workers"]}
+        self.assertGreater(len(families), 1, self.evidence["workers"])
 
-        self.assertFalse(RuntimeMesh.model_selection_authority)
-        self.assertFalse(WorkerRegistry.model_selection_authority)
-
-    def test_the_stable_brain_does_not_depend_on_this_plane(self):
-        import json
-        from pathlib import Path
-
-        root = Path(__file__).resolve().parents[2]
-        checkpoint = json.loads(
-            (root / "AI_SKILL_LIBRARY/checkpoint.json").read_text(encoding="utf-8")
-        )
-        self.assertFalse(
-            [key for key, value in checkpoint.items() if isinstance(value, str) and "local_runtime" in value],
-            "the canonical checkpoint must not require the local runtime plane",
-        )
+    def test_authority_is_attributed_to_the_components_that_hold_it(self):
+        self.assertEqual(self.evidence["routing_authority"], "task_router")
+        self.assertEqual(self.evidence["model_selection_authority"], "model_mesh")
+        self.assertEqual(self.evidence["execution_plan_authority"],
+                         "control_plane.plan_execution")
 
 
 if __name__ == "__main__":

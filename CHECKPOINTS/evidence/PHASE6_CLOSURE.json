@@ -1,0 +1,1065 @@
+{
+  "tool": "phase6_closure_gate",
+  "PHASE6_OPERATIONAL_CLOSED": true,
+  "24X7_FEDERATION_READY": true,
+  "ALL_ROLES_REDUNDANT": false,
+  "ALL_MODELS_EXACT": false,
+  "ALL_CAPABILITIES_COVERED": false,
+  "ALL_WORKERS_ONLINE": true,
+  "exit_criteria": {
+    "ROLE_BRANCHES_DEFINED": true,
+    "ROLE_CAPABILITY_MATRIX_VALID": true,
+    "PRIMARY_SECONDARY_FALLBACK_MAPPING_VALID": true,
+    "SPECIALIZATION_EVIDENCE_VALID": true,
+    "DYNAMIC_RESIDENCY_PROVEN": true,
+    "AUTO_WAKE_SLEEP_PROVEN": true,
+    "WORKER_HEARTBEAT_PROVEN": true,
+    "WORKER_AUTO_OFFLINE_PROVEN": true,
+    "WORKER_FAILOVER_PROVEN": true,
+    "PROVIDER_FAILOVER_PROVEN": true,
+    "QUOTA_AWARE_ROUTING_PROVEN": true,
+    "CIRCUIT_BREAKER_PROVEN": true,
+    "ROLE_REDUNDANCY_RECORDED": true,
+    "CAPACITY_PLANNER_VALID": true,
+    "MINIMUM_SERVICE_PROFILE_PROVEN": true,
+    "NORMAL_SERVICE_PROFILE_PROVEN": true,
+    "PRIVACY_ROUTING_PROVEN": true,
+    "24X7_FEDERATION_PROOF": true
+  },
+  "FEDERATION_STATE": "HEALTHY",
+  "ROLE_HEALTH": [
+    {
+      "role_id": "REASONING_BRANCH",
+      "criticality": "CRITICAL",
+      "health": "AVAILABLE_PRIMARY",
+      "reason": "preferred path placeable",
+      "mapped_status": "AVAILABLE_PRIMARY",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "execution_mode": "EXACT_MODEL",
+      "placement": "LOCAL",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ]
+    },
+    {
+      "role_id": "CODING_BRANCH",
+      "criticality": "CRITICAL",
+      "health": "AVAILABLE_PRIMARY",
+      "reason": "preferred path placeable",
+      "mapped_status": "AVAILABLE_PRIMARY",
+      "primary_model": "ibm-granite/granite-4.2-3b-GGUF",
+      "execution_mode": "EXACT_MODEL",
+      "placement": "LOCAL",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ]
+    },
+    {
+      "role_id": "VERIFICATION_BRANCH",
+      "criticality": "CRITICAL",
+      "health": "AVAILABLE_PRIMARY",
+      "reason": "preferred path placeable",
+      "mapped_status": "AVAILABLE_PRIMARY",
+      "primary_model": "Qwen/Qwen3-8B-GGUF",
+      "execution_mode": "EXACT_MODEL",
+      "placement": "LOCAL",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ]
+    },
+    {
+      "role_id": "PLANNING_BRANCH",
+      "criticality": "HIGH",
+      "health": "AVAILABLE_PRIMARY",
+      "reason": "preferred path placeable",
+      "mapped_status": "AVAILABLE_PRIMARY",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "execution_mode": "EXACT_MODEL",
+      "placement": "LOCAL",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ]
+    },
+    {
+      "role_id": "TOOL_USE_BRANCH",
+      "criticality": "HIGH",
+      "health": "AVAILABLE_PRIMARY",
+      "reason": "preferred path placeable",
+      "mapped_status": "AVAILABLE_PRIMARY",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "execution_mode": "EXACT_MODEL",
+      "placement": "LOCAL",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ]
+    },
+    {
+      "role_id": "RESEARCH_BRANCH",
+      "criticality": "HIGH",
+      "health": "AVAILABLE_PRIMARY",
+      "reason": "preferred path placeable",
+      "mapped_status": "AVAILABLE_PRIMARY",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "execution_mode": "EXACT_MODEL",
+      "placement": "LOCAL",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL"
+      ]
+    },
+    {
+      "role_id": "RETRIEVAL_BRANCH",
+      "criticality": "HIGH",
+      "health": "AVAILABLE_FALLBACK_ONLY",
+      "reason": "a path exists, but only one and not the preferred shape",
+      "mapped_status": "AVAILABLE_FALLBACK_ONLY",
+      "primary_model": "@cf/baai/bge-m3 + @cf/baai/bge-reranker-base",
+      "execution_mode": "CAPABILITY_PROVIDER",
+      "placement": "SERVERLESS",
+      "independent_paths": 1,
+      "single_path_risk": false,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL"
+      ]
+    },
+    {
+      "role_id": "MEMORY_BRANCH",
+      "criticality": "HIGH",
+      "health": "AVAILABLE_FALLBACK_ONLY",
+      "reason": "a path exists, but only one and not the preferred shape",
+      "mapped_status": "AVAILABLE_FALLBACK_ONLY",
+      "primary_model": "@cf/baai/bge-m3",
+      "execution_mode": "CAPABILITY_PROVIDER",
+      "placement": "SERVERLESS",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ]
+    },
+    {
+      "role_id": "VISION_BRANCH",
+      "criticality": "NORMAL",
+      "health": "AVAILABLE_FALLBACK_ONLY",
+      "reason": "a path exists, but only one and not the preferred shape",
+      "mapped_status": "AVAILABLE_FALLBACK_ONLY",
+      "primary_model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "execution_mode": "CAPABILITY_PROVIDER",
+      "placement": "SERVERLESS",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC"
+      ]
+    },
+    {
+      "role_id": "DOCUMENT_OCR_BRANCH",
+      "criticality": "NORMAL",
+      "health": "DEGRADED",
+      "reason": "measured: ocr; no path: document_understanding",
+      "mapped_status": "DEGRADED",
+      "primary_model": null,
+      "execution_mode": null,
+      "placement": null,
+      "independent_paths": 1,
+      "single_path_risk": false,
+      "privacy_classes": [
+        "PUBLIC"
+      ]
+    },
+    {
+      "role_id": "SPEECH_BRANCH",
+      "criticality": "NORMAL",
+      "health": "AVAILABLE_FALLBACK_ONLY",
+      "reason": "a path exists, but only one and not the preferred shape",
+      "mapped_status": "AVAILABLE_FALLBACK_ONLY",
+      "primary_model": "@cf/deepgram/aura-1 + @cf/openai/whisper-large-v3-turbo",
+      "execution_mode": "CAPABILITY_PROVIDER",
+      "placement": "SERVERLESS",
+      "independent_paths": 1,
+      "single_path_risk": false,
+      "privacy_classes": [
+        "PUBLIC"
+      ]
+    },
+    {
+      "role_id": "MULTILINGUAL_BRANCH",
+      "criticality": "NORMAL",
+      "health": "AVAILABLE_PRIMARY",
+      "reason": "preferred path placeable",
+      "mapped_status": "AVAILABLE_PRIMARY",
+      "primary_model": "Qwen/Qwen3-8B-GGUF",
+      "execution_mode": "EXACT_MODEL",
+      "placement": "LOCAL",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ]
+    },
+    {
+      "role_id": "VIETNAMESE_BRANCH",
+      "criticality": "HIGH",
+      "health": "AVAILABLE_PRIMARY",
+      "reason": "preferred path placeable",
+      "mapped_status": "AVAILABLE_PRIMARY",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "execution_mode": "EXACT_MODEL",
+      "placement": "LOCAL",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ]
+    },
+    {
+      "role_id": "SCIENCE_TECH_BRANCH",
+      "criticality": "NORMAL",
+      "health": "AVAILABLE_PRIMARY",
+      "reason": "preferred path placeable",
+      "mapped_status": "AVAILABLE_PRIMARY",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "execution_mode": "EXACT_MODEL",
+      "placement": "LOCAL",
+      "independent_paths": 1,
+      "single_path_risk": true,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL"
+      ]
+    },
+    {
+      "role_id": "FINANCE_ANALYSIS_BRANCH",
+      "criticality": "OPPORTUNISTIC",
+      "health": "UNAVAILABLE",
+      "reason": "no measured path exists",
+      "mapped_status": "UNAVAILABLE",
+      "primary_model": null,
+      "execution_mode": null,
+      "placement": null,
+      "independent_paths": 0,
+      "single_path_risk": false,
+      "privacy_classes": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "LOCAL_ONLY"
+      ]
+    },
+    {
+      "role_id": "CREATIVE_MULTIMODAL_BRANCH",
+      "criticality": "OPPORTUNISTIC",
+      "health": "UNAVAILABLE",
+      "reason": "no measured path exists",
+      "mapped_status": "UNAVAILABLE",
+      "primary_model": null,
+      "execution_mode": null,
+      "placement": null,
+      "independent_paths": 0,
+      "single_path_risk": false,
+      "privacy_classes": [
+        "PUBLIC"
+      ]
+    },
+    {
+      "role_id": "FUTURE_SPECIALIST_BRANCH",
+      "health": "PLACEHOLDER",
+      "criticality": "OPPORTUNISTIC",
+      "reason": "a forward-looking name, not a requirement"
+    }
+  ],
+  "WORKER_ROLE_MATRIX": [
+    {
+      "executor_id": "ephemeral-local-0",
+      "kind": "WORKER",
+      "worker_class": "EPHEMERAL_LOCAL",
+      "state": "ELIGIBLE",
+      "online": true,
+      "stale_lease": false,
+      "last_seen": 1789695097.6752458,
+      "lease_seconds": 120.0,
+      "ram_total_mb": 16095,
+      "ram_available_mb": 15342,
+      "gpus": 0,
+      "disk_free_mb": 11014,
+      "runtimes": [
+        "llama.cpp"
+      ],
+      "formats": [
+        "gguf"
+      ],
+      "measured_capabilities": [],
+      "declared_capabilities": [],
+      "supported_roles": [],
+      "loaded_models": [],
+      "concurrency": "0/1",
+      "queue_headroom": 1,
+      "quota_remaining": null,
+      "quota_exhausted": false,
+      "trust_class": "operator_owned",
+      "third_party": false,
+      "privacy_ceiling": "CONFIDENTIAL",
+      "circuit": "CLOSED",
+      "cost_class": "owned_hardware_zero_marginal"
+    },
+    {
+      "executor_id": "ephemeral-local-0",
+      "kind": "PROVIDER",
+      "is_this_host_under_another_name": true,
+      "offers_independent_capacity": false,
+      "worker_class": "LOCAL_PROCESS",
+      "state": "VERIFIED_AVAILABLE",
+      "online": true,
+      "holds_our_weights": true,
+      "credential_here": true,
+      "credential_held_by_worker": null,
+      "cost_class": "OWNED_ZERO_MARGINAL",
+      "usable": true
+    },
+    {
+      "executor_id": "github_actions_ubuntu_latest",
+      "kind": "PROVIDER",
+      "is_this_host_under_another_name": false,
+      "offers_independent_capacity": true,
+      "worker_class": "EPHEMERAL_JOB",
+      "state": "VERIFIED_LIMITED",
+      "online": true,
+      "holds_our_weights": true,
+      "credential_here": true,
+      "credential_held_by_worker": null,
+      "cost_class": "FREE_HARD_STOP",
+      "usable": true
+    },
+    {
+      "executor_id": "cloudflare_workers_ai",
+      "kind": "PROVIDER",
+      "is_this_host_under_another_name": false,
+      "offers_independent_capacity": true,
+      "worker_class": "SERVERLESS_HOSTED_CATALOG",
+      "state": "VERIFIED_AVAILABLE",
+      "online": true,
+      "holds_our_weights": false,
+      "credential_here": false,
+      "credential_held_by_worker": "github_actions_ubuntu_latest",
+      "cost_class": "FREE_HARD_STOP",
+      "usable": true
+    }
+  ],
+  "MODEL_RESIDENCY_MATRIX": [
+    {
+      "model_id": "@cf/baai/bge-m3",
+      "roles": [
+        "MEMORY_BRANCH",
+        "RETRIEVAL_BRANCH"
+      ],
+      "role_criticality": "HIGH",
+      "current_residency": "SERVERLESS",
+      "preferred_residency": "SERVERLESS",
+      "action": "none",
+      "immediately_callable": true,
+      "worker": null,
+      "hotness_score": null,
+      "hotness_reasons": [
+        "provider-held; we hold no bytes and pay no residency"
+      ],
+      "peak_ram_mb": null,
+      "cold_load_ms": null,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "@cf/baai/bge-reranker-base",
+      "roles": [
+        "RETRIEVAL_BRANCH"
+      ],
+      "role_criticality": "HIGH",
+      "current_residency": "SERVERLESS",
+      "preferred_residency": "SERVERLESS",
+      "action": "none",
+      "immediately_callable": true,
+      "worker": null,
+      "hotness_score": null,
+      "hotness_reasons": [
+        "provider-held; we hold no bytes and pay no residency"
+      ],
+      "peak_ram_mb": null,
+      "cold_load_ms": null,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "@cf/deepgram/aura-1",
+      "roles": [
+        "SPEECH_BRANCH"
+      ],
+      "role_criticality": "NORMAL",
+      "current_residency": "SERVERLESS",
+      "preferred_residency": "SERVERLESS",
+      "action": "none",
+      "immediately_callable": true,
+      "worker": null,
+      "hotness_score": null,
+      "hotness_reasons": [
+        "provider-held; we hold no bytes and pay no residency"
+      ],
+      "peak_ram_mb": null,
+      "cold_load_ms": null,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "@cf/llava-hf/llava-1.5-7b-hf",
+      "roles": [
+        "DOCUMENT_OCR_BRANCH",
+        "VISION_BRANCH"
+      ],
+      "role_criticality": "NORMAL",
+      "current_residency": "SERVERLESS",
+      "preferred_residency": "SERVERLESS",
+      "action": "none",
+      "immediately_callable": true,
+      "worker": null,
+      "hotness_score": null,
+      "hotness_reasons": [
+        "provider-held; we hold no bytes and pay no residency"
+      ],
+      "peak_ram_mb": null,
+      "cold_load_ms": null,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "@cf/openai/whisper-large-v3-turbo",
+      "roles": [
+        "SPEECH_BRANCH"
+      ],
+      "role_criticality": "NORMAL",
+      "current_residency": "SERVERLESS",
+      "preferred_residency": "SERVERLESS",
+      "action": "none",
+      "immediately_callable": true,
+      "worker": null,
+      "hotness_score": null,
+      "hotness_reasons": [
+        "provider-held; we hold no bytes and pay no residency"
+      ],
+      "peak_ram_mb": null,
+      "cold_load_ms": null,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+      "roles": [
+        "CODING_BRANCH",
+        "REASONING_BRANCH",
+        "SCIENCE_TECH_BRANCH"
+      ],
+      "role_criticality": "CRITICAL",
+      "current_residency": "COLD",
+      "preferred_residency": "WARM",
+      "action": "COLD -> WARM",
+      "immediately_callable": false,
+      "worker": null,
+      "hotness_score": 0.32,
+      "hotness_reasons": [
+        "no observed demand in the window",
+        "role criticality CRITICAL",
+        "cold load is only 297 ms, so holding it buys little"
+      ],
+      "peak_ram_mb": 641.75,
+      "cold_load_ms": 297.553,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "Qwen/Qwen3-0.6B-GGUF",
+      "roles": [
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH",
+        "VIETNAMESE_BRANCH"
+      ],
+      "role_criticality": "CRITICAL",
+      "current_residency": "COLD",
+      "preferred_residency": "WARM",
+      "action": "COLD -> WARM",
+      "immediately_callable": false,
+      "worker": null,
+      "hotness_score": 0.4,
+      "hotness_reasons": [
+        "no observed demand in the window",
+        "role criticality CRITICAL"
+      ],
+      "peak_ram_mb": 1157.81,
+      "cold_load_ms": 3052.263,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "Qwen/Qwen3-1.7B-GGUF",
+      "roles": [
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH",
+        "VIETNAMESE_BRANCH"
+      ],
+      "role_criticality": "CRITICAL",
+      "current_residency": "COLD",
+      "preferred_residency": "WARM",
+      "action": "COLD -> WARM",
+      "immediately_callable": false,
+      "worker": null,
+      "hotness_score": 0.32,
+      "hotness_reasons": [
+        "no observed demand in the window",
+        "role criticality CRITICAL",
+        "cold load is only 1468 ms, so holding it buys little"
+      ],
+      "peak_ram_mb": 2302.54,
+      "cold_load_ms": 1468.056,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "Qwen/Qwen3-4B-GGUF",
+      "roles": [
+        "CODING_BRANCH",
+        "MULTILINGUAL_BRANCH",
+        "PLANNING_BRANCH",
+        "REASONING_BRANCH",
+        "RESEARCH_BRANCH",
+        "SCIENCE_TECH_BRANCH",
+        "TOOL_USE_BRANCH",
+        "VERIFICATION_BRANCH",
+        "VIETNAMESE_BRANCH"
+      ],
+      "role_criticality": "CRITICAL",
+      "current_residency": "COLD",
+      "preferred_residency": "WARM",
+      "action": "COLD -> WARM",
+      "immediately_callable": false,
+      "worker": null,
+      "hotness_score": 0.4,
+      "hotness_reasons": [
+        "no observed demand in the window",
+        "role criticality CRITICAL"
+      ],
+      "peak_ram_mb": 5468.54,
+      "cold_load_ms": 6382.503,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "Qwen/Qwen3-8B-GGUF",
+      "roles": [
+        "CODING_BRANCH",
+        "MULTILINGUAL_BRANCH",
+        "PLANNING_BRANCH",
+        "REASONING_BRANCH",
+        "RESEARCH_BRANCH",
+        "SCIENCE_TECH_BRANCH",
+        "TOOL_USE_BRANCH",
+        "VERIFICATION_BRANCH",
+        "VIETNAMESE_BRANCH"
+      ],
+      "role_criticality": "CRITICAL",
+      "current_residency": "COLD",
+      "preferred_residency": "COLD",
+      "action": "none",
+      "immediately_callable": false,
+      "worker": null,
+      "hotness_score": 0.23,
+      "hotness_reasons": [
+        "no observed demand in the window",
+        "role criticality CRITICAL",
+        "8655 MB resident is expensive for a HOT slot",
+        "cold load is 11030 ms, which is worth avoiding",
+        "below the warm threshold; JIT or cold load on demand"
+      ],
+      "peak_ram_mb": 8655.46,
+      "cold_load_ms": 11030.911,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+      "roles": [
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH",
+        "VIETNAMESE_BRANCH"
+      ],
+      "role_criticality": "CRITICAL",
+      "current_residency": "COLD",
+      "preferred_residency": "WARM",
+      "action": "COLD -> WARM",
+      "immediately_callable": false,
+      "worker": null,
+      "hotness_score": 0.4,
+      "hotness_reasons": [
+        "no observed demand in the window",
+        "role criticality CRITICAL"
+      ],
+      "peak_ram_mb": 3009.14,
+      "cold_load_ms": 2889.565,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+      "roles": [
+        "CODING_BRANCH",
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH",
+        "VIETNAMESE_BRANCH"
+      ],
+      "role_criticality": "CRITICAL",
+      "current_residency": "COLD",
+      "preferred_residency": "WARM",
+      "action": "COLD -> WARM",
+      "immediately_callable": false,
+      "worker": null,
+      "hotness_score": 0.4,
+      "hotness_reasons": [
+        "no observed demand in the window",
+        "role criticality CRITICAL"
+      ],
+      "peak_ram_mb": 4008.93,
+      "cold_load_ms": 4391.949,
+      "requests_in_window": 0
+    },
+    {
+      "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "roles": [
+        "CODING_BRANCH",
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH"
+      ],
+      "role_criticality": "CRITICAL",
+      "current_residency": "COLD",
+      "preferred_residency": "WARM",
+      "action": "COLD -> WARM",
+      "immediately_callable": false,
+      "worker": null,
+      "hotness_score": 0.4,
+      "hotness_reasons": [
+        "no observed demand in the window",
+        "role criticality CRITICAL"
+      ],
+      "peak_ram_mb": 5175.27,
+      "cold_load_ms": 6429.941,
+      "requests_in_window": 0
+    }
+  ],
+  "ROLE_CAPACITY_PLAN": [
+    {
+      "role_id": "REASONING_BRANCH",
+      "criticality": "CRITICAL",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "fallback_model": "Qwen/Qwen3-8B-GGUF",
+      "residency_policy": "HOT",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 2,
+      "concurrency_available": 1,
+      "capacity_deficit": 1,
+      "capacity_status": "DEFICIT",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "CODING_BRANCH",
+      "criticality": "CRITICAL",
+      "primary_model": "ibm-granite/granite-4.2-3b-GGUF",
+      "fallback_model": "Qwen/Qwen3-4B-GGUF",
+      "residency_policy": "WARM",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 2,
+      "concurrency_available": 1,
+      "capacity_deficit": 1,
+      "capacity_status": "DEFICIT",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "VERIFICATION_BRANCH",
+      "criticality": "CRITICAL",
+      "primary_model": "Qwen/Qwen3-8B-GGUF",
+      "fallback_model": "Qwen/Qwen3-4B-GGUF",
+      "residency_policy": "HOT",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 2,
+      "concurrency_available": 1,
+      "capacity_deficit": 1,
+      "capacity_status": "DEFICIT",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "PLANNING_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "fallback_model": "Qwen/Qwen3-8B-GGUF",
+      "residency_policy": "WARM",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "OK",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "TOOL_USE_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "fallback_model": "Qwen/Qwen3-8B-GGUF",
+      "residency_policy": "WARM",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "OK",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "RESEARCH_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "fallback_model": "Qwen/Qwen3-8B-GGUF",
+      "residency_policy": "COLD",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "OK",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "RETRIEVAL_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "@cf/baai/bge-m3 + @cf/baai/bge-reranker-base",
+      "fallback_model": null,
+      "residency_policy": "SERVERLESS",
+      "worker_class": "SERVERLESS_INFERENCE",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "OK",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "MEMORY_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "@cf/baai/bge-m3",
+      "fallback_model": null,
+      "residency_policy": "SERVERLESS",
+      "worker_class": "SERVERLESS_INFERENCE",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "OK",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "VISION_BRANCH",
+      "criticality": "NORMAL",
+      "primary_model": "@cf/llava-hf/llava-1.5-7b-hf",
+      "fallback_model": null,
+      "residency_policy": "SERVERLESS",
+      "worker_class": "SERVERLESS_INFERENCE",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "OK",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "DOCUMENT_OCR_BRANCH",
+      "criticality": "NORMAL",
+      "primary_model": null,
+      "fallback_model": null,
+      "residency_policy": "SERVERLESS",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "NO_PATH",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "SPEECH_BRANCH",
+      "criticality": "NORMAL",
+      "primary_model": "@cf/deepgram/aura-1 + @cf/openai/whisper-large-v3-turbo",
+      "fallback_model": null,
+      "residency_policy": "SERVERLESS",
+      "worker_class": "SERVERLESS_INFERENCE",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "OK",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "MULTILINGUAL_BRANCH",
+      "criticality": "NORMAL",
+      "primary_model": "Qwen/Qwen3-8B-GGUF",
+      "fallback_model": "Qwen/Qwen3-4B-GGUF",
+      "residency_policy": "WARM",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "OK",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "VIETNAMESE_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "fallback_model": "Qwen/Qwen3-8B-GGUF",
+      "residency_policy": "WARM",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "OK",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "SCIENCE_TECH_BRANCH",
+      "criticality": "NORMAL",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "fallback_model": "Qwen/Qwen3-8B-GGUF",
+      "residency_policy": "COLD",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "OK",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "FINANCE_ANALYSIS_BRANCH",
+      "criticality": "OPPORTUNISTIC",
+      "primary_model": null,
+      "fallback_model": null,
+      "residency_policy": "COLD",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "NO_PATH",
+      "demand_basis": "OBSERVED_ONLY"
+    },
+    {
+      "role_id": "CREATIVE_MULTIMODAL_BRANCH",
+      "criticality": "OPPORTUNISTIC",
+      "primary_model": null,
+      "fallback_model": null,
+      "residency_policy": "SERVERLESS",
+      "worker_class": "LOCAL_PROCESS",
+      "redundancy": "SINGLE_PATH",
+      "observed_requests": 0,
+      "observed_mean_latency_ms": null,
+      "observed_failure_rate": null,
+      "concurrency_target": 1,
+      "concurrency_available": 1,
+      "capacity_deficit": 0,
+      "capacity_status": "NO_PATH",
+      "demand_basis": "OBSERVED_ONLY"
+    }
+  ],
+  "SERVICE_PROFILES": {
+    "MINIMUM_OPERATIONAL": {
+      "roles": [
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH",
+        "CODING_BRANCH"
+      ],
+      "met": true,
+      "unmet_roles": [],
+      "degraded_roles": []
+    },
+    "NORMAL_SERVICE": {
+      "roles": [
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH",
+        "CODING_BRANCH",
+        "PLANNING_BRANCH",
+        "TOOL_USE_BRANCH",
+        "RESEARCH_BRANCH",
+        "RETRIEVAL_BRANCH",
+        "VIETNAMESE_BRANCH",
+        "MULTILINGUAL_BRANCH"
+      ],
+      "met": true,
+      "unmet_roles": [],
+      "degraded_roles": []
+    },
+    "FULL_CAPACITY": {
+      "roles": [
+        "REASONING_BRANCH",
+        "VERIFICATION_BRANCH",
+        "CODING_BRANCH",
+        "PLANNING_BRANCH",
+        "TOOL_USE_BRANCH",
+        "RESEARCH_BRANCH",
+        "RETRIEVAL_BRANCH",
+        "MEMORY_BRANCH",
+        "VIETNAMESE_BRANCH",
+        "MULTILINGUAL_BRANCH",
+        "SCIENCE_TECH_BRANCH",
+        "VISION_BRANCH",
+        "DOCUMENT_OCR_BRANCH",
+        "SPEECH_BRANCH"
+      ],
+      "met": false,
+      "unmet_roles": [
+        "DOCUMENT_OCR_BRANCH"
+      ],
+      "degraded_roles": [
+        "DOCUMENT_OCR_BRANCH"
+      ]
+    }
+  },
+  "WORKERS_ONLINE": [
+    "ephemeral-local-0"
+  ],
+  "WORKERS_OFFLINE": [],
+  "VERIFIED_PROVIDERS": [
+    "cloudflare_workers_ai",
+    "github_actions_ubuntu_latest"
+  ],
+  "CIRCUIT_BREAKERS": {},
+  "CAPACITY_DEFICITS": [
+    "REASONING_BRANCH",
+    "CODING_BRANCH",
+    "VERIFICATION_BRANCH"
+  ],
+  "SINGLE_PATH_RISKS": [
+    "CODING_BRANCH",
+    "MEMORY_BRANCH",
+    "MULTILINGUAL_BRANCH",
+    "PLANNING_BRANCH",
+    "REASONING_BRANCH",
+    "RESEARCH_BRANCH",
+    "RETRIEVAL_BRANCH",
+    "SCIENCE_TECH_BRANCH",
+    "SPEECH_BRANCH",
+    "TOOL_USE_BRANCH",
+    "VERIFICATION_BRANCH",
+    "VIETNAMESE_BRANCH",
+    "VISION_BRANCH"
+  ],
+  "ROLE_REDUNDANCY_GAPS": [
+    "CODING_BRANCH (CRITICAL): 3 candidate(s) across 1 independent path(s)",
+    "MEMORY_BRANCH (HIGH): 1 candidate(s) across 1 independent path(s)",
+    "PLANNING_BRANCH (HIGH): 2 candidate(s) across 1 independent path(s)",
+    "REASONING_BRANCH (CRITICAL): 8 candidate(s) across 1 independent path(s)",
+    "RESEARCH_BRANCH (HIGH): 2 candidate(s) across 1 independent path(s)",
+    "RETRIEVAL_BRANCH (HIGH): 0 candidate(s) across 1 independent path(s)",
+    "TOOL_USE_BRANCH (HIGH): 2 candidate(s) across 1 independent path(s)",
+    "VERIFICATION_BRANCH (CRITICAL): 6 candidate(s) across 1 independent path(s)",
+    "VIETNAMESE_BRANCH (HIGH): 6 candidate(s) across 1 independent path(s)"
+  ],
+  "role_branch_count": 17,
+  "roles_with_a_path": 13,
+  "roles_requiring_a_path": 16,
+  "roles_degraded": [
+    "DOCUMENT_OCR_BRANCH"
+  ],
+  "roles_unavailable": [
+    "CREATIVE_MULTIMODAL_BRANCH",
+    "FINANCE_ANALYSIS_BRANCH"
+  ],
+  "inherited": {
+    "WAVE4_OPERATIONAL_CLOSED": true,
+    "WAVE5_OPERATIONAL_CLOSED": true,
+    "AI_CORE_DONE": true
+  },
+  "failures": [],
+  "note": "Closed, ready, redundant, exact, covered and all-online are six different facts. This federation is ready and not redundant: every local role runs on one host. Reporting the first and letting a reader infer the rest is the failure this gate prevents.",
+  "routing_authority": false,
+  "admission_authority": false,
+  "scheduling_authority": false
+}
