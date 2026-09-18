@@ -18,9 +18,11 @@ def _workflow_budget():
 
 
 class RetiredWorkflowArchiveImageV2Tests(unittest.TestCase):
-    def test_retired_bybit_v431_is_archived_and_active_budget_is_restored(self):
+    def test_retired_bybit_v431_is_history_only_and_active_budget_is_restored(self):
         self.assertFalse((WORKFLOWS / RETIRED).exists())
-        self.assertTrue((ARCHIVE / RETIRED).is_file())
+        self.assertFalse((ARCHIVE / RETIRED).exists())
+        self.assertTrue((ARCHIVE / "README.md").is_file())
+        self.assertEqual(list(ARCHIVE.glob("*.yml")), [])
         active = list(WORKFLOWS.glob("*.yml"))
         self.assertLess(len(active), _workflow_budget())
 
