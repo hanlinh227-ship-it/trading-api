@@ -44,6 +44,10 @@ def _risk_class(manifest: dict) -> str:
     explicit = str(manifest.get("risk_class") or "").upper()
     if explicit in {"A", "B", "C", "D"}:
         return explicit
+    if str(manifest.get("domain") or "").lower() == "trading":
+        return "D"
+    if manifest.get("project_authority_required") is True:
+        return "D"
     ceiling = str(manifest.get("risk_ceiling") or "").lower()
     joined = " ".join(
         str(x).lower() for x in (manifest.get("permissions") or [])
