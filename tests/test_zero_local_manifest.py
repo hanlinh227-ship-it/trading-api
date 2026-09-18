@@ -73,12 +73,14 @@ class ZeroLocalManifestTests(unittest.TestCase):
         production = text.split("  production-smoke:", 1)[1]
         self.assertIn('"action":"snapshot"', production)
         self.assertIn('"preferredVenue":"okx"', production)
+        self.assertIn("freshProviders.size<2", production)
         self.assertIn("LIVE_RESEARCH_SMOKE=PASS", production)
         self.assertNotIn("'bybit LONG BTCUSDT ask'", production)
         self.assertNotIn("'bybit SHORT BTCUSDT bid'", production)
         manifest = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8"))
         verification = manifest["production_verification"]
-        self.assertEqual(verification["required_research_venues"], ["okx"])
+        self.assertEqual(verification["preferred_research_venues"], ["okx"])
+        self.assertEqual(verification["min_research_providers"], 2)
         self.assertEqual(verification["required_execution_venues"], [])
 
     def test_global_checkpoint_is_resolved_for_every_new_work_cycle(self):
