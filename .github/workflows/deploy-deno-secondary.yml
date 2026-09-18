@@ -18,6 +18,14 @@ on:
       - 'deno-secondary/**'
       - 'crypto-research-gateway/src/**'
       - '.github/workflows/deploy-deno-secondary.yml'
+  # Build and probe on the PR too. Without this the lane only ran AFTER merge,
+  # which is exactly how a secondary that did not type-check reached main: the
+  # PR that introduced it had no check to fail. Deploy stays main-only below.
+  pull_request:
+    paths:
+      - 'deno-secondary/**'
+      - 'crypto-research-gateway/src/**'
+      - '.github/workflows/deploy-deno-secondary.yml'
   workflow_dispatch:
 
 permissions:
@@ -104,6 +112,7 @@ jobs:
 
       - name: Deploy to Deno Deploy, or refuse truthfully
         id: deploy
+        if: github.event_name != 'pull_request'
         env:
           DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
           DENO_PROJECT: ${{ secrets.DENO_PROJECT }}
