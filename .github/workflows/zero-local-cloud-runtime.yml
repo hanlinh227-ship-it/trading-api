@@ -320,19 +320,20 @@ jobs:
           if data.get('capability') != 'market_snapshot':
               raise SystemExit(f'wrong capability: {data.get("capability")}')
           providers=set(data.get('providers') or [])
-          if 'okx' not in providers or len(providers) < 2:
-              raise SystemExit(f'public research redundancy insufficient: {sorted(providers)}')
-          obs=[x for x in (data.get('observations') or []) if x.get('provider')=='okx']
-          if not obs:
-              raise SystemExit('okx observation missing')
-          o=obs[0]
-          if float(o.get('price') or 0) <= 0:
-              raise SystemExit(f'invalid okx price: {o}')
-          src=int(o.get('sourceTimestampMs') or 0); recv=int(o.get('receivedTimestampMs') or 0)
-          if src <= 0 or recv <= 0:
-              raise SystemExit(f'invalid timestamps: {o}')
-          if abs(int(time.time()*1000)-src) > 10000:
-              raise SystemExit(f'stale public research observation: {o}')
+          now=int(time.time()*1000)
+          fresh=[]
+          for o in (data.get('observations') or []):
+              try:
+                  price=float(o.get('price') or 0)
+                  src=int(o.get('sourceTimestampMs') or 0)
+                  recv=int(o.get('receivedTimestampMs') or 0)
+              except Exception:
+                  continue
+              if price > 0 and src > 0 and recv > 0 and abs(now-src) <= 10000:
+                  fresh.append(o)
+          fresh_providers={o.get('provider') for o in fresh if o.get('provider')}
+          if len(providers) < 2 or len(fresh_providers) < 2:
+              raise SystemExit(f'public research redundancy insufficient: providers={sorted(providers)} fresh={sorted(fresh_providers)}')
           dc=data.get('dataContract') or {}
           if dc.get('source_sha') != os.environ['GITHUB_SHA']:
               raise SystemExit(f'data contract SHA mismatch: {dc.get("source_sha")}')
@@ -340,5 +341,5 @@ jobs:
               raise SystemExit(f'data contract not fresh: {dc.get("freshness")}')
           if dc.get('research_only') is not True or (dc.get('authority') or {}).get('execution') != 'none':
               raise SystemExit(f'research authority boundary violated: {dc.get("authority")}')
-          print('LIVE_RESEARCH_SMOKE=PASS provider=okx exact_sha=true research_only=true')
+          print(f'LIVE_RESEARCH_SMOKE=PASS providers={sorted(fresh_providers)} exact_sha=true research_only=true')
           PY
