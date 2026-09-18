@@ -45,8 +45,8 @@
     "CODING_BRANCH",
     "VERIFICATION_BRANCH"
   ],
-  "source_sha": "fd2c5f8cc2cab052ca465f1a53815e02b7c210fa",
-  "proof_timestamp": "2026-09-18T06:33:45Z",
+  "source_sha": "6f356e2e16ff6924f44bc48f7b630e7e38437d39",
+  "proof_timestamp": "2026-09-18T07:50:02Z",
   "roles_with_a_local_primary": [
     {
       "role_id": "REASONING_BRANCH",
@@ -183,8 +183,8 @@
       "EXECUTION_LIVE": false,
       "worker_id": "local-engine-93891604e58e2451985a873a94b53e49",
       "execution_liveness": "EXECUTION_DEAD",
-      "source_sha": "fd2c5f8cc2cab052ca465f1a53815e02b7c210fa",
-      "proof_timestamp": "2026-09-18T06:33:45Z"
+      "source_sha": "6f356e2e16ff6924f44bc48f7b630e7e38437d39",
+      "proof_timestamp": "2026-09-18T07:50:02Z"
     }
   },
   "hosts_observed": 2,
