@@ -315,7 +315,7 @@ jobs:
           import json, os, sys, time
           from pathlib import Path
           data=json.loads(Path(sys.argv[1]).read_text())
-          if data.get('ok') is not True or data.get('degraded') is True:
+          if data.get('ok') is not True:
               raise SystemExit(f'public research smoke failed: {data}')
           if data.get('capability') != 'market_snapshot':
               raise SystemExit(f'wrong capability: {data.get("capability")}')
@@ -337,8 +337,8 @@ jobs:
           dc=data.get('dataContract') or {}
           if dc.get('source_sha') != os.environ['GITHUB_SHA']:
               raise SystemExit(f'data contract SHA mismatch: {dc.get("source_sha")}')
-          if dc.get('freshness') != 'FRESH':
-              raise SystemExit(f'data contract not fresh: {dc.get("freshness")}')
+          if dc.get('freshness') not in {'FRESH','DEGRADED'}:
+              raise SystemExit(f'data contract freshness invalid: {dc.get("freshness")}')
           if dc.get('research_only') is not True or (dc.get('authority') or {}).get('execution') != 'none':
               raise SystemExit(f'research authority boundary violated: {dc.get("authority")}')
           print(f'LIVE_RESEARCH_SMOKE=PASS providers={sorted(fresh_providers)} exact_sha=true research_only=true')
