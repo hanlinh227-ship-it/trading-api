@@ -55,17 +55,18 @@ The autonomous AI Legion is integrated as a subordinate evidence gate, not as a 
 ## Execution safety
 - LIVE still requires both `BYBIT_AUTO_LIVE=true` and `BYBIT_BTC_LIVE_ACK=true`.
 - Existing Bybit API key/secret lookup is preserved.
-- Private signed requests continue through `VPS_BYBIT_PRIVATE_PROXY` with direct fallback only when explicitly enabled.
+- Private signed requests are sent directly from Cloudflare Worker to Bybit V5 REST; the canonical runtime no longer requires the VPS private proxy.
 - Every live entry must be reconciled after fill and must have a verified native stop; failed protection verification triggers emergency reduce-only flattening.
 - Smart cut remains multi-signal structure+flow invalidation and reduce-only.
 
 ## Microstructure transport
-A new source folder `bybit-live-bridge/` contains a BTC-only bridge that preserves `/bybit/private` and adds `/bybit/microstructure`. The collector subscribes to:
+The canonical collector is now the Cloudflare `BybitMarketStream` Durable Object. It opens an outbound Bybit public linear WebSocket and subscribes to:
 - `orderbook.50.BTCUSDT`
 - `publicTrade.BTCUSDT`
 - `allLiquidation.BTCUSDT`
+- `tickers.BTCUSDT`
 
-The Worker treats the WebSocket collector as optional enhancement: if it is not yet installed/healthy, state construction falls back to Bybit REST order-book and recent-trade snapshots so the private LIVE API path is not broken by the migration.
+REST order-book/recent-trade snapshots remain available as diagnostics/fallback data, but fresh cloud WebSocket evidence is required for autonomous new-risk admission. The legacy VPS bridge may remain as historical code/evidence only and has zero canonical runtime authority.
 
 ## Legacy cleanup
 Execution code under old V10/V11 runtime trees and unused AI/indicator provider modules is removed. Historical research/checkpoint documents can remain as non-executable evidence; they have zero production authority.
