@@ -120,6 +120,31 @@ def _post(query: str, variables: dict, token: str, scheme: str) -> dict:
     return body.get("data") or {}
 
 
+def _unauthenticated_status() -> str:
+    """What this endpoint says to a request carrying NO token.
+
+    The control for the question a refusal cannot answer on its own: if an
+    endpoint returns 403 to everyone, a 403 holding our token says nothing about
+    the token. If it answers an anonymous request differently, then the token
+    WAS read and judged. Returns a short description, never raises - this is
+    diagnostics attached to a failure that has already happened, and must not
+    replace it with a failure of its own.
+    """
+    request = urllib.request.Request(
+        ENDPOINT,
+        data=json.dumps({"query": "query { __typename }"}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return "HTTP %s (the endpoint answers anonymous requests)" % response.status
+    except urllib.error.HTTPError as exc:
+        return "HTTP %s" % exc.code
+    except Exception as exc:  # noqa: BLE001 - any failure here is still evidence
+        return "unreachable (%s)" % type(exc).__name__
+
+
 def authenticate(token: str) -> str:
     """Which auth header this token wants. Account and project tokens differ."""
     probe = "query { __typename }"
@@ -144,10 +169,18 @@ def authenticate(token: str) -> str:
                     auth_rejected=False,
                 ) from None
             refusals.append("%s: %s" % (scheme, exc))
+    # Both schemes were refused. Whether that refusal is ABOUT the token is a
+    # separate fact, and an anonymous request is what decides it: an endpoint
+    # that refuses everyone identically has not judged our token at all.
+    anonymous = _unauthenticated_status()
     raise Failure(
         "the token was refused by the Railway API under both Authorization: "
-        "Bearer and Project-Access-Token (%s). Check RAILWAY_TOKEN is a current "
-        "Railway token with access to this project." % "; ".join(refusals),
+        "Bearer and Project-Access-Token (%s). The same endpoint answers an "
+        "UNAUTHENTICATED request with %s - if that differs from the refusals "
+        "above, the token was read and rejected, so check RAILWAY_TOKEN is a "
+        "current Railway token with access to this project; if it is the same, "
+        "the endpoint is refusing every caller and the token is not the thing "
+        "to change." % ("; ".join(refusals), anonymous),
         auth_rejected=True,
     )
 
