@@ -99,3 +99,36 @@ basis for acting here, so the promotion fields stay untouched.
 Cost if wrong: a release record is rewritten by an agent. Mitigated by changing no
 promotion field, by recording both digests here, and by the change being a recomputation
 anyone can reproduce with the repo's own tool.
+
+## Task 1 — COMPLETE
+
+| field | value |
+|---|---|
+| base sha | da3197d3 |
+| commits | 64f13df7 (artifacts), fc4f8276/1587bc9e (fix round + digest), 86157cad (fixture hygiene) |
+| tests | 21 -> 46, all green; 85 green across curriculum + authority + security + release |
+| review | CHANGES-REQUIRED (2 BLOCKER, 7 SHOULD-FIX, 2 NIT) -> all 8 actionable findings fixed |
+| fix rounds | 1 |
+| gates | RELEASE_CHECK=PASS 4.17.0, AI_CORE_RELEASE=PASS 9/9 |
+
+Controller process error, recorded because it nearly mattered: I committed the fix
+round while the implementer was still running, having checked the tests were green at a
+moment I happened to look rather than waiting for its hand-back. The snapshot was
+coherent, so nothing broke, and the two trailing edits it made afterwards (desensitising
+a live-key-shaped test fixture) went in as 86157cad. The implementer was right not to
+unwind a commit it did not make. Gate commits on hand-back, not on a green check.
+
+Choices worth knowing, from the fix round:
+- The capability floor 0.35 is read from model_mesh/domain_capabilities.yaml, not
+  invented, and a test fails if the two ever drift apart.
+- evidence_ref requires a scheme or a path with a file extension. That is what actually
+  rejects "n/a" and "TODO"; a charset pattern alone does not. It also rejects a bare
+  directory ref or a bare git sha, which is the likeliest false negative to bite later.
+- class_token is lower-case ASCII only, so a Vietnamese classifier string would be
+  rejected. Deliberate, but this repo has a Vietnamese-retention protected dimension, so
+  it is written down rather than left to be discovered.
+
+Remaining gap, honestly flagged by the implementer rather than hidden: learning_cycles.yaml
+and promotion_evidence.json still have no schema. The helper now catches a scalar
+authority:true on both, so the authority hole is closed, but their record shapes are
+unconstrained. Carry into a later task rather than calling Task 1 more complete than it is.
