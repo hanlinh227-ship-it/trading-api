@@ -19,6 +19,7 @@ from AI_SKILL_LIBRARY.v4.local_runtime.golden_e2e import (
     ingress,
     make_router,
     make_selector,
+    make_verifier,
     observed_offline,
     synthesis,
     verifier,
@@ -66,6 +67,28 @@ class VerifierTests(unittest.TestCase):
     def test_an_identity_that_is_not_digest_bound_fails(self):
         row = good_execution() | {"artifact_identity": {"sha256": "short"}}
         self.assertIn("artifact_identity_not_digest_bound", verifier("k", row)["failures"])
+
+    def test_canonical_golden_wrong_answer_fails_semantically(self):
+        row = good_execution() | {"output": "shogi is a Japanese board game"}
+        result = make_verifier("What is the capital city of Japan? Answer briefly.")(
+            "core_reasoning", row
+        )
+        self.assertFalse(result["passed"])
+        self.assertIn("semantic_answer_mismatch", result["failures"])
+
+    def test_canonical_golden_correct_answer_passes_semantically(self):
+        row = good_execution() | {"output": "Tokyo."}
+        result = make_verifier("What is the capital city of Japan? Answer briefly.")(
+            "core_reasoning", row
+        )
+        self.assertTrue(result["passed"], result["failures"])
+
+    def test_arbitrary_request_cannot_earn_golden_semantic_pass(self):
+        result = make_verifier("Tell me something interesting.")(
+            "core_reasoning", good_execution()
+        )
+        self.assertFalse(result["passed"])
+        self.assertIn("semantic_oracle_unavailable", result["failures"])
 
 
 class OfflineObservationTests(unittest.TestCase):
@@ -181,9 +204,12 @@ class CommittedEvidenceTests(unittest.TestCase):
         executed = self.evidence["runtime_evidence"]["artifact_identity"]
         self.assertEqual(selected, executed)
 
-    def test_the_committed_evidence_still_satisfies_the_verifier(self):
-        result = verifier("core_reasoning", self.evidence["runtime_evidence"])
-        self.assertTrue(result["passed"], result["failures"])
+    def test_the_committed_evidence_is_rechecked_semantically(self):
+        result = make_verifier(self.evidence["request"])(
+            "core_reasoning", self.evidence["runtime_evidence"]
+        )
+        self.assertFalse(result["passed"])
+        self.assertIn("semantic_answer_mismatch", result["failures"])
 
     def test_resource_use_was_measured_not_left_unknown(self):
         self.assertIsInstance(self.evidence["runtime_evidence"]["peak_ram_mb"], (int, float))
