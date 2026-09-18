@@ -446,3 +446,56 @@ pre-existing SIGILL crashes.
 - Two pre-existing adapter tests were edited. Neither was weakened: both now use the
   documented `manifest` column envelope, which is the F7 fix landing rather than a check
   being relaxed.
+
+| 4 | done | c8d45fe3 | subagent | 130 focused / 554 storage | review: 8 findings, 2 BLOCKER | 1 (c0b4edb4) | Fourth occurrence. Fix derives field tuples FROM the checker tables. |
+| 5 | committed, review pending | c0b4edb4 | subagent | 124 focused / 678 storage | pending | - | s3_object.py + replication.py. Handed back properly. |
+
+## Task 5 — the guard was built without being asked twice
+The implementer built the schema-driven structural guard on its own initiative, and went
+one better than either previous version: `OBJECT_METADATA_VALUE_CHECKS` (14 attachable
+fields) and `REFUSED_METADATA_FIELDS` (10, each with a written reason) **partition** the
+schema's 24 properties, and a test asserts union-equality and disjointness against the
+schema on disk. A property added to the contract later lands in neither table and fails
+that test the day it appears. There is no fourth copy of the checkers: the table is built
+from `metadata._RECORD_FIELD_CHECKS`.
+
+### Controller verification
+Exactly one `source.delete` in the module, at replication.py:480, gated behind read-back
+verification, destination head agreement, index acceptance, the recovery checkpoint and the
+replication requirement. My grep flagged `urllib` and `boto3` in the adapter; an AST parse
+showed them to be docstring prose in a banned-set sentence, not imports - the real import
+list is dataclasses, datetime, hashlib, re, collections.abc and five in-package modules.
+`AUTHORITY = False` and `ENCRYPTION_IMPLEMENTED_HERE = False` in both. 678 storage tests
+green. An unrecognised criticality returns 2, the maximum any known class carries.
+
+### Judgement calls the implementer made, which I am keeping
+- **`UNKNOWN_REQUIREMENT = 2`.** Failing closed on a replication *count* means the maximum,
+  not the minimum: understating the requirement is what authorises a delete. Right call.
+- **The checkpoint hook is optional.** Given, it must return exactly `True` before any
+  delete; absent, metadata registration alone gates it. Fully fail-closed would refuse to
+  delete without a recovery pointer. Recorded as the looser of the two readings.
+- **`METADATA_UPDATE_FAILED_AFTER_DELETE`** is a genuine residual: if the final "drop the
+  source" write fails after a successful delete, the record over-states the copies that
+  exist. Over-stating causes a repair; under-stating causes a deletion. It gets its own
+  status rather than being hidden.
+- A record whose `content_sha256`/`size_bytes` disagree with the source's real bytes
+  surfaces as `DESTINATION_WRITE_FAILED`, which names the wrong half of the problem. Safe
+  (source untouched), and `recovery.py` reports the disagreement properly.
+
+### Two leaks its own self-review found, worth recording because of how they were found
+1. **Chained exception context.** Refusals wrap `metadata.py`'s bounded checkers, which do
+   quote their input. Raising a clean message from inside that `except` left the original
+   as `__context__`: `str(exc)` hid it, but every traceback printed it. Found only by
+   asserting on the full formatted traceback instead of `str(exc)`. Fixed with
+   `raise ... from None`.
+2. **A credential in a metadata *key*.** The needle sweep covered values; the refusal text
+   `"unknown field 'X'"` echoed the key.
+Both are the same lesson as the four field-bound occurrences, one level over: it is not
+enough to check the values you expected to be dangerous.
+
+### Coupling to flag
+Task 5 binds private names in sibling modules (`metadata._RECORD_FIELD_CHECKS`,
+`manifest._SHA256_RE`, `_check_backend`, `_check_timestamp`, `_HEX_TOKEN_RE`, `_is_local`).
+That is the pattern `metadata.py` blesses - a second copy is a copy that will drift - but
+those modules were being edited concurrently while Task 5 was written. The follow-up owed
+against `manifest.py` should export these under public names.
