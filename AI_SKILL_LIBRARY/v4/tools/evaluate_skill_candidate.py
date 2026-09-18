@@ -13,6 +13,15 @@ def evaluate_candidate(candidate: dict, eval_result: dict, *, replay_ref: str) -
     ref = str(replay_ref or "").strip()
     if not ref or len(ref) > 500:
         raise ValueError("immutable_replay_ref_required")
+    refs = candidate.get("evidence_refs", [])
+    if refs is None:
+        refs = []
+    if not isinstance(refs, list) or any(
+        not isinstance(item, str) or not item.strip() or len(item.strip()) > 500
+        for item in refs
+    ):
+        raise ValueError("invalid_learning_evidence_refs")
+    learning_refs = sorted(set(item.strip() for item in refs))
     decision = promotion_decision(candidate, eval_result)
     return {
         **decision,
@@ -22,6 +31,10 @@ def evaluate_candidate(candidate: dict, eval_result: dict, *, replay_ref: str) -
             "candidate_source": str(candidate.get("source") or "candidate_json"),
             "eval_source": str(eval_result.get("source") or "eval_json"),
         },
+        "learning_evidence_refs": learning_refs,
+        "competency_ref": candidate.get("competency_ref"),
+        "curriculum_ref": candidate.get("curriculum_ref"),
+        "evaluation_ref": str(eval_result.get("evidence_ref") or "").strip() or None,
         "stable_write": False,
         "routing_authority": False,
         "reasoning_authority": False,
