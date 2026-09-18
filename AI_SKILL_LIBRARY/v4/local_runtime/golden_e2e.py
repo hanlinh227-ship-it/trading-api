@@ -394,12 +394,18 @@ def make_runtime(root: Path, cache: Path, records: Mapping[str, Mapping[str, Any
     return runtime
 
 
-def verifier(kind: Any, execution: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Check the run against itself. Able to fail, or it verifies nothing.
+CANONICAL_GOLDEN_REQUEST = "What is the capital city of Japan? Answer briefly."
+_CANONICAL_GOLDEN_EXPECTED_TERMS = ("tokyo",)
 
-    Deliberately checks properties that a broken or faked run would get wrong,
-    and nothing about whether the answer is *good* - judging answer quality is
-    the grader's job and would make this gate unfalsifiable.
+
+def verifier(kind: Any, execution: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Verify runtime integrity only.
+
+    This function intentionally does *not* claim answer correctness. Semantic
+    correctness is added by :func:`make_verifier`, which binds the verifier to
+    the concrete golden request. Keeping the structural checks separate makes
+    it impossible to mistake "a real model produced tokens" for "the model
+    answered the task correctly".
     """
     failures: list[str] = []
     if not str(execution.get("output") or "").strip():
@@ -417,6 +423,38 @@ def verifier(kind: Any, execution: Mapping[str, Any]) -> Mapping[str, Any]:
         failures.append("artifact_identity_not_digest_bound")
     return {"passed": not failures, "failures": failures,
             "evidence_refs": [str(execution.get("raw_run_ref") or "")], "verifier": str(kind)}
+
+
+def make_verifier(request: str):
+    """Bind semantic verification to the canonical golden request.
+
+    The golden E2E is a deterministic release proof, not an arbitrary chat
+    endpoint. A request without an explicit oracle cannot earn B3/B4: accepting
+    it would recreate the false-positive where unrelated output was marked
+    verified merely because the runtime itself was healthy.
+    """
+    normalized_request = " ".join(str(request or "").strip().lower().split())
+    canonical = " ".join(CANONICAL_GOLDEN_REQUEST.lower().split())
+
+    def verify(kind: Any, execution: Mapping[str, Any]) -> Mapping[str, Any]:
+        report = dict(verifier(kind, execution))
+        failures = list(report.get("failures") or [])
+        if normalized_request != canonical:
+            failures.append("semantic_oracle_unavailable")
+        else:
+            answer = " ".join(str(execution.get("output") or "").strip().lower().split())
+            if not any(term in answer for term in _CANONICAL_GOLDEN_EXPECTED_TERMS):
+                failures.append("semantic_answer_mismatch")
+        report["failures"] = sorted(set(failures))
+        report["passed"] = not report["failures"]
+        report["semantic_oracle"] = (
+            {"request": CANONICAL_GOLDEN_REQUEST,
+             "expected_terms": list(_CANONICAL_GOLDEN_EXPECTED_TERMS)}
+            if normalized_request == canonical else None
+        )
+        return report
+
+    return verify
 
 
 def synthesis(prepared: Mapping[str, Any], execution: Mapping[str, Any],
