@@ -65,6 +65,17 @@ jobs:
           SOURCE_SHA="$(git rev-parse HEAD)"
           python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA"
           echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+      - name: Run pytest-only AI CORE closure tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'pytest>=8,<9'
+          python -m pytest -q \
+            AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py \
+            AI_SKILL_LIBRARY/tests/test_survival_recovery.py \
+            AI_SKILL_LIBRARY/tests/test_always_on_retry.py \
+            AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py
+          echo "PYTEST_ONLY_AI_CORE_CLOSURE=PASS"
       # Closure Task 0: the unittest path above collects only TestCase
       # subclasses, so 41 module-level `def test_*` functions in four merged
       # files pass under pytest and are silently never executed by CI. They are
