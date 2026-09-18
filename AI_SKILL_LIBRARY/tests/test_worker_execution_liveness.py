@@ -35,7 +35,7 @@ class ClassifierTests(unittest.TestCase):
         result = self._probe(_completed(-4))
         self.assertEqual(result["state"], "EXECUTION_DEAD")
         self.assertEqual(result["signal"], 4)
-        self.assertIn("instructions this CPU does not have", result["detail"])
+        self.assertIn("CPU refused an instruction", result["detail"])
 
     def test_a_signal_other_than_sigill_is_still_dead(self):
         result = self._probe(_completed(-9))
@@ -78,6 +78,16 @@ class ReportTests(unittest.TestCase):
             report = liveness.build(ROOT)
         self.assertTrue(report["EXECUTION_LIVE"])
         self.assertNotIn("FEDERATION_IMPACT", report)
+
+    def test_the_reading_names_the_host_that_produced_it(self):
+        """Two sessions on different hardware must not overwrite each other."""
+        with mock.patch.object(liveness, "probe_local_engine",
+                               return_value={"state": "EXECUTION_LIVE", "reason": "x"}):
+            report = liveness.build(ROOT)
+        host = report["OBSERVED_ON"]
+        self.assertTrue(host["host_fingerprint"])
+        self.assertIn("cpu_flags_present", host)
+        self.assertIn("not a property of the commit", report["reading_scope"])
 
     def test_it_grants_nothing_and_changes_nothing(self):
         with mock.patch.object(liveness, "probe_local_engine",

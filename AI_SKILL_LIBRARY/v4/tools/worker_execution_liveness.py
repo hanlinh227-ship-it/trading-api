@@ -33,13 +33,62 @@ that the scheduler's owners can act on it.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Sequence
 
 EVIDENCE = "CHECKPOINTS/evidence"
+
+#: The instruction-set extensions that decide whether a prebuilt engine runs at
+#: all. A binary compiled for a host with avx512 raises SIGILL on one without
+#: it, which is the difference between EXECUTION_LIVE and EXECUTION_DEAD for
+#: the same commit and the same artifact.
+_CPU_FLAGS = ("avx", "avx2", "avx512f", "avx512bw", "avx512vl", "avx512dq",
+              "avx512cd", "avx512_vnni", "f16c", "fma")
+
+
+def observing_host() -> dict[str, Any]:
+    """Who looked, so that two sessions disagreeing is informative.
+
+    An execution-liveness reading is a fact about one machine at one moment,
+    not about the repository. Recorded without a host it looks like a property
+    of the commit, and two sessions on different hardware will then overwrite
+    each other forever, each one correct and each one erasing the other. With
+    a host attached both readings stand, and the disagreement becomes what it
+    actually is: evidence that the fabric's execution depends on which machine
+    a session happens to get.
+    """
+    flags: list[str] = []
+    try:
+        cpuinfo = Path("/proc/cpuinfo").read_text(encoding="utf-8", errors="replace")
+        present = set(re.findall(r"\b(" + "|".join(_CPU_FLAGS) + r")\b", cpuinfo))
+        flags = sorted(present)
+    except OSError:
+        flags = []
+    body = json.dumps({
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "python": platform.python_version(),
+        "cpu_count": os.cpu_count(),
+        "cpu_flags": flags,
+    }, sort_keys=True, separators=(",", ":"))
+    return {
+        "host_fingerprint": hashlib.sha256(body.encode("utf-8")).hexdigest()[:32],
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "cpu_count": os.cpu_count(),
+        "cpu_flags_present": flags,
+        "why_the_flags": (
+            "a prebuilt engine raises SIGILL on a CPU lacking the extensions it was compiled "
+            "for, so these decide liveness for an unchanged commit and an unchanged artifact"
+        ),
+    }
 
 #: Run in a subprocess. Anything that kills the interpreter is caught as a
 #: signal by the parent instead of ending the run.
@@ -84,9 +133,12 @@ def probe_local_engine(root: Path, *, timeout: float = 120.0) -> dict[str, Any]:
             "reason": f"the engine probe was killed by signal {signal_number}",
             "signal": signal_number,
             "detail": (
-                "SIGILL (4) means the installed binary uses instructions this CPU does not "
-                "have - typically a container moved to different hardware. The artifact and "
-                "the code are unchanged; the machine under them is not."
+                "SIGILL (4): the CPU refused an instruction the installed binary issued. The "
+                "usual cause is a prebuilt engine meeting a CPU without the extensions it was "
+                "compiled for, but check OBSERVED_ON.cpu_flags_present before concluding that - "
+                "a host advertising the expected extensions and still taking SIGILL points "
+                "elsewhere, to a microarchitecture mismatch or a damaged install. Either way "
+                "the artifact and the code are unchanged and the machine under them is not."
                 if signal_number == 4 else
                 "the probe terminated abnormally rather than returning a result"
             ),
@@ -131,6 +183,11 @@ def build(root: Path) -> dict[str, Any]:
 
     report: dict[str, Any] = {
         "tool": "worker_execution_liveness",
+        "OBSERVED_ON": observing_host(),
+        "reading_scope": (
+            "this is a fact about the machine named in OBSERVED_ON at the moment it ran, not a "
+            "property of the commit. A different host may read the opposite and both are true."
+        ),
         "LOCAL_ENGINE": engine,
         "EXECUTION_LIVE": live,
         "roles_with_a_local_primary": affected,
@@ -160,6 +217,53 @@ def build(root: Path) -> dict[str, Any]:
     return report
 
 
+def _merge_readings(path: Path, report: dict[str, Any]) -> dict[str, Any]:
+    """Keep one reading per host instead of letting the last session win.
+
+    Two sessions on different hardware were overwriting each other here, each
+    recording a true result and erasing a true result. Keyed by host, both
+    survive, and a fabric whose execution depends on which machine answered
+    becomes visible in the file rather than in the commit history.
+    """
+    readings: dict[str, Any] = {}
+    if path.is_file():
+        try:
+            previous = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            previous = {}
+        readings = dict(previous.get("READINGS_BY_HOST") or {})
+        # A file written before this field existed still holds one real reading.
+        if not readings and previous.get("LOCAL_ENGINE"):
+            older = previous.get("OBSERVED_ON") or {}
+            key = older.get("host_fingerprint", "host_not_recorded")
+            readings[key] = {
+                "OBSERVED_ON": older or {"note": "this reading predates host attribution"},
+                "LOCAL_ENGINE": previous["LOCAL_ENGINE"],
+                "EXECUTION_LIVE": previous.get("EXECUTION_LIVE"),
+            }
+
+    host = report["OBSERVED_ON"]["host_fingerprint"]
+    readings[host] = {
+        "OBSERVED_ON": report["OBSERVED_ON"],
+        "LOCAL_ENGINE": report["LOCAL_ENGINE"],
+        "EXECUTION_LIVE": report["EXECUTION_LIVE"],
+    }
+    merged = dict(report)
+    merged["READINGS_BY_HOST"] = readings
+    merged["hosts_observed"] = len(readings)
+    live = [k for k, v in readings.items() if v.get("EXECUTION_LIVE")]
+    merged["hosts_where_the_engine_runs"] = len(live)
+    if len(readings) > 1 and 0 < len(live) < len(readings):
+        merged["EXECUTION_IS_HOST_DEPENDENT"] = True
+        merged["host_dependence_note"] = (
+            "the same commit and the same artifacts execute on some of the hosts observed and "
+            "not on others. Neither reading is wrong. This is the SINGLE_PATH_RISK made "
+            "concrete: one host holds every local weight, so whether the federation can run "
+            "locally depends on which machine answered."
+        )
+    return merged
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", default=".")
@@ -173,6 +277,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.evidence:
         out = Path(args.evidence)
         out.parent.mkdir(parents=True, exist_ok=True)
+        report = _merge_readings(out, report)
         out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
     print(json.dumps(report, indent=2))
