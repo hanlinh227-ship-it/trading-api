@@ -1,7 +1,9 @@
 {
   "tool": "wave_reconciliation",
-  "reconciled_at": "2026-09-18T00:46:12Z",
+  "reconciled_at": "2026-09-18T01:08:47Z",
   "digests_recomputed": true,
+  "digest_verification_possible_here": true,
+  "verification_scope": "digests recomputed from the bytes in the local cache",
   "quarantines_retested": true,
   "RECONCILIATION_TABLE": [
     {
@@ -148,6 +150,7 @@
       "terminal": true,
       "classification": "TERMINAL",
       "findings": [
+        "a model cache exists on this machine but holds no artifact for this model",
         "no revisit condition is met - runtime version unchanged (0.3.35 -> 0.3.35) and no backend added"
       ],
       "next_action": "quarantine stands: runtime is still 0.3.35 and no new backend exists. Revisit needs a BitNet-capable backend (upstream I2_S support, or the microsoft/BitNet fork) is added to AI_SKILL_LIBRARY/v4/local_runtime/backends; the upstream publishes a re-quantized artifact under a different digest"
@@ -185,6 +188,7 @@
       "terminal": true,
       "classification": "TERMINAL",
       "findings": [
+        "a model cache exists on this machine but holds no artifact for this model",
         "no revisit condition is met - runtime version unchanged (0.3.35 -> 0.3.35) and no backend added"
       ],
       "next_action": "quarantine stands: runtime is still 0.3.35 and no new backend exists. Revisit needs llama-cpp-python is upgraded to a build whose gguf vocabulary reader accepts the mistral3 tokenizer.ggml.scores type; the upstream publishes a re-converted artifact under a different digest"
@@ -263,25 +267,29 @@
       "ok": 4,
       "terminal": 0,
       "actionable": 0,
-      "human_only": 0
+      "human_only": 0,
+      "not_verifiable_here": 0
     },
     "WAVE2": {
       "models": 5,
       "ok": 3,
       "terminal": 2,
       "actionable": 0,
-      "human_only": 0
+      "human_only": 0,
+      "not_verifiable_here": 0
     },
     "WAVE3": {
       "models": 1,
       "ok": 1,
       "terminal": 0,
       "actionable": 0,
-      "human_only": 0
+      "human_only": 0,
+      "not_verifiable_here": 0
     }
   },
   "actionable_items": [],
   "human_only_items": [],
+  "not_verifiable_here": [],
   "models_total": 10,
   "note": "Every digest here was recomputed from the bytes in the cache, not read back from the manifest that claims it. Every quarantine was offered to the installed runtime again rather than inherited.",
   "routing_authority": false,

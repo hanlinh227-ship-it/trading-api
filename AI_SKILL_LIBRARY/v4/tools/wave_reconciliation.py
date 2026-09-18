@@ -71,6 +71,17 @@ def _sha256(path: Path, *, chunk: int = 1 << 22) -> str:
     return digest.hexdigest()
 
 
+def _cache_present(root: Path) -> bool:
+    """Does this machine hold a model cache at all?
+
+    A CI runner checks out the repository and holds no artifacts, because
+    artifacts are not committed. That is a fact about the runner, not a defect
+    in the fleet, and an earlier version of this tool reported it as one - which
+    failed three checks on a head whose fleet was entirely intact.
+    """
+    return (root / CACHE).is_dir()
+
+
 def _artifact_for(root: Path, model_id: str) -> Path | None:
     cache = root / CACHE
     if not cache.is_dir():
@@ -188,10 +199,12 @@ def build(root: Path, *, verify_digests: bool = True,
     registry = yaml.safe_load((root / REGISTRY_REL).read_text(encoding="utf-8")) or {}
     models = registry.get("models") or []
     measured = _capability_evidence(root)
+    cache_present = _cache_present(root)
 
     rows: list[dict[str, Any]] = []
     actionable: list[str] = []
     human_only: list[str] = []
+    unverifiable: list[str] = []
 
     for record in models:
         model_id = str(record.get("model_id"))
@@ -208,8 +221,19 @@ def build(root: Path, *, verify_digests: bool = True,
             "capability_evidence": measured.get(model_id, []),
         }
 
-        if artifact is None:
-            findings.append("artifact is not in the local cache")
+        if artifact is None and not cache_present:
+            # Nothing to verify against, and nothing wrong. The distinction that
+            # matters: this run establishes nothing about the bytes, and says so
+            # rather than passing as though it had.
+            checks["digest_matches"] = None
+            checks["not_verifiable_here"] = (
+                "this machine holds no model cache, so no digest could be "
+                "recomputed. Absence of the cache is a fact about this machine, "
+                "not about the artifact.")
+        elif artifact is None:
+            findings.append(
+                "a model cache exists on this machine but holds no artifact for "
+                "this model")
         elif verify_digests and claimed:
             actual = _sha256(artifact)
             checks["digest_recomputed"] = actual
@@ -226,7 +250,11 @@ def build(root: Path, *, verify_digests: bool = True,
         if not checks["capability_evidence"] and state == "AVAILABLE":
             findings.append("admitted with no recorded capability measurement")
 
-        classification = "OK"
+        # A pass that verified nothing is not the same claim as a pass that
+        # recomputed the bytes, and the two must not share a word.
+        classification = ("OK" if checks.get("digest_matches")
+                          else "NOT_VERIFIABLE_HERE" if not cache_present
+                          else "OK")
         next_action = "none"
 
         if state == "QUARANTINED":
@@ -280,6 +308,8 @@ def build(root: Path, *, verify_digests: bool = True,
 
         if classification == "ACTIONABLE":
             actionable.append(model_id)
+        if classification == "NOT_VERIFIABLE_HERE":
+            unverifiable.append(model_id)
         if classification == "HUMAN_ONLY":
             human_only.append(model_id)
 
@@ -303,6 +333,8 @@ def build(root: Path, *, verify_digests: bool = True,
                                          "actionable": 0, "human_only": 0})
         entry["models"] += 1
         entry["ok"] += int(row["classification"] == "OK")
+        entry["not_verifiable_here"] = entry.get("not_verifiable_here", 0) + int(
+            row["classification"] == "NOT_VERIFIABLE_HERE")
         entry["terminal"] += int(row["terminal"])
         entry["actionable"] += int(row["actionable"])
         entry["human_only"] += int(row["human_only"])
@@ -310,12 +342,21 @@ def build(root: Path, *, verify_digests: bool = True,
     return {
         "tool": "wave_reconciliation",
         "reconciled_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "digests_recomputed": verify_digests,
+        # Two different claims, and the second is the honest one on a runner.
+        "digests_recomputed": verify_digests and cache_present,
+        "digest_verification_possible_here": cache_present,
+        "verification_scope": (
+            "digests recomputed from the bytes in the local cache"
+            if cache_present else
+            "NO artifact was verified on this machine: it holds no model cache. "
+            "Registry structure, licences, capability evidence and quarantine "
+            "revisit conditions were still checked, and those need no bytes."),
         "quarantines_retested": retest_quarantined,
         "RECONCILIATION_TABLE": rows,
         "by_wave": by_wave,
         "actionable_items": sorted(actionable),
         "human_only_items": sorted(human_only),
+        "not_verifiable_here": sorted(unverifiable),
         "models_total": len(rows),
         "note": (
             "Every digest here was recomputed from the bytes in the cache, not "
@@ -343,9 +384,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.evidence.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n",
                                  encoding="utf-8")
 
+    scope = "digests recomputed" if result["digests_recomputed"] else "NO DIGESTS VERIFIED HERE"
     print(f"WAVE_RECONCILIATION models={result['models_total']} "
           f"actionable={len(result['actionable_items'])} "
-          f"human_only={len(result['human_only_items'])}")
+          f"human_only={len(result['human_only_items'])} ({scope})")
     for row in result["RECONCILIATION_TABLE"]:
         print(f"  W{row['wave']} {row['item']:<46} {row['current_state']:<12} "
               f"{row['classification']}")
