@@ -58,3 +58,44 @@ release is a gate decision, not an implementer's, and it is outside the task's f
 Note: the promotion judgement (known_good / promotion.validated) stays the operator's.
 Refreshing content digests is not the same act as promoting a release, and this plan
 does neither on its own authority.
+
+## Task 1 — review round 1: CHANGES-REQUIRED
+
+Independent reviewer (fresh agent, did not write the code) returned 2 BLOCKER, 7 SHOULD-FIX,
+2 NIT. I reproduced every finding myself before acting rather than taking the report:
+
+- BLOCKER 1: privacy was structural only for *unknown field names*. Five allowed fields
+  (request_class, failure_class, resource_observation, quota_impact, evidence_ref) plus the
+  id fields are unbounded strings: a 2 KB value containing `API_KEY=sk-live-...` validates
+  in every one. Arrays and the `experiences` array itself have no maxItems.
+- BLOCKER 2: FALLBACK is entirely ungated. A row can be FALLBACK with empty evidence_refs
+  and protected_regression_status FAIL and still validate.
+- Placeholder evidence (`["   "]`, `["n/a"]`), `last_measured_at: "tomorrow"`, and
+  PRIMARY with measured_score 0 / verifier_pass_rate 0 all validate.
+- learning_cycles.yaml and promotion_evidence.json can be set `authority: true` with all
+  21 tests still green, because the test helper falls through a scalar.
+- The role-pattern test never asserts a rejection: widening the pattern to `^.*$` keeps
+  every test green.
+
+Note on my own verification: I had checked named private fields, unknown fields, and
+PRIMARY/PROFICIENT gating, and reported Task 1 sound. I did not check allowed-but-unbounded
+fields or FALLBACK, and both were holes. The reviewer earned its place; a self-review would
+have shipped this.
+
+Fix round dispatched to a fresh implementer, TDD per finding. Schemas and tests are new and
+unpinned, so the fixes do not touch the release manifest.
+
+## Ruling 004 — who refreshes the stale digest
+CI on 64f13df7 is red: CI_VALIDATE=FAIL failures=3, all three the same policy.yaml digest
+mismatch. Everything else passes, including AI_CORE_RELEASE=PASS 9/9 and the Phase 6 gate.
+
+Decision: after the Task 1 fixes land, refresh the release record so the manifest states
+the truth about content that legitimately changed under an approved plan, and push once,
+green. Leave `promotion.validated` and `known_good` exactly as they are.
+Reason: I caused this red and the drive-to-green posture makes it mine; the failing check
+itself names `release.py build` as the remedy; and a digest refresh is bookkeeping, not the
+promotion judgement I earlier told the operator was theirs. That distinction is the whole
+basis for acting here, so the promotion fields stay untouched.
+Cost if wrong: a release record is rewritten by an agent. Mitigated by changing no
+promotion field, by recording both digests here, and by the change being a recomputation
+anyone can reproduce with the repo's own tool.
