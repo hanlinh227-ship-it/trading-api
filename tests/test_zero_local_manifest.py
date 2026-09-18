@@ -263,7 +263,10 @@ class CloudflareProductionGateTests(unittest.TestCase):
         self.assertIn("/research/market", self.production)
         self.assertIn("/capabilities", self.production)
         self.assertIn("LIVE_RESEARCH_SMOKE=PASS", self.production)
-        self.assertIn("'bybit LONG BTCUSDT ask'", self.production)
+        self.assertIn('"action":"snapshot"', self.production)
+        self.assertIn('"preferredVenue":"okx"', self.production)
+        self.assertIn("research_only", self.production)
+        self.assertNotIn("'bybit LONG BTCUSDT ask'", self.production)
 
     def test_the_gate_still_fails_closed(self):
         self.assertIn("CLOUDFLARE_HEALTH=FAIL", self.production)
