@@ -45,6 +45,13 @@ interfaces:
       providers: AI_SKILL_LIBRARY/v4/storage/providers.yaml
       object_manifest_schema: AI_SKILL_LIBRARY/v4/schemas/storage_object_manifest.schema.json
       provider_schema: AI_SKILL_LIBRARY/v4/schemas/storage_provider.schema.json
+      # A JSON Schema validates one document alone: it cannot open the provider
+      # registry, so the manifest schema could name a backend that had been
+      # admitted for nothing. This resolver is the other half - read-only, no
+      # authority, activates no account - and a placement is admissible only
+      # when both it and the schemas agree.
+      backend_resolver: AI_SKILL_LIBRARY/v4/storage/mesh_validator.py
+      backend_resolver_authority: false
       paid_storage_allowed: false
       overage_allowed: false
       secrets_allowed: false

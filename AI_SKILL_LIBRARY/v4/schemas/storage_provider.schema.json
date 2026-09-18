@@ -2,16 +2,29 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "storage_provider.schema.json",
   "title": "Federated Free Storage Mesh - provider admission record",
-  "description": "One row of the provider registry (Spec S16). It records what has been *verified* about a backend - whether its free tier is real for this account, whether a hard stop exists, whether spillover could become billable - and never what the provider's marketing page claims. That distinction is the whole point of the record, so it is encoded structurally: free_status may only reach a VERIFIED_* value when the accompanying evidence class is runtime_account_evidence, and any row that is not verified free is forced to health QUARANTINED with autonomous_write_allowed pinned false. The same technique closes the other three doors: an external provider cannot be admitted for LOCAL_ONLY data, cannot omit encryption for CONFIDENTIAL data, and cannot claim a provider_id in the reserved 'local_' namespace; and a Supabase row cannot declare itself a bulk object backend. The record carries no credential of any kind - no token, no key, no account identifier - and the field set is closed so that one cannot be added later under a new name.",
+  "description": "One row of the provider registry (Spec S16). It records what has been *verified* about a backend - whether its free tier is real for this account, whether a hard stop exists, whether spillover could become billable - and never what the provider's marketing page claims. That distinction is the whole point of the record, so it is encoded structurally: free_status may only reach a VERIFIED_* value when the accompanying evidence class is runtime_account_evidence, and any row that is not verified free is forced to health QUARANTINED with autonomous_write_allowed pinned false. The same technique closes the other three doors: an external provider cannot be admitted for LOCAL_ONLY data, cannot omit encryption for CONFIDENTIAL data, and cannot claim a provider_id in the reserved 'local_' namespace; and a Supabase row cannot declare itself a bulk object backend. The record carries no credential of any kind - no token, no key, no account identifier - and the field set is closed so that one cannot be added later under a new name. Backend identity is the one thing this schema cannot settle alone. primary_backend and replica_backends are enumerated against the provider registry, so a backend nobody registered is an invalid document; but whether a registered row was actually *admitted* - verified free, healthy, writable, permitted for this privacy class, tier and size - is runtime state no JSON Schema can read. AI_SKILL_LIBRARY/v4/storage/mesh_validator.py resolves that half. Passing this schema is therefore necessary and not sufficient: a placement is admissible only when both halves agree.",
   "type": "object",
   "required": [
-    "provider_id", "adapter_type", "external", "free_status",
-    "free_status_evidence", "quota_total", "quota_used", "hard_stop_verified",
-    "paid_spillover_possible", "privacy_classes_allowed",
-    "encryption_required_classes", "health", "autonomous_write_allowed"
+    "provider_id",
+    "adapter_type",
+    "external",
+    "free_status",
+    "free_status_evidence",
+    "quota_total",
+    "quota_used",
+    "hard_stop_verified",
+    "paid_spillover_possible",
+    "privacy_classes_allowed",
+    "encryption_required_classes",
+    "health",
+    "autonomous_write_allowed",
+    "authority",
+    "authority_flags"
   ],
   "properties": {
-    "provider_id": {"$ref": "#/$defs/provider_id"},
+    "provider_id": {
+      "$ref": "#/$defs/provider_id"
+    },
     "adapter_type": {
       "description": "The integration shape, not a vendor product name. Determines which structural rules below apply.",
       "enum": [
@@ -40,73 +53,184 @@
         "NOT_APPLICABLE"
       ]
     },
-    "free_status_evidence": {"$ref": "#/$defs/free_status_evidence"},
+    "free_status_evidence": {
+      "$ref": "#/$defs/free_status_evidence"
+    },
     "free_expiry_at": {
       "description": "Null means unknown, and unknown means NO_AUTONOMOUS_WRITE per Spec S11 - not 'probably fine'.",
-      "oneOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]
+      "oneOf": [
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "quota_reset_semantics": {"$ref": "#/$defs/class_token"},
-    "quota_total": {"type": ["integer", "null"], "minimum": 0, "maximum": 1125899906842624},
-    "quota_used": {"type": ["integer", "null"], "minimum": 0, "maximum": 1125899906842624},
-    "quota_reserved": {"type": ["integer", "null"], "minimum": 0, "maximum": 1125899906842624},
+    "quota_reset_semantics": {
+      "$ref": "#/$defs/class_token"
+    },
+    "quota_total": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1125899906842624
+    },
+    "quota_used": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1125899906842624
+    },
+    "quota_reserved": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1125899906842624
+    },
     "hard_stop_verified": {
       "description": "Whether this account has been observed to stop rather than bill when the free allowance ends. False blocks autonomous writes below.",
       "type": "boolean"
     },
     "paid_spillover_possible": {
       "description": "Tri-state on purpose. 'unknown' is not false: Spec S11 makes unverified billable spillover NO_AUTONOMOUS_WRITE, and a boolean would have forced a guess.",
-      "enum": [true, false, "unknown"]
+      "enum": [
+        true,
+        false,
+        "unknown"
+      ]
     },
     "privacy_classes_allowed": {
       "type": "array",
       "maxItems": 4,
       "uniqueItems": true,
-      "items": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "LOCAL_ONLY"]}
+      "items": {
+        "enum": [
+          "PUBLIC",
+          "INTERNAL",
+          "CONFIDENTIAL",
+          "LOCAL_ONLY"
+        ]
+      }
     },
     "encryption_required_classes": {
       "type": "array",
       "maxItems": 4,
       "uniqueItems": true,
-      "items": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "LOCAL_ONLY"]}
+      "items": {
+        "enum": [
+          "PUBLIC",
+          "INTERNAL",
+          "CONFIDENTIAL",
+          "LOCAL_ONLY"
+        ]
+      }
     },
     "health": {
       "description": "The runtime states of Spec S10. There is no 'UNKNOWN': a provider nobody has probed is QUARANTINED, which is the same fact stated so that it fails closed.",
-      "enum": ["FREE", "HEALTHY", "PRESSURED", "NEAR_FULL", "READ_ONLY", "QUARANTINED", "OFFLINE"]
+      "enum": [
+        "FREE",
+        "HEALTHY",
+        "PRESSURED",
+        "NEAR_FULL",
+        "READ_ONLY",
+        "QUARANTINED",
+        "OFFLINE"
+      ]
     },
-    "autonomous_write_allowed": {"type": "boolean"},
-    "read_enabled": {"type": "boolean"},
-    "write_enabled": {"type": "boolean"},
-    "bulk_object_backend_allowed": {"type": "boolean"},
+    "autonomous_write_allowed": {
+      "type": "boolean"
+    },
+    "read_enabled": {
+      "type": "boolean"
+    },
+    "write_enabled": {
+      "type": "boolean"
+    },
+    "bulk_object_backend_allowed": {
+      "type": "boolean"
+    },
     "tiers_allowed": {
       "type": "array",
       "maxItems": 6,
       "uniqueItems": true,
-      "items": {"enum": ["CANONICAL", "HOT", "WARM", "COLD", "HUMAN_BACKUP", "METADATA"]}
+      "items": {
+        "enum": [
+          "CANONICAL",
+          "HOT",
+          "WARM",
+          "COLD",
+          "HUMAN_BACKUP",
+          "METADATA"
+        ]
+      }
     },
     "preferred_tiers": {
       "description": "Spec S17 placement preferences. A preference, never a binding or an entitlement.",
       "type": "array",
       "maxItems": 6,
       "uniqueItems": true,
-      "items": {"enum": ["CANONICAL", "HOT", "WARM", "COLD", "HUMAN_BACKUP", "METADATA"]}
+      "items": {
+        "enum": [
+          "CANONICAL",
+          "HOT",
+          "WARM",
+          "COLD",
+          "HUMAN_BACKUP",
+          "METADATA"
+        ]
+      }
     },
-    "object_size_limits": {"$ref": "#/$defs/object_size_limits"},
-    "rate_limits": {"$ref": "#/$defs/rate_limits"},
+    "object_size_limits": {
+      "$ref": "#/$defs/object_size_limits"
+    },
+    "rate_limits": {
+      "$ref": "#/$defs/rate_limits"
+    },
     "lifecycle_support": {
       "type": "array",
       "maxItems": 8,
       "uniqueItems": true,
-      "items": {"$ref": "#/$defs/class_token"}
+      "items": {
+        "$ref": "#/$defs/class_token"
+      }
     },
-    "retention_policy_class": {"$ref": "#/$defs/class_token"},
-    "acceptable_use_class": {
-      "description": "Spec S17: Hugging Face is for legitimate models, datasets and benchmark corpora, not a generic log dump. Recording the class keeps that a machine-checkable constraint rather than a paragraph nobody rereads.",
+    "retention_policy_class": {
       "$ref": "#/$defs/class_token"
     },
-    "last_probe_at": {"oneOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]},
-    "notes_class": {"$ref": "#/$defs/class_token"},
-    "authority": {"const": false},
-    "authority_flags": {"$ref": "#/$defs/authority_flags"}
+    "acceptable_use_class": {
+      "description": "Spec S17: Hugging Face is for legitimate models, datasets and benchmark corpora, not a generic log dump. The spec names a closed set of provider roles, so this is an enum drawn from policy.yaml provider_roles.acceptable_use_classes rather than a free classifier - a role nobody has agreed to is not a role, and as a 64-character token this field was also key-shaped.",
+      "enum": [
+        "owned-storage",
+        "object-storage",
+        "ai-artifacts-only",
+        "human-backup-only",
+        "metadata-index-only"
+      ]
+    },
+    "last_probe_at": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "authority": {
+      "description": "A registry row is evidence about a provider, never authority over one. This and authority_flags were defined here and required only in the manifest schema, so every row shipped in providers.yaml carried no authority_flags at all and the guard test passed because it inspected $defs rather than reachability. Required now, on both records.",
+      "const": false
+    },
+    "authority_flags": {
+      "$ref": "#/$defs/authority_flags"
+    }
   },
   "additionalProperties": false,
   "allOf": [
@@ -114,14 +238,31 @@
       "title": "Verified free status requires runtime/account evidence",
       "description": "Spec S16/S20. A provider's own documentation is not evidence about this account: free tiers change, differ by region, and do not survive an expired promotion. So a VERIFIED_* value is only reachable when the evidence class is runtime_account_evidence and it carries a timestamp and a reference.",
       "if": {
-        "properties": {"free_status": {"enum": ["VERIFIED_FREE", "VERIFIED_RECURRING_FREE"]}},
-        "required": ["free_status"]
+        "properties": {
+          "free_status": {
+            "enum": [
+              "VERIFIED_FREE",
+              "VERIFIED_RECURRING_FREE"
+            ]
+          }
+        },
+        "required": [
+          "free_status"
+        ]
       },
       "then": {
         "properties": {
           "free_status_evidence": {
-            "properties": {"evidence_class": {"const": "runtime_account_evidence"}},
-            "required": ["evidence_class", "verified_at", "evidence_ref"]
+            "properties": {
+              "evidence_class": {
+                "const": "runtime_account_evidence"
+              }
+            },
+            "required": [
+              "evidence_class",
+              "verified_at",
+              "evidence_ref"
+            ]
           }
         }
       }
@@ -131,55 +272,177 @@
       "description": "The fail-closed half of the rule above. UNVERIFIED, DOCUMENTED_ONLY, PAID_ONLY and FREE_EXPIRED all land in the same place, which is the point: 'we read that it is free' and 'we have not looked' are the same amount of evidence.",
       "if": {
         "allOf": [
-          {"properties": {"external": {"const": true}}, "required": ["external"]},
-          {"not": {"properties": {"free_status": {"enum": ["VERIFIED_FREE", "VERIFIED_RECURRING_FREE"]}}, "required": ["free_status"]}}
+          {
+            "properties": {
+              "external": {
+                "const": true
+              }
+            },
+            "required": [
+              "external"
+            ]
+          },
+          {
+            "not": {
+              "properties": {
+                "free_status": {
+                  "enum": [
+                    "VERIFIED_FREE",
+                    "VERIFIED_RECURRING_FREE"
+                  ]
+                }
+              },
+              "required": [
+                "free_status"
+              ]
+            }
+          }
         ]
       },
       "then": {
         "properties": {
-          "health": {"const": "QUARANTINED"},
-          "autonomous_write_allowed": {"const": false}
+          "health": {
+            "const": "QUARANTINED"
+          },
+          "autonomous_write_allowed": {
+            "const": false
+          }
         }
       }
     },
     {
       "title": "No hard stop, no autonomous writes",
-      "if": {"properties": {"hard_stop_verified": {"const": false}, "external": {"const": true}}, "required": ["hard_stop_verified", "external"]},
-      "then": {"properties": {"autonomous_write_allowed": {"const": false}}}
+      "if": {
+        "properties": {
+          "hard_stop_verified": {
+            "const": false
+          },
+          "external": {
+            "const": true
+          }
+        },
+        "required": [
+          "hard_stop_verified",
+          "external"
+        ]
+      },
+      "then": {
+        "properties": {
+          "autonomous_write_allowed": {
+            "const": false
+          }
+        }
+      }
     },
     {
       "title": "Possible or unknown paid spillover, no autonomous writes",
       "description": "Spec S11 BILLABLE_SPILLOVER_UNVERIFIED=NO_AUTONOMOUS_WRITE.",
       "if": {
         "allOf": [
-          {"properties": {"external": {"const": true}}, "required": ["external"]},
-          {"not": {"properties": {"paid_spillover_possible": {"const": false}}, "required": ["paid_spillover_possible"]}}
+          {
+            "properties": {
+              "external": {
+                "const": true
+              }
+            },
+            "required": [
+              "external"
+            ]
+          },
+          {
+            "not": {
+              "properties": {
+                "paid_spillover_possible": {
+                  "const": false
+                }
+              },
+              "required": [
+                "paid_spillover_possible"
+              ]
+            }
+          }
         ]
       },
-      "then": {"properties": {"autonomous_write_allowed": {"const": false}}}
+      "then": {
+        "properties": {
+          "autonomous_write_allowed": {
+            "const": false
+          }
+        }
+      }
     },
     {
       "title": "Unknown free expiry, no autonomous writes unless recurring-free is verified",
       "description": "Spec S11 FREE_EXPIRY_UNKNOWN=NO_AUTONOMOUS_WRITE unless the provider is known recurring-free.",
       "if": {
         "allOf": [
-          {"properties": {"external": {"const": true}}, "required": ["external"]},
-          {"properties": {"free_expiry_at": {"type": "null"}}, "required": ["free_expiry_at"]},
-          {"not": {"properties": {"free_status": {"const": "VERIFIED_RECURRING_FREE"}}, "required": ["free_status"]}}
+          {
+            "properties": {
+              "external": {
+                "const": true
+              }
+            },
+            "required": [
+              "external"
+            ]
+          },
+          {
+            "properties": {
+              "free_expiry_at": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "free_expiry_at"
+            ]
+          },
+          {
+            "not": {
+              "properties": {
+                "free_status": {
+                  "const": "VERIFIED_RECURRING_FREE"
+                }
+              },
+              "required": [
+                "free_status"
+              ]
+            }
+          }
         ]
       },
-      "then": {"properties": {"autonomous_write_allowed": {"const": false}}}
+      "then": {
+        "properties": {
+          "autonomous_write_allowed": {
+            "const": false
+          }
+        }
+      }
     },
     {
       "title": "LOCAL_ONLY is not admissible on an external provider",
       "description": "Spec S4. Not 'discouraged' - the enum an external row is validated against does not contain the value.",
-      "if": {"properties": {"external": {"const": true}}, "required": ["external"]},
+      "if": {
+        "properties": {
+          "external": {
+            "const": true
+          }
+        },
+        "required": [
+          "external"
+        ]
+      },
       "then": {
         "properties": {
           "privacy_classes_allowed": {
             "type": "array",
             "maxItems": 3,
-            "items": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL"]}
+            "items": {
+              "enum": [
+                "PUBLIC",
+                "INTERNAL",
+                "CONFIDENTIAL"
+              ]
+            }
           }
         }
       }
@@ -189,17 +452,30 @@
       "description": "Spec S4/S21: CONFIDENTIAL leaves owned storage only as ciphertext, so admitting the class and not requiring the encryption is a contradiction the registry refuses to hold.",
       "if": {
         "properties": {
-          "external": {"const": true},
-          "privacy_classes_allowed": {"type": "array", "maxItems": 4, "contains": {"const": "CONFIDENTIAL"}}
+          "external": {
+            "const": true
+          },
+          "privacy_classes_allowed": {
+            "type": "array",
+            "maxItems": 4,
+            "contains": {
+              "const": "CONFIDENTIAL"
+            }
+          }
         },
-        "required": ["external", "privacy_classes_allowed"]
+        "required": [
+          "external",
+          "privacy_classes_allowed"
+        ]
       },
       "then": {
         "properties": {
           "encryption_required_classes": {
             "type": "array",
             "maxItems": 4,
-            "contains": {"const": "CONFIDENTIAL"}
+            "contains": {
+              "const": "CONFIDENTIAL"
+            }
           }
         }
       }
@@ -207,43 +483,364 @@
     {
       "title": "The 'local_' provider_id namespace is reserved for owned storage",
       "description": "This is what makes the LOCAL_ONLY rule in storage_object_manifest.schema.json airtight. That schema permits only 'local_*' backend ids for LOCAL_ONLY objects; if an external provider could be registered as 'local_r2', the guarantee would be a naming convention rather than a control.",
-      "if": {"not": {"properties": {"adapter_type": {"const": "local_filesystem"}}, "required": ["adapter_type"]}},
+      "if": {
+        "not": {
+          "properties": {
+            "adapter_type": {
+              "const": "local_filesystem"
+            }
+          },
+          "required": [
+            "adapter_type"
+          ]
+        }
+      },
       "then": {
         "properties": {
-          "external": {"const": true},
-          "provider_id": {"type": "string", "maxLength": 64, "pattern": "^(?!local_)[a-z][a-z0-9_]{1,63}$"}
+          "external": {
+            "const": true
+          },
+          "provider_id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]{1,63}$",
+            "description": "The reserved-namespace rule was carried by a negative lookahead, '^(?!local_)...'. Lookahead is not in RE2, so a Go or any other RE2-backed validator would reject the pattern outright or, worse, silently fail to apply it - and this rule is what makes the LOCAL_ONLY guarantee in the manifest schema a control rather than a naming convention. A load-bearing rule should not depend on a regex feature the next validator may not have, so the reservation is expressed as a separate 'not' pattern that every engine supports.",
+            "not": {
+              "pattern": "^local_"
+            }
+          }
         }
       }
     },
     {
       "title": "An owned local store is not an external free tier",
       "description": "Local storage has no free-tier entitlement to verify and no provider that could bill for it, so the cost machinery reads NOT_APPLICABLE rather than being answered with a guess.",
-      "if": {"properties": {"adapter_type": {"const": "local_filesystem"}}, "required": ["adapter_type"]},
+      "if": {
+        "properties": {
+          "adapter_type": {
+            "const": "local_filesystem"
+          }
+        },
+        "required": [
+          "adapter_type"
+        ]
+      },
       "then": {
         "properties": {
-          "external": {"const": false},
-          "free_status": {"const": "NOT_APPLICABLE"},
-          "paid_spillover_possible": {"const": false},
-          "provider_id": {"type": "string", "maxLength": 64, "pattern": "^local_[a-z0-9][a-z0-9_]{0,57}$"}
+          "external": {
+            "const": false
+          },
+          "free_status": {
+            "const": "NOT_APPLICABLE"
+          },
+          "paid_spillover_possible": {
+            "const": false
+          },
+          "provider_id": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^local_[a-z0-9][a-z0-9_]{0,57}$"
+          }
         }
       }
     },
     {
       "title": "Supabase is metadata and index only",
       "description": "Spec S6/S18/S25. Supabase holds the object manifest, not the objects, and it is not authority. Encoded here rather than left to placement logic, because a metadata service that can be declared a bulk backend will eventually be used as one.",
-      "if": {"properties": {"adapter_type": {"const": "supabase_metadata"}}, "required": ["adapter_type"]},
+      "if": {
+        "properties": {
+          "adapter_type": {
+            "const": "supabase_metadata"
+          }
+        },
+        "required": [
+          "adapter_type"
+        ]
+      },
       "then": {
         "properties": {
-          "bulk_object_backend_allowed": {"const": false},
-          "tiers_allowed": {"type": "array", "maxItems": 1, "items": {"const": "METADATA"}},
-          "preferred_tiers": {"type": "array", "maxItems": 1, "items": {"const": "METADATA"}},
+          "bulk_object_backend_allowed": {
+            "const": false
+          },
+          "tiers_allowed": {
+            "type": "array",
+            "maxItems": 1,
+            "items": {
+              "const": "METADATA"
+            }
+          },
+          "preferred_tiers": {
+            "type": "array",
+            "maxItems": 1,
+            "items": {
+              "const": "METADATA"
+            }
+          },
           "object_size_limits": {
             "type": "object",
-            "properties": {"max_object_bytes": {"type": ["integer", "null"], "minimum": 0, "maximum": 1048576}},
+            "properties": {
+              "max_object_bytes": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1048576
+              }
+            },
             "additionalProperties": false
           }
         },
-        "required": ["bulk_object_backend_allowed", "tiers_allowed"]
+        "required": [
+          "bulk_object_backend_allowed",
+          "tiers_allowed"
+        ]
+      }
+    },
+    {
+      "title": "Unknowable capacity is not a licence to write",
+      "description": "Spec S10/S11. quota_total null means nobody has observed how much free allowance this account actually has, and the mesh cannot honour SOFT_LIMIT, HARD_LIMIT or EMERGENCY_RESERVE against a number it does not have. Until now a row could be external, VERIFIED_RECURRING_FREE, hard-stop-verified and fully writable with quota_total and quota_used both null - a writer with no way to know when to stop, which is the shape a free tier turns into a bill through. Unknown capacity fails closed the same way unknown cost does.",
+      "if": {
+        "allOf": [
+          {
+            "properties": {
+              "external": {
+                "const": true
+              }
+            },
+            "required": [
+              "external"
+            ]
+          },
+          {
+            "properties": {
+              "quota_total": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "quota_total"
+            ]
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "autonomous_write_allowed": {
+            "const": false
+          },
+          "write_enabled": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "title": "A quota that has not been read is not a quota either",
+      "description": "The companion to the rule above: knowing the ceiling without knowing the current consumption leaves headroom just as unknowable.",
+      "if": {
+        "allOf": [
+          {
+            "properties": {
+              "external": {
+                "const": true
+              }
+            },
+            "required": [
+              "external"
+            ]
+          },
+          {
+            "properties": {
+              "quota_used": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "quota_used"
+            ]
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "autonomous_write_allowed": {
+            "const": false
+          },
+          "write_enabled": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "title": "Only a writable health state may take writes",
+      "description": "Spec S10/S19. Previously only QUARANTINED was coupled to autonomous_write_allowed, so OFFLINE, READ_ONLY and NEAR_FULL rows could still be declared autonomous writers - the three states whose entire meaning is 'do not write here'. NEAR_FULL is on this list deliberately: it is the state at or past the 0.92 hard limit, and Spec S10 says no provider should be driven to 100% while another eligible target exists. FREE, HEALTHY and PRESSURED remain writable.",
+      "if": {
+        "properties": {
+          "health": {
+            "enum": [
+              "NEAR_FULL",
+              "READ_ONLY",
+              "QUARANTINED",
+              "OFFLINE"
+            ]
+          }
+        },
+        "required": [
+          "health"
+        ]
+      },
+      "then": {
+        "properties": {
+          "autonomous_write_allowed": {
+            "const": false
+          },
+          "write_enabled": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "title": "An autonomous writer is a writer",
+      "description": "write_enabled and autonomous_write_allowed were independent booleans, so a row could permit autonomous writes to a backend whose writes are switched off, or leave writes switched on beside an autonomous_write denial. autonomous_write_allowed is now the strictly narrower permission it reads as: it implies write_enabled, and every rule above that denies one denies the other. write_enabled without autonomous_write_allowed remains representable, and means exactly what it says - writes are possible, but not without a decision made elsewhere.",
+      "if": {
+        "properties": {
+          "autonomous_write_allowed": {
+            "const": true
+          }
+        },
+        "required": [
+          "autonomous_write_allowed"
+        ]
+      },
+      "then": {
+        "properties": {
+          "write_enabled": {
+            "const": true
+          }
+        },
+        "required": [
+          "write_enabled"
+        ]
+      }
+    },
+    {
+      "title": "An unverified external provider cannot be write-enabled either",
+      "description": "The quarantine rule pinned autonomous_write_allowed false but left write_enabled free, which let a row that has been verified for nothing still advertise a working write path.",
+      "if": {
+        "allOf": [
+          {
+            "properties": {
+              "external": {
+                "const": true
+              }
+            },
+            "required": [
+              "external"
+            ]
+          },
+          {
+            "not": {
+              "properties": {
+                "free_status": {
+                  "enum": [
+                    "VERIFIED_FREE",
+                    "VERIFIED_RECURRING_FREE"
+                  ]
+                }
+              },
+              "required": [
+                "free_status"
+              ]
+            }
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "write_enabled": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "title": "A health claim needs a probe behind it",
+      "description": "Spec S10 lists last_probe_at as runtime state, and the enum comment already says a provider nobody has probed is QUARANTINED. That discipline was applied to the external rows by hand and to nothing by construction, so local_owned_store could claim HEALTHY with last_probe_at null. Any health state other than QUARANTINED now requires a probe timestamp - local storage included, because 'it is our own disk' is a reason to expect the probe to succeed, not a reason to skip it.",
+      "if": {
+        "not": {
+          "properties": {
+            "health": {
+              "const": "QUARANTINED"
+            }
+          },
+          "required": [
+            "health"
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "last_probe_at": {
+            "$ref": "#/$defs/timestamp"
+          }
+        },
+        "required": [
+          "last_probe_at"
+        ]
+      }
+    },
+    {
+      "title": "The metadata service is pinned to its identity, not to a label",
+      "description": "Spec S6/S18/S25. Supabase confinement keyed only on adapter_type, which made the label opt-in: a row with provider_id 'supabase' and adapter_type 's3_compatible' walked straight past it and could declare bulk_object_backend_allowed true. The identity now pins the adapter, so declining the label is itself the invalid document, and the confinement rule below can no longer be stepped around.",
+      "if": {
+        "properties": {
+          "provider_id": {
+            "const": "supabase"
+          }
+        },
+        "required": [
+          "provider_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "adapter_type": {
+            "const": "supabase_metadata"
+          }
+        },
+        "required": [
+          "adapter_type"
+        ]
+      }
+    },
+    {
+      "title": "An owned local store has no quota anyone has verified",
+      "description": "A mutant that survived review: quota_total could be given an invented figure on the local row because the registry test that forbids invented quota numbers skipped non-external rows. Owned storage has no provider-granted allowance to read, so the honest value is null, and it is now structural rather than a convention the next author inherits.",
+      "if": {
+        "properties": {
+          "adapter_type": {
+            "const": "local_filesystem"
+          }
+        },
+        "required": [
+          "adapter_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "quota_total": {
+            "type": "null"
+          },
+          "quota_used": {
+            "type": "null"
+          },
+          "quota_reserved": {
+            "type": "null"
+          }
+        }
       }
     }
   ],
@@ -256,11 +853,14 @@
       "pattern": "^[a-z][a-z0-9_]{1,63}$"
     },
     "class_token": {
-      "description": "A short classifier from a controlled vocabulary. Same reasoning as everywhere else in this lane: a field that can hold a sentence can hold a secret.",
+      "description": "A classifier drawn from a small controlled vocabulary - 'replay-bundle', 'evidence.compacted'. Lower-case, punctuation-limited and short, because a classifier that can hold a sentence can hold a prompt, and one that can hold 2KB can hold a credential. Two bounds are load-bearing rather than tidy. maxLength is 40: a 256-bit key is 64 characters as hex and 44 as base64, so neither shape fits, and a review found a 64-character hex private key accepted as an object_class. The 'not' clause refuses a token that is nothing but hex from sixteen characters up, which closes the shorter hex forms that would still fit; below that a pure-hex token is a plausible classifier and too small to be key material. The lower-case pattern already excludes base64 and upper-case base32. A classifier this field cannot express is a sign the vocabulary needs a considered entry, not a longer field.",
       "type": "string",
       "minLength": 1,
-      "maxLength": 64,
-      "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"
+      "maxLength": 40,
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,39}$",
+      "not": {
+        "pattern": "^[0-9a-f]{16,}$"
+      }
     },
     "timestamp": {
       "type": "string",
@@ -269,41 +869,91 @@
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$"
     },
     "evidence_ref": {
-      "description": "A pointer into the existing evidence path. Shaped so that 'TODO' and 'n/a' do not satisfy an evidence requirement.",
+      "description": "A pointer into the existing verifier/evidence path, not a note about one and not a way to fetch one. Either a scheme-qualified reference or a repository-relative path whose final segment carries a file extension, so that the placeholders which satisfy a mere minLength - '   ', 'n/a', 'TODO' - do not satisfy an evidence requirement. The character set is the control. It previously admitted 222 characters including ? # & = % @, which is not the shape of a pointer - it is the shape of a presigned URL ('?X-Amz-Credential=...&X-Amz-Signature=...'), a token callback ('?token=...') and a basic-auth URL ('//user:pass@host'), all of which a review got accepted here. Query strings, fragments and userinfo are gone, because an evidence reference that carries its own authorisation is a credential stored in a manifest.",
       "type": "string",
       "minLength": 1,
-      "maxLength": 256,
-      "pattern": "^(?:[a-z][a-z0-9+.-]{1,31}://[A-Za-z0-9][A-Za-z0-9._~:/?#@!$&'()*+,;=%-]{2,222}|[A-Za-z0-9][A-Za-z0-9._/-]*/[A-Za-z0-9][A-Za-z0-9._-]*[.][A-Za-z0-9]{1,16})$"
+      "maxLength": 200,
+      "pattern": "^(?:[a-z][a-z0-9+.-]{1,31}://[A-Za-z0-9][A-Za-z0-9._~:/-]{2,180}|[A-Za-z0-9][A-Za-z0-9._/-]*/[A-Za-z0-9][A-Za-z0-9._-]*[.][A-Za-z0-9]{1,16})$"
     },
     "free_status_evidence": {
       "description": "Where the free-status claim came from. The whole registry turns on this field: 'provider_documentation' is a marketing page and buys nothing, 'runtime_account_evidence' is something observed about this account and is the only class that can unlock a VERIFIED_* status.",
       "type": "object",
-      "required": ["evidence_class"],
+      "required": [
+        "evidence_class"
+      ],
       "properties": {
         "evidence_class": {
-          "enum": ["none", "provider_documentation", "runtime_account_evidence", "not_applicable"]
+          "enum": [
+            "none",
+            "provider_documentation",
+            "runtime_account_evidence",
+            "not_applicable"
+          ]
         },
-        "verified_at": {"$ref": "#/$defs/timestamp"},
-        "evidence_ref": {"$ref": "#/$defs/evidence_ref"},
-        "observed_by": {"$ref": "#/$defs/class_token"}
+        "verified_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "evidence_ref": {
+          "$ref": "#/$defs/evidence_ref"
+        },
+        "observed_by": {
+          "$ref": "#/$defs/class_token"
+        }
       },
       "additionalProperties": false
     },
     "object_size_limits": {
       "type": "object",
       "properties": {
-        "max_object_bytes": {"type": ["integer", "null"], "minimum": 0, "maximum": 1099511627776},
-        "min_object_bytes": {"type": ["integer", "null"], "minimum": 0, "maximum": 1099511627776},
-        "multipart_required_above_bytes": {"type": ["integer", "null"], "minimum": 0, "maximum": 1099511627776}
+        "max_object_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1099511627776
+        },
+        "min_object_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1099511627776
+        },
+        "multipart_required_above_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1099511627776
+        }
       },
       "additionalProperties": false
     },
     "rate_limits": {
       "type": "object",
       "properties": {
-        "requests_per_minute": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000000},
-        "bytes_per_day": {"type": ["integer", "null"], "minimum": 0, "maximum": 1125899906842624},
-        "verified": {"type": "boolean"}
+        "requests_per_minute": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "bytes_per_day": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1125899906842624
+        },
+        "verified": {
+          "type": "boolean"
+        }
       },
       "additionalProperties": false
     },
@@ -311,19 +961,40 @@
       "description": "Denied by name rather than by omission, matching storage_object_manifest.schema.json.",
       "type": "object",
       "required": [
-        "storage_authority", "routing_authority", "reasoning_authority",
-        "model_selection_authority", "admission_authority",
-        "scheduling_authority", "merge_authority", "trading_authority"
+        "storage_authority",
+        "routing_authority",
+        "reasoning_authority",
+        "model_selection_authority",
+        "admission_authority",
+        "scheduling_authority",
+        "merge_authority",
+        "trading_authority"
       ],
       "properties": {
-        "storage_authority": {"const": false},
-        "routing_authority": {"const": false},
-        "reasoning_authority": {"const": false},
-        "model_selection_authority": {"const": false},
-        "admission_authority": {"const": false},
-        "scheduling_authority": {"const": false},
-        "merge_authority": {"const": false},
-        "trading_authority": {"const": false}
+        "storage_authority": {
+          "const": false
+        },
+        "routing_authority": {
+          "const": false
+        },
+        "reasoning_authority": {
+          "const": false
+        },
+        "model_selection_authority": {
+          "const": false
+        },
+        "admission_authority": {
+          "const": false
+        },
+        "scheduling_authority": {
+          "const": false
+        },
+        "merge_authority": {
+          "const": false
+        },
+        "trading_authority": {
+          "const": false
+        }
       },
       "additionalProperties": false
     }

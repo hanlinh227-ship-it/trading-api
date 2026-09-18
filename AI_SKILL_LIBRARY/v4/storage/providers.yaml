@@ -47,17 +47,49 @@ providers:
     paid_spillover_possible: false
     privacy_classes_allowed: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
     encryption_required_classes: []
-    health: HEALTHY
-    autonomous_write_allowed: true
-    read_enabled: true
-    write_enabled: true
+    # The row previously read HEALTHY beside last_probe_at: null - a health
+    # claim with nothing behind it, and the one place this registry applied to
+    # itself a laxer standard than it applies to every external row. Nothing in
+    # this task probes a store or activates a backend, so the honest value is
+    # the one the schema's own comment already states: a provider nobody has
+    # probed is QUARANTINED. It is not a statement that the local disk is
+    # broken; it is a statement that no probe has been run, which is a
+    # different fact and the only one anyone here can evidence. A probe moves
+    # this row to HEALTHY with a timestamp, and the schema now requires the
+    # timestamp to come with it.
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
     bulk_object_backend_allowed: true
-    tiers_allowed: [HOT]
+    # A local disk is the natural home for the object tiers that are not
+    # someone else's service: the working set, the warm archive and the cold
+    # one. tiers_allowed was [HOT] while privacy_classes_allowed admitted
+    # LOCAL_ONLY and CONFIDENTIAL, which left a LOCAL_ONLY COLD archive with no
+    # admissible home anywhere in the mesh - LOCAL_ONLY may not leave owned
+    # storage and owned storage served no cold tier. CANONICAL stays with
+    # GitHub and METADATA with the object index; neither is a local-disk role.
+    tiers_allowed: [HOT, WARM, COLD]
     preferred_tiers: [HOT]
     retention_policy_class: owned-local
     acceptable_use_class: owned-storage
     last_probe_at: null
     authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
 
   - provider_id: cloudflare_r2
     adapter_type: s3_compatible
@@ -82,6 +114,21 @@ providers:
     acceptable_use_class: object-storage
     last_probe_at: null
     authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
 
   - provider_id: backblaze_b2
     adapter_type: s3_compatible
@@ -106,6 +153,21 @@ providers:
     acceptable_use_class: object-storage
     last_probe_at: null
     authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
 
   - provider_id: oracle_object_storage
     adapter_type: s3_compatible
@@ -130,6 +192,21 @@ providers:
     acceptable_use_class: object-storage
     last_probe_at: null
     authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
 
   - provider_id: huggingface_hub
     adapter_type: huggingface_hub
@@ -156,6 +233,21 @@ providers:
     acceptable_use_class: ai-artifacts-only
     last_probe_at: null
     authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
 
   - provider_id: google_drive
     adapter_type: google_drive_api
@@ -180,6 +272,21 @@ providers:
     acceptable_use_class: human-backup-only
     last_probe_at: null
     authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
 
   - provider_id: onedrive
     adapter_type: microsoft_graph_api
@@ -204,6 +311,21 @@ providers:
     acceptable_use_class: human-backup-only
     last_probe_at: null
     authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
 
   - provider_id: dropbox
     adapter_type: dropbox_api
@@ -228,6 +350,21 @@ providers:
     acceptable_use_class: human-backup-only
     last_probe_at: null
     authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
 
   # Metadata and object index only. Spec S6/S18/S25: Supabase holds the
   # manifest, never the objects, and is never authority. The connected account
@@ -257,3 +394,18 @@ providers:
     acceptable_use_class: metadata-index-only
     last_probe_at: null
     authority: false
+    # Denied by name rather than by omission, matching the manifest record and
+    # the registry header above. These were required on a manifest and merely
+    # optional on a provider row, so every row here shipped without them while
+    # the guard test - which read $defs rather than asking what reaches it -
+    # reported the flags pinned. A row that names no authority is a row a later
+    # edit can hand one to.
+    authority_flags:
+      storage_authority: false
+      routing_authority: false
+      reasoning_authority: false
+      model_selection_authority: false
+      admission_authority: false
+      scheduling_authority: false
+      merge_authority: false
+      trading_authority: false
