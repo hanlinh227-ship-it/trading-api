@@ -6,8 +6,9 @@ one of them and CI found the other, which is the whole argument for this file:
 a rule written down twice is a rule that will be half-changed.
 
 The budget is housekeeping, not a safety property. It stops retired one-shot
-lanes accumulating, and `.github/workflows-archive/` holds 300+ of them. It was
-raised from 120 to 121 to make room for
+lanes accumulating in the active workflow directory. Retired definitions now
+live only in Git history; `.github/workflows-archive/` is a tombstone README.
+It was raised from 120 to 121 to make room for
 `.github/workflows/production-golden-e2e.yml`, the free ephemeral worker that
 runs the canonical golden chain and is where this repository's semantically
 verified golden evidence now comes from - the thing that takes a personal
@@ -28,7 +29,7 @@ to trade. The Railway exit removed `.github/scripts/railway_deploy_latest.py`
 and both Railway production jobs, but those lived inside an existing workflow
 file, so they freed no slot.
 
-To restore a hard 120: retire a lane into the archive and set this back.
+To restore a hard 120: retire an active lane to Git history and set this back.
 """
 
 ACTIVE_WORKFLOW_BUDGET = 122
