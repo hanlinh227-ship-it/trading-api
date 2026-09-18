@@ -29,8 +29,17 @@ def main() -> int:
     root = Path(sys.argv[2]).resolve()
     try:
         response = json.loads(response_path.read_text(encoding="utf-8"))
-        content = response["choices"][0]["message"]["content"]
-        payload = json.loads(content)
+        choice = response["choices"][0]
+        content = choice["message"]["content"]
+        if not isinstance(content, str):
+            reject("missing_content")
+        stripped = content.strip()
+        if stripped.startswith("```"):
+            first_newline = stripped.find("\n")
+            if first_newline < 0 or not stripped.endswith("```"):
+                reject("invalid_fence")
+            stripped = stripped[first_newline + 1 : -3].strip()
+        payload = json.loads(stripped)
         files = payload["files"]
     except (OSError, KeyError, IndexError, TypeError, json.JSONDecodeError):
         reject("invalid_response")
@@ -50,6 +59,7 @@ def main() -> int:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(file_content, encoding="utf-8")
     usage = response.get("usage") or {}
+    print(f"DEEPSEEK_FINISH_REASON={response['choices'][0].get('finish_reason', 'unknown')}")
     prompt_tokens = int(usage.get("prompt_tokens") or 0)
     completion_tokens = int(usage.get("completion_tokens") or 0)
     print(f"DEEPSEEK_USAGE_PROMPT_TOKENS={prompt_tokens}")
