@@ -15,7 +15,13 @@ from AI_SKILL_LIBRARY.v4.local_runtime.golden_e2e import make_legion, make_memor
 from AI_SKILL_LIBRARY.v4.tools.memory_continuity import normalize_work_state, select_continuation
 
 ROOT = Path(__file__).resolve().parents[2]
-E2E = ROOT / "CHECKPOINTS/evidence/AI_CORE_E2E_EVIDENCE.json"
+# The same file the release gate reads, resolved through its own accessor. This
+# read the historical fallback while the canonical run and the gate had both
+# moved to the primary, so the checkpoint it compared against was a different
+# run's.
+from AI_SKILL_LIBRARY.v4.tools.ai_core_release_gate import GOLDEN_PRIMARY
+
+E2E = ROOT / "CHECKPOINTS/evidence" / GOLDEN_PRIMARY
 RESUME = ROOT / "CHECKPOINTS/evidence/AI_CORE_RESUME_EVIDENCE.json"
 
 

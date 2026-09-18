@@ -1,10 +1,12 @@
 {
-  "request": "What is the capital of France?",
-  "model_named_at_ingress": false,
+  "ai_core_e2e": "PASS",
+  "request": "What is the capital city of Japan? Answer briefly.",
+  "process_id": 529,
   "trace": [
     "ingress",
     "task_router",
     "task_decomposition",
+    "ai_legion",
     "model_mesh",
     "runtime_scheduler",
     "wake_load",
@@ -12,6 +14,8 @@
     "verifier",
     "brain_synthesis",
     "response",
+    "memory_update",
+    "checkpoint",
     "warm_sleep"
   ],
   "route": {
@@ -20,16 +24,75 @@
     "primary_skill": "core_reasoning",
     "profile": "STANDARD"
   },
+  "legion": {
+    "specialist_group": "GENERAL_REASONING",
+    "matched_routed_skill": "core_reasoning",
+    "matched_exactly": false,
+    "capabilities": [
+      "text_reasoning"
+    ],
+    "evidence_requirements": [
+      "benchmark",
+      "health",
+      "resource"
+    ],
+    "verification_strategy": "task_specific_verifier",
+    "fallback_behavior": "return_to_primary_or_fail_closed",
+    "routed_by": "task_router",
+    "orchestration_authority": false,
+    "model_selection_authority": "model_mesh"
+  },
+  "checkpoint": {
+    "checkpoint_id": "b3-1789721572",
+    "resumable": true,
+    "memory_authority": false,
+    "routing_authority": false,
+    "written_at": "2026-09-18T08:53:32.876+00:00",
+    "work_state": {
+      "project_id": "personal-ai-core",
+      "domain": "engineering",
+      "focus": "primary",
+      "lifecycle": "active",
+      "phase": "operational_e2e",
+      "last_completed": "golden_e2e:b3-1789721572",
+      "next_actions": [
+        "verify_cross_session_resume"
+      ],
+      "status": "in_progress",
+      "verified": true,
+      "resume_eligible": true,
+      "last_verified": "2026-09-18T08:53:32.876+00:00",
+      "updated_at": "2026-09-18T08:53:32.876+00:00",
+      "source": "AI_SKILL_LIBRARY/v4/tools/local_runtime_ai_core_e2e.py",
+      "canonical_refs": [
+        "AI_SKILL_LIBRARY/checkpoint.json",
+        "AI_SKILL_LIBRARY/v4/control_plane/e2e.py",
+        "AI_SKILL_LIBRARY/v4/memory_continuity/policy.yaml"
+      ],
+      "authority": false,
+      "routing_authority": false,
+      "reasoning_authority": false,
+      "execution_authority": false,
+      "stable_mutation": false
+    },
+    "answer": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
+    "verified": true,
+    "evidence_refs": [
+      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789721572"
+    ],
+    "path": "/home/user/trading-api/CHECKPOINTS/evidence/sessions/b3-1789721572.json"
+  },
+  "continuity_pass": true,
   "selection": {
     "primary_model": {
-      "candidate_key": "local_runtime:Qwen/Qwen3-4B-GGUF",
+      "candidate_key": "local_runtime:Qwen/Qwen3-8B-GGUF",
       "artifact_identity": {
-        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "model_id": "Qwen/Qwen3-8B-GGUF",
         "family": "Qwen3",
-        "variant": "4B-Q4_K_M-GGUF",
-        "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
-        "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
-        "size_bytes": 2497280256,
+        "variant": "8B-Q4_K_M-GGUF",
+        "immutable_revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+        "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+        "size_bytes": 5027783488,
         "format": "gguf",
         "quantization": "Q4_K_M"
       }
@@ -46,49 +109,55 @@
     "synthetic": false,
     "fixture_only": false,
     "artifact_identity": {
-      "model_id": "Qwen/Qwen3-4B-GGUF",
+      "model_id": "Qwen/Qwen3-8B-GGUF",
       "family": "Qwen3",
-      "variant": "4B-Q4_K_M-GGUF",
-      "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
-      "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
-      "size_bytes": 2497280256,
+      "variant": "8B-Q4_K_M-GGUF",
+      "immutable_revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+      "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "size_bytes": 5027783488,
       "format": "gguf",
       "quantization": "Q4_K_M"
     },
     "runtime": "llama.cpp",
     "runtime_version": "llama-cpp-python/0.3.35",
     "offline": true,
-    "started_at": "2026-09-17T10:05:04.763+00:00",
-    "ended_at": "2026-09-17T10:05:20.802+00:00",
-    "load_latency_ms": 5698.797,
-    "inference_latency_ms": 5084.293,
-    "warm_inference_latency_ms": 5093.884,
-    "peak_ram_mb": 5467.48,
-    "output": " \n\nThe capital of France is Paris. Paris is not only the capital of France but also a major cultural and historical center",
-    "warm_output": " Also, can you explain why the answer is correct?\n\nThe capital of France is Paris. This is correct because Paris has",
-    "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:b3-1789639502",
+    "started_at": "2026-09-18T08:53:05.867+00:00",
+    "ended_at": "2026-09-18T08:53:32.875+00:00",
+    "load_latency_ms": 5799.508,
+    "inference_latency_ms": 10822.928,
+    "warm_inference_latency_ms": 10147.943,
+    "peak_ram_mb": 8644.3,
+    "output": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
+    "warm_output": " The capital city of Japan is Tokyo. Tokyo serves as the political, economic, and cultural center of the country, and",
+    "raw_run_ref": "3ee96153354ed2f5e5637ae1a08c465e:b3-1789721572",
     "lifecycle": {
       "wake": true,
       "warm": true,
       "sleep": true
     },
-    "tokens_input": 7,
+    "tokens_input": 11,
     "tokens_output": 24
   },
   "verification": {
     "passed": true,
     "failures": [],
     "evidence_refs": [
-      "0af309b5b9d552063c8cc76f9415130a:b3-1789639502"
+      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789721572"
     ],
-    "verifier": "core_reasoning"
+    "verifier": "core_reasoning",
+    "semantic_oracle": {
+      "request": "What is the capital city of Japan? Answer briefly.",
+      "expected_terms": [
+        "tokyo"
+      ]
+    }
   },
   "response": {
-    "request_id": "b3-1789639502",
-    "answer": " \n\nThe capital of France is Paris. Paris is not only the capital of France but also a major cultural and historical center",
+    "request_id": "b3-1789721572",
+    "answer": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
     "verified": true,
     "evidence_refs": [
-      "0af309b5b9d552063c8cc76f9415130a:b3-1789639502"
+      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789721572"
     ],
     "produced_by": "llama.cpp"
   },

@@ -259,13 +259,27 @@ def test_an_unbound_proof_cannot_set_the_canonical_flag():
 
 
 def test_the_live_24x7_flags_follow_the_current_document():
+    """The flags track the document, whichever way it currently reads.
+
+    This pinned claims_pass False, which was true while the committed proof came
+    from a host whose engine could not run the live round. The proof has since
+    been regenerated on a host where it does, so it passes 22/22 - and pinning
+    the old reading would have made a green proof look like a regression.
+
+    What is actually being tested is the relationship, so that is what is
+    asserted: whatever the document claims, the two readiness flags follow it.
+    """
     report = scopes.build(ROOT, environ={}, skip_probe=True)
     reading = report["EVIDENCE_FRESHNESS"]["FEDERATION_24X7_PROOF.json"]
-    # Bound now, and failing on the one round this host cannot run.
     assert reading["binding"] == "BOUND_TO_REVISION"
-    assert reading["claims_pass"] is False
-    assert report["CANONICAL_24X7_FEDERATION_READY"] is False
-    assert report["CURRENT_ENV_24X7_READY"] is False
+    # Readiness needs BOTH a passing claim and a document still in scope, which
+    # is the rule the neighbouring test states. Asserting the conjunction keeps
+    # this honest whichever way each half currently reads: a passing proof that
+    # has gone historical must not make the federation read ready.
+    current = reading["scope"] == "CURRENT_ENV"
+    assert report["CURRENT_ENV_24X7_READY"] is (reading["claims_pass"] and current)
+    assert report["CANONICAL_24X7_FEDERATION_READY"] is (
+        reading["claims_pass"] and reading["scope"] in ("CURRENT_ENV", "CANONICAL"))
 
 
 def test_current_env_flag_needs_both_scope_and_a_passing_claim():
@@ -540,12 +554,29 @@ def test_phase6_exemption_fails_closed_on_junk():
         assert gate.is_externally_blocked(proof) is False
 
 
-def test_the_committed_24x7_proof_earns_the_exemption():
+def test_a_proof_blocked_only_by_a_dead_engine_earns_the_exemption():
+    """The mechanism, on a document built to exercise it.
+
+    This read the committed proof and required it to be exempt, which tied the
+    test to that document being FAILED. The proof has since been regenerated on
+    a host whose engine runs, so it passes outright and needs no exemption - and
+    a test that demanded otherwise would have forced the evidence to stay broken
+    to stay green. The exemption is still worth testing, so it is tested on a
+    document constructed for it.
+    """
+    gate = _phase6()
+    blocked = {"blocking_class": "REAL_RUNTIME_REQUIRED", "state_rounds_failed": []}
+    assert gate.is_externally_blocked(blocked) is True
+    # A real drill failure must never borrow it, whatever else is true.
+    assert gate.is_externally_blocked(
+        {**blocked, "state_rounds_failed": ["B"]}) is False
+
+
+def test_the_committed_24x7_proof_does_not_need_the_exemption():
+    """It ran for real, so it is a pass on its own terms rather than an excused one."""
     gate = _phase6()
     document = json.loads(
         (ROOT / "CHECKPOINTS/evidence/FEDERATION_24X7_PROOF.json")
         .read_text(encoding="utf-8"))
-    assert gate.is_externally_blocked(document) is True
-    # ...and it is still not claiming a live path.
-    assert document["live_round_status"] == "REAL_RUNTIME_REQUIRED"
-    assert document["federation_status"] == "FAILED"
+    assert document["federation_status"] == "PROVEN", document.get("rounds_passed")
+    assert gate.is_externally_blocked(document) is False

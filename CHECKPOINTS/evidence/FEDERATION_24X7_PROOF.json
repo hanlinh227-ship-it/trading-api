@@ -1,7 +1,7 @@
 {
   "tool": "federation_24x7_proof",
-  "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
-  "proof_timestamp": "2026-09-18T08:19:00Z",
+  "source_sha": "a6604af2bd407c560b539e4fa8dac6b75cd6bc79",
+  "proof_timestamp": "2026-09-18T08:54:35Z",
   "OBSERVED_ON": {
     "host_fingerprint": "93891604e58e2451985a873a94b53e49",
     "platform": "Linux-6.18.44-fc-v33-x86_64-with-glibc2.39",
@@ -22,19 +22,17 @@
     "why_the_flags": "a prebuilt engine raises SIGILL on a CPU lacking the extensions it was compiled for, so these decide liveness for an unchanged commit and an unchanged artifact"
   },
   "reading_scope": "a fact about the machine named in OBSERVED_ON at the moment it ran, against the revision named in source_sha; not a standing property of the code",
-  "federation_status": "FAILED",
+  "federation_status": "PROVEN",
   "live_round": {
-    "live_round_status": "REAL_RUNTIME_REQUIRED",
-    "why": "the round could not run here because the inference engine on this machine cannot execute, established by probing it and not by anyone passing a flag",
-    "engine_state": "EXECUTION_DEAD",
-    "engine_detail": "the engine probe was killed by signal 4",
-    "operator_action": "run this proof on a host whose inference engine executes, or install an engine build this CPU supports; no edit to this repository can supply the missing measurement"
+    "live_round_status": "PASSED",
+    "why": "the round ran here and passed",
+    "engine_state": null
   },
-  "live_round_status": "REAL_RUNTIME_REQUIRED",
+  "live_round_status": "PASSED",
   "state_rounds_total": 21,
   "state_rounds_failed": [],
-  "blocking_class": "REAL_RUNTIME_REQUIRED",
-  "rounds_passed": 21,
+  "blocking_class": "NONE",
+  "rounds_passed": 22,
   "rounds_total": 22,
   "rounds": [
     {
@@ -276,11 +274,20 @@
     {
       "round": "V",
       "scenario": "live_federated_role_execution",
-      "passed": false,
-      "failures": [
-        "skipped by --skip-live; a skipped round never passes"
+      "passed": true,
+      "failures": [],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "collaboration_mode": "MAKER_CHECKER",
+      "models_run": [
+        "Qwen/Qwen3-8B-GGUF",
+        "microsoft/Phi-3-mini-4k-instruct-gguf"
       ],
-      "skipped": true
+      "answer": "<think>\nOkay, let's see. The question is: If every A is a B, and every B is a C, is every A a C? I need to answer yes or no and give a short reason.\n\nFirst, I",
+      "routing_authority": "task_router",
+      "model_selection_authority": "model_mesh",
+      "resolved_by_vote": false,
+      "all_models_are_role_mapped": true
     }
   ],
   "note": "every round breaks something real and asks the existing mesh what it does. A round that could not run does not pass.",
