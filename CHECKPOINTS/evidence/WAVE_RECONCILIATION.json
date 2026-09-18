@@ -1,0 +1,297 @@
+{
+  "tool": "wave_reconciliation",
+  "reconciled_at": "2026-09-18T01:08:47Z",
+  "digests_recomputed": true,
+  "digest_verification_possible_here": true,
+  "verification_scope": "digests recomputed from the bytes in the local cache",
+  "quarantines_retested": true,
+  "RECONCILIATION_TABLE": [
+    {
+      "item": "Qwen/Qwen3-0.6B-GGUF",
+      "wave": 1,
+      "current_state": "AVAILABLE",
+      "evidence": {
+        "registry_state": "AVAILABLE",
+        "artifact_present": true,
+        "licence_recorded": true,
+        "capability_evidence": [
+          "WAVE0_CAPABILITY_EVIDENCE.json",
+          "WAVE3_ENGJUDG_QWEN3_0_6B.json"
+        ],
+        "digest_recomputed": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+        "digest_matches": true
+      },
+      "actionable": false,
+      "human_only": false,
+      "terminal": false,
+      "classification": "OK",
+      "findings": [],
+      "next_action": "none"
+    },
+    {
+      "item": "Qwen/Qwen3-1.7B-GGUF",
+      "wave": 1,
+      "current_state": "AVAILABLE",
+      "evidence": {
+        "registry_state": "AVAILABLE",
+        "artifact_present": true,
+        "licence_recorded": true,
+        "capability_evidence": [
+          "WAVE0_CAPABILITY_QWEN3_1_7B.json",
+          "WAVE3_ENGJUDG_QWEN3_1_7B.json"
+        ],
+        "digest_recomputed": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+        "digest_matches": true
+      },
+      "actionable": false,
+      "human_only": false,
+      "terminal": false,
+      "classification": "OK",
+      "findings": [],
+      "next_action": "none"
+    },
+    {
+      "item": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+      "wave": 1,
+      "current_state": "AVAILABLE",
+      "evidence": {
+        "registry_state": "AVAILABLE",
+        "artifact_present": true,
+        "licence_recorded": true,
+        "capability_evidence": [
+          "WAVE0_CAPABILITY_GRANITE_3_3_2B.json",
+          "WAVE3_ENGJUDG_GRANITE_3_3.json"
+        ],
+        "digest_recomputed": "ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852",
+        "digest_matches": true
+      },
+      "actionable": false,
+      "human_only": false,
+      "terminal": false,
+      "classification": "OK",
+      "findings": [],
+      "next_action": "none"
+    },
+    {
+      "item": "Qwen/Qwen3-4B-GGUF",
+      "wave": 1,
+      "current_state": "AVAILABLE",
+      "evidence": {
+        "registry_state": "AVAILABLE",
+        "artifact_present": true,
+        "licence_recorded": true,
+        "capability_evidence": [
+          "WAVE0_CAPABILITY_QWEN3_4B.json",
+          "WAVE3_ENGJUDG_QWEN3_4B.json",
+          "WAVE5_ADVINT_QWEN3_4B.json"
+        ],
+        "digest_recomputed": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "digest_matches": true
+      },
+      "actionable": false,
+      "human_only": false,
+      "terminal": false,
+      "classification": "OK",
+      "findings": [],
+      "next_action": "none"
+    },
+    {
+      "item": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+      "wave": 2,
+      "current_state": "AVAILABLE",
+      "evidence": {
+        "registry_state": "AVAILABLE",
+        "artifact_present": true,
+        "licence_recorded": true,
+        "capability_evidence": [
+          "WAVE0_CAPABILITY_SMOLLM2_360M.json",
+          "WAVE3_ENGJUDG_SMOLLM2.json"
+        ],
+        "digest_recomputed": "48ab3034d0dd401fbc721eb1df3217902fee7dab9078992d66431f09b7750201",
+        "digest_matches": true
+      },
+      "actionable": false,
+      "human_only": false,
+      "terminal": false,
+      "classification": "OK",
+      "findings": [],
+      "next_action": "none"
+    },
+    {
+      "item": "microsoft/bitnet-b1.58-2B-4T-gguf",
+      "wave": 2,
+      "current_state": "QUARANTINED",
+      "evidence": {
+        "registry_state": "QUARANTINED",
+        "artifact_present": false,
+        "licence_recorded": true,
+        "capability_evidence": [],
+        "revisit_conditions": {
+          "checked": true,
+          "revisit_if": [
+            "a BitNet-capable backend (upstream I2_S support, or the microsoft/BitNet fork) is added to AI_SKILL_LIBRARY/v4/local_runtime/backends",
+            "the upstream publishes a re-quantized artifact under a different digest"
+          ],
+          "runtime_version_when_quarantined": "0.3.35",
+          "runtime_version_installed_now": "0.3.35",
+          "runtime_changed": false,
+          "backends_available": [
+            "llama_cpp",
+            "llama_cpp_python"
+          ],
+          "new_backend_since_quarantine": [],
+          "any_condition_met": false,
+          "artifact_digest_quarantined": "4221b252fdd5fd25e15847adfeb5ee88886506ba50b8a34548374492884c2162",
+          "recorded_diagnostic": "gguf_init_from_reader: tensor 'blk.0.ffn_down.weight' of type 36 (TYPE_IQ4_NL_4_4 REMOVED, use IQ4_NL with runtime repacking) has 6912 elements per row, not a multiple of block size (0); gguf_init_fro"
+        }
+      },
+      "actionable": false,
+      "human_only": false,
+      "terminal": true,
+      "classification": "TERMINAL",
+      "findings": [
+        "a model cache exists on this machine but holds no artifact for this model",
+        "no revisit condition is met - runtime version unchanged (0.3.35 -> 0.3.35) and no backend added"
+      ],
+      "next_action": "quarantine stands: runtime is still 0.3.35 and no new backend exists. Revisit needs a BitNet-capable backend (upstream I2_S support, or the microsoft/BitNet fork) is added to AI_SKILL_LIBRARY/v4/local_runtime/backends; the upstream publishes a re-quantized artifact under a different digest"
+    },
+    {
+      "item": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
+      "wave": 2,
+      "current_state": "QUARANTINED",
+      "evidence": {
+        "registry_state": "QUARANTINED",
+        "artifact_present": false,
+        "licence_recorded": true,
+        "capability_evidence": [],
+        "revisit_conditions": {
+          "checked": true,
+          "revisit_if": [
+            "llama-cpp-python is upgraded to a build whose gguf vocabulary reader accepts the mistral3 tokenizer.ggml.scores type",
+            "the upstream publishes a re-converted artifact under a different digest"
+          ],
+          "runtime_version_when_quarantined": "0.3.35",
+          "runtime_version_installed_now": "0.3.35",
+          "runtime_changed": false,
+          "backends_available": [
+            "llama_cpp",
+            "llama_cpp_python"
+          ],
+          "new_backend_since_quarantine": [],
+          "any_condition_met": false,
+          "artifact_digest_quarantined": "7e9516cc01a039bb3e2d41227cdf388849bc1c942c4624c84567b1684cd9c0fc",
+          "recorded_diagnostic": "llama_model_loader: - kv 0: general.architecture str = mistral3; llama_model_load: error loading model: error loading model vocabulary: invalid gguf type for tokenizer.ggml.scores; llama_model_load_fr"
+        }
+      },
+      "actionable": false,
+      "human_only": false,
+      "terminal": true,
+      "classification": "TERMINAL",
+      "findings": [
+        "a model cache exists on this machine but holds no artifact for this model",
+        "no revisit condition is met - runtime version unchanged (0.3.35 -> 0.3.35) and no backend added"
+      ],
+      "next_action": "quarantine stands: runtime is still 0.3.35 and no new backend exists. Revisit needs llama-cpp-python is upgraded to a build whose gguf vocabulary reader accepts the mistral3 tokenizer.ggml.scores type; the upstream publishes a re-converted artifact under a different digest"
+    },
+    {
+      "item": "ibm-granite/granite-4.2-3b-GGUF",
+      "wave": 2,
+      "current_state": "AVAILABLE",
+      "evidence": {
+        "registry_state": "AVAILABLE",
+        "artifact_present": true,
+        "licence_recorded": true,
+        "capability_evidence": [
+          "WAVE0_CAPABILITY_GRANITE_4_2_3B.json",
+          "WAVE3_ENGJUDG_GRANITE_4_2.json"
+        ],
+        "digest_recomputed": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+        "digest_matches": true
+      },
+      "actionable": false,
+      "human_only": false,
+      "terminal": false,
+      "classification": "OK",
+      "findings": [],
+      "next_action": "none"
+    },
+    {
+      "item": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "wave": 2,
+      "current_state": "AVAILABLE",
+      "evidence": {
+        "registry_state": "AVAILABLE",
+        "artifact_present": true,
+        "licence_recorded": true,
+        "capability_evidence": [
+          "WAVE0_CAPABILITY_PHI3_MINI.json",
+          "WAVE3_ENGJUDG_PHI3_MINI.json"
+        ],
+        "digest_recomputed": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "digest_matches": true
+      },
+      "actionable": false,
+      "human_only": false,
+      "terminal": false,
+      "classification": "OK",
+      "findings": [],
+      "next_action": "none"
+    },
+    {
+      "item": "Qwen/Qwen3-8B-GGUF",
+      "wave": 3,
+      "current_state": "AVAILABLE",
+      "evidence": {
+        "registry_state": "AVAILABLE",
+        "artifact_present": true,
+        "licence_recorded": true,
+        "capability_evidence": [
+          "WAVE0_CAPABILITY_QWEN3_8B.json",
+          "WAVE3_ENGJUDG_QWEN3_8B.json",
+          "WAVE5_ADVINT_QWEN3_8B.json"
+        ],
+        "digest_recomputed": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+        "digest_matches": true
+      },
+      "actionable": false,
+      "human_only": false,
+      "terminal": false,
+      "classification": "OK",
+      "findings": [],
+      "next_action": "none"
+    }
+  ],
+  "by_wave": {
+    "WAVE1": {
+      "models": 4,
+      "ok": 4,
+      "terminal": 0,
+      "actionable": 0,
+      "human_only": 0,
+      "not_verifiable_here": 0
+    },
+    "WAVE2": {
+      "models": 5,
+      "ok": 3,
+      "terminal": 2,
+      "actionable": 0,
+      "human_only": 0,
+      "not_verifiable_here": 0
+    },
+    "WAVE3": {
+      "models": 1,
+      "ok": 1,
+      "terminal": 0,
+      "actionable": 0,
+      "human_only": 0,
+      "not_verifiable_here": 0
+    }
+  },
+  "actionable_items": [],
+  "human_only_items": [],
+  "not_verifiable_here": [],
+  "models_total": 10,
+  "note": "Every digest here was recomputed from the bytes in the cache, not read back from the manifest that claims it. Every quarantine was offered to the installed runtime again rather than inherited.",
+  "routing_authority": false,
+  "admission_authority": false
+}
