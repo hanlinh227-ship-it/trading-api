@@ -189,15 +189,60 @@ jobs:
             exit 1
           fi
 
-      - name: Admit the artifact through the canonical intake
+      - name: Verify the staged artifact
         run: |
           set -euo pipefail
-          # Not a plain copy: the same digest- and size-verifying intake the
-          # local path uses, so the cache this run reads from was populated the
-          # one way the runtime trusts.
+          # Digest, declared size, and a structural GGUF scan. This step
+          # VERIFIES and deliberately admits nothing - the tool says so in its
+          # own output (`admits_nothing: true`) so that no caller can mistake a
+          # clean verification for an intake. Filtered by the manifest's `id`,
+          # which is not the registry model_id.
           python AI_SKILL_LIBRARY/v4/tools/local_runtime_staging_verify.py \
             --staging "${STAGING_DIR}" --cache "${CACHE_DIR}" \
-            --only "${{ steps.artifact.outputs.manifest_id }}"
+            --only "${{ steps.artifact.outputs.manifest_id }}" \
+            --evidence CHECKPOINTS/evidence/STAGING_VERIFY.json
+          python - <<'PY'
+          import json
+          d = json.load(open("CHECKPOINTS/evidence/STAGING_VERIFY.json"))
+          print("STAGING_TOTAL=%s" % d["total"])
+          print("STAGING_VERIFIED=%s" % d["verified"])
+          print("STAGING_MODEL_DISCOVERED=%s" % (d["total"] > 0))
+          if d["total"] != 1 or d["verified"] != 1:
+              raise SystemExit("REFUSED: expected exactly one verified entry")
+          PY
+
+      - name: Admit it into the trusted cache
+        run: |
+          set -euo pipefail
+          # The step above verified and admitted nothing, so the runtime's
+          # `resolve_cached` would still find an empty cache and the golden
+          # chain would refuse with "no verified artifact cached for this
+          # identity". This is the canonical intake - the same
+          # `intake_staged_artifact` the local path uses - and it takes the
+          # REGISTRY model_id, where the verifier above takes the manifest id.
+          # Two tools, two identifier spaces, and conflating them is what made
+          # the first run look like a verification failure.
+          python AI_SKILL_LIBRARY/v4/tools/local_runtime_intake.py \
+            --staged "${STAGING_DIR}/${{ steps.artifact.outputs.filename }}" \
+            --root . \
+            --cache-root "${CACHE_DIR}" \
+            --model-id "${MODEL_ID}" \
+            --output CHECKPOINTS/evidence/LOCAL_RUNTIME_INTAKE.json
+          python - <<'PY'
+          import json
+          d = json.load(open("CHECKPOINTS/evidence/LOCAL_RUNTIME_INTAKE.json"))
+          intake = d.get("intake") or {}
+          # `verified` is IntakeResult's own predicate, serialised. Re-listing
+          # the accepting statuses here would be a second statement of that set,
+          # and a second statement is a thing to drift - the exact mistake this
+          # branch has corrected elsewhere. It also spares me guessing: the
+          # success status is VERIFIED, not the ACCEPTED I first assumed.
+          print("INTAKE_STATUS=%s" % intake.get("status"))
+          print("INTAKE_DIGEST_MATCH=%s" % intake.get("digest_match"))
+          if not intake.get("verified"):
+              raise SystemExit("REFUSED: intake did not accept the artifact: %s"
+                               % intake.get("reason"))
+          PY
 
       - name: Run the canonical golden chain
         run: |
