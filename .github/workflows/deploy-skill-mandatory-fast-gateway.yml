@@ -113,13 +113,28 @@ jobs:
           TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
           AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
           V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
+          PRIVATE_BRIDGE_ENABLED: ${{ vars.PRIVATE_BRIDGE_ENABLED || 'false' }}
         shell: bash
         run: |
           set -euo pipefail
+          # Canonical primary runtime credentials. These are all it needs.
           test -n "${CLOUDFLARE_API_TOKEN:-}"
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           test -n "${TRADING_KV_NAMESPACE_ID:-}"
-          if [ -z "${AI_BRIDGE_SERVICE_ID:-}" ] && [ -z "${V11_AI_BRIDGE_SERVICE_ID:-}" ]; then exit 1; fi
+          # The private VPC bridge is OPTIONAL. Requiring its service id here made
+          # the public primary deploy depend on a private VPC resource, so a
+          # credential without VPC authorisation failed the entire runtime
+          # (Cloudflare error 10196). It is required only when explicitly enabled.
+          if [ "${PRIVATE_BRIDGE_ENABLED:-false}" = "true" ]; then
+            if [ -z "${AI_BRIDGE_SERVICE_ID:-}" ] && [ -z "${V11_AI_BRIDGE_SERVICE_ID:-}" ]; then
+              echo "REFUSED: PRIVATE_BRIDGE_ENABLED=true requires AI_BRIDGE_SERVICE_ID or V11_AI_BRIDGE_SERVICE_ID." >&2
+              exit 1
+            fi
+            echo "PRIVATE_BRIDGE_ENABLED=true"
+          else
+            echo "PRIVATE_BRIDGE_ENABLED=false"
+            echo "CANONICAL_PRIMARY=PUBLIC_RUNTIME_NO_VPC_DEPENDENCY"
+          fi
 
       - name: Install Brain dependencies
         run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
@@ -153,6 +168,7 @@ jobs:
           TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
           AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
           V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
+          PRIVATE_BRIDGE_ENABLED: ${{ vars.PRIVATE_BRIDGE_ENABLED || 'false' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -516,6 +532,7 @@ jobs:
           TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
           AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
           V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
+          PRIVATE_BRIDGE_ENABLED: ${{ vars.PRIVATE_BRIDGE_ENABLED || 'false' }}
         shell: bash
         run: |
           set -euo pipefail
