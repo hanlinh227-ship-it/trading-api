@@ -200,7 +200,7 @@ function normalizeAgent(role,worker,result,setup){
   };
 }
 
-function evaluateAgents(agents=[]){
+export function evaluateBybitAiLegionAgents(agents=[]){
   const byRole=Object.fromEntries(agents.map(x=>[x.roleId,x]));
   const structure=byRole.structure_regime_agent;
   const flow=byRole.flow_liquidity_agent;
@@ -265,7 +265,7 @@ export async function refreshBybitAiLegion({env={},market={},setup={}}={}){
     if(item.status!=='fulfilled')return {roleId:role.id,required:role.required,ok:false,verdict:'VETO',side:'NEUTRAL',confidence:0,riskMultiplier:.5,reasons:['MODEL_WORKER_FAILURE'],freshnessOk:false,providerId:worker.provider_id,modelId:worker.model_id,modelFamily:worker.model_family,latencyMs:0};
     return normalizeAgent(role,worker,item.value,setup);
   });
-  const decision=evaluateAgents(agents);
+  const decision=evaluateBybitAiLegionAgents(agents);
   const state={
     version:BYBIT_AI_LEGION_VERSION,status:decision.approved?'READY':'BLOCKED',mode,fingerprint,
     approved:decision.approved,reason:decision.reason,riskMultiplier:decision.riskMultiplier,
