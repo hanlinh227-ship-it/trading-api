@@ -146,11 +146,16 @@ jobs:
           import acceptance
           matrix = acceptance.acceptance_matrix()
           print(acceptance.render_matrix(matrix))
-          # The plane must never report a runtime live that was not probed.
-          if matrix['SECONDARY_DEPLOYED'] or matrix['SECONDARY_HEALTH_VERIFIED']:
-              raise SystemExit('secondary claims deployment without live evidence')
-          if matrix['FAILOVER_PROOF'] == 'PASS' and not matrix['SECONDARY_DEPLOYED']:
-              raise SystemExit('failover claimed PASS without a deployed secondary')
+          # The registry now carries evidence from a real Deno deployment,
+          # exact-SHA health probe and live research smoke. The matrix must stay
+          # consistent with that evidence; negative-path tests still prove an
+          # unverified secondary can never be promoted.
+          if not matrix['SECONDARY_DEPLOYED'] or not matrix['SECONDARY_HEALTH_VERIFIED']:
+              raise SystemExit('verified Deno secondary unexpectedly missing from acceptance matrix')
+          if not matrix['SECONDARY_SHA_MATCH']:
+              raise SystemExit('verified Deno secondary lost exact-SHA status')
+          if matrix['FAILOVER_PROOF'] != 'PASS':
+              raise SystemExit('live verified secondary must be selectable when primary is circuit-open')
           PY
           echo "GITHUB_ACTIONS_COMPUTE_PLANE=READY"
 
