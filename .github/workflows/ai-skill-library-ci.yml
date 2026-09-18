@@ -66,7 +66,7 @@ jobs:
           python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA"
           echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
       # Closure Task 0: the unittest path above collects only TestCase
-      # subclasses, so 94 module-level `def test_*` functions in five merged
+      # subclasses, so 98 module-level `def test_*` functions in five merged
       # files pass under pytest and are silently never executed by CI. They are
       # not failing; they are not running, which is worse, because a green
       # board was being read as coverage they never had.
@@ -98,7 +98,7 @@ jobs:
             [test_survival_recovery.py]=13
             [test_always_on_retry.py]=9
             [test_always_on_reconciler.py]=7
-            [test_federation_status_scopes.py]=53
+            [test_federation_status_scopes.py]=57
           )
           total=0
           for file in "${!expected[@]}"; do

@@ -500,3 +500,52 @@ def test_the_preserved_history_is_labelled_historical_and_unbound():
         reading = scopes.scope_document(document, root=ROOT,
                                         host_fingerprint="anything", now=NOW)
         assert reading["scope"] == "HISTORICAL"
+
+
+# --- the phase6 exemption, tested where phase6 itself cannot run --------------
+
+def _phase6():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "phase6_closure_gate", _TOOLS / "phase6_closure_gate.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["phase6_closure_gate"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_phase6_exemption_needs_a_probed_engine_and_a_clean_state_run():
+    gate = _phase6()
+    assert gate.LIVE_ROUND == "V"
+    # Both halves, and neither alone.
+    assert gate.is_externally_blocked(
+        {"blocking_class": "REAL_RUNTIME_REQUIRED", "state_rounds_failed": []}) is True
+    assert gate.is_externally_blocked(
+        {"blocking_class": "REAL_RUNTIME_REQUIRED", "state_rounds_failed": ["C"]}) is False
+    assert gate.is_externally_blocked(
+        {"blocking_class": "ROUND_FAILED", "state_rounds_failed": []}) is False
+
+
+def test_phase6_exemption_is_not_reachable_by_a_flag():
+    gate = _phase6()
+    # SKIPPED_BY_FLAG is what a --skip-live on a HEALTHY engine produces. If it
+    # cleared this gate, the gate would be clearable by an argument.
+    assert gate.is_externally_blocked(
+        {"blocking_class": "SKIPPED_BY_FLAG", "state_rounds_failed": []}) is False
+
+
+def test_phase6_exemption_fails_closed_on_junk():
+    gate = _phase6()
+    for proof in (None, [], "REAL_RUNTIME_REQUIRED", 0, {}, {"blocking_class": None}):
+        assert gate.is_externally_blocked(proof) is False
+
+
+def test_the_committed_24x7_proof_earns_the_exemption():
+    gate = _phase6()
+    document = json.loads(
+        (ROOT / "CHECKPOINTS/evidence/FEDERATION_24X7_PROOF.json")
+        .read_text(encoding="utf-8"))
+    assert gate.is_externally_blocked(document) is True
+    # ...and it is still not claiming a live path.
+    assert document["live_round_status"] == "REAL_RUNTIME_REQUIRED"
+    assert document["federation_status"] == "FAILED"

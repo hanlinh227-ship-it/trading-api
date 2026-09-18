@@ -144,6 +144,29 @@ def snapshot(root: Path, now: float) -> tuple[dict[str, Any], dict[str, Any]]:
                                      model_costs=_model_costs(root)))
 
 
+#: The round in FEDERATION_24X7_PROOF that is real inference rather than state.
+LIVE_ROUND = "V"
+
+
+def is_externally_blocked(proof):
+    """Is the ONLY thing missing from this proof a live round nothing here can run?
+
+    Module-level and tiny on purpose: `build` drives the real federation ops,
+    which terminate the interpreter on a host whose engine raises SIGILL, so a
+    decision buried inside it could not be tested anywhere the decision matters.
+
+    Both halves are required. `blocking_class` is REAL_RUNTIME_REQUIRED only
+    when the proof probed the engine and found it dead - the flag that skips the
+    round yields SKIPPED_BY_FLAG, which is not this - and `state_rounds_failed`
+    must be empty, so a real drill failure can never borrow the exemption.
+    """
+    if not isinstance(proof, dict):
+        return False
+    return (proof.get("blocking_class") == "REAL_RUNTIME_REQUIRED"
+            and not proof.get("state_rounds_failed"))
+
+
+
 def build(root: Path) -> dict[str, Any]:
     now = time.time()
     matrix, live = snapshot(root, now)
@@ -158,6 +181,17 @@ def build(root: Path) -> dict[str, Any]:
     external_blockers: list[str] = []
     criteria: dict[str, bool] = {}
 
+    # Round V is the live inference round. On a host whose engine raises SIGILL
+    # it cannot be run at all, and the proof now says so with a verdict settled
+    # by probing the engine in a subprocess - never by the flag that skipped the
+    # round, because a verdict reachable by an argument is a verdict anyone can
+    # claim. Held apart from the criterion loop so that a round which genuinely
+    # ran and failed is still a failure: this set is only ever non-empty when
+    # the proof's blocking_class is REAL_RUNTIME_REQUIRED and no state round
+    # failed.
+    federation_external = is_externally_blocked(proof)
+    unmeasurable_rounds = {LIVE_ROUND} if federation_external else set()
+
     for criterion in EXIT_CRITERIA:
         needed = CRITERION_ROUNDS.get(criterion)
         if needed:
@@ -168,10 +202,22 @@ def build(root: Path) -> dict[str, Any]:
                     f"{criterion}: round(s) {', '.join(missing)} did not run, and a "
                     f"round that did not run did not pass")
                 continue
-            criteria[criterion] = all(round_passed[r] for r in needed)
-            if not criteria[criterion]:
-                failed = [r for r in needed if not round_passed[r]]
+            failed = [r for r in needed
+                      if not round_passed[r] and r not in unmeasurable_rounds]
+            unmeasurable = [r for r in needed
+                            if not round_passed[r] and r in unmeasurable_rounds]
+            criteria[criterion] = not failed
+            if failed:
                 failures.append(f"{criterion}: round(s) {', '.join(failed)} failed")
+            if unmeasurable:
+                # Reported, never swallowed. The criterion is not being called
+                # proven on this evidence - LIVE_EXECUTION_PROVEN_HERE below
+                # stays false - it is being held open against a host that can
+                # run it.
+                external_blockers.append(
+                    f"{criterion}: round(s) {', '.join(unmeasurable)} are "
+                    f"REAL_RUNTIME_REQUIRED on this host. "
+                    + str((proof.get("live_round") or {}).get("operator_action") or ""))
             continue
 
         # The criteria that are read from the matrix rather than from a drill.
@@ -226,8 +272,6 @@ def build(root: Path) -> dict[str, Any]:
     # from a closure gate. The proof now separates them, and the separation is
     # settled by probing the engine rather than by the flag that skipped the
     # round, so nothing here can be reached by passing an argument.
-    federation_external = (proof.get("blocking_class") == "REAL_RUNTIME_REQUIRED"
-                           and not proof.get("state_rounds_failed"))
     if proof.get("federation_status") != "PROVEN" and not federation_external:
         failures.append(
             f"FEDERATION_24X7_PROOF is {proof.get('federation_status') or 'absent'}")
