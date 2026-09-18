@@ -6,7 +6,7 @@ import {
   evaluateBybitAiLegionAgents,
 } from './bybit-ai-legion.js';
 
-assert.equal(BYBIT_AI_LEGION_VERSION,'BYBIT_AI_LEGION_V1');
+assert.equal(BYBIT_AI_LEGION_VERSION,'BYBIT_AI_LEGION_V2_MARKET_INTELLIGENCE');
 assert.deepEqual(BYBIT_AI_LEGION_ROLES.map(x=>x.id),[
   'structure_regime_agent',
   'flow_liquidity_agent',
