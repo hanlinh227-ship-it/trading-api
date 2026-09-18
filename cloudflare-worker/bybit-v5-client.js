@@ -55,6 +55,8 @@ export function bybitV5(env={}){
     }
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
   }
+  // VPS transport retained only as inactive compatibility code for rollback archaeology.
+  // Canonical runtime below never selects it.
   async function signedViaVpsOnce(method,path,paramsOrBody={}){
     if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
     if(!env.AI_BRIDGE||typeof env.AI_BRIDGE.fetch!=="function")throw new Error("BYBIT_VPS_BRIDGE_BINDING_MISSING");
@@ -84,14 +86,7 @@ export function bybitV5(env={}){
     throw last;
   }
   async function market(path,params={}){
-    if(demo)return pub(path,params);
-    try{return await signedViaVps("GET",path,params);}
-    catch(vpsError){
-      if(String(env.BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK||"").toLowerCase()==="true"){
-        try{return await pub(path,params);}catch(directError){directError.cause=vpsError;throw directError;}
-      }
-      throw vpsError;
-    }
+    return pub(path,params);
   }
   async function signedDirect(method,path,paramsOrBody={}){
     if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
@@ -108,12 +103,7 @@ export function bybitV5(env={}){
   }
   async function signed(method,path,paramsOrBody={}){
     guardSignedWrite(method,path,paramsOrBody);
-    if(demo)return signedDirect(method,path,paramsOrBody);
-    try{return await signedViaVps(method,path,paramsOrBody);}
-    catch(e){
-      if(String(env.BYBIT_ALLOW_DIRECT_PRIVATE_FALLBACK||"").toLowerCase()==="true")return signedDirect(method,path,paramsOrBody);
-      throw e;
-    }
+    return signedDirect(method,path,paramsOrBody);
   }
   async function setLeverage(symbol,leverage){
     try{return await signed("POST","/v5/position/set-leverage",{category:"linear",symbol,buyLeverage:String(leverage),sellLeverage:String(leverage)});}
@@ -148,7 +138,7 @@ export function bybitV5(env={}){
     return signed("POST","/v5/order/create",enriched);
   }
   return {
-    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:demo?"CLOUDFLARE_BYBIT_DEMO_DIRECT":BYBIT_PRIVATE_TRANSPORT,marketTransport:demo?"CLOUDFLARE_BYBIT_DEMO_PUBLIC":BYBIT_MARKET_TRANSPORT,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,recvWindowMs:Number(recvWindow),
+    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:demo?"CLOUDFLARE_BYBIT_DEMO_DIRECT":"CLOUDFLARE_BYBIT_PRIVATE_DIRECT",marketTransport:"CLOUDFLARE_BYBIT_PUBLIC_DIRECT",runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,recvWindowMs:Number(recvWindow),
     serverTime:()=>market("/v5/market/time"),
     wallet:()=>signed("GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),
     positions:()=>signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200}),
