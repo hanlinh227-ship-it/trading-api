@@ -327,7 +327,33 @@ jobs:
           git add CHECKPOINTS/evidence
           git commit -m "evidence(ai-core): golden E2E from a free ephemeral worker" \
                      -m "Produced by .github/workflows/production-golden-e2e.yml on a GitHub-hosted ubuntu-latest runner against source_sha ${SOURCE_SHA}, executing ${{ steps.selection.outputs.model_id }} at its pinned digest. The semantic verifier was re-run against the canonical request and passed before this commit was made. No personal hardware was involved and no paid resource was used."
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+          # The job takes minutes - a 5 GB fetch and CPU inference on an 8B
+          # model - and the branch moves while it runs. Run 5 produced a fully
+          # verified golden answer and then lost the push to a non-fast-forward,
+          # because a commit landed on the branch mid-run. Rebase onto whatever
+          # arrived and try again; an evidence-only commit replays cleanly
+          # unless someone touched the same files, and if they did, that is a
+          # real conflict to surface rather than overwrite.
+          pushed=false
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              pushed=true; break
+            fi
+            echo "PUSH_RETRY=${attempt} reason=branch_moved"
+            git fetch origin "${GITHUB_REF_NAME}"
+            if ! git rebase "origin/${GITHUB_REF_NAME}"; then
+              git rebase --abort || true
+              echo "REFUSED: the evidence conflicts with a change that landed"
+              echo "mid-run. Not overwriting it."
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
+          if [ "${pushed}" != "true" ]; then
+            echo "REFUSED: could not return the evidence after 3 attempts"
+            exit 1
+          fi
 
       - name: Release gate
         run: |
