@@ -1,4 +1,4 @@
-name: DeepSeek Lane — Survival Closure Proof
+name: DeepSeek Lane — Always-On Retry and Reconciler
 
 on:
   push:
@@ -44,31 +44,33 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          prompt = '''Implement the non-shared-file portion of Task 6 of the approved Survival Plane plan.
-          Return one JSON object with exactly one key, "files". "files" must map exactly these two repository paths to complete UTF-8 file contents:
-          AI_SKILL_LIBRARY/v4/tools/survival_plane_proof.py
-          AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py
+          prompt = '''Implement only Tasks 4 and 5 of the approved Always-On Execution Closure plan.
+          Return one JSON object with exactly one key, "files". "files" must map exactly these four repository paths to complete UTF-8 file contents:
+          AI_SKILL_LIBRARY/v4/always_on/retry.py
+          AI_SKILL_LIBRARY/tests/test_always_on_retry.py
+          AI_SKILL_LIBRARY/v4/always_on/reconciler.py
+          AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py
 
-          Required output contract from the proof tool:
-          SURVIVAL_PLANE_READY=PASS|FAIL
-          DISASTER_RECOVERY_READY=PASS|FAIL
-          POLICY_ENFORCEMENT=PASS|FAIL
-          SECRET_REFERENCE_ONLY=PASS|FAIL
-          ARTIFACT_TRUST=PASS|FAIL
-          RESTORE_DRILL=PASS|FAIL
+          Task 4 interfaces:
+          - classify_failure(kind)->"retryable"|"terminal"
+          - next_retry_delay(attempt, base_seconds=5, cap_seconds=900)->int
+          - should_dead_letter(attempt, max_attempts)->bool
+          Requirements: bounded exponential backoff, cap enforced, deterministic jitter injection available for tests, fail closed on invalid values, no unbounded retry.
 
-          Requirements:
-          - Use the existing Survival Plane modules created by Tasks 1-5; do not create a parallel authority or duplicate policy engine.
-          - Proof must be deterministic, offline, and fail closed.
-          - POLICY_ENFORCEMENT may pass only when the canonical policy adapter contract is present and its fail-closed behavior can be evidenced.
-          - SECRET_REFERENCE_ONLY may pass only when SecretRef/reference-only behavior is evidenced without exposing secret values.
-          - ARTIFACT_TRUST may pass only when artifact scan + provenance contracts exist and reject missing/mismatched/unverified trust evidence.
-          - RESTORE_DRILL and DISASTER_RECOVERY_READY MUST remain FAIL unless explicit faithful isolated restore-drill evidence is supplied and validated. Never synthesize or assume such evidence.
-          - SURVIVAL_PLANE_READY may reflect the non-DR survival controls, but must not imply disaster recovery is ready.
-          - Tests must pin all fail-closed behavior and must prove missing restore-drill evidence stays FAIL.
-          - Do NOT modify AI_SKILL_LIBRARY/checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, Storage Mesh files, or any existing Survival Plane module.
-          - routing/reasoning/scheduling/merge/deployment/trading authority all remain false.
-          - No new dependencies and no network access in tests.
+          Task 5 interface:
+          - reconcile(desired, observed)->list[Action]
+          Allowed actions include REQUEUE_EXPIRED_LEASE, QUARANTINE_PROVIDER, REQUEST_REPLICA_REPAIR, EXCLUDE_STALE_WORKER.
+          Requirements: pure deterministic desired-vs-observed reconciliation; no I/O, no network, no busy polling, no model selection, no routing, no scheduling authority, no trade authority. Inputs must not be mutated. Duplicate inputs must not produce duplicate unsafe actions.
+
+          Global constraints:
+          - GITHUB_BRAIN_V4 remains sole Brain.
+          - task_router remains sole routing authority.
+          - Model Mesh remains model/provider selection layer.
+          - paid execution fallback remains disabled.
+          - background work is bounded/event-driven.
+          - DeepSeek has no authority flags.
+          - Do not modify Storage Mesh, Survival Plane, checkpoint.json, shared_state.yaml, universal_fabric.yaml, Cloudflare worker files, or release pointers.
+          - No new dependencies. Tests must be offline.
           - Return no prose outside the JSON object.
           '''
           request = {
@@ -77,7 +79,7 @@ jobs:
               "temperature": 0,
               "response_format": {"type": "json_object"},
               "messages": [
-                  {"role": "system", "content": "You are a bounded coding worker. Reply with one JSON object only, first character { and final character }. The object has exactly one key, \"files\", mapping exactly the two allowed paths to complete file contents. Be fail-closed and never invent restore evidence. Keep the implementation compact; avoid explanatory comments, duplicate helpers, and large fixtures so the complete two-file JSON fits within the output limit."},
+                  {"role": "system", "content": "You are a bounded coding worker. Reply with one JSON object only. The object has exactly one key, \"files\", mapping exactly the four allowed paths to complete file contents. Keep implementations compact, deterministic, fail-closed, and non-authoritative."},
                   {"role": "user", "content": prompt},
               ],
           }
@@ -109,7 +111,7 @@ jobs:
       - name: Enforce file ownership
         run: |
           set -euo pipefail
-          allowed='^(AI_SKILL_LIBRARY/v4/tools/survival_plane_proof\.py|AI_SKILL_LIBRARY/tests/test_survival_plane_proof\.py)$'
+          allowed='^(AI_SKILL_LIBRARY/v4/always_on/(retry\.py|reconciler\.py)|AI_SKILL_LIBRARY/tests/(test_always_on_retry\.py|test_always_on_reconciler\.py))$'
           unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
@@ -121,18 +123,22 @@ jobs:
       - name: Run focused tests
         run: |
           python3 -m pip install -r AI_SKILL_LIBRARY/requirements.txt pytest
-          python3 -m pytest -q AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py
+          python3 -m pytest -q \
+            AI_SKILL_LIBRARY/tests/test_always_on_retry.py \
+            AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py
           echo "DEEPSEEK_TESTS=PASS"
 
-      - name: Commit DeepSeek survival proof
+      - name: Commit DeepSeek Always-On tasks
         run: |
           set -euo pipefail
           git config user.name 'DeepSeek Coding Lane'
           git config user.email 'deepseek-lane@users.noreply.github.com'
           git add \
-            AI_SKILL_LIBRARY/v4/tools/survival_plane_proof.py \
-            AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py
-          git commit -m 'feat(survival): add fail-closed closure proof'
+            AI_SKILL_LIBRARY/v4/always_on/retry.py \
+            AI_SKILL_LIBRARY/v4/always_on/reconciler.py \
+            AI_SKILL_LIBRARY/tests/test_always_on_retry.py \
+            AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py
+          git commit -m 'feat(always-on): add bounded retry and pure reconciler'
           git push origin HEAD:work/deepseek-survival-plane-442
-          echo "DEEPSEEK_SURVIVAL_PROOF_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_ALWAYS_ON_COMMIT=$(git rev-parse HEAD)"
           echo "DEEPSEEK_CODING_LANE_READY=PASS"
