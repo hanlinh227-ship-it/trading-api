@@ -45,9 +45,12 @@ production_verification:
   railway_success_required: false
   exact_source_sha_required: true
   primary_health_required: true
-  live_execution_smoke_required: true
-  required_execution_venues:
-    - bybit
+  live_research_smoke_required: true
+  required_research_venues:
+    - okx
+  live_execution_smoke_required: false
+  required_execution_venues: []
+  private_execution_capability_optional: true
   exact_source_sha_health_field: deploymentSourceSha
 # The primary runtime is the only production authority. A secondary exists to
 # absorb Cloudflare being unavailable or out of free quota, and is CAPACITY
