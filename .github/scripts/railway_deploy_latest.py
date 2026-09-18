@@ -231,6 +231,36 @@ def choose_mutation(available: dict[str, list[str]]) -> tuple[str, str]:
            json.dumps(available, sort_keys=True)))
 
 
+def access_report(token: str, scheme: str, service_id: str,
+                  environment_id: str) -> str:
+    """What this token can actually SEE, asked only when a deploy is refused.
+
+    "Not Authorized" on the deploy mutation has two very different causes: the
+    token cannot reach this service at all (wrong project, wrong account), or it
+    can see it but may not deploy it. Reading each id back separates them.
+
+    Reports PRESENCE, never the identifiers. RAILWAY_SERVICE_ID and
+    RAILWAY_ENVIRONMENT_ID are repository secrets, and a diagnostic that printed
+    them to explain why they did not work would put them in a public log. Never
+    raises: this explains a failure that already happened.
+    """
+    notes = []
+    for label, field, ident in (
+        ("RAILWAY_SERVICE_ID", "service", service_id),
+        ("RAILWAY_ENVIRONMENT_ID", "environment", environment_id),
+    ):
+        query = "query Q($id: String!) { %s(id: $id) { id } }" % field
+        try:
+            data = _post(query, {"id": ident}, token, scheme)
+            node = data.get(field) or {}
+            notes.append("%s: %s" % (
+                label,
+                "visible to this token" if node.get("id") else "no such %s" % field))
+        except Failure as exc:
+            notes.append("%s: not readable by this token (%s)" % (label, exc))
+    return "; ".join(notes)
+
+
 def start_deploy(token: str, scheme: str, mutation: str, commit_arg: str,
                  service_id: str, environment_id: str, sha: str) -> str:
     query = (
@@ -331,12 +361,33 @@ def main(argv=None) -> int:
         available = deploy_mutations(token, scheme)
         mutation, commit_arg = choose_mutation(available)
         print("RAILWAY_DEPLOY_MUTATION=%s commit_arg=%s" % (mutation, commit_arg))
-        start_deploy(token, scheme, mutation, commit_arg, service_id,
-                     environment_id, sha)
+        try:
+            start_deploy(token, scheme, mutation, commit_arg, service_id,
+                         environment_id, sha)
+        except Failure as exc:
+            if not exc.auth_rejected:
+                raise
+            # The token authenticated - it got this far - so a refusal HERE is
+            # about reaching or deploying this particular service, not about the
+            # credential being invalid. Say which, instead of sending someone to
+            # rotate a token that just proved it works.
+            raise Failure(
+                "%s. The token authenticated (scheme %s) and could read the "
+                "schema, so this refusal is about THIS service, not the token's "
+                "validity. Access check - %s"
+                % (exc, scheme,
+                   access_report(token, scheme, service_id, environment_id)),
+                auth_rejected=True,
+            ) from None
         node = wait_for_deployment(token, scheme, service_id, environment_id,
                                    sha, args.timeout)
     except Failure as exc:
+        # Ordering matters in a CI log: stdout is block-buffered when piped, so
+        # without this the refusal appears ABOVE the steps that preceded it and
+        # reads as though nothing had succeeded.
+        sys.stdout.flush()
         print("RAILWAY_DEPLOY=FAIL")
+        sys.stdout.flush()
         print("REFUSED: %s" % exc, file=sys.stderr)
         return 1
 
