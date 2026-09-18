@@ -39,7 +39,13 @@ def main() -> int:
             if first_newline < 0 or not stripped.endswith("```"):
                 reject("invalid_fence")
             stripped = stripped[first_newline + 1 : -3].strip()
-        payload = json.loads(stripped)
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            object_start = stripped.find("{")
+            if object_start < 0:
+                raise
+            payload, _ = json.JSONDecoder().raw_decode(stripped[object_start:])
         files = payload["files"]
     except (OSError, KeyError, IndexError, TypeError, json.JSONDecodeError):
         reject("invalid_response")

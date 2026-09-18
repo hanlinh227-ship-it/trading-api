@@ -69,7 +69,7 @@ jobs:
           request = {
               "model": "deepseek-chat",
               "max_tokens": 6000,
-              "temperature": 0.1,
+              "temperature": 0,
               "response_format": {"type": "json_object"},
               "messages": [
                   {"role": "system", "content": "You are a bounded coding worker. Obey the exact file allowlist and return complete files only."},
