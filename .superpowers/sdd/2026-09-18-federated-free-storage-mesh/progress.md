@@ -143,3 +143,64 @@ so drift fails the suite); Finding 3's aliasing half is guarded rather than repr
 because with non-scalars rejected there is nothing left to alias; and Finding 4a is a
 thread-local construction guard, not re-hashing — which means `dataclasses.replace` on a
 StorageObject now raises, and Task 3 needs an explicit method if it wants a re-placed copy.
+
+| 2 | done | 1f97bbd7 | subagent | 72 focused / 207 with contracts | review: 4 findings, 1 BLOCKER | 1 (98048541) + 1 by controller | See "Task 2 fix round" above. |
+| 3 | committed, review pending | 98048541 | subagent | 161 focused / 368 with Tasks 1-2 | pending | - | capacity.py + placement.py. Gates, not weights. |
+
+## Ruling 005 — the plan's illustrative row is wrong, and I am endorsing the contradiction
+The plan's Task 3 sample asserts
+`provider_state({"quota_used":79,"quota_total":100,"health":"HEALTHY","write_enabled":True}) == "HEALTHY"`.
+The implementer returns `QUARANTINED` for that row and said so plainly rather than quietly
+matching the plan. I verified it and I am keeping the contradiction.
+
+That row declares no externality, no free status, no spillover answer and no probe. Calling
+it HEALTHY is precisely the optimistic pass `UNKNOWN_COST_STATE=QUARANTINE` exists to
+forbid: an incomplete row would be admitted as writable because nothing in it said "no".
+The snippet was illustrating the 80% threshold, not specifying admission, and the threshold
+is asserted separately on complete rows. A plan is not more authoritative than the spec it
+implements, and the spec is binding here.
+
+Same reasoning for the plan's Step-3 ranking prose ("criticality fit, headroom, tier
+preference, health, then latency"), which puts headroom above health and tier preference
+above health. The checked-in `policy.yaml placement_order` — privacy, integrity, free-only,
+**provider_health**, **quota_headroom**, object_size, **access_frequency**, retention,
+latency, backend — says otherwise, and the spec agrees with the policy. Implementation
+follows the policy; two tests pin that order.
+
+## Controller verification of Task 3 (not taken on the implementer's word)
+My first three probe attempts returned "nothing is eligible" — because my hand-built
+fixtures were incomplete, and later because I wrote `quota_total_bytes` where the schema
+says `quota_total`. Both times the module was refusing undeclared or missing fields, which
+is the fail-closed rule working correctly; my probes proved nothing until I used the real
+field names. Worth recording because "everything returned None" looked at first like a
+broken module and was in fact the module being right about my input.
+
+With correct fixtures: a 100-byte provider at 70% full that admits INTERNAL beats a
+10^9-byte provider with `health: FREE` that does not, **in both input orders**, and despite
+losing the lexicographic tie-break — capacity does not override privacy. LOCAL_ONLY is
+placed nowhere against an external row named `local_r2`, an `external: None` row and an
+`external: "false"` row, and lands on owned storage only. Candidate order is identical
+across rotation and reversal; inputs are not mutated. A 400-character AWS-key-shaped needle
+fed through `provider_id` and `retention_policy_class` does not appear anywhere in the
+report. `AUTHORITY` is False in both modules; the shipped registry still admits nothing
+external (0 of 9 rows), which is consistent with the finding already recorded: the mesh has
+no external writable home today.
+
+### Carried forward, not closed
+- Latency (placement order position 9) is unimplemented: no latency evidence exists in the
+  provider contract. Named `LATENCY_EVIDENCE_AVAILABLE = False` rather than faked.
+- Retention (position 8) is string equality only; no provider declares one today.
+- No probe-staleness rule: a `last_probe_at` from 2019 is accepted. The spec sets no TTL
+  and the implementer did not invent one. Absent/null/malformed timestamps *are* rejected.
+- The emergency reserve's meaning (5% of what?) is an interpretation: the last 5% below the
+  hard limit is visible only to CRITICAL objects, never a door past the hard limit.
+- `AUTHORITY_FLAGS` is a tuple in `__init__.py` and a name->False mapping in the new
+  modules. Deliberate, so flags are denied by value; flagged as an inconsistency to unify.
+- **Blocks a later task:** `select_primary` returns a provider, but with direct construction
+  and `dataclasses.replace` both refused on StorageObject there is no way to write that
+  answer back into an object's `primary_backend`. Task 4/5 needs an explicit
+  `with_placement(...)` on the model that preserves `object_id` and `content_sha256`
+  exactly — re-placement must not change identity, because identity is the content.
+- Replication obligations (spec S8: CRITICAL >=2 independent copies) are enforced nowhere
+  yet. `select_primary` returning a provider does NOT mean a CRITICAL object's replication
+  requirement is satisfiable. That is Task 5.
