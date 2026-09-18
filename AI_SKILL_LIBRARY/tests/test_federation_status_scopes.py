@@ -342,3 +342,56 @@ def test_main_runs_and_writes_bound_evidence(tmp_path):
     document = json.loads(out.read_text(encoding="utf-8"))
     assert document["tool"] == "federation_status_scopes"
     assert document["changes_nothing"] is True
+
+
+# --- the two proofs this tool caught asserting PROVEN with nothing behind it ---
+
+def _tool(name):
+    spec = importlib.util.spec_from_file_location(name, _TOOLS / (name + ".py"))
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_24x7_proof_now_binds_itself():
+    result = _tool("federation_24x7_proof").build(ROOT, skip_live=True)
+    assert scopes.SOURCE_SHA_RE.match(result["source_sha"] or "")
+    assert scopes._parse_timestamp(result["proof_timestamp"]) is not None
+    assert result["OBSERVED_ON"]["host_fingerprint"]
+
+
+def test_the_free_worker_proof_now_binds_itself():
+    result = _tool("free_worker_mesh_proof").build(ROOT, live=False)
+    assert scopes.SOURCE_SHA_RE.match(result["source_sha"] or "")
+    assert scopes._parse_timestamp(result["proof_timestamp"]) is not None
+
+
+def test_a_skipped_live_round_leaves_the_denominator_alone():
+    # The round used to be dropped rather than failed, which shrank BOTH sides
+    # of the fraction and returned PROVEN 9/9 on a host that cannot execute one
+    # instruction of the engine.
+    result = _tool("free_worker_mesh_proof").build(ROOT, live=False)
+    assert result["mesh_status"] == "FAILED"
+    assert result["rounds_run"] == 10
+    assert "J" in result["failed_rounds"]
+
+
+def test_a_skipped_round_never_passes_in_either_proof():
+    for module, kwargs, field in (
+            ("federation_24x7_proof", {"skip_live": True}, "federation_status"),
+            ("free_worker_mesh_proof", {"live": False}, "mesh_status")):
+        result = _tool(module).build(ROOT, **kwargs)
+        assert result[field] == "FAILED", module
+
+
+def test_a_bound_proof_is_scoped_current_env_when_it_is_one():
+    # End to end: the freshly built 24x7 proof, scoped by the tool that refused
+    # the old unbound one, lands in CURRENT_ENV rather than HISTORICAL.
+    result = _tool("federation_24x7_proof").build(ROOT, skip_live=True)
+    host = result["OBSERVED_ON"]["host_fingerprint"]
+    reading = scopes.scope_document(result, root=ROOT, host_fingerprint=host,
+                                    now=datetime.now(timezone.utc))
+    assert reading["binding"] == "BOUND_TO_REVISION"
+    assert reading["locality"] == "THIS_HOST"
+    assert reading["scope"] == "CURRENT_ENV"

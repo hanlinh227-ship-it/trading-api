@@ -57,6 +57,11 @@ from AI_SKILL_LIBRARY.v4.local_runtime.workers import (  # noqa: E402
     WorkerRegistry,
 )
 from AI_SKILL_LIBRARY.v4.tools.wave3_free_execution_paths import load_registry  # noqa: E402
+from AI_SKILL_LIBRARY.v4.tools.worker_execution_liveness import (  # noqa: E402
+    current_source_sha as _current_source_sha,
+    observing_host as _observing_host,
+    utc_now as _utc_now,
+)
 
 MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
 
@@ -310,10 +315,29 @@ def build(root: Path, *, live: bool = True) -> dict[str, Any]:
     rows = scenario_rounds(root, now)
     if live:
         rows.append(live_inference_round(root))
+    else:
+        # A skipped round is recorded as a round that did not pass, never
+        # dropped. Dropping it shrank the denominator as well as the numerator,
+        # so `--no-live` returned PROVEN 9/9 on a host whose engine cannot
+        # execute an instruction - a document asserting the mesh proven by
+        # leaving out the only round that would have said otherwise. The sibling
+        # 24x7 proof already worked this way; this one did not.
+        rows.append(_row("J", "live_federated_inference",
+                         ["skipped by --no-live; a skipped round never passes"],
+                         skipped=True))
 
     failed = [row["round"] for row in rows if not row["passed"]]
     return {
         "tool": "free_worker_mesh_proof",
+        # Binding, for the same reason the 24x7 proof needed it: this document
+        # asserted PROVEN 10/10 with nothing saying which revision, moment or
+        # machine it described, so nothing could age it or contradict it.
+        "source_sha": _current_source_sha(root),
+        "proof_timestamp": _utc_now(),
+        "OBSERVED_ON": _observing_host(),
+        "reading_scope": ("a fact about the machine named in OBSERVED_ON at the "
+                          "moment it ran, against the revision named in "
+                          "source_sha; not a standing property of the code"),
         "rounds_run": len(rows),
         "rounds_passed": len(rows) - len(failed),
         "failed_rounds": failed,

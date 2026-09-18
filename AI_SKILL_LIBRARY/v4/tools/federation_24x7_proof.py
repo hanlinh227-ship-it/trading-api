@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from AI_SKILL_LIBRARY.v4.local_runtime.federation_ops import (  # noqa: E402
     DemandLedger,
@@ -590,6 +591,16 @@ def live_round(root: Path, now: float, matrix: dict[str, Any]) -> dict[str, Any]
     return _row("V", "live_federated_role_execution", failures, **detail)
 
 
+# Binding helpers, imported from the tool that already defines this repository's
+# one spelling of them rather than restated here. A second implementation of
+# "which revision is this" is a second implementation to drift.
+from worker_execution_liveness import (  # noqa: E402
+    current_source_sha as _current_source_sha,
+    observing_host as _observing_host,
+    utc_now as _utc_now,
+)
+
+
 def build(root: Path, *, skip_live: bool = False) -> dict[str, Any]:
     now = time.time()
     matrix = role_capability_matrix.build(root)
@@ -607,6 +618,19 @@ def build(root: Path, *, skip_live: bool = False) -> dict[str, Any]:
     passed = sum(1 for r in rounds if r["passed"])
     return {
         "tool": "federation_24x7_proof",
+        # Binding, added after this document was found asserting PROVEN 22/22
+        # with nothing saying which revision, which moment or which machine it
+        # was about. A claim nobody can age is a claim nobody can contradict,
+        # and the scoping tool correctly refused to count it as canonical.
+        # Every round below breaks something on THIS host: a CPU that takes
+        # SIGILL on the engine binary reads round V the opposite way from one
+        # that does not, and both readings are true of the machines they name.
+        "source_sha": _current_source_sha(root),
+        "proof_timestamp": _utc_now(),
+        "OBSERVED_ON": _observing_host(),
+        "reading_scope": ("a fact about the machine named in OBSERVED_ON at the "
+                          "moment it ran, against the revision named in "
+                          "source_sha; not a standing property of the code"),
         "federation_status": "PROVEN" if passed == len(rounds) else "FAILED",
         "rounds_passed": passed,
         "rounds_total": len(rounds),
