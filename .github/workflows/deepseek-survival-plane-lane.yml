@@ -1,4 +1,4 @@
-name: DeepSeek Lane — Private Mesh Contract
+name: DeepSeek Lane — Front Door Project Resolution
 
 on:
   push:
@@ -21,16 +21,13 @@ jobs:
         with:
           ref: work/deepseek-survival-plane-442
           fetch-depth: 0
-
       - name: Declare bounded authority
         run: |
           echo "routing_authority=false"
-          echo "reasoning_authority=false"
-          echo "scheduling_authority=false"
-          echo "worker_admission_authority=false"
+          echo "brain_authority=false"
+          echo "project_state_authority=false"
           echo "merge_authority=false"
           echo "trading_authority=false"
-
       - name: Verify secret presence by name only
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -38,72 +35,58 @@ jobs:
           set -euo pipefail
           test -n "${DEEPSEEK_API_KEY:-}"
           echo "DEEPSEEK_SECRET_PRESENT=PRESENT"
-
       - name: Build narrow coding request
         run: |
           python3 - <<'PY'
           import json
           from pathlib import Path
-          prompt = '''Implement only Task 4 of the approved Critical Role Redundancy Closure plan: private mesh adapter contract.
+          prompt = '''Implement only Task 1 of the approved Front Door Closure plan: default project resolution.
           Return one JSON object with exactly one key, "files". "files" must map exactly these two repository paths to complete UTF-8 file contents:
-          AI_SKILL_LIBRARY/v4/local_runtime/private_mesh.yaml
-          AI_SKILL_LIBRARY/tests/test_private_mesh_contract.py
+          cloudflare-worker/project-resolution.js
+          cloudflare-worker/test-project-resolution.mjs
 
-          Requirements:
-          - Supported backends: tailscale and headscale.
-          - Network membership NEVER implies worker admission, attestation, eligibility, capability, privacy permission, routing eligibility, or execution authority.
-          - No new worker registry, router, scheduler, provider registry, or model selector.
-          - Same-host aliases never count as independent execution paths merely due to separate mesh identities.
-          - Private-mesh connectivity is transport/convenience only.
-          - Headscale is the provider-neutral/self-hosted escape contract.
-          - Tailscale may be convenience/default where configured, but no vendor dependency may become authority.
-          - privacy/free-only policy outranks capacity/connectivity.
-          - all authority flags false, including routing_authority, scheduling_authority, worker_admission_authority, model_selection_authority, trading_authority.
-          - contract must be fail closed if backend is unknown or if configuration attempts to imply automatic worker admission.
-          - tests must load/validate YAML and pin all invariants above, including unknown-backend rejection and membership-not-admission.
-          - Do not modify workers.py, free_worker_mesh.py, WorkerRegistry, Storage Mesh, Survival Plane, checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, or Cloudflare worker files.
-          - No new dependencies; tests offline only.
-          - Return no prose outside the JSON object.
+          Required interface:
+          resolveProjectId(request, clientConfig, storedDefault) -> string|null
+
+          Invariants:
+          - explicit project_id supplied by the authenticated request wins when valid;
+          - otherwise an explicitly approved client default may be used;
+          - otherwise an explicitly stored approved default may be used;
+          - never guess across projects;
+          - conflicting ambiguous project identifiers fail closed;
+          - malformed, empty, non-string, or unapproved defaults return null rather than guessing;
+          - no secret material, transcript content, or connector token is persisted/logged;
+          - ChatGPT/Claude/Gemini are clients, never Brain authorities;
+          - project continuity remains bounded/versioned and this resolver has no routing/reasoning/scheduling/trading authority.
+          Tests must cover explicit wins, approved default, stored default, ambiguity, malformed inputs, and no-guess behavior.
+          Do not modify existing Cloudflare files, adapters registry, checkpoint, shared state, Storage Mesh, Survival Plane, or release pointers.
+          No new dependencies. Node tests only. Return no prose outside the JSON object.
           '''
-          request = {
-              "model": "deepseek-chat",
-              "max_tokens": 6000,
-              "temperature": 0,
-              "response_format": {"type": "json_object"},
-              "messages": [
-                  {"role": "system", "content": "You are a bounded coding worker. Reply with exactly one JSON object whose only key is \"files\" mapping exactly the two allowed paths. Keep the contract strict, minimal, non-authoritative, and fail-closed."},
-                  {"role": "user", "content": prompt},
-              ],
-          }
-          Path('/tmp/deepseek-request.json').write_text(json.dumps(request), encoding='utf-8')
+          request={"model":"deepseek-chat","max_tokens":6000,"temperature":0,
+            "response_format":{"type":"json_object"},
+            "messages":[
+              {"role":"system","content":"You are a bounded coding worker. Reply with exactly one JSON object whose only key is \"files\" mapping exactly the two allowed paths. Keep the resolver deterministic, small, fail-closed, and non-authoritative."},
+              {"role":"user","content":prompt}]}
+          Path('/tmp/deepseek-request.json').write_text(json.dumps(request),encoding='utf-8')
           PY
-
       - name: Prove output contract offline
         run: |
           set -euo pipefail
           python3 -m unittest AI_SKILL_LIBRARY.tests.test_deepseek_lane_apply
           echo "DEEPSEEK_PARSER_TESTS=PASS"
-          echo "DEEPSEEK_APPLY_TESTS=PASS"
-
       - name: Run one bounded DeepSeek coding call
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           set -euo pipefail
-          code="$(curl -sS -o /tmp/deepseek-response.json -w '%{http_code}' \
-            --connect-timeout 15 --max-time 240 \
-            -H "Authorization: Bearer ${DEEPSEEK_API_KEY}" \
-            -H 'Content-Type: application/json' \
-            --data-binary @/tmp/deepseek-request.json \
-            https://api.deepseek.com/v1/chat/completions || echo 000)"
+          code="$(curl -sS -o /tmp/deepseek-response.json -w '%{http_code}'             --connect-timeout 15 --max-time 240             -H "Authorization: Bearer ${DEEPSEEK_API_KEY}"             -H 'Content-Type: application/json'             --data-binary @/tmp/deepseek-request.json             https://api.deepseek.com/v1/chat/completions || echo 000)"
           test "${code}" = "200"
           echo "DEEPSEEK_API_HEALTH=PASS"
           python3 .github/scripts/deepseek_lane_apply.py /tmp/deepseek-response.json .
-
       - name: Enforce file ownership
         run: |
           set -euo pipefail
-          allowed='^(AI_SKILL_LIBRARY/v4/local_runtime/private_mesh\.yaml|AI_SKILL_LIBRARY/tests/test_private_mesh_contract\.py)$'
+          allowed='^(cloudflare-worker/project-resolution\.js|cloudflare-worker/test-project-resolution\.mjs)$'
           unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
@@ -111,22 +94,18 @@ jobs:
             exit 1
           fi
           echo "DEEPSEEK_FILE_OWNERSHIP=PASS"
-
       - name: Run focused tests
         run: |
-          python3 -m pip install -r AI_SKILL_LIBRARY/requirements.txt pytest
-          python3 -m pytest -q AI_SKILL_LIBRARY/tests/test_private_mesh_contract.py
+          set -euo pipefail
+          node cloudflare-worker/test-project-resolution.mjs
           echo "DEEPSEEK_TESTS=PASS"
-
-      - name: Commit DeepSeek private mesh contract
+      - name: Commit DeepSeek project resolver
         run: |
           set -euo pipefail
           git config user.name 'DeepSeek Coding Lane'
           git config user.email 'deepseek-lane@users.noreply.github.com'
-          git add \
-            AI_SKILL_LIBRARY/v4/local_runtime/private_mesh.yaml \
-            AI_SKILL_LIBRARY/tests/test_private_mesh_contract.py
-          git commit -m 'feat(redundancy): add private mesh transport contract'
+          git add cloudflare-worker/project-resolution.js cloudflare-worker/test-project-resolution.mjs
+          git commit -m 'feat(front-door): add deterministic project resolver'
           git push origin HEAD:work/deepseek-survival-plane-442
-          echo "DEEPSEEK_PRIVATE_MESH_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_FRONT_DOOR_RESOLVER_COMMIT=$(git rev-parse HEAD)"
           echo "DEEPSEEK_CODING_LANE_READY=PASS"
