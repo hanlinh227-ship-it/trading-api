@@ -56,6 +56,7 @@ jobs:
           - conflicting ambiguous project identifiers fail closed;
           - malformed, empty, non-string, or unapproved defaults return null rather than guessing;
           - no secret material, transcript content, or connector token is persisted/logged;
+          - IMPORTANT: cloudflare-worker is ESM. Use native ES module syntax only: export function / export { ... }. Do NOT use module.exports, exports.*, require(), __dirname, or CommonJS;
           - ChatGPT/Claude/Gemini are clients, never Brain authorities;
           - project continuity remains bounded/versioned and this resolver has no routing/reasoning/scheduling/trading authority.
           Tests must cover explicit wins, approved default, stored default, ambiguity, malformed inputs, and no-guess behavior.
