@@ -348,6 +348,75 @@ class UserAgentTests(unittest.TestCase):
         self.assertTrue(deploy.USER_AGENT.strip())
 
 
+class AccessReportTests(unittest.TestCase):
+    """The User-Agent fix moved the failure, and the new one means something
+    different.
+
+    The token now authenticates and reads the schema, then the DEPLOY mutation
+    returns "Not Authorized". That is not "your credential is invalid" - the
+    credential just proved itself twice. It is "this token cannot deploy this
+    service", and the two need telling apart or the next step is another
+    pointless rotation.
+    """
+
+    def _report_with(self, responder):
+        original = deploy._post
+        deploy._post = responder
+        try:
+            return deploy.access_report(
+                "TOKENVALUE-zzz", "bearer", "SVCID-zzz", "ENVID-zzz")
+        finally:
+            deploy._post = original
+
+    def test_a_visible_service_and_environment_are_reported_as_visible(self):
+        def responder(query, variables, token, scheme):
+            field = "service" if "service(" in query else "environment"
+            return {field: {"id": variables["id"]}}
+
+        report = self._report_with(responder)
+        self.assertIn("RAILWAY_SERVICE_ID: visible to this token", report)
+        self.assertIn("RAILWAY_ENVIRONMENT_ID: visible to this token", report)
+
+    def test_an_unreadable_id_is_reported_as_unreadable_not_absent(self):
+        def responder(query, variables, token, scheme):
+            raise deploy.Failure("Not Authorized", auth_rejected=True)
+
+        report = self._report_with(responder)
+        self.assertIn("not readable by this token", report)
+
+    def test_a_missing_service_is_distinguished_from_one_refused(self):
+        """Null and refused are different answers and imply different fixes."""
+        def responder(query, variables, token, scheme):
+            return {}
+
+        report = self._report_with(responder)
+        self.assertIn("no such service", report)
+        self.assertNotIn("not readable", report)
+
+    def test_the_report_never_prints_the_identifiers(self):
+        """They are repository secrets. A diagnostic that leaked them into a
+        public log to explain why they failed would be a worse bug than the one
+        it describes."""
+        def responder(query, variables, token, scheme):
+            field = "service" if "service(" in query else "environment"
+            return {field: {"id": variables["id"]}}
+
+        report = self._report_with(responder)
+        # Distinctive values: an earlier version of this test used "tok", which
+        # is a substring of "token" and failed against correct code.
+        self.assertNotIn("SVCID-zzz", report)
+        self.assertNotIn("ENVID-zzz", report)
+        self.assertNotIn("TOKENVALUE-zzz", report)
+
+    def test_the_report_never_raises(self):
+        def responder(query, variables, token, scheme):
+            raise deploy.Failure("Railway API unreachable: URLError",
+                                 auth_rejected=False)
+
+        report = self._report_with(responder)
+        self.assertIn("RAILWAY_SERVICE_ID", report)
+
+
 class WorkflowWiringTests(unittest.TestCase):
     """The gates around the deploy, asserted against the workflow itself."""
 
