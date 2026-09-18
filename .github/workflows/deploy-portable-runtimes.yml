@@ -298,8 +298,11 @@ jobs:
               raise SystemExit(f'live Deno research smoke failed: {data}')
           if data.get('capability') != 'market_snapshot':
               raise SystemExit('live Deno research capability mismatch')
-          if 'okx' not in set(data.get('providers') or []):
-              raise SystemExit('live Deno research missing preferred provider')
+          providers=set(data.get('providers') or [])
+          observations=[o for o in (data.get('observations') or []) if float(o.get('price') or 0)>0]
+          fresh_providers={o.get('provider') for o in observations if o.get('provider')}
+          if len(providers)<2 or len(fresh_providers)<2:
+              raise SystemExit(f'live Deno research redundancy insufficient: providers={sorted(providers)} fresh={sorted(fresh_providers)}')
           dc=data.get('dataContract') or {}
           if dc.get('source_sha') != os.environ['GITHUB_SHA']:
               raise SystemExit('live Deno data contract SHA mismatch')
@@ -345,6 +348,10 @@ jobs:
               raise SystemExit(f'failover runtime response invalid: {data}')
           if data.get('capability')!='market_snapshot':
               raise SystemExit('failover capability mismatch')
+          providers=set(data.get('providers') or [])
+          observations=[o for o in (data.get('observations') or []) if float(o.get('price') or 0)>0]
+          if len(providers)<2 or len({o.get('provider') for o in observations if o.get('provider')})<2:
+              raise SystemExit(f'failover research redundancy insufficient: {sorted(providers)}')
           dc=data.get('dataContract') or {}
           if dc.get('source_sha')!=os.environ['GITHUB_SHA']:
               raise SystemExit(f"failover SHA mismatch: {dc.get('source_sha')}")
