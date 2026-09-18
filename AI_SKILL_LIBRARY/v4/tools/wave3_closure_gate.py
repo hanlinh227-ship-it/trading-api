@@ -69,11 +69,29 @@ def _load(root: Path, name: str) -> Any:
         return None
 
 
+#: A proof whose only unmet round is a live inference round that this host was
+#: MEASURED to be unable to run. The flag that skipped the round cannot produce
+#: this verdict - only a probe of the engine can - so a gate honouring it is not
+#: a gate anyone can talk their way past. The gate reports it rather than
+#: swallowing it: closure with an unproven live path is a different claim from
+#: closure, and the summary says which one it is.
+def _proven_or_external(proof, status_field):
+    """(ok, verdict). verdict is PROVEN, REAL_RUNTIME_REQUIRED or NOT_PROVEN."""
+    if proof.get(status_field) == "PROVEN":
+        return True, "PROVEN"
+    if (proof.get("blocking_class") == "REAL_RUNTIME_REQUIRED"
+            and not proof.get("state_rounds_failed")):
+        return True, "REAL_RUNTIME_REQUIRED"
+    return False, "NOT_PROVEN"
+
+
 def build(root: Path) -> dict[str, Any]:
     wave3 = yaml.safe_load((root / WAVE3_REL).read_text(encoding="utf-8")) or {}
     candidates = wave3.get("candidates", [])
 
     failures: list[str] = []
+    # Things that are true, are not failures, and must not be silent.
+    notes: list[str] = []
     rows: list[dict[str, Any]] = []
     for candidate in candidates:
         state = str(candidate.get("state") or "")
@@ -105,7 +123,7 @@ def build(root: Path) -> dict[str, Any]:
     probe = _load(root, "WORKERS_AI_FREE_TIER_PROBE.json") or {}
     paths = _load(root, "WAVE3_FREE_EXECUTION_PATHS.json") or {}
 
-    mesh_proven = mesh.get("mesh_status") == "PROVEN"
+    mesh_proven, mesh_verdict = _proven_or_external(mesh, "mesh_status")
     federation_proven = federation.get("federation_status") == "PROVEN"
     gpt_oss_served = any(
         r.get("provider_model_id") == "@cf/openai/gpt-oss-20b"
@@ -124,6 +142,15 @@ def build(root: Path) -> dict[str, Any]:
                      ("FALLBACK_PATH", fallback_proven)):
         if not ok:
             failures.append(f"{name} is not proven in the recorded evidence")
+    if mesh_verdict == "REAL_RUNTIME_REQUIRED":
+        # Not a failure and not a pass in disguise: every state round passed at
+        # this revision, and the live inference round could not be measured here
+        # because the engine on this machine does not execute. Said out loud so
+        # that a green gate is never read as a proven live path.
+        notes.append(
+            "FREE_WORKER_MESH: every state round passed; the live inference round "
+            "is REAL_RUNTIME_REQUIRED on this host and remains unproven. "
+            + str((mesh.get("live_round") or {}).get("operator_action") or ""))
 
     # Capability coverage: every Wave 3 capability answered by a round that
     # actually ran and passed.
@@ -155,7 +182,8 @@ def build(root: Path) -> dict[str, Any]:
         "exact_models_without_an_executable_path": sorted(exact_unavailable),
         "candidates": rows,
         "proofs": {
-            "FREE_WORKER_MESH": "PROVEN" if mesh_proven else "NOT_PROVEN",
+            "FREE_WORKER_MESH": mesh_verdict,
+            "FREE_WORKER_MESH_LIVE_ROUND": mesh.get("live_round_status") or "UNRECORDED",
             "WAVE3_FEDERATION": "PROVEN" if federation_proven else "NOT_PROVEN",
             "GPT_OSS_SERVERLESS": "PROVEN" if gpt_oss_served else "NOT_PROVEN",
             "FALLBACK_PATH": "PROVEN" if fallback_proven else "NOT_PROVEN",
@@ -166,6 +194,11 @@ def build(root: Path) -> dict[str, Any]:
             for p in (paths.get("providers") or [])
         ],
         "failures": failures,
+        "notes": notes,
+        # Closure and a proven live path are different claims. This is false
+        # whenever the live round could not be measured here, so a green gate
+        # can never be read as evidence of live execution.
+        "LIVE_EXECUTION_PROVEN_HERE": mesh.get("live_round_status") == "PASSED",
         "note": (
             "Closing Wave 3 and every candidate being available are different "
             "facts. This gate reports both and lets neither stand in for the "
@@ -204,3 +237,4 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

@@ -62,6 +62,10 @@ from AI_SKILL_LIBRARY.v4.tools.worker_execution_liveness import (  # noqa: E402
     observing_host as _observing_host,
     utc_now as _utc_now,
 )
+from AI_SKILL_LIBRARY.v4.tools.federation_status_scopes import (  # noqa: E402
+    blocking_class as _blocking_class,
+    classify_live_round as _classify_live_round,
+)
 
 MODEL = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
 
@@ -327,6 +331,14 @@ def build(root: Path, *, live: bool = True) -> dict[str, Any]:
                          skipped=True))
 
     failed = [row["round"] for row in rows if not row["passed"]]
+    # Same separation as the 24x7 proof, for the same reason.
+    live_row = next((r for r in rows if r["round"] == "J"), None)
+    live = _classify_live_round(
+        root,
+        ran=bool(live_row) and not live_row.get("skipped"),
+        passed=bool(live_row) and bool(live_row.get("passed")))
+    state_failed = [r["round"] for r in rows
+                    if r["round"] != "J" and not r["passed"]]
     return {
         "tool": "free_worker_mesh_proof",
         # Binding, for the same reason the 24x7 proof needed it: this document
@@ -342,6 +354,11 @@ def build(root: Path, *, live: bool = True) -> dict[str, Any]:
         "rounds_passed": len(rows) - len(failed),
         "failed_rounds": failed,
         "mesh_status": "PROVEN" if not failed else "FAILED",
+        "live_round": live,
+        "live_round_status": live["live_round_status"],
+        "state_rounds_total": len(rows) - (1 if live_row else 0),
+        "state_rounds_failed": state_failed,
+        "blocking_class": _blocking_class(state_failed, live),
         "worker_classes_supported": sorted(c.value for c in WorkerClass),
         "capability_vocabulary_size": len(CAPABILITY_TAGS),
         "execution_modes": [m.value for m in ExecutionMode],

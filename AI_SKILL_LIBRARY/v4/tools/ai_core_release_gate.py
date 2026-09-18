@@ -342,10 +342,38 @@ def gate(root: Path) -> dict[str, Any]:
     ))
 
     failed = [row["check"] for row in checks if not row["passed"]]
+
+    # Why the gate is red matters as much as that it is. A golden_e2e failure
+    # whose only complaint is semantic is not broken code and not a bad gate:
+    # it is recorded evidence that answers a question nobody asked any more,
+    # and the only thing that can fix it is a real inference run producing a
+    # real answer. Nothing in this repository can be edited to supply that, and
+    # editing the recorded answer by hand is precisely what the check exists to
+    # catch. So the verdict stays FAIL and the report says what would clear it.
+    _SEMANTIC = ("semantic_answer_mismatch", "semantic_oracle_unavailable")
+    _golden = next((c for c in checks if c["check"] == "golden_e2e"), None)
+    _golden_semantic_only = bool(
+        _golden and not _golden["passed"]
+        and _golden["failures"]
+        and all(any(term in str(f) for term in _SEMANTIC)
+                for f in _golden["failures"]))
+    regeneration_required = _golden_semantic_only and failed == ["golden_e2e"]
     return {
         "tool": "ai_core_release_gate",
         "gate": "AI_CORE_RELEASE",
         "verdict": "PASS" if not failed else "FAIL",
+        # The three the integration directive asked CI to be able to report.
+        # `release_eligible` is false whenever the verdict is not PASS - there
+        # is no state in which this gate is red and a release may be cut.
+        "release_eligible": not failed,
+        "regeneration_required": regeneration_required,
+        "evidence_class": "REAL_RUNTIME" if regeneration_required else None,
+        "SEMANTIC_GOLDEN_VERIFIED": bool(_golden and _golden["passed"]),
+        "operator_action": (
+            "regenerate CHECKPOINTS/evidence/B3_B4_GOLDEN_E2E_EVIDENCE.json by "
+            "running the canonical golden request on a host whose inference "
+            "engine executes; do not edit the recorded answer"
+            if regeneration_required else None),
         "checks_run": len(checks),
         "checks_passed": len(checks) - len(failed),
         "failed_checks": failed,

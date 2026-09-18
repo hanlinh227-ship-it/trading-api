@@ -154,6 +154,8 @@ def build(root: Path) -> dict[str, Any]:
 
     round_passed = {r["round"]: bool(r["passed"]) for r in (proof.get("rounds") or [])}
     failures: list[str] = []
+    # Real, named, and not this repository's to fix from here.
+    external_blockers: list[str] = []
     criteria: dict[str, bool] = {}
 
     for criterion in EXIT_CRITERIA:
@@ -219,9 +221,23 @@ def build(root: Path) -> dict[str, Any]:
             if criterion not in [f.split(":")[0] for f in failures]:
                 failures.append(f"{criterion}: not satisfied")
 
-    if proof.get("federation_status") != "PROVEN":
+    # A single PROVEN/FAILED string cannot tell "a drill failed" from "this host
+    # has no engine to run the live round on", and those want opposite responses
+    # from a closure gate. The proof now separates them, and the separation is
+    # settled by probing the engine rather than by the flag that skipped the
+    # round, so nothing here can be reached by passing an argument.
+    federation_external = (proof.get("blocking_class") == "REAL_RUNTIME_REQUIRED"
+                           and not proof.get("state_rounds_failed"))
+    if proof.get("federation_status") != "PROVEN" and not federation_external:
         failures.append(
             f"FEDERATION_24X7_PROOF is {proof.get('federation_status') or 'absent'}")
+    elif federation_external:
+        # Reported, never swallowed: every state round passed at this revision
+        # and the live inference round remains unmeasured here.
+        external_blockers.append(
+            "FEDERATION_24X7_PROOF: every state round passed; the live inference "
+            "round is REAL_RUNTIME_REQUIRED on this host. "
+            + str((proof.get("live_round") or {}).get("operator_action") or ""))
 
     # 24/7 readiness is a narrower question than closure: can it keep its
     # minimum promise, and did it recover from what was drilled?
@@ -276,6 +292,10 @@ def build(root: Path) -> dict[str, Any]:
             "AI_CORE_DONE": bool(core.get("AI_CORE_DONE")),
         },
         "failures": failures,
+        "external_blockers": external_blockers,
+        # Closure and a proven live path are different claims, and this is false
+        # whenever the live round could not be measured on this host.
+        "LIVE_EXECUTION_PROVEN_HERE": proof.get("live_round_status") == "PASSED",
         "note": (
             "Closed, ready, redundant, exact, covered and all-online are six "
             "different facts. This federation is ready and not redundant: every "

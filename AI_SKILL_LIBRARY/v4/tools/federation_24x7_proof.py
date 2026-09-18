@@ -599,6 +599,10 @@ from worker_execution_liveness import (  # noqa: E402
     observing_host as _observing_host,
     utc_now as _utc_now,
 )
+from federation_status_scopes import (  # noqa: E402
+    blocking_class as _blocking_class,
+    classify_live_round as _classify_live_round,
+)
 
 
 def build(root: Path, *, skip_live: bool = False) -> dict[str, Any]:
@@ -616,6 +620,18 @@ def build(root: Path, *, skip_live: bool = False) -> dict[str, Any]:
         rounds.append(live_round(root, now, matrix))
 
     passed = sum(1 for r in rounds if r["passed"])
+    # The live round is separated from the state rounds because a closure gate
+    # needs to tell "this host has no engine" from "a drill failed", and a
+    # single PROVEN/FAILED string cannot say which. Whether a non-run is an
+    # external requirement is settled by probing the engine, never by the flag
+    # that skipped it.
+    live_row = next((r for r in rounds if r["round"] == "V"), None)
+    live = _classify_live_round(
+        root,
+        ran=bool(live_row) and not live_row.get("skipped"),
+        passed=bool(live_row) and bool(live_row.get("passed")))
+    state_failed = [r["round"] for r in rounds
+                    if r["round"] != "V" and not r["passed"]]
     return {
         "tool": "federation_24x7_proof",
         # Binding, added after this document was found asserting PROVEN 22/22
@@ -632,6 +648,11 @@ def build(root: Path, *, skip_live: bool = False) -> dict[str, Any]:
                           "moment it ran, against the revision named in "
                           "source_sha; not a standing property of the code"),
         "federation_status": "PROVEN" if passed == len(rounds) else "FAILED",
+        "live_round": live,
+        "live_round_status": live["live_round_status"],
+        "state_rounds_total": len(rounds) - (1 if live_row else 0),
+        "state_rounds_failed": state_failed,
+        "blocking_class": _blocking_class(state_failed, live),
         "rounds_passed": passed,
         "rounds_total": len(rounds),
         "rounds": rounds,

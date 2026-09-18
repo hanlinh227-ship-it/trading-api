@@ -643,3 +643,77 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# --- why a live round did not pass, established by measurement ----------------
+
+#: The closed set of verdicts on a proof's live inference round. The distinction
+#: that matters to a closure gate is between "this host cannot run it" and
+#: "it ran and was wrong", and the two must not be reachable by the same input.
+LIVE_ROUND_STATUSES: dict[str, str] = {
+    "PASSED": "the round ran here and passed",
+    "REAL_RUNTIME_REQUIRED": "the round could not run here because the inference "
+                             "engine on this machine cannot execute, established by "
+                             "probing it and not by anyone passing a flag",
+    "SKIPPED_BY_FLAG": "the round was skipped while the engine was capable of "
+                       "running it; a choice not to measure is not a finding",
+    "ROUND_FAILED": "the round ran and did not pass",
+}
+LIVE_ROUND_STATUS_VALUES = tuple(LIVE_ROUND_STATUSES)
+
+#: Only this one lets a closure gate proceed without a live pass, and only while
+#: it is reported explicitly alongside. SKIPPED_BY_FLAG is deliberately absent:
+#: if a flag could produce the same verdict as a measurement, the verdict would
+#: be an ALLOWED value that nothing bounds, which is the defect this repository
+#: has now corrected nine times.
+GATE_TOLERATED_LIVE_STATUSES = ("PASSED", "REAL_RUNTIME_REQUIRED")
+
+
+def classify_live_round(root: Path, *, ran: bool, passed: bool) -> dict[str, Any]:
+    """PASSED, ROUND_FAILED, or - only on a measured dead engine - REAL_RUNTIME_REQUIRED.
+
+    `ran` and `passed` describe what the proof did. Whether a non-run counts as
+    an external requirement or as an unmeasured gap is decided here by probing
+    the engine in a subprocess, because SIGILL is not an exception and an
+    in-process probe would take the prober down with it.
+    """
+    if ran and passed:
+        return {"live_round_status": "PASSED",
+                "why": LIVE_ROUND_STATUSES["PASSED"],
+                "engine_state": None}
+    if ran and not passed:
+        return {"live_round_status": "ROUND_FAILED",
+                "why": LIVE_ROUND_STATUSES["ROUND_FAILED"],
+                "engine_state": None}
+
+    from worker_execution_liveness import probe_local_engine  # noqa: PLC0415
+
+    engine = probe_local_engine(root)
+    state = engine.get("state")
+    if state == EXECUTION_DEAD:
+        return {"live_round_status": "REAL_RUNTIME_REQUIRED",
+                "why": LIVE_ROUND_STATUSES["REAL_RUNTIME_REQUIRED"],
+                "engine_state": state,
+                "engine_detail": _text(engine.get("reason", "")),
+                "operator_action": ("run this proof on a host whose inference engine "
+                                    "executes, or install an engine build this CPU "
+                                    "supports; no edit to this repository can supply "
+                                    "the missing measurement")}
+    # An engine that is live, or that could not be probed, does not excuse an
+    # unmeasured round. UNKNOWN is not a pass and is not an external blocker.
+    return {"live_round_status": "SKIPPED_BY_FLAG",
+            "why": LIVE_ROUND_STATUSES["SKIPPED_BY_FLAG"],
+            "engine_state": state}
+
+
+def blocking_class(state_rounds_failed: Sequence[str],
+                   live: dict[str, Any]) -> str:
+    """What is stopping this proof: a real round, an absent runtime, or nothing."""
+    if state_rounds_failed:
+        return "ROUND_FAILED"
+    status = live.get("live_round_status")
+    if status == "PASSED":
+        return "NONE"
+    if status == "REAL_RUNTIME_REQUIRED":
+        return "REAL_RUNTIME_REQUIRED"
+    return "ROUND_FAILED"

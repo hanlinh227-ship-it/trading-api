@@ -240,21 +240,45 @@ def test_an_unbound_historical_pass_does_not_count_as_canonical():
 
 # --- the flags -----------------------------------------------------------------
 
-def test_the_unbound_24x7_proof_cannot_set_the_canonical_flag():
+def test_an_unbound_proof_cannot_set_the_canonical_flag():
+    """The defect this tool was built to catch, kept as a live test.
+
+    The committed 24x7 proof used to say PROVEN 22/22 with no revision, no
+    moment and no host, and the scoping refused to count it. That document is
+    preserved under evidence/historical/, so the case is still exercised
+    against the real file rather than a fixture.
+    """
+    document = json.loads(
+        (ROOT / "CHECKPOINTS/evidence/historical/FEDERATION_24X7_PROOF.json")
+        .read_text(encoding="utf-8"))
+    assert document["federation_status"] == "PROVEN"     # the file says so
+    reading = scopes.scope_document(document, root=ROOT,
+                                    host_fingerprint="anything", now=NOW)
+    assert reading["binding"] == "UNBOUND"               # and nothing binds it
+    assert reading["scope"] == "HISTORICAL"
+
+
+def test_the_live_24x7_flags_follow_the_current_document():
     report = scopes.build(ROOT, environ={}, skip_probe=True)
     reading = report["EVIDENCE_FRESHNESS"]["FEDERATION_24X7_PROOF.json"]
-    assert reading["claims_pass"] is True        # the file says PROVEN
-    assert reading["scope"] == "HISTORICAL"      # and nothing binds that
+    # Bound now, and failing on the one round this host cannot run.
+    assert reading["binding"] == "BOUND_TO_REVISION"
+    assert reading["claims_pass"] is False
     assert report["CANONICAL_24X7_FEDERATION_READY"] is False
     assert report["CURRENT_ENV_24X7_READY"] is False
 
 
-def test_current_env_flag_is_never_set_by_a_non_current_env_document():
+def test_current_env_flag_needs_both_scope_and_a_passing_claim():
+    """Being current is not being green, and being green is not being current.
+
+    The 24x7 document is CURRENT_ENV right now - bound to HEAD, taken on this
+    machine, inside the window - and still fails, because the live inference
+    round cannot run here. The flag is the conjunction and neither half alone.
+    """
     report = scopes.build(ROOT, environ={}, skip_probe=True)
-    for name, reading in report["EVIDENCE_FRESHNESS"].items():
-        if reading["scope"] != "CURRENT_ENV":
-            continue
-        assert report["CURRENT_ENV_24X7_READY"] or name != "FEDERATION_24X7_PROOF.json"
+    reading = report["EVIDENCE_FRESHNESS"]["FEDERATION_24X7_PROOF.json"]
+    assert report["CURRENT_ENV_24X7_READY"] == (
+        reading["scope"] == "CURRENT_ENV" and reading["claims_pass"])
 
 
 def test_absent_evidence_is_not_a_pass():
@@ -395,3 +419,84 @@ def test_a_bound_proof_is_scoped_current_env_when_it_is_one():
     assert reading["binding"] == "BOUND_TO_REVISION"
     assert reading["locality"] == "THIS_HOST"
     assert reading["scope"] == "CURRENT_ENV"
+
+
+# --- a live round that could not run vs one that was merely not run -----------
+
+def test_live_round_vocabulary_is_derived():
+    assert scopes.LIVE_ROUND_STATUS_VALUES == tuple(scopes.LIVE_ROUND_STATUSES)
+    for name in scopes.GATE_TOLERATED_LIVE_STATUSES:
+        assert name in scopes.LIVE_ROUND_STATUSES
+
+
+def test_a_flag_cannot_produce_the_external_verdict():
+    # The whole guard: if passing --skip-live were enough to yield
+    # REAL_RUNTIME_REQUIRED, every closure gate honouring that verdict could be
+    # cleared by an argument. Only a probed-dead engine may produce it, and
+    # SKIPPED_BY_FLAG is deliberately not gate-tolerated.
+    assert "SKIPPED_BY_FLAG" not in scopes.GATE_TOLERATED_LIVE_STATUSES
+
+
+def test_a_round_that_ran_and_failed_is_not_external():
+    verdict = scopes.classify_live_round(ROOT, ran=True, passed=False)
+    assert verdict["live_round_status"] == "ROUND_FAILED"
+    assert scopes.blocking_class([], verdict) == "ROUND_FAILED"
+
+
+def test_a_round_that_ran_and_passed_blocks_nothing():
+    verdict = scopes.classify_live_round(ROOT, ran=True, passed=True)
+    assert verdict["live_round_status"] == "PASSED"
+    assert scopes.blocking_class([], verdict) == "NONE"
+
+
+def test_a_failed_state_round_outranks_an_absent_runtime():
+    # An external blocker must never mask a real one.
+    external = {"live_round_status": "REAL_RUNTIME_REQUIRED"}
+    assert scopes.blocking_class(["C"], external) == "ROUND_FAILED"
+
+
+def test_an_unprobeable_engine_is_not_an_external_blocker():
+    for state in ("SKIPPED_BY_FLAG",):
+        assert scopes.blocking_class([], {"live_round_status": state}) == "ROUND_FAILED"
+
+
+def test_the_gate_predicate_needs_both_halves():
+    from importlib import import_module
+    gate = _tool("wave3_closure_gate")
+    ok, verdict = gate._proven_or_external({"mesh_status": "PROVEN"}, "mesh_status")
+    assert (ok, verdict) == (True, "PROVEN")
+    ok, verdict = gate._proven_or_external(
+        {"mesh_status": "FAILED", "blocking_class": "REAL_RUNTIME_REQUIRED",
+         "state_rounds_failed": []}, "mesh_status")
+    assert (ok, verdict) == (True, "REAL_RUNTIME_REQUIRED")
+    # ...and a real round failure is still a failure, whatever else is true.
+    ok, verdict = gate._proven_or_external(
+        {"mesh_status": "FAILED", "blocking_class": "REAL_RUNTIME_REQUIRED",
+         "state_rounds_failed": ["C"]}, "mesh_status")
+    assert (ok, verdict) == (False, "NOT_PROVEN")
+    ok, verdict = gate._proven_or_external({"mesh_status": "FAILED"}, "mesh_status")
+    assert (ok, verdict) == (False, "NOT_PROVEN")
+
+
+def test_the_regenerated_proofs_carry_the_classification():
+    for name, field in (("FEDERATION_24X7_PROOF.json", "federation_status"),
+                        ("FREE_WORKER_MESH_PROOF.json", "mesh_status")):
+        document = json.loads(
+            (ROOT / "CHECKPOINTS/evidence" / name).read_text(encoding="utf-8"))
+        assert document["live_round_status"] in scopes.LIVE_ROUND_STATUSES
+        assert document["blocking_class"] in (
+            "NONE", "REAL_RUNTIME_REQUIRED", "ROUND_FAILED")
+        assert document["state_rounds_failed"] == []
+
+
+def test_the_preserved_history_is_labelled_historical_and_unbound():
+    # A credential-less environment reading 21/22 must not erase the fact that
+    # 22/22 was once recorded - and that record must not be quotable as current.
+    for name in ("FEDERATION_24X7_PROOF.json", "FREE_WORKER_MESH_PROOF.json"):
+        path = ROOT / "CHECKPOINTS/evidence/historical" / name
+        document = json.loads(path.read_text(encoding="utf-8"))
+        assert document["scope"] == "HISTORICAL"
+        assert document["binding"] == "UNBOUND"
+        reading = scopes.scope_document(document, root=ROOT,
+                                        host_fingerprint="anything", now=NOW)
+        assert reading["scope"] == "HISTORICAL"
