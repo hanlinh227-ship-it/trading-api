@@ -153,14 +153,22 @@ PROOF_RE = re.compile(r"[a-z][a-z0-9_]{0,110}=(?:pass|fail)\Z")
 #: The observations the drill must make, every one of which must pass before
 #: the gate can be true. They are emitted in this order, always all of them:
 #: a proof that is simply absent is the shape a false pass takes.
+#: Three of these used to be named for something larger than they measured.
+#: ``restored_state_non_empty``, ``content_identity_matches_backup`` and
+#: ``revision_matches_recorded_revision`` each read back a file this drill had
+#: written from the backup bytes one line earlier, so none of them could fail
+#: once the copy succeeded - a reader would take them for a restore having been
+#: verified end to end. They now name the bytes they actually look at, and the
+#: first records the one thing in that stage production code really does: the
+#: destination index is rebuilt from the snapshot by ``restore_into_store``.
 REQUIRED_PROOFS = (
     "backup_written_through_recovery_contract",
     "manifest_verification_ran",
     "primary_removed_before_restore",
     "restore_destination_was_empty",
-    "restored_state_non_empty",
-    "content_identity_matches_backup",
-    "revision_matches_recorded_revision",
+    "restored_index_rebuilt_from_snapshot",
+    "restored_bytes_match_snapshot_pointer",
+    "restored_bytes_carry_the_recorded_revision",
     "restored_manifest_verified",
     "evidence_bound_to_source_sha",
 )
@@ -169,9 +177,9 @@ REQUIRED_PROOFS = (
 #: what revision they carry, that there are any, and that the production
 #: verifier agreed.
 INTEGRITY_PROOFS = (
-    "restored_state_non_empty",
-    "content_identity_matches_backup",
-    "revision_matches_recorded_revision",
+    "restored_index_rebuilt_from_snapshot",
+    "restored_bytes_match_snapshot_pointer",
+    "restored_bytes_carry_the_recorded_revision",
     "restored_manifest_verified",
 )
 
@@ -205,6 +213,35 @@ def _bounded_string(value: Any, pattern: re.Pattern[str], limit: int, *,
 def _string(pattern: re.Pattern[str], limit: int) -> Callable[..., str]:
     def check(value: Any, *, field: str) -> str:
         return _bounded_string(value, pattern, limit, field=field)
+    return check
+
+
+#: What kind of restore this was, in a closed vocabulary. The drill rebuilds
+#: the metadata index through production code and moves the object bytes with a
+#: local filesystem copy: no provider client is constructed and no object store
+#: is called. Without these two fields the document had no way to say so, and a
+#: reader had to infer the scope from proof names that did not state it. Enums,
+#: so the document still contains no free text at all.
+RESTORE_SCOPE = "METADATA_PLANE_ONLY"
+OBJECT_TRANSPORT = "LOCAL_FILESYSTEM_COPY"
+SCOPE_VOCABULARIES: dict[str, tuple[str, ...]] = {
+    "restore_scope": (RESTORE_SCOPE,),
+    "object_transport": (OBJECT_TRANSPORT,),
+}
+
+
+def _enum(allowed: tuple[str, ...]) -> Callable[..., str]:
+    """A closed vocabulary, refused by type and length and never echoed."""
+    def check(value: Any, *, field: str) -> str:
+        if not isinstance(value, str):
+            raise EvidenceRejected(
+                f"{field} must be a string, got {type(value).__name__}")
+        if value not in allowed:
+            raise EvidenceRejected(
+                f"{field} is a str of length {len(value)} that is not one of "
+                f"{list(allowed)}; the value is not repeated here because this "
+                "document echoes nothing")
+        return value
     return check
 
 
@@ -262,6 +299,8 @@ FIELD_CHECKS: dict[str, Callable[..., Any]] = {
     "integrity_verified": _check_bool,
     "primary_removed_before_restore": _check_bool,
     "restore_destination_was_empty": _check_bool,
+    "restore_scope": _enum(SCOPE_VOCABULARIES["restore_scope"]),
+    "object_transport": _enum(SCOPE_VOCABULARIES["object_transport"]),
     "proofs": _check_proofs,
 }
 
@@ -609,19 +648,32 @@ def run_drill(*, workspace: Any, source_sha: Any, fault: str = NO_FAULT) -> dict
             restored_path.write_bytes(source_bytes)
             written.append(str(restored_path))
 
+            # The metadata plane: the destination index was rebuilt from the
+            # snapshot by production code, and it holds the object. This is the
+            # part of the stage that is not a copy this drill made, so it is
+            # what the proof is named for.
+            passed["restored_index_rebuilt_from_snapshot"] = (
+                report["restored"] == [object_id]
+                and isinstance(restored_record, dict)
+                and restored_record.get("object_id") == object_id)
+
             restored_bytes = restored_path.read_bytes()
             restored_digest = hashlib.sha256(restored_bytes).hexdigest()
             restored_state = json.loads(restored_bytes.decode("utf-8"))
-            passed["restored_state_non_empty"] = bool(restored_bytes) and bool(
-                isinstance(restored_state, dict) and restored_state)
 
             restored_identity = _identity(object_id, restored_digest)
-            passed["content_identity_matches_backup"] = (
-                backup_identity != NO_IDENTITY
+            # The bytes on disk agree with the digest the rebuilt index points
+            # at. This drill copied those bytes a few lines up, so this says
+            # the pointer is right - not that a provider returned them.
+            passed["restored_bytes_match_snapshot_pointer"] = (
+                bool(restored_bytes)
+                and isinstance(restored_state, dict) and bool(restored_state)
+                and backup_identity != NO_IDENTITY
+                and restored_digest == restored_record["content_sha256"]
                 and restored_identity == backup_identity)
 
             restored_revision = restored_state.get("revision")
-            passed["revision_matches_recorded_revision"] = (
+            passed["restored_bytes_carry_the_recorded_revision"] = (
                 isinstance(restored_revision, int)
                 and not isinstance(restored_revision, bool)
                 and recorded_revision is not None
@@ -650,6 +702,8 @@ def run_drill(*, workspace: Any, source_sha: Any, fault: str = NO_FAULT) -> dict
         "integrity_verified": integrity,
         "primary_removed_before_restore": passed["primary_removed_before_restore"],
         "restore_destination_was_empty": passed["restore_destination_was_empty"],
+        "restore_scope": RESTORE_SCOPE,
+        "object_transport": OBJECT_TRANSPORT,
         "proofs": [f"{name}={'pass' if passed[name] else 'fail'}"
                    for name in REQUIRED_PROOFS],
     }
@@ -672,7 +726,7 @@ def run_drill(*, workspace: Any, source_sha: Any, fault: str = NO_FAULT) -> dict
 
 
 def evidence_from(result: Any) -> dict:
-    """The nine-field evidence document, copied out of a drill result."""
+    """The evidence document, copied out of a drill result."""
     if isinstance(result, dict) and "evidence" in result:
         result = result["evidence"]
     if not isinstance(result, dict):

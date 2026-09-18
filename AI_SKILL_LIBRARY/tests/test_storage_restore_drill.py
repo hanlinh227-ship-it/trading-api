@@ -53,6 +53,8 @@ CONTRACT_FIELDS = (
     "integrity_verified",
     "primary_removed_before_restore",
     "restore_destination_was_empty",
+    "restore_scope",
+    "object_transport",
     "proofs",
 )
 
@@ -155,7 +157,8 @@ class StructuralGuardTests(unittest.TestCase):
     def test_ready_true_with_a_failing_proof_is_refused(self):
         document = drill.evidence_from(run(self))
         document["proofs"] = [
-            p.replace("=pass", "=fail") if p.startswith("restored_state_non_empty")
+            p.replace("=pass", "=fail")
+            if p.startswith("restored_index_rebuilt_from_snapshot")
             else p for p in document["proofs"]]
         with self.assertRaises(drill.EvidenceRejected):
             drill.assert_evidence_is_clean(document)
@@ -370,6 +373,82 @@ class CommandLineTests(unittest.TestCase):
     def test_the_default_evidence_path_is_the_one_the_plan_names(self):
         self.assertEqual(drill.DEFAULT_EVIDENCE,
                          "CHECKPOINTS/evidence/STORAGE_RESTORE_DRILL.json")
+
+
+class ScopeIsStatedTests(unittest.TestCase):
+    """The evidence could not say what kind of restore it was.
+
+    The drill restores object bytes by a filesystem copy out of the surviving
+    backup directory; only the metadata index is rebuilt through production
+    code. That is a real metadata-plane drill and a materially stronger claim
+    than "a manifest parsed" - but the closed field set had no vocabulary for
+    scope, so a reader saw `content_identity_matches_backup=pass` and nothing
+    said that no provider client was ever called. Two closed-vocabulary enums
+    say it, with no free text added to a document that has none.
+    """
+
+    def setUp(self):
+        self.document = drill.evidence_from(run(self))
+
+    def test_the_document_states_its_restore_scope(self):
+        self.assertEqual(self.document["restore_scope"], "METADATA_PLANE_ONLY")
+
+    def test_the_document_states_how_the_object_bytes_moved(self):
+        self.assertEqual(self.document["object_transport"], "LOCAL_FILESYSTEM_COPY")
+
+    def test_the_scope_vocabulary_is_closed(self):
+        for field, bad in (("restore_scope", "FULL_PROVIDER_RESTORE"),
+                           ("object_transport", "S3_GET_OBJECT"),
+                           ("restore_scope", "METADATA_PLANE_ONLY\n"),
+                           ("object_transport", "x" * 500)):
+            with self.subTest(field=field):
+                forged = dict(self.document)
+                forged[field] = bad
+                with self.assertRaises(drill.EvidenceRejected):
+                    drill.assert_evidence_is_clean(forged)
+
+    def test_the_scope_fields_add_no_free_text(self):
+        for field in ("restore_scope", "object_transport"):
+            self.assertIn(self.document[field], drill.SCOPE_VOCABULARIES[field])
+
+    def test_the_drill_is_still_ready(self):
+        """With the scope stated, ready=true is an honest claim - and stays."""
+        self.assertIs(self.document["ready"], True)
+
+
+class ProofsNameWhatTheyMeasureTests(unittest.TestCase):
+    """Three of the nine measured bytes the drill had copied one line earlier.
+
+    `restored_state_non_empty`, `content_identity_matches_backup` and
+    `revision_matches_recorded_revision` each read back a file the drill wrote
+    from the backup bytes immediately before, so none of them could fail once
+    the copy succeeded. Renamed to what they observe - and the first now
+    records the one thing in this stage that production code actually did.
+    """
+
+    RETIRED = ("restored_state_non_empty", "content_identity_matches_backup",
+               "revision_matches_recorded_revision")
+
+    def test_the_misleading_names_are_gone(self):
+        for name in self.RETIRED:
+            self.assertNotIn(name, drill.REQUIRED_PROOFS, name)
+            self.assertNotIn(name, drill.INTEGRITY_PROOFS, name)
+
+    def test_the_honest_names_are_there(self):
+        for name in ("restored_index_rebuilt_from_snapshot",
+                     "restored_bytes_match_snapshot_pointer",
+                     "restored_bytes_carry_the_recorded_revision"):
+            self.assertIn(name, drill.REQUIRED_PROOFS, name)
+
+    def test_the_index_rebuild_proof_can_fail(self):
+        """Not a tautology: a corrupt backup takes it down."""
+        document = drill.evidence_from(run(self, fault="corrupt_backup"))
+        self.assertIn("restored_index_rebuilt_from_snapshot=fail",
+                      document["proofs"])
+
+    def test_the_vocabulary_is_still_nine_observations(self):
+        self.assertEqual(len(drill.REQUIRED_PROOFS), 9)
+        self.assertEqual(len(set(drill.REQUIRED_PROOFS)), 9)
 
 
 if __name__ == "__main__":

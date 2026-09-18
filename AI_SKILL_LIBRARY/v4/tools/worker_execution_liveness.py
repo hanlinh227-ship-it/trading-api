@@ -62,6 +62,30 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+#: The same revision pattern every sibling tool in this lane uses, anchored
+#: with ``\Z`` and never ``$``: Python's ``$`` also matches immediately before
+#: a trailing newline, so ``"<sha>\n"`` would pass a ``$``-anchored check and
+#: ride on into an evidence file with the newline still attached.
+SOURCE_SHA_RE = re.compile(r"^[0-9a-f]{7,64}\Z")
+
+
+def validate_source_sha(value: str) -> str:
+    """A revision, or a refusal. Never a string copied through unread.
+
+    ``current_source_sha`` below has always validated what it reads from git.
+    The ``--source-sha`` path did not, so a caller-supplied value went straight
+    into the evidence document - NUL bytes, newlines and all. An evidence
+    producer that will write whatever it is handed is not fail-closed at the
+    only point where it is the author.
+    """
+    if not isinstance(value, str) or not SOURCE_SHA_RE.match(value):
+        raise ValueError(
+            "--source-sha must be a git revision (7-64 lowercase hex "
+            "characters); a value that names no revision binds this reading to "
+            "nothing and is refused rather than written")
+    return value
+
+
 def current_source_sha(root: Path) -> str | None:
     """The revision this reading is about, or ``None`` if it cannot be read.
 
@@ -232,6 +256,8 @@ def build(root: Path, *, source_sha: str | None = None) -> dict[str, Any]:
     observed = observing_host()
     if source_sha is None:
         source_sha = current_source_sha(root)
+    else:
+        source_sha = validate_source_sha(source_sha)
 
     report: dict[str, Any] = {
         "tool": "worker_execution_liveness",
@@ -352,7 +378,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     root = Path(args.root).resolve()
-    report = build(root, source_sha=args.source_sha)
+    try:
+        report = build(root, source_sha=args.source_sha)
+    except ValueError as exc:
+        # Nothing is written: a reading that cannot name its revision has not
+        # been shown to be about the code under test, and an evidence file is
+        # the last place a caller's unread bytes belong.
+        sys.stderr.write(f"{exc}\n")
+        return 2
     if args.evidence:
         out = Path(args.evidence)
         out.parent.mkdir(parents=True, exist_ok=True)

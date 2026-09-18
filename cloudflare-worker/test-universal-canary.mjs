@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {runUniversalCanary} from './validate-universal-canary.mjs';
+import {readFileSync} from 'node:fs';
+import {runUniversalCanary,buildLiveProductionEvidence,cacheBypassFromObservations} from './validate-universal-canary.mjs';
 
 const expectedSha='a'.repeat(40);
 const tokens={chatgpt:'cg-token',claude:'cl-token',gemini:'gm-token'};
@@ -109,5 +110,53 @@ for(const badNonce of ['', '   ', 'bad nonce with spaces', 'x'.repeat(65), 'semi
   );
   assert.equal(fetchCalled,false);
 }
+
+
+// --- an injected fetch cannot manufacture live production evidence ----------
+// `fetchImpl=fetch` resolved globalThis.fetch at call time, so `node --import`
+// preloading a fake fetch made main() write evidence with zero network
+// traffic - and buildLiveProductionEvidence hard-coded live_canary_pass and
+// cache_bypass_proven to true, contradicting the very result it was built
+// beside, which said false for both. The real fetch is captured at module
+// scope and both booleans are now derived from what actually ran.
+assert.equal(result.usedDefaultFetch,false);
+const injectedEvidence=buildLiveProductionEvidence(result);
+assert.equal(injectedEvidence.live_canary_pass,false);
+assert.equal(injectedEvidence.cache_bypass_proven,false);
+assert.equal(injectedEvidence.ready,false);
+assert.equal(injectedEvidence.source_sha,expectedSha);
+assert.ok(injectedEvidence.proofs.length>0);
+for(const proof of injectedEvidence.proofs){
+  assert.equal(proof.includes('live production'),false);
+  assert.equal(proof.includes('cache-busted'),false);
+}
+
+// The evidence never contradicts its own result object.
+assert.equal(injectedEvidence.live_canary_pass,result.frontDoor.liveCanaryPass);
+assert.equal(injectedEvidence.cache_bypass_proven,result.frontDoor.cacheBypassProven);
+
+// --- cache_bypass_proven is a response-side observation, not a request one --
+// It used to be asserted purely from the request side - a nonce and a
+// no-store header - and no response was ever inspected.
+assert.equal(cacheBypassFromObservations([]),false);
+assert.equal(cacheBypassFromObservations([{cacheStatus:null,age:null}]),false);
+assert.equal(cacheBypassFromObservations([{cacheStatus:'HIT',age:'0'}]),false);
+assert.equal(cacheBypassFromObservations([{cacheStatus:'MISS',age:'120'}]),false);
+assert.equal(cacheBypassFromObservations([{cacheStatus:'MISS',age:'0'},{cacheStatus:'DYNAMIC',age:null}]),true);
+assert.equal(cacheBypassFromObservations([{cacheStatus:'MISS',age:'0'},{cacheStatus:'HIT',age:'0'}]),false);
+assert.ok(Array.isArray(result.cacheObservations));
+assert.equal(result.cacheObservations.length,seen.length);
+assert.equal(result.cacheBypassObserved,false);
+
+// --- a caller-supplied nonce is not cache-busting on the main() path -------
+await assert.rejects(
+  ()=>runUniversalCanary({baseUrl:'https://worker.example',sourceSha:expectedSha,clients:tokens,fetchImpl:rejectingFetch,canaryNonce:fixedNonce,requireGeneratedNonce:true}),
+  /UNIVERSAL_CANARY_NONCE_NOT_ACCEPTED/,
+);
+
+// --- the nonce fallback is not a coin toss --------------------------------
+const source=readFileSync(new URL('./validate-universal-canary.mjs',import.meta.url),'utf8');
+assert.equal(source.includes('Math.random'),false);
+assert.ok(source.includes('const REAL_FETCH='));
 
 console.log('UNIVERSAL_CANARY_TESTS=PASS');

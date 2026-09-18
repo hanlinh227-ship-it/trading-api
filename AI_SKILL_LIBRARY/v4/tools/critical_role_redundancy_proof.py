@@ -139,11 +139,23 @@ def _bounded_string(value: Any, pattern: re.Pattern[str], limit: int, *, field: 
 
 
 def _enum(allowed: Sequence[str]) -> Callable[..., str]:
+    """A closed vocabulary check that never repeats what it was given.
+
+    This was the one refusal in this module that echoed its input: a 5000-
+    character ``placement`` reached ``malformed_records[0].reason`` in the
+    emitted document - bounded at ``MAX_TEXT``, but still an input this tool
+    does not own, written into an evidence file other gates read. A reader
+    needs to know what arrived, not to be shown it, so the refusal states a
+    type and a length and names the vocabulary that was expected.
+    """
     def check(value: Any, *, field: str) -> str:
         if not isinstance(value, str):
             raise RecordRejected(f"{field} must be a string, got {type(value).__name__}")
         if value not in allowed:
-            raise RecordRejected(f"{field}={value!r} is not one of {list(allowed)}")
+            raise RecordRejected(
+                f"{field} is a str of length {len(value)} that is not one of "
+                f"{list(allowed)}; the value is not repeated here because this "
+                "document does not echo inputs it does not own")
         return value
     return check
 
@@ -152,6 +164,13 @@ def _string(pattern: re.Pattern[str], limit: int) -> Callable[..., str]:
     def check(value: Any, *, field: str) -> str:
         return _bounded_string(value, pattern, limit, field=field)
     return check
+
+
+def _covers(value: Any, *, field: str) -> str:
+    """What part of the role a candidate claims, as a bounded token."""
+    if value is None:
+        return "UNSTATED"
+    return _bounded_string(value, _TOKEN_RE, MAX_TOKEN, field=field)
 
 
 def _check_serves_models(value: Any, *, field: str) -> list[str]:
@@ -212,6 +231,8 @@ FIELD_CHECKS: dict[str, Callable[..., Any]] = {
     "source_sha": _string(_SHA_RE, MAX_SHA),
     "proof_timestamp": _string(_TIMESTAMP_RE, MAX_TIMESTAMP),
     "serves_models": _check_serves_models,
+    # Recorded, and deliberately never consulted - like ``host_health``. It
+    # used to be a coverage basis on its own; see ``_match``.
     "serves_placement": _enum(PLACEMENTS),
     "evidence_ref": _string(_EVIDENCE_REF_RE, MAX_EVIDENCE_REF),
     "host_health": _check_host_health,
@@ -338,6 +359,13 @@ def workers_from_liveness(
             continue
         engine = reading.get("LOCAL_ENGINE") or {}
         state = reading.get("execution_liveness") or engine.get("state")
+        # What this host actually holds, as the reading states it. A reading
+        # that does not say is not filled in with a guess: the worker is then
+        # emitted with no served models and qualifies for nothing, which is the
+        # only honest reading of "an execution probe answered on some machine".
+        served = reading.get("serves_models")
+        if served is None and isinstance(engine, dict):
+            served = engine.get("serves_models")
         candidate = {
             "worker_id": reading.get("worker_id") or f"local-engine-{host}",
             "execution_host": f"host:{host}",
@@ -350,6 +378,8 @@ def workers_from_liveness(
             "source_sha": reading.get("source_sha"),
             "proof_timestamp": reading.get("proof_timestamp"),
         }
+        if served is not None:
+            candidate["serves_models"] = served
         if candidate["source_sha"] is None or candidate["proof_timestamp"] is None:
             # A reading that names no revision or no instant cannot be shown to
             # be about the code running now. The one in this repository's
@@ -407,7 +437,13 @@ def critical_roles(document: Any) -> tuple[list[dict[str, Any]], list[dict[str, 
                         value.get("execution_mode"), field=f"{role_id}.{slot}.execution_mode"),
                     "placement": FIELD_CHECKS["placement"](
                         value.get("placement"), field=f"{role_id}.{slot}.placement"),
-                    "covers": str(value.get("covers") or "UNSTATED")[:MAX_TOKEN],
+                    # Bounded by a pattern, not by a slice. A field whose only
+                    # bound is ``[:MAX_TOKEN]`` is the allowed-but-unchecked
+                    # shape this repository has found repeatedly; this one is
+                    # never consumed today, which is exactly when such a field
+                    # goes unnoticed.
+                    "covers": _covers(value.get("covers"),
+                                      field=f"{role_id}.{slot}.covers"),
                 })
             except RecordRejected as exc:
                 malformed.append({"role_id": role_id, "reason": _text(str(exc))})
@@ -432,17 +468,33 @@ def _disqualify(worker: dict[str, Any], source_sha: str | None) -> str | None:
         return _text(
             f"policy_state is {worker['policy_state']}: a worker in cooldown, "
             "degraded, quarantined or unknown state is not live capacity")
+    if not worker.get("serves_models"):
+        return _text(
+            "the record names no serves_models: a worker that does not say which "
+            "models it holds cannot be shown to serve any candidate, and a "
+            "placement label is not a model name. It is reported, and it is not "
+            "a path")
     return None
 
 
 def _match(worker: dict[str, Any], candidate: dict[str, Any]) -> str | None:
-    """How this worker covers this candidate, or ``None`` if it does not."""
+    """How this worker covers this candidate, or ``None`` if it does not.
+
+    Naming the model is the only way. There used to be a second basis,
+    ``declared_placement``: when a worker listed no ``serves_models`` at all,
+    a bare ``serves_placement == candidate.placement`` counted as coverage. A
+    worker naming no model therefore covered *every* candidate at that
+    placement - and because ``execution_mode`` still read EXACT_MODEL on both
+    sides, the exact-model versus capability-provider distinction survived in
+    the report and meant nothing in the arithmetic. Worse, the liveness reader
+    below synthesised exactly such workers, so any execution-live host covered
+    every LOCAL candidate of every critical role whatever weights it held.
+    A placement is not a model name and no longer stands in for one.
+    """
     serves = worker.get("serves_models") or []
-    if serves:
-        return "explicit_model" if candidate["model_id"] in serves else None
-    if worker.get("serves_placement") == candidate["placement"]:
-        return "declared_placement"
-    return None
+    if not serves:
+        return None
+    return "explicit_model" if candidate["model_id"] in serves else None
 
 
 def build(*, role_matrix: Any, liveness: Any = None,

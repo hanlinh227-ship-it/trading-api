@@ -230,5 +230,46 @@ class PerHostReadingTests(unittest.TestCase):
         self.assertEqual(merged["READINGS_BY_HOST"]["cccc3333"]["source_sha"], "b" * 40)
 
 
+class SuppliedSourceShaIsValidatedTests(unittest.TestCase):
+    """The CLI's revision was written into evidence without being read.
+
+    ``current_source_sha`` validates what it reads from git; the ``--source-sha``
+    path did not, so ``"not-a-sha\n\x00 DROP"`` landed literally in a committed
+    evidence file, NUL and newline included. It fails closed downstream, but a
+    tool that writes attacker-controlled bytes into evidence is not fail-closed
+    at the point that matters. Same pattern as every sibling tool, ``\Z`` and
+    all.
+    """
+
+    BAD = ("not-a-sha", "", "   ", "a" * 40 + "\n", "a" * 40 + "\x00 DROP",
+           "A" * 40, "g" * 40, "a" * 6, "a" * 65, "../../etc/passwd")
+
+    def test_the_pattern_refuses_a_trailing_newline(self):
+        self.assertIsNone(liveness.SOURCE_SHA_RE.match("a" * 40 + "\n"))
+
+    def test_build_refuses_a_revision_that_is_not_one(self):
+        for bad in self.BAD:
+            with self.subTest(sha=bad):
+                with self.assertRaises(ValueError):
+                    liveness.build(ROOT, source_sha=bad)
+
+    def test_build_still_accepts_a_real_revision(self):
+        report = liveness.build(ROOT, source_sha="a" * 40)
+        self.assertEqual(report["source_sha"], "a" * 40)
+
+    def test_an_abbreviated_revision_is_still_a_revision(self):
+        report = liveness.build(ROOT, source_sha="abcdef1")
+        self.assertEqual(report["source_sha"], "abcdef1")
+
+    def test_the_cli_writes_nothing_when_the_revision_is_not_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "WORKER_EXECUTION_LIVENESS.json"
+            code = liveness.main(["--root", str(ROOT), "--evidence", str(out),
+                                  "--source-sha", "not-a-sha\n\x00 DROP"])
+            self.assertEqual(code, 2)
+            self.assertFalse(out.exists())
+            self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()), [])
+
+
 if __name__ == "__main__":
     unittest.main()

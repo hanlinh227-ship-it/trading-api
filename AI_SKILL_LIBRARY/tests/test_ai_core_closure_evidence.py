@@ -23,10 +23,29 @@ def _completed(returncode):
     return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=b"", stderr=b"")
 
 
+#: The two `-c` probes the tool runs before it trusts an interpreter. A mock
+#: that swallowed them would make every test measure a refusal instead of the
+#: thing it names - the fixture failure this lane has now made seven times - so
+#: the fake answers them honestly and does not consume a scripted return code.
+def _probe_answer(argv):
+    """Answer an interpreter probe, or None when this is not a probe."""
+    if len(argv) >= 3 and argv[1] == "-c":
+        code = argv[2]
+        if "sys.implementation" in code:
+            return subprocess.CompletedProcess(
+                argv, 0, stdout=b'[[3, 11, 0], "cpython"]\n', stderr=b"")
+        if code.strip() == "import pytest":
+            return subprocess.CompletedProcess(argv, 0, stdout=b"", stderr=b"")
+    return None
+
+
 def _run_with(returncodes, sha=VALID_SHA):
     calls = []
 
     def fake_run(argv, **kwargs):
+        probe = _probe_answer(argv)
+        if probe is not None:
+            return probe
         calls.append((argv, kwargs))
         rc = returncodes[len(calls) - 1]
         return _completed(rc)
@@ -77,6 +96,9 @@ class ClosureEvidenceTests(unittest.TestCase):
         calls = []
 
         def fake_run(argv, **kwargs):
+            probe = _probe_answer(argv)
+            if probe is not None:
+                return probe
             calls.append(argv)
             if "test_survival_secrets" in " ".join(argv):
                 raise subprocess.TimeoutExpired(cmd=argv, timeout=1)
@@ -116,6 +138,9 @@ class ClosureEvidenceTests(unittest.TestCase):
 
     def test_stdout_stderr_not_persisted(self):
         def fake_run(argv, **kwargs):
+            probe = _probe_answer(argv)
+            if probe is not None:
+                return probe
             return subprocess.CompletedProcess(
                 args=argv, returncode=0, stdout=b"SECRET-OUT", stderr=b"SECRET-ERR"
             )
@@ -138,7 +163,9 @@ class ClosureEvidenceTests(unittest.TestCase):
 
     def test_atomic_output_no_temp_files(self):
         with tempfile.TemporaryDirectory() as outdir:
-            with mock.patch.object(mod.subprocess, "run", side_effect=lambda argv, **kw: _completed(0)):
+            with mock.patch.object(
+                    mod.subprocess, "run",
+                    side_effect=lambda argv, **kw: _probe_answer(argv) or _completed(0)):
                 mod.main(["--source-sha", VALID_SHA, "--output-dir", outdir, "--python", "python3"])
             names = sorted(os.listdir(outdir))
         self.assertEqual(
@@ -191,7 +218,12 @@ class AggregatorInteroperabilityTests(unittest.TestCase):
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "v4", "tools", "ai_core_always_on_gate.py")
 
-    SHA = "a" * 40
+    #: The real revision of this checkout. The aggregator now verifies the sha
+    #: against git, so a made-up one would make this interoperability test
+    #: measure that refusal instead of the shape agreement it is about.
+    SHA = subprocess.run(
+        ["git", "-C", mod.repo_root(), "rev-parse", "HEAD"],
+        capture_output=True, text=True).stdout.strip()
     GATE_NAMES = ["CONTROL_PLANE_READY", "DURABLE_JOB_READY",
                   "CRITICAL_ROLE_REDUNDANCY_READY", "SURVIVAL_PLANE_READY",
                   "DISASTER_RECOVERY_READY", "FRONT_DOOR_READY"]
@@ -225,7 +257,8 @@ class AggregatorInteroperabilityTests(unittest.TestCase):
                 with open(path, "w", encoding="utf-8") as handle:
                     json.dump(item, handle)
                 paths.append(path)
-            cmd = [sys.executable, self.AGGREGATOR, "--source-sha", self.SHA]
+            cmd = [sys.executable, self.AGGREGATOR, "--source-sha", self.SHA,
+                   "--repo-root", mod.repo_root()]
             for flag, path in zip(self.FLAGS, paths):
                 cmd.extend([flag, path])
             result = subprocess.run(cmd, capture_output=True, text=True)
@@ -236,6 +269,156 @@ class AggregatorInteroperabilityTests(unittest.TestCase):
 
     def test_a_trailing_newline_is_not_a_revision(self):
         self.assertIsNone(mod.SHA_RE.match("a" * 40 + "\n"))
+
+
+
+class InterpreterIdentityTests(unittest.TestCase):
+    """A proof that names no interpreter is a proof anything can manufacture.
+
+    `--python` took any executable and `_proof_line` deliberately stripped it,
+    so a two-line shell script that exits 0 produced three gates whose evidence
+    was byte-identical to an honest run. The interpreter is now asked what it
+    is before it is trusted, and a bounded identity - version, implementation
+    and a digest of the resolved path, never the path - travels in every proof
+    line, so two runs on two interpreters are distinguishable and neither one
+    leaks where it lives.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+    def _script(self, name, body):
+        path = os.path.join(self.tmp.name, name)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(body)
+        os.chmod(path, 0o755)
+        return path
+
+    def _main(self, python_exe):
+        outdir = os.path.join(self.tmp.name, "out-" + os.path.basename(python_exe))
+        code = mod.main(
+            ["--source-sha", VALID_SHA, "--output-dir", outdir, "--python", python_exe])
+        written = sorted(os.listdir(outdir)) if os.path.isdir(outdir) else []
+        return code, written
+
+    def test_a_fake_interpreter_manufactures_no_evidence(self):
+        """The reproduction: `#!/bin/sh` + `exit 0` certified all three gates."""
+        fake = self._script("fakepython", "#!/bin/sh\nexit 0\n")
+        code, written = self._main(fake)
+        self.assertEqual(code, 2)
+        self.assertEqual(written, [])
+
+    def test_an_interpreter_that_lies_about_its_implementation_is_refused(self):
+        liar = self._script(
+            "pypython",
+            '#!/bin/sh\necho \'[[3, 12, 0], "pypy"]\'\nexit 0\n')
+        code, written = self._main(liar)
+        self.assertEqual(code, 2)
+        self.assertEqual(written, [])
+
+    def test_an_interpreter_below_the_floor_is_refused(self):
+        old = self._script(
+            "oldpython",
+            '#!/bin/sh\necho \'[[3, 10, 14], "cpython"]\'\nexit 0\n')
+        code, written = self._main(old)
+        self.assertEqual(code, 2)
+        self.assertEqual(written, [])
+
+    def test_a_probe_answer_that_is_not_json_is_refused(self):
+        noisy = self._script("noisypython", "#!/bin/sh\necho not-json\nexit 0\n")
+        code, written = self._main(noisy)
+        self.assertEqual(code, 2)
+        self.assertEqual(written, [])
+
+    def test_an_executable_that_does_not_exist_is_refused(self):
+        code, written = self._main(os.path.join(self.tmp.name, "no-such-python"))
+        self.assertEqual(code, 2)
+        self.assertEqual(written, [])
+
+    def test_this_interpreter_is_accepted_and_names_itself(self):
+        identity = mod.interpreter_identity(sys.executable, mod.repo_root())
+        self.assertEqual(identity["implementation"], "cpython")
+        self.assertRegex(identity["version"], r"^3\.\d+\.\d+\Z")
+        self.assertRegex(identity["path_sha256"], r"^[0-9a-f]{64}\Z")
+
+    def test_every_proof_line_carries_the_interpreter_identity(self):
+        _, files, _ = _run_with(_all_zero())
+        self.assertTrue(files)
+        for name, payload in files.items():
+            self.assertTrue(payload["proofs"], name)
+            for proof in payload["proofs"]:
+                self.assertIn("cpython", proof, proof)
+                self.assertIn("3.11.0", proof, proof)
+                self.assertRegex(proof, r"path:sha256:[0-9a-f]{64}")
+
+    def test_no_proof_line_leaks_an_interpreter_path(self):
+        _, files, _ = _run_with(_all_zero())
+        real = os.path.realpath(sys.executable)
+        for payload in files.values():
+            for proof in payload["proofs"]:
+                self.assertNotIn(real, proof)
+                self.assertNotIn(os.path.dirname(real), proof)
+                self.assertNotIn("/", proof.split("] ", 1)[0])
+
+    def test_two_interpreters_are_distinguishable(self):
+        """A wrapper is a different path to the same CPython, and says so."""
+        wrapper = self._script(
+            "wrapped-python",
+            '#!/bin/sh\nexec "%s" "$@"\n' % os.path.realpath(sys.executable))
+        mine = mod.interpreter_identity(sys.executable, mod.repo_root())
+        theirs = mod.interpreter_identity(wrapper, mod.repo_root())
+        self.assertEqual(mine["implementation"], theirs["implementation"])
+        self.assertNotEqual(mine["path_sha256"], theirs["path_sha256"])
+
+    def test_the_identity_is_bounded(self):
+        identity = mod.interpreter_identity(sys.executable, mod.repo_root())
+        self.assertLessEqual(len(mod.interpreter_token(identity)), 200)
+
+
+class PytestPreflightTests(unittest.TestCase):
+    """`-m pytest ... -> exit 1` does not say whether pytest ran at all.
+
+    A missing pytest and a failing suite produced the same evidence, so a CI
+    reader would go looking for a bug that does not exist. One preflight token
+    per gate says which of the two happened.
+    """
+
+    def test_each_gate_carries_a_preflight_token(self):
+        _, files, _ = _run_with(_all_zero())
+        for name, payload in files.items():
+            tokens = [p for p in payload["proofs"]
+                      if "preflight_pytest_importable=" in p]
+            self.assertEqual(len(tokens), 1, name)
+            self.assertIn("preflight_pytest_importable=pass", tokens[0])
+
+    def test_an_absent_pytest_is_reported_as_a_failed_preflight(self):
+        def fake_run(argv, **kwargs):
+            if len(argv) >= 3 and argv[1] == "-c" and "sys.implementation" in argv[2]:
+                return _probe_answer(argv)
+            if len(argv) >= 3 and argv[1] == "-c" and argv[2].strip() == "import pytest":
+                return subprocess.CompletedProcess(argv, 1, stdout=b"", stderr=b"")
+            return _completed(0)
+
+        with tempfile.TemporaryDirectory() as outdir:
+            with mock.patch.object(mod.subprocess, "run", side_effect=fake_run):
+                mod.main(["--source-sha", VALID_SHA, "--output-dir", outdir,
+                          "--python", "python3"])
+            for name in sorted(os.listdir(outdir)):
+                with open(os.path.join(outdir, name), encoding="utf-8") as handle:
+                    payload = json.load(handle)
+                tokens = [p for p in payload["proofs"]
+                          if "preflight_pytest_importable=" in p]
+                self.assertEqual(len(tokens), 1, name)
+                self.assertIn("preflight_pytest_importable=fail", tokens[0])
+
+    def test_the_preflight_token_is_a_proof_the_aggregator_accepts(self):
+        _, files, _ = _run_with(_all_zero())
+        for payload in files.values():
+            for proof in payload["proofs"]:
+                self.assertIsInstance(proof, str)
+                self.assertTrue(proof.strip())
+                self.assertLessEqual(len(proof), mod.MAX_PROOF_CHARS)
 
 
 if __name__ == "__main__":

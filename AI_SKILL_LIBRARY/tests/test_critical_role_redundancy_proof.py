@@ -362,7 +362,11 @@ class LivenessEvidenceTests(unittest.TestCase):
     def _liveness(self, readings):
         return {"tool": "worker_execution_liveness", "READINGS_BY_HOST": readings}
 
-    def _reading(self, fingerprint, state, sha=SHA):
+    #: A reading must say which weights the host holds. One that does not is
+    #: not a path - see ForgedLivenessFileTests - so a fixture that omits this
+    #: would measure the refusal rather than the behaviour it names.
+    def _reading(self, fingerprint, state, sha=SHA,
+                 serves_models=("model-a", "model-b", "model-c")):
         reading = {
             "OBSERVED_ON": {"host_fingerprint": fingerprint},
             "LOCAL_ENGINE": {"state": state},
@@ -371,6 +375,8 @@ class LivenessEvidenceTests(unittest.TestCase):
             "execution_liveness": state,
             "proof_timestamp": "2026-09-18T00:00:00Z",
         }
+        if serves_models is not None:
+            reading["serves_models"] = list(serves_models)
         if sha is not None:
             reading["source_sha"] = sha
         return reading
@@ -519,6 +525,182 @@ class CommandLineTests(unittest.TestCase):
             proof.main(["--role-matrix", "/nonexistent.json", "--source-sha", SHA])
         self.assertTrue(re.search(r"^CRITICAL_ROLE_REDUNDANCY_READY=false",
                                   buffer.getvalue(), re.MULTILINE))
+
+
+class ServedModelsAreRequiredTests(unittest.TestCase):
+    """A worker that names no model covered every candidate at its placement.
+
+    `_match` fell back to `serves_placement == candidate.placement` and called
+    the result `declared_placement`. A worker naming NO MODEL therefore covered
+    EVERY candidate at that placement, while `execution_mode` still read
+    EXACT_MODEL on both sides - so the exact-model versus capability-provider
+    distinction was preserved in name and void in effect. Naming what you serve
+    is now the only way to serve anything.
+    """
+
+    def test_a_worker_that_names_no_model_covers_no_candidate(self):
+        anonymous = _worker("anon-1", placement="LOCAL", serves_placement="LOCAL")
+        anonymous.pop("serves_models")
+        matrix = _matrix(_role("REASONING_BRANCH",
+                               primary=_slot("model-a", placement="LOCAL")))
+        report = proof.build(role_matrix=matrix, extra_workers=[anonymous],
+                             source_sha=SHA)
+        self.assertIs(report["ready"], False)
+        self.assertEqual(report["critical_roles"][0]["independent_path_count"], 0)
+
+    def test_an_empty_served_model_list_covers_no_candidate(self):
+        report = _build(workers=[_worker("anon-1", serves_models=[])])
+        self.assertIs(report["ready"], False)
+        self.assertEqual(report["critical_roles"][0]["independent_path_count"], 0)
+
+    def test_a_worker_naming_no_model_is_reported_as_not_capacity(self):
+        anonymous = _worker("anon-1")
+        anonymous.pop("serves_models")
+        report = _build(workers=[anonymous])
+        reasons = " ".join(row["reason"] for row in report["disqualified_workers"])
+        self.assertIn("serves_models", reasons)
+
+    def test_no_path_is_ever_matched_on_placement_alone(self):
+        """`declared_placement` was the only basis that needed no model name."""
+        anonymous = _worker("anon-1", placement="LOCAL", serves_placement="LOCAL")
+        anonymous.pop("serves_models")
+        report = proof.build(
+            role_matrix=_matrix(_role("REASONING_BRANCH",
+                                      primary=_slot("model-a", placement="LOCAL"))),
+            extra_workers=[anonymous, _worker("anon-2", execution_host="anon-2",
+                                              placement="LOCAL",
+                                              serves_placement="LOCAL",
+                                              serves_models=[])],
+            source_sha=SHA)
+        self.assertNotIn("declared_placement", json.dumps(report))
+        self.assertIs(report["ready"], False)
+
+    def test_naming_the_model_still_covers_it(self):
+        """The bound must admit something as well as refuse something."""
+        report = _build(workers=[_worker("cf-1"),
+                                 _worker("groq-1", execution_host="groq-1")])
+        self.assertIs(report["ready"], True)
+        bases = {path["match_basis"]
+                 for path in report["critical_roles"][0]["qualifying_paths"]}
+        self.assertEqual(bases, {"explicit_model"})
+
+
+class ForgedLivenessFileTests(unittest.TestCase):
+    """The reproduction: two invented hosts, the real matrix, ready=true.
+
+    Editing only WORKER_EXECUTION_LIVENESS.json to add two made-up host
+    fingerprints - EXECUTION_LIVE, the correct sha, a well-formed timestamp -
+    against the unmodified real ROLE_CAPABILITY_MATRIX.json certified all three
+    CRITICAL roles without naming a single model, because the synthesised
+    workers carried `serves_placement: LOCAL` and no served-model list. A
+    liveness reading that does not say which weights the host holds must now
+    qualify for nothing at all.
+    """
+
+    def setUp(self):
+        path = ROOT / "CHECKPOINTS" / "evidence" / "ROLE_CAPABILITY_MATRIX.json"
+        self.matrix = json.loads(path.read_text(encoding="utf-8"))
+
+    @staticmethod
+    def _forged(fingerprint, models=None):
+        reading = {
+            "OBSERVED_ON": {"host_fingerprint": fingerprint},
+            "LOCAL_ENGINE": {"state": "EXECUTION_LIVE"},
+            "EXECUTION_LIVE": True,
+            "worker_id": f"local-engine-{fingerprint}",
+            "execution_liveness": "EXECUTION_LIVE",
+            "source_sha": SHA,
+            "proof_timestamp": "2026-09-18T00:00:00Z",
+        }
+        if models is not None:
+            reading["serves_models"] = list(models)
+        return reading
+
+    def test_two_invented_live_hosts_certify_nothing(self):
+        liveness = {"tool": "worker_execution_liveness", "READINGS_BY_HOST": {
+            "deadbeef01": self._forged("deadbeef01"),
+            "deadbeef02": self._forged("deadbeef02"),
+        }}
+        report = proof.build(role_matrix=self.matrix, liveness=liveness,
+                             source_sha=SHA)
+        self.assertIs(report["ready"], False)
+        for role in report["critical_roles"]:
+            with self.subTest(role=role["role_id"]):
+                self.assertEqual(role["independent_path_count"], 0)
+                self.assertEqual(role["qualifying_paths"], [])
+
+    def test_a_reading_that_names_its_weights_can_still_be_a_path(self):
+        """Fail-closed, not fail-always: a host that says what it holds counts."""
+        model = self.matrix["ROLE_CAPABILITY_MATRIX"][0]["primary"]["model_id"]
+        role_id = self.matrix["ROLE_CAPABILITY_MATRIX"][0]["role_id"]
+        liveness = {"READINGS_BY_HOST": {
+            "h1": self._forged("h1", [model]),
+            "h2": self._forged("h2", [model]),
+        }}
+        report = proof.build(role_matrix=self.matrix, liveness=liveness,
+                             source_sha=SHA)
+        rows = {row["role_id"]: row for row in report["critical_roles"]}
+        self.assertEqual(rows[role_id]["independent_path_count"], 2)
+
+
+class RefusalsDoNotEchoTheirInputTests(unittest.TestCase):
+    """The one refusal that repeated what it was given, into an evidence file.
+
+    `_enum` wrote `f"{field}={value!r} is not one of ..."`, so a 5000-character
+    `placement` reached `malformed_records[0].reason` in the emitted document -
+    truncated at 600, but still an echo of an input this tool does not own.
+    A type and a length say everything a reader needs.
+    """
+
+    def test_an_enum_refusal_does_not_repeat_the_value(self):
+        payload = "Q" * 5000
+        with self.assertRaises(proof.RecordRejected) as caught:
+            proof.FIELD_CHECKS["placement"](payload, field="placement")
+        message = str(caught.exception)
+        self.assertNotIn("Q" * 20, message)
+        self.assertIn("5000", message)
+        self.assertIn("str", message)
+
+    def test_an_oversized_enum_value_does_not_reach_the_document(self):
+        report = _build(workers=[_worker("w1", placement="Q" * 5000)])
+        self.assertNotIn("Q" * 20, json.dumps(report))
+        self.assertIs(report["ready"], False)
+
+    def test_no_refusal_message_in_the_document_echoes_its_input(self):
+        report = _build(workers=[_worker("w1", policy_state="Z" * 300),
+                                 _worker("w2", execution_mode="Y" * 300)])
+        document = json.dumps(report)
+        self.assertNotIn("Z" * 20, document)
+        self.assertNotIn("Y" * 20, document)
+
+
+class CoversIsBoundedTests(unittest.TestCase):
+    """A field bounded only by a slice is the shape this repository keeps finding."""
+
+    def test_a_covers_value_that_is_not_a_token_is_refused(self):
+        matrix = _matrix(_role("REASONING_BRANCH",
+                               primary={"model_id": "model-a", "covers": "x" * 500,
+                                        "execution_mode": "EXACT_MODEL",
+                                        "placement": "LOCAL"}))
+        report = _build(matrix, workers=[_worker("cf-1")])
+        self.assertIs(report["ready"], False)
+        self.assertNotIn("x" * 20, json.dumps(report))
+
+    def test_a_covers_value_with_a_trailing_newline_is_refused(self):
+        matrix = _matrix(_role("REASONING_BRANCH",
+                               primary={"model_id": "model-a", "covers": "WHOLE_ROLE\n",
+                                        "execution_mode": "EXACT_MODEL",
+                                        "placement": "LOCAL"}))
+        report = _build(matrix, workers=[_worker("cf-1")])
+        self.assertIs(report["ready"], False)
+
+    def test_the_covers_values_the_real_matrix_uses_are_accepted(self):
+        path = ROOT / "CHECKPOINTS" / "evidence" / "ROLE_CAPABILITY_MATRIX.json"
+        matrix = json.loads(path.read_text(encoding="utf-8"))
+        roles, malformed = proof.critical_roles(matrix)
+        self.assertEqual(malformed, [])
+        self.assertTrue(roles)
+
 
 
 if __name__ == "__main__":
