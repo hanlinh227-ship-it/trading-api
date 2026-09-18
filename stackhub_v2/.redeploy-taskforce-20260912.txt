@@ -1,0 +1,1 @@
+Trigger safe VPS redeploy after MOLTJOBS_API_KEY and TASKFORCE_API_KEY were added to GitHub Actions secrets.

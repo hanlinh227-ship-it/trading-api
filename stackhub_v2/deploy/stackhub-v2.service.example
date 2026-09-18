@@ -1,0 +1,17 @@
+[Unit]
+Description=STACKHUB V2 continuous multi-source revenue runtime
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/stackhub/stackhub_v2
+EnvironmentFile=/etc/stackhub/stackhub.env
+ExecStart=/opt/stackhub/.venv/bin/stackhub run --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+Restart=always
+RestartSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

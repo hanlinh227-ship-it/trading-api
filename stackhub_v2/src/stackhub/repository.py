@@ -1,0 +1,271 @@
+from __future__ import annotations
+
+import json
+import sqlite3
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from .models import Opportunity
+from .policy import PolicyDecision
+from .scoring import ScoreResult
+from .worker_state import TERMINAL_STATES, WorkerState, assert_transition
+
+_LEGACY_STATE_MAP = {
+    "ACCESSED": WorkerState.CLAIMED.value,
+    "WON": WorkerState.PAID.value,
+    "LOST": WorkerState.REJECTED.value,
+    "FAILED": WorkerState.FAILED_PERMANENT.value,
+}
+_RETRY_COOLDOWN = timedelta(minutes=5)
+
+
+class StackHubRepository:
+    def __init__(self, path: Path):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.conn = sqlite3.connect(self.path)
+        self.conn.row_factory = sqlite3.Row
+
+    def initialize(self) -> None:
+        self.conn.executescript("""
+            PRAGMA journal_mode=WAL;
+            CREATE TABLE IF NOT EXISTS sources (name TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1);
+            CREATE TABLE IF NOT EXISTS opportunities (
+                source TEXT NOT NULL,id TEXT NOT NULL,url TEXT NOT NULL,category TEXT NOT NULL,
+                reward_amount TEXT NOT NULL,reward_asset TEXT NOT NULL,reward_network TEXT,deadline TEXT,
+                requirements_json TEXT NOT NULL,acceptance_criteria_json TEXT NOT NULL,competition_model TEXT NOT NULL,
+                agent_allowed INTEGER,estimated_effort_minutes INTEGER,policy_allowed INTEGER NOT NULL,
+                policy_reasons_json TEXT NOT NULL,expected_net_value_usd TEXT,score_usd_per_minute TEXT,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(source,id));
+            CREATE TABLE IF NOT EXISTS claims (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,source TEXT NOT NULL,opportunity_id TEXT NOT NULL,
+                clone_url TEXT,state TEXT NOT NULL DEFAULT 'RESERVED',claimed_at TEXT,reserved_at TEXT,updated_at TEXT,
+                last_error_code TEXT,UNIQUE(source,opportunity_id));
+            CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY AUTOINCREMENT, started_at TEXT, finished_at TEXT, status TEXT);
+            CREATE TABLE IF NOT EXISTS submissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,source TEXT NOT NULL,opportunity_id TEXT NOT NULL,
+                reference TEXT NOT NULL,submission_id TEXT,submitted_at TEXT,UNIQUE(source,opportunity_id,reference));
+            CREATE TABLE IF NOT EXISTS verification_events (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, opportunity_id TEXT, event TEXT, observed_at TEXT);
+            CREATE TABLE IF NOT EXISTS payouts (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, opportunity_id TEXT, asset TEXT, amount TEXT, txid TEXT);
+            CREATE TABLE IF NOT EXISTS wallet_public_addresses (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, asset TEXT, network TEXT, address TEXT);
+            CREATE TABLE IF NOT EXISTS costs (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, opportunity_id TEXT, kind TEXT, amount_usd TEXT);
+            CREATE TABLE IF NOT EXISTS source_health (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,source TEXT NOT NULL,ok INTEGER NOT NULL,status_code INTEGER,
+                error_code TEXT,observed_at TEXT NOT NULL);
+        """)
+        self._ensure_column("claims", "clone_url", "TEXT")
+        self._ensure_column("claims", "state", "TEXT NOT NULL DEFAULT 'RESERVED'")
+        self._ensure_column("claims", "claimed_at", "TEXT")
+        self._ensure_column("claims", "reserved_at", "TEXT")
+        self._ensure_column("claims", "updated_at", "TEXT")
+        self._ensure_column("claims", "last_error_code", "TEXT")
+        self._ensure_column("submissions", "submission_id", "TEXT")
+        self._ensure_column("submissions", "submitted_at", "TEXT")
+        for legacy_state, canonical_state in _LEGACY_STATE_MAP.items():
+            self.conn.execute("UPDATE claims SET state=? WHERE state=?", (canonical_state, legacy_state))
+        self.conn.execute(
+            """UPDATE claims
+            SET state=?
+            WHERE state=?
+              AND source='taskforce'
+              AND (
+                  last_error_code LIKE 'task_not_accepting_applications%'
+                  OR last_error_code LIKE 'task_full%'
+                  OR last_error_code = 'http_400:http_400'
+              )""",
+            (WorkerState.FAILED_RETRYABLE.value, WorkerState.FAILED_PERMANENT.value),
+        )
+        self.conn.commit()
+
+    def _ensure_column(self, table: str, column: str, ddl: str) -> None:
+        columns = {row[1] for row in self.conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if column not in columns:
+            self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+
+    def upsert_opportunity(self, opportunity: Opportunity, policy: PolicyDecision, score: ScoreResult | None) -> None:
+        self.conn.execute("""
+            INSERT INTO opportunities (source,id,url,category,reward_amount,reward_asset,reward_network,deadline,
+                requirements_json,acceptance_criteria_json,competition_model,agent_allowed,estimated_effort_minutes,
+                policy_allowed,policy_reasons_json,expected_net_value_usd,score_usd_per_minute,updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+            ON CONFLICT(source,id) DO UPDATE SET url=excluded.url,category=excluded.category,
+                reward_amount=excluded.reward_amount,reward_asset=excluded.reward_asset,reward_network=excluded.reward_network,
+                deadline=excluded.deadline,requirements_json=excluded.requirements_json,
+                acceptance_criteria_json=excluded.acceptance_criteria_json,competition_model=excluded.competition_model,
+                agent_allowed=excluded.agent_allowed,estimated_effort_minutes=excluded.estimated_effort_minutes,
+                policy_allowed=excluded.policy_allowed,policy_reasons_json=excluded.policy_reasons_json,
+                expected_net_value_usd=excluded.expected_net_value_usd,score_usd_per_minute=excluded.score_usd_per_minute,
+                updated_at=CURRENT_TIMESTAMP""",
+            (opportunity.source,opportunity.id,opportunity.url,opportunity.category,str(opportunity.reward.amount),
+             opportunity.reward.asset,opportunity.reward.network,opportunity.deadline.isoformat() if opportunity.deadline else None,
+             json.dumps(opportunity.requirements),json.dumps(opportunity.acceptance_criteria),opportunity.competition_model,
+             None if opportunity.agent_allowed is None else int(opportunity.agent_allowed),opportunity.estimated_effort_minutes,
+             int(policy.allowed),json.dumps(policy.reasons),None if score is None else str(score.expected_net_value_usd),
+             None if score is None else str(score.score_usd_per_minute)))
+        self.conn.commit()
+
+    def list_ranked_opportunities(self, limit: int = 50) -> list[dict[str, object]]:
+        rows = self.conn.execute("""SELECT * FROM opportunities
+            ORDER BY CAST(COALESCE(score_usd_per_minute, '-999999') AS REAL) DESC,
+                     CAST(COALESCE(expected_net_value_usd, '-999999') AS REAL) DESC,source ASC,id ASC LIMIT ?""",(limit,)).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_opportunity(self, source: str, opportunity_id: str) -> dict[str, object] | None:
+        row = self.conn.execute("SELECT * FROM opportunities WHERE source=? AND id=?", (source, opportunity_id)).fetchone()
+        return None if row is None else dict(row)
+
+    def reserve_next_opportunity(self, source: str | None, max_active_claims: int, reserved_at: datetime) -> dict[str, object] | None:
+        if max_active_claims < 1:
+            raise ValueError("max_active_claims must be >= 1")
+        terminal = tuple(state.value for state in TERMINAL_STATES)
+        inactive_for_capacity = (*terminal, WorkerState.FAILED_RETRYABLE.value)
+        placeholders = ",".join("?" for _ in inactive_for_capacity)
+        try:
+            self.conn.execute("BEGIN IMMEDIATE")
+            active = int(
+                self.conn.execute(
+                    f"SELECT COUNT(*) FROM claims WHERE state NOT IN ({placeholders})",
+                    inactive_for_capacity,
+                ).fetchone()[0]
+            )
+            if active >= max_active_claims:
+                self.conn.rollback()
+                return None
+
+            source_clause = ""
+            params: list[object] = []
+            if source is not None:
+                source_clause = "AND o.source=?"
+                params.append(source)
+            retry_cutoff = (reserved_at - _RETRY_COOLDOWN).isoformat()
+            params.extend((WorkerState.FAILED_RETRYABLE.value, retry_cutoff))
+            row = self.conn.execute(
+                f"""SELECT o.*, c.id AS claim_id, c.state AS claim_state
+                FROM opportunities o
+                LEFT JOIN claims c ON c.source=o.source AND c.opportunity_id=o.id
+                WHERE o.policy_allowed=1 {source_clause}
+                  AND (
+                      NOT EXISTS (
+                          SELECT 1 FROM source_health sh
+                          WHERE sh.source=o.source AND sh.ok=1
+                      )
+                      OR datetime(o.updated_at) >= (
+                          SELECT MAX(datetime(sh2.observed_at))
+                          FROM source_health sh2
+                          WHERE sh2.source=o.source AND sh2.ok=1
+                      )
+                  )
+                  AND (
+                      c.id IS NULL
+                      OR (
+                          c.state=?
+                          AND (c.updated_at IS NULL OR datetime(c.updated_at) <= datetime(?))
+                      )
+                  )
+                ORDER BY CAST(COALESCE(o.score_usd_per_minute,'-999999') AS REAL) DESC,
+                         CAST(COALESCE(o.expected_net_value_usd,'-999999') AS REAL) DESC,
+                         o.source ASC,o.id ASC LIMIT 1""",
+                tuple(params),
+            ).fetchone()
+            if row is None:
+                self.conn.rollback()
+                return None
+
+            observed = reserved_at.isoformat()
+            claim_state = row["claim_state"]
+            if claim_state == WorkerState.FAILED_RETRYABLE.value:
+                assert_transition(WorkerState.FAILED_RETRYABLE, WorkerState.ELIGIBLE)
+                assert_transition(WorkerState.ELIGIBLE, WorkerState.RESERVED)
+                self.conn.execute(
+                    """UPDATE claims
+                    SET state=?, clone_url=NULL, claimed_at=NULL, reserved_at=?, updated_at=?, last_error_code=NULL
+                    WHERE source=? AND opportunity_id=?""",
+                    (WorkerState.RESERVED.value, observed, observed, row["source"], row["id"]),
+                )
+            else:
+                self.conn.execute(
+                    "INSERT INTO claims(source,opportunity_id,state,reserved_at,updated_at) VALUES(?,?,?,?,?)",
+                    (row["source"], row["id"], WorkerState.RESERVED.value, observed, observed),
+                )
+            self.conn.commit()
+            result = dict(row)
+            result.pop("claim_id", None)
+            result.pop("claim_state", None)
+            result["opportunity_id"] = result["id"]
+            result["state"] = WorkerState.RESERVED.value
+            result["reserved_at"] = observed
+            return result
+        except Exception:
+            if self.conn.in_transaction:
+                self.conn.rollback()
+            raise
+
+    def record_pending_award(self, source: str, opportunity_id: str, external_reference: str, observed_at: datetime) -> None:
+        row=self.conn.execute("SELECT state FROM claims WHERE source=? AND opportunity_id=?",(source,opportunity_id)).fetchone()
+        if row is None: raise KeyError(f"claim not found: {source}/{opportunity_id}")
+        current=WorkerState(_LEGACY_STATE_MAP.get(row["state"],row["state"]))
+        assert_transition(current,WorkerState.PENDING_AWARD)
+        self.conn.execute("UPDATE claims SET clone_url=?,state=?,updated_at=? WHERE source=? AND opportunity_id=?",
+                          (external_reference,WorkerState.PENDING_AWARD.value,observed_at.isoformat(),source,opportunity_id)); self.conn.commit()
+
+    def activate_award(self, source: str, opportunity_id: str, workspace_reference: str, observed_at: datetime) -> None:
+        row=self.conn.execute("SELECT state FROM claims WHERE source=? AND opportunity_id=?",(source,opportunity_id)).fetchone()
+        if row is None: raise KeyError(f"claim not found: {source}/{opportunity_id}")
+        current=WorkerState(_LEGACY_STATE_MAP.get(row["state"],row["state"]))
+        assert_transition(current,WorkerState.CLAIMED)
+        self.conn.execute("UPDATE claims SET clone_url=?,state=?,claimed_at=?,updated_at=? WHERE source=? AND opportunity_id=?",
+                          (workspace_reference,WorkerState.CLAIMED.value,observed_at.isoformat(),observed_at.isoformat(),source,opportunity_id)); self.conn.commit()
+
+    def record_claim(self, source: str, opportunity_id: str, clone_url: str, claimed_at: datetime) -> None:
+        existing=self.conn.execute("SELECT * FROM claims WHERE source=? AND opportunity_id=?",(source,opportunity_id)).fetchone(); observed=claimed_at.isoformat()
+        if existing is not None:
+            current=WorkerState(_LEGACY_STATE_MAP.get(existing["state"],existing["state"]))
+            if existing["clone_url"] not in (None,clone_url): raise RuntimeError("claim already exists with a different clone reference")
+            if current==WorkerState.CLAIMED and existing["clone_url"]==clone_url: return
+            if current!=WorkerState.RESERVED: raise RuntimeError(f"claim cannot be recorded from state {current.value}")
+            assert_transition(current,WorkerState.CLAIMED)
+            self.conn.execute("UPDATE claims SET clone_url=?,state=?,claimed_at=?,updated_at=? WHERE source=? AND opportunity_id=?",
+                              (clone_url,WorkerState.CLAIMED.value,observed,observed,source,opportunity_id)); self.conn.commit(); return
+        if self.get_active_claims(): raise RuntimeError("maximum active claims reached")
+        self.conn.execute("INSERT INTO claims(source,opportunity_id,clone_url,state,claimed_at,reserved_at,updated_at) VALUES(?,?,?,?,?,?,?)",
+                          (source,opportunity_id,clone_url,WorkerState.CLAIMED.value,observed,observed,observed)); self.conn.commit()
+
+    def transition_claim(self, source: str, opportunity_id: str, target: WorkerState, observed_at: datetime, error_code: str | None = None) -> None:
+        target=WorkerState(target); row=self.conn.execute("SELECT state FROM claims WHERE source=? AND opportunity_id=?",(source,opportunity_id)).fetchone()
+        if row is None: raise KeyError(f"claim not found: {source}/{opportunity_id}")
+        current=WorkerState(_LEGACY_STATE_MAP.get(row["state"],row["state"])); assert_transition(current,target)
+        self.conn.execute("UPDATE claims SET state=?,updated_at=?,last_error_code=? WHERE source=? AND opportunity_id=?",
+                          (target.value,observed_at.isoformat(),error_code,source,opportunity_id)); self.conn.commit()
+
+    def update_claim_state(self, source: str, opportunity_id: str, state: str) -> None:
+        canonical=_LEGACY_STATE_MAP.get(state,state); self.transition_claim(source,opportunity_id,WorkerState(canonical),datetime.utcnow())
+
+    def get_active_claims(self) -> list[dict[str, object]]:
+        terminal=tuple(state.value for state in TERMINAL_STATES); placeholders=",".join("?" for _ in terminal)
+        rows=self.conn.execute(f"SELECT * FROM claims WHERE state NOT IN ({placeholders}) ORDER BY id ASC",terminal).fetchall(); return [dict(row) for row in rows]
+
+    def get_claim(self, source: str, opportunity_id: str) -> dict[str, object] | None:
+        row=self.conn.execute("SELECT * FROM claims WHERE source=? AND opportunity_id=?",(source,opportunity_id)).fetchone(); return None if row is None else dict(row)
+
+    def record_submission(self, source: str, opportunity_id: str, reference: str, submission_id: str | None, submitted_at: datetime) -> None:
+        self.conn.execute("INSERT OR IGNORE INTO submissions(source,opportunity_id,reference,submission_id,submitted_at) VALUES(?,?,?,?,?)",
+                          (source,opportunity_id,reference,submission_id,submitted_at.isoformat())); self.conn.commit()
+
+    def record_verification_event(self, source: str, opportunity_id: str, event: str, observed_at: datetime) -> None:
+        self.conn.execute("INSERT INTO verification_events(source,opportunity_id,event,observed_at) VALUES(?,?,?,?)",
+                          (source,opportunity_id,event,observed_at.isoformat())); self.conn.commit()
+
+    def record_source_health(self, source: str, ok: bool, status_code: int | None, error_code: str | None, observed_at: datetime) -> None:
+        self.conn.execute("INSERT INTO source_health(source,ok,status_code,error_code,observed_at) VALUES(?,?,?,?,?)",
+                          (source,int(ok),status_code,error_code,observed_at.isoformat())); self.conn.commit()
+
+    def get_source_health(self, source: str) -> dict[str, object] | None:
+        row=self.conn.execute("SELECT * FROM source_health WHERE source=? ORDER BY observed_at DESC,id DESC LIMIT 1",(source,)).fetchone()
+        if row is None: return None
+        d=dict(row); d["ok"]=bool(d["ok"]); return d
+
+    def count_source_health(self, source: str) -> int:
+        return int(self.conn.execute("SELECT COUNT(*) FROM source_health WHERE source=?",(source,)).fetchone()[0])
+
+    def close(self) -> None:
+        self.conn.close()
