@@ -1,0 +1,152 @@
+# Federated Free Storage Mesh - canonical policy.
+#
+# Subordinate to GITHUB_BRAIN_V4 and to the existing portable state contract in
+# AI_SKILL_LIBRARY/v4/runtime/shared_state.yaml. This file declares policy; it
+# does not select, place, route, admit or schedule anything, and it activates
+# no provider account.
+version: 1
+purpose: federated_free_storage_mesh
+
+authority:
+  storage_authority: false
+  routing_authority: false
+  reasoning_authority: false
+  model_selection_authority: false
+  admission_authority: false
+  scheduling_authority: false
+  merge_authority: false
+  trading_authority: false
+
+canonical:
+  authority: GITHUB_BRAIN_V4
+  portable_state_contract: AI_SKILL_LIBRARY/v4/runtime/shared_state.yaml
+  routed_by: task_router
+  extends_interface: ObjectStore
+  second_portable_state_abstraction: false
+  canonical_home: github
+
+cost:
+  paid_storage_allowed: false
+  overage_allowed: false
+  unknown_cost_state: QUARANTINE
+  billable_spillover_unverified: NO_AUTONOMOUS_WRITE
+  free_expiry_unknown: NO_AUTONOMOUS_WRITE
+  # Spec S11: a provider that becomes paid-only is retired from write placement.
+  # Reads of existing objects may continue where policy permits; no new paid
+  # usage is ever created.
+  paid_only_provider: RETIRE_FROM_WRITE_PLACEMENT
+  quota_circumvention_allowed: false
+  account_farming_allowed: false
+
+capacity:
+  soft_limit_ratio: 0.80
+  hard_limit_ratio: 0.92
+  emergency_reserve_ratio: 0.05
+  # Provider-specific limits may be stricter, never looser.
+  provider_overrides_may_only_tighten: true
+
+privacy:
+  PUBLIC: {external_backends_allowed: true, client_encryption_required: false}
+  INTERNAL: {external_backends_allowed: verified_only, client_encryption_required: false}
+  CONFIDENTIAL: {external_backends_allowed: encrypted_verified_only, client_encryption_required: true}
+  LOCAL_ONLY: {external_backends_allowed: false, client_encryption_required: false}
+
+criticality:
+  CRITICAL:
+    min_independent_provider_copies: 2
+    auto_delete_for_capacity: false
+    hash_verification_required: true
+  IMPORTANT:
+    min_independent_provider_copies: 1
+    replica_when_free_headroom_exists: true
+    replace_replica_only_after_hash_verification: true
+    auto_delete_for_capacity: false
+  REPRODUCIBLE:
+    min_independent_provider_copies: 1
+    evictable_under_capacity_pressure: true
+    regenerate_on_loss: true
+  EPHEMERAL:
+    min_independent_provider_copies: 0
+    cache_or_local_preferred: true
+    ttl_expiry: true
+    long_term_replication: false
+
+tiers:
+  CANONICAL: {primary_home: github, bulk_object_data_allowed: false}
+  HOT: {bulk_object_data_allowed: true}
+  WARM: {bulk_object_data_allowed: true}
+  COLD: {bulk_object_data_allowed: true}
+  HUMAN_BACKUP: {bulk_object_data_allowed: true, canonical_runtime_object_store: false}
+  METADATA: {bulk_object_data_allowed: false}
+
+placement_order:
+  - privacy
+  - integrity_criticality
+  - free_only_eligibility
+  - provider_health
+  - quota_headroom
+  - object_size
+  - access_frequency
+  - retention_class
+  - latency
+  - backend_choice
+
+placement_precedence:
+  capacity_overrides_privacy: false
+  free_capacity_overrides_integrity: false
+  latency_overrides_zero_cost: false
+
+replication:
+  model: single_primary_with_optional_full_replicas
+  erasure_coding: out_of_scope
+  chunk_striping: out_of_scope
+  content_addressed_verification: true
+  rebalance_deletes_source_before_destination_verified: false
+
+lifecycle:
+  states: [RAW, SANITIZED, DEDUPED, AGGREGATED, COMPRESSED, ARCHIVED, EXPIRED]
+  destructive_action_on_uncertain_evidence: FAIL_CLOSED
+
+provider_health_states: [FREE, HEALTHY, PRESSURED, NEAR_FULL, READ_ONLY, QUARANTINED, OFFLINE]
+
+metadata_service:
+  provider_id: supabase
+  role: metadata_and_object_index_only
+  authority: false
+  bulk_object_backend_allowed: false
+  tiers_allowed: [METADATA]
+  # Spec S25: the connected Supabase account currently has no projects, and
+  # none is created here. Free-plan characteristics are account/runtime
+  # evidence, never a hard-coded entitlement.
+  project_creation_requires_explicit_approval: true
+  project_exists_verified: false
+  free_plan_characteristics_hardcoded: false
+  recovery_checkpoint: github_bounded_manifest_snapshot
+  on_unavailable:
+    cached_manifest_reads_where_policy_allows: true
+    new_destructive_lifecycle_actions: BLOCKED
+    critical_deletion_or_rebalance: PAUSED
+
+encryption:
+  # Task 1 declares fields only. The encryption contract itself - algorithm
+  # choice, envelope construction, rotation - is owned elsewhere and is not
+  # implemented, invented or approximated here.
+  implemented_here: false
+  owned_by: storage_mesh_encryption_contract
+  required_classes: [CONFIDENTIAL]
+  client_side_before_upload: true
+  authenticated_encryption_required: true
+  metadata_fields_allowed: [algorithm, scheme_version, key_ref, nonce, tag]
+  key_material_in_metadata: false
+  key_material_in_repository: false
+  key_material_in_logs: false
+  key_separated_from_ciphertext_provider: true
+  allowed_key_locations: [environment_secret_store, owned_worker_secret_store, authorized_secret_management_backend]
+  forbidden_key_locations: [ciphertext_bucket, plaintext_github_file, metadata_table_value, human_backup_file, logs, checkpoints]
+
+forbidden_content: [hidden_reasoning, raw_private_chat, secrets, credentials, private_keys, authentication_tokens, seed_phrases, raw_sensitive_tool_payloads]
+
+object_naming:
+  content_addressed: true
+  human_readable_names_allowed: false
+  secrets_in_object_names: false

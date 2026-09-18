@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "storage_object_manifest.schema.json",
+  "title": "Federated Free Storage Mesh - object manifest record",
+  "description": "What the mesh knows about one stored object: its content hash, its size, which privacy and criticality class it belongs to, which backend holds it, which backends hold replicas, and where it sits in the compaction lifecycle. What the object *contains* is deliberately not representable here, and neither is any key that would open it. The row is a closed field set in the manner of experience_ledger.schema.json: an unknown field is rejected rather than stored, so a caller that forgot to strip a bearer token cannot smuggle one in under a new name. The closed set alone is not enough - a field typed merely 'string' is a slot that will hold an API key as happily as it holds a mime type - so every string here is typed as what it actually is (a digest, a classifier, a provider id, a key reference, a timestamp) and bounded by pattern and maxLength, every array by maxItems. Two privacy rules are encoded as structure rather than as prose, because prose is not a control: a LOCAL_ONLY object can only name a local backend, and a CONFIDENTIAL object on an external backend must carry client-side encryption metadata. This schema declares encryption fields; it does not define or implement the encryption contract.",
+  "type": "object",
+  "required": [
+    "version", "authority", "authority_flags", "object_id", "content_sha256",
+    "size_bytes", "privacy_class", "criticality", "storage_tier",
+    "encryption_state", "primary_backend", "replica_backends", "created_at",
+    "lifecycle_state", "reproducible"
+  ],
+  "properties": {
+    "version": {"const": 1},
+    "authority": {
+      "description": "Spec S7: a manifest record is evidence about an object, never authority over one.",
+      "const": false
+    },
+    "authority_flags": {"$ref": "#/$defs/authority_flags"},
+    "object_id": {
+      "description": "A content-derived opaque id, never a name. Spec S7 requires that object names carry no secrets and no unnecessary private text; a digest is the only shape that cannot. 'users/alice/tax-return-2025.pdf' is rejected by construction, not by review.",
+      "type": "string",
+      "minLength": 68,
+      "maxLength": 68,
+      "pattern": "^obj_[0-9a-f]{64}$"
+    },
+    "object_class": {
+      "description": "What kind of thing this is - 'benchmark-bundle', 'replay', 'checkpoint'. A classifier from a small controlled vocabulary, so the mesh can reason about categories without any field ever holding a filename or a description.",
+      "$ref": "#/$defs/class_token"
+    },
+    "content_sha256": {"$ref": "#/$defs/sha256"},
+    "size_bytes": {"type": "integer", "minimum": 0, "maximum": 1099511627776},
+    "mime_type": {
+      "description": "Type and subtype only. RFC 2045 parameters are excluded because 'name=' and 'filename=' are exactly the private text S7 forbids in object naming.",
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9.+-]{0,62}/[a-z0-9][a-z0-9.+-]{0,62}$"
+    },
+    "privacy_class": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "LOCAL_ONLY"]},
+    "criticality": {"enum": ["CRITICAL", "IMPORTANT", "REPRODUCIBLE", "EPHEMERAL"]},
+    "storage_tier": {"enum": ["CANONICAL", "HOT", "WARM", "COLD", "HUMAN_BACKUP", "METADATA"]},
+    "retention_class": {"$ref": "#/$defs/class_token"},
+    "encryption_state": {"enum": ["NONE", "CLIENT_SIDE_ENCRYPTED"]},
+    "encryption_scheme_version": {"type": ["integer", "null"], "minimum": 1, "maximum": 4096},
+    "encryption": {"$ref": "#/$defs/encryption_metadata"},
+    "primary_backend": {"$ref": "#/$defs/backend_id"},
+    "replica_backends": {
+      "description": "Full replicas, not stripes (Spec S9). Bounded: an object needing more than eight independent copies is a policy question, not a manifest question.",
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/backend_id"}
+    },
+    "created_at": {"$ref": "#/$defs/timestamp"},
+    "last_accessed_at": {"$ref": "#/$defs/timestamp"},
+    "last_verified_at": {"$ref": "#/$defs/timestamp"},
+    "lifecycle_state": {
+      "description": "The compaction lifecycle of Spec S12. These are the mesh's own object states; they name no runtime, residency or governance state belonging to another plane.",
+      "enum": ["RAW", "SANITIZED", "DEDUPED", "AGGREGATED", "COMPRESSED", "ARCHIVED", "EXPIRED"]
+    },
+    "source_provenance": {"$ref": "#/$defs/provenance"},
+    "reproducible": {"type": "boolean"},
+    "verification": {"$ref": "#/$defs/verification"}
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "title": "LOCAL_ONLY never leaves owned/local storage",
+      "description": "Spec S4. Encoded as structure: for a LOCAL_ONLY object the only values the backend fields will accept are local backend ids, so a manifest naming an external provider is not a policy violation to be detected later - it is an invalid document.",
+      "if": {"properties": {"privacy_class": {"const": "LOCAL_ONLY"}}, "required": ["privacy_class"]},
+      "then": {
+        "properties": {
+          "primary_backend": {"$ref": "#/$defs/local_backend_id"},
+          "replica_backends": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/local_backend_id"}}
+        }
+      }
+    },
+    {
+      "title": "CONFIDENTIAL reaches an external backend only as ciphertext",
+      "description": "Spec S4/S21. Either the object never leaves a local backend, or it is client-side encrypted and carries the encryption metadata that proves it - algorithm, scheme version and a key *reference*. The encryption flag alone is not accepted, because a flag is an assertion and the metadata is the evidence.",
+      "if": {"properties": {"privacy_class": {"const": "CONFIDENTIAL"}}, "required": ["privacy_class"]},
+      "then": {
+        "anyOf": [
+          {
+            "title": "stays local",
+            "properties": {
+              "primary_backend": {"$ref": "#/$defs/local_backend_id"},
+              "replica_backends": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/local_backend_id"}}
+            }
+          },
+          {
+            "title": "leaves only as ciphertext",
+            "properties": {"encryption_state": {"const": "CLIENT_SIDE_ENCRYPTED"}},
+            "required": ["encryption_state", "encryption"]
+          }
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "class_token": {
+      "description": "A classifier drawn from a small controlled vocabulary - 'replay-bundle', 'evidence.compacted'. Lower-case, punctuation-limited and short, because a classifier that can hold a sentence can hold a prompt, and one that can hold 2KB can hold a credential.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"
+    },
+    "sha256": {
+      "description": "Lower-case hex digest. Fixed length, so the field cannot double as a payload slot.",
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "backend_id": {
+      "description": "A provider_id as storage_provider.schema.json admits them, or a local store. Narrow enough to exclude whitespace, '=' and '/', so a credential-shaped 'KEY=VALUE' or a URL cannot be written here.",
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]{1,63}$"
+    },
+    "local_backend_id": {
+      "description": "An owned/local store. The 'local_' prefix is reserved: storage_provider.schema.json forbids any external provider from claiming a provider_id that starts with it, which is what makes the LOCAL_ONLY rule above airtight rather than merely conventional.",
+      "type": "string",
+      "minLength": 7,
+      "maxLength": 64,
+      "pattern": "^local_[a-z0-9][a-z0-9_]{0,57}$"
+    },
+    "timestamp": {
+      "description": "ISO-8601 / RFC 3339 instant, enforced by pattern. 'format: date-time' is an annotation a validator is free to ignore, and the default one does.",
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 40,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "evidence_ref": {
+      "description": "A pointer into the existing verifier/evidence path, not a note about one. Either a scheme-qualified reference or a repository-relative path whose final segment carries a file extension, so that the placeholders which satisfy a mere minLength - '   ', 'n/a', 'TODO' - do not satisfy an evidence requirement.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?:[a-z][a-z0-9+.-]{1,31}://[A-Za-z0-9][A-Za-z0-9._~:/?#@!$&'()*+,;=%-]{2,222}|[A-Za-z0-9][A-Za-z0-9._/-]*/[A-Za-z0-9][A-Za-z0-9._-]*[.][A-Za-z0-9]{1,16})$"
+    },
+    "provenance": {
+      "description": "Where the object came from, as classifiers and references. Not prose: a free-text origin note is where 'exported from the user's inbox at their request' - and the next thing after it - gets written down.",
+      "type": "object",
+      "required": ["origin_class"],
+      "properties": {
+        "origin_class": {"$ref": "#/$defs/class_token"},
+        "producer_id": {"$ref": "#/$defs/class_token"},
+        "evidence_ref": {"$ref": "#/$defs/evidence_ref"}
+      },
+      "additionalProperties": false
+    },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "hash_verified": {"type": "boolean"},
+        "verified_replica_count": {"type": "integer", "minimum": 0, "maximum": 9},
+        "last_probe_at": {"$ref": "#/$defs/timestamp"},
+        "evidence_ref": {"$ref": "#/$defs/evidence_ref"}
+      },
+      "additionalProperties": false
+    },
+    "encryption_metadata": {
+      "description": "Spec S21: algorithm, version and a key *reference* only. There is deliberately no field a plaintext key could be written into - additionalProperties is false, so 'key', 'key_material', 'dek' and 'passphrase' are rejected outright - and the fields that do exist are shaped so they cannot be repurposed as one. key_ref must be a scheme-qualified pointer at a secret store, and the schemes it accepts are exactly the key locations Spec S22 allows; an object-storage URL is not among them, which is how key/ciphertext separation is enforced structurally. nonce and tag are capped at 32 characters: long enough for a 12-byte nonce and a 16-byte authentication tag, too short to hold a 256-bit key (44 base64 characters). This schema names these fields; it does not define the encryption contract or implement any cryptography.",
+      "type": "object",
+      "required": ["algorithm", "scheme_version", "key_ref"],
+      "properties": {
+        "algorithm": {"$ref": "#/$defs/class_token"},
+        "scheme_version": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "key_ref": {
+          "description": "A pointer to where the key lives, never the key. Schemes limited to the secret locations Spec S22 permits, so a reference into the same bucket as the ciphertext, or a bare hex blob that happens to be the key itself, is rejected.",
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 192,
+          "pattern": "^(env|secretstore|worker-secret|kms)://[A-Za-z0-9][A-Za-z0-9._/-]{2,180}$"
+        },
+        "key_rotation_generation": {"type": "integer", "minimum": 0, "maximum": 65535},
+        "nonce": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 32,
+          "pattern": "^[A-Za-z0-9+/=_-]{8,32}$"
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 32,
+          "pattern": "^[A-Za-z0-9+/=_-]{8,32}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "authority_flags": {
+      "description": "Denied by name rather than by omission. The scalar authority:false above is the canonical declaration; these name the specific authorities a storage record does not hold, so a later document cannot acquire one by adding a key.",
+      "type": "object",
+      "required": [
+        "storage_authority", "routing_authority", "reasoning_authority",
+        "model_selection_authority", "admission_authority",
+        "scheduling_authority", "merge_authority", "trading_authority"
+      ],
+      "properties": {
+        "storage_authority": {"const": false},
+        "routing_authority": {"const": false},
+        "reasoning_authority": {"const": false},
+        "model_selection_authority": {"const": false},
+        "admission_authority": {"const": false},
+        "scheduling_authority": {"const": false},
+        "merge_authority": {"const": false},
+        "trading_authority": {"const": false}
+      },
+      "additionalProperties": false
+    }
+  }
+}

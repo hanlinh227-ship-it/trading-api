@@ -30,6 +30,25 @@ interfaces:
     binding: BRAIN_OBJECTS
     on_unavailable: inline_bounded_metadata_only
     future_backends: [s3_compatible]
+    # Subordinate extension of THIS interface, not a second abstraction.
+    # GitHub stays canonical; the mesh only places and persists bytes.
+    federated_storage_mesh:
+      role: subordinate_persistence_and_placement
+      extends_interface: ObjectStore
+      second_portable_state_abstraction: false
+      authority: false
+      storage_authority: false
+      routing_authority: false
+      canonical_authority: github
+      metadata_service_authority: false
+      policy: AI_SKILL_LIBRARY/v4/storage/policy.yaml
+      providers: AI_SKILL_LIBRARY/v4/storage/providers.yaml
+      object_manifest_schema: AI_SKILL_LIBRARY/v4/schemas/storage_object_manifest.schema.json
+      provider_schema: AI_SKILL_LIBRARY/v4/schemas/storage_provider.schema.json
+      paid_storage_allowed: false
+      overage_allowed: false
+      secrets_allowed: false
+      on_unavailable: inline_bounded_metadata_only
   TaskQueue:
     required: false
     first_backend: optional_cloudflare_queue

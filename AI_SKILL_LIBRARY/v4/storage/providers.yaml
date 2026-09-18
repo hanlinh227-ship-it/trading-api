@@ -1,0 +1,259 @@
+# Federated Free Storage Mesh - provider registry.
+#
+# Registry membership is not admission and not activation. Every external row
+# below is UNVERIFIED and QUARANTINED because nothing here has been checked
+# against a real account: no quota has been observed, no hard stop has been
+# seen, no free tier has been confirmed for this account. Those are the honest
+# values, and Spec S16 requires unknown cost/privacy fields to fail closed.
+#
+# Quota numbers are null rather than the figures a provider's pricing page
+# advertises. A documented free tier is a claim about a product; the mesh needs
+# a fact about this account, and the two differ often enough that recording the
+# first as if it were the second is how a "free" mesh acquires a bill.
+#
+# No credential of any kind belongs in this file - no token, no key, no bucket
+# secret, no account identifier. Adapters resolve credentials from the secret
+# store at runtime; the registry only says which backends exist and what has
+# been proven about them.
+version: 1
+purpose: federated_free_storage_mesh_provider_registry
+authority: false
+authority_flags:
+  storage_authority: false
+  routing_authority: false
+  reasoning_authority: false
+  model_selection_authority: false
+  admission_authority: false
+  scheduling_authority: false
+  merge_authority: false
+  trading_authority: false
+canonical_authority: GITHUB_BRAIN_V4
+policy: AI_SKILL_LIBRARY/v4/storage/policy.yaml
+record_schema: AI_SKILL_LIBRARY/v4/schemas/storage_provider.schema.json
+registry_membership_is_admission: false
+registry_membership_is_activation: false
+accounts_created_here: false
+
+providers:
+  - provider_id: local_owned_store
+    adapter_type: local_filesystem
+    external: false
+    free_status: NOT_APPLICABLE
+    free_status_evidence:
+      evidence_class: not_applicable
+    quota_total: null
+    quota_used: null
+    hard_stop_verified: true
+    paid_spillover_possible: false
+    privacy_classes_allowed: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    encryption_required_classes: []
+    health: HEALTHY
+    autonomous_write_allowed: true
+    read_enabled: true
+    write_enabled: true
+    bulk_object_backend_allowed: true
+    tiers_allowed: [HOT]
+    preferred_tiers: [HOT]
+    retention_policy_class: owned-local
+    acceptable_use_class: owned-storage
+    last_probe_at: null
+    authority: false
+
+  - provider_id: cloudflare_r2
+    adapter_type: s3_compatible
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [HOT, WARM]
+    preferred_tiers: [HOT]
+    acceptable_use_class: object-storage
+    last_probe_at: null
+    authority: false
+
+  - provider_id: backblaze_b2
+    adapter_type: s3_compatible
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [WARM, COLD]
+    preferred_tiers: [WARM, COLD]
+    acceptable_use_class: object-storage
+    last_probe_at: null
+    authority: false
+
+  - provider_id: oracle_object_storage
+    adapter_type: s3_compatible
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [WARM, COLD]
+    preferred_tiers: [WARM, COLD]
+    acceptable_use_class: object-storage
+    last_probe_at: null
+    authority: false
+
+  - provider_id: huggingface_hub
+    adapter_type: huggingface_hub
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [COLD]
+    preferred_tiers: [COLD]
+    # Spec S17: models, datasets, AI artifacts and benchmark corpora only.
+    # Never a generic log dump.
+    acceptable_use_class: ai-artifacts-only
+    last_probe_at: null
+    authority: false
+
+  - provider_id: google_drive
+    adapter_type: google_drive_api
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [HUMAN_BACKUP]
+    preferred_tiers: [HUMAN_BACKUP]
+    acceptable_use_class: human-backup-only
+    last_probe_at: null
+    authority: false
+
+  - provider_id: onedrive
+    adapter_type: microsoft_graph_api
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [HUMAN_BACKUP]
+    preferred_tiers: [HUMAN_BACKUP]
+    acceptable_use_class: human-backup-only
+    last_probe_at: null
+    authority: false
+
+  - provider_id: dropbox
+    adapter_type: dropbox_api
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: true
+    tiers_allowed: [HUMAN_BACKUP]
+    preferred_tiers: [HUMAN_BACKUP]
+    acceptable_use_class: human-backup-only
+    last_probe_at: null
+    authority: false
+
+  # Metadata and object index only. Spec S6/S18/S25: Supabase holds the
+  # manifest, never the objects, and is never authority. The connected account
+  # currently has no project, and none is created by this registry.
+  - provider_id: supabase
+    adapter_type: supabase_metadata
+    external: true
+    free_status: UNVERIFIED
+    free_status_evidence:
+      evidence_class: none
+    free_expiry_at: null
+    quota_total: null
+    quota_used: null
+    hard_stop_verified: false
+    paid_spillover_possible: unknown
+    privacy_classes_allowed: []
+    encryption_required_classes: [CONFIDENTIAL]
+    health: QUARANTINED
+    autonomous_write_allowed: false
+    read_enabled: false
+    write_enabled: false
+    bulk_object_backend_allowed: false
+    tiers_allowed: [METADATA]
+    preferred_tiers: [METADATA]
+    object_size_limits:
+      max_object_bytes: null
+    acceptable_use_class: metadata-index-only
+    last_probe_at: null
+    authority: false
