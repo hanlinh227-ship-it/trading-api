@@ -259,7 +259,15 @@ def failure_drills(root: Path, now: float, matrix: dict[str, Any]) -> list[dict[
     _join(registry_h, "host-0", worker_class=WorkerClass.PERSISTENT_LOCAL,
           privacy=Privacy.CONFIDENTIAL, now=now, capabilities=caps)
     from AI_SKILL_LIBRARY.v4.local_runtime.providers import ProviderRegistry
-    mesh_h = FreeWorkerMesh(registry_h, ProviderRegistry())  # every provider gone
+    # Cloudflare alone goes away, and the host's own recorded LOCAL_PROCESS path
+    # stays. An earlier version emptied the whole registry, which passed while
+    # leaving the real case untested: the host is recorded in the paths file too,
+    # and counting it as a provider let provider-only roles keep claiming to be
+    # serviceable with no off-host provider left.
+    surviving = ProviderRegistry([
+        record for record in providers.all()
+        if record.execution_type.value == "LOCAL_PROCESS"])
+    mesh_h = FreeWorkerMesh(registry_h, surviving)
     ops_h = FederationOps(mesh_h, matrix)
     health_rows = {r["role_id"]: r["health"] for r in ops_h.role_health(now=now)}
     serverless_roles = [r["role_id"] for r in matrix["ROLE_CAPABILITY_MATRIX"]
@@ -275,6 +283,7 @@ def failure_drills(root: Path, now: float, matrix: dict[str, Any]) -> list[dict[
         failures.append("no provider-only role in the matrix, so this drill proves nothing")
     rows.append(_row("H", "provider_loss_blocks_provider_only_roles", failures,
                      serverless_roles=sorted(serverless_roles),
+                     surviving_paths=[r.provider_id for r in surviving.all()],
                      states={r: health_rows.get(r) for r in sorted(serverless_roles)}))
 
     # I - health is coverage. With the verifier's only path gone, HEALTHY is

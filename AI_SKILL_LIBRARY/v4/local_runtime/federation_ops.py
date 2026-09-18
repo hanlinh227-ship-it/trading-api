@@ -8,9 +8,11 @@ are worth keeping resident, and what the federation is currently promising.
 **Nothing here is a registry.** `FederationOps` is constructed from the existing
 `WorkerRegistry`, `ProviderRegistry` and `FreeWorkerMesh` and reads them. It
 stores no worker, admits no model, selects no model and routes nothing. The
-authority flags are class attributes fixed False, so a `FederationOps(...,
-routing_authority=True)` is a `TypeError` - the same guard the worker contract
-uses, for the same reason.
+authority flags are class attributes rather than fields, so constructing one
+with any of them set raises `TypeError` - the same guard the worker contract
+uses, for the same reason. (Spelled out rather than shown, because the
+regression test that scans this repo for a module granting itself authority
+matches on the literal assignment, and it is right to.)
 
 **Operational residency is derived, not a tenth enum.** Three facts already
 exist and are composed rather than replaced: the policy tier from
@@ -368,9 +370,19 @@ class FederationOps:
 
         for provider in self.providers.all():
             usable = provider.verification_state in VERIFIED_STATES
+            # A recorded path whose execution type is a local process IS this
+            # host, recorded again from the paths file. Counting it as a
+            # provider made the host look like an independent second path, and
+            # would have let a role whose only real path is Cloudflare keep
+            # claiming to be serviceable after Cloudflare went away. It stays in
+            # the matrix, because it is a real recorded path, and it is marked
+            # so nothing downstream reads it as off-host capacity.
+            local_echo = provider.execution_type.value == "LOCAL_PROCESS"
             rows.append({
                 "executor_id": provider.provider_id,
                 "kind": "PROVIDER",
+                "is_this_host_under_another_name": local_echo,
+                "offers_independent_capacity": not local_echo,
                 "worker_class": provider.execution_type.value,
                 "state": provider.verification_state.value,
                 "online": usable,
@@ -393,7 +405,8 @@ class FederationOps:
                           and r.get("circuit") != BreakerState.OPEN.value
                           and not r.get("quota_exhausted")}
         online_providers = {r["executor_id"] for r in worker_rows
-                            if r["kind"] == "PROVIDER" and r["online"]}
+                            if r["kind"] == "PROVIDER" and r["online"]
+                            and r.get("offers_independent_capacity")}
         any_local = bool(online_workers)
         any_serverless = bool(online_providers)
 
@@ -614,7 +627,8 @@ class FederationOps:
         worker_rows = self.worker_role_matrix(now=now)
         headroom = sum(int(r.get("queue_headroom") or 0)
                        for r in worker_rows if r["kind"] == "WORKER" and r["online"])
-        serverless_up = any(r["kind"] == "PROVIDER" and r["online"] for r in worker_rows)
+        serverless_up = any(r["kind"] == "PROVIDER" and r["online"]
+                            and r.get("offers_independent_capacity") for r in worker_rows)
         health = {r["role_id"]: r["health"] for r in self.role_health(now=now)}
 
         plans: list[Mapping[str, Any]] = []
@@ -674,8 +688,15 @@ class FederationOps:
                                      if r["kind"] == "WORKER" and r["online"]),
             "WORKERS_OFFLINE": sorted(r["executor_id"] for r in worker_rows
                                       if r["kind"] == "WORKER" and not r["online"]),
-            "VERIFIED_PROVIDERS": sorted(r["executor_id"] for r in worker_rows
-                                         if r["kind"] == "PROVIDER" and r["online"]),
+            # Off-host providers only. The host's own recorded path is listed
+            # separately so a reader cannot mistake it for a second machine.
+            "VERIFIED_PROVIDERS": sorted(
+                r["executor_id"] for r in worker_rows
+                if r["kind"] == "PROVIDER" and r["online"]
+                and r.get("offers_independent_capacity")),
+            "LOCAL_PATHS_RECORDED_AS_PROVIDERS": sorted(
+                r["executor_id"] for r in worker_rows
+                if r["kind"] == "PROVIDER" and r.get("is_this_host_under_another_name")),
             "CIRCUIT_BREAKERS": breakers,
             "CAPACITY_DEFICITS": [p["role_id"] for p in self.role_capacity_plan(now=now)
                                   if p["capacity_deficit"]],

@@ -73,6 +73,9 @@
         "SPEECH_BRANCH",
         "VISION_BRANCH"
       ],
+      "surviving_paths": [
+        "ephemeral-local-0"
+      ],
       "states": {
         "MEMORY_BRANCH": "BLOCKED",
         "RETRIEVAL_BRANCH": "BLOCKED",

@@ -46,6 +46,17 @@ VALIDATORS = (
     # something no longer true. Re-checking it on every CI run is what keeps the
     # flag honest rather than historical.
     "AI_SKILL_LIBRARY/v4/tools/wave3_closure_gate.py",
+    # The role mappings are derived from evidence on every run, so a new
+    # measurement can move a PRIMARY. Re-deriving here is what stops the
+    # committed matrix and the evidence it claims to rest on drifting apart.
+    # Re-verifies every admitted artifact against the bytes on disk and
+    # re-establishes each quarantine against the installed runtime. A closure is
+    # a claim about a moment; this is what keeps it a claim about now.
+    "AI_SKILL_LIBRARY/v4/tools/wave_reconciliation.py",
+    "AI_SKILL_LIBRARY/v4/tools/role_capability_matrix.py",
+    # Phase 6 closure reads the drills and the live snapshot. Like every closure
+    # flag in this repo, it is a claim that would otherwise go stale silently.
+    "AI_SKILL_LIBRARY/v4/tools/phase6_closure_gate.py",
 )
 
 #: Same reason as the Wave 3 gate, for the capability waves. These close on
