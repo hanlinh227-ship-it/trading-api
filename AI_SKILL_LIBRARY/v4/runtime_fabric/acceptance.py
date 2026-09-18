@@ -151,6 +151,11 @@ def acceptance_matrix(registry: dict | None = None, *,
         "SECONDARY_RUNTIME": "deno_deploy",
         "SECONDARY_DEPLOYED": bool((secondary["verification"]).get("deployed")),
         "SECONDARY_HEALTH_VERIFIED": bool((secondary["verification"]).get("health_verified")),
+        # Exact-SHA for the secondary is its own row, not folded into health.
+        # A runtime that answers but runs a different commit is a different
+        # failure from one that does not answer, and the failover story needs
+        # to tell them apart.
+        "SECONDARY_SHA_MATCH": bool((secondary["verification"]).get("exact_sha_verified")),
 
         "TERTIARY_RUNTIME": "netlify_functions",
         "TERTIARY_STATE": tertiary["lifecycle"],
