@@ -5,8 +5,8 @@ import {resolveLiveModels} from './model-mesh/runtime-health.js';
 import {selectModelWorkers} from './model-mesh/selector.js';
 import {executeSelectedModelWorker} from './model-mesh/provider-client.js';
 
-export const BYBIT_AI_LEGION_VERSION='BYBIT_AI_LEGION_V1';
-const STATE_KEY='bybit:btc:ai-legion:v1:state';
+export const BYBIT_AI_LEGION_VERSION='BYBIT_AI_LEGION_V2_MARKET_INTELLIGENCE';
+const STATE_KEY='bybit:btc:ai-legion:v2:state';
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const on=v=>String(v||'').toLowerCase()==='true';
@@ -99,6 +99,12 @@ function publicMarketPayload(market={},setup={}){
       target:num(setup.tp),
       rr:num(setup.rr),
       executionIntent:String(setup.executionIntent||''),
+      stopAuthority:String(setup.stopAuthority||setup.evidence?.stopAuthority||''),
+      targetAuthority:String(setup.targetAuthority||setup.evidence?.targetAuthority||''),
+      structuralInvalidation:num(setup.structuralInvalidation||setup.evidence?.structuralInvalidation),
+      noiseBuffer:num(setup.noiseBuffer||setup.evidence?.noiseBuffer),
+      opposingLiquidity:num(setup.opposingLiquidity||setup.evidence?.opposingLiquidity),
+      targetFrontRun:Boolean(setup.targetFrontRun||setup.evidence?.targetFrontRun),
       reason:String(setup.reason||'').slice(0,300),
     },
     state:{
@@ -135,6 +141,9 @@ function publicMarketPayload(market={},setup={}){
         volRatio:num(market.volRatio),
         realizedVol5:num(market.realizedVol5),
         realizedVolBase:num(market.realizedVolBase),
+        range5:market.range5||null,
+        range15:market.range15||null,
+        range60:market.range60||null,
       },
       executionCost:market.executionCost||null,
       quality:market.quality||null,
@@ -144,21 +153,45 @@ function publicMarketPayload(market={},setup={}){
   };
 }
 
+function roleGuide(roleId){
+  if(roleId==='structure_regime_agent')return [
+    'Use multi-horizon structure (5/15/60), sweep/reclaim and break/retest. Distinguish a liquidity sweep from a genuine break by close/flow follow-through.',
+    'Check that the stop is beyond thesis invalidation plus a noise buffer, not sitting exactly on an obvious swing. VETO if the stop is inside structural invalidation or geometry is inconsistent.',
+    'Do not support counter-trend trades unless reversal evidence is materially stronger than the prevailing 15/60 structure.'
+  ];
+  if(roleId==='flow_liquidity_agent')return [
+    'Prefer persistent 3s/5s/15s executed-flow agreement over a single 1s spike. Penalize spike-without-follow-through.',
+    'Use near-touch L2 imbalance, microprice, spread, fragility and liquidation flow together. Order-book size alone is not sufficient because displayed liquidity can disappear.',
+    'VETO if spread/liquidity/freshness makes expected execution materially worse than the candidate geometry.'
+  ];
+  if(roleId==='derivatives_risk_agent')return [
+    'Interpret price with OI, funding, premium/basis and long-short crowding. OI expansion is context, not a directional signal by itself.',
+    'Flag crowded positioning, funding exposure, volatility shock, stale derivatives data and cost-to-target problems.',
+    'Risk multiplier may only decrease. Use a larger reduction when crowding or volatility conflicts with the candidate.'
+  ];
+  return [
+    'Act as an adversarial checker. Search for stale data, cross-horizon conflict, stop geometry inside liquidity, target beyond nearby opposing liquidity, cost/fee mismatch, or unsupported confidence.',
+    'Do not invent a new trade thesis. VETO when material evidence conflicts or a required field is missing.'
+  ];
+}
+
 function rolePrompt(role,payload){
   return [
-    'You are one bounded specialist inside BYBIT_AI_LEGION_V1.',
+    'You are one bounded specialist inside BYBIT_AI_LEGION_V2_MARKET_INTELLIGENCE.',
     'You are advisory evidence only. You cannot place orders, change leverage, increase risk, override StateFlow, or invent missing market data.',
     'Never reveal chain-of-thought. Return strict JSON only.',
     `ROLE_ID: ${role.id}`,
     `ROLE_PURPOSE: ${role.purpose}`,
+    ...roleGuide(role.id).map(x=>`ROLE_RULE: ${x}`),
     'Evaluate only the supplied PUBLIC BTCUSDT market state and the already-selected candidate.',
     'Required JSON schema:',
     '{"verdict":"SUPPORT|NEUTRAL|VETO","side":"BUY|SELL|NEUTRAL","confidence":0.0,"risk_multiplier":1.0,"reasons":["short reason"],"freshness_ok":true}',
     'Rules:',
-    '- confidence must be 0..1.',
+    '- confidence must be 0..1 and must reflect evidence quality, not optimism.',
     '- risk_multiplier must be 0.50..1.00 and can only reduce risk.',
     '- If evidence is stale, contradictory, malformed or insufficient: VETO.',
     '- SUPPORT means this role finds the candidate internally coherent; it is not a profit prediction.',
+    '- Never claim a stop cannot be swept. Judge whether it is outside the thesis invalidation/noise zone.',
     '- Use max 3 concise reasons, each under 120 chars.',
     `INPUT: ${JSON.stringify(payload)}`,
   ].join('\n');
