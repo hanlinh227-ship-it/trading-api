@@ -68,11 +68,11 @@ jobs:
           '''
           request = {
               "model": "deepseek-chat",
-              "max_tokens": 6000,
+              "max_tokens": 9000,
               "temperature": 0,
               "response_format": {"type": "json_object"},
               "messages": [
-                  {"role": "system", "content": "You are a bounded coding worker. Obey the exact file allowlist and return complete files only. Your entire reply must be one JSON object: the first character you emit is { and the final character you emit is }. No prose, no explanation, no Markdown fences, nothing before or after the object. The object has exactly one key, \"files\", mapping exactly the five allowed repository paths to complete UTF-8 file contents. If the work does not fit, return fewer complete files rather than a truncated object - a cut-off reply is unusable and is discarded."},
+                  {"role": "system", "content": "You are a bounded coding worker. Obey the exact file allowlist and return complete files only. Your entire reply must be one JSON object: the first character you emit is { and the final character you emit is }. No prose, no explanation, no Markdown fences, nothing before or after the object. The object has exactly one key, \"files\", mapping exactly the five allowed repository paths to complete UTF-8 file contents. The complete JSON object with all five files must fit in this response. Keep implementations minimal and focused; do not add commentary, examples, or extra helpers beyond the stated requirements."},
                   {"role": "user", "content": prompt},
               ],
           }
