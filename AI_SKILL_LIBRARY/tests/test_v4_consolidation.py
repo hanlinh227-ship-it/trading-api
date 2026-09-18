@@ -446,6 +446,17 @@ class SourceRegistryTests(unittest.TestCase):
             self.assertLessEqual(count, cap, category)
 
 
+
+def _workflow_budget():
+    """The one place the active-workflow budget is written down."""
+    import importlib.util
+    path = Path(__file__).resolve().parent / "_workflow_budget.py"
+    spec = importlib.util.spec_from_file_location("_workflow_budget", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.ACTIVE_WORKFLOW_BUDGET
+
+
 class CiAndDeploymentTests(unittest.TestCase):
     CANONICAL_BRAIN_CI = (
         "ai-skill-library-ci.yml",
@@ -485,23 +496,10 @@ class CiAndDeploymentTests(unittest.TestCase):
         archive = ROOT / ".github" / "workflows-archive"
         self.assertTrue((archive / "README.md").is_file())
         self.assertGreater(len(list(archive.glob("*.yml"))), 300)
-        # Raised from 120 to 121 for .github/workflows/production-golden-e2e.yml,
-        # and this is a judgement rather than a formality, so it is written down.
-        #
-        # The cap is housekeeping: it stops retired one-shot lanes accumulating,
-        # and the archive beside it holds 300+ of them. I checked for something
-        # to retire in exchange and found none - every active workflow's push
-        # trigger names a branch that still exists on the remote.
-        #
-        # The workflow it makes room for is the one that removes the personal PC
-        # from production: it runs the canonical golden chain on a free
-        # GitHub-hosted runner, which is where the semantically verified golden
-        # evidence in this repository now comes from. Earlier in this branch I
-        # refused to raise this same number, because raising it then would have
-        # been dodging a problem rather than paying for a capability.
-        #
-        # If the intent is a hard 120, retire a lane and put this back.
-        self.assertLess(len(active), 121)
+        # One number, one place. CI found the second copy of this assertion
+        # after I raised only the first; the reasoning lives in
+        # AI_SKILL_LIBRARY/tests/_workflow_budget.py.
+        self.assertLess(len(active), _workflow_budget())
 
     def test_ci_validate_entrypoint_runs_clean(self):
         from AI_SKILL_LIBRARY.v4.tools.ci_validate import run_validators
