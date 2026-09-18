@@ -178,5 +178,19 @@
   "wave5_all_exact_models_available": false,
   "ai_core_done": true,
   "ai_core_all_capabilities_covered": false,
-  "ai_core_all_exact_models_available": false
+  "ai_core_all_exact_models_available": false,
+  "role_branches_path": "AI_SKILL_LIBRARY/v4/model_mesh/role_branches.yaml",
+  "role_capability_matrix_path": "AI_SKILL_LIBRARY/v4/tools/role_capability_matrix.py",
+  "federation_ops_path": "AI_SKILL_LIBRARY/v4/local_runtime/federation_ops.py",
+  "federation_24x7_proof_path": "AI_SKILL_LIBRARY/v4/tools/federation_24x7_proof.py",
+  "phase6_closure_gate_path": "AI_SKILL_LIBRARY/v4/tools/phase6_closure_gate.py",
+  "wave_reconciliation_path": "AI_SKILL_LIBRARY/v4/tools/wave_reconciliation.py",
+  "phase6_handoff_path": "CHECKPOINTS/PHASE6_FEDERATION_OPERATIONS_HANDOFF_2026-09-18.md",
+  "phase6_operational_closed": true,
+  "federation_24x7_ready": true,
+  "all_roles_redundant": false,
+  "all_models_exact": false,
+  "all_workers_online": true,
+  "wave1_reconciled": true,
+  "wave2_reconciled": true
 }
