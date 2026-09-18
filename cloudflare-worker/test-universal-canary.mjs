@@ -58,8 +58,8 @@ assert.equal(result.frontDoor.backendReady,true);
 assert.equal(result.frontDoor.clientAdapterReady,true);
 assert.equal(result.frontDoor.newSessionResumePass,true);
 assert.equal(result.frontDoor.versionConflict409Pass,true);
-assert.equal(result.frontDoor.liveCanaryPass,true);
-assert.equal(result.frontDoor.cacheBypassProven,true);
+assert.equal(result.frontDoor.liveCanaryPass,false);
+assert.equal(result.frontDoor.cacheBypassProven,false);
 assert.equal(result.frontDoor.accountIntegrationProven,false);
 assert.equal(result.frontDoor.ready,false);
 assert.equal(result.projectId,`canary-${expectedSha.slice(0,12)}`);
@@ -84,22 +84,14 @@ for(const call of seen){
 assert.equal(seen.filter(x=>x.path==='/brain/project/state'&&x.method==='GET'&&new URLSearchParams(x.search).get('project_id')===`canary-${expectedSha.slice(0,12)}`).length,1);
 assert.equal(seen.filter(x=>x.path==='/brain/bootstrap'&&new URLSearchParams(x.search).get('project_id')===`canary-${expectedSha.slice(0,12)}`).length,1);
 
-const evidence=result.frontDoorEvidence;
-assert.equal(evidence.source_sha,expectedSha);
-assert.equal(evidence.gate,'FRONT_DOOR_READY');
-assert.equal(evidence.ready,false);
-assert.equal(evidence.live_canary_pass,true);
-assert.equal(evidence.cache_bypass_proven,true);
-assert.equal(evidence.account_integration_proven,false);
-assert.equal(evidence.blocking_reason,'native_account_authorization_not_proven');
-assert.ok(Array.isArray(evidence.proofs));
-assert.ok(evidence.proofs.length>0);
-for(const proof of evidence.proofs){
-  assert.equal(typeof proof,'string');
-  assert.ok(proof.trim().length>0);
-}
-const evidenceText=JSON.stringify(evidence);
-for(const token of Object.values(tokens))assert.equal(evidenceText.includes(token),false);
+assert.equal(Object.prototype.hasOwnProperty.call(result,'frontDoorEvidence'),false);
+const genericText=JSON.stringify(result);
+assert.equal(genericText.includes('live_canary_pass'),false);
+assert.equal(genericText.includes('cache_bypass_proven'),false);
+assert.equal(genericText.includes('live production'),false);
+assert.equal(genericText.includes('deployed worker'),false);
+assert.equal(genericText.includes('LIVE_PRODUCTION_CANARY'),false);
+for(const token of Object.values(tokens))assert.equal(genericText.includes(token),false);
 
 for(const call of seen){
   const text=JSON.stringify(call);

@@ -80,7 +80,7 @@ async function requestJson(fetchImpl,baseUrl,path,options={}){
   return result.value;
 }
 
-const FRONT_DOOR_EVIDENCE_PROOFS=Object.freeze([
+const LIVE_EVIDENCE_PROOFS=Object.freeze([
   'live production service-principal canary executed against the deployed worker',
   'cache-busted no-store requests proven via per-run __canary_nonce and no-store/no-cache headers',
   'project-state round trip proven with versioned write and read-back',
@@ -89,8 +89,8 @@ const FRONT_DOOR_EVIDENCE_PROOFS=Object.freeze([
   'project isolation proven across distinct project_id namespaces',
 ]);
 
-function buildFrontDoorEvidence(sourceSha){
-  const proofs=FRONT_DOOR_EVIDENCE_PROOFS.map(proof=>String(proof).trim()).filter(proof=>proof.length>0);
+function buildLiveProductionEvidence(sourceSha){
+  const proofs=LIVE_EVIDENCE_PROOFS.map(proof=>String(proof).trim()).filter(proof=>proof.length>0);
   if(proofs.length===0)throw new Error('UNIVERSAL_CANARY_EVIDENCE_PROOFS_REQUIRED');
   return Object.freeze({
     source_sha:sourceSha,
@@ -203,8 +203,6 @@ export async function runUniversalCanary({baseUrl,sourceSha,clients,fetchImpl=fe
     throw new Error('UNIVERSAL_PROJECT_ISOLATION_FAILED');
   }
 
-  const frontDoorEvidence=buildFrontDoorEvidence(expected);
-
   return Object.freeze({
     ok:true,
     sourceSha:expected,
@@ -221,15 +219,16 @@ export async function runUniversalCanary({baseUrl,sourceSha,clients,fetchImpl=fe
       clientAdapterReady:true,
       newSessionResumePass:true,
       versionConflict409Pass:true,
-      liveCanaryPass:true,
-      cacheBypassProven:true,
+      // This generic function is mockable and may run against an injected
+      // fetchImpl. It therefore cannot manufacture live production proof.
+      liveCanaryPass:false,
+      cacheBypassProven:false,
       // Repository-side adapters authenticate service principals. They cannot
       // prove that a native ChatGPT account has been authorized on the platform.
       accountIntegrationProven:false,
       ready:false,
       blockingReason:'native_account_authorization_not_proven',
     }),
-    frontDoorEvidence,
   });
 }
 
@@ -257,6 +256,16 @@ async function main(){
   console.log('CACHE_BYPASS_PROVEN=PASS');
   console.log('ACCOUNT_INTEGRATION_PROVEN=FALSE reason=native_account_authorization_not_proven');
   console.log('FRONT_DOOR_READY=FALSE reason=native_account_authorization_not_proven');
+
+  const evidence=buildLiveProductionEvidence(result.sourceSha);
+  const outputPath=String(process.env.FRONT_DOOR_EVIDENCE_OUTPUT||'').trim();
+  if(outputPath){
+    const {writeFileSync,renameSync}=await import('node:fs');
+    const {randomUUID}=await import('node:crypto');
+    const tempPath=`${outputPath}.${randomUUID()}.tmp`;
+    writeFileSync(tempPath,`${JSON.stringify(evidence,null,2)}\n`,'utf8');
+    renameSync(tempPath,outputPath);
+  }
 }
 
 if(import.meta.url===`file://${process.argv[1]}`){
