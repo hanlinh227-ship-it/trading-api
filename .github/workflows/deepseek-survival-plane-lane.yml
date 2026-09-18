@@ -62,11 +62,16 @@ jobs:
           Do not modify existing Cloudflare files, adapters registry, checkpoint, shared state, Storage Mesh, Survival Plane, or release pointers.
           No new dependencies. Node tests only. Return no prose outside the JSON object.
           '''
-          request={"model":"deepseek-chat","max_tokens":6000,"temperature":0,
-            "response_format":{"type":"json_object"},
-            "messages":[
-              {"role":"system","content":"You are a bounded coding worker. Reply with exactly one JSON object whose only key is \"files\" mapping exactly the two allowed paths. Keep the resolver deterministic, small, fail-closed, and non-authoritative."},
-              {"role":"user","content":prompt}]}
+          request = {
+              "model": "deepseek-chat",
+              "max_tokens": 6000,
+              "temperature": 0,
+                          "response_format": {"type": "json_object"},
+                          "messages": [
+              {"role": "system", "content":"You are a bounded coding worker. Reply with exactly one JSON object whose only key is \"files\" mapping exactly the two allowed paths. Keep the resolver deterministic, small, fail-closed, and non-authoritative."},
+              {"role": "user", "content": prompt},
+              ],
+          }
           Path('/tmp/deepseek-request.json').write_text(json.dumps(request),encoding='utf-8')
           PY
       - name: Prove output contract offline
