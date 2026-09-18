@@ -58,3 +58,43 @@ The slot decision belongs to the repository owner: either free a workflow, or ap
 `.proposed` file into `.github/workflows/`. `DEEPSEEK_CODING_LANE_READY` stays pending
 dispatch until then. `.github/scripts/deepseek_preflight_report.py` remains in place — it
 is an allowlist reporter with no trigger of its own and costs no budget.
+
+## Task 2 review outcome — the same hole, in a new place
+
+The independent review returned 4 findings, 1 BLOCKER. I reproduced findings 1 and 2
+myself before dispatching the fix, and both are real.
+
+**The finding that matters:** `encryption.nonce`, `encryption.tag` and
+`encryption.key_rotation_generation` are admitted into the manifest and never validated —
+no type, no length, no pattern. `_closed_mapping` whitelists the key *names*;
+`_check_encryption` validates `algorithm`, `scheme_version` and `key_ref` and stops. The
+schema bounds all three. So the module emits documents the checked-in schema rejects,
+which falsifies its own central claim, and it does so in three unbounded string slots
+sitting directly beside `key_ref` — the field in the mesh most likely to be handed key
+material is the one least able to refuse it.
+
+Reproduced and accepted today: a 2048-char nonce; `nonce="API_KEY=sk-live-..."` (the
+credential scan's `sk-` pattern wants 32 unbroken alphanumerics and `sk-live-` breaks on
+the hyphen); `tag` holding a 44-char wrapped DEK; `key_rotation_generation` as a string
+where the schema demands an integer. Separately, `_EVIDENCE_REF_RE`'s second alternative
+is unbounded against a schema `maxLength: 200`, and carries 2KB of opaque material into a
+manifest on both `source_provenance` and `verification`.
+
+**This is the second time this class of hole has got past me on this branch.** In the
+Learning Fabric it was an allowed-but-unbounded field; here it is an allowed-but-unchecked
+one. Both times I verified the named private fields and the unknown-field rejection,
+declared privacy structural, and did not check what an *allowed* field could carry. The
+unknown-field catch-all is the part I was proud of and it is genuinely sound — the review
+could not find a key-name route in. It simply is not the question. The rule I should have
+been applying: **a closed vocabulary bounds which fields exist, not what fits inside
+them**, and the module must never be looser than the schema it claims to mirror.
+
+The fix round therefore also adds a test that walks `$defs.encryption_metadata` from the
+schema file and asserts every property has a model-level check, so the next field added
+cannot slip through the same way. `test_every_shape_the_model_can_emit_validates`
+enumerated eight hand-picked shapes and never populated these three — which is precisely
+why 49/49 was green and wrong.
+
+Findings 3 and 4 (shallow freeze leaving nested containers aliased; direct dataclass
+construction bypassing content addressing; `$` anchors admitting a trailing newline) are
+in the same fix round.
