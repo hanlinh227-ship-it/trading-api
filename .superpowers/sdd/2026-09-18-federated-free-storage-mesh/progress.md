@@ -670,3 +670,62 @@ of the pinned files, so none was needed.
 - The nonce half of the canonical-base64 test *skips*: a 12-byte nonce encodes to 16
   characters with no slack bits, so there is no alternative spelling to construct. The
   helper raises SkipTest rather than pretending to test something.
+
+| 7 | committed, review pending | c322abc2 | subagent | 92 focused / 932 storage | pending | - | lifecycle.py + compaction.py. Proposes, never performs. |
+
+## Task 7 — the module that can delete, and therefore mostly refuses to
+The eight pressure steps are a tuple of `(number, name, callable)` in the spec's order, with
+no priority number, no weight and no sort anywhere in the module: the only way to reorder
+them is to edit the tuple. The rule is that the first step with anything to propose is the
+only step that proposes, so a later step cannot run before an earlier one is exhausted.
+Pressure appears inside a step's trigger, never in a comparison between steps.
+
+**The Task 5 lesson was carried forward without being asked twice.** The module performs no
+I/O, so it cannot confirm a copy - and it does not guess. `confirmed_copies` is supplied by
+something that can look. **The record's own `replica_backends` is never counted**, which is
+exactly the bug Task 5 had to be fixed for, and a test supplies a record claiming three
+replicas with one confirmed copy and requires silence.
+
+`NEVER_CAPACITY_DELETED` is read from policy.yaml rather than mirrored - a class is
+deletable only if the policy positively says so, and anything unknown (class absent, policy
+unreadable, value not a boolean) lands in the protected set. Enforced twice: inside the
+delete proposer, and again as a post-condition over everything the steps returned, which
+also refuses a DELETE naming an object this call never validated.
+
+### Controller verification
+`PROPOSAL_ONLY = True`, `PERFORMS_DELETION_HERE = False`, `AUTHORITY = False`.
+`NEVER_CAPACITY_DELETED = {CRITICAL, IMPORTANT}`, read from policy. The eight steps are in
+the spec's exact order. My own sweep over both protected classes x all seven provider states
+x with and without confirmed copies: **0 DELETE proposals in 28 runs**. 932 storage tests
+green; memory_lifecycle and authority-no-duplication regressions green at 25.
+
+The `memory_lifecycle.yaml` edit is +11 lines, **0 deletions** - I checked the diff for
+removals specifically, because "do not change memory authority" is the kind of instruction
+that is easy to honour in intent and break in passing.
+
+### Judgement calls I am keeping, and one I want the owner to see
+- **With default arguments the module proposes no deletions at all**, including EPHEMERAL
+  TTL expiry, because nothing has confirmed a copy. Step 1 is inert unless a caller supplies
+  head-verified holders. That is the correct fail-closed shape and it is also a real
+  usability cost; stated rather than hidden.
+- **EPHEMERAL expiry can propose removing every confirmed copy**, because policy.yaml pairs
+  `min_independent_provider_copies: 0` with `ttl_expiry: true`. Every other class is floored
+  at one surviving confirmed copy. The implementer read "never the last verified copy" as
+  scoped to redundant-REPRODUCIBLE eviction and followed the checked-in policy number rather
+  than mirroring a stricter one. **I am leaving it as the policy says, and flagging it: if
+  the owner wants EPHEMERAL floored at 1 too, it is a one-line change.**
+- `GROUPING_FIELDS` includes `worker_id`, `escalation_path` and `fallback_path`, which
+  compacts less than Spec S12's sketch implies. Correct over aggressive: a field that is
+  neither grouped nor aggregated is a field two rows can differ in and still be merged.
+- Percentiles are nearest-rank, never interpolated - interpolation invents a latency nobody
+  observed.
+- `dedupe` handles experience/telemetry rows only, not manifest records. S13 also names
+  checkpoint/bundle dedupe; accepting two record shapes through one function is how the
+  looser validator gets applied to the stricter shape. Documented, not implemented.
+
+### A leak the implementer found in its own work
+The borrowed manifest.py checkers echo the offending value into their messages - correct in
+a manifest, fatal in compaction. Every validation failure is re-raised as
+`CompactionInputError` **`from None`**, and unknown keys are **counted, never named**,
+because an unknown key is exactly where a credential arrives as a key. Same lesson as Task
+5's `__context__` leak, found the same way: by asserting on the formatted traceback.

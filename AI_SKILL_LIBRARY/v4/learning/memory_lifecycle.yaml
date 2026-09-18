@@ -48,3 +48,14 @@ retention:
   active: policy_controlled
   superseded: bounded_audit_only
   tombstoned: metadata_only
+
+# Reference only. The Federated Free Storage Mesh's retention and compaction
+# interface is subordinate to this policy: it proposes retention actions and
+# never decides memory state, promotion, supersession or privacy. Memory
+# authority is unchanged and is declared above.
+subordinate_storage_retention_interface:
+  compaction: AI_SKILL_LIBRARY/v4/storage/compaction.py
+  lifecycle: AI_SKILL_LIBRARY/v4/storage/lifecycle.py
+  policy: AI_SKILL_LIBRARY/v4/storage/policy.yaml
+  memory_authority: false
+  proposes_only: true
