@@ -490,12 +490,12 @@ class CiAndDeploymentTests(unittest.TestCase):
         self.assertEqual(observer["concurrency"]["group"], "cloudflare-zero-local-runtime-observer")
         self.assertIs(observer["concurrency"]["cancel-in-progress"], False)
 
-    def test_retired_one_shot_workflows_are_archived(self):
+    def test_retired_one_shot_workflows_are_history_only(self):
         active = [p.name for p in WORKFLOWS.glob("*.yml")]
         self.assertFalse([n for n in active if n.startswith("meme-alpha-") or n.startswith("run-signalhub-")])
         archive = ROOT / ".github" / "workflows-archive"
         self.assertTrue((archive / "README.md").is_file())
-        self.assertGreater(len(list(archive.glob("*.yml"))), 300)
+        self.assertEqual(list(archive.glob("*.yml")), [])
         # One number, one place. CI found the second copy of this assertion
         # after I raised only the first; the reasoning lives in
         # AI_SKILL_LIBRARY/tests/_workflow_budget.py.
