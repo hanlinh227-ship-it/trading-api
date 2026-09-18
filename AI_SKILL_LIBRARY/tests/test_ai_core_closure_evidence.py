@@ -58,8 +58,11 @@ class ClosureEvidenceTests(unittest.TestCase):
             self.assertEqual(payload["source_sha"], VALID_SHA)
             self.assertTrue(payload["proofs"])
             for proof in payload["proofs"]:
-                self.assertEqual(proof["returncode"], 0)
-                self.assertIn("command", proof)
+                # A proof is a bounded string, not a dict: that is what the
+                # aggregator accepts, and the two must agree or the evidence
+                # is unusable at final aggregation.
+                self.assertIsInstance(proof, str)
+                self.assertTrue(proof.endswith("-> exit 0"), proof)
 
     def test_one_durable_failure(self):
         rcs = _all_zero()
@@ -126,7 +129,12 @@ class ClosureEvidenceTests(unittest.TestCase):
                 self.assertNotIn("SECRET", text)
                 payload = json.loads(text)
                 for proof in payload["proofs"]:
-                    self.assertEqual(set(proof.keys()), {"command", "returncode"})
+                    # The point of this test is unchanged: a child's stdout and
+                    # stderr never reach the evidence. Only the shape of a proof
+                    # moved, from a two-key dict to one bounded line.
+                    self.assertIsInstance(proof, str)
+                    self.assertNotIn("SECRET", proof)
+                    self.assertRegex(proof, r"-> exit -?\d+\Z")
 
     def test_atomic_output_no_temp_files(self):
         with tempfile.TemporaryDirectory() as outdir:
@@ -166,6 +174,68 @@ class ClosureEvidenceTests(unittest.TestCase):
             1 for _, cmds in mod.GATES for c in cmds if c[:2] == ["-m", "pytest"]
         )
         self.assertEqual(pytest_count, 4)
+
+
+class AggregatorInteroperabilityTests(unittest.TestCase):
+    """Evidence this tool writes must be evidence the aggregator accepts.
+
+    These are the two halves of one contract: Task 4A produces the files Task 1
+    consumes. They were written separately and never run against each other, so
+    nothing noticed that one emitted `proofs` as dicts while the other required
+    non-blank strings - which the plan's own Task 1 fixture specifies. Every
+    gate this tool produced would have been rejected at the final aggregation,
+    and the failure would have surfaced at Task 6 as an unexplained false.
+    """
+
+    AGGREGATOR = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "v4", "tools", "ai_core_always_on_gate.py")
+
+    SHA = "a" * 40
+    GATE_NAMES = ["CONTROL_PLANE_READY", "DURABLE_JOB_READY",
+                  "CRITICAL_ROLE_REDUNDANCY_READY", "SURVIVAL_PLANE_READY",
+                  "DISASTER_RECOVERY_READY", "FRONT_DOOR_READY"]
+    FLAGS = ["--control", "--durable-job", "--critical-redundancy",
+             "--survival", "--disaster-recovery", "--front-door"]
+
+    def test_every_proof_this_tool_emits_is_a_bounded_string(self):
+        evidence = mod.build_evidence(
+            self.SHA, sys.executable, mod.repo_root())
+        for item in evidence:
+            for proof in item["proofs"]:
+                self.assertIsInstance(proof, str, item["gate"])
+                self.assertTrue(proof.strip(), item["gate"])
+                self.assertLessEqual(len(proof), 4096, item["gate"])
+
+    def test_the_aggregator_accepts_what_this_tool_writes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            evidence = mod.build_evidence(
+                self.SHA, sys.executable, mod.repo_root())
+            written = {item["gate"]: item for item in evidence}
+            paths = []
+            for gate_name in self.GATE_NAMES:
+                item = written.get(gate_name) or {
+                    "source_sha": self.SHA, "gate": gate_name, "ready": True,
+                    "proofs": ["stand-in for a gate this tool does not produce"],
+                }
+                # Force ready so the test measures shape acceptance, not the
+                # outcome of the underlying suites.
+                item = dict(item, ready=True)
+                path = os.path.join(tmp, gate_name + ".json")
+                with open(path, "w", encoding="utf-8") as handle:
+                    json.dump(item, handle)
+                paths.append(path)
+            cmd = [sys.executable, self.AGGREGATOR, "--source-sha", self.SHA]
+            for flag, path in zip(self.FLAGS, paths):
+                cmd.extend([flag, path])
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertIn("AI_CORE_ALWAYS_ON_READY=true", result.stdout,
+                          "the aggregator refused this tool's own evidence:\n"
+                          + result.stdout + result.stderr)
+            self.assertEqual(result.returncode, 0)
+
+    def test_a_trailing_newline_is_not_a_revision(self):
+        self.assertIsNone(mod.SHA_RE.match("a" * 40 + "\n"))
 
 
 if __name__ == "__main__":

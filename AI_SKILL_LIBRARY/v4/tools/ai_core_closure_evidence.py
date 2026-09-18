@@ -15,7 +15,17 @@ import subprocess
 import sys
 import tempfile
 
-SHA_RE = re.compile(r"^[0-9a-f]{7,64}$")
+#: `\Z`, not `$`: Python's `$` also matches before a trailing newline, so a sha
+#: read from a file with `read()` instead of `.strip()` would have passed. This
+#: repository has found that same anchor bug several times.
+SHA_RE = re.compile(r"^[0-9a-f]{7,64}\Z")
+
+#: The aggregator this tool feeds requires each proof to be a non-blank string
+#: (the plan's own Task 1 fixture is `["test-proof"]`). Emitting a dict here
+#: would have produced evidence no gate could ever accept, and the failure
+#: would have surfaced at final aggregation as an unexplained false. One line
+#: per command, carrying the same facts the dict did.
+MAX_PROOF_CHARS = 4096
 TIMEOUT_SECONDS = 180
 
 GATES = (
@@ -90,6 +100,17 @@ def atomic_write_json(path: str, payload: dict) -> None:
         raise
 
 
+def _proof_line(args, returncode: int) -> str:
+    """One checkable sentence per command, bounded, with no interpreter path.
+
+    The absolute path to the python executable is environment detail, not
+    evidence, and it differs between this container and CI - which would make
+    otherwise-identical evidence look different for no reason.
+    """
+    line = "%s -> exit %d" % (" ".join(str(part) for part in args), returncode)
+    return line[:MAX_PROOF_CHARS]
+
+
 def build_evidence(source_sha: str, python_exe: str, cwd: str):
     results = []
     for gate_name, commands in GATES:
@@ -97,7 +118,7 @@ def build_evidence(source_sha: str, python_exe: str, cwd: str):
         ready = True
         for args in commands:
             returncode = run_command(python_exe, args, cwd)
-            proofs.append({"command": [python_exe] + list(args), "returncode": returncode})
+            proofs.append(_proof_line(args, returncode))
             if returncode != 0:
                 ready = False
         results.append(
