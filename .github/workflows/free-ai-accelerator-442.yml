@@ -1,0 +1,159 @@
+name: Free AI Accelerator — PR 442
+
+on:
+  push:
+    branches: [work/free-ai-accelerator-442]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: free-ai-accelerator-442
+  cancel-in-progress: true
+
+jobs:
+  accelerate:
+    if: github.repository == 'hanlinh227-ship-it/trading-api'
+    runs-on: ubuntu-latest
+    env:
+      WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+      MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify execution token presence only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODEL_MESH_EXECUTION_TOKEN:-}"
+          echo "FREE_AI_TOKEN_PRESENT=PASS"
+
+      - name: Refresh FREE_ONLY provider health
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --connect-timeout 5 --max-time 200 \
+            -X POST \
+            -H "x-model-mesh-token: ${MODEL_MESH_EXECUTION_TOKEN}" \
+            "${WORKER_BASE_URL}/brain/mesh/probe" > /tmp/free-ai-probe.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/free-ai-probe.json'))
+          rows=p.get('results') or []
+          print('FREE_AI_PROBE=PASS')
+          print('FREE_AI_HEALTHY_COUNT='+str(sum(1 for r in rows if r.get('ok') is True)))
+          for r in rows:
+              print('FREE_AI_PROVIDER='+str(r.get('providerId'))+'|'+str(r.get('modelId'))+'|'+str(r.get('state'))+'|'+str(r.get('status')))
+          PY
+
+      - name: Build bounded public project context
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1 || true
+          {
+            echo "Repository: ${GITHUB_REPOSITORY}"
+            echo "Current accelerator SHA: ${GITHUB_SHA}"
+            echo "Target integration work: PR #442 AI CORE closure."
+            echo "Canonical authority: GITHUB_BRAIN_V4; task_router sole routing authority."
+            echo "Claude owns Storage Mesh and shared integration-sensitive files."
+            echo "DeepSeek owns already-green bounded Survival/Always-On/Redundancy commits."
+            echo "Work owns Front Door integration lane."
+            echo
+            echo "Changed-file summary relative to main (bounded):"
+            git diff --name-status origin/main...HEAD -- \
+              cloudflare-worker \
+              AI_SKILL_LIBRARY/v4/survival \
+              AI_SKILL_LIBRARY/v4/always_on \
+              AI_SKILL_LIBRARY/v4/local_runtime \
+              AI_SKILL_LIBRARY/tests 2>/dev/null | head -n 160
+            echo
+            echo "Recent commits:"
+            git log --oneline -n 20
+          } > /tmp/free-ai-context.txt
+          head -c 12000 /tmp/free-ai-context.txt > /tmp/free-ai-context-bounded.txt
+
+      - name: Run free AI workers in parallel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib
+          ctx=pathlib.Path('/tmp/free-ai-context-bounded.txt').read_text(errors='replace')
+          tasks={
+            'integration_guard': """You are a bounded AI CORE integration assistant. Using only the public project context below, identify the highest-probability integration conflicts or sequencing mistakes that could slow PR #442. Do not redesign architecture. Return concise actionable findings with exact file/path references when present in context. Prioritize blockers that Claude/Work can act on immediately.\n\n"""+ctx,
+            'test_gap_hunter': """You are a bounded test-gap hunter. Using only the public project context below, propose the smallest focused tests/checks most likely to catch integration failures across Front Door, Survival, Always-On, Redundancy and Storage Mesh boundaries. Do not propose broad full-repo tests. Return commands/files/checks only, ranked by leverage.\n\n"""+ctx,
+            'speed_optimizer': """You are a bounded delivery optimizer. Using only the public project context below, identify independent mechanical tasks that can be delegated immediately without touching Storage Mesh/shared authority files. Prefer tasks suitable for cheap/free models and that shorten AI CORE closure. Return no more than five tasks with exact allowed path scopes and a suggested verification command.\n\n"""+ctx,
+          }
+          pathlib.Path('/tmp/free-ai-tasks.json').write_text(json.dumps(tasks))
+          PY
+
+          python3 - <<'PY'
+          import json, os, subprocess, pathlib, concurrent.futures
+          base=os.environ['WORKER_BASE_URL']
+          token=os.environ['MODEL_MESH_EXECUTION_TOKEN']
+          tasks=json.load(open('/tmp/free-ai-tasks.json'))
+          def run(item):
+              name,prompt=item
+              body=json.dumps({'text':prompt,'dataClass':'PUBLIC'})
+              p=subprocess.run([
+                  'curl','-fsS','--connect-timeout','5','--max-time','180',
+                  '-X','POST','-H','content-type: application/json',
+                  '-H',f'x-model-mesh-token: {token}',
+                  '-d',body,f'{base}/brain/mesh/execute'
+              ],capture_output=True,text=True)
+              if p.returncode!=0:
+                  return name, {'ok':False,'error':'request_failed'}
+              try:
+                  data=json.loads(p.stdout)
+              except Exception:
+                  return name, {'ok':False,'error':'invalid_json'}
+              return name,data
+          out={}
+          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+              for name,data in ex.map(run,tasks.items()):
+                  out[name]=data
+          pathlib.Path('/tmp/free-ai-results.json').write_text(json.dumps(out))
+          PY
+
+      - name: Publish sanitized acceleration handoff to PR 442
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib
+          probe=json.load(open('/tmp/free-ai-probe.json'))
+          data=json.load(open('/tmp/free-ai-results.json'))
+          lines=['FREE AI ACCELERATOR — LIVE SUPPORT RESULTS','']
+          healthy=[r for r in (probe.get('results') or []) if r.get('ok') is True]
+          lines.append('Healthy FREE_ONLY providers: '+(', '.join(f"{r.get('providerId')}:{r.get('modelId')}" for r in healthy) or 'none'))
+          lines.append('')
+          for name in ('integration_guard','test_gap_hunter','speed_optimizer'):
+              lines.append('## '+name)
+              d=data.get(name) or {}
+              if not d.get('ok'):
+                  lines.append('No usable result: '+str(d.get('error','unknown')))
+              else:
+                  results=d.get('results') or []
+                  for r in results[:4]:
+                      provider=str(r.get('provider_id','unknown'))
+                      model=str(r.get('model_id','unknown'))
+                      text=str(r.get('text','')).strip()
+                      if text:
+                          lines.append(f"### {provider} / {model}")
+                          lines.append(text[:5000])
+              lines.append('')
+          lines += [
+            'Authority remains unchanged: routing=false, reasoning=false, merge=false, deployment=false, trading=false.',
+            'These are advisory acceleration workers only; Claude/Work/DeepSeek retain their assigned implementation lanes.'
+          ]
+          body='\n'.join(lines)[:30000]
+          pathlib.Path('/tmp/pr-comment.md').write_text(body)
+          PY
+          gh api "repos/${GITHUB_REPOSITORY}/issues/442/comments" -f body=@/tmp/pr-comment.md
+          echo "FREE_AI_ACCELERATOR_HANDOFF=PASS"
