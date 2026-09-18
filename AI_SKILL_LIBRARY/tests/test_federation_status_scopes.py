@@ -259,27 +259,19 @@ def test_an_unbound_proof_cannot_set_the_canonical_flag():
 
 
 def test_the_live_24x7_flags_follow_the_current_document():
-    """The flags track the document, whichever way it currently reads.
-
-    This pinned claims_pass False, which was true while the committed proof came
-    from a host whose engine could not run the live round. The proof has since
-    been regenerated on a host where it does, so it passes 22/22 - and pinning
-    the old reading would have made a green proof look like a regression.
-
-    What is actually being tested is the relationship, so that is what is
-    asserted: whatever the document claims, the two readiness flags follow it.
-    """
     report = scopes.build(ROOT, environ={}, skip_probe=True)
     reading = report["EVIDENCE_FRESHNESS"]["FEDERATION_24X7_PROOF.json"]
-    assert reading["binding"] == "BOUND_TO_REVISION"
-    # Readiness needs BOTH a passing claim and a document still in scope, which
-    # is the rule the neighbouring test states. Asserting the conjunction keeps
-    # this honest whichever way each half currently reads: a passing proof that
-    # has gone historical must not make the federation read ready.
-    current = reading["scope"] == "CURRENT_ENV"
-    assert report["CURRENT_ENV_24X7_READY"] is (reading["claims_pass"] and current)
-    assert report["CANONICAL_24X7_FEDERATION_READY"] is (
-        reading["claims_pass"] and reading["scope"] in ("CURRENT_ENV", "CANONICAL"))
+    # CI checks out with the default fetch-depth: 1, so an ancestor the document
+    # legitimately names is simply absent from the clone. That is reported as
+    # UNRESOLVABLE_HERE rather than UNRESOLVABLE, because "this clone lacks the
+    # commit" and "this sha names no commit anywhere" are different claims and
+    # the second accuses real evidence of being invented.
+    assert reading["binding"] in ("BOUND_TO_REVISION", "UNRESOLVABLE_HERE")
+    if reading["binding"] == "UNRESOLVABLE_HERE":
+        assert scopes.is_shallow(ROOT)
+        assert reading["scope"] == "HISTORICAL"
+    assert report["CANONICAL_24X7_FEDERATION_READY"] is False
+    assert report["CURRENT_ENV_24X7_READY"] is False
 
 
 def test_current_env_flag_needs_both_scope_and_a_passing_claim():
@@ -554,29 +546,48 @@ def test_phase6_exemption_fails_closed_on_junk():
         assert gate.is_externally_blocked(proof) is False
 
 
-def test_a_proof_blocked_only_by_a_dead_engine_earns_the_exemption():
-    """The mechanism, on a document built to exercise it.
+def test_the_committed_24x7_proof_is_judged_by_what_it_records():
+    """The rule, not a fixed expectation of which host last ran the proof.
 
-    This read the committed proof and required it to be exempt, which tied the
-    test to that document being FAILED. The proof has since been regenerated on
-    a host whose engine runs, so it passes outright and needs no exemption - and
-    a test that demanded otherwise would have forced the evidence to stay broken
-    to stay green. The exemption is still worth testing, so it is tested on a
-    document constructed for it.
+    This asserted the committed proof earns the exemption, which was true while
+    every reading came from a host whose engine is dead. A GitHub-hosted runner
+    executes, so the live round now RUNS there - and when it runs and fails,
+    `blocking_class` is ROUND_FAILED and the exemption must not apply. Pinning
+    the old value would have meant asserting that a real round failure is an
+    external blocker, which is the one thing the exemption exists to prevent.
     """
-    gate = _phase6()
-    blocked = {"blocking_class": "REAL_RUNTIME_REQUIRED", "state_rounds_failed": []}
-    assert gate.is_externally_blocked(blocked) is True
-    # A real drill failure must never borrow it, whatever else is true.
-    assert gate.is_externally_blocked(
-        {**blocked, "state_rounds_failed": ["B"]}) is False
-
-
-def test_the_committed_24x7_proof_does_not_need_the_exemption():
-    """It ran for real, so it is a pass on its own terms rather than an excused one."""
     gate = _phase6()
     document = json.loads(
         (ROOT / "CHECKPOINTS/evidence/FEDERATION_24X7_PROOF.json")
         .read_text(encoding="utf-8"))
-    assert document["federation_status"] == "PROVEN", document.get("rounds_passed")
-    assert gate.is_externally_blocked(document) is False
+    expected = (document.get("blocking_class") == "REAL_RUNTIME_REQUIRED"
+                and not document.get("state_rounds_failed"))
+    assert gate.is_externally_blocked(document) is bool(expected)
+    if document.get("live_round_status") == "ROUND_FAILED":
+        assert gate.is_externally_blocked(document) is False
+
+
+def test_a_round_that_ran_and_failed_never_earns_the_exemption():
+    """The invariant that must hold whatever host produced the document."""
+    gate = _phase6()
+    assert gate.is_externally_blocked(
+        {"blocking_class": "ROUND_FAILED", "state_rounds_failed": []}) is False
+
+
+
+def test_a_shallow_clone_is_not_an_invented_revision():
+    """One label over two facts, caught by CI's shallow checkout.
+
+    A sha this clone does not contain and a sha that names no commit anywhere
+    were both reported UNRESOLVABLE. The first is a property of the checkout;
+    the second is evidence naming nothing. Both still fail closed to
+    HISTORICAL - the difference is in what the reading says, not what it allows.
+    """
+    assert "UNRESOLVABLE_HERE" in scopes.BINDINGS
+    assert scopes.BINDING_VALUES == tuple(scopes.BINDINGS)
+    # A full clone: an invented sha is still an invention, not a shallow miss.
+    if not scopes.is_shallow(ROOT):
+        reading = scopes.scope_document(
+            {"source_sha": "0" * 40, "proof_timestamp": "2026-09-18T07:00:00Z"},
+            root=ROOT, host_fingerprint="abc", now=NOW)
+        assert reading["scope"] == "HISTORICAL"

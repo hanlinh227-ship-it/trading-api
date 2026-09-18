@@ -15,13 +15,15 @@ from AI_SKILL_LIBRARY.v4.local_runtime.golden_e2e import make_legion, make_memor
 from AI_SKILL_LIBRARY.v4.tools.memory_continuity import normalize_work_state, select_continuation
 
 ROOT = Path(__file__).resolve().parents[2]
-# The same file the release gate reads, resolved through its own accessor. This
-# read the historical fallback while the canonical run and the gate had both
-# moved to the primary, so the checkpoint it compared against was a different
-# run's.
-from AI_SKILL_LIBRARY.v4.tools.ai_core_release_gate import GOLDEN_PRIMARY
+# The same document the release gate judges, resolved through its own accessor
+# rather than named again here. This read the historical fallback while the
+# canonical run and the gate had both moved on, so the checkpoint it compared
+# against belonged to a different run. session_01K2S3Pd built
+# golden_evidence_source for exactly this; using it is what keeps the two from
+# drifting apart again.
+from AI_SKILL_LIBRARY.v4.tools.ai_core_release_gate import golden_evidence_source
 
-E2E = ROOT / "CHECKPOINTS/evidence" / GOLDEN_PRIMARY
+E2E = ROOT / "CHECKPOINTS/evidence" / golden_evidence_source(ROOT)
 RESUME = ROOT / "CHECKPOINTS/evidence/AI_CORE_RESUME_EVIDENCE.json"
 
 
@@ -102,7 +104,16 @@ class CommittedContinuityEvidenceTests(unittest.TestCase):
     def setUp(self):
         if not (E2E.is_file() and RESUME.is_file()):
             self.skipTest("no AI CORE evidence committed")
-        self.run = json.loads(E2E.read_text(encoding="utf-8"))
+        # Resolved through the gate's own rule rather than a fixed filename.
+        # Two documents record "the AI CORE golden run" and only one of them is
+        # refreshed by the production worker, so reading the fixed name meant
+        # comparing a resume from THIS run against a run from four days ago and
+        # calling the mismatch a continuity failure. The run was continuous;
+        # the two files were not the same run.
+        from AI_SKILL_LIBRARY.v4.tools.ai_core_release_gate import (
+            golden_evidence_source)
+        golden = ROOT / "CHECKPOINTS/evidence" / golden_evidence_source(ROOT)
+        self.run = json.loads(golden.read_text(encoding="utf-8"))
         self.resume = json.loads(RESUME.read_text(encoding="utf-8"))
 
     def test_the_chain_includes_legion_and_continuity_stages(self):

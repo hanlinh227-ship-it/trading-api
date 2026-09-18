@@ -89,6 +89,10 @@ BINDINGS: dict[str, str] = {
                "says which revision or which moment it describes",
     "UNRESOLVABLE": "the document names a source_sha that names no commit in this "
                     "repository",
+    "UNRESOLVABLE_HERE": "the document names a source_sha this CLONE does not "
+                         "contain, because the checkout is shallow. That is a fact "
+                         "about the clone, not about the evidence, and calling it "
+                         "UNRESOLVABLE would accuse a real revision of being invented",
 }
 BINDING_VALUES = tuple(BINDINGS)
 
@@ -230,6 +234,18 @@ def _parse_timestamp(value: Any) -> datetime | None:
 PROVED_SURFACES = ("AI_SKILL_LIBRARY/", "cloudflare-worker/")
 
 
+def is_shallow(root: Path) -> bool:
+    """Does this clone hold only part of the history?
+
+    CI checks out with the default `fetch-depth: 1`, so an ancestor a document
+    legitimately names is simply absent. Reporting that as "names no commit in
+    this repository" reads as fabricated evidence, which is a different and
+    much more serious claim.
+    """
+    rc, out = _git(root, "rev-parse", "--is-shallow-repository")
+    return rc == 0 and out.strip() == "true"
+
+
 def _git(root: Path, *args: str) -> tuple[int | None, str]:
     try:
         done = subprocess.run(["git", "-C", str(root), *args],
@@ -305,9 +321,17 @@ def scope_document(document: Any, *, root: Path, host_fingerprint: str,
     reading["freshness"] = freshness
     reading["reasons"].append(why)
     rc, _ = _git(root, "rev-parse", "--verify", "%s^{commit}" % sha)
-    reading["binding"] = "BOUND_TO_REVISION" if rc == 0 else "UNRESOLVABLE"
-    if reading["binding"] == "UNRESOLVABLE":
-        reading["reasons"].append(BINDINGS["UNRESOLVABLE"])
+    if rc == 0:
+        reading["binding"] = "BOUND_TO_REVISION"
+    elif is_shallow(root):
+        reading["binding"] = "UNRESOLVABLE_HERE"
+    else:
+        reading["binding"] = "UNRESOLVABLE"
+    if reading["binding"] != "BOUND_TO_REVISION":
+        reading["reasons"].append(BINDINGS[reading["binding"]])
+        # Either way the scope stays HISTORICAL: a revision this clone cannot
+        # check is a revision this clone cannot vouch for. The distinction is
+        # in what the reading SAYS, not in what it permits.
         return reading
 
     observed = document.get("OBSERVED_ON")

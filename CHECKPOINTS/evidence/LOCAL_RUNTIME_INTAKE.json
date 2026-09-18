@@ -1,0 +1,60 @@
+{
+  "tool": "local_runtime_intake",
+  "registry_model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+  "governance": {
+    "lifecycle_state": "AVAILABLE",
+    "admission_evidence": {
+      "license_verified": true,
+      "provenance_verified": true,
+      "safe_format_verified": true,
+      "pickle_safe": true,
+      "trust_remote_code_required": false,
+      "custom_code_required": false,
+      "malware_scan_status": "pass",
+      "isolated_first_load_required": true,
+      "first_load_egress_allowed": false,
+      "quarantine_status": "clear"
+    },
+    "placeable_now": true,
+    "exclusion_reasons": []
+  },
+  "intake": {
+    "status": "VERIFIED",
+    "reason": "staged artifact matches the canonical record byte for byte",
+    "verified": true,
+    "digest_match": true,
+    "artifact_identity": {
+      "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "family": "Phi",
+      "variant": "Phi-3-mini-4k-instruct-q4",
+      "immutable_revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+      "artifact_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+      "artifact_format": "gguf",
+      "quantization": "Q4",
+      "artifact_size_bytes": 2393231072,
+      "artifact_filename": null,
+      "fingerprint": "f2b029f5a539a492545b9bb146689f72",
+      "cache_key": "microsoft_Phi-3-mini-4k-instruct-gguf-Q4@a64113399c2f6b8a-f2b029f5a539"
+    },
+    "cached_path": "/home/runner/work/trading-api/trading-api/.model-cache/models/microsoft_Phi-3-mini-4k-instruct-gguf-Q4@a64113399c2f6b8a-f2b029f5a539/Q4.gguf",
+    "quarantined_path": null,
+    "expected_size_bytes": 2393231072,
+    "observed_size_bytes": 2393231072,
+    "expected_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+    "recomputed_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+    "structural_scan": {
+      "scan_kind": "structural_scan",
+      "path": ".model-staging/Phi-3-mini-4k-instruct-q4.gguf",
+      "status": "pass",
+      "findings": [],
+      "gguf_version": 3,
+      "tensor_count": 195,
+      "kv_count": 24,
+      "file_size": 2393231072,
+      "satisfies_malware_scan_status": false
+    },
+    "clears_governance": false,
+    "clears_quarantine": false
+  },
+  "note": "Intake verifies bytes against the canonical record. It does not clear quarantine, set malware_scan_status, or make the model runnable."
+}

@@ -581,9 +581,19 @@ def live_round(root: Path, now: float, matrix: dict[str, Any]) -> dict[str, Any]
     # The model that ran must be one the role matrix actually maps to a role.
     # A live answer from a model no branch owns would mean the matrix and the
     # runtime disagree about who serves what.
-    mapped = {m for row in matrix["ROLE_CAPABILITY_MATRIX"]
+    #
+    # Compared through one spelling, because the two sides do not share one.
+    # The role matrix lists bare model ids; the federated runner reports its
+    # supporting workers by candidate_key, which carries a `provider_id:`
+    # prefix. So `local_runtime:microsoft/Phi-3-mini-4k-instruct-gguf` was
+    # reported as a model "no role branch maps" while the matrix mapped it
+    # perfectly well as a FALLBACK. That is not a lenience: normalising both
+    # sides through the same function is what makes the check test what it
+    # says it tests, rather than testing which spelling it happened to get.
+    mapped = {_bare_model_id(m) for row in matrix["ROLE_CAPABILITY_MATRIX"]
               for m in (row.get("all_candidates") or [])}
-    unmapped = [w.get("model_id") for w in workers if w.get("model_id") not in mapped]
+    unmapped = [w.get("model_id") for w in workers
+                if _bare_model_id(w.get("model_id")) not in mapped]
     if unmapped:
         failures.append(f"ran model(s) no role branch maps: {', '.join(map(str, unmapped))}")
     detail["all_models_are_role_mapped"] = not unmapped
@@ -603,6 +613,18 @@ from federation_status_scopes import (  # noqa: E402
     blocking_class as _blocking_class,
     classify_live_round as _classify_live_round,
 )
+
+
+#: A candidate_key is `provider_id:model_id`; a model_id may itself contain no
+#: colon, and every provider_id here is a bare token, so one split is enough.
+#: Used on BOTH sides of every comparison between the role matrix and a runner,
+#: so the two cannot drift into different spellings again.
+def _bare_model_id(value):
+    text = str(value or "")
+    provider, separator, remainder = text.partition(":")
+    if separator and "/" not in provider and remainder:
+        return remainder
+    return text
 
 
 def build(root: Path, *, skip_live: bool = False) -> dict[str, Any]:

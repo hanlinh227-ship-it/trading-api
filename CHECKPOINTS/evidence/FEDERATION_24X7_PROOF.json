@@ -1,21 +1,15 @@
 {
   "tool": "federation_24x7_proof",
-  "source_sha": "a6604af2bd407c560b539e4fa8dac6b75cd6bc79",
-  "proof_timestamp": "2026-09-18T08:54:35Z",
+  "source_sha": "d240bcaa5c84d3e168de430ef09a526acc2a0a96",
+  "proof_timestamp": "2026-09-18T09:42:02Z",
   "OBSERVED_ON": {
-    "host_fingerprint": "93891604e58e2451985a873a94b53e49",
-    "platform": "Linux-6.18.44-fc-v33-x86_64-with-glibc2.39",
+    "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
     "machine": "x86_64",
     "cpu_count": 4,
     "cpu_flags_present": [
       "avx",
       "avx2",
-      "avx512_vnni",
-      "avx512bw",
-      "avx512cd",
-      "avx512dq",
-      "avx512f",
-      "avx512vl",
       "f16c",
       "fma"
     ],
