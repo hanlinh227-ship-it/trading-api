@@ -136,10 +136,17 @@ def _capabilities(value: object) -> dict[str, dict[str, Any]]:
             if _clean_string(item)
         ] if isinstance(evidence_raw, list) else []
         verified_at = raw.get("verified_at")
+        # How the score was established, in the mesh's own evidence vocabulary.
+        # Defaults to PROVISIONAL: a candidate that says nothing about where its
+        # number came from has declared it, not measured it.
+        state = _clean_string(raw.get("evidence_state")).upper() or "PROVISIONAL"
+        if state not in {"VERIFIED", "PROVISIONAL", "STALE", "UNKNOWN"}:
+            state = "PROVISIONAL"
         result[name] = {
             "supported": supported,
             "score": score,
             "evidence": evidence,
+            "evidence_state": state,
             "verified_at": _clean_string(verified_at) or None,
         }
     return result
@@ -387,8 +394,33 @@ def required_capabilities(domain: str, primary_skill: str, *, has_image: bool = 
     return result
 
 
+def _unverified_ceiling(config: dict | None = None) -> float:
+    """The most an unmeasured capability may contribute to capability fit.
+
+    Deliberately the mesh's own `hard_capability_min_score` rather than a new
+    number. The rule it expresses: a provider *declaring* a capability is
+    enough to clear the bar and never enough to win on quality. Reusing the
+    floor keeps this free of an invented discount factor, and keeps it in step
+    with the policy if that floor ever moves.
+    """
+    config = config if config is not None else _load_domain_capabilities()
+    policy = (config or {}).get("policy") or {}
+    return _bounded_score(policy.get("hard_capability_min_score"), default=0.35)
+
+
 def _capability_fit(candidate: dict, requirements: dict[str, float]) -> float:
+    """Weighted capability fit, with declared scores capped at the floor.
+
+    Without the cap a documentation URL outranks a benchmark: a provider
+    self-reporting text_reasoning 0.85 beat a locally measured 0.75 on the
+    dominant term of the score, so the only candidate anyone had actually
+    tested lost to the ones that had not been. Capping an unverified
+    contribution at the floor makes measured evidence win without forbidding
+    unmeasured candidates outright - they remain selectable when nothing
+    better exists, which is what keeps a new provider usable.
+    """
     capabilities = candidate.get("capabilities", {}) if isinstance(candidate, dict) else {}
+    ceiling = _unverified_ceiling()
     weighted = 0.0
     total = 0.0
     for name, weight_raw in requirements.items():
@@ -398,6 +430,9 @@ def _capability_fit(candidate: dict, requirements: dict[str, float]) -> float:
         row = capabilities.get(name, {}) if isinstance(capabilities, dict) else {}
         supported = row.get("supported") is True if isinstance(row, dict) else False
         score = _bounded_score(row.get("score") if isinstance(row, dict) else 0.0)
+        state = str(row.get("evidence_state") or "PROVISIONAL").upper() if isinstance(row, dict) else "PROVISIONAL"
+        if state != "VERIFIED":
+            score = min(score, ceiling)
         weighted += weight * (score if supported else 0.0)
         total += weight
     return weighted / total if total > 0 else 0.0

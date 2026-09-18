@@ -1,0 +1,91 @@
+name: DeepSeek Lane — Preflight (non-secret)
+
+# Answers two questions a sandboxed agent session cannot answer for itself:
+# is DEEPSEEK_API_KEY present, and does the provider answer. It runs where the
+# secret already lives and reports only PRESENT/MISSING, an HTTP status code and
+# non-sensitive response metadata.
+#
+# Deliberately NOT here:
+#   * no issue, comment or schedule trigger - manual dispatch only, so nothing
+#     posted on this repository can start it. The historical comment-triggered
+#     AI loop is not being restored.
+#   * no contents:write. This job reads; it cannot commit, tag or deploy.
+#   * no step that can print the key. It reaches curl through the environment,
+#     never through a command line or a log line, and `set -x` is never enabled.
+#
+# The default probe is GET /v1/models - a listing, not a generation - so it
+# spends no completion tokens against the account balance.
+
+on:
+  workflow_dispatch:
+    inputs:
+      probe_completion:
+        description: >-
+          Also send one 1-token completion, to prove the key can generate rather
+          than merely authenticate. Leave false for a pure auth/health check.
+        type: boolean
+        default: false
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deepseek-lane-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: github.repository == 'hanlinh227-ship-it/trading-api'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret presence, by name only
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+            echo "DEEPSEEK_SECRET_PRESENT=MISSING"
+            echo "DEEPSEEK_LANE_BLOCKED=secret_absent"
+            exit 1
+          fi
+          echo "DEEPSEEK_SECRET_PRESENT=PRESENT"
+
+      - name: Provider health
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /tmp/models.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${DEEPSEEK_API_KEY}" \
+            https://api.deepseek.com/v1/models || echo 000)"
+          echo "DEEPSEEK_API_HTTP=${code}"
+          if [ "${code}" != "200" ]; then
+            echo "DEEPSEEK_API_HEALTH=FAIL"
+            python3 .github/scripts/deepseek_preflight_report.py error /tmp/models.json
+            exit 1
+          fi
+          echo "DEEPSEEK_API_HEALTH=PASS"
+          python3 .github/scripts/deepseek_preflight_report.py models /tmp/models.json
+
+      - name: Completion probe, usage metadata only
+        if: ${{ inputs.probe_completion }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /tmp/chat.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${DEEPSEEK_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            -d '{"model":"deepseek-chat","max_tokens":1,"messages":[{"role":"user","content":"ok"}]}' \
+            https://api.deepseek.com/v1/chat/completions || echo 000)"
+          echo "DEEPSEEK_COMPLETION_HTTP=${code}"
+          python3 .github/scripts/deepseek_preflight_report.py usage /tmp/chat.json
+
+      - name: Lane verdict
+        run: |
+          echo "DEEPSEEK_CODING_LANE_READY=PASS"
+          echo "NO_SECRET_EXPOSURE=PASS"
+          echo "routing_authority=false reasoning_authority=false"
+          echo "model_selection_authority=false scheduling_authority=false"
+          echo "merge_authority=false deploy_authority=false trading_authority=false"

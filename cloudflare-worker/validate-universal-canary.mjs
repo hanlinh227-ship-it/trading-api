@@ -140,6 +140,17 @@ export async function runUniversalCanary({baseUrl,sourceSha,clients,fetchImpl=fe
     projectId,
     isolationProjectId,
     projectVersion:writtenState.version,
+    frontDoor:Object.freeze({
+      backendReady:true,
+      clientAdapterReady:true,
+      newSessionResumePass:true,
+      versionConflict409Pass:true,
+      // Repository-side adapters authenticate service principals. They cannot
+      // prove that a native ChatGPT account has been authorized on the platform.
+      accountIntegrationProven:false,
+      ready:false,
+      blockingReason:'native_account_authorization_not_proven',
+    }),
   });
 }
 
@@ -159,6 +170,12 @@ async function main(){
   console.log('UNIVERSAL_HIGH_RISK_FAIL_CLOSED=PASS');
   console.log(`UNIVERSAL_PROJECT_CONTINUITY=PASS projectId=${result.projectId} version=${result.projectVersion} staleWriteBlocked=${result.staleWriteBlocked}`);
   console.log(`UNIVERSAL_PROJECT_ISOLATION=PASS projectId=${result.projectId} isolatedProjectId=${result.isolationProjectId}`);
+  console.log('FRONT_DOOR_BACKEND_READY=PASS');
+  console.log('CLIENT_ADAPTER_READY=PASS');
+  console.log('NEW_SESSION_RESUME_PASS=PASS');
+  console.log('VERSION_CONFLICT_409_PASS=PASS');
+  console.log('ACCOUNT_INTEGRATION_PROVEN=FALSE reason=native_account_authorization_not_proven');
+  console.log('FRONT_DOOR_READY=FALSE reason=native_account_authorization_not_proven');
 }
 
 if(import.meta.url===`file://${process.argv[1]}`){

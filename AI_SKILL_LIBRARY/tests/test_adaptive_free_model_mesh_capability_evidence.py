@@ -90,7 +90,20 @@ class CapabilityEvidenceContractTests(unittest.TestCase):
         self.assertEqual(policy["hard_gate"]["min_coverage_ratio"], 0.80)
         self.assertEqual(policy["default_freshness_hours"], 168)
 
-    def test_empty_canonical_ledger_is_schema_valid_and_authority_free(self):
+    def test_canonical_ledger_is_schema_valid_and_authority_free(self):
+        """Whatever it holds.
+
+        This asserted `records == []`, which described the ledger's state on
+        the day it was written rather than anything required of it. An empty
+        ledger was the reason the compiled active index reported verified=0;
+        populating it from measured evidence is the fix, not a regression, and
+        a test that fails on the fix is testing the wrong thing.
+
+        What must hold either way: the document validates against its schema,
+        declares version 1, and claims no routing or reasoning authority. A
+        capability ledger reports what was measured; it never decides where a
+        request goes.
+        """
         schema = json.loads((ROOT / "AI_SKILL_LIBRARY/v4/schemas/capability_evidence_ledger.schema.json").read_text(encoding="utf-8"))
         ledger = json.loads((ROOT / "AI_SKILL_LIBRARY/v4/model_mesh/capability_evidence.json").read_text(encoding="utf-8"))
         Draft202012Validator.check_schema(schema)
@@ -99,7 +112,13 @@ class CapabilityEvidenceContractTests(unittest.TestCase):
         self.assertEqual(ledger["version"], 1)
         self.assertFalse(ledger["routing_authority"])
         self.assertFalse(ledger["reasoning_authority"])
-        self.assertEqual(ledger["records"], [])
+        self.assertIsInstance(ledger["records"], list)
+        # Every row that is there must be a measurement, bound to a digest.
+        for row in ledger["records"]:
+            with self.subTest(evidence_id=row.get("evidence_id")):
+                self.assertTrue(row["benchmark_id"])
+                self.assertTrue(row["measured_at"])
+                self.assertIn(row["provenance"]["kind"], {"local_benchmark_run"})
 
     def test_active_index_schema_accepts_only_known_evidence_states(self):
         schema = json.loads((ROOT / "AI_SKILL_LIBRARY/v4/schemas/model_mesh_active_candidate_index.schema.json").read_text(encoding="utf-8"))

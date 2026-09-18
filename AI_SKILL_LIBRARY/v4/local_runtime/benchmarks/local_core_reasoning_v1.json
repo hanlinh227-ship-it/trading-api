@@ -1,0 +1,452 @@
+{
+  "suite_id": "local_core_reasoning",
+  "version": "1.0.0",
+  "capability": "text_reasoning",
+  "description": "A small locally-defined reasoning suite. NOT a public benchmark and not comparable to one. Twenty multiple-choice items across arithmetic, logical deduction, commonsense and short-passage reading, plus four short-answer items that cannot be scored by guessing a letter. Correct labels are balanced five per letter so that always answering the same letter scores 0.208 - below the mesh capability floor. Frozen by content hash before any model was run against it.",
+  "prefix": "Answer each question. For a multiple-choice question reply with the single letter of the correct option and nothing else.\n\nQ: Which number is larger?\n(A) 17\n(B) 9\nAnswer: A\n\nQ: All cats are mammals. Tom is a cat. Is Tom a mammal?\n(A) no\n(B) yes\nAnswer: B",
+  "max_tokens": 8,
+  "decoding": {
+    "temperature": 0.0,
+    "top_k": 1,
+    "top_p": 1.0,
+    "seed": 0
+  },
+  "items": [
+    {
+      "item_id": "lg-01",
+      "capability": "text_reasoning",
+      "question": "All birds have feathers. A robin is a bird. Does a robin have feathers?",
+      "answer": "A",
+      "choices": [
+        [
+          "A",
+          "yes"
+        ],
+        [
+          "B",
+          "no"
+        ]
+      ]
+    },
+    {
+      "item_id": "lg-02",
+      "capability": "text_reasoning",
+      "question": "No fish can fly. A salmon is a fish. Can a salmon fly?",
+      "answer": "A",
+      "choices": [
+        [
+          "A",
+          "no"
+        ],
+        [
+          "B",
+          "yes"
+        ]
+      ]
+    },
+    {
+      "item_id": "lg-04",
+      "capability": "text_reasoning",
+      "question": "If it is raining then the ground is wet. The ground is dry. Is it raining?",
+      "answer": "B",
+      "choices": [
+        [
+          "A",
+          "yes"
+        ],
+        [
+          "B",
+          "no"
+        ]
+      ]
+    },
+    {
+      "item_id": "lg-05",
+      "capability": "text_reasoning",
+      "question": "Every student passed. Maria is a student. Did Maria pass?",
+      "answer": "A",
+      "choices": [
+        [
+          "A",
+          "yes"
+        ],
+        [
+          "B",
+          "no"
+        ]
+      ]
+    },
+    {
+      "item_id": "rd-01",
+      "capability": "text_reasoning",
+      "question": "Tom bought bread, milk and eggs. He did not buy cheese. Did Tom buy cheese?",
+      "answer": "B",
+      "choices": [
+        [
+          "A",
+          "yes"
+        ],
+        [
+          "B",
+          "no"
+        ]
+      ]
+    },
+    {
+      "item_id": "rd-03",
+      "capability": "text_reasoning",
+      "question": "Lena speaks French and Spanish but not German. Does Lena speak German?",
+      "answer": "A",
+      "choices": [
+        [
+          "A",
+          "no"
+        ],
+        [
+          "B",
+          "yes"
+        ]
+      ]
+    },
+    {
+      "item_id": "rd-04",
+      "capability": "text_reasoning",
+      "question": "The library opens at 9 and closes at 5. Is it open at 8 in the morning?",
+      "answer": "B",
+      "choices": [
+        [
+          "A",
+          "yes"
+        ],
+        [
+          "B",
+          "no"
+        ]
+      ]
+    },
+    {
+      "item_id": "lg-03",
+      "capability": "text_reasoning",
+      "question": "Ann is taller than Ben. Ben is taller than Carl. Who is tallest?",
+      "answer": "C",
+      "choices": [
+        [
+          "A",
+          "Ben"
+        ],
+        [
+          "B",
+          "Carl"
+        ],
+        [
+          "C",
+          "Ann"
+        ]
+      ]
+    },
+    {
+      "item_id": "lg-06",
+      "capability": "text_reasoning",
+      "question": "Box A is heavier than Box B. Box C is lighter than Box B. Which box is lightest?",
+      "answer": "C",
+      "choices": [
+        [
+          "A",
+          "the first box"
+        ],
+        [
+          "B",
+          "the second box"
+        ],
+        [
+          "C",
+          "the third box"
+        ]
+      ]
+    },
+    {
+      "item_id": "cs-03",
+      "capability": "text_reasoning",
+      "question": "Water freezes when the temperature falls below:",
+      "answer": "A",
+      "choices": [
+        [
+          "A",
+          "0 degrees Celsius"
+        ],
+        [
+          "B",
+          "50 degrees Celsius"
+        ],
+        [
+          "C",
+          "100 degrees Celsius"
+        ]
+      ]
+    },
+    {
+      "item_id": "ar-01",
+      "capability": "text_reasoning",
+      "question": "Sara has 12 apples and gives 5 away. How many does she have left?",
+      "answer": "D",
+      "choices": [
+        [
+          "A",
+          "5"
+        ],
+        [
+          "B",
+          "12"
+        ],
+        [
+          "C",
+          "17"
+        ],
+        [
+          "D",
+          "7"
+        ]
+      ]
+    },
+    {
+      "item_id": "ar-02",
+      "capability": "text_reasoning",
+      "question": "A box holds 6 pencils. How many pencils are in 4 boxes?",
+      "answer": "C",
+      "choices": [
+        [
+          "A",
+          "10"
+        ],
+        [
+          "B",
+          "18"
+        ],
+        [
+          "C",
+          "24"
+        ],
+        [
+          "D",
+          "64"
+        ]
+      ]
+    },
+    {
+      "item_id": "ar-03",
+      "capability": "text_reasoning",
+      "question": "What is 15 minus 8?",
+      "answer": "D",
+      "choices": [
+        [
+          "A",
+          "8"
+        ],
+        [
+          "B",
+          "23"
+        ],
+        [
+          "C",
+          "6"
+        ],
+        [
+          "D",
+          "7"
+        ]
+      ]
+    },
+    {
+      "item_id": "ar-04",
+      "capability": "text_reasoning",
+      "question": "A train leaves at 2:00 and arrives at 5:00. How many hours is the trip?",
+      "answer": "B",
+      "choices": [
+        [
+          "A",
+          "2"
+        ],
+        [
+          "B",
+          "3"
+        ],
+        [
+          "C",
+          "5"
+        ],
+        [
+          "D",
+          "7"
+        ]
+      ]
+    },
+    {
+      "item_id": "ar-05",
+      "capability": "text_reasoning",
+      "question": "Half of 30 is:",
+      "answer": "D",
+      "choices": [
+        [
+          "A",
+          "10"
+        ],
+        [
+          "B",
+          "20"
+        ],
+        [
+          "C",
+          "60"
+        ],
+        [
+          "D",
+          "15"
+        ]
+      ]
+    },
+    {
+      "item_id": "cs-01",
+      "capability": "text_reasoning",
+      "question": "You want to keep milk from spoiling. Where do you put it?",
+      "answer": "C",
+      "choices": [
+        [
+          "A",
+          "in the oven"
+        ],
+        [
+          "B",
+          "on the windowsill"
+        ],
+        [
+          "C",
+          "in the refrigerator"
+        ],
+        [
+          "D",
+          "in the bathtub"
+        ]
+      ]
+    },
+    {
+      "item_id": "cs-02",
+      "capability": "text_reasoning",
+      "question": "It is pouring with rain outside. What should you take with you?",
+      "answer": "D",
+      "choices": [
+        [
+          "A",
+          "a fan"
+        ],
+        [
+          "B",
+          "sunglasses"
+        ],
+        [
+          "C",
+          "a towel rack"
+        ],
+        [
+          "D",
+          "an umbrella"
+        ]
+      ]
+    },
+    {
+      "item_id": "cs-04",
+      "capability": "text_reasoning",
+      "question": "Which of these is a living thing?",
+      "answer": "B",
+      "choices": [
+        [
+          "A",
+          "a rock"
+        ],
+        [
+          "B",
+          "a tree"
+        ],
+        [
+          "C",
+          "a chair"
+        ],
+        [
+          "D",
+          "a cloud"
+        ]
+      ]
+    },
+    {
+      "item_id": "cs-05",
+      "capability": "text_reasoning",
+      "question": "You cut your finger. What do you reach for first?",
+      "answer": "D",
+      "choices": [
+        [
+          "A",
+          "a hammer"
+        ],
+        [
+          "B",
+          "a dictionary"
+        ],
+        [
+          "C",
+          "a kettle"
+        ],
+        [
+          "D",
+          "a bandage"
+        ]
+      ]
+    },
+    {
+      "item_id": "rd-02",
+      "capability": "text_reasoning",
+      "question": "The meeting moved from Monday to Thursday. Which day is the meeting on now?",
+      "answer": "C",
+      "choices": [
+        [
+          "A",
+          "Monday"
+        ],
+        [
+          "B",
+          "Tuesday"
+        ],
+        [
+          "C",
+          "Thursday"
+        ],
+        [
+          "D",
+          "Friday"
+        ]
+      ]
+    },
+    {
+      "item_id": "sa-01",
+      "capability": "text_reasoning",
+      "question": "What is the capital city of France? Answer with the city name only.",
+      "answer": "Paris"
+    },
+    {
+      "item_id": "sa-02",
+      "capability": "text_reasoning",
+      "question": "How many days are there in one week? Answer with a number word.",
+      "answer": "seven"
+    },
+    {
+      "item_id": "sa-03",
+      "capability": "text_reasoning",
+      "question": "What colour is a clear daytime sky? Answer with one word.",
+      "answer": "blue"
+    },
+    {
+      "item_id": "sa-04",
+      "capability": "text_reasoning",
+      "question": "What is 9 plus 4? Answer with a number only.",
+      "answer": "13"
+    }
+  ]
+}

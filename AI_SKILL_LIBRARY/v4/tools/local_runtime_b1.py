@@ -82,7 +82,10 @@ def run(root: Path, cache: Path, prompt: str, max_tokens: int,
         if model_id else (models[0] if len(models) == 1 else None)
     )
     if record is None:
-        return _refusal("registry", "no matching canonical registry row")
+        return _refusal("registry", "no matching canonical registry row"
+            if not models or model_id else
+            f"the registry holds {len(models)} models; name one with --model-id: "
+            + ", ".join(sorted(str(m.get('model_id')) for m in models)))
 
     identity, identity_reasons = from_record(record)
     if identity is None:

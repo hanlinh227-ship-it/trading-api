@@ -1,0 +1,34 @@
+version: 1
+purpose: continuous_skill_learning_curriculum_material
+status: CANONICAL
+
+# A curriculum is what a canonical skill teaches and how a run against it is
+# judged. It is compiled from the skill manifest, never authored against it, so
+# the manifest keeps the permissions and this file keeps only the material.
+#
+# Seeded empty on purpose. A curriculum entry written here by hand would be a
+# claim about a skill that no compiler checked, and the compiler (Task 2) is
+# what makes an entry regenerable instead of a second description to maintain.
+
+authority:
+  routing_authority: false          # task_router alone
+  reasoning_authority: false        # GITHUB_BRAIN_V4 alone
+  model_selection_authority: false  # Model Mesh alone
+  admission_authority: false        # Open Model Universe alone
+  scheduling_authority: false       # the existing runtime scheduler alone
+  evidence_authority: false         # the existing verifier/evidence system alone
+  stable_write_authority: false     # the existing promotion gates alone
+  merge_authority: false            # a human alone
+  trading_authority: false          # unchanged by this or any learning surface
+  note: >-
+    Curriculum is training and evaluation material for orchestration behaviour.
+    It may describe what a skill expects and how a run is judged. It may not
+    select, route, admit, schedule, widen a permission or write to stable.
+
+stable_write_allowed: false
+
+source_of_truth:
+  skill_manifests: AI_SKILL_LIBRARY/v4/skills
+  role_vocabulary: AI_SKILL_LIBRARY/v4/model_mesh/role_branches.yaml
+
+curricula: []

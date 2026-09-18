@@ -1,0 +1,259 @@
+{
+  "tool": "wave3_federation_proof",
+  "profile": "STANDARD",
+  "rounds_run": 9,
+  "rounds_passed": 9,
+  "failed_rounds": [],
+  "federation_status": "PROVEN",
+  "models_exercised": [
+    "Qwen/Qwen3-8B-GGUF",
+    "microsoft/Phi-3-mini-4k-instruct-gguf"
+  ],
+  "no_round_resolved_by_vote": true,
+  "rounds": [
+    {
+      "round": "A",
+      "capability": "deep_reasoning",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "role": "maker",
+          "latency_ms": 21995.807,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 11905.361,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": "<think>\nOkay, let's see. The question is: If every A is a B, and every B is a C, is every A a C? I need to answer yes or no and explain briefly. Alright, let's break",
+      "wall_ms": 63386.018
+    },
+    {
+      "round": "B",
+      "capability": "coding",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "role": "maker",
+          "latency_ms": 20171.856,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 11441.708,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": "<think>\nOkay, I need to write a Python function that finds the second largest distinct value in a list. If there's no such value, return None. Let me think about how to approach this.\n\nFirst, I should understand what \"",
+      "wall_ms": 61286.759
+    },
+    {
+      "round": "C",
+      "capability": "debugging",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "role": "maker",
+          "latency_ms": 23616.773,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 8541.182,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": "<think>\nOkay, let's look at this Python function. The goal is to calculate the total of a list of values. The function is called total and takes a parameter values. Let me step through it.\n\nFirst, it initializes s to",
+      "wall_ms": 61735.171
+    },
+    {
+      "round": "D",
+      "capability": "verifier_checker",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "role": "maker",
+          "latency_ms": 21131.068,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 10124.365,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": "<think>\nOkay, the user is asking if a scanner's report of \"Scanned files: 1\" and \"Data scanned: 0.00 MB\" proves the file is clean. Let me think about this.\n\nFirst,",
+      "wall_ms": 60933.074
+    },
+    {
+      "round": "E",
+      "capability": "vietnamese_reasoning",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "role": "maker",
+          "latency_ms": 22193.716,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 12787.684,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": "<think>\nOkay, the user is asking in Vietnamese: \"Mặt trời mọc ở hướng nào?\" which translates to \"Where does the sun rise?\" I need to answer briefly in Vietnamese.\n\nFirst, I recall that the sun appears to",
+      "wall_ms": 64460.042
+    },
+    {
+      "round": "F",
+      "capability": "synthesis_generalist",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "role": "maker",
+          "latency_ms": 19931.048,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 11427.824,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": "<think>\nOkay, the user is asking about what a capability benchmark can and cannot establish about a model. Let me start by recalling what a capability benchmark is. It's a set of tasks or metrics used to evaluate a model's performance.",
+      "wall_ms": 60989.779
+    },
+    {
+      "round": "G",
+      "capability": "code_review",
+      "passed": true,
+      "failures": [],
+      "collaboration_mode": "MAKER_CHECKER",
+      "specialist_groups": [
+        "CORE_REASONING"
+      ],
+      "domain": "core",
+      "primary_skill": "core_reasoning",
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "role": "maker",
+          "latency_ms": 22919.77,
+          "error": null
+        },
+        {
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "latency_ms": 10796.071,
+          "error": null
+        }
+      ],
+      "resolved_by_vote": false,
+      "outputs_identical": false,
+      "substantive_agreement": "unresolved_here",
+      "answer": "<think>\nOkay, the user is asking whether a reviewer is right in saying that a function returning None on an empty list is a bug because the caller never checks. Let me think about this.\n\nFirst, I need to understand the context.",
+      "wall_ms": 63474.047
+    },
+    {
+      "round": "H",
+      "capability": "large_model_remote_routing",
+      "passed": true,
+      "failures": [],
+      "placement_state": "REMOTE_WORKER_REQUIRED",
+      "blockers": {
+        "ephemeral-local-0": [
+          "has 15227 MB RAM available, needs 37200 MB",
+          "has 11082 MB disk free, needs 21600 MB"
+        ]
+      },
+      "required_ram_mb": 37200,
+      "workers": [],
+      "note": "the request resolves to a named machine requirement, not to a crash"
+    },
+    {
+      "round": "I",
+      "capability": "no_worker_fallback",
+      "passed": true,
+      "failures": [],
+      "placement_state": "NO_COMPATIBLE_WORKER_ONLINE",
+      "blockers": {},
+      "workers": [],
+      "note": "with nothing serving the answer is a truthful state, not a fabricated inference and not an exception"
+    }
+  ],
+  "note": "Structural proof only. Whether an answer was good is what the benchmark suites measure; this measures whether the federation ran the way the architecture says it does."
+}

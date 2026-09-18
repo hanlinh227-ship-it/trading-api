@@ -124,6 +124,15 @@
           "verified_at"
         ],
         "properties": {
+          "evidence_state": {
+            "description": "Optional. How this capability score was established. VERIFIED means a measurement bound to this exact artifact or endpoint; PROVISIONAL means the provider declared it. Absent means not stated, which is read as PROVISIONAL - the conservative reading, and it keeps every existing snapshot valid. A provisional score is capped at the capability floor when candidates are ranked, so a documentation link can clear the bar but never outrank a benchmark.",
+            "enum": [
+              "VERIFIED",
+              "PROVISIONAL",
+              "STALE",
+              "UNKNOWN"
+            ]
+          },
           "supported": {
             "enum": [
               true,

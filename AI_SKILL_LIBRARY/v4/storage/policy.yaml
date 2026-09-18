@@ -1,0 +1,212 @@
+# Federated Free Storage Mesh - canonical policy.
+#
+# Subordinate to GITHUB_BRAIN_V4 and to the existing portable state contract in
+# AI_SKILL_LIBRARY/v4/runtime/shared_state.yaml. This file declares policy; it
+# does not select, place, route, admit or schedule anything, and it activates
+# no provider account.
+version: 1
+purpose: federated_free_storage_mesh
+
+authority:
+  storage_authority: false
+  routing_authority: false
+  reasoning_authority: false
+  model_selection_authority: false
+  admission_authority: false
+  scheduling_authority: false
+  merge_authority: false
+  trading_authority: false
+
+canonical:
+  authority: GITHUB_BRAIN_V4
+  portable_state_contract: AI_SKILL_LIBRARY/v4/runtime/shared_state.yaml
+  routed_by: task_router
+  extends_interface: ObjectStore
+  second_portable_state_abstraction: false
+  canonical_home: github
+
+cost:
+  paid_storage_allowed: false
+  overage_allowed: false
+  unknown_cost_state: QUARANTINE
+  billable_spillover_unverified: NO_AUTONOMOUS_WRITE
+  free_expiry_unknown: NO_AUTONOMOUS_WRITE
+  # Spec S11: a provider that becomes paid-only is retired from write placement.
+  # Reads of existing objects may continue where policy permits; no new paid
+  # usage is ever created.
+  paid_only_provider: RETIRE_FROM_WRITE_PLACEMENT
+  quota_circumvention_allowed: false
+  account_farming_allowed: false
+
+capacity:
+  soft_limit_ratio: 0.80
+  hard_limit_ratio: 0.92
+  emergency_reserve_ratio: 0.05
+  # Provider-specific limits may be stricter, never looser.
+  provider_overrides_may_only_tighten: true
+
+privacy:
+  # Spec S4: PUBLIC may be stored on any *admitted* free backend whose terms and
+  # health are verified. "true" would read as "anywhere external", which is not what
+  # the mesh enforces, so the policy states the rule the validator actually applies.
+  PUBLIC: {external_backends_allowed: admitted_verified_only, client_encryption_required: false}
+  INTERNAL: {external_backends_allowed: verified_only, client_encryption_required: false}
+  CONFIDENTIAL: {external_backends_allowed: encrypted_verified_only, client_encryption_required: true}
+  LOCAL_ONLY: {external_backends_allowed: false, client_encryption_required: false}
+
+criticality:
+  CRITICAL:
+    min_independent_provider_copies: 2
+    auto_delete_for_capacity: false
+    hash_verification_required: true
+  IMPORTANT:
+    min_independent_provider_copies: 1
+    replica_when_free_headroom_exists: true
+    replace_replica_only_after_hash_verification: true
+    auto_delete_for_capacity: false
+  REPRODUCIBLE:
+    min_independent_provider_copies: 1
+    evictable_under_capacity_pressure: true
+    regenerate_on_loss: true
+  EPHEMERAL:
+    min_independent_provider_copies: 0
+    cache_or_local_preferred: true
+    ttl_expiry: true
+    long_term_replication: false
+
+tiers:
+  CANONICAL: {primary_home: github, bulk_object_data_allowed: false}
+  HOT: {bulk_object_data_allowed: true}
+  WARM: {bulk_object_data_allowed: true}
+  COLD: {bulk_object_data_allowed: true}
+  HUMAN_BACKUP: {bulk_object_data_allowed: true, canonical_runtime_object_store: false}
+  METADATA: {bulk_object_data_allowed: false}
+
+# Spec S17 provider roles, as a closed vocabulary rather than a free-form
+# classifier. Hugging Face is for models, datasets and benchmark corpora and
+# never a generic log dump; Drive/OneDrive/Dropbox are human backup; Supabase is
+# the metadata index. Those are the roles the spec names, and a role that is not
+# one of them is a role nobody has agreed to.
+provider_roles:
+  acceptable_use_classes:
+    - owned-storage
+    - object-storage
+    - ai-artifacts-only
+    - human-backup-only
+    - metadata-index-only
+
+# Spec S6: the byte count above which an object is bulk object data, and
+# therefore inadmissible in the CANONICAL and METADATA tiers and on any backend
+# that is not a bulk object backend. One number, referenced by both schemas and
+# by mesh_validator.py, so the three cannot drift apart.
+bulk_object_threshold_bytes: 1048576
+
+# Spec S10. PRESSURED is the warning state and stays writable. NEAR_FULL is not:
+# it sits at or past the 0.92 hard limit, and no provider should be driven to
+# 100% while another eligible target exists. READ_ONLY, OFFLINE and QUARANTINED
+# say so in their names. Previously only QUARANTINED was coupled to the write
+# flags, so a provider could be OFFLINE and an autonomous writer at once.
+writable_provider_health_states: [FREE, HEALTHY, PRESSURED]
+
+# The manifest schema decides that a named backend is one of the registry's
+# keys; it cannot open the registry to learn whether that row was admitted. That
+# resolution - identity, privacy class, tier, bulk role, quota headroom, write
+# state - is performed by mesh_validator.py, and a placement is admissible only
+# when the schema and the validator agree. Registry membership is still not
+# admission.
+backend_identity:
+  manifest_backend_must_resolve_to_registry_row: true
+  resolver: AI_SKILL_LIBRARY/v4/storage/mesh_validator.py
+  resolver_authority: false
+  resolver_is_read_only: true
+  unresolvable_backend: REJECT
+  unadmitted_backend: REJECT
+
+placement_order:
+  - privacy
+  - integrity_criticality
+  - free_only_eligibility
+  - provider_health
+  - quota_headroom
+  - object_size
+  - access_frequency
+  - retention_class
+  - latency
+  - backend_choice
+
+placement_precedence:
+  capacity_overrides_privacy: false
+  free_capacity_overrides_integrity: false
+  latency_overrides_zero_cost: false
+
+replication:
+  model: single_primary_with_optional_full_replicas
+  erasure_coding: out_of_scope
+  chunk_striping: out_of_scope
+  content_addressed_verification: true
+  rebalance_deletes_source_before_destination_verified: false
+
+lifecycle:
+  states: [RAW, SANITIZED, DEDUPED, AGGREGATED, COMPRESSED, ARCHIVED, EXPIRED]
+  destructive_action_on_uncertain_evidence: FAIL_CLOSED
+
+provider_health_states: [FREE, HEALTHY, PRESSURED, NEAR_FULL, READ_ONLY, QUARANTINED, OFFLINE]
+
+metadata_service:
+  provider_id: supabase
+  role: metadata_and_object_index_only
+  authority: false
+  bulk_object_backend_allowed: false
+  tiers_allowed: [METADATA]
+  # Spec S25: the connected Supabase account currently has no projects, and
+  # none is created here. Free-plan characteristics are account/runtime
+  # evidence, never a hard-coded entitlement.
+  project_creation_requires_explicit_approval: true
+  project_exists_verified: false
+  free_plan_characteristics_hardcoded: false
+  recovery_checkpoint: github_bounded_manifest_snapshot
+  on_unavailable:
+    cached_manifest_reads_where_policy_allows: true
+    new_destructive_lifecycle_actions: BLOCKED
+    critical_deletion_or_rebalance: PAUSED
+
+encryption:
+  # Task 1 declares fields only. The encryption contract itself - algorithm
+  # choice, envelope construction, rotation - is owned elsewhere and is not
+  # implemented, invented or approximated here.
+  implemented_here: false
+  owned_by: storage_mesh_encryption_contract
+  required_classes: [CONFIDENTIAL]
+  client_side_before_upload: true
+  authenticated_encryption_required: true
+  metadata_fields_allowed: [algorithm, scheme_version, key_ref, nonce, tag]
+  # The algorithm field sits inside the encryption block, next to key_ref. As a
+  # free-form classifier it was 64 lower-case characters wide - the exact shape
+  # of a raw hex private key - so the one field in the mesh most likely to be
+  # handed key material was also the one most able to hold it. It is a closed
+  # vocabulary instead. Spec S21 says the first implementation uses a
+  # well-supported standard library approach rather than inventing
+  # cryptography, so these are the standard authenticated (AEAD) constructions
+  # such a library offers, plus the neutral placeholder the contract tests use
+  # while the encryption contract itself is owned elsewhere. Nothing here
+  # chooses, implements or performs any cryptography; adding a construction is
+  # a deliberate edit to this list, which is the point.
+  allowed_algorithms:
+    - aead-standard-library
+    - aes-256-gcm
+    - aes-256-gcm-siv
+    - chacha20-poly1305
+    - xchacha20-poly1305
+  key_material_in_metadata: false
+  key_material_in_repository: false
+  key_material_in_logs: false
+  key_separated_from_ciphertext_provider: true
+  allowed_key_locations: [environment_secret_store, owned_worker_secret_store, authorized_secret_management_backend]
+  forbidden_key_locations: [ciphertext_bucket, plaintext_github_file, metadata_table_value, human_backup_file, logs, checkpoints]
+
+forbidden_content: [hidden_reasoning, raw_private_chat, secrets, credentials, private_keys, authentication_tokens, seed_phrases, raw_sensitive_tool_payloads]
+
+object_naming:
+  content_addressed: true
+  human_readable_names_allowed: false
+  secrets_in_object_names: false

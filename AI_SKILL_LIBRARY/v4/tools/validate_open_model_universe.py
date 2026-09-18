@@ -61,6 +61,169 @@ def _unsafe_https_url(value: object) -> bool:
     return any(key.lower() in SENSITIVE_QUERY_KEYS for key, _ in parse_qsl(parsed.query, keep_blank_values=True))
 
 
+#: Gates an operator acceptance may stand in for. Nothing else, ever - licence,
+#: provenance, format safety, pickle safety and remote-code restrictions are
+#: either obtainable anywhere or are the reason the artifact is safe to open.
+_ACCEPTABLE_GAPS = frozenset({"malware_scan_status"})
+
+_ACCEPTANCE_REQUIRED_FIELDS = (
+    "accepted_by", "accepted_at", "artifact_sha256", "basis", "missing_evidence", "scope",
+)
+
+
+def _risk_acceptance_refusals(model: dict, index: int) -> list[str]:
+    """Why this row's operator acceptance does not stand in for a malware scan."""
+    acceptance = model.get("operator_risk_acceptance")
+    if not isinstance(acceptance, dict):
+        return [
+            f"admission blocks local candidate: malware_scan_status must be pass, or a valid "
+            f"operator_risk_acceptance must be recorded, at models[{index}]"
+        ]
+
+    # An acceptance covers a known *absence* of evidence, never an adverse or
+    # ambiguous result. "not_run" is a thing an operator can knowingly accept;
+    # "fail" and "unknown" are not - the first is a finding and the second means
+    # something happened that nobody has explained.
+    status = (model.get("admission_evidence") or {}).get("malware_scan_status")
+    if status != "not_run":
+        return [
+            f"admission blocks local candidate: malware_scan_status is {status!r}; an operator "
+            f"acceptance may only cover 'not_run', at models[{index}]"
+        ]
+
+    errors: list[str] = []
+    for field in _ACCEPTANCE_REQUIRED_FIELDS:
+        value = acceptance.get(field)
+        if not (value if isinstance(value, (list, tuple)) else str(value or "").strip()):
+            errors.append(f"operator_risk_acceptance.{field} is required at models[{index}]")
+
+    if acceptance.get("scope") not in (None, "single_artifact"):
+        errors.append(
+            f"operator_risk_acceptance.scope must be single_artifact at models[{index}]; "
+            f"a blanket acceptance is refused"
+        )
+
+    # Bound to the exact bytes it was granted for, so it cannot be recycled.
+    declared = str(acceptance.get("artifact_sha256") or "").strip().lower()
+    actual = str((model.get("artifact_identity") or {}).get("sha256") or "").strip().lower()
+    if declared and actual and declared != actual:
+        errors.append(
+            f"operator_risk_acceptance.artifact_sha256 does not match artifact_identity.sha256 "
+            f"at models[{index}]"
+        )
+
+    covers = set(acceptance.get("covers") or [])
+    forbidden = sorted(covers - _ACCEPTABLE_GAPS)
+    if forbidden:
+        errors.append(
+            f"operator_risk_acceptance may not cover {forbidden} at models[{index}]"
+        )
+    if "malware_scan_status" not in covers:
+        errors.append(
+            f"operator_risk_acceptance does not cover malware_scan_status at models[{index}]"
+        )
+
+    # The decision must not be dressed up as a finding.
+    if acceptance.get("is_a_scan_result") is not False:
+        errors.append(
+            f"operator_risk_acceptance must record is_a_scan_result: false at models[{index}]"
+        )
+    admission = model.get("admission_evidence") or {}
+    if admission.get("malware_scan_status") == "pass":
+        errors.append(
+            f"malware_scan_status must not be reported as pass when it was accepted rather "
+            f"than scanned, at models[{index}]"
+        )
+    return errors
+
+
+def _scan_reference_refusals(model: dict, index: int) -> list[str]:
+    """A cited scan must be a scan of *these* bytes.
+
+    The same rule as capability evidence, for the same reason. A scan result is
+    only meaningful because it names the digest it examined; a reference whose
+    digest does not match this record's artifact is a clearance borrowed from a
+    different file, which is precisely how one model's approval becomes
+    another's.
+
+    Also refuses a reference that claims a pass the admission evidence does not,
+    so the citation cannot quietly outrank the field it supports.
+    """
+    errors: list[str] = []
+    reference = model.get("malware_scan_reference")
+    if not isinstance(reference, dict):
+        return errors
+    declared = str((model.get("artifact_identity") or {}).get("sha256") or "")
+    cited = str(reference.get("artifact_sha256") or "")
+    if declared and cited != declared:
+        errors.append(
+            f"malware scan reference is bound to different artifact bytes at models[{index}]"
+        )
+    if not str(reference.get("signature_database_version") or "").strip():
+        errors.append(
+            f"malware scan reference records no signature database version at models[{index}]"
+        )
+    return errors
+
+
+def _capability_refusals(model: dict, index: int) -> list[str]:
+    """A capability score above zero must be backed by a measurement.
+
+    This is the rule that makes a capability score mean anything. The Model
+    Mesh admits or refuses a worker by comparing this number against a floor,
+    so a number nobody measured is not an optimistic estimate - it is the whole
+    gate, bypassed. Declaring `text_reasoning: 0.9` is otherwise a one-line
+    edit that promotes a model past every filter the mesh has.
+
+    Four things are checked, and each closes a different way of getting a
+    number without earning it:
+
+    * a non-zero score needs an entry in `capability_evidence` at all;
+    * the entry's score must equal the declared one, so the registry cannot
+      quote a measurement and then round it up;
+    * the evidence must be bound to *this* artifact's digest, so a score
+      measured on one set of weights cannot be inherited by another;
+    * the run must have completed without errors, because a score computed
+      over the items that did not crash is not a score.
+
+    A score of exactly 0.0 needs nothing. Declaring no capability is always
+    honest, and requiring evidence for it would mean a newly discovered model
+    could not be registered at all.
+    """
+    errors: list[str] = []
+    capabilities = model.get("capabilities")
+    if not isinstance(capabilities, dict):
+        return errors
+    evidence = model.get("capability_evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    declared_digest = (model.get("artifact_identity") or {}).get("sha256")
+
+    for name, raw in sorted(capabilities.items()):
+        if not isinstance(raw, (int, float)) or isinstance(raw, bool) or float(raw) <= 0.0:
+            continue
+        score = float(raw)
+        row = evidence.get(name)
+        if not isinstance(row, dict):
+            errors.append(
+                f"capability {name}={score} is declared without measurement evidence at models[{index}]"
+            )
+            continue
+        measured = row.get("score")
+        if not isinstance(measured, (int, float)) or isinstance(measured, bool) or float(measured) != score:
+            errors.append(
+                f"capability {name} declares {score} but its evidence measured {measured} at models[{index}]"
+            )
+        if row.get("errors") != 0:
+            errors.append(
+                f"capability {name} was measured by a run with errors; a partial run is not a score at models[{index}]"
+            )
+        if declared_digest and row.get("artifact_sha256") != declared_digest:
+            errors.append(
+                f"capability {name} evidence is bound to different artifact bytes at models[{index}]"
+            )
+    return errors
+
+
 def _admission_refusals(model: dict, index: int) -> list[str]:
     errors: list[str] = []
     if not model.get("model_mesh_local_candidate_eligible"):
@@ -81,7 +244,45 @@ def _admission_refusals(model: dict, index: int) -> list[str]:
     if admission.get("custom_code_required") is not False:
         errors.append(f"admission blocks local candidate: custom_code_required must be false at models[{index}]")
     if admission.get("malware_scan_status") != "pass":
-        errors.append(f"admission blocks local candidate: malware_scan_status must be pass at models[{index}]")
+        # A named, digest-bound operator acceptance may stand in for a scan that
+        # cannot be run in the deploying environment. It is a recorded decision,
+        # never a substituted finding: malware_scan_status must still read its
+        # true value, and the acceptance has to be complete enough to audit.
+        errors.extend(_risk_acceptance_refusals(model, index))
+    elif isinstance(model.get("operator_risk_acceptance"), dict):
+        # A scan ran and an acceptance is still here. That was unchecked before,
+        # because the acceptance rules were consulted only when the scan had
+        # *not* passed, so an acceptance could outlive the gap it covered and the
+        # row would assert both at once with no way to tell which was true.
+        #
+        # The contradiction is a *live* acceptance, not a recorded one. Deleting
+        # the record would erase the fact that an operator made a named,
+        # digest-bound decision, which is history rather than evidence and is
+        # worth keeping - so an acceptance marked superseded is accepted, and one
+        # that still claims to be load-bearing is refused.
+        acceptance = model["operator_risk_acceptance"]
+        superseded_by = str(acceptance.get("superseded_by") or "").strip()
+        if not superseded_by:
+            errors.append(
+                f"operator_risk_acceptance is still live although malware_scan_status is pass; "
+                f"record what superseded it rather than leaving both claims standing, "
+                f"at models[{index}]"
+            )
+        else:
+            # A supersession that names nothing checkable is just a deletion with
+            # extra steps, so it has to say when, and point at the evidence that
+            # replaced it.
+            if not str(acceptance.get("superseded_at") or "").strip():
+                errors.append(
+                    f"operator_risk_acceptance is superseded but records no superseded_at "
+                    f"at models[{index}]"
+                )
+            digest = str((model.get("artifact_identity") or {}).get("sha256") or "")
+            if digest and digest not in superseded_by:
+                errors.append(
+                    f"operator_risk_acceptance claims supersession by evidence that does not "
+                    f"name this artifact's digest at models[{index}]"
+                )
     if admission.get("quarantine_status") != "clear":
         errors.append(f"admission blocks local candidate: quarantine_status must be clear at models[{index}]")
     if model.get("artifact_identity", {}).get("format") == "other":
@@ -161,6 +362,11 @@ def validate_document(document: object, schema: dict | None = None) -> list[str]
             errors.append(f"license verification must agree with admission evidence at models[{index}]")
 
         errors.extend(_admission_refusals(model, index))
+        # Applies to every row, not only mesh-eligible ones: a fabricated
+        # capability score is a defect the moment it is written down, not
+        # the moment the model becomes selectable.
+        errors.extend(_capability_refusals(model, index))
+        errors.extend(_scan_reference_refusals(model, index))
 
         for field in URL_FIELDS:
             if _unsafe_https_url(model.get(field)):

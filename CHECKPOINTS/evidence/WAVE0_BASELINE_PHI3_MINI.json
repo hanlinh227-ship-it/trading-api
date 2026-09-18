@@ -1,0 +1,432 @@
+{
+  "baseline_status": "NOT_READY",
+  "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+  "model_selected_because": "explicitly requested",
+  "prompts_hash": "2591256e1a55823083b654b2c277bef28bf5d9a9078a1034354868e0114a826d",
+  "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+  "passed": 10,
+  "reproducible": 12,
+  "total": 12,
+  "wave_report": {
+    "schema": "benchmark_wave_v1",
+    "benchmark_version": "wave0-v1",
+    "runs": [
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "code-01",
+        "category": "CODING",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "CODING",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:code-01",
+        "output": " 12 + 30\n\nTask: compute",
+        "repeat_output": " 12 + 30\n\nTask: compute",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 4150.453,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 4065.959,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "code-02",
+        "category": "CODING",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "CODING",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:code-02",
+        "output": " 100 - 45\n\nTask:",
+        "repeat_output": " 100 - 45\n\nTask:",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 4113.359,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 4319.205,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-01",
+        "category": "GENERAL_REASONING",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:gr-01",
+        "output": " Tokyo\n\nQ: Who wrote the play \"Rome",
+        "repeat_output": " Tokyo\n\nQ: Who wrote the play \"Rome",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 4588.292,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 4720.129,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-02",
+        "category": "GENERAL_REASONING",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:gr-02",
+        "output": " Carbon dioxide\n\nQ: What is the",
+        "repeat_output": " Carbon dioxide\n\nQ: What is the",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 4631.013,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 4607.592,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "gr-03",
+        "category": "GENERAL_REASONING",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "RESEARCH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:gr-03",
+        "output": " There are 7 continents on Earth.\n\nQ",
+        "repeat_output": " There are 7 continents on Earth.\n\nQ",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 4763.298,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 4603.924,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "math-01",
+        "category": "MATH",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "MATH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:math-01",
+        "output": " 60\n\nQ: Who wrote the play \"",
+        "repeat_output": " 60\n\nQ: Who wrote the play \"",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 4848.834,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 4557.201,
+          "tokens_output": 12
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "math-02",
+        "category": "MATH",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "MATH",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:math-02",
+        "output": " 27 dollars\n\nQ: What is the capital city of France?",
+        "repeat_output": " 27 dollars\n\nQ: What is the capital city of France?",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 10562.188,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 5856.111,
+          "tokens_output": 16
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "so-01",
+        "category": "STRUCTURED_OUTPUT",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "STRUCTURED_OUTPUT",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:so-01",
+        "output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 12\nOutput: {\"name\": \"A",
+        "repeat_output": " {\"name\": \"Bob\", \"age\": 41}\n\nInput: name Alice, age 12\nOutput: {\"name\": \"A",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 8490.174,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 8606.36,
+          "tokens_output": 32
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "so-02",
+        "category": "STRUCTURED_OUTPUT",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "STRUCTURED_OUTPUT",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:so-02",
+        "output": " {\"city\": \"Lisbon\", \"country\": \"Portugal\"}\n\nInput: city Paris, country France\nOutput: {\"city\": \"",
+        "repeat_output": " {\"city\": \"Lisbon\", \"country\": \"Portugal\"}\n\nInput: city Paris, country France\nOutput: {\"city\": \"",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 8462.972,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 8373.75,
+          "tokens_output": 32
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-01",
+        "category": "VIETNAMESE",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": false,
+        "failure": {
+          "verifier_failures": [
+            "expected_term_absent"
+          ]
+        },
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:vi-01",
+        "output": " Hà Nội.\n\nHỏi: Nhà nước đầ",
+        "repeat_output": " Hà Nội.\n\nHỏi: Nhà nước đầ",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 7849.684,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 7885.285,
+          "tokens_output": 24
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-02",
+        "category": "VIETNAMESE",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": true,
+        "failure": null,
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:vi-02",
+        "output": " 7 ngày.\n\nHỏi: Bạn có thể làm gì",
+        "repeat_output": " 7 ngày.\n\nHỏi: Bạn có thể làm gì",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 7176.905,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 7279.195,
+          "tokens_output": 24
+        }
+      },
+      {
+        "schema": "benchmark_run_v1",
+        "task_id": "vi-03",
+        "category": "VIETNAMESE",
+        "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "family": "Phi",
+        "revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+        "artifact_hash": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+        "quantization": "Q4",
+        "runtime": "llama.cpp",
+        "runtime_version": "llama-cpp-python/0.3.35",
+        "environment_fingerprint": "13fbaf6595ed03f7dfc56e845bbf8274",
+        "prompt_version": "wave0-prompts-v3",
+        "benchmark_version": "wave0-v1",
+        "real_inference": true,
+        "reproducible": true,
+        "verifier": "VIETNAMESE",
+        "verifier_passed": false,
+        "failure": {
+          "verifier_failures": [
+            "expected_term_absent"
+          ]
+        },
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:vi-03",
+        "output": " trọng lại.\n\nHỏi: Bạn có thể làm g",
+        "repeat_output": " trọng lại.\n\nHỏi: Bạn có thể làm g",
+        "cold_metrics": {
+          "load_latency_ms": 14187.6,
+          "inference_latency_ms": 7761.352,
+          "peak_ram_mb": 5118.38
+        },
+        "warm_metrics": {
+          "inference_latency_ms": 7791.825,
+          "tokens_output": 24
+        }
+      }
+    ],
+    "failures": [
+      {
+        "task_id": "vi-01",
+        "failure": {
+          "verifier_failures": [
+            "expected_term_absent"
+          ]
+        },
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:vi-01"
+      },
+      {
+        "task_id": "vi-03",
+        "failure": {
+          "verifier_failures": [
+            "expected_term_absent"
+          ]
+        },
+        "raw_run_ref": "f2b029f5a539a492545b9bb146689f72:13fbaf6595ed03f7dfc56e845bbf8274:vi-03"
+      }
+    ],
+    "readiness_failures": [
+      "verifier_or_run_failure"
+    ],
+    "ready_to_freeze": false
+  }
+}

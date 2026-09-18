@@ -1,0 +1,316 @@
+version: 1
+wave: 3
+name: capability_gap_driven_local_model_expansion
+status: KNOWLEDGE_ONLY_NOT_STAGED
+updated_at: '2026-09-17'
+authority:
+  routing: false
+  reasoning: false
+  execution: false
+  admission: false
+  activation: false
+  stable_mutation: false
+integration:
+  brain_authority: GITHUB_BRAIN_V4
+  routed_by: task_router
+  model_selection_authority: model_mesh
+  canonical_registry: AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml
+  active_index: AI_SKILL_LIBRARY/v4/model_mesh/active.json
+  admission_policy: AI_SKILL_LIBRARY/v4/open_model_universe/admission_policy.yaml
+  knowledge_manifest_is_activation: false
+  knowledge_manifest_is_admission: false
+  knowledge_manifest_is_staging: false
+entry_gate:
+  prerequisite_sequence:
+  - finish current PERSONAL_AI_BASELINE_001 rerun and freeze only on genuine 12/12
+  - populate capability index from verified evidence only
+  - rerun current AI Core release gate and exact-head CI
+  no_auto_transition_if_current_gates_regress: true
+selection_policy:
+  mode: measured_capability_gap_driven
+  max_initial_candidates: 6
+  prefer_complementarity_over_quantity: true
+  require_existing_pipeline: true
+  no_new_brain: true
+  no_new_router: true
+  no_second_model_mesh: true
+  no_duplicate_runtime_authority: true
+  no_capability_score_without_digest_bound_measurement: true
+  no_model_mesh_eligibility_without_real_load_and_inference: true
+capability_targets:
+- deep_reasoning
+- software_engineering
+- coding_agent
+- vietnamese_multilingual
+- verifier_checker
+- long_context
+- fast_low_resource_worker
+- synthesis_generalist
+candidates:
+- id: qwen3-8b-gguf
+  upstream: Qwen/Qwen3-8B-GGUF
+  source_url: https://huggingface.co/Qwen/Qwen3-8B-GGUF
+  upstream_format: GGUF
+  license_observed: apache-2.0
+  candidate_roles:
+  - deep_reasoning
+  - vietnamese_multilingual
+  - synthesis_generalist
+  local_artifact_strategy: prefer_official_GGUF_Q4_K_M_if_exact_digest_and_revision_are_verified
+  runtime_hint: official model page documents llama.cpp use
+  state: AVAILABLE_LOCAL
+  wave3_terminal: true
+  terminal_finding: >-
+    Author-published GGUF, admitted, measured and resident. Runs on the
+    local worker at a measured 8655 MB peak. No provenance question arises:
+    the publisher of the weights published the artifact.
+  requires_before_staging:
+  - resolve immutable revision
+  - resolve exact selected GGUF filename
+  - verify exact SHA256 and size
+  - reverify license and provenance
+  - estimate local RAM and latency feasibility
+  worker_requirement:
+    artifact_mb: 4794
+    runtime_ram_mb: 8655
+    basis: 'measured: 5027783488-byte artifact, peak RSS 8655 MB on this fleet'
+    estimated: false
+    worker_class_min:
+      ram_min_mb: 10000
+      disk_free_min_mb: 8000
+- id: qwen3-coder-30b-a3b-instruct
+  upstream: Qwen/Qwen3-Coder-30B-A3B-Instruct
+  source_url: https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct
+  upstream_format: safetensors
+  license_observed: apache-2.0
+  candidate_roles:
+  - software_engineering
+  - coding_agent
+  architecture_observed: qwen3_moe
+  max_position_embeddings_observed: 262144
+  local_artifact_strategy: discover_verified_local_quantization_only_if_hardware_feasible_and_provenance_is_clear
+  state: REMOTE_WORKER_REQUIRED
+  wave3_terminal: true
+  terminal_finding: >-
+    EXACT MODEL: not executable on any verified zero-cost path. Needs ~37200 MB,
+    which no attached worker meets. Cloudflare's entire Qwen catalog is three
+    models - qwen2.5-coder-32b-instruct, qwen3-30b-a3b-fp8, qwen3-embedding-0.6b -
+    and this is none of them. The NVIDIA NIM free catalog capture holds 21 models
+    and no Qwen at all. SambaNova's catalog is entirely priced. Remaining providers
+    are either non-autonomous (cohere, cerebras, huggingface, opencode_zen) or
+    have no recorded catalog, so they are UNVERIFIED and deliberately not called
+    absent. The state is about the machines and paths currently verified, never
+    about the model.
+  capability_fallback: >-
+    SEPARATE FACT, never a substitute for the line above: Cloudflare serves
+    @cf/qwen/qwen2.5-coder-32b-instruct at zero cost, free tier proven by real
+    completion. It covers the coding capability under its own name. It is a
+    different generation and a dense 32B rather than a 30B MoE. No measurement
+    taken on it may be recorded against Qwen3-Coder-30B-A3B-Instruct.
+  requires_before_staging:
+  - prove local hardware feasibility
+  - identify a trusted immutable local artifact or official supported local format
+  - verify exact digest and conversion provenance
+  - verify runtime/backend support through existing runtime abstraction
+  worker_requirement:
+    artifact_mb: 18600
+    runtime_ram_mb: 37200
+    basis: 'estimated: 30.5B total parameters at Q4_K_M. A mixture-of-experts model stores every expert
+      on disk and in memory even though only 3B are active per token, so the sparse compute does not reduce
+      what has to be resident'
+    estimated: true
+    worker_class_min:
+      ram_min_mb: 40000
+      disk_free_min_mb: 22000
+- id: gpt-oss-20b
+  upstream: openai/gpt-oss-20b
+  source_url: https://huggingface.co/openai/gpt-oss-20b
+  upstream_format: safetensors_mxfp4
+  license_observed: apache-2.0
+  candidate_roles:
+  - deep_reasoning
+  - verifier_checker
+  - synthesis_generalist
+  local_artifact_strategy: discover_existing_supported_local_backend_or_verified_quantized_artifact
+  state: AVAILABLE_SERVERLESS
+  wave3_terminal: true
+  terminal_finding: >-
+    The exact model runs at zero cost on Cloudflare Workers AI as
+    @cf/openai/gpt-oss-20b, proven by a real completion on the Workers Free
+    plan (probe run 35254843871). Its 25600 MB local requirement never bound
+    there because the provider holds the weights. A second exact zero-cost
+    path is recorded but unproven: openai/gpt-oss-20b appears in the NVIDIA
+    NIM free catalog capture. Cloudflare is the proven one.
+  requires_before_staging:
+  - prove runtime/backend compatibility using existing adapters
+  - prove hardware feasibility
+  - bind any converted artifact to converter provenance and digest
+  - no inferred capability from public reputation
+  worker_requirement:
+    artifact_mb: 12800
+    runtime_ram_mb: 25600
+    basis: 'estimated: 21B parameters natively quantized to MXFP4 by the publisher; requantizing below
+      it is not an upstream-supported artifact'
+    estimated: true
+    worker_class_min:
+      ram_min_mb: 28000
+      disk_free_min_mb: 16000
+- id: phi-4-mini-instruct
+  upstream: microsoft/Phi-4-mini-instruct
+  source_url: https://huggingface.co/microsoft/Phi-4-mini-instruct
+  upstream_format: safetensors
+  license_observed: mit
+  languages_observed: 24
+  candidate_roles:
+  - verifier_checker
+  - fast_low_resource_worker
+  - multilingual
+  local_artifact_strategy: discover_verified_local_quantization_or_existing_supported_backend
+  state: QUARANTINED_PROVENANCE
+  wave3_terminal: true
+  terminal_finding: >-
+    Final provenance search read the artifacts' own GGUF metadata, which is
+    where a converter records what it built from - stronger evidence than any
+    README claim. Microsoft publishes no GGUF. Two conversions exist and neither
+    is complete: unsloth records its converter in GGUF metadata
+    (general.quantized_by: Unsloth) but no base revision; lmstudio-community
+    records neither converter nor base revision. Both name the base model only
+    via a hub tag. Without the base revision nothing pins WHICH weights were
+    converted, so the artifact is quarantined rather than admitted. Capacity was
+    never the blocker: a worker meets its ~5000 MB comfortably.
+  clears_when: >-
+    Microsoft publishes a GGUF, or a converter records general.base_model.0.version
+    alongside its quantized_by. Nothing here may be relaxed to admit it.
+  superseded_interim_finding: >-
+    Replaced by terminal_finding above, which reads the artifact metadata
+    rather than the README.
+    Discovery run 2026-09-17T17:49:36Z. The author publishes no GGUF, and every
+    community conversion found names a base model but neither a base revision nor
+    the converter that produced it, so provenance_complete is not satisfied for any
+    of them. A digest proves these bytes are these bytes; it says nothing about what
+    they were made from. The candidate is refused on that rule rather than admitted
+    on reputation - the same rule that keeps a vendor documentation page out of the
+    capability ledger. Not permanent: it clears the moment the author publishes a
+    GGUF, or a converter records its base revision and tool. Nothing here may be
+    relaxed to admit it.
+  requires_before_staging:
+  - immutable revision pin
+  - local artifact provenance and digest verification
+  - existing runtime compatibility proof
+  - benchmark against current Phi-3-mini before active consideration
+  worker_requirement:
+    artifact_mb: 2500
+    runtime_ram_mb: 5000
+    basis: 'estimated: 3.8B parameters at ~5 bits per weight, the ratio measured on Phi-3-mini Q4'
+    estimated: true
+    worker_class_min:
+      ram_min_mb: 7000
+      disk_free_min_mb: 6000
+- id: deepseek-r1-distill-qwen-7b
+  upstream: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+  source_url: https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+  upstream_format: safetensors
+  license_observed: mit
+  architecture_observed: qwen2
+  candidate_roles:
+  - deep_reasoning
+  - verifier_checker
+  local_artifact_strategy: discover_verified_GGUF_or_existing_supported_backend_with_conversion_provenance
+  state: QUARANTINED_PROVENANCE
+  wave3_terminal: true
+  terminal_finding: >-
+    Same search, same rule, worse result. DeepSeek publishes no GGUF, and all
+    three conversions - bartowski, unsloth, lmstudio-community - record neither
+    a converter tool nor a base revision in their GGUF metadata; each names the
+    base model only through a hub tag. Quarantined rather than admitted. A
+    worker meets its ~9360 MB, so capacity was never the blocker.
+  capability_note: >-
+    The reasoning capability is separately covered: Cloudflare serves
+    @cf/deepseek-ai/deepseek-r1-distill-qwen-32b at zero cost, free tier proven.
+    That is the 32B distill, a different model from this 7B candidate, and is
+    recorded as a capability fallback only.
+  clears_when: >-
+    DeepSeek publishes a GGUF, or a converter records both base revision and
+    converter tool. Nothing here may be relaxed to admit it.
+  superseded_interim_finding: >-
+    Replaced by terminal_finding above, which reads the artifact metadata
+    rather than the README.
+    Discovery run 2026-09-17T17:49:36Z. The author publishes no GGUF, and every
+    community conversion found names a base model but neither a base revision nor
+    the converter that produced it, so provenance_complete is not satisfied for any
+    of them. A digest proves these bytes are these bytes; it says nothing about what
+    they were made from. The candidate is refused on that rule rather than admitted
+    on reputation - the same rule that keeps a vendor documentation page out of the
+    capability ledger. Not permanent: it clears the moment the author publishes a
+    GGUF, or a converter records its base revision and tool. Nothing here may be
+    relaxed to admit it.
+  requires_before_staging:
+  - immutable revision pin
+  - exact local artifact provenance and digest
+  - runtime compatibility proof
+  - real benchmark against admitted Qwen and Phi models
+  worker_requirement:
+    artifact_mb: 4680
+    runtime_ram_mb: 9360
+    basis: 'estimated: 7.6B parameters at ~4.9 bits per weight, the ratio measured on Qwen3-4B Q4_K_M'
+    estimated: true
+    worker_class_min:
+      ram_min_mb: 11000
+      disk_free_min_mb: 8000
+- id: gemma-3-4b-it
+  upstream: google/gemma-3-4b-it
+  source_url: https://huggingface.co/google/gemma-3-4b-it
+  upstream_format: safetensors_multimodal
+  license_observed: gemma
+  candidate_roles:
+  - multilingual
+  - multimodal_future_candidate
+  local_artifact_strategy: knowledge_only_until_human_license_acceptance_and_existing_runtime_support_are_both_available
+  state: DEFERRED_TO_WAVE4
+  wave3_terminal: true
+  human_license_gate_required: true
+  terminal_finding: >-
+    Deferred to Wave 4 and gated on a licence only the operator can accept.
+    Never staged, downloaded or admitted during Wave 3. Capacity is irrelevant:
+    a worker meets its ~5200 MB. It may enter Wave 4 only through this same
+    human licence gate.
+  auto_acquire: false
+  auto_stage: false
+  blocking_reason: Hugging Face access requires reviewing and accepting Google's Gemma usage license
+  worker_requirement:
+    artifact_mb: 2600
+    runtime_ram_mb: 5200
+    basis: 'estimated: 4.3B parameters at ~4.9 bits per weight'
+    estimated: true
+    worker_class_min:
+      ram_min_mb: 7000
+      disk_free_min_mb: 6000
+admission_pipeline:
+- discover
+- immutable_revision_pin
+- exact_artifact_identity
+- license_and_provenance_verify
+- stage_via_existing_transport
+- signature_scan
+- structural_safe_format_scan
+- isolated_real_load
+- real_inference
+- digest_bound_benchmark
+- admission_or_quarantine
+- model_mesh_eligibility_from_measured_evidence_only
+- residency_recompute
+- federation_recheck
+- observer_rerun
+terminal_states:
+- AVAILABLE
+- QUARANTINED_WITH_ACTIONABLE_GAP
+- RESOLVED_INCOMPATIBLE
+- HUMAN_LICENSE_GATE_REQUIRED
+source_observation_note: Public upstream metadata in this file is discovery knowledge only. License, revision,
+  artifact identity, compatibility, and capability must all be re-verified by the existing admission/runtime
+  pipeline before any state change.
+scope_note: Resource conclusions in this file and in Wave 3 evidence are scoped to the worker they were
+  measured on. The ephemeral execution host carries roughly 16 GB of RAM and a disk at its CRITICAL watermark;
+  those are properties of that container, not of the operator's hardware, of GitHub, or of any model.
+  A candidate that does not fit there is REMOTE_WORKER_REQUIRED with a named shortfall, never globally
+  infeasible.

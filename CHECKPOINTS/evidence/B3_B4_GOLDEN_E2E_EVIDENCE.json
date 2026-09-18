@@ -1,0 +1,99 @@
+{
+  "request": "What is the capital of France?",
+  "model_named_at_ingress": false,
+  "trace": [
+    "ingress",
+    "task_router",
+    "task_decomposition",
+    "model_mesh",
+    "runtime_scheduler",
+    "wake_load",
+    "real_inference",
+    "verifier",
+    "brain_synthesis",
+    "response",
+    "warm_sleep"
+  ],
+  "route": {
+    "routed_by": "task_router",
+    "domain": "core",
+    "primary_skill": "core_reasoning",
+    "profile": "STANDARD"
+  },
+  "selection": {
+    "primary_model": {
+      "candidate_key": "local_runtime:Qwen/Qwen3-4B-GGUF",
+      "artifact_identity": {
+        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "family": "Qwen3",
+        "variant": "4B-Q4_K_M-GGUF",
+        "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "size_bytes": 2497280256,
+        "format": "gguf",
+        "quantization": "Q4_K_M"
+      }
+    },
+    "supporting_models": [],
+    "verifier": "core_reasoning",
+    "fallback_chain": [],
+    "evidence_refs": [],
+    "resource_plan": {},
+    "rejections": []
+  },
+  "runtime_evidence": {
+    "real_inference": true,
+    "synthetic": false,
+    "fixture_only": false,
+    "artifact_identity": {
+      "model_id": "Qwen/Qwen3-4B-GGUF",
+      "family": "Qwen3",
+      "variant": "4B-Q4_K_M-GGUF",
+      "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+      "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "size_bytes": 2497280256,
+      "format": "gguf",
+      "quantization": "Q4_K_M"
+    },
+    "runtime": "llama.cpp",
+    "runtime_version": "llama-cpp-python/0.3.35",
+    "offline": true,
+    "started_at": "2026-09-17T10:05:04.763+00:00",
+    "ended_at": "2026-09-17T10:05:20.802+00:00",
+    "load_latency_ms": 5698.797,
+    "inference_latency_ms": 5084.293,
+    "warm_inference_latency_ms": 5093.884,
+    "peak_ram_mb": 5467.48,
+    "output": " \n\nThe capital of France is Paris. Paris is not only the capital of France but also a major cultural and historical center",
+    "warm_output": " Also, can you explain why the answer is correct?\n\nThe capital of France is Paris. This is correct because Paris has",
+    "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:b3-1789639502",
+    "lifecycle": {
+      "wake": true,
+      "warm": true,
+      "sleep": true
+    },
+    "tokens_input": 7,
+    "tokens_output": 24
+  },
+  "verification": {
+    "passed": true,
+    "failures": [],
+    "evidence_refs": [
+      "0af309b5b9d552063c8cc76f9415130a:b3-1789639502"
+    ],
+    "verifier": "core_reasoning"
+  },
+  "response": {
+    "request_id": "b3-1789639502",
+    "answer": " \n\nThe capital of France is Paris. Paris is not only the capital of France but also a major cultural and historical center",
+    "verified": true,
+    "evidence_refs": [
+      "0af309b5b9d552063c8cc76f9415130a:b3-1789639502"
+    ],
+    "produced_by": "llama.cpp"
+  },
+  "failures": [],
+  "B2_pass": true,
+  "B3_pass": true,
+  "B4_pass": true
+}

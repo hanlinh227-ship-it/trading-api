@@ -1,0 +1,297 @@
+{
+  "wave0_status": "MEASURED",
+  "measured": true,
+  "artifact_identity": {
+    "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+    "family": "Phi",
+    "variant": "Phi-3-mini-4k-instruct-q4",
+    "immutable_revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+    "artifact_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+    "artifact_format": "gguf",
+    "quantization": "Q4",
+    "artifact_size_bytes": 2393231072,
+    "artifact_filename": null,
+    "fingerprint": "f2b029f5a539a492545b9bb146689f72",
+    "cache_key": "microsoft_Phi-3-mini-4k-instruct-gguf-Q4@a64113399c2f6b8a-f2b029f5a539"
+  },
+  "artifact_path": "/home/user/trading-api/.model-cache/models/microsoft_Phi-3-mini-4k-instruct-gguf-Q4@a64113399c2f6b8a-f2b029f5a539/Q4.gguf",
+  "suite_path": "AI_SKILL_LIBRARY/v4/local_runtime/benchmarks/local_engineering_judgment_v1.json",
+  "mesh_capability_floor": 0.35,
+  "clears_mesh_floor": true,
+  "promotable": true,
+  "load_latency_ms": 6429.941,
+  "context_limit": 4096,
+  "host": {
+    "gpus": 0,
+    "ram_total_mb": 16095,
+    "ram_available_mb": 15120,
+    "cpu_logical": 4
+  },
+  "egress": {
+    "denied": true,
+    "removed_env": {
+      "HTTPS_PROXY": "<removed>",
+      "https_proxy": "<removed>"
+    }
+  },
+  "benchmark_run": {
+    "suite_id": "local_engineering_judgment",
+    "suite_version": "1.0.0",
+    "suite_hash": "53b7ad2f01500ecb886b58dd08df8b1afb3dfc5341a6cb8ef968f68863601b02",
+    "capability": "coding",
+    "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+    "artifact_sha256": "8a83c7fb9049a9b2e92266fa7ad04933bb53aa1e85136b7b30f1b8000ff2edef",
+    "backend_version": "llama-cpp-python/0.3.35",
+    "started_at": "2026-09-17T13:00:14+00:00",
+    "wall_ms": 105599.896,
+    "attempted": 24,
+    "passed": 18,
+    "errors": 0,
+    "score": 0.75,
+    "run_status": "COMPLETE",
+    "promotable": true,
+    "measurement_kind": "local_suite",
+    "is_public_benchmark": false,
+    "decoding": "greedy/deterministic",
+    "results": [
+      {
+        "item_id": "dbg-01",
+        "capability": "debugging",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: def total(values):\n    s = 0\n    for i in range(1, len(values)):\n        s += values[i]\n    return s\n\nWhat is wrong with this function?\n(A) nothing is wrong\n(B) it returns a string\n(C) it skips the first element\n(D) it loops forever\nAnswer:",
+        "generation": " C\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 8476.82
+      },
+      {
+        "item_id": "dbg-02",
+        "capability": "debugging",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: def add_item(item, bucket=[]):\n    bucket.append(item)\n    return bucket\n\nCalling add_item(1) then add_item(2) returns what on the second call?\n(A) [2]\n(B) an error\n(C) []\n(D) [1, 2]\nAnswer:",
+        "generation": " C\n\nQ: What is the",
+        "passed": false,
+        "error": null,
+        "latency_ms": 4266.032
+      },
+      {
+        "item_id": "dbg-03",
+        "capability": "debugging",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: def half(n):\n    return n / 2\n\nA caller needs an integer index from half(7). What does it actually get?\n(A) 3\n(B) 3.5\n(C) 4\n(D) an error\nAnswer:",
+        "generation": " B\n\nQ: What is the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 3660.361
+      },
+      {
+        "item_id": "dbg-04",
+        "capability": "debugging",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: try:\n    value = parse(text)\nexcept Exception:\n    pass\n\nWhy is this pattern dangerous?\n(A) it hides every failure, including ones nobody expected\n(B) it is slower than checking the type\n(C) it cannot catch ValueError\n(D) it prevents the function from returning\nAnswer:",
+        "generation": " A\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4031.293
+      },
+      {
+        "item_id": "dbg-05",
+        "capability": "debugging",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: rows = [{'n': 1}, {'n': 2}]\ncopy = list(rows)\ncopy[0]['n'] = 99\n\nWhat is rows[0]['n'] afterwards?\n(A) 1\n(B) 0\n(C) an error\n(D) 99\nAnswer:",
+        "generation": " \n\n<|assistant|> (D) ",
+        "passed": false,
+        "error": null,
+        "latency_ms": 4060.08
+      },
+      {
+        "item_id": "dbg-06",
+        "capability": "debugging",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: for item in items:\n    if item.stale:\n        items.remove(item)\n\nWhat goes wrong here?\n(A) nothing, this is correct\n(B) it raises a TypeError immediately\n(C) mutating the list while iterating skips elements\n(D) it removes every element\nAnswer:",
+        "generation": " C\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4004.761
+      },
+      {
+        "item_id": "cr-01",
+        "capability": "code_review",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: A reviewer says: 'This function returns None when the list is empty, and the caller does not check for it.' The function is:\n\ndef first(values):\n    if values:\n        return values[0]\n\nIs the reviewer correct?\n(A) yes, it returns None implicitly on an empty list\n(B) no, it raises IndexError\n(C) no, it returns an empty list\n(D) no, an empty list is impossible\nAnswer:",
+        "generation": " A\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 5209.519
+      },
+      {
+        "item_id": "cr-02",
+        "capability": "code_review",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: A reviewer says: 'Use == None instead of is None, it is clearer.' Is this good advice?\n(A) yes, they behave identically and it reads better\n(B) no, 'is None' is the correct identity test and == can be overridden\n(C) yes, == is faster\n(D) no, == None is a syntax error\nAnswer:",
+        "generation": " A\n\nQ: Which of the",
+        "passed": false,
+        "error": null,
+        "latency_ms": 4102.24
+      },
+      {
+        "item_id": "cr-03",
+        "capability": "code_review",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: A reviewer rejects a change because 'the test asserts the exact log message, which will break when the wording changes.' Is the objection reasonable?\n(A) no, log messages never change\n(B) no, exact assertions are always best\n(C) yes, because tests should never read logs\n(D) yes, the test would fail on a rewording that broke nothing\nAnswer:",
+        "generation": " D\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4422.632
+      },
+      {
+        "item_id": "cr-04",
+        "capability": "code_review",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: A change adds a retry loop around a function that raises ValueError for malformed input. A reviewer objects. Why?\n(A) retries are never acceptable\n(B) retrying a deterministic failure just repeats it more slowly\n(C) ValueError cannot be caught\n(D) loops are slower than recursion\nAnswer:",
+        "generation": " B\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4200.67
+      },
+      {
+        "item_id": "cr-05",
+        "capability": "code_review",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: A pull request deletes a failing test and says 'the suite is green now.' What is the correct review outcome?\n(A) approve, a green suite is the goal\n(B) approve if the test was old\n(C) reject, the failure was evidence and it was removed rather than understood\n(D) approve but ask for a comment\nAnswer:",
+        "generation": " C\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4342.199
+      },
+      {
+        "item_id": "cr-06",
+        "capability": "code_review",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: A reviewer says a function is 'too long' but names no specific defect in its behaviour. How should this be treated?\n(A) as a blocking correctness bug\n(B) as evidence the code is untested\n(C) as a security vulnerability\n(D) as a style opinion, not a correctness finding\nAnswer:",
+        "generation": " D\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4196.702
+      },
+      {
+        "item_id": "vf-01",
+        "capability": "verifier_checker",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: Claim: 'The fix works.' Evidence: the author ran the test suite and it passed, but the new test was never added. Does the evidence support the claim?\n(A) yes, a passing suite proves the fix\n(B) no, nothing exercised the fixed behaviour\n(C) yes, if the suite is large enough\n(D) no, because suites are unreliable\nAnswer:",
+        "generation": " B\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4638.562
+      },
+      {
+        "item_id": "vf-02",
+        "capability": "verifier_checker",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: Claim: 'The scanner found no malware.' Evidence: the scanner reported 'Scanned files: 1' and 'Data scanned: 0.00 MB'. Does the evidence support the claim?\n(A) yes, one file was scanned\n(B) yes, zero data means the file was clean\n(C) only if the file was small\n(D) no, zero bytes were examined so nothing was checked\nAnswer:",
+        "generation": " B\n\nQ: Which of the",
+        "passed": false,
+        "error": null,
+        "latency_ms": 4913.314
+      },
+      {
+        "item_id": "vf-03",
+        "capability": "verifier_checker",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: Claim: 'This model scores 0.85 on reasoning.' Evidence: the provider's documentation page says so. Is this a measurement?\n(A) no, it is a self-report and nobody ran the model\n(B) yes, documentation is authoritative\n(C) yes, if the provider is well known\n(D) no, because 0.85 is too high\nAnswer:",
+        "generation": " A\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4393.581
+      },
+      {
+        "item_id": "vf-04",
+        "capability": "verifier_checker",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: Claim: 'The deployment is live.' Evidence: the commit was pushed to the main branch. Does the evidence support the claim?\n(A) yes, pushing deploys the code\n(B) yes, if CI is configured\n(C) no, a push is not a deployment and nothing observed the running service\n(D) no, because main is protected\nAnswer:",
+        "generation": " C\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4294.362
+      },
+      {
+        "item_id": "vf-05",
+        "capability": "verifier_checker",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: Claim: 'Both runs agree, so the result is reproducible.' Evidence: the second run reused the first run's cached state. Is the claim supported?\n(A) yes, agreement is agreement\n(B) no, the second run was not independent of the first\n(C) yes, caching does not affect output\n(D) no, two runs are never enough\nAnswer:",
+        "generation": " B\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4283.931
+      },
+      {
+        "item_id": "vf-06",
+        "capability": "verifier_checker",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: A benchmark result exists for artifact digest A. A registry row describes artifact digest B. May the row cite that result as its capability evidence?\n(A) no, the measurement belongs to different bytes\n(B) yes, if both are the same model name\n(C) yes, if the versions are close\n(D) only if B is newer\nAnswer:",
+        "generation": " A\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4297.457
+      },
+      {
+        "item_id": "cd-01",
+        "capability": "coding",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: What does sorted(['10', '9', '2']) return?\n(A) ['2', '9', '10']\n(B) ['9', '10', '2']\n(C) ['10', '2', '9']\n(D) an error\nAnswer:",
+        "generation": " C\n\nQ: What is the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 3932.49
+      },
+      {
+        "item_id": "cd-02",
+        "capability": "coding",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: d = {'a': 1}\nresult = d.get('b', 0) + 1\n\nWhat is result?\n(A) an error\n(B) 1\n(C) 2\n(D) None\nAnswer:",
+        "generation": " B\n\nQ: Which of the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 3468.961
+      },
+      {
+        "item_id": "cd-03",
+        "capability": "coding",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: What is the value of 7 // 2 - 7 % 2 in Python?\n(A) 3.5\n(B) 4\n(C) 3\n(D) 2\nAnswer:",
+        "generation": " C\n\nQ: Which of the",
+        "passed": false,
+        "error": null,
+        "latency_ms": 3190.139
+      },
+      {
+        "item_id": "cd-04",
+        "capability": "coding",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: def f(xs):\n    return [x for x in xs if x]\n\nWhat does f([0, 1, '', 'a', None, 2]) return?\n(A) [1, 'a', 2]\n(B) [0, 1, '', 'a', None, 2]\n(C) [1, 2]\n(D) an error\nAnswer:",
+        "generation": " A\n\nQ: What is the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 4498.089
+      },
+      {
+        "item_id": "cd-05",
+        "capability": "coding",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: A function must return True only when every element passes a check, and True for an empty input. Which expression is correct?\n(A) all(check(x) for x in xs)\n(B) any(check(x) for x in xs)\n(C) len(xs) > 0 and all(check(x) for x in xs)\n(D) not any(check(x) for x in xs)\nAnswer:",
+        "generation": " C\n\nQ: Which of the",
+        "passed": false,
+        "error": null,
+        "latency_ms": 4755.328
+      },
+      {
+        "item_id": "cd-06",
+        "capability": "coding",
+        "prompt": "Answer each question. Reply with the single letter of the correct option and nothing else.\n\nQ: What does len([1, 2, 3]) return?\n(A) 2\n(B) 3\n(C) 4\n(D) an error\nAnswer: B\n\nQ: In Python, is 'x == y' the same test as 'x is y'?\n(A) yes, always\n(B) no, 'is' compares identity\n(C) only for strings\n(D) only for integers\nAnswer: B\n\nQ: Two processes each read a counter, add one, and write it back, with no locking. What is the defect?\n(A) the counter overflows\n(B) one process blocks forever\n(C) an update can be lost when both read the same value\n(D) nothing, addition is atomic\nAnswer:",
+        "generation": " C\n\nQ: What is the",
+        "passed": true,
+        "error": null,
+        "latency_ms": 3959.438
+      }
+    ]
+  },
+  "ledger_record": {
+    "evidence_id": "local_engineering_judgment-8a83c7fb9049-53b7ad2f0150",
+    "provider_id": "local_runtime",
+    "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+    "model_family": "Phi",
+    "capability": "coding",
+    "benchmark_id": "local_engineering_judgment",
+    "benchmark_version": "1.0.0+53b7ad2f0150",
+    "score": 0.75,
+    "threshold": 0.35,
+    "passed": true,
+    "measured_at": "2026-09-17T13:00:14+00:00",
+    "source_sha": "4e7ded2831723e067f7b1dbbc42e09093682e5b9",
+    "environment": {
+      "protocol": "local_inprocess",
+      "runtime": "llama-cpp-python/0.3.35"
+    },
+    "provenance": {
+      "kind": "local_benchmark_run",
+      "reference": "CHECKPOINTS/evidence/WAVE3_ENGJUDG_PHI3_MINI.json"
+    }
+  }
+}

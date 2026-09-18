@@ -1,0 +1,235 @@
+version: 1
+purpose: phase6_role_branch_taxonomy
+status: CANONICAL
+
+# Role branches are RESPONSIBILITIES, not models and not agents. A branch says
+# what a piece of work needs; the Model Mesh says which model answers it and the
+# Free Worker Mesh says where it runs. Nothing here selects, routes or admits.
+#
+# There is deliberately no branch per model. A model serves as many branches as
+# its measurements justify, and a branch is served by as many models as are
+# measured for it. Binding one model permanently to one branch would throw away
+# the only thing that makes a mapping honest - that it can change when the
+# evidence does.
+
+authority:
+  routing_authority: false        # task_router alone
+  reasoning_authority: false      # GITHUB_BRAIN_V4 alone
+  model_selection_authority: false  # Model Mesh alone
+  admission_authority: false      # Open Model Universe alone
+  scheduling_authority: false     # the existing runtime scheduler alone
+  evidence_authority: false       # the existing verifier/evidence system alone
+  note: >-
+    A role branch may choose a strategy for its own subtask, request a model,
+    request tools and return evidence. It may not override the router, change a
+    global policy, or assign itself work. It is a shape of request, not a Brain.
+
+flow:
+  unchanged: true
+  chain: >-
+    USER/EVENT/IDLE -> GITHUB_BRAIN_V4 -> task_router -> AI Legion -> ROLE BRANCH
+    -> Model Mesh -> runtime scheduler -> Free Worker Mesh -> model execution
+    -> verifier -> evidence reconciliation -> synthesis -> memory/checkpoint
+
+criticality_levels:
+  CRITICAL: "the federation is not serviceable without it; redundancy is required"
+  HIGH: "normal service needs it; redundancy is wanted"
+  NORMAL: "specialist work; a single measured path is acceptable"
+  OPPORTUNISTIC: "run it when capacity is spare; no availability promise"
+
+# Merges are recorded rather than silently dropped, because a branch that
+# quietly disappears looks the same as one that was never considered.
+merged_branches:
+  GENERAL_FAST_BRANCH:
+    into: REASONING_BRANCH
+    as: the fast tier of its escalation ladder
+    why: >-
+      Same capability, different cost point. A separate branch would duplicate
+      every mapping and then have to be kept in sync with it.
+  HEAVY_REASONING_BRANCH:
+    into: REASONING_BRANCH
+    as: the heavy tier of its escalation ladder
+    why: >-
+      Escalation is a property of one responsibility, not a second one. Keeping
+      them apart would mean the escalation target lived outside the branch that
+      escalates.
+  SYSTEMS_ENGINEERING_BRANCH:
+    into: CODING_BRANCH
+    why: >-
+      software_engineering and coding are measured by the same suite on the same
+      models, and every candidate ranks the same on both. Two branches over one
+      body of evidence is fragmentation.
+  AUDIO_BRANCH:
+    into: SPEECH_BRANCH
+    why: >-
+      The only audio capabilities with a model behind them are speech-to-text and
+      text-to-speech. audio_understanding has no model in any verified catalog,
+      so an AUDIO branch would exist to hold a gap. The gap is recorded in Wave 4
+      where it belongs.
+
+branches:
+
+  - role_id: REASONING_BRANCH
+    legion_division: core
+    criticality: CRITICAL
+    required_capabilities: [deep_reasoning, text_reasoning]
+    escalation_ladder: [fast, standard, heavy]
+    escalation_conditions:
+      fast_to_standard: "verifier rejects, or the answer fails a schema the task declared"
+      standard_to_heavy: "two verifier rejections, or the task declares long_context or large_model_synthesis"
+      heavy_to_human: "the heavy tier and the verifier disagree twice on the same subtask"
+    composition: MAKER_CHECKER
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    residency_target: HOT
+
+  - role_id: CODING_BRANCH
+    legion_division: engineering
+    criticality: CRITICAL
+    required_capabilities: [coding, software_engineering, debugging]
+    composition: CODER_REVIEWER
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    residency_target: WARM
+
+  - role_id: VERIFICATION_BRANCH
+    legion_division: verification
+    criticality: CRITICAL
+    required_capabilities: [verifier_checker, code_review]
+    composition: MAKER_CHECKER
+    independence_rule: >-
+      The checker must not be the model that produced the answer. Same family is
+      permitted only when no other measured checker is placeable, and the
+      evidence records that it was the same family.
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    residency_target: HOT
+
+  - role_id: PLANNING_BRANCH
+    legion_division: core
+    criticality: HIGH
+    required_capabilities: [agentic_planning]
+    composition: PLANNER_EXECUTOR_CHECKER
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    residency_target: WARM
+
+  - role_id: TOOL_USE_BRANCH
+    legion_division: automation
+    criticality: HIGH
+    required_capabilities: [tool_calling]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    residency_target: WARM
+
+  - role_id: RESEARCH_BRANCH
+    legion_division: research
+    criticality: HIGH
+    required_capabilities: [long_context, synthesis_generalist]
+    composition: RETRIEVER_REASONER
+    privacy_classes: [PUBLIC, INTERNAL]
+    residency_target: COLD
+
+  - role_id: RETRIEVAL_BRANCH
+    legion_division: data_rag
+    criticality: HIGH
+    required_capabilities: [embedding, retrieval, reranking]
+    composition: RETRIEVER_REASONER
+    privacy_classes: [PUBLIC, INTERNAL]
+    residency_target: SERVERLESS
+
+  - role_id: MEMORY_BRANCH
+    legion_division: data_rag
+    criticality: HIGH
+    required_capabilities: [embedding, retrieval]
+    backed_by_subsystem: memory_continuity
+    subsystem_note: >-
+      Continuity is software, not a model competence. This branch exists so that
+      memory work requests an embedding/retrieval path through the same mesh as
+      everything else; the continuity system remains the authority over what is
+      remembered.
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    residency_target: SERVERLESS
+
+  - role_id: VISION_BRANCH
+    legion_division: uxui
+    criticality: NORMAL
+    required_capabilities: [vision, image_understanding]
+    composition: VISION_OCR_CROSSCHECK
+    privacy_classes: [PUBLIC]
+    privacy_note: >-
+      PUBLIC only. Every measured vision path is a third-party provider, and a
+      third-party worker is capped at INTERNAL at attestation time; images are
+      held to the stricter class because an image carries more than its caption.
+    residency_target: SERVERLESS
+
+  - role_id: DOCUMENT_OCR_BRANCH
+    legion_division: data_rag
+    criticality: NORMAL
+    required_capabilities: [ocr, document_understanding]
+    composition: VISION_OCR_CROSSCHECK
+    privacy_classes: [PUBLIC]
+    residency_target: SERVERLESS
+
+  - role_id: SPEECH_BRANCH
+    legion_division: creative
+    criticality: NORMAL
+    required_capabilities: [speech_to_text, text_to_speech]
+    privacy_classes: [PUBLIC]
+    residency_target: SERVERLESS
+
+  - role_id: MULTILINGUAL_BRANCH
+    legion_division: core
+    criticality: NORMAL
+    required_capabilities: [multilingual]
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    residency_target: WARM
+
+  - role_id: VIETNAMESE_BRANCH
+    legion_division: core
+    criticality: HIGH
+    required_capabilities: [vietnamese_reasoning]
+    criticality_reason: >-
+      The operator works in Vietnamese. It is measured separately from
+      multilingual because one language is not evidence about the rest, and it
+      ranks above the general multilingual branch because it is the one that is
+      actually used.
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    residency_target: WARM
+
+  - role_id: SCIENCE_TECH_BRANCH
+    legion_division: academic
+    criticality: NORMAL
+    required_capabilities: [scientific_reasoning, math_quant]
+    privacy_classes: [PUBLIC, INTERNAL]
+    residency_target: COLD
+
+  - role_id: FINANCE_ANALYSIS_BRANCH
+    legion_division: quant_research
+    criticality: OPPORTUNISTIC
+    required_capabilities: [finance_analysis]
+    research_only: true
+    trading_authority: false
+    live_financial_execution: false
+    authority_note: >-
+      Reads and reasons about markets. Carries no order, wallet, transfer,
+      signing or broadcast permission, and no model gains one by being placed
+      here. Trading is a later domain application on top of this federation, not
+      a capability of it.
+    privacy_classes: [PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY]
+    residency_target: COLD
+
+  - role_id: CREATIVE_MULTIMODAL_BRANCH
+    legion_division: creative
+    criticality: OPPORTUNISTIC
+    required_capabilities: [creative_writing, image_generation]
+    privacy_classes: [PUBLIC]
+    residency_target: SERVERLESS
+
+  - role_id: FUTURE_SPECIALIST_BRANCH
+    legion_division: core
+    criticality: OPPORTUNISTIC
+    required_capabilities: [future_multimodal]
+    placeholder: true
+    placeholder_note: >-
+      Exists so a later specialism needs no new branch machinery, no new
+      registry and no new scheduler - only a capability tag and a measurement.
+      It is not a requirement of Phase 6 and is excluded from role-health
+      denominators rather than counted as a gap.
+    privacy_classes: [PUBLIC]
+    residency_target: COLD

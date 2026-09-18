@@ -1,0 +1,115 @@
+{
+  "b1_status": "PASS",
+  "real_generation": true,
+  "artifact_identity": {
+    "model_id": "Qwen/Qwen3-0.6B-GGUF",
+    "family": "Qwen3",
+    "variant": "0.6B-Q8_0-GGUF",
+    "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+    "artifact_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "artifact_format": "gguf",
+    "quantization": "Q8_0",
+    "artifact_size_bytes": 639446688,
+    "artifact_filename": null,
+    "fingerprint": "ee18e02cb87de9249cebf984aa0255b5",
+    "cache_key": "Qwen_Qwen3-0.6B-GGUF-Q8_0@1eaf4d9657fe65ad-ee18e02cb87d"
+  },
+  "artifact_path": "/home/user/trading-api/.model-cache/models/Qwen_Qwen3-0.6B-GGUF-Q8_0@1eaf4d9657fe65ad-ee18e02cb87d/Q8_0.gguf",
+  "egress": {
+    "denied": true,
+    "removed_env": {
+      "HTTPS_PROXY": "<removed>",
+      "https_proxy": "<removed>"
+    },
+    "no_proxy": "*"
+  },
+  "residency": {
+    "entered": "READY",
+    "after_load": "WARM",
+    "after_unload": "READY"
+  },
+  "cold_generation": {
+    "output": " Paris. The capital of Spain is Madrid. The capital of Italy is Rome. The capital of China is Beijing. The",
+    "inference_latency_ms": 701.99,
+    "tokens_input": 5,
+    "tokens_output": 24
+  },
+  "warm_generation": {
+    "output": " Paris, and the capital of Italy is Rome. So, what is the capital of France and Italy?\n\nThe answer is",
+    "inference_latency_ms": 677.731,
+    "total_latency_ms": 677.795,
+    "tokens_output": 24
+  },
+  "load": {
+    "cold_load_ms": 3362.067,
+    "peak_ram_mb": 1825.36
+  },
+  "host": {
+    "host": {
+      "system": "Linux",
+      "machine": "x86_64",
+      "release": "6.18.44-fc-v33"
+    },
+    "cpu_logical": 4,
+    "cpu_physical": null,
+    "ram_total_mb": 16095,
+    "ram_available_mb": 15437,
+    "swap_total_mb": 0,
+    "disk_total_mb": 258019,
+    "disk_free_mb": 29242,
+    "gpus": [],
+    "is_apple_silicon": false,
+    "total_vram_available_mb": 0,
+    "runtimes_available": [],
+    "ram_watermark": "NORMAL",
+    "disk_watermark": "PRESSURE",
+    "vram_watermark": "NORMAL",
+    "watermark": "PRESSURE",
+    "health": "HEALTHY",
+    "unknown_dimensions": [],
+    "probe_errors": [],
+    "detected_at": "2026-09-17T08:39:59+00:00"
+  },
+  "execution_evidence": {
+    "authority": false,
+    "request_id": "b1-ee18e02cb87d",
+    "task_id": "b1-cold",
+    "worker_id": "local",
+    "model_id": "Qwen/Qwen3-0.6B-GGUF",
+    "model_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+    "artifact_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+    "artifact_fingerprint": "ee18e02cb87de9249cebf984aa0255b5",
+    "actual_quantization": "Q8_0",
+    "runtime_id": "llama.cpp",
+    "runtime_version": "llama-cpp-python/0.3.35",
+    "backend": "llama.cpp",
+    "backend_version": "llama-cpp-python/0.3.35",
+    "placement_action": "LOAD_FROM_CACHE",
+    "cold_or_warm_start": "COLD",
+    "timing": {
+      "queue_wait_ms": 0.081,
+      "load_latency_ms": 3362.615,
+      "inference_latency_ms": 1380.133,
+      "total_latency_ms": 4742.751,
+      "start_time": "2026-09-17T08:39:59.767+00:00",
+      "end_time": "2026-09-17T08:40:04.509+00:00"
+    },
+    "resources": {
+      "peak_ram_mb": 1825.36,
+      "peak_vram_mb": 0.0
+    },
+    "tokens": {
+      "input": 5,
+      "output": 24
+    },
+    "failure": {
+      "kind": "NONE",
+      "source": null
+    },
+    "fallback_used": false,
+    "attempted_runtimes": [],
+    "real_generated_output_ref": null,
+    "complete": true,
+    "missing_fields": []
+  }
+}
