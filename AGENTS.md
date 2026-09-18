@@ -55,7 +55,7 @@ There is no valid `request -> answer` bypass inside the GitHub Brain orchestrati
 ## Zero-local cloud runtime
 - Normal research execution must not require the user to install Node, npm, Python, exchange skill bundles, provider CLIs, or local MCP servers.
 - Skill routing production runs on Cloudflare Workers through the exact-main GitHub Actions deployment contract and exposes `/brain/health` and `/brain/route`.
-- The existing Railway research gateway remains authoritative for live-price research until a separate Cloudflare live-research cutover is production-verified; do not infer that Skill Gateway deployment migrated live market execution authority.
+- Live-price research authority is the **Cloudflare Workers** gateway (`trading-v77-scanner`). Railway is out of the production dependency graph and is not a fallback. Skill routing and live-price research remain separate contracts deployed through their own gates - do not infer one from the other. Authority in the contract is still not evidence of liveness: before presenting a live MARKET price as verified, require current runtime evidence from the Cloudflare gateway at the exact deployed SHA.
 - Execution preference is checkpoint-resolved and cloud-first: connected cloud tool -> public first-party HTTPS -> approved remote read-only MCP -> explicit degraded failure.
 - Never fall back to asking for a local installation merely because a provider adapter is unavailable.
 - `RESEARCH_SAFE` may execute in an approved healthy cloud gateway.

@@ -30,7 +30,8 @@ permissions:
   contents: read
 
 env:
-  PROD_GATEWAY_URL: https://crypto-research-gateway-prod-production.up.railway.app
+  # Production is the Cloudflare Worker. Railway is no longer in the graph.
+  PROD_GATEWAY_URL: https://trading-v77-scanner.hanlinh227.workers.dev
 
 jobs:
   validate:
@@ -190,180 +191,98 @@ jobs:
             exit 1
           fi
 
-  # After canonical validation passes on main, ask Railway to deploy THAT exact
-  # commit. Railway's GitHub integration only redeploys when crypto-research-gateway/
-  # changes, so a main commit that touches nothing there never reaches production
-  # and the deployed label drifts. This closes the label gap without touching the
-  # source connection: no new service, no pinning, no change to variables, domains,
-  # root directory, healthcheck or port.
-  deploy-latest:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+  # Production verification against the Cloudflare Worker.
+  #
+  # Railway is gone from this lane entirely: no deploy job, no deployment
+  # mutation, no deployment-metadata requirement, no upstream-zone header
+  # assertion, no railway.app URL. Cloudflare is deployed by
+  # deploy-skill-mandatory-fast-gateway.yml, which is the single deployment
+  # authority; this job VERIFIES what that authority put live and never mutates
+  # production itself.
+  #
+  # Nothing here is weakened relative to the Railway gate it replaces. The
+  # exact-SHA requirement is now stricter, not looser: Railway could not carry
+  # the repository commit at all (its connector only redeployed when the service
+  # source changed), so that gate compared gateway SOURCE TREES. The Worker is
+  # deployed at an exact revision, so this compares the commit itself.
+  production-smoke:
+    name: Cloudflare production verification
     needs: validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    concurrency:
-      group: railway-deploy-latest-production
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Deploy the validated commit to the existing service
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
-        run: |
-          set -euo pipefail
-          # The commit that passed `validate`, not whatever main is by now -
-          # deploying an unvalidated newer commit would be the opposite of
-          # "deploy only after green canonical validation".
-          python .github/scripts/railway_deploy_latest.py --sha "${GITHUB_SHA}"
-      - name: Health must pass on the deployed commit
-        env:
-          PROD_GATEWAY_URL: ${{ env.PROD_GATEWAY_URL }}
-        run: |
-          set -euo pipefail
-          # Fail closed on both halves: the endpoint must answer, and it must
-          # report the commit that was just deployed. A healthy old build is not
-          # this build.
-          ok=0
-          for attempt in $(seq 1 30); do
-            code="$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 20 \
-              "${PROD_GATEWAY_URL}/health" || echo 000)"
-            if [ "${code}" = "200" ]; then ok=1; break; fi
-            echo "HEALTH_ATTEMPT=${attempt} http=${code}"
-            sleep 10
-          done
-          if [ "${ok}" != "1" ]; then
-            echo "PROD_HEALTH=FAIL"
-            echo "REFUSED: /health did not return 200 after the deploy." >&2
-            exit 1
-          fi
-          echo "PROD_HEALTH=PASS"
-          python - <<'PY'
-          import json, os, sys
-          from pathlib import Path
-          data = json.loads(Path("/tmp/health.json").read_text())
-          served = str(data.get("deploymentCommitSha") or "").strip().lower()
-          target = os.environ["GITHUB_SHA"].strip().lower()
-          print("PROD_SERVED_SHA=%s" % (served or "unreported"))
-          print("PROD_TARGET_SHA=%s" % target)
-          if served != target:
-              sys.exit("REFUSED: /health reports %s, not the validated commit %s"
-                       % (served or "no commit", target))
-          print("PROD_SHA_MATCH=PASS")
-          PY
-
-  production-smoke:
-    name: Production venue-bound execution smoke
-    # Ordered after the deploy so it checks the build that was just pushed, and
-    # `always()` so a failed or skipped deploy cannot stop it running. What this
-    # gate REQUIRES is unchanged: it still fails when the deployed gateway tree
-    # differs from the commit under test. Making it depend on deploy-latest
-    # without always() would have turned a deploy failure into a skipped
-    # verification, which is a weaker board wearing a stricter shape.
-    needs: [validate, deploy-latest]
-    if: always() && needs.validate.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      # Full history so the deployed revision can be resolved back to its gateway source.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Wait for exact Railway deployment
+      - name: Cloudflare health and exact source SHA
         shell: bash
         run: |
           set -euo pipefail
-          # Railway redeploys this service only when its own source changes, so the running
-          # deployment is not expected to carry the repository HEAD commit. The exact check
-          # is therefore against the gateway source tree: the deployed revision must contain
-          # byte-identical crypto-research-gateway/ content to the commit under test. This
-          # stays an exact comparison -- a real gateway change that has not rolled out still
-          # fails -- it just stops failing on commits that never touch the service.
-          GATEWAY_TREE="$(git rev-parse "$GITHUB_SHA:crypto-research-gateway")"
-          GATEWAY_SOURCE_COMMIT="$(git log -1 --format=%H "$GITHUB_SHA" -- crypto-research-gateway)"
-          echo "Expected gateway source tree: $GATEWAY_TREE (last touched by $GATEWAY_SOURCE_COMMIT)"
-          READY=0
-          DEPLOYED_SHA=""
-          DEPLOYED_TREE=""
-          for i in $(seq 1 90); do
-            if curl --silent --show-error \
-              -H 'X-Railway-Debug: 1' \
-              -D /tmp/prod-health.headers \
-              "$PROD_GATEWAY_URL/health" \
-              -o /tmp/prod-health.json; then
-              DEPLOYED_SHA="$(python - <<'PY'
-          import json
+          # The deploy authority runs on its own trigger, so allow propagation
+          # time rather than racing it. A wrong SHA is never accepted as "close
+          # enough": the loop retries, it does not relax.
+          ok=0
+          for attempt in $(seq 1 30); do
+            HEALTH="$(curl -sS --connect-timeout 5 --max-time 20 "$PROD_GATEWAY_URL/health" || true)"
+            if printf '%s' "$HEALTH" > /tmp/cf-health.json && \
+               GITHUB_SHA="$GITHUB_SHA" python - <<'PY'; then
+          import json, os, sys
           from pathlib import Path
           try:
-              data = json.loads(Path('/tmp/prod-health.json').read_text())
-              print(data.get('deploymentCommitSha') or '')
+              data = json.loads(Path('/tmp/cf-health.json').read_text())
           except Exception:
-              print('')
+              sys.exit(1)
+          if data.get('ok') is not True:
+              sys.exit(1)
+          if data.get('runtimeProvider') != 'cloudflare-workers':
+              sys.exit(1)
+          if data.get('localInstallRequired') is not False:
+              sys.exit(1)
+          if (data.get('deploymentSourceSha') or '') != os.environ['GITHUB_SHA']:
+              sys.exit(1)
+          print('CLOUDFLARE_HEALTH=PASS')
+          print('CLOUDFLARE_SHA_MATCH=PASS')
           PY
-          )"
-              # An unknown revision resolves to nothing and is never accepted.
-              DEPLOYED_TREE="$(git rev-parse --quiet --verify "${DEPLOYED_SHA}:crypto-research-gateway" 2>/dev/null || true)"
-              if [ -n "$DEPLOYED_TREE" ] && [ "$DEPLOYED_TREE" = "$GATEWAY_TREE" ]; then
-                READY=1
-                break
-              fi
+              ok=1
+              break
             fi
-            sleep 5
+            echo "AWAITING_CLOUDFLARE_DEPLOY attempt=$attempt expected=$GITHUB_SHA"
+            sleep 20
           done
-          if [ "$READY" != "1" ]; then
-            echo "production gateway source mismatch: deployed commit '${DEPLOYED_SHA}' (tree '${DEPLOYED_TREE}') does not carry the gateway source '${GATEWAY_TREE}' expected at ${GITHUB_SHA}" >&2
-            cat /tmp/prod-health.json 2>/dev/null || true
+          if [ "$ok" != "1" ]; then
+            echo "CLOUDFLARE_HEALTH=FAIL"
+            echo "CLOUDFLARE_SHA_MATCH=FAIL"
+            echo "REFUSED: the Cloudflare Worker did not report ok, runtimeProvider=cloudflare-workers, localInstallRequired=false and deploymentSourceSha=$GITHUB_SHA." >&2
+            cat /tmp/cf-health.json 2>/dev/null || true
             exit 1
           fi
-          echo "GATEWAY_TREE=$GATEWAY_TREE" >> "$GITHUB_ENV"
-          echo "DEPLOYED_SHA=$DEPLOYED_SHA" >> "$GITHUB_ENV"
-          cat /tmp/prod-health.json
-          grep -Eiq 'x-railway-upstream-zone:.*(sin|asia-southeast1-eqsg3a)' /tmp/prod-health.headers || {
-            echo 'Production request was not served from Railway Southeast Asia.' >&2
-            cat /tmp/prod-health.headers >&2
-            exit 1
-          }
-          python - <<'PY'
-          import json, os, subprocess
-          from pathlib import Path
-          data = json.loads(Path('/tmp/prod-health.json').read_text())
-          deployed = data.get('deploymentCommitSha') or ''
-          if not deployed:
-              raise SystemExit('production gateway source mismatch: health reported no deploymentCommitSha')
-          expected_tree = subprocess.run(
-              ['git', 'rev-parse', f"{os.environ['GITHUB_SHA']}:crypto-research-gateway"],
-              capture_output=True, text=True, check=True).stdout.strip()
-          deployed_tree = subprocess.run(
-              ['git', 'rev-parse', '--quiet', '--verify', f'{deployed}:crypto-research-gateway'],
-              capture_output=True, text=True).stdout.strip()
-          if deployed_tree != expected_tree:
-              raise SystemExit(f'production gateway source mismatch: {deployed} -> {deployed_tree!r} != {expected_tree!r}')
-          if data.get('localInstallRequired') is not False:
-              raise SystemExit('production unexpectedly requires local install')
-          PY
+          echo "ZERO_LOCAL=PASS"
+          echo "PERSONAL_PC_REQUIRED=false"
+          echo "RAILWAY_REQUIRED=false"
 
       - name: Verify production read-only capabilities
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent "$PROD_GATEWAY_URL/capabilities" > /tmp/prod-capabilities.json
-          cat /tmp/prod-capabilities.json
+          curl --fail --silent "$PROD_GATEWAY_URL/capabilities" > /tmp/cf-capabilities.json
+          cat /tmp/cf-capabilities.json
           python - <<'PY'
           import json, re
           from pathlib import Path
-          data = json.loads(Path('/tmp/prod-capabilities.json').read_text())
+          data = json.loads(Path('/tmp/cf-capabilities.json').read_text())
+          if data.get('runtimeProvider') != 'cloudflare-workers':
+              raise SystemExit('capabilities did not come from the Cloudflare runtime')
+          if data.get('localInstallRequired') is not False:
+              raise SystemExit('production unexpectedly requires local install')
           tools = data.get('tools', [])
           if 'market_execution_quote' not in tools:
               raise SystemExit('market_execution_quote missing in production')
-          if re.search(r'place_order|cancel_order|withdraw|transfer|swap|bridge|wallet|payment', json.dumps(tools), re.I):
+          if re.search(r'place_order|cancel_order|withdraw|transfer|swap|bridge|wallet|payment',
+                       json.dumps(tools), re.I):
               raise SystemExit('write/high-risk tool exposed in production')
+          print('CLOUDFLARE_READ_ONLY_CAPABILITIES=PASS')
           PY
 
-      - name: Verify authoritative Bybit BTCUSDT production execution quotes
+      - name: Live research smoke - authoritative Bybit BTCUSDT execution quotes
         shell: bash
         run: |
           set -euo pipefail
@@ -371,17 +290,13 @@ jobs:
             'bybit LONG BTCUSDT ask' \
             'bybit SHORT BTCUSDT bid'; do
             set -- $SPEC
-            VENUE="$1"
-            SIDE="$2"
-            SYMBOL="$3"
-            SEMANTIC="$4"
-            FILE="/tmp/prod-${VENUE}-${SYMBOL}-${SIDE}.json"
+            VENUE="$1"; SIDE="$2"; SYMBOL="$3"; SEMANTIC="$4"
+            FILE="/tmp/cf-${VENUE}-${SYMBOL}-${SIDE}.json"
             curl --fail --silent \
               -H 'content-type: application/json' \
               -d "{\"action\":\"execution_quote\",\"symbol\":\"${SYMBOL}\",\"instrument\":\"perpetual\",\"side\":\"${SIDE}\",\"executionVenue\":\"${VENUE}\"}" \
               "$PROD_GATEWAY_URL/research/market" > "$FILE"
-            cat "$FILE"
-            echo
+            cat "$FILE"; echo
             python - "$FILE" "$VENUE" "$SIDE" "$SYMBOL" "$SEMANTIC" <<'PY'
           import json, math, sys
           from pathlib import Path
@@ -396,8 +311,7 @@ jobs:
               raise SystemExit(f'{venue} {symbol}: venue/instrument mismatch: {quote}')
           if quote.get('side') != side or quote.get('executableSemantic') != semantic:
               raise SystemExit(f'{venue} {symbol}: side/semantic mismatch: {quote}')
-          bid = float(quote.get('bid', 0))
-          ask = float(quote.get('ask', 0))
+          bid = float(quote.get('bid', 0)); ask = float(quote.get('ask', 0))
           executable = float(quote.get('executablePrice', 0))
           age = float(quote.get('quoteAgeMs', 1e18))
           spread = float(quote.get('spreadBps', math.nan))
@@ -412,3 +326,4 @@ jobs:
               raise SystemExit(f'{venue} {symbol}: invalid production timestamps: {quote}')
           PY
           done
+          echo "LIVE_RESEARCH_SMOKE=PASS"

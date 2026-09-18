@@ -3,7 +3,7 @@ import { buildApp } from '../src/server.js';
 
 afterEach(() => {
   delete process.env.TEST_FAKE_SECRET;
-  delete process.env.RAILWAY_GIT_COMMIT_SHA;
+  delete process.env.RUNTIME_REVISION;
   delete process.env.DEPLOYMENT_SOURCE_SHA;
 });
 
@@ -31,18 +31,31 @@ describe('HTTP surface', () => {
     const response = await app.inject({ method: 'GET', url: '/health' });
     expect(response.statusCode).toBe(200);
     expect(response.json().deploymentSourceSha).toBe('source-sha-123');
-    expect(response.json().deploymentCommitSha).toBe('source-sha-123');
+    // deploymentCommitSha was a Railway-metadata compatibility field. Railway is
+    // out of the graph, and a field no producer sets is a field consumers must
+    // not read.
+    expect(response.json().deploymentCommitSha).toBeUndefined();
     await app.close();
   });
 
-  it('health prefers Railway Git commit metadata when GitHub-triggered metadata exists', async () => {
-    process.env.DEPLOYMENT_SOURCE_SHA = 'connector-sha';
-    process.env.RAILWAY_GIT_COMMIT_SHA = 'github-sha';
+  it('health falls back to the neutral RUNTIME_REVISION when no explicit source SHA is set', async () => {
+    // The earlier version of this test set BOTH variables, so the fallback it
+    // claimed to cover never actually ran.
+    delete process.env.DEPLOYMENT_SOURCE_SHA;
+    process.env.RUNTIME_REVISION = 'github-sha';
     const app = buildApp({ probeOnStart: false });
     const response = await app.inject({ method: 'GET', url: '/health' });
     expect(response.statusCode).toBe(200);
-    expect(response.json().deploymentSourceSha).toBe('connector-sha');
-    expect(response.json().deploymentCommitSha).toBe('github-sha');
+    expect(response.json().deploymentSourceSha).toBe('github-sha');
+    await app.close();
+  });
+
+  it('an explicit source SHA wins over the neutral fallback', async () => {
+    process.env.DEPLOYMENT_SOURCE_SHA = 'explicit-sha';
+    process.env.RUNTIME_REVISION = 'github-sha';
+    const app = buildApp({ probeOnStart: false });
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.json().deploymentSourceSha).toBe('explicit-sha');
     await app.close();
   });
 
