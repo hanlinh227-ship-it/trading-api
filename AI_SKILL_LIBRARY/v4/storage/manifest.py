@@ -58,6 +58,7 @@ import dataclasses
 import datetime as _datetime
 import hashlib
 import re
+import threading
 from functools import lru_cache
 from types import MappingProxyType
 
@@ -95,24 +96,62 @@ OBJECT_ID_PREFIX = "obj_"
 # model's field set equals the schema's property set in both directions and
 # that every shape this model can emit validates against the schema on disk.
 
-_CLASS_TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,39}$")
+# Every anchored validator here ends in ``\Z`` rather than ``$``. Python's
+# ``$`` also matches immediately before a final newline, so ``"a" * 64 + "\n"``
+# passed as a SHA-256 digest and produced a 69-character object_id that the
+# schema refuses at maxLength 68. JSON Schema's ``$`` does not behave that way,
+# and a validator that is looser than the schema it mirrors is the whole bug
+# class this module exists to close.
+_CLASS_TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,39}\Z")
 _CLASS_TOKEN_MAX = 40
-_HEX_TOKEN_RE = re.compile(r"^[0-9a-f]{16,}$")
-_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-_MIME_RE = re.compile(r"^[a-z0-9][a-z0-9.+-]{0,62}/[a-z0-9][a-z0-9.+-]{0,62}$")
+_HEX_TOKEN_RE = re.compile(r"^[0-9a-f]{16,}\Z")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}\Z")
+_MIME_RE = re.compile(r"^[a-z0-9][a-z0-9.+-]{0,62}/[a-z0-9][a-z0-9.+-]{0,62}\Z")
 _TIMESTAMP_RE = re.compile(
     r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
-    r"([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$")
+    r"([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})\Z")
+
+#: The schema caps ``evidence_ref`` at 200 characters; the second alternative
+#: here was unbounded (``*``), and ``[A-Za-z0-9._/-]`` is a superset of URL-safe
+#: base64 and of hex, so the field was a carrier: a review put 2048 characters
+#: of opaque material into ``evidence/<...>.dat`` and the model accepted it on
+#: both ``source_provenance`` and ``verification``. The quantifiers are bounded
+#: to keep the model a strict subset of the schema, and ``_check_evidence_ref``
+#: enforces the length and the per-segment opacity rules a pattern states badly.
+_EVIDENCE_REF_MAX = 200
 _EVIDENCE_REF_RE = re.compile(
     r"^(?:[a-z][a-z0-9+.-]{1,31}://[A-Za-z0-9][A-Za-z0-9._~:/-]{2,180}"
-    r"|[A-Za-z0-9][A-Za-z0-9._/-]*/[A-Za-z0-9][A-Za-z0-9._-]*[.][A-Za-z0-9]{1,16})$")
+    r"|[A-Za-z0-9][A-Za-z0-9._/-]{0,150}/[A-Za-z0-9][A-Za-z0-9._-]{0,60}"
+    r"[.][A-Za-z0-9]{1,16})\Z")
+
+#: Separators inside an evidence reference. What lies *between* them is one
+#: undifferentiated run, and a long one is not a path segment - the review got
+#: ``evidence/`` + a 64-character hex string and a 39-character AWS-secret-shaped
+#: run through both the pattern and the credential scan at well under 200
+#: characters. Applied here the way ``validate_object_name`` already applies it.
+_EVIDENCE_SEGMENT_SPLIT_RE = re.compile(r"[/:._~+-]+")
+_EVIDENCE_SEGMENT_MAX = 31
+
+#: A segment-length bound alone is defeated by the separators themselves. The
+#: review's actual input was ``wJalrXUtnFEMI-K7MDENG-bPxRfiCYEXAMPLEKEY``, and
+#: because ``-`` is a separator that splits into three short runs and walks
+#: through. What distinguishes it from a path segment is not its length but its
+#: alphabet: every legitimate evidence reference in this repository is built
+#: from words - ``CHECKPOINTS``, ``evidence``, ``r2_probe``,
+#: ``WAVE0_CAPABILITY_SMOLLM2_360M`` - and a word segment is upper or lower, not
+#: both at once. Base64 key material mixes the two freely, so the alphabet is
+#: the signal rather than the length. Digits are deliberately *not* required:
+#: ``bPxRfiCYEXAMPLEKEY`` has none, and requiring them let it through.
+_EVIDENCE_OPAQUE_MIN = 16
+_HAS_LOWER_RE = re.compile(r"[a-z]")
+_HAS_UPPER_RE = re.compile(r"[A-Z]")
 
 #: Spec S22. The schemes are the key *locations* the spec allows - an
 #: environment secret store, an owned worker secret store, an authorized
 #: secret-management backend. An object-storage URL is not among them, which is
 #: how key/ciphertext separation is enforced rather than merely recommended.
 _KEY_REF_RE = re.compile(
-    r"^(env|secretstore|worker-secret|kms)://[A-Za-z0-9][A-Za-z0-9._/-]{2,180}$")
+    r"^(env|secretstore|worker-secret|kms)://[A-Za-z0-9][A-Za-z0-9._/-]{2,180}\Z")
 
 ENCRYPTION_STATES = ("NONE", "CLIENT_SIDE_ENCRYPTED")
 
@@ -124,6 +163,20 @@ _VERIFICATION_FIELDS = ("hash_verified", "verified_replica_count",
                         "last_probe_at", "evidence_ref")
 _ENCRYPTION_FIELDS = ("algorithm", "scheme_version", "key_ref",
                       "key_rotation_generation", "nonce", "tag")
+
+#: ``$defs.encryption_metadata`` bounds for ``nonce`` and ``tag``: long enough
+#: for a 12-byte nonce and a 16-byte authentication tag, too short for a 256-bit
+#: key (44 characters as base64, 64 as hex). Mirrored rather than loaded so that
+#: construction stays pure, and asserted equal to the schema in the tests - the
+#: three fields below were previously admitted with no check of any kind, so the
+#: model emitted documents the checked-in schema rejects.
+_OPAQUE_TOKEN_RE = re.compile(r"^[A-Za-z0-9+/=_-]{8,32}\Z")
+_OPAQUE_TOKEN_MIN = 8
+_OPAQUE_TOKEN_MAX = 32
+_KEY_ROTATION_MIN = 0
+_KEY_ROTATION_MAX = 65535
+_SCHEME_VERSION_MIN = 1
+_SCHEME_VERSION_MAX = 4096
 
 _MAX_SIZE_BYTES = 1099511627776
 _MAX_REPLICAS = 8
@@ -305,12 +358,120 @@ def _check_classifier(value, *, field):
 
 
 def _check_evidence_ref(value, *, field):
-    if not isinstance(value, str) or not _EVIDENCE_REF_RE.match(value):
+    if not isinstance(value, str):
+        raise ValueError(
+            f"{field} must be a string evidence pointer, got "
+            f"{type(value).__name__}")
+    if len(value) > _EVIDENCE_REF_MAX:
+        raise ValueError(
+            f"{field} is {len(value)} characters, over the "
+            f"{_EVIDENCE_REF_MAX}-character bound the schema sets; a pointer "
+            "that can hold two kilobytes of opaque material is not a pointer, "
+            "it is storage - and it persists whether or not the object itself "
+            "stays on owned storage")
+    if not _EVIDENCE_REF_RE.match(value):
         raise ValueError(
             f"{field} {value!r} is not an evidence pointer: a scheme-qualified "
             "reference or a repository-relative path with a file extension, and "
             "never one carrying its own authorisation")
+    for segment in _EVIDENCE_SEGMENT_SPLIT_RE.split(value):
+        if not segment:
+            continue
+        if _HEX_TOKEN_RE.match(segment):
+            raise ValueError(
+                f"{field} carries the bare hex run {segment[:12]!r}...; a run of "
+                "hex is indistinguishable from key material wherever it appears, "
+                "which is why validate_object_name refuses one too")
+        if len(segment) > _EVIDENCE_SEGMENT_MAX:
+            raise ValueError(
+                f"{field} carries a {len(segment)}-character unbroken run, over "
+                f"the {_EVIDENCE_SEGMENT_MAX}-character bound; that is the shape "
+                "of a secret (an AWS secret access key is 40 characters of "
+                "base64) rather than of a path segment")
+        if (len(segment) >= _EVIDENCE_OPAQUE_MIN
+                and _HAS_LOWER_RE.search(segment)
+                and _HAS_UPPER_RE.search(segment)):
+            raise ValueError(
+                f"{field} carries the run {segment[:12]!r}...: "
+                f"{len(segment)} characters mixing upper and lower case. Path "
+                "segments in this repository are words and are one case or the "
+                "other; that alphabet is base64 key material, and "
+                "splitting a secret on '-' or '/' is how it gets past a "
+                "length bound alone")
     assert_no_credential_material(value, where=field)
+
+
+def _check_bounded_int(value, low, high, *, field):
+    """A real integer in range. ``isinstance(True, int)`` is True in Python, and
+    ``true`` is not an integer to any JSON Schema validator."""
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(
+            f"{field} must be an integer, got {type(value).__name__}")
+    if not low <= value <= high:
+        raise ValueError(f"{field} {value} is outside {low}..{high}")
+
+
+def _check_opaque_token(value, *, field):
+    """``nonce``/``tag``: bounded opaque material, never a key slot.
+
+    The bound is the control. Unbounded, these two string fields sit directly
+    beside ``key_ref`` and will hold whatever is put in them - a wrapped DEK is
+    44 base64 characters, a raw 256-bit key is 64 hex characters, and neither
+    fits in 32.
+    """
+    if not isinstance(value, str) or isinstance(value, bool):
+        raise ValueError(
+            f"{field} must be a string, got {type(value).__name__}")
+    if not _OPAQUE_TOKEN_MIN <= len(value) <= _OPAQUE_TOKEN_MAX:
+        raise ValueError(
+            f"{field} is {len(value)} characters; the schema bounds it to "
+            f"{_OPAQUE_TOKEN_MIN}..{_OPAQUE_TOKEN_MAX}, which is long enough "
+            "for a 12-byte nonce and a 16-byte tag and too short for a key")
+    if not _OPAQUE_TOKEN_RE.match(value):
+        raise ValueError(
+            f"{field} is not base64/base64url material: "
+            f"{_OPAQUE_TOKEN_RE.pattern} only")
+    assert_no_credential_material(value, where=field)
+
+
+def _check_encryption_algorithm(value, *, field):
+    allowed = ((mesh_validator.load_policy().get("encryption") or {})
+               .get("allowed_algorithms") or [])
+    if value not in allowed:
+        raise ValueError(
+            f"{field} {value!r} is not in policy.yaml "
+            "encryption.allowed_algorithms; Spec S21 requires a standard "
+            "authenticated construction, and no cryptography is chosen or "
+            "invented here")
+
+
+def _check_key_ref(value, *, field):
+    if not isinstance(value, str) or not _KEY_REF_RE.match(value):
+        raise ValueError(
+            f"{field} {value!r} is not a reference to an allowed key location "
+            "(env, secretstore, worker-secret, kms). Spec S22 separates keys "
+            "from the ciphertext provider: a bucket URL, a repository file and "
+            "a bare blob are all refused, and there is no field here a "
+            "plaintext key could be written into")
+
+
+#: One validator per property of ``$defs.encryption_metadata``. A table rather
+#: than a run of ``if`` statements so that completeness is checkable: the tests
+#: walk the schema's property set and assert every one of them has an entry
+#: here. ``nonce``, ``tag`` and ``key_rotation_generation`` were whitelisted by
+#: name in ``_ENCRYPTION_FIELDS`` and then validated by nothing at all, and the
+#: reason that survived 49 passing tests is that no hand-picked shape populated
+#: them. A field added to the schema later cannot repeat it.
+_ENCRYPTION_FIELD_CHECKS = {
+    "algorithm": _check_encryption_algorithm,
+    "scheme_version": lambda value, *, field: _check_bounded_int(
+        value, _SCHEME_VERSION_MIN, _SCHEME_VERSION_MAX, field=field),
+    "key_ref": _check_key_ref,
+    "key_rotation_generation": lambda value, *, field: _check_bounded_int(
+        value, _KEY_ROTATION_MIN, _KEY_ROTATION_MAX, field=field),
+    "nonce": _check_opaque_token,
+    "tag": _check_opaque_token,
+}
 
 
 def _closed_mapping(value, allowed, *, field, required=()):
@@ -327,8 +488,50 @@ def _closed_mapping(value, allowed, *, field, required=()):
     if missing:
         raise ValueError(f"{field} is missing required field(s) {missing}")
     for key, nested in value.items():
+        if nested is None:
+            raise ValueError(
+                f"{field}.{key} is null; an optional field is omitted rather "
+                "than emitted as null, because a null here is a document the "
+                "schema refuses")
+        if not isinstance(nested, (str, bool, int)) or isinstance(nested, float):
+            raise ValueError(
+                f"{field}.{key} must be a scalar (string, integer or boolean), "
+                f"got {type(nested).__name__}: a nested container has no "
+                "legitimate use in a manifest mapping, is skipped by the "
+                "credential-shape scan, and would stay aliased to the caller's "
+                "handle after construction")
         assert_no_credential_material(nested, where=f"{field}.{key}")
     return dict(value)
+
+
+#: Set only while ``from_bytes`` is hashing content into a record. Direct
+#: dataclass construction is an exported path that hashes nothing, so
+#: ``StorageObject(object_id="obj_" + "a" * 64, content_sha256="a" * 64,
+#: size_bytes=999, ...)`` used to produce a record whose digest and length were
+#: caller *assertions* - exactly what ``from_bytes`` refuses a digest parameter
+#: in order to avoid. Thread-local so one thread's construction cannot admit
+#: another's.
+_CONSTRUCTION = threading.local()
+
+
+def _check_replica_sequence(value):
+    """A sequence of backend ids - and a string is not one.
+
+    ``replica_backends="supabase"`` is iterable, so it used to be consumed one
+    character at a time and rejected with "replica_backends must be unique",
+    which names the wrong problem.
+    """
+    if isinstance(value, (str, bytes, bytearray)):
+        raise ValueError(
+            "replica_backends expected a sequence of backend ids, got a "
+            f"string ({value!r}); a string is iterated one character at a time, "
+            'so ("cloudflare_r2",) is meant rather than "cloudflare_r2"')
+    try:
+        return tuple(value)
+    except TypeError:
+        raise ValueError(
+            "replica_backends expected a sequence of backend ids, got "
+            f"{type(value).__name__}") from None
 
 
 def _now_instant():
@@ -419,33 +622,45 @@ class StorageObject:
             # other class may not, so anything else defaults to irreplaceable.
             reproducible = criticality == "REPRODUCIBLE"
 
-        return cls(
-            object_id=f"{OBJECT_ID_PREFIX}{digest}",
-            content_sha256=digest,
-            size_bytes=len(payload),
-            privacy_class=privacy_class,
-            criticality=criticality,
-            storage_tier=storage_tier,
-            encryption_state=encryption_state,
-            primary_backend=primary_backend,
-            replica_backends=tuple(replica_backends or ()),
-            created_at=created_at or _now_instant(),
-            lifecycle_state=lifecycle_state,
-            reproducible=reproducible,
-            object_class=object_class,
-            mime_type=mime_type,
-            retention_class=retention_class,
-            encryption_scheme_version=encryption_scheme_version,
-            encryption=encryption,
-            last_accessed_at=last_accessed_at,
-            last_verified_at=last_verified_at,
-            source_provenance=source_provenance,
-            verification=verification,
-        )
+        _CONSTRUCTION.hashed = True
+        try:
+            return cls(
+                object_id=f"{OBJECT_ID_PREFIX}{digest}",
+                content_sha256=digest,
+                size_bytes=len(payload),
+                privacy_class=privacy_class,
+                criticality=criticality,
+                storage_tier=storage_tier,
+                encryption_state=encryption_state,
+                primary_backend=primary_backend,
+                replica_backends=_check_replica_sequence(
+                    replica_backends or ()),
+                created_at=created_at or _now_instant(),
+                lifecycle_state=lifecycle_state,
+                reproducible=reproducible,
+                object_class=object_class,
+                mime_type=mime_type,
+                retention_class=retention_class,
+                encryption_scheme_version=encryption_scheme_version,
+                encryption=encryption,
+                last_accessed_at=last_accessed_at,
+                last_verified_at=last_verified_at,
+                source_provenance=source_provenance,
+                verification=verification,
+            )
+        finally:
+            _CONSTRUCTION.hashed = False
 
     # -- validation ----------------------------------------------------------
 
     def __post_init__(self):
+        if not getattr(_CONSTRUCTION, "hashed", False):
+            raise ValueError(
+                "StorageObject is built from the object's bytes: use "
+                "StorageObject.from_bytes(content, ...). Constructing the "
+                "dataclass directly supplies object_id, content_sha256 and "
+                "size_bytes as assertions, and an unverified digest is the one "
+                "thing a content-addressed identity cannot be")
         self._check_identity()
         self._check_vocabularies()
         self._check_classifiers_and_timestamps()
@@ -536,6 +751,8 @@ class StorageObject:
 
     def _check_backends(self):
         _check_backend(self.primary_backend, role="primary")
+        object.__setattr__(self, "replica_backends",
+                           _check_replica_sequence(self.replica_backends))
         if len(self.replica_backends) > _MAX_REPLICAS:
             raise ValueError(
                 f"replica_backends holds more than {_MAX_REPLICAS} copies; an "
@@ -556,27 +773,12 @@ class StorageObject:
             metadata = _closed_mapping(
                 self.encryption, _ENCRYPTION_FIELDS, field="encryption",
                 required=("algorithm", "scheme_version", "key_ref"))
-            allowed = ((mesh_validator.load_policy().get("encryption") or {})
-                       .get("allowed_algorithms") or [])
-            if metadata["algorithm"] not in allowed:
-                raise ValueError(
-                    f"encryption.algorithm {metadata['algorithm']!r} is not in "
-                    "policy.yaml encryption.allowed_algorithms; Spec S21 "
-                    "requires a standard authenticated construction, and no "
-                    "cryptography is chosen or invented here")
+            # Every admitted field is validated, not only the three the
+            # required list happens to name. _closed_mapping has already
+            # refused any key outside the table.
+            for key, value in metadata.items():
+                _ENCRYPTION_FIELD_CHECKS[key](value, field=f"encryption.{key}")
             version = metadata["scheme_version"]
-            if not isinstance(version, int) or isinstance(version, bool) or not (
-                    1 <= version <= 4096):
-                raise ValueError("encryption.scheme_version must be 1..4096")
-            key_ref = metadata["key_ref"]
-            if not isinstance(key_ref, str) or not _KEY_REF_RE.match(key_ref):
-                raise ValueError(
-                    f"encryption.key_ref {key_ref!r} is not a reference to an "
-                    "allowed key location (env, secretstore, worker-secret, "
-                    "kms). Spec S22 separates keys from the ciphertext "
-                    "provider: a bucket URL, a repository file and a bare blob "
-                    "are all refused, and there is no field here a plaintext "
-                    "key could be written into")
             if (self.encryption_scheme_version is not None
                     and self.encryption_scheme_version != version):
                 raise ValueError(
@@ -637,7 +839,11 @@ class StorageObject:
         """Copy and freeze the nested mappings so the instance cannot be edited.
 
         A frozen dataclass freezes its attribute *bindings*; a dict behind one
-        is still a mutable handle a caller kept.
+        is still a mutable handle a caller kept. The copy is one level deep and
+        that is sufficient only because ``_closed_mapping`` refuses a nested
+        container outright: a one-level copy of a mapping holding another
+        mapping leaves the inner one aliased to the caller, who can then edit a
+        "frozen" record after construction.
         """
         object.__setattr__(self, "replica_backends", tuple(self.replica_backends))
         for field in ("encryption", "source_provenance", "verification"):

@@ -550,5 +550,410 @@ class ValidatorHandoffTests(unittest.TestCase):
         self.assertEqual(manifest_module.CANONICAL_AUTHORITY, "GITHUB_BRAIN_V4")
 
 
+# --- Task 2 review findings ---------------------------------------------------
+#
+# Four findings from an independent review, each reproduced as a test before it
+# was fixed. The theme of all four is one sentence: *the only holes were the
+# places where the model is looser than the schema it claims to mirror.* A
+# hand-picked list of shapes cannot find those places, because the field nobody
+# populated is exactly the field nobody checked, so the tests below are driven
+# from the schema's own property sets wherever that is possible.
+
+ENCRYPTION_SCHEMA = MANIFEST_SCHEMA["$defs"]["encryption_metadata"]
+EVIDENCE_REF_SCHEMA = MANIFEST_SCHEMA["$defs"]["evidence_ref"]
+
+#: The smallest encryption metadata the model accepts, used as the base of the
+#: mutation tests below.
+BASE_ENCRYPTION = {
+    "algorithm": "aes-256-gcm",
+    "scheme_version": 1,
+    "key_ref": "secretstore://mesh/object-dek",
+}
+
+
+def encrypted_object(encryption, **overrides):
+    """A CONFIDENTIAL object on an external backend, i.e. one that must be
+    ciphertext and must therefore carry encryption metadata."""
+    kwargs = dict(privacy_class="CONFIDENTIAL", primary_backend="backblaze_b2",
+                  encryption_state="CLIENT_SIDE_ENCRYPTED",
+                  encryption_scheme_version=encryption.get("scheme_version"),
+                  encryption=encryption)
+    kwargs.update(overrides)
+    return public_object(**kwargs)
+
+
+def schema_violating_values(subschema):
+    """Values that the given property subschema certainly rejects.
+
+    Used to ask a question a hand-written case list cannot: *for every property
+    the schema defines, does the model refuse what the schema refuses?*
+    """
+    values = [{"nested": "container"}, ["nested"], None]
+    if "enum" in subschema:
+        return values + ["definitely-not-in-this-enum"]
+    kind = subschema.get("type")
+    if kind == "string":
+        values += [7, True]
+        if "maxLength" in subschema:
+            values.append("A" * (subschema["maxLength"] + 1))
+        if "pattern" in subschema:
+            values.append("!! not the pattern !!")
+    elif kind == "integer":
+        values += ["1", True, 1.5]
+        if "maximum" in subschema:
+            values.append(subschema["maximum"] + 1)
+        if "minimum" in subschema:
+            values.append(subschema["minimum"] - 1)
+    return values
+
+
+def emitted_manifest_corpus():
+    """Every shape this model can emit, including the optional fields.
+
+    ``test_every_shape_the_model_can_emit_validates`` enumerated eight shapes by
+    hand and never populated ``encryption.nonce``, ``encryption.tag`` or
+    ``encryption.key_rotation_generation``; those three were consequently
+    admitted to the manifest and never validated at all. The corpus is shared
+    now so that "every shape" means the same thing to every test that says it.
+    """
+    return {
+        "public-cold": public_object(),
+        "local-only": public_object(privacy_class="LOCAL_ONLY",
+                                    primary_backend="local_owned_store"),
+        "internal-replicated": public_object(
+            privacy_class="INTERNAL", criticality="CRITICAL",
+            reproducible=False, primary_backend="local_owned_store",
+            replica_backends=["cloudflare_r2"]),
+        "confidential-ciphertext": encrypted_object(dict(BASE_ENCRYPTION)),
+        "confidential-full-encryption-metadata": encrypted_object(
+            dict(BASE_ENCRYPTION, key_rotation_generation=7,
+                 nonce="qUxAbC0-_9zZ", tag="ZmFrZS10YWctdmFsdWU=")),
+        "confidential-rotation-generation-zero": encrypted_object(
+            dict(BASE_ENCRYPTION, key_rotation_generation=0)),
+        "metadata-supabase": public_object(b"x", storage_tier="METADATA",
+                                           primary_backend="supabase"),
+        "canonical-pointer": public_object(b"x", storage_tier="CANONICAL",
+                                           primary_backend="local_owned_store"),
+        "minimal-optional-fields": StorageObject.from_bytes(
+            b"abc", privacy_class="PUBLIC", criticality="EPHEMERAL",
+            storage_tier="HOT"),
+        "fully-populated": public_object(
+            last_accessed_at="2026-09-18T00:00:00Z",
+            last_verified_at="2026-09-18T00:00:00Z",
+            lifecycle_state="COMPRESSED",
+            source_provenance={"origin_class": "benchmark-bundle",
+                               "producer_id": "eval-harness",
+                               "evidence_ref": "docs/superpowers/plans/x.md"},
+            verification={"hash_verified": True, "verified_replica_count": 0,
+                          "last_probe_at": "2026-09-18T00:00:00Z",
+                          "evidence_ref": "evidence/mesh/probe.json"}),
+    }
+
+
+class ModelIsNeverLooserThanTheSchemaTests(unittest.TestCase):
+    """The general regression: the model may refuse more, never less."""
+
+    def test_every_manifest_in_the_corpus_validates_against_the_schema(self):
+        for name, obj in emitted_manifest_corpus().items():
+            with self.subTest(case=name):
+                self.assertEqual(schema_errors(obj.to_manifest()), [])
+
+    def test_the_corpus_populates_every_property_the_schema_defines(self):
+        """A shape nobody emits is a field nobody checks - Finding 1's cause."""
+        seen = set()
+        for obj in emitted_manifest_corpus().values():
+            manifest = obj.to_manifest()
+            seen.update(manifest)
+            for field in ("encryption", "source_provenance", "verification"):
+                if field in manifest:
+                    seen.update(f"{field}.{k}" for k in manifest[field])
+        expected = set(MANIFEST_SCHEMA["properties"])
+        for field, defs_name in (("encryption", "encryption_metadata"),
+                                 ("source_provenance", "provenance"),
+                                 ("verification", "verification")):
+            expected.update(
+                f"{field}.{k}"
+                for k in MANIFEST_SCHEMA["$defs"][defs_name]["properties"])
+        self.assertEqual(expected - seen, set(),
+                         "a schema property no corpus shape populates is a "
+                         "property no test can prove is validated")
+
+
+class EncryptionMetadataBoundTests(unittest.TestCase):
+    """Finding 1 (blocker): nonce, tag and key_rotation_generation were
+    admitted into the manifest and never validated - no type, no length, no
+    pattern - so the model emitted documents the checked-in schema rejects."""
+
+    def test_every_schema_encryption_property_has_a_model_level_check(self):
+        """The structural fix: a field added to the schema later cannot slip
+        into the model unvalidated the way these three did."""
+        from AI_SKILL_LIBRARY.v4.storage import manifest as manifest_module
+
+        schema_properties = set(ENCRYPTION_SCHEMA["properties"])
+        self.assertEqual(set(manifest_module._ENCRYPTION_FIELD_CHECKS),
+                         schema_properties,
+                         "every encryption_metadata property must have a "
+                         "validator; an admitted field with no check is an "
+                         "unbounded slot beside key_ref")
+        self.assertEqual(set(manifest_module._ENCRYPTION_FIELDS),
+                         schema_properties)
+
+    def test_the_mirrored_bounds_equal_the_schema_bounds(self):
+        from AI_SKILL_LIBRARY.v4.storage import manifest as manifest_module
+
+        for field in ("nonce", "tag"):
+            with self.subTest(field=field):
+                spec = ENCRYPTION_SCHEMA["properties"][field]
+                self.assertEqual(
+                    manifest_module._OPAQUE_TOKEN_RE.pattern.replace("\\Z", "$"),
+                    spec["pattern"])
+                self.assertEqual(manifest_module._OPAQUE_TOKEN_MIN,
+                                 spec["minLength"])
+                self.assertEqual(manifest_module._OPAQUE_TOKEN_MAX,
+                                 spec["maxLength"])
+        rotation = ENCRYPTION_SCHEMA["properties"]["key_rotation_generation"]
+        self.assertEqual(manifest_module._KEY_ROTATION_MIN, rotation["minimum"])
+        self.assertEqual(manifest_module._KEY_ROTATION_MAX, rotation["maximum"])
+
+    def test_the_model_refuses_what_the_schema_refuses_for_every_property(self):
+        for field, subschema in ENCRYPTION_SCHEMA["properties"].items():
+            for value in schema_violating_values(subschema):
+                with self.subTest(field=field, value=repr(value)[:60]):
+                    metadata = dict(BASE_ENCRYPTION)
+                    metadata[field] = value
+                    with self.assertRaises(ValueError):
+                        encrypted_object(metadata)
+
+    def test_the_reproduced_payloads_are_refused(self):
+        """The reviewer's exact inputs, all accepted before this fix."""
+        import base64
+
+        cases = {
+            # 2048 characters of attacker-supplied opaque material.
+            "oversized-base64-nonce": {
+                "nonce": base64.urlsafe_b64encode(b"K" * 1536).decode()},
+            # The sk- credential pattern needs 32 unbroken alphanumerics, and
+            # 'sk-live-' breaks on the hyphen, so the value scan never saw it.
+            "api-key-shaped-nonce": {
+                "nonce": "API_KEY=sk-live-51H8xQZvT2mNpLq9wRfYbCd3EgHjKlMnOpQrStUvWxYz"},
+            # A wrapped DEK is 44 base64 characters; the schema caps tag at 32.
+            "wrapped-dek-in-tag": {
+                "tag": base64.b64encode(b"\x11" * 32).decode()},
+            # A raw 256-bit key in hex.
+            "hex-key-nonce": {"nonce": "de" * 32},
+            # A string where the schema demands an integer.
+            "string-rotation-generation": {
+                "key_rotation_generation":
+                    "API_KEY=sk-live-51H8xQZvT2mNpLq9wRfYbCd3EgHjKlMnOpQrStUvWxYz"},
+            # A non-str value also skipped assert_no_credential_material, which
+            # returns early on anything that is not a string.
+            "nested-container-nonce": {"nonce": {"k": "unreviewed-material"}},
+        }
+        for name, extra in cases.items():
+            with self.subTest(case=name):
+                with self.assertRaises(ValueError):
+                    encrypted_object(dict(BASE_ENCRYPTION, **extra))
+
+    def test_a_boolean_is_not_an_acceptable_rotation_generation(self):
+        """isinstance(True, int) is True; the schema means a real integer."""
+        with self.assertRaises(ValueError):
+            encrypted_object(dict(BASE_ENCRYPTION, key_rotation_generation=True))
+
+    def test_the_nearest_legitimate_encryption_metadata_is_accepted(self):
+        obj = encrypted_object(dict(BASE_ENCRYPTION, key_rotation_generation=3,
+                                    nonce="qUxAbC0-_9zZ",
+                                    tag="ZmFrZS10YWctdmFsdWU="))
+        manifest = obj.to_manifest()
+        self.assertEqual(schema_errors(manifest), [])
+        self.assertEqual(manifest["encryption"]["key_rotation_generation"], 3)
+        self.assertEqual(manifest["encryption"]["nonce"], "qUxAbC0-_9zZ")
+
+
+class EvidenceReferenceBoundTests(unittest.TestCase):
+    """Finding 2 (major): the repository-relative alternative was unbounded
+    while the schema caps evidence_ref at 200 characters, and the character
+    class is a superset of URL-safe base64 and of hex."""
+
+    def test_an_evidence_ref_longer_than_the_schema_bound_is_refused(self):
+        payload = "K" * 2048
+        for field, value in (("source_provenance",
+                              {"origin_class": "benchmark-bundle",
+                               "evidence_ref": f"evidence/{payload}.dat"}),
+                             ("verification",
+                              {"hash_verified": True,
+                               "evidence_ref": f"evidence/{payload}.dat"})):
+            with self.subTest(field=field):
+                with self.assertRaises(ValueError):
+                    public_object(**{field: value})
+
+    def test_it_is_refused_on_a_local_only_object_too(self):
+        """'It stays on owned storage' does not remove the persistence."""
+        with self.assertRaises(ValueError):
+            public_object(privacy_class="LOCAL_ONLY",
+                          primary_backend="local_owned_store",
+                          source_provenance={
+                              "origin_class": "benchmark-bundle",
+                              "evidence_ref": "evidence/" + "K" * 2048 + ".dat"})
+
+    def test_opaque_runs_inside_a_short_evidence_ref_are_refused(self):
+        """Both of the reviewer's under-200-character carriers."""
+        for name, ref in (
+                ("64-hex-segment", "evidence/" + "de" * 32 + ".dat"),
+                ("aws-secret-shaped-run",
+                 "evidence/wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY1/probe.json"),
+                # The review's *actual* input. The hyphens matter: '-' is a
+                # separator, so this splits into three short runs and a
+                # length bound alone never sees it. Written with the hyphens
+                # stripped it tests the fix rather than the report.
+                ("aws-secret-with-the-separators-the-review-used",
+                 "evidence/wJalrXUtnFEMI-K7MDENG-bPxRfiCYEXAMPLEKEY.dat"),
+                ("aws-secret-split-on-slashes",
+                 "evidence/wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY.dat"),
+        ):
+            with self.subTest(case=name):
+                with self.assertRaises(ValueError):
+                    public_object(source_provenance={
+                        "origin_class": "benchmark-bundle",
+                        "evidence_ref": ref})
+
+    def test_the_model_pattern_stays_a_subset_of_the_schema_pattern(self):
+        from AI_SKILL_LIBRARY.v4.storage import manifest as manifest_module
+
+        schema_re = re.compile(EVIDENCE_REF_SCHEMA["pattern"])
+        for ref in ("docs/superpowers/plans/x.md", "evidence/mesh/probe.json",
+                    "https://example.test/evidence/probe.json"):
+            with self.subTest(ref=ref):
+                self.assertTrue(manifest_module._EVIDENCE_REF_RE.match(ref))
+                self.assertTrue(schema_re.match(ref))
+
+    def test_legitimate_evidence_references_are_still_accepted(self):
+        for ref in ("docs/superpowers/plans/x.md", "evidence/mesh/probe.json",
+                    "https://example.test/evidence/probe.json"):
+            with self.subTest(ref=ref):
+                obj = public_object(source_provenance={
+                    "origin_class": "benchmark-bundle", "evidence_ref": ref})
+                self.assertEqual(schema_errors(obj.to_manifest()), [])
+
+
+class NestedValueShapeTests(unittest.TestCase):
+    """Finding 3 (minor): the credential scan is shallow and silently skips
+    non-strings, and a nested container stayed aliased to the caller."""
+
+    def test_a_container_nested_in_a_manifest_mapping_is_refused(self):
+        cases = {
+            "provenance-dict": {"source_provenance": {
+                "origin_class": "benchmark-bundle",
+                "evidence_ref": {"hidden": "unreviewed-material"}}},
+            "provenance-list": {"source_provenance": {
+                "origin_class": "benchmark-bundle",
+                "producer_id": ["unreviewed-material"]}},
+            "verification-dict": {"verification": {
+                "hash_verified": True,
+                "verified_replica_count": {"n": 1}}},
+        }
+        for name, kwargs in cases.items():
+            with self.subTest(case=name):
+                with self.assertRaises(ValueError):
+                    public_object(**kwargs)
+
+    def test_a_null_nested_value_is_refused_rather_than_emitted(self):
+        """An emitted null fails the schema; the model must not produce one."""
+        with self.assertRaises(ValueError):
+            public_object(source_provenance={"origin_class": "benchmark-bundle",
+                                             "producer_id": None})
+
+    def test_the_frozen_guarantee_holds_against_a_kept_handle(self):
+        provenance = {"origin_class": "benchmark-bundle",
+                      "producer_id": "eval-harness"}
+        obj = public_object(source_provenance=provenance)
+        provenance["producer_id"] = "mutated"
+        self.assertEqual(obj.to_manifest()["source_provenance"]["producer_id"],
+                         "eval-harness")
+
+
+class ConstructionIntegrityTests(unittest.TestCase):
+    """Finding 4 (minor): direct construction verified nothing, anchored
+    patterns accepted a trailing newline, and a string of backend ids produced
+    a misleading message."""
+
+    def test_direct_construction_cannot_assert_an_unverified_digest(self):
+        """from_bytes hashes the content; the dataclass path hashed nothing, so
+        digest and size were exactly the caller assertions this module refuses."""
+        with self.assertRaises(ValueError):
+            StorageObject(
+                object_id="obj_" + "a" * 64, content_sha256="a" * 64,
+                size_bytes=999, privacy_class="PUBLIC",
+                criticality="REPRODUCIBLE", storage_tier="COLD",
+                encryption_state="NONE", primary_backend="local_owned_store",
+                replica_backends=(), created_at="2026-09-18T00:00:00Z",
+                lifecycle_state="RAW", reproducible=True)
+
+    def test_from_bytes_remains_the_supported_constructor(self):
+        obj = StorageObject.from_bytes(b"abc", privacy_class="PUBLIC",
+                                       criticality="EPHEMERAL",
+                                       storage_tier="HOT")
+        self.assertEqual(obj.content_sha256, hashlib.sha256(b"abc").hexdigest())
+        self.assertEqual(schema_errors(obj.to_manifest()), [])
+
+    def test_no_anchored_validator_accepts_a_trailing_newline(self):
+        """Python's '$' matches before a final newline; '\\Z' does not. A
+        64-character digest plus a newline yielded a 69-character object_id the
+        schema rejects at maxLength 68."""
+        cases = {
+            "timestamp": {"created_at": "2026-09-18T00:00:00Z\n"},
+            "last-probe": {"verification": {
+                "last_probe_at": "2026-09-18T00:00:00Z\n"}},
+            "mime-type": {"mime_type": "application/octet-stream\n"},
+            "classifier": {"object_class": "benchmark-bundle\n"},
+            "evidence-ref": {"source_provenance": {
+                "origin_class": "benchmark-bundle",
+                "evidence_ref": "docs/superpowers/plans/x.md\n"}},
+            "key-ref": {"privacy_class": "CONFIDENTIAL",
+                        "primary_backend": "backblaze_b2",
+                        "encryption_state": "CLIENT_SIDE_ENCRYPTED",
+                        "encryption": dict(BASE_ENCRYPTION,
+                                           key_ref="secretstore://mesh/dek\n")},
+            "nonce": {"privacy_class": "CONFIDENTIAL",
+                      "primary_backend": "backblaze_b2",
+                      "encryption_state": "CLIENT_SIDE_ENCRYPTED",
+                      "encryption": dict(BASE_ENCRYPTION,
+                                         nonce="qUxAbC0-_9zZ\n")},
+        }
+        for name, kwargs in cases.items():
+            with self.subTest(case=name):
+                with self.assertRaises(ValueError):
+                    public_object(**kwargs)
+
+    def test_a_trailing_newline_is_refused_in_a_classifier_name(self):
+        with self.assertRaises(ValueError):
+            validate_object_name("benchmark-bundle\n")
+
+    def test_every_anchored_validator_in_the_module_uses_a_strict_anchor(self):
+        from AI_SKILL_LIBRARY.v4.storage import manifest as manifest_module
+
+        for name, value in sorted(vars(manifest_module).items()):
+            if not isinstance(value, re.Pattern) or not value.pattern.startswith("^"):
+                continue
+            with self.subTest(pattern=name):
+                self.assertFalse(
+                    value.pattern.endswith("$"),
+                    f"{name} ends with '$', which matches before a trailing "
+                    "newline; anchored validators here must use r'\\Z'")
+
+    def test_a_string_of_backend_ids_is_not_iterated_as_characters(self):
+        with self.assertRaises(ValueError) as caught:
+            public_object(criticality="CRITICAL", reproducible=False,
+                          replica_backends="supabase")
+        message = str(caught.exception)
+        self.assertIn("string", message)
+        self.assertNotIn("must be unique", message)
+
+    def test_a_real_sequence_of_replica_backends_is_accepted(self):
+        obj = public_object(criticality="CRITICAL", reproducible=False,
+                           privacy_class="INTERNAL",
+                           primary_backend="local_owned_store",
+                           replica_backends=["cloudflare_r2", "backblaze_b2"])
+        self.assertEqual(schema_errors(obj.to_manifest()), [])
+
 if __name__ == "__main__":
     unittest.main()

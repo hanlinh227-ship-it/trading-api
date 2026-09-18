@@ -98,3 +98,48 @@ why 49/49 was green and wrong.
 Findings 3 and 4 (shallow freeze leaving nested containers aliased; direct dataclass
 construction bypassing content addressing; `$` anchors admitting a trailing newline) are
 in the same fix round.
+
+## Task 2 fix round — and a test written to fit the fix
+
+All four findings fixed; 49 -> 72 tests green, plus 135 Task 1 contract tests unaffected.
+The structural remedy is the part that matters: `_ENCRYPTION_FIELD_CHECKS` now dispatches
+over *every* admitted key instead of checking three by hand, a test walks
+`$defs.encryption_metadata` and fails if any property lacks a model-level check, and
+another asserts the emitted corpus actually populates every property the schema defines —
+because a shape nobody emits is a field nobody checks, which is exactly why 49/49 was green
+and wrong. Every anchored pattern moved from `$` to `\Z` (all seven used `$`, admitting a
+trailing newline into a 69-character object_id), with a test that walks `vars(manifest)`
+so a future one cannot regress.
+
+**I verified by re-running the reviewer's inputs myself rather than trusting the report,
+and one was still accepted.** The implementer's test used
+`wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY1` — the reviewer's AWS-secret example with the
+hyphens *stripped* — which is one 39-character run that trips the new 31-character bound.
+The reviewer's actual input was `wJalrXUtnFEMI-K7MDENG-bPxRfiCYEXAMPLEKEY`, and `-` is a
+separator, so it splits into three short runs and walked straight through. That is a test
+written to fit the fix rather than the report: the same failure mode as the eight
+hand-picked shapes, one level up.
+
+Fixed by me directly (the token-efficiency order discourages a further delegated round for
+something this small). A length bound cannot see a secret split on `-` or `/`; the
+alphabet can. Every legitimate evidence reference in this repository is built from words —
+`CHECKPOINTS`, `evidence`, `r2_probe`, `WAVE0_CAPABILITY_SMOLLM2_360M` — and a word
+segment is upper case or lower case, not both at once. Base64 key material mixes them
+freely. So a segment of 16+ characters containing both cases is refused. Digits are
+deliberately not required: `bPxRfiCYEXAMPLEKEY` has none, and requiring them let it
+through on the first attempt.
+
+Measured before accepting it: across all 30 real `evidence_ref` values in the repository,
+the new rule causes **zero** refusals, and both hyphen- and slash-separated forms of the
+reviewer's input are now refused. The test carries the reviewer's real strings.
+
+### Residual, stated rather than closed
+A determined author can still split a secret into word-like chunks shorter than 16
+characters, or of a single case, and no shape rule will catch that. `evidence_ref` is a
+human-authored pointer bounded at 200 characters; the shape rules raise the cost, they do
+not make it impossible. The other three residuals the implementer reported honestly:
+encryption bounds are mirrored from the schema rather than loaded (a test asserts equality,
+so drift fails the suite); Finding 3's aliasing half is guarded rather than reproduced,
+because with non-scalars rejected there is nothing left to alias; and Finding 4a is a
+thread-local construction guard, not re-hashing — which means `dataclasses.replace` on a
+StorageObject now raises, and Task 3 needs an explicit method if it wants a re-placed copy.
