@@ -274,3 +274,44 @@ HEALTHY, object placed on both); schema property sets equal the table key sets e
   (`_check_bounded_int`, `_check_evidence_ref`, `_check_timestamp`, `_check_opaque_token`,
   `_check_key_ref`, `_check_backend`, and the shared patterns) under public names. Not done
   here: manifest.py was out of this fix's scope.
+
+| 3 | done | 98048541 | subagent | 217 focused / 424 storage | review: 10 findings, 5 MAJOR | 1 (c8d45fe3) | Same allowed-but-unbounded class, third time. Fix is a schema-driven per-property checker table plus a structural guard. |
+| 4 | committed UNREVIEWED snapshot | c8d45fe3 | subagent | 99 focused / 523 storage | not started | - | metadata.py, recovery.py, adapters/supabase_metadata.py, recovery_manifest.json. |
+
+## Ruling 006 — committing Task 4 before hand-back, and saying so
+I have refused several times this session to commit an implementer's work mid-flight,
+because gating on "the tests look green" instead of on hand-back is an error I made
+earlier and corrected. I am making an exception here and recording it rather than letting
+it pass as routine.
+
+The conditions that made the earlier refusals right do not hold: all seven files exist, the
+full storage suite is green at 523 tests, ci_validate fails only on the two pre-existing
+SIGILL crashes, and the modules reach no network. The conditions that argue for committing
+do hold: this container is ephemeral, the work is only on disk, and the implementer has
+been in self-review long enough that waiting is no longer obviously cheaper than the risk
+of losing it.
+
+What this commit is NOT: reviewed. No independent review has run on Task 4, and the
+implementer has not handed back. If it hands back with changes I will commit again. The
+independent review is still owed and is next.
+
+## Controller spot-check of Task 4 (pre-review, not a substitute for one)
+`AUTHORITY = False` in all three modules. The Supabase adapter constructs nothing at import
+or at construction - it pattern-matches a project URL and refuses userinfo, so
+`https://user:key@ref.supabase.co` cannot smuggle a credential through the URL. No project,
+table or credential is created anywhere; provisioning remains an unauthorized human action.
+`recovery_manifest.json` carries `caps`, `entry_count` and a `critical_object_index`, i.e.
+it is bounded by construction rather than by convention.
+
+`can_perform_destructive_lifecycle` requires the argument to *be* a `MetadataStore`, not
+merely to answer `healthy() -> True`. My duck-typed fake returned False and looked like a
+bug until I read it: an object that answers healthy has asserted nothing, and the gate
+refuses it. **This is a deliberate divergence from the plan's own test sketch**, which
+passes a `FakeMetadataStore(healthy=False)` and would therefore also fail closed for
+`healthy=True`. The plan's snippet illustrates the intent; the implementation is stricter,
+and stricter is the right direction for a gate whose job is to block deletion when the
+record of what exists is uncertain. Same reasoning as Ruling 005.
+
+Third time this session an incomplete fixture of my own looked like a module bug. Recording
+it because the pattern is now a habit worth naming: when a fail-closed module refuses my
+test input, the first hypothesis should be my input.
