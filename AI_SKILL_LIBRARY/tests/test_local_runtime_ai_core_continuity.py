@@ -15,7 +15,15 @@ from AI_SKILL_LIBRARY.v4.local_runtime.golden_e2e import make_legion, make_memor
 from AI_SKILL_LIBRARY.v4.tools.memory_continuity import normalize_work_state, select_continuation
 
 ROOT = Path(__file__).resolve().parents[2]
-E2E = ROOT / "CHECKPOINTS/evidence/AI_CORE_E2E_EVIDENCE.json"
+# The same document the release gate judges, resolved through its own accessor
+# rather than named again here. This read the historical fallback while the
+# canonical run and the gate had both moved on, so the checkpoint it compared
+# against belonged to a different run. session_01K2S3Pd built
+# golden_evidence_source for exactly this; using it is what keeps the two from
+# drifting apart again.
+from AI_SKILL_LIBRARY.v4.tools.ai_core_release_gate import golden_evidence_source
+
+E2E = ROOT / "CHECKPOINTS/evidence" / golden_evidence_source(ROOT)
 RESUME = ROOT / "CHECKPOINTS/evidence/AI_CORE_RESUME_EVIDENCE.json"
 
 

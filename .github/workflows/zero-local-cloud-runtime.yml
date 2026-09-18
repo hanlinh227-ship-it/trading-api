@@ -190,10 +190,82 @@ jobs:
             exit 1
           fi
 
-  production-smoke:
-    name: Production venue-bound execution smoke
+  # After canonical validation passes on main, ask Railway to deploy THAT exact
+  # commit. Railway's GitHub integration only redeploys when crypto-research-gateway/
+  # changes, so a main commit that touches nothing there never reaches production
+  # and the deployed label drifts. This closes the label gap without touching the
+  # source connection: no new service, no pinning, no change to variables, domains,
+  # root directory, healthcheck or port.
+  deploy-latest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    concurrency:
+      group: railway-deploy-latest-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Deploy the validated commit to the existing service
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+        run: |
+          set -euo pipefail
+          # The commit that passed `validate`, not whatever main is by now -
+          # deploying an unvalidated newer commit would be the opposite of
+          # "deploy only after green canonical validation".
+          python .github/scripts/railway_deploy_latest.py --sha "${GITHUB_SHA}"
+      - name: Health must pass on the deployed commit
+        env:
+          PROD_GATEWAY_URL: ${{ env.PROD_GATEWAY_URL }}
+        run: |
+          set -euo pipefail
+          # Fail closed on both halves: the endpoint must answer, and it must
+          # report the commit that was just deployed. A healthy old build is not
+          # this build.
+          ok=0
+          for attempt in $(seq 1 30); do
+            code="$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 20 \
+              "${PROD_GATEWAY_URL}/health" || echo 000)"
+            if [ "${code}" = "200" ]; then ok=1; break; fi
+            echo "HEALTH_ATTEMPT=${attempt} http=${code}"
+            sleep 10
+          done
+          if [ "${ok}" != "1" ]; then
+            echo "PROD_HEALTH=FAIL"
+            echo "REFUSED: /health did not return 200 after the deploy." >&2
+            exit 1
+          fi
+          echo "PROD_HEALTH=PASS"
+          python - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          data = json.loads(Path("/tmp/health.json").read_text())
+          served = str(data.get("deploymentCommitSha") or "").strip().lower()
+          target = os.environ["GITHUB_SHA"].strip().lower()
+          print("PROD_SERVED_SHA=%s" % (served or "unreported"))
+          print("PROD_TARGET_SHA=%s" % target)
+          if served != target:
+              sys.exit("REFUSED: /health reports %s, not the validated commit %s"
+                       % (served or "no commit", target))
+          print("PROD_SHA_MATCH=PASS")
+          PY
+
+  production-smoke:
+    name: Production venue-bound execution smoke
+    # Ordered after the deploy so it checks the build that was just pushed, and
+    # `always()` so a failed or skipped deploy cannot stop it running. What this
+    # gate REQUIRES is unchanged: it still fails when the deployed gateway tree
+    # differs from the commit under test. Making it depend on deploy-latest
+    # without always() would have turned a deploy failure into a skipped
+    # verification, which is a weaker board wearing a stricter shape.
+    needs: [validate, deploy-latest]
+    if: always() && needs.validate.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

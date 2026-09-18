@@ -1,0 +1,39 @@
+{
+  "checkpoint_id": "b3-1789721572",
+  "resumable": true,
+  "memory_authority": false,
+  "routing_authority": false,
+  "written_at": "2026-09-18T08:53:32.876+00:00",
+  "work_state": {
+    "project_id": "personal-ai-core",
+    "domain": "engineering",
+    "focus": "primary",
+    "lifecycle": "active",
+    "phase": "operational_e2e",
+    "last_completed": "golden_e2e:b3-1789721572",
+    "next_actions": [
+      "verify_cross_session_resume"
+    ],
+    "status": "in_progress",
+    "verified": true,
+    "resume_eligible": true,
+    "last_verified": "2026-09-18T08:53:32.876+00:00",
+    "updated_at": "2026-09-18T08:53:32.876+00:00",
+    "source": "AI_SKILL_LIBRARY/v4/tools/local_runtime_ai_core_e2e.py",
+    "canonical_refs": [
+      "AI_SKILL_LIBRARY/checkpoint.json",
+      "AI_SKILL_LIBRARY/v4/control_plane/e2e.py",
+      "AI_SKILL_LIBRARY/v4/memory_continuity/policy.yaml"
+    ],
+    "authority": false,
+    "routing_authority": false,
+    "reasoning_authority": false,
+    "execution_authority": false,
+    "stable_mutation": false
+  },
+  "answer": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
+  "verified": true,
+  "evidence_refs": [
+    "3ee96153354ed2f5e5637ae1a08c465e:b3-1789721572"
+  ]
+}
