@@ -1,21 +1,15 @@
 {
   "tool": "federation_status_scopes",
-  "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
-  "proof_timestamp": "2026-09-18T08:19:01Z",
+  "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
+  "proof_timestamp": "2026-09-18T09:05:00Z",
   "OBSERVED_ON": {
-    "host_fingerprint": "93891604e58e2451985a873a94b53e49",
-    "platform": "Linux-6.18.44-fc-v33-x86_64-with-glibc2.39",
+    "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
     "machine": "x86_64",
     "cpu_count": 4,
     "cpu_flags_present": [
       "avx",
       "avx2",
-      "avx512_vnni",
-      "avx512bw",
-      "avx512cd",
-      "avx512dq",
-      "avx512f",
-      "avx512vl",
       "f16c",
       "fma"
     ],
@@ -38,35 +32,35 @@
   },
   "CURRENT_ENV_24X7_READY": false,
   "CANONICAL_24X7_FEDERATION_READY": false,
-  "CURRENT_ENV_ACTIVE_WORKERS": 0,
-  "CANONICAL_VERIFIED_WORKERS": 0,
+  "CURRENT_ENV_ACTIVE_WORKERS": 1,
+  "CANONICAL_VERIFIED_WORKERS": 1,
   "CURRENT_PROVIDER_LIVENESS": [
     {
       "provider_id": "ephemeral-local-0",
-      "current_classification": "UNAVAILABLE",
-      "current_why": "probed from here this run and it cannot serve: it was reached, or reachably attempted, and cannot serve",
-      "historical_classification": "CONFIGURED_NOT_PROBED",
+      "current_classification": "VERIFIED_LIVE_NOW",
+      "current_why": "something this run executed against it came back",
+      "historical_classification": "VERIFIED_HISTORICALLY",
       "historical_evidence": {
         "binding": "BOUND_TO_REVISION",
         "freshness": "CURRENT_REVISION",
         "locality": "THIS_HOST",
         "scope": "CURRENT_ENV",
-        "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
-        "proof_timestamp": "2026-09-18T08:18:44Z",
-        "age_seconds": 17,
+        "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
+        "proof_timestamp": "2026-09-18T09:02:11Z",
+        "age_seconds": 168,
         "reasons": [
-          "bound to HEAD d53e99e534cc2587ef9969be95308400fede73eb"
+          "bound to HEAD d742601342ae5ed0ffd01c09e4f081b47a45d87a"
         ],
         "evidence": "WORKER_EXECUTION_LIVENESS.json",
         "claim_field": "EXECUTION_LIVE",
-        "claims_pass": false
+        "claims_pass": true
       },
-      "counts_as_canonical": false
+      "counts_as_canonical": true
     },
     {
       "provider_id": "github_actions_ubuntu_latest",
-      "current_classification": "CONFIGURED_NOT_PROBED",
-      "current_why": "the registries name it and nothing has tried it",
+      "current_classification": "CREDENTIAL_REQUIRED",
+      "current_why": "reaching it needs a credential this environment does not hold; that is a fact about this environment, not about it",
       "historical_classification": "CONFIGURED_NOT_PROBED",
       "historical_evidence": null,
       "counts_as_canonical": false
@@ -102,18 +96,18 @@
       "counts_as_canonical": false
     }
   ],
-  "LAST_VERIFIED_AT": null,
+  "LAST_VERIFIED_AT": "2026-09-18T09:02:11Z",
   "EVIDENCE_FRESHNESS": {
     "FEDERATION_24X7_PROOF.json": {
       "binding": "BOUND_TO_REVISION",
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
-      "proof_timestamp": "2026-09-18T08:19:00Z",
-      "age_seconds": 1,
+      "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
+      "proof_timestamp": "2026-09-18T09:04:42Z",
+      "age_seconds": 17,
       "reasons": [
-        "bound to HEAD d53e99e534cc2587ef9969be95308400fede73eb"
+        "bound to HEAD d742601342ae5ed0ffd01c09e4f081b47a45d87a"
       ],
       "claim_field": "federation_status",
       "claims_pass": false
@@ -123,25 +117,25 @@
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
-      "proof_timestamp": "2026-09-18T08:19:01Z",
+      "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
+      "proof_timestamp": "2026-09-18T09:04:59Z",
       "age_seconds": 0,
       "reasons": [
-        "bound to HEAD d53e99e534cc2587ef9969be95308400fede73eb"
+        "bound to HEAD d742601342ae5ed0ffd01c09e4f081b47a45d87a"
       ],
       "claim_field": "mesh_status",
       "claims_pass": false
     },
     "CRITICAL_ROLE_REDUNDANCY_PROOF.json": {
       "binding": "BOUND_TO_REVISION",
-      "freshness": "CURRENT_REVISION",
-      "locality": "THIS_HOST",
-      "scope": "CURRENT_ENV",
+      "freshness": "STALE_REVISION",
+      "locality": "OTHER_HOST",
+      "scope": "HISTORICAL",
       "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
       "proof_timestamp": "2026-09-18T08:19:01Z",
-      "age_seconds": 0,
+      "age_seconds": 2758,
       "reasons": [
-        "bound to HEAD d53e99e534cc2587ef9969be95308400fede73eb"
+        "d53e99e534cc2587ef9969be95308400fede73eb is an ancestor of HEAD, but AI_SKILL_LIBRARY/ or cloudflare-worker/ moved between them"
       ],
       "claim_field": "ready",
       "claims_pass": false
@@ -151,14 +145,14 @@
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
-      "proof_timestamp": "2026-09-18T08:18:44Z",
-      "age_seconds": 17,
+      "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
+      "proof_timestamp": "2026-09-18T09:02:11Z",
+      "age_seconds": 168,
       "reasons": [
-        "bound to HEAD d53e99e534cc2587ef9969be95308400fede73eb"
+        "bound to HEAD d742601342ae5ed0ffd01c09e4f081b47a45d87a"
       ],
       "claim_field": "EXECUTION_LIVE",
-      "claims_pass": false
+      "claims_pass": true
     },
     "MEMORY_CONTINUITY_PROOF.json": {
       "binding": "UNBOUND",

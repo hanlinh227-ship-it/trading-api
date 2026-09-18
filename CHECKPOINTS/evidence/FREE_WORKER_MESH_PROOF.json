@@ -1,21 +1,15 @@
 {
   "tool": "free_worker_mesh_proof",
-  "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
-  "proof_timestamp": "2026-09-18T08:19:01Z",
+  "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
+  "proof_timestamp": "2026-09-18T09:04:59Z",
   "OBSERVED_ON": {
-    "host_fingerprint": "93891604e58e2451985a873a94b53e49",
-    "platform": "Linux-6.18.44-fc-v33-x86_64-with-glibc2.39",
+    "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
     "machine": "x86_64",
     "cpu_count": 4,
     "cpu_flags_present": [
       "avx",
       "avx2",
-      "avx512_vnni",
-      "avx512bw",
-      "avx512cd",
-      "avx512dq",
-      "avx512f",
-      "avx512vl",
       "f16c",
       "fma"
     ],
@@ -29,16 +23,14 @@
   ],
   "mesh_status": "FAILED",
   "live_round": {
-    "live_round_status": "REAL_RUNTIME_REQUIRED",
-    "why": "the round could not run here because the inference engine on this machine cannot execute, established by probing it and not by anyone passing a flag",
-    "engine_state": "EXECUTION_DEAD",
-    "engine_detail": "the engine probe was killed by signal 4",
-    "operator_action": "run this proof on a host whose inference engine executes, or install an engine build this CPU supports; no edit to this repository can supply the missing measurement"
+    "live_round_status": "ROUND_FAILED",
+    "why": "the round ran and did not pass",
+    "engine_state": null
   },
-  "live_round_status": "REAL_RUNTIME_REQUIRED",
+  "live_round_status": "ROUND_FAILED",
   "state_rounds_total": 9,
   "state_rounds_failed": [],
-  "blocking_class": "REAL_RUNTIME_REQUIRED",
+  "blocking_class": "ROUND_FAILED",
   "worker_classes_supported": [
     "CI_EPHEMERAL",
     "EPHEMERAL_LOCAL",
@@ -150,7 +142,7 @@
       "scenario": "large_model_keeps_its_named_requirement",
       "passed": true,
       "failures": [],
-      "refusal": "has 15287 MB RAM available, needs 37200 MB",
+      "refusal": "has 14926 MB RAM available, needs 37200 MB",
       "note": "a statement about the machines attached, not about the model"
     },
     {
@@ -171,9 +163,31 @@
       "scenario": "live_federated_inference",
       "passed": false,
       "failures": [
-        "skipped by --no-live; a skipped round never passes"
+        "local_runtime:microsoft/Phi-3-mini-4k-instruct-gguf as checker errored: no verified artifact cached"
       ],
-      "skipped": true
+      "workers": [
+        {
+          "model_id": "Qwen/Qwen3-8B-GGUF",
+          "role": "maker",
+          "error": null,
+          "latency_ms": 9862.966
+        },
+        {
+          "model_id": "local_runtime:microsoft/Phi-3-mini-4k-instruct-gguf",
+          "role": "checker",
+          "error": "no verified artifact cached",
+          "latency_ms": null
+        }
+      ],
+      "models": [
+        "Qwen/Qwen3-8B-GGUF",
+        "local_runtime:microsoft/Phi-3-mini-4k-instruct-gguf"
+      ],
+      "routing_authority": "task_router",
+      "model_selection_authority": "model_mesh",
+      "answer": "<think>\nOkay, the user is asking, \"In one sentence, what does a worker contribute to a federation?\" Let me break this down.\n\nFirst, I need to understand what a federation is. A federation is a political entity where multiple",
+      "wall_ms": 17512.094,
+      "note": "a real completion from an admitted local model, not a placement"
     }
   ],
   "routing_authority": false,
