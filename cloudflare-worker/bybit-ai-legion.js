@@ -68,6 +68,9 @@ export async function getBybitAiLegionState(env){return kvGet(env);}
 
 function bucket(v,step){const n=num(v);return step>0?Math.round(n/step):Math.round(n);}
 function setupFingerprint(market={},setup={}){
+  // Cache a bounded AI verdict against the deterministic trade thesis rather than
+  // every sub-second flow tick. StateFlow still re-evaluates live flow on every
+  // event; this avoids turning model latency into an entry-frequency gate.
   return [
     String(market.symbol||'BTCUSDT'),
     String(setup.setup||''),
@@ -75,15 +78,9 @@ function setupFingerprint(market={},setup={}){
     String(setup.entryTier||''),
     String(setup.strength||''),
     String(market.regime||''),
-    bucket(setup.entry,10),
-    bucket(setup.sl,10),
-    bucket(setup.tp,10),
-    bucket(market.marketPulse?.score,.05),
-    bucket(market.trades?.window15s?.imbalance,.05),
-    bucket(market.book?.imbalance5,.05),
-    bucket(market.book?.micropriceEdgeBps,.05),
-    bucket(market.derivatives?.oiDeltaPct,.05),
-    bucket(market.derivatives?.fundingRate,.00005),
+    bucket(setup.entry,25),
+    bucket(setup.sl,25),
+    bucket(setup.tp,25),
     String(market.microstructureSource||''),
   ].join('|');
 }
