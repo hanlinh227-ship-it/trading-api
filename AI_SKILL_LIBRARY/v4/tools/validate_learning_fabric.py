@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import yaml
 from jsonschema import Draft202012Validator
+
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from AI_SKILL_LIBRARY.v4.tools.build_skill_competency import build_competency_matrix
 from AI_SKILL_LIBRARY.v4.tools.compile_skill_curriculum import compile_curriculum
