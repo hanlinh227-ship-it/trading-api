@@ -1,0 +1,106 @@
+{
+  "tool": "worker_execution_liveness",
+  "LOCAL_ENGINE": {
+    "state": "EXECUTION_DEAD",
+    "reason": "the engine probe was killed by signal 4",
+    "signal": 4,
+    "detail": "SIGILL (4) means the installed binary uses instructions this CPU does not have - typically a container moved to different hardware. The artifact and the code are unchanged; the machine under them is not."
+  },
+  "EXECUTION_LIVE": false,
+  "roles_with_a_local_primary": [
+    {
+      "role_id": "REASONING_BRANCH",
+      "criticality": "CRITICAL",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "CODING_BRANCH",
+      "criticality": "CRITICAL",
+      "primary_model": "ibm-granite/granite-4.2-3b-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "VERIFICATION_BRANCH",
+      "criticality": "CRITICAL",
+      "primary_model": "Qwen/Qwen3-8B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "PLANNING_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "TOOL_USE_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "RESEARCH_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "MULTILINGUAL_BRANCH",
+      "criticality": "NORMAL",
+      "primary_model": "Qwen/Qwen3-8B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "VIETNAMESE_BRANCH",
+      "criticality": "HIGH",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    },
+    {
+      "role_id": "SCIENCE_TECH_BRANCH",
+      "criticality": "NORMAL",
+      "primary_model": "Qwen/Qwen3-4B-GGUF",
+      "has_an_off_host_alternative": false,
+      "off_host_alternative": null
+    }
+  ],
+  "roles_stranded_if_the_local_engine_is_dead": [
+    "REASONING_BRANCH",
+    "CODING_BRANCH",
+    "VERIFICATION_BRANCH",
+    "PLANNING_BRANCH",
+    "TOOL_USE_BRANCH",
+    "RESEARCH_BRANCH",
+    "MULTILINGUAL_BRANCH",
+    "VIETNAMESE_BRANCH",
+    "SCIENCE_TECH_BRANCH"
+  ],
+  "critical_roles_stranded": [
+    "REASONING_BRANCH",
+    "CODING_BRANCH",
+    "VERIFICATION_BRANCH"
+  ],
+  "health_fields_that_would_still_read_healthy": [
+    "online",
+    "stale_lease",
+    "last_seen",
+    "ram_available_mb",
+    "disk_free_mb",
+    "circuit",
+    "quota_exhausted"
+  ],
+  "why_this_is_separate": "every existing worker health field describes the host. None of them asks whether the engine runs, so a worker that cannot execute still reports online with a closed circuit. Resource liveness and execution liveness are different facts.",
+  "routing_authority": false,
+  "admission_authority": false,
+  "scheduling_authority": false,
+  "changes_nothing": true,
+  "FEDERATION_IMPACT": "9 role(s) name a local model as primary and cannot be served by it. 3 CRITICAL role(s) have no off-host alternative."
+}
