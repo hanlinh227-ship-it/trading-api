@@ -1,0 +1,141 @@
+# Runtime Fabric V2 - the zero-cost portable execution plane.
+#
+# CAPACITY, NEVER AUTHORITY. This registry says where work CAN run. It never
+# says what to do, which model to use, or whether a request is admitted:
+#
+#   GITHUB_BRAIN_V4  -> sole Brain authority
+#   task_router      -> sole routing authority
+#   Model Mesh       -> sole model/provider-selection authority
+#   Runtime Fabric   -> execution capacity only
+#
+# `production_eligible` is DELIBERATELY ABSENT from every entry below. It is
+# DERIVED from the verification axes by fabric.production_eligible(), never
+# written by hand. A hand-written eligibility flag and the facts it summarises
+# are two different things wearing one name, and every time this repository has
+# let one label carry two facts, a bypass appeared. A test asserts no entry
+# declares it.
+version: 2
+
+fabric_authority:
+  routing_authority: false
+  reasoning_authority: false
+  model_selection_authority: false
+  admission_authority: false
+
+paid_fallback_allowed: false
+railway_fallback_allowed: false
+
+# No eligible runtime is a truthful refusal, never a silent escalation to paid
+# compute and never a return to a retired provider.
+no_eligible_runtime_behaviour: CAPABILITY_TEMPORARILY_UNAVAILABLE
+
+# Tier preference order. Selection walks this order; it never selects by brand.
+tier_order:
+  - primary
+  - secondary
+  - tertiary
+  - batch_recovery
+  - emergency
+
+runtimes:
+  cloudflare_workers:
+    class: edge_serverless
+    tier: primary
+    http: true
+    capabilities: [http_api, research_market, scheduled]
+    worker: trading-v77-scanner
+    base_url: https://trading-v77-scanner.hanlinh227.workers.dev
+    deploy_authority: .github/workflows/deploy-skill-mandatory-fast-gateway.yml
+    lifecycle: STABLE
+    verification:
+      configured: true
+      # Deployed and serving, but at an OLDER commit: the deploy authority is
+      # currently rejected by Cloudflare (auth error 10000), so the Worker is
+      # frozen at b236a615. /health answers, which is why health_verified is
+      # true while exact_sha_verified is false. Those are separate facts and
+      # collapsing them would hide a frozen production runtime behind a green
+      # health check.
+      deployed: true
+      health_verified: true
+      exact_sha_verified: false
+      free_tier_verified: true
+
+  deno_deploy:
+    class: edge_serverless
+    tier: secondary
+    http: true
+    capabilities: [http_api, research_market]
+    entrypoint: deno-secondary/main.ts
+    deploy_authority: .github/workflows/deploy-portable-runtimes.yml
+    # The adapter builds, boots and serves the shared contract in CI. That is
+    # TESTED. It is not LIVE_PROBED, because no deployment exists to probe.
+    lifecycle: TESTED
+    verification:
+      configured: false
+      deployed: false
+      health_verified: false
+      exact_sha_verified: false
+      free_tier_verified: true
+
+  netlify_functions:
+    class: serverless_function
+    tier: tertiary
+    http: true
+    capabilities: [http_api, research_market]
+    entrypoint: netlify/functions/research-gateway.mts
+    deploy_authority: .github/workflows/deploy-portable-runtimes.yml
+    lifecycle: ADAPTER_READY
+    verification:
+      configured: false
+      deployed: false
+      health_verified: false
+      exact_sha_verified: false
+      free_tier_verified: true
+
+  github_actions:
+    class: ephemeral_compute
+    tier: batch_recovery
+    # NOT an HTTP runtime. It cannot hold a persistent endpoint, so it is never
+    # eligible for http_api no matter how healthy it is.
+    http: false
+    capabilities: [scheduled, batch, probe, benchmark, recovery, artifact]
+    lifecycle: STABLE
+    verification:
+      configured: true
+      deployed: true
+      health_verified: true
+      # An ephemeral runner has no persistent revision to pin, so exact-SHA
+      # verification is not applicable rather than failed; it checks out the
+      # exact commit for each job by construction.
+      exact_sha_verified: true
+      free_tier_verified: true
+
+  koyeb_free:
+    class: container
+    tier: emergency
+    http: true
+    capabilities: [http_api, container_only]
+    manifest: runtime-fabric/koyeb/service.yaml
+    lifecycle: DISCOVERED
+    verification:
+      configured: false
+      deployed: false
+      health_verified: false
+      exact_sha_verified: false
+      # Free eligibility is NOT assumed from a provider having a free plan.
+      # Nothing here has verified it, so it is false, not true-by-reputation.
+      free_tier_verified: false
+
+  render_free:
+    class: container
+    tier: emergency
+    http: true
+    capabilities: [http_api, container_only]
+    manifest: runtime-fabric/render/render.yaml
+    lifecycle: DISCOVERED
+    verification:
+      configured: false
+      deployed: false
+      health_verified: false
+      exact_sha_verified: false
+      free_tier_verified: false

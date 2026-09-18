@@ -20,7 +20,7 @@ was right, because raising it then would have dodged a problem rather than paid
 for a capability.
 
 It was raised again, from 121 to 122, to make room for
-`.github/workflows/deploy-deno-secondary.yml`, the zero-cost SECONDARY runtime
+`.github/workflows/deploy-portable-runtimes.yml`, the zero-cost portable runtime
 lane added by the Railway exit. Before raising it I ran the same check as last
 time - every active workflow's push trigger against the branches that actually
 exist on the remote - and again found zero retirable lanes, so there was nothing
