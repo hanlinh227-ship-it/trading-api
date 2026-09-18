@@ -102,7 +102,7 @@ jobs:
         run: |
           set -euo pipefail
           allowed='^(AI_SKILL_LIBRARY/v4/survival/(policy.yaml|policy_adapter.py|secrets.py)|AI_SKILL_LIBRARY/tests/test_survival_(policy|secrets).py)$'
-          unexpected="$(git status --short | awk '{print $2}' | grep -Ev "${allowed}" || true)"
+          unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
             exit 1
