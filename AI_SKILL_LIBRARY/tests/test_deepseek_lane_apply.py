@@ -165,7 +165,8 @@ class CaseDMalformedJsonRejected(LaneHarness):
         self.assertRejected(envelope(json.dumps([{"files": {}}])), "payload_not_object")
 
     def test_a_truncated_body_is_reported_as_truncation_not_as_bad_json(self):
-        cut = json.dumps(five_files())[:400]
+        full = json.dumps(five_files())
+        cut = full[:max(1, len(full) // 2)]
         _, out, _ = self.run_apply(envelope(cut, finish_reason="length"))
         self.assertIn("DEEPSEEK_FINISH_REASON=length", out)
         self.assertIn("DEEPSEEK_PAYLOAD_VALID=FAIL", out)
@@ -173,7 +174,8 @@ class CaseDMalformedJsonRejected(LaneHarness):
     def test_a_truncated_body_is_never_scavenged_into_a_partial_apply(self):
         """The old parser raw_decode'd from the first '{' and could hand back a
         short object. A truncated reply must apply nothing at all."""
-        cut = json.dumps(five_files())[:400]
+        full = json.dumps(five_files())
+        cut = full[:max(1, len(full) // 2)]
         code, _, written = self.run_apply(envelope(cut, finish_reason="length"))
         self.assertEqual(code, 1)
         self.assertEqual(written, [])
