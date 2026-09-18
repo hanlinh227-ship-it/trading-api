@@ -1,0 +1,260 @@
+{
+  "tool": "local_model_role_closure",
+  "role_states": {
+    "PRIMARY": "a role branch names it in its primary slot",
+    "SECONDARY": "a role branch names it in its secondary slot, and none names it primary",
+    "FALLBACK": "a role branch names it only in a fallback or emergency_fallback slot",
+    "STANDBY": "admitted and eligible, and no role branch names it in any slot",
+    "QUARANTINED": "the registry's own lifecycle_state is QUARANTINED"
+  },
+  "models_in_registry": 10,
+  "active_models": 8,
+  "quarantined_models": 2,
+  "NO_UNMAPPED_ACTIVE_MODEL": false,
+  "ALL_LOCAL_MODELS_ACCOUNTED_FOR": true,
+  "ALL_ACTIVE_LOCAL_MODELS_ROLE_MAPPED": false,
+  "unmapped_active_models": [
+    {
+      "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+      "why": "admitted, mesh-eligible and named by no role branch in any slot, with a measured capability",
+      "capabilities": {
+        "text_reasoning": 0.791667
+      }
+    }
+  ],
+  "models": [
+    {
+      "model_id": "Qwen/Qwen3-0.6B-GGUF",
+      "role_state": "FALLBACK",
+      "lifecycle_state": "AVAILABLE",
+      "mesh_eligible": true,
+      "active": true,
+      "has_measured_capability": true,
+      "capabilities": {
+        "text_reasoning": 0.75
+      },
+      "role_slots": [
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "fallback"
+        }
+      ]
+    },
+    {
+      "model_id": "Qwen/Qwen3-1.7B-GGUF",
+      "role_state": "FALLBACK",
+      "lifecycle_state": "AVAILABLE",
+      "mesh_eligible": true,
+      "active": true,
+      "has_measured_capability": true,
+      "capabilities": {
+        "text_reasoning": 0.833333
+      },
+      "role_slots": [
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "emergency_fallback"
+        }
+      ]
+    },
+    {
+      "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+      "role_state": "STANDBY",
+      "lifecycle_state": "AVAILABLE",
+      "mesh_eligible": true,
+      "active": true,
+      "has_measured_capability": true,
+      "capabilities": {
+        "text_reasoning": 0.791667
+      },
+      "role_slots": []
+    },
+    {
+      "model_id": "Qwen/Qwen3-4B-GGUF",
+      "role_state": "PRIMARY",
+      "lifecycle_state": "AVAILABLE",
+      "mesh_eligible": true,
+      "active": true,
+      "has_measured_capability": true,
+      "capabilities": {
+        "text_reasoning": 0.916667
+      },
+      "role_slots": [
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "primary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "secondary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "secondary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "primary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "primary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "primary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "secondary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "primary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "primary"
+        }
+      ]
+    },
+    {
+      "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+      "role_state": "FALLBACK",
+      "lifecycle_state": "AVAILABLE",
+      "mesh_eligible": true,
+      "active": true,
+      "has_measured_capability": true,
+      "capabilities": {
+        "text_reasoning": 0.583333
+      },
+      "role_slots": [
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "emergency_fallback"
+        }
+      ]
+    },
+    {
+      "model_id": "microsoft/bitnet-b1.58-2B-4T-gguf",
+      "role_state": "QUARANTINED",
+      "lifecycle_state": "QUARANTINED",
+      "mesh_eligible": false,
+      "active": false,
+      "has_measured_capability": false,
+      "capabilities": {
+        "text_reasoning": 0.0
+      },
+      "role_slots": []
+    },
+    {
+      "model_id": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
+      "role_state": "QUARANTINED",
+      "lifecycle_state": "QUARANTINED",
+      "mesh_eligible": false,
+      "active": false,
+      "has_measured_capability": false,
+      "capabilities": {
+        "text_reasoning": 0.0
+      },
+      "role_slots": []
+    },
+    {
+      "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+      "role_state": "PRIMARY",
+      "lifecycle_state": "AVAILABLE",
+      "mesh_eligible": true,
+      "active": true,
+      "has_measured_capability": true,
+      "capabilities": {
+        "text_reasoning": 0.75
+      },
+      "role_slots": [
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "primary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "emergency_fallback"
+        }
+      ]
+    },
+    {
+      "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "role_state": "FALLBACK",
+      "lifecycle_state": "AVAILABLE",
+      "mesh_eligible": true,
+      "active": true,
+      "has_measured_capability": true,
+      "capabilities": {
+        "text_reasoning": 0.916667
+      },
+      "role_slots": [
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "fallback"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "fallback"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "fallback"
+        }
+      ]
+    },
+    {
+      "model_id": "Qwen/Qwen3-8B-GGUF",
+      "role_state": "PRIMARY",
+      "lifecycle_state": "AVAILABLE",
+      "mesh_eligible": true,
+      "active": true,
+      "has_measured_capability": true,
+      "capabilities": {
+        "text_reasoning": 1.0
+      },
+      "role_slots": [
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "secondary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "primary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "secondary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "secondary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "secondary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "primary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "secondary"
+        },
+        {
+          "branch": "UNNAMED_BRANCH",
+          "slot": "secondary"
+        }
+      ]
+    }
+  ],
+  "note": "Roles are read from the role matrix, which derives them from recorded runs. Nothing here assigns a role, and nothing here infers one from a model's size or name.",
+  "authority": false,
+  "routing_authority": false,
+  "model_selection_authority": false,
+  "admission_authority": false,
+  "changes_nothing": true
+}
