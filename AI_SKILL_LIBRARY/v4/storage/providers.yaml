@@ -33,6 +33,21 @@ record_schema: AI_SKILL_LIBRARY/v4/schemas/storage_provider.schema.json
 registry_membership_is_admission: false
 registry_membership_is_activation: false
 accounts_created_here: false
+# Task 8 states the separation the rest of this file depends on. A provider's
+# pricing page is documentation evidence: it is a claim about a product, it
+# changes without notice, it differs by region and it does not survive an
+# expired promotion. What the mesh needs before it writes a byte is account
+# evidence - a quota this account actually has, read at a moment somebody can
+# point at. The two are kept in different fields on purpose
+# (free_status_evidence.evidence_class), and neither quota_total, quota_used,
+# rate_limits nor object_size_limits below carries a figure copied from a
+# vendor page. Every one of them is null, because null is what nobody has
+# measured, and a number nobody measured is the number a "free" mesh acquires a
+# bill through.
+documentation_evidence_is_not_account_evidence: true
+marketing_quota_numbers_recorded: false
+# Spec S17 roles are placement preferences, not bindings and not entitlements.
+provider_roles_are_preferences_not_bindings: true
 
 providers:
   - provider_id: local_owned_store
@@ -100,6 +115,7 @@ providers:
     free_expiry_at: null
     quota_total: null
     quota_used: null
+    quota_reserved: null
     hard_stop_verified: false
     paid_spillover_possible: unknown
     privacy_classes_allowed: []
@@ -112,6 +128,19 @@ providers:
     tiers_allowed: [HOT, WARM]
     preferred_tiers: [HOT]
     acceptable_use_class: object-storage
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
     last_probe_at: null
     authority: false
     # Denied by name rather than by omission, matching the manifest record and
@@ -139,6 +168,7 @@ providers:
     free_expiry_at: null
     quota_total: null
     quota_used: null
+    quota_reserved: null
     hard_stop_verified: false
     paid_spillover_possible: unknown
     privacy_classes_allowed: []
@@ -151,6 +181,19 @@ providers:
     tiers_allowed: [WARM, COLD]
     preferred_tiers: [WARM, COLD]
     acceptable_use_class: object-storage
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
     last_probe_at: null
     authority: false
     # Denied by name rather than by omission, matching the manifest record and
@@ -178,6 +221,7 @@ providers:
     free_expiry_at: null
     quota_total: null
     quota_used: null
+    quota_reserved: null
     hard_stop_verified: false
     paid_spillover_possible: unknown
     privacy_classes_allowed: []
@@ -190,6 +234,19 @@ providers:
     tiers_allowed: [WARM, COLD]
     preferred_tiers: [WARM, COLD]
     acceptable_use_class: object-storage
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
     last_probe_at: null
     authority: false
     # Denied by name rather than by omission, matching the manifest record and
@@ -217,6 +274,7 @@ providers:
     free_expiry_at: null
     quota_total: null
     quota_used: null
+    quota_reserved: null
     hard_stop_verified: false
     paid_spillover_possible: unknown
     privacy_classes_allowed: []
@@ -231,6 +289,19 @@ providers:
     # Spec S17: models, datasets, AI artifacts and benchmark corpora only.
     # Never a generic log dump.
     acceptable_use_class: ai-artifacts-only
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
     last_probe_at: null
     authority: false
     # Denied by name rather than by omission, matching the manifest record and
@@ -258,6 +329,7 @@ providers:
     free_expiry_at: null
     quota_total: null
     quota_used: null
+    quota_reserved: null
     hard_stop_verified: false
     paid_spillover_possible: unknown
     privacy_classes_allowed: []
@@ -270,6 +342,19 @@ providers:
     tiers_allowed: [HUMAN_BACKUP]
     preferred_tiers: [HUMAN_BACKUP]
     acceptable_use_class: human-backup-only
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
     last_probe_at: null
     authority: false
     # Denied by name rather than by omission, matching the manifest record and
@@ -297,6 +382,7 @@ providers:
     free_expiry_at: null
     quota_total: null
     quota_used: null
+    quota_reserved: null
     hard_stop_verified: false
     paid_spillover_possible: unknown
     privacy_classes_allowed: []
@@ -309,6 +395,19 @@ providers:
     tiers_allowed: [HUMAN_BACKUP]
     preferred_tiers: [HUMAN_BACKUP]
     acceptable_use_class: human-backup-only
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
     last_probe_at: null
     authority: false
     # Denied by name rather than by omission, matching the manifest record and
@@ -336,6 +435,7 @@ providers:
     free_expiry_at: null
     quota_total: null
     quota_used: null
+    quota_reserved: null
     hard_stop_verified: false
     paid_spillover_possible: unknown
     privacy_classes_allowed: []
@@ -348,6 +448,19 @@ providers:
     tiers_allowed: [HUMAN_BACKUP]
     preferred_tiers: [HUMAN_BACKUP]
     acceptable_use_class: human-backup-only
+    # Nulls, not figures. An object-size ceiling and a rate limit are things
+    # this account would be observed to have; until a probe observes them the
+    # honest record is that nobody knows, and unknown already fails closed
+    # above. rate_limits.verified is false for the same reason free_status is
+    # UNVERIFIED: no request has ever been made against this provider.
+    object_size_limits:
+      max_object_bytes: null
+      min_object_bytes: null
+      multipart_required_above_bytes: null
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
     last_probe_at: null
     authority: false
     # Denied by name rather than by omission, matching the manifest record and
@@ -378,6 +491,7 @@ providers:
     free_expiry_at: null
     quota_total: null
     quota_used: null
+    quota_reserved: null
     hard_stop_verified: false
     paid_spillover_possible: unknown
     privacy_classes_allowed: []
@@ -391,6 +505,11 @@ providers:
     preferred_tiers: [METADATA]
     object_size_limits:
       max_object_bytes: null
+    # Unobserved, exactly as every other row's are.
+    rate_limits:
+      requests_per_minute: null
+      bytes_per_day: null
+      verified: false
     acceptable_use_class: metadata-index-only
     last_probe_at: null
     authority: false
