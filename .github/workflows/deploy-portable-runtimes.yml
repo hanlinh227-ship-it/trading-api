@@ -302,3 +302,51 @@ jobs:
               raise SystemExit('live Deno research authority boundary violated')
           print('DENO_RESEARCH_SMOKE=PASS')
           PY
+
+      - name: Prove Cloudflare circuit-open failover to live Deno
+        if: steps.deploy.outputs.deployed == 'true'
+        env:
+          DENO_SECONDARY_URL: ${{ steps.deploy.outputs.secondary_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > /tmp/runtime-failover-selection.txt
+          import importlib.util, sys
+          from pathlib import Path
+          d=Path('AI_SKILL_LIBRARY/v4/runtime_fabric')
+          sys.path.insert(0,str(d))
+          for name in ('fabric','acceptance'):
+              spec=importlib.util.spec_from_file_location(name,d/(name+'.py'))
+              mod=importlib.util.module_from_spec(spec)
+              sys.modules[name]=mod
+              spec.loader.exec_module(mod)
+          import acceptance
+          result=acceptance.failover_proof(primary_state='CIRCUIT_OPEN')
+          if result.get('status')!='PASS' or result.get('selected')!='deno_deploy':
+              raise SystemExit(f'failover selection failed: {result}')
+          print('RUNTIME_FAILOVER_SELECTION=PASS selected=deno_deploy primary=CIRCUIT_OPEN')
+          PY
+          cat /tmp/runtime-failover-selection.txt
+
+          curl --fail --silent --max-time 30 \
+            -H 'content-type: application/json' \
+            -d '{"action":"snapshot","symbol":"BTCUSDT","instrument":"spot","preferredVenue":"okx"}' \
+            "$DENO_SECONDARY_URL/research/market" > /tmp/runtime-failover-live.json
+          GITHUB_SHA="$GITHUB_SHA" python - <<'PY'
+          import json, os
+          from pathlib import Path
+          data=json.loads(Path('/tmp/runtime-failover-live.json').read_text())
+          if data.get('ok') is not True or data.get('degraded') is True:
+              raise SystemExit(f'failover runtime response invalid: {data}')
+          if data.get('capability')!='market_snapshot':
+              raise SystemExit('failover capability mismatch')
+          dc=data.get('dataContract') or {}
+          if dc.get('source_sha')!=os.environ['GITHUB_SHA']:
+              raise SystemExit(f"failover SHA mismatch: {dc.get('source_sha')}")
+          if (dc.get('provenance') or {}).get('runtime')!='deno-deploy':
+              raise SystemExit(f"failover did not execute on Deno: {dc.get('provenance')}")
+          if dc.get('research_only') is not True or (dc.get('authority') or {}).get('execution')!='none':
+              raise SystemExit('failover authority boundary violated')
+          print('FAILOVER_CLOUDFLARE_TO_DENO=PASS')
+          print('FAILOVER_PROOF=PASS')
+          PY
