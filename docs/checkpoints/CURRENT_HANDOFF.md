@@ -26,7 +26,7 @@ Indicators are not primary entry authority. Use state-first evidence:
 A single indicator, funding value, OI change, book imbalance, liquidation print, AI opinion or candle pattern cannot independently authorize a trade.
 
 
-## AI LEGION — CONTINUOUS AUTOTRADE V1
+## AI LEGION — CONTINUOUS AUTOTRADE V2 MARKET INTELLIGENCE
 The existing StateFlow engine remains the strategy/execution authority. The AI Legion is a subordinate evidence plane attached after deterministic setup selection and before new-risk admission.
 
 Role contract:
@@ -34,6 +34,7 @@ Role contract:
 - `flow_liquidity_agent`: executed flow, near-touch L2, microprice and liquidation coherence.
 - `derivatives_risk_agent`: OI/funding/premium/crowding, cost and execution-risk context.
 - `independent_checker`: contradiction/staleness checker when a fourth distinct worker is available.
+- All roles use the market-intelligence playbook for structure/flow/derivatives/stop-target coherence. Stops are not treated as unsweepable.
 
 Rules:
 - One selected Model Mesh worker/model family per role; minimum three distinct workers for autonomous new risk.
@@ -80,3 +81,4 @@ Never report a source commit as LIVE. Require successful worker validation/deplo
 ## CANONICAL CHECKPOINT
 Read `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md` for the strategy authority.
 Read `docs/checkpoints/BYBIT_AI_CLOUD_AUTOTRADE_V1_20260919.md` for the VPS-free cloud runtime, AI Legion roles, Demo/Live activation order and credential handoff.
+Read `docs/checkpoints/BYBIT_AI_MARKET_INTELLIGENCE_PLAYBOOK_V1_20260919.md` for evidence hierarchy, stop/target geometry, coin research and bounded self-calibration.
