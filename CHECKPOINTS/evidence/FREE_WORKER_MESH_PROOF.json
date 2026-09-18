@@ -1,7 +1,7 @@
 {
   "tool": "free_worker_mesh_proof",
-  "source_sha": "d492ef08369e19088907ea5796a8d3c4dda21ed9",
-  "proof_timestamp": "2026-09-18T07:56:16Z",
+  "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
+  "proof_timestamp": "2026-09-18T08:19:01Z",
   "OBSERVED_ON": {
     "host_fingerprint": "93891604e58e2451985a873a94b53e49",
     "platform": "Linux-6.18.44-fc-v33-x86_64-with-glibc2.39",
@@ -150,7 +150,7 @@
       "scenario": "large_model_keeps_its_named_requirement",
       "passed": true,
       "failures": [],
-      "refusal": "has 15298 MB RAM available, needs 37200 MB",
+      "refusal": "has 15287 MB RAM available, needs 37200 MB",
       "note": "a statement about the machines attached, not about the model"
     },
     {

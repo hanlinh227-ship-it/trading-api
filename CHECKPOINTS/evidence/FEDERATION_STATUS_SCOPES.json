@@ -1,7 +1,7 @@
 {
   "tool": "federation_status_scopes",
-  "source_sha": "6f356e2e16ff6924f44bc48f7b630e7e38437d39",
-  "proof_timestamp": "2026-09-18T07:50:03Z",
+  "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
+  "proof_timestamp": "2026-09-18T08:19:01Z",
   "OBSERVED_ON": {
     "host_fingerprint": "93891604e58e2451985a873a94b53e49",
     "platform": "Linux-6.18.44-fc-v33-x86_64-with-glibc2.39",
@@ -51,11 +51,11 @@
         "freshness": "CURRENT_REVISION",
         "locality": "THIS_HOST",
         "scope": "CURRENT_ENV",
-        "source_sha": "6f356e2e16ff6924f44bc48f7b630e7e38437d39",
-        "proof_timestamp": "2026-09-18T07:50:02Z",
-        "age_seconds": 0,
+        "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
+        "proof_timestamp": "2026-09-18T08:18:44Z",
+        "age_seconds": 17,
         "reasons": [
-          "bound to HEAD 6f356e2e16ff6924f44bc48f7b630e7e38437d39"
+          "bound to HEAD d53e99e534cc2587ef9969be95308400fede73eb"
         ],
         "evidence": "WORKER_EXECUTION_LIVENESS.json",
         "claim_field": "EXECUTION_LIVE",
@@ -109,11 +109,11 @@
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "6f356e2e16ff6924f44bc48f7b630e7e38437d39",
-      "proof_timestamp": "2026-09-18T07:50:02Z",
-      "age_seconds": 0,
+      "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
+      "proof_timestamp": "2026-09-18T08:19:00Z",
+      "age_seconds": 1,
       "reasons": [
-        "bound to HEAD 6f356e2e16ff6924f44bc48f7b630e7e38437d39"
+        "bound to HEAD d53e99e534cc2587ef9969be95308400fede73eb"
       ],
       "claim_field": "federation_status",
       "claims_pass": false
@@ -123,11 +123,11 @@
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "6f356e2e16ff6924f44bc48f7b630e7e38437d39",
-      "proof_timestamp": "2026-09-18T07:50:02Z",
+      "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
+      "proof_timestamp": "2026-09-18T08:19:01Z",
       "age_seconds": 0,
       "reasons": [
-        "bound to HEAD 6f356e2e16ff6924f44bc48f7b630e7e38437d39"
+        "bound to HEAD d53e99e534cc2587ef9969be95308400fede73eb"
       ],
       "claim_field": "mesh_status",
       "claims_pass": false
@@ -137,11 +137,11 @@
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "6f356e2e16ff6924f44bc48f7b630e7e38437d39",
-      "proof_timestamp": "2026-09-18T07:50:02Z",
+      "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
+      "proof_timestamp": "2026-09-18T08:19:01Z",
       "age_seconds": 0,
       "reasons": [
-        "bound to HEAD 6f356e2e16ff6924f44bc48f7b630e7e38437d39"
+        "bound to HEAD d53e99e534cc2587ef9969be95308400fede73eb"
       ],
       "claim_field": "ready",
       "claims_pass": false
@@ -151,11 +151,11 @@
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "6f356e2e16ff6924f44bc48f7b630e7e38437d39",
-      "proof_timestamp": "2026-09-18T07:50:02Z",
-      "age_seconds": 0,
+      "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
+      "proof_timestamp": "2026-09-18T08:18:44Z",
+      "age_seconds": 17,
       "reasons": [
-        "bound to HEAD 6f356e2e16ff6924f44bc48f7b630e7e38437d39"
+        "bound to HEAD d53e99e534cc2587ef9969be95308400fede73eb"
       ],
       "claim_field": "EXECUTION_LIVE",
       "claims_pass": false
