@@ -44,6 +44,10 @@ def _risk_class(manifest: dict) -> str:
     explicit = str(manifest.get("risk_class") or "").upper()
     if explicit in {"A", "B", "C", "D"}:
         return explicit
+    if str(manifest.get("domain") or "").lower() == "trading":
+        return "D"
+    if manifest.get("project_authority_required") is True:
+        return "D"
     ceiling = str(manifest.get("risk_ceiling") or "").lower()
     joined = " ".join(
         str(x).lower() for x in (manifest.get("permissions") or [])
@@ -58,7 +62,12 @@ def _risk_class(manifest: dict) -> str:
     return "D"
 
 
-def _skill_capabilities(skill_id: str, manifest: dict) -> list[str]:
+def _skill_capabilities(
+    skill_id: str,
+    manifest: dict,
+    domain: str,
+    domain_capabilities: dict,
+) -> list[str]:
     mapping = manifest.get("skill_capabilities")
     if isinstance(mapping, dict):
         row = mapping.get(skill_id)
@@ -67,7 +76,21 @@ def _skill_capabilities(skill_id: str, manifest: dict) -> list[str]:
     caps = manifest.get("capabilities")
     if isinstance(caps, list):
         return sorted({str(x).strip() for x in caps if str(x).strip()})
-    return []
+
+    # No skill-specific capability metadata exists in the legacy manifests.
+    # Reuse the Model Mesh's already-canonical hard capability requirements for
+    # the domain rather than inventing a second skill->capability taxonomy.
+    policy = domain_capabilities.get("policy") if isinstance(domain_capabilities, dict) else {}
+    threshold = float((policy or {}).get("hard_capability_weight_threshold", 0.7))
+    domains = domain_capabilities.get("domains") if isinstance(domain_capabilities, dict) else {}
+    weights = ((domains or {}).get(domain) or {}).get("capabilities", {})
+    if not isinstance(weights, dict):
+        return []
+    return sorted(
+        str(capability)
+        for capability, weight in weights.items()
+        if isinstance(weight, (int, float)) and float(weight) >= threshold
+    )
 
 
 def _roles_for(capabilities: list[str], role_doc: dict) -> list[str]:
@@ -126,6 +149,7 @@ def compile_curriculum(root: Path) -> dict[str, Any]:
     root = Path(root).resolve()
     skills_root = root / "AI_SKILL_LIBRARY/v4/skills"
     role_doc = _load_yaml(root / "AI_SKILL_LIBRARY/v4/model_mesh/role_branches.yaml")
+    domain_capabilities = _load_yaml(root / "AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml")
     curricula: list[dict[str, Any]] = []
 
     manifests = sorted(skills_root.glob("*/manifest.yaml"))
@@ -148,7 +172,7 @@ def compile_curriculum(root: Path) -> dict[str, Any]:
         output_contract = str(manifest.get("output_contract") or "defined_by_canonical_skill_manifest").strip()
 
         for raw_skill in sorted({str(x).strip() for x in skills if str(x).strip()}):
-            caps = _skill_capabilities(raw_skill, manifest)
+            caps = _skill_capabilities(raw_skill, manifest, domain, domain_capabilities)
             row: dict[str, Any] = {
                 "skill_id": raw_skill,
                 "domain": domain,

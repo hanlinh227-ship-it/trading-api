@@ -35,6 +35,7 @@ VALIDATORS = (
     "AI_SKILL_LIBRARY/v4/tools/validate_model_mesh.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_open_model_universe.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_legion.py",
+    "AI_SKILL_LIBRARY/v4/tools/validate_learning_fabric.py",
     "AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py",
     # Runs here rather than only on demand: each AI CORE proof is checked in
     # isolation elsewhere, and this is the only place that asks whether they

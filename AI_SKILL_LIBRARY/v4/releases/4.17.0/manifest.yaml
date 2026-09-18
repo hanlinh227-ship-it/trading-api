@@ -35,7 +35,7 @@ files:
   sha256: 6322fca75fc92f5c3556a4ed203acf9090d46c0446320ec7bffaaf5688186945
   role: harmonization
 - path: AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml
-  sha256: 246e6d3151f33463401bb0774ad53cd313a1a7cf5a1667bfc409f0c8ef469fbc
+  sha256: b512fda13690ca9b038f39fbc416c5a0f3a4f310f5e03ab5933608887756ad6d
   role: continuous_intelligence
 - path: AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml
   sha256: ef53f9549238f7079baa941ae8a777bd6511d163947d277d636bc7a4a550a9e5
@@ -122,16 +122,16 @@ files:
   sha256: 1bd919f7ae223c380c4ebf3df245753ab8cf11d04cc319bf6c4f7c774c223529
   role: image_render_policy
 - path: AI_SKILL_LIBRARY/v4/learning/policy.yaml
-  sha256: 562dfa5a34af5e7773d803be9693746f3e98c91c606f3c1954250f2fbc4c40a5
+  sha256: 3a44f11f42cd012d8226362d0be4687a5ee6d3d0b9c225d54e54dfca0ec44793
   role: learning_policy
 - path: AI_SKILL_LIBRARY/v4/learning/sources.yaml
   sha256: 5bded7a1307b2514b105269767eb23a8615fca434d424052501dc61d2ae1f7ad
   role: learning_sources
 - path: AI_SKILL_LIBRARY/v4/learning/skill_factory.yaml
-  sha256: 938c53e2e7caef88e164d1429c307ca3aa919ee97564061d10181417a89eafd0
+  sha256: 7a85b18b7ed0b9a89360490c60386c18dbc8040d9b1527029dd29ca2ef8874f7
   role: skill_factory
 - path: AI_SKILL_LIBRARY/v4/learning/skill_evo.yaml
-  sha256: 557696964319222af9302f0a39d3f725afefcbfb5d0fbcba9d94a629b2258304
+  sha256: e9530d45d633a4ef9682c22bb39e7b40b827059febda74b486e9eb98eb444c7e
   role: skill_evo
 - path: AI_SKILL_LIBRARY/v4/learning/idle.yaml
   sha256: 3c77ab99b9cc3997515e4a60ac3a32ffc889ec528695808b6cf2926b1b65349a

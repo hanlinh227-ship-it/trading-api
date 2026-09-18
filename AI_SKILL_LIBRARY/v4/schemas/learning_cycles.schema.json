@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "learning_cycles.schema.json",
+  "title": "Bounded learning-cycle policy",
+  "type": "object",
+  "required": [
+    "version",
+    "status",
+    "authority",
+    "authority_flags",
+    "stable_write_allowed",
+    "states",
+    "requirements",
+    "protected_dimensions",
+    "on_failure"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "const": "CANONICAL"
+    },
+    "authority": {
+      "const": false
+    },
+    "authority_flags": {
+      "type": "object",
+      "required": [
+        "routing_authority",
+        "reasoning_authority",
+        "model_selection_authority",
+        "admission_authority",
+        "scheduling_authority",
+        "evidence_authority",
+        "stable_write_authority",
+        "merge_authority",
+        "trading_authority"
+      ],
+      "properties": {
+        "routing_authority": {
+          "const": false
+        },
+        "reasoning_authority": {
+          "const": false
+        },
+        "model_selection_authority": {
+          "const": false
+        },
+        "admission_authority": {
+          "const": false
+        },
+        "scheduling_authority": {
+          "const": false
+        },
+        "evidence_authority": {
+          "const": false
+        },
+        "stable_write_authority": {
+          "const": false
+        },
+        "merge_authority": {
+          "const": false
+        },
+        "trading_authority": {
+          "const": false
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 500
+        }
+      },
+      "additionalProperties": false
+    },
+    "stable_write_allowed": {
+      "const": false
+    },
+    "states": {
+      "type": "array",
+      "const": [
+        "OBSERVED",
+        "REPLAY_FROZEN",
+        "EVALUATED",
+        "PROMOTION_CANDIDATE",
+        "REJECTED",
+        "HUMAN_GATE",
+        "COMPLETE"
+      ]
+    },
+    "requirements": {
+      "type": "object",
+      "required": [
+        "frozen_replay",
+        "verifier_required",
+        "protected_regressions_max",
+        "stable_direct_write"
+      ],
+      "properties": {
+        "frozen_replay": {
+          "const": true
+        },
+        "verifier_required": {
+          "const": true
+        },
+        "protected_regressions_max": {
+          "const": 0
+        },
+        "stable_direct_write": {
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "protected_dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "on_failure": {
+      "type": "object",
+      "required": [
+        "preserve_champion",
+        "record_evidence",
+        "retain_rollback_target",
+        "degrade_stable_behaviour"
+      ],
+      "properties": {
+        "preserve_champion": {
+          "const": true
+        },
+        "record_evidence": {
+          "const": true
+        },
+        "retain_rollback_target": {
+          "const": true
+        },
+        "degrade_stable_behaviour": {
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "on_ambiguous_verifier_result": {
+      "const": "block_promotion"
+    },
+    "on_missing_evidence": {
+      "const": "remain_not_tested"
+    },
+    "on_security_or_authority_conflict": {
+      "const": "reject_candidate"
+    }
+  },
+  "additionalProperties": false
+}

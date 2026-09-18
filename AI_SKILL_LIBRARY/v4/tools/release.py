@@ -197,8 +197,13 @@ def verify_active_pointer(root: Path) -> tuple[list[str], list[str]]:
             errors.append("release pointer manifest_path/version mismatch")
         if not manifest_path.is_file():
             errors.append("release pointer manifest is missing")
-        elif sha256_file(manifest_path) != manifest_hash:
-            errors.append("release pointer manifest hash mismatch")
+        else:
+            actual_manifest_hash = sha256_file(manifest_path)
+            if actual_manifest_hash != manifest_hash:
+                errors.append(
+                    "release pointer manifest hash mismatch "
+                    f"expected={manifest_hash} actual={actual_manifest_hash}"
+                )
         release_errors, release_warnings = verify_release(root, version)
         errors.extend(release_errors)
         warnings.extend(release_warnings)

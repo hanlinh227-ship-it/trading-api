@@ -8,6 +8,35 @@ schedules:
   candidate_cycle: hourly
   deep_audit: weekly
   failure_intake: event_driven
+continuous_skill_learning:
+  enabled: true
+  plane: development_lab_only
+  stable_request_dependency: false
+  curriculum_compile: on_manifest_change
+  experience_intake: event_driven
+  competency_refresh: hourly
+  learning_cycle: hourly
+  promotion_evidence_refresh: hourly
+  max_candidates_per_cycle: 6
+  max_parallel_cycles: 2
+  weight_fine_tuning_required: false
+  stable_direct_write: false
+  merge_authority: false
+  trading_authority: false
+  on_failure: preserve_last_known_good_stable
+  promotion_path: existing_evergreen_and_self_development_gates
+  lanes:
+    stable_runtime:
+      accepts_user_workload: true
+      accepts_unpromoted_candidates: false
+      rollback_target_required: true
+    development_lab:
+      accepts_user_workload: false
+      isolated_candidate_state: true
+      may_propose_changes: true
+      may_self_merge: false
+      may_mutate_stable: false
+
 model_mesh_discovery:
   plane: evergreen_only
   cadence: hourly

@@ -24,6 +24,19 @@ authority:
     request tools and return evidence. It may not override the router, change a
     global policy, or assign itself work. It is a shape of request, not a Brain.
 
+learning_evidence_input:
+  path: AI_SKILL_LIBRARY/v4/learning/skill_competency_matrix.json
+  role: measured_evidence_only
+  authority: false
+  routing_authority: false
+  model_selection_authority: false
+  admission_authority: false
+  direct_preference_write: false
+  note: >-
+    Competency rows may be considered by Model Mesh as measured evidence. They
+    never select a model, rewrite a role, or bypass the existing evidence and
+    promotion gates.
+
 flow:
   unchanged: true
   chain: >-
