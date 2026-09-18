@@ -1,0 +1,298 @@
+{
+  "tool": "local_zero_api_fabric",
+  "license_states": {
+    "LICENSE_ACCEPTED": "the row records a verified permissive licence that allows the intended local use and redistribution of the artifact",
+    "LICENSE_REVIEW_REQUIRED": "the row carries a licence that is unverified, non-permissive, or silent on something this use needs",
+    "LICENSE_BLOCKED": "the row records a licence that forbids this use, or one requiring a payment that would make it not zero-cost"
+  },
+  "artifact_properties_vocabulary": {
+    "OPEN_WEIGHTS": "open_weight is true: the parameters themselves are published",
+    "OPEN_SOURCE_RUNTIME": "every runtime in runtime_support is an open-source engine",
+    "FREE_DOWNLOAD": "paid_token_required is false",
+    "PERMISSIVE_LICENSE": "license_class is permissive and license_verified is true",
+    "RESTRICTED_LICENSE": "license_class is not permissive",
+    "ACCOUNT_GATED_DOWNLOAD": "api_required is true for the download itself"
+  },
+  "models_in_registry": 10,
+  "models_read": 10,
+  "rows_with_missing_fields": [],
+  "zero_api_usable_models": [
+    "Qwen/Qwen3-0.6B-GGUF",
+    "Qwen/Qwen3-1.7B-GGUF",
+    "ibm-granite/granite-3.3-2b-instruct-GGUF",
+    "Qwen/Qwen3-4B-GGUF",
+    "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+    "ibm-granite/granite-4.2-3b-GGUF",
+    "microsoft/Phi-3-mini-4k-instruct-gguf",
+    "Qwen/Qwen3-8B-GGUF"
+  ],
+  "LOCAL_API_KEY_REQUIRED": false,
+  "LOCAL_SUBSCRIPTION_REQUIRED": false,
+  "LOCAL_PROVIDER_DEPENDENCY": false,
+  "LOCAL_ZERO_API_PATH_AVAILABLE": true,
+  "LOCAL_ARTIFACTS_DIGEST_BOUND": true,
+  "LOCAL_LICENSES_VALIDATED": true,
+  "ALL_ADMITTED_LOCAL_MODELS_ACCOUNTED_FOR": true,
+  "LOCAL_OFFLINE_EXECUTION_VERIFIED": false,
+  "offline_execution_blocker": "no offline run has been recorded; the engine on the last observed host reports EXECUTION_DEAD",
+  "observed_engine_state": "EXECUTION_DEAD",
+  "ARTIFACT_SOURCE_PERMANENCE_CLAIMED": false,
+  "permanence_note": "A runtime and pinned open weights can run indefinitely with no recurring fee; a download URL continuing to exist is somebody else's server. This tool claims the first and never the second. Durability comes from pinned identity, verified Storage Mesh copies and provider-independent model identity.",
+  "authority": false,
+  "routing_authority": false,
+  "model_selection_authority": false,
+  "changes_nothing": true,
+  "models": [
+    {
+      "model_id": "Qwen/Qwen3-0.6B-GGUF",
+      "lifecycle_state": "AVAILABLE",
+      "active": true,
+      "license_name": "Apache-2.0",
+      "license_state": "LICENSE_ACCEPTED",
+      "artifact_properties": {
+        "OPEN_WEIGHTS": true,
+        "OPEN_SOURCE_RUNTIME": true,
+        "FREE_DOWNLOAD": true,
+        "PERMISSIVE_LICENSE": true,
+        "RESTRICTED_LICENSE": false,
+        "ACCOUNT_GATED_DOWNLOAD": false
+      },
+      "api_required": false,
+      "paid_token_required": false,
+      "offline_eligible": true,
+      "local_runtime_possible": true,
+      "runtime_support": [
+        "llama_cpp",
+        "ollama"
+      ],
+      "digest_bound": true,
+      "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",
+      "source_repository": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF"
+    },
+    {
+      "model_id": "Qwen/Qwen3-1.7B-GGUF",
+      "lifecycle_state": "AVAILABLE",
+      "active": true,
+      "license_name": "apache-2.0",
+      "license_state": "LICENSE_ACCEPTED",
+      "artifact_properties": {
+        "OPEN_WEIGHTS": true,
+        "OPEN_SOURCE_RUNTIME": true,
+        "FREE_DOWNLOAD": true,
+        "PERMISSIVE_LICENSE": true,
+        "RESTRICTED_LICENSE": false,
+        "ACCOUNT_GATED_DOWNLOAD": false
+      },
+      "api_required": false,
+      "paid_token_required": false,
+      "offline_eligible": true,
+      "local_runtime_possible": true,
+      "runtime_support": [
+        "llama_cpp"
+      ],
+      "digest_bound": true,
+      "immutable_revision": "90862c4b9d2787eaed51d12237eafdfe7c5f6077",
+      "source_repository": "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF"
+    },
+    {
+      "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+      "lifecycle_state": "AVAILABLE",
+      "active": true,
+      "license_name": "apache-2.0",
+      "license_state": "LICENSE_ACCEPTED",
+      "artifact_properties": {
+        "OPEN_WEIGHTS": true,
+        "OPEN_SOURCE_RUNTIME": true,
+        "FREE_DOWNLOAD": true,
+        "PERMISSIVE_LICENSE": true,
+        "RESTRICTED_LICENSE": false,
+        "ACCOUNT_GATED_DOWNLOAD": false
+      },
+      "api_required": false,
+      "paid_token_required": false,
+      "offline_eligible": true,
+      "local_runtime_possible": true,
+      "runtime_support": [
+        "llama_cpp"
+      ],
+      "digest_bound": true,
+      "immutable_revision": "7cdf86ccd1f1bb3491c9b7017b033f2e51367397",
+      "source_repository": "https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF"
+    },
+    {
+      "model_id": "Qwen/Qwen3-4B-GGUF",
+      "lifecycle_state": "AVAILABLE",
+      "active": true,
+      "license_name": "apache-2.0",
+      "license_state": "LICENSE_ACCEPTED",
+      "artifact_properties": {
+        "OPEN_WEIGHTS": true,
+        "OPEN_SOURCE_RUNTIME": true,
+        "FREE_DOWNLOAD": true,
+        "PERMISSIVE_LICENSE": true,
+        "RESTRICTED_LICENSE": false,
+        "ACCOUNT_GATED_DOWNLOAD": false
+      },
+      "api_required": false,
+      "paid_token_required": false,
+      "offline_eligible": true,
+      "local_runtime_possible": true,
+      "runtime_support": [
+        "llama_cpp"
+      ],
+      "digest_bound": true,
+      "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+      "source_repository": "https://huggingface.co/Qwen/Qwen3-4B-GGUF"
+    },
+    {
+      "model_id": "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
+      "lifecycle_state": "AVAILABLE",
+      "active": true,
+      "license_name": "apache-2.0",
+      "license_state": "LICENSE_ACCEPTED",
+      "artifact_properties": {
+        "OPEN_WEIGHTS": true,
+        "OPEN_SOURCE_RUNTIME": true,
+        "FREE_DOWNLOAD": true,
+        "PERMISSIVE_LICENSE": true,
+        "RESTRICTED_LICENSE": false,
+        "ACCOUNT_GATED_DOWNLOAD": false
+      },
+      "api_required": false,
+      "paid_token_required": false,
+      "offline_eligible": true,
+      "local_runtime_possible": true,
+      "runtime_support": [
+        "llama_cpp"
+      ],
+      "digest_bound": true,
+      "immutable_revision": "593b5a2e04c8f3e4ee880263f93e0bd2901ad47f",
+      "source_repository": "https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF"
+    },
+    {
+      "model_id": "microsoft/bitnet-b1.58-2B-4T-gguf",
+      "lifecycle_state": "QUARANTINED",
+      "active": false,
+      "license_name": "mit",
+      "license_state": "LICENSE_ACCEPTED",
+      "artifact_properties": {
+        "OPEN_WEIGHTS": true,
+        "OPEN_SOURCE_RUNTIME": true,
+        "FREE_DOWNLOAD": true,
+        "PERMISSIVE_LICENSE": true,
+        "RESTRICTED_LICENSE": false,
+        "ACCOUNT_GATED_DOWNLOAD": false
+      },
+      "api_required": false,
+      "paid_token_required": false,
+      "offline_eligible": true,
+      "local_runtime_possible": true,
+      "runtime_support": [
+        "llama_cpp"
+      ],
+      "digest_bound": true,
+      "immutable_revision": "a1f2f1c765812aa8af3f6eda4a313707064bba15",
+      "source_repository": "https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf"
+    },
+    {
+      "model_id": "mistralai/Ministral-3-3B-Reasoning-2512-GGUF",
+      "lifecycle_state": "QUARANTINED",
+      "active": false,
+      "license_name": "apache-2.0",
+      "license_state": "LICENSE_ACCEPTED",
+      "artifact_properties": {
+        "OPEN_WEIGHTS": true,
+        "OPEN_SOURCE_RUNTIME": true,
+        "FREE_DOWNLOAD": true,
+        "PERMISSIVE_LICENSE": true,
+        "RESTRICTED_LICENSE": false,
+        "ACCOUNT_GATED_DOWNLOAD": false
+      },
+      "api_required": false,
+      "paid_token_required": false,
+      "offline_eligible": true,
+      "local_runtime_possible": true,
+      "runtime_support": [
+        "llama_cpp"
+      ],
+      "digest_bound": true,
+      "immutable_revision": "b432f0a2c144af8a1937b06e2ea7f75ebb4d0b31",
+      "source_repository": "https://huggingface.co/mistralai/Ministral-3-3B-Reasoning-2512-GGUF"
+    },
+    {
+      "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+      "lifecycle_state": "AVAILABLE",
+      "active": true,
+      "license_name": "apache-2.0",
+      "license_state": "LICENSE_ACCEPTED",
+      "artifact_properties": {
+        "OPEN_WEIGHTS": true,
+        "OPEN_SOURCE_RUNTIME": true,
+        "FREE_DOWNLOAD": true,
+        "PERMISSIVE_LICENSE": true,
+        "RESTRICTED_LICENSE": false,
+        "ACCOUNT_GATED_DOWNLOAD": false
+      },
+      "api_required": false,
+      "paid_token_required": false,
+      "offline_eligible": true,
+      "local_runtime_possible": true,
+      "runtime_support": [
+        "llama_cpp"
+      ],
+      "digest_bound": true,
+      "immutable_revision": "c40945d71cd90f249a56985e8155551a9188dc30",
+      "source_repository": "https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF"
+    },
+    {
+      "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "lifecycle_state": "AVAILABLE",
+      "active": true,
+      "license_name": "mit",
+      "license_state": "LICENSE_ACCEPTED",
+      "artifact_properties": {
+        "OPEN_WEIGHTS": true,
+        "OPEN_SOURCE_RUNTIME": true,
+        "FREE_DOWNLOAD": true,
+        "PERMISSIVE_LICENSE": true,
+        "RESTRICTED_LICENSE": false,
+        "ACCOUNT_GATED_DOWNLOAD": false
+      },
+      "api_required": false,
+      "paid_token_required": false,
+      "offline_eligible": true,
+      "local_runtime_possible": true,
+      "runtime_support": [
+        "llama_cpp"
+      ],
+      "digest_bound": true,
+      "immutable_revision": "a64113399c2f6b8ad3e11c394733a2ddadaa7f33",
+      "source_repository": "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf"
+    },
+    {
+      "model_id": "Qwen/Qwen3-8B-GGUF",
+      "lifecycle_state": "AVAILABLE",
+      "active": true,
+      "license_name": "apache-2.0",
+      "license_state": "LICENSE_ACCEPTED",
+      "artifact_properties": {
+        "OPEN_WEIGHTS": true,
+        "OPEN_SOURCE_RUNTIME": true,
+        "FREE_DOWNLOAD": true,
+        "PERMISSIVE_LICENSE": true,
+        "RESTRICTED_LICENSE": false,
+        "ACCOUNT_GATED_DOWNLOAD": false
+      },
+      "api_required": false,
+      "paid_token_required": false,
+      "offline_eligible": true,
+      "local_runtime_possible": true,
+      "runtime_support": [
+        "llama_cpp"
+      ],
+      "digest_bound": true,
+      "immutable_revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+      "source_repository": "https://huggingface.co/Qwen/Qwen3-8B-GGUF"
+    }
+  ]
+}
