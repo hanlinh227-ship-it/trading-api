@@ -226,6 +226,14 @@ jobs:
             --request "${CANONICAL_REQUEST}" \
             --cache "${CACHE_DIR}" \
             --evidence CHECKPOINTS/evidence/B3_B4_GOLDEN_E2E_EVIDENCE.json
+          # Two documents record "the AI CORE golden run" and the gate prefers
+          # the first, falling back to the second. Writing only one left the
+          # other frozen at an older run forever - ignored by the gate, still
+          # read by humans and by the continuity test, which then compared this
+          # run's resume against a run from days earlier. One run, recorded at
+          # both canonical names, so they cannot drift apart again.
+          cp CHECKPOINTS/evidence/B3_B4_GOLDEN_E2E_EVIDENCE.json \
+             CHECKPOINTS/evidence/AI_CORE_E2E_EVIDENCE.json
 
       - name: Prove continuity in a second process
         run: |

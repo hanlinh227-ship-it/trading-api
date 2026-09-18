@@ -103,6 +103,31 @@ def _check(name: str, requirement: str, *conditions: tuple[str, bool]) -> dict[s
     }
 
 
+#: Which document the golden checks judge, in order. The first that carries an
+#: `ai_core_e2e` verdict wins; the second is a compatibility fallback for older
+#: checkpoints.
+#:
+#: Named here, and reported in the result, because a fallback that silently
+#: switches WHICH document is being judged is the shape this branch has been
+#: bitten by repeatedly. It also made six refusal tests stop testing anything:
+#: they damage a file, and the gate had quietly moved on to reading another one,
+#: so the damage changed nothing and the gate passed. A check that cannot fail
+#: is not a check. `golden_evidence_source` in the report lets a caller damage
+#: the file the gate actually reads rather than the one it used to.
+GOLDEN_EVIDENCE_PREFERENCE = (
+    "B3_B4_GOLDEN_E2E_EVIDENCE.json",
+    "AI_CORE_E2E_EVIDENCE.json",
+)
+
+
+def golden_evidence_source(root: Path) -> str:
+    """The document the gate will judge for this tree."""
+    first = _load(root, GOLDEN_EVIDENCE_PREFERENCE[0])
+    if first is not MISSING and _dig(first, "ai_core_e2e") is not MISSING:
+        return GOLDEN_EVIDENCE_PREFERENCE[0]
+    return GOLDEN_EVIDENCE_PREFERENCE[1]
+
+
 def gate(root: Path) -> dict[str, Any]:
     """Every check, with what it required and why it did or did not hold."""
     b1 = _load(root, "B1_REAL_INFERENCE_EVIDENCE.json")
@@ -111,9 +136,11 @@ def gate(root: Path) -> dict[str, Any]:
     # historical AI_CORE_E2E_EVIDENCE.json only as a compatibility fallback for
     # older checkpoints. This prevents a fresh semantic PASS from being rejected
     # because the release gate inspected stale pre-hardening evidence instead.
-    e2e = _load(root, "B3_B4_GOLDEN_E2E_EVIDENCE.json")
+    e2e_source = GOLDEN_EVIDENCE_PREFERENCE[0]
+    e2e = _load(root, e2e_source)
     if e2e is MISSING or _dig(e2e, "ai_core_e2e") is MISSING:
-        e2e = _load(root, "AI_CORE_E2E_EVIDENCE.json")
+        e2e_source = GOLDEN_EVIDENCE_PREFERENCE[1]
+        e2e = _load(root, e2e_source)
     resume = _load(root, "AI_CORE_RESUME_EVIDENCE.json")
     failure = _load(root, "FAILURE_PATH_PROOF.json")
     selfdev = _load(root, "SELFDEV_CYCLE_EVIDENCE.json")
@@ -373,6 +400,8 @@ def gate(root: Path) -> dict[str, Any]:
         # `release_eligible` is false whenever the verdict is not PASS - there
         # is no state in which this gate is red and a release may be cut.
         "release_eligible": not failed,
+        # Which document the golden checks actually judged.
+        "golden_evidence_source": e2e_source,
         "regeneration_required": regeneration_required,
         "evidence_class": "REAL_RUNTIME" if regeneration_required else None,
         "SEMANTIC_GOLDEN_VERIFIED": bool(_golden and _golden["passed"]),

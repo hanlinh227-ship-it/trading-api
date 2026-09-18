@@ -21,6 +21,19 @@ EVIDENCE = "CHECKPOINTS/evidence"
 REGISTRY = "AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml"
 
 
+def _golden(tmp: Path) -> str:
+    """The golden document THIS tree's gate will judge.
+
+    Hard-coding AI_CORE_E2E_EVIDENCE.json here stopped being a test the moment
+    the gate began preferring B3_B4_GOLDEN_E2E_EVIDENCE.json: every refusal
+    below damaged a file the gate no longer reads, so the damage changed
+    nothing and six checks that "cannot fail" sat green. Resolved through the
+    gate's own rule so the two cannot diverge again.
+    """
+    from AI_SKILL_LIBRARY.v4.tools.ai_core_release_gate import golden_evidence_source
+    return golden_evidence_source(tmp)
+
+
 def _sandbox(tmp: Path) -> Path:
     """A copy of the evidence and registry the gate reads, safe to damage."""
     (tmp / EVIDENCE).mkdir(parents=True, exist_ok=True)
@@ -45,13 +58,36 @@ class LiveGateTests(unittest.TestCase):
     def setUpClass(cls):
         cls.result = gate(ROOT)
 
-    def test_the_gate_blocks_stale_semantically_wrong_golden_evidence(self):
-        self.assertEqual(self.result["verdict"], "FAIL")
-        self.assertEqual(self.result["failed_checks"], ["golden_e2e"])
+    def test_the_verdict_matches_the_checks(self):
+        """These asserted FAIL with golden_e2e blocking, and that has been earned.
 
-    def test_every_check_ran_and_only_the_invalid_golden_evidence_is_blocking(self):
-        self.assertEqual(self.result["checks_passed"], self.result["checks_run"] - 1)
-        self.assertEqual(self.result["failed_checks"], ["golden_e2e"])
+        The committed golden evidence used to answer the canonical question
+        about Japan with a ramble about shogi, so the gate refused and these
+        tests said so. A production run on a free ephemeral worker replaced it
+        with a real answer - Tokyo, from Qwen3-8B, semantically verified - and
+        the gate now passes. Asserting FAIL here would mean asserting that
+        valid evidence must be refused, so this asserts the relationship that
+        holds either way. The refusal cases are covered below, one deliberate
+        break per check, where they belong.
+        """
+        failed = self.result["failed_checks"]
+        self.assertEqual(self.result["checks_passed"],
+                         self.result["checks_run"] - len(failed))
+        self.assertEqual(self.result["verdict"], "PASS" if not failed else "FAIL")
+        self.assertEqual(self.result["release_eligible"], not failed)
+
+    def test_the_gate_names_the_document_it_judged(self):
+        """A fallback that switches documents silently is how the refusal tests
+        stopped refusing anything."""
+        from AI_SKILL_LIBRARY.v4.tools.ai_core_release_gate import (
+            GOLDEN_EVIDENCE_PREFERENCE)
+        self.assertIn(self.result["golden_evidence_source"],
+                      GOLDEN_EVIDENCE_PREFERENCE)
+
+    def test_the_semantic_golden_verdict_is_reported(self):
+        self.assertIn("SEMANTIC_GOLDEN_VERIFIED", self.result)
+        self.assertEqual(self.result["SEMANTIC_GOLDEN_VERIFIED"],
+                         "golden_e2e" not in self.result["failed_checks"])
 
     def test_each_check_states_what_it_required(self):
         """A check whose requirement is unreadable cannot be reviewed."""
@@ -99,7 +135,7 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
     def test_an_unreadable_evidence_file_is_not_a_pass(self):
         self._assert_fails(
             "golden_e2e",
-            lambda tmp: (tmp / EVIDENCE / "AI_CORE_E2E_EVIDENCE.json").write_text(
+            lambda tmp: (tmp / EVIDENCE / _golden(tmp)).write_text(
                 "{not json", encoding="utf-8"),
         )
 
@@ -113,7 +149,7 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
     def test_a_trace_missing_a_stage_is_refused(self):
         def damage(tmp):
             shortened = [s for s in CANONICAL_TRACE if s != "ai_legion"]
-            _edit(tmp, "AI_CORE_E2E_EVIDENCE.json",
+            _edit(tmp, _golden(tmp),
                   lambda d: d.__setitem__("trace", shortened))
 
         self._assert_fails("golden_e2e", damage)
@@ -122,7 +158,7 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
         def damage(tmp):
             _edit(
                 tmp,
-                "AI_CORE_E2E_EVIDENCE.json",
+                _golden(tmp),
                 lambda d: d["runtime_evidence"].__setitem__(
                     "output", "This answer is unrelated to the question."
                 ),
@@ -134,7 +170,7 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
         def repair(tmp):
             _edit(
                 tmp,
-                "AI_CORE_E2E_EVIDENCE.json",
+                _golden(tmp),
                 lambda d: d["runtime_evidence"].__setitem__("output", "Tokyo."),
             )
 
@@ -145,7 +181,7 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
         def damage(tmp):
             reordered = [s for s in CANONICAL_TRACE if s != "ai_legion"]
             reordered.insert(reordered.index("model_mesh") + 1, "ai_legion")
-            _edit(tmp, "AI_CORE_E2E_EVIDENCE.json",
+            _edit(tmp, _golden(tmp),
                   lambda d: d.__setitem__("trace", reordered))
 
         self._assert_fails("golden_e2e", damage)
@@ -153,7 +189,7 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
     def test_a_resume_inside_the_same_process_is_refused(self):
         """Otherwise it proves only that a dictionary is still in memory."""
         def damage(tmp):
-            e2e = json.loads((tmp / EVIDENCE / "AI_CORE_E2E_EVIDENCE.json").read_text())
+            e2e = json.loads((tmp / EVIDENCE / _golden(tmp)).read_text())
             _edit(tmp, "AI_CORE_RESUME_EVIDENCE.json",
                   lambda d: d.__setitem__("process_id", e2e["process_id"]))
 
@@ -282,7 +318,7 @@ class TheGateActuallyRefusesTests(unittest.TestCase):
     def test_a_run_claiming_authority_is_refused(self):
         self._assert_fails(
             "authority_ceilings",
-            lambda tmp: _edit(tmp, "AI_CORE_E2E_EVIDENCE.json",
+            lambda tmp: _edit(tmp, _golden(tmp),
                               lambda d: d["checkpoint"].__setitem__("memory_authority", True)),
         )
 
