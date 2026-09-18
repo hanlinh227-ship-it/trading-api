@@ -153,6 +153,17 @@ class AcceptanceMatrixTests(unittest.TestCase):
         matrix = acceptance.acceptance_matrix(registry())
         self.assertIs(matrix["SECONDARY_DEPLOYED"], False)
         self.assertIs(matrix["SECONDARY_HEALTH_VERIFIED"], False)
+        self.assertIs(matrix["SECONDARY_SHA_MATCH"], False)
+
+    def test_secondary_sha_match_is_its_own_row_not_folded_into_health(self):
+        """A runtime that answers but runs a different commit is a different
+        failure from one that does not answer."""
+        reg = registry()
+        reg["runtimes"]["deno_deploy"]["verification"].update(
+            deployed=True, health_verified=True, exact_sha_verified=False)
+        matrix = acceptance.acceptance_matrix(reg)
+        self.assertIs(matrix["SECONDARY_HEALTH_VERIFIED"], True)
+        self.assertIs(matrix["SECONDARY_SHA_MATCH"], False)
 
     def test_runtime_portable_requires_more_than_one_real_adapter(self):
         matrix = acceptance.acceptance_matrix(registry())
