@@ -65,6 +65,57 @@ jobs:
           SOURCE_SHA="$(git rev-parse HEAD)"
           python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$SOURCE_SHA"
           echo "SKILL_GATEWAY_SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+      # Closure Task 0: the unittest path above collects only TestCase
+      # subclasses, so 41 module-level `def test_*` functions in four merged
+      # files pass under pytest and are silently never executed by CI. They are
+      # not failing; they are not running, which is worse, because a green
+      # board was being read as coverage they never had.
+      #
+      # ci_validate is deliberately left alone: it is the canonical gate and
+      # rewriting it to collect two styles would risk the 2600 tests it already
+      # runs. pytest is installed only for this step.
+      - name: Install pytest for module-level test collection
+        run: python -m pip install pytest
+      - name: Run the merged tests unittest cannot collect
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q \
+            AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py \
+            AI_SKILL_LIBRARY/tests/test_survival_recovery.py \
+            AI_SKILL_LIBRARY/tests/test_always_on_retry.py \
+            AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py
+      - name: Prove every module-level test actually executed
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A green pytest run over a file that collected nothing is the exact
+          # failure this step exists to catch, so assert the count rather than
+          # trusting the exit code.
+          declare -A expected=(
+            [test_survival_plane_proof.py]=12
+            [test_survival_recovery.py]=13
+            [test_always_on_retry.py]=9
+            [test_always_on_reconciler.py]=7
+          )
+          total=0
+          for file in "${!expected[@]}"; do
+            count="$(python -m pytest --collect-only -q \
+              "AI_SKILL_LIBRARY/tests/${file}" 2>/dev/null \
+              | grep -c '::' || true)"
+            echo "COLLECTED_${file}=${count} (expected ${expected[$file]})"
+            if [ "${count}" -lt "${expected[$file]}" ]; then
+              echo "PYTEST_COLLECTION=FAIL ${file} collected ${count}, expected at least ${expected[$file]}"
+              exit 1
+            fi
+            total=$((total + count))
+          done
+          echo "PYTEST_MODULE_LEVEL_TESTS_EXECUTED=${total}"
+          if [ "${total}" -lt 41 ]; then
+            echo "PYTEST_COLLECTION=FAIL total ${total} below the 41 this step exists to run"
+            exit 1
+          fi
+          echo "PYTEST_COLLECTION=PASS"
       - name: Validate ingest selection without cloning
         run: python AI_SKILL_LIBRARY/ingest_sources.py --all --dry-run --output /tmp/ai-skill-library.jsonl
       - name: Audit upstream repositories
