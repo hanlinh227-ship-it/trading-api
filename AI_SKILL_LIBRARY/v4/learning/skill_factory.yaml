@@ -22,3 +22,13 @@ universal_fabric:
   upstream_watch_path: AI_SKILL_LIBRARY/v4/learning/upstream_watch.yaml
   candidate_memory_may_signal_gap: true
   candidate_memory_is_not_skill_authority: true
+
+continuous_skill_learning:
+  curriculum_gap_is_candidate_input_only: true
+  competency_gap_is_candidate_input_only: true
+  competency_gap_requires_evidence_refs: true
+  strengthen_existing_skill_first: true
+  stable_catalog_mutation: promotion_pipeline_only
+  direct_stable_write: false
+  direct_router_write: false
+  direct_model_mesh_write: false
