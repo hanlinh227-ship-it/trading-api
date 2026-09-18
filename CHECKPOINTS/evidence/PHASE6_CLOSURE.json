@@ -313,12 +313,12 @@
       "state": "ELIGIBLE",
       "online": true,
       "stale_lease": false,
-      "last_seen": 1789691351.5065634,
+      "last_seen": 1789695097.6752458,
       "lease_seconds": 120.0,
       "ram_total_mb": 16095,
-      "ram_available_mb": 15367,
+      "ram_available_mb": 15342,
       "gpus": 0,
-      "disk_free_mb": 11044,
+      "disk_free_mb": 11014,
       "runtimes": [
         "llama.cpp"
       ],

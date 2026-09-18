@@ -1,12 +1,10 @@
 {
   "tool": "worker_execution_liveness",
   "LOCAL_ENGINE": {
-    "state": "EXECUTION_DEAD",
-    "reason": "the engine probe was killed by signal 4",
-    "signal": 4,
-    "detail": "SIGILL (4) means the installed binary uses instructions this CPU does not have - typically a container moved to different hardware. The artifact and the code are unchanged; the machine under them is not."
+    "state": "EXECUTION_LIVE",
+    "reason": "the engine imported and identified itself"
   },
-  "EXECUTION_LIVE": false,
+  "EXECUTION_LIVE": true,
   "roles_with_a_local_primary": [
     {
       "role_id": "REASONING_BRANCH",
@@ -101,6 +99,5 @@
   "routing_authority": false,
   "admission_authority": false,
   "scheduling_authority": false,
-  "changes_nothing": true,
-  "FEDERATION_IMPACT": "9 role(s) name a local model as primary and cannot be served by it. 3 CRITICAL role(s) have no off-host alternative."
+  "changes_nothing": true
 }
