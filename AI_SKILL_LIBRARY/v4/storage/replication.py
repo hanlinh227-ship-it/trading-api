@@ -32,11 +32,24 @@ hashes bytes *read back from the destination*, because verifying the payload
 that was uploaded proves something about this process's memory and nothing at
 all about the far side.
 
-**Three independent facts gate a delete.** The destination read back correctly,
-the destination's own ``head`` agrees, and the index accepted the new replica.
-On top of that sits Spec S18: while the metadata service is uncertain, a
-rebalance does not start at all - not even the copy - because a move whose
-registration cannot be persisted is a move nobody can recover from.
+**Four independent facts gate a delete.** The destination read back correctly,
+the destination's own ``head`` agrees, the index accepted the new replica, and
+a recovery pointer was persisted. The fourth is not optional and has no default:
+a rebalance called without a ``checkpoint`` is a copy, because Spec S18 forbids
+the metadata service being the single point of failure and the pointer is what
+survives its outage. On top of all four sits Spec S18 again: while the metadata
+service is uncertain, a rebalance does not start at all - not even the copy -
+because a move whose registration cannot be persisted is a move nobody can
+recover from.
+
+**Step 7 verifies copies, not a number.** "Verify final replica count" is
+satisfiable by counting the backends a record names, and a record names the
+replicas the mesh registered at some point rather than the ones that are there
+now. Only the destination is read back and head-checked as a matter of course;
+every other claimed holder of an object owed more than one copy is probed
+through a store the caller supplies, and a holder that cannot be probed cannot
+be confirmed and does not count. ``RebalanceResult.verified_copies`` records
+what was confirmed rather than what was claimed.
 
 **Full copies only.** Spec S9 puts erasure coding and chunk striping explicitly
 out of scope, and the reason is worth keeping in view: a missing chunk makes a
@@ -53,6 +66,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from collections.abc import Mapping
 from functools import lru_cache
 
 from AI_SKILL_LIBRARY.v4.storage import AUTHORITY_FLAGS as _AUTHORITY_FLAG_NAMES
@@ -222,6 +236,13 @@ class RebalanceResult:
     source_deleted: bool
     destination_verified: bool
     detail: str
+    #: The backends whose copy this call *confirmed*, in order. Spec S15 step 7
+    #: says "verify final replica count", and a count is what the record claims:
+    #: only the destination is read back and head-checked as a matter of course,
+    #: so every other holder that appears here was probed through a store the
+    #: caller supplied. A claimed holder that could not be confirmed is absent,
+    #: which is the difference between a number and a copy.
+    verified_copies: tuple = ()
 
     def as_dict(self):
         """A plain, JSON-safe copy."""
@@ -229,7 +250,8 @@ class RebalanceResult:
 
 
 def _result(status, detail, *, object_id=None, source=None, destination=None,
-            source_deleted=False, destination_verified=False):
+            source_deleted=False, destination_verified=False,
+            verified_copies=()):
     return RebalanceResult(
         status=status,
         object_id=object_id,
@@ -238,6 +260,7 @@ def _result(status, detail, *, object_id=None, source=None, destination=None,
         source_deleted=source_deleted,
         destination_verified=destination_verified,
         detail=detail,
+        verified_copies=tuple(verified_copies),
     )
 
 
@@ -258,6 +281,83 @@ def _attachable(record):
             if field in record}
 
 
+def _readable(record):
+    """The three fields a rebalance reads, or ``None`` if it cannot read them.
+
+    ``metadata.MetadataStore.get_manifest`` validates what it returns, but
+    ``can_perform_destructive_lifecycle`` only requires *a* ``MetadataStore``:
+    a caching layer, a partial-record fast path or any other subclass can put a
+    shape in front of this function that the validator never saw. Indexing the
+    answer directly was the only unguarded pair of statements in the protocol,
+    and this module's contract is that it returns rather than raises.
+
+    Nothing here is a second validator. It reads exactly what the delete gate
+    needs - who holds the object and what class it is - and answers ``None`` for
+    every shape it cannot read, which sends the caller to
+    ``BLOCKED_METADATA_UNCERTAIN``.
+    """
+    try:
+        if not isinstance(record, Mapping):
+            return None
+        primary = record["primary_backend"]
+        replicas = record["replica_backends"]
+        criticality = record["criticality"]
+        if not isinstance(primary, str):
+            return None
+        if not isinstance(replicas, (list, tuple, set, frozenset)):
+            return None
+        if not all(isinstance(name, str) for name in replicas):
+            return None
+        return {"primary_backend": primary,
+                "holders": {primary, *replicas},
+                "criticality": criticality,
+                "attachable": _attachable(record)}
+    except Exception:  # noqa: BLE001 - an unreadable record is not a record
+        return None
+
+
+def _confirmed_holders(object_id, receipt, backends, holder_stores):
+    """Which of ``backends`` can be shown, right now, to hold this object.
+
+    Spec S15 step 7 asks for the final replica count to be *verified*. The
+    record's own list is a claim: the mesh registered those backends at some
+    point and nothing has looked since, so a replica that has been lifecycled
+    away, expired or lost still appears in it. Deleting the source on the
+    strength of that claim is how a CRITICAL object ends with one copy anybody
+    has actually seen.
+
+    A backend is confirmed only when the caller supplied a store for it, that
+    store is a real ``ObjectStore`` answering for that backend, and its own
+    ``head`` asserts the same digest and the same length as the copy that was
+    just verified. Everything else - no store supplied, an unreachable store, a
+    store that denies holding the object, a store that asserts nothing - is
+    unknown, and unknown is not a copy.
+    """
+    confirmed = set()
+    stores = holder_stores if isinstance(holder_stores, Mapping) else {}
+    for backend in backends:
+        try:
+            store = stores.get(backend)
+        except Exception:  # noqa: BLE001 - an unusable mapping confirms nothing
+            continue
+        if not isinstance(store, _object.ObjectStore):
+            continue
+        if store.backend_id != backend:
+            continue
+        try:
+            head = store.head(object_id)
+        except Exception:  # noqa: BLE001 - unreachable is not present
+            continue
+        if head is None:
+            continue
+        if head.content_sha256 != receipt.content_sha256:
+            continue
+        if head.size_bytes != receipt.size_bytes:
+            continue
+        confirmed.add(backend)
+    return confirmed
+
+
 def _registered(record, *, holders):
     """A copy of ``record`` whose backend fields state ``holders``."""
     primary = record["primary_backend"]
@@ -270,7 +370,8 @@ def _registered(record, *, holders):
 
 
 def rebalance_object(object_id, source, destination, metadata_store, *,
-                     verify=verify_copy, checkpoint=None, delete_source=True):
+                     verify=verify_copy, checkpoint=None, delete_source=True,
+                     holder_stores=None):
     """Move one object from ``source`` to ``destination``, or explain why not.
 
     Spec S15, in the spec's order, with the source removed last and only after
@@ -285,10 +386,22 @@ def rebalance_object(object_id, source, destination, metadata_store, *,
     ``True`` counts as verification - a truthy string, a ``1`` or a non-empty
     list is a verifier that has not said yes.
 
-    ``checkpoint``, when given, is Spec S15 step 5: a callable handed a small
-    pointer mapping, which must return exactly ``True`` before any deletion.
-    When it is not given, the metadata registration is the durable record that
-    gates the delete.
+    ``checkpoint`` is Spec S15 step 5: a callable handed a small pointer
+    mapping, which must return exactly ``True`` before any deletion. It is
+    required for a *move*. Without one the outcome is capped at
+    ``COPIED_SOURCE_RETAINED``: step 5 sits between the registration and the
+    removal for a reason, and Spec S18 is explicit that the metadata service
+    must not be a single point of failure - the pointer is what survives its
+    outage, so a delete gated only on the index is a delete nobody can follow.
+    A copy is always allowed without one.
+
+    ``holder_stores`` is an optional ``{backend_id: ObjectStore}`` mapping used
+    for Spec S15 step 7. The record's replica list is a claim; only the
+    destination is read back and head-checked here. When the object's class is
+    owed more than one copy, every *other* claimed holder is probed through the
+    store supplied for it, and a holder with no store supplied cannot be
+    confirmed and does not count - which fails closed, towards keeping the
+    source. ``RebalanceResult.verified_copies`` records what was confirmed.
 
     Returns a ``RebalanceResult``. It does not raise: this is the path a caller
     takes under capacity pressure and provider failure, and Spec S14 requires
@@ -320,6 +433,13 @@ def rebalance_object(object_id, source, destination, metadata_store, *,
         return _result(
             "REFUSED_INVALID_REQUEST",
             "checkpoint must be a callable taking a pointer mapping, or None",
+            object_id=object_id, source=source_backend,
+            destination=destination_backend)
+    if holder_stores is not None and not isinstance(holder_stores, Mapping):
+        return _result(
+            "REFUSED_INVALID_REQUEST",
+            "holder_stores must be a mapping of backend id to ObjectStore, or "
+            "None",
             object_id=object_id, source=source_backend,
             destination=destination_backend)
     if not isinstance(delete_source, bool):
@@ -364,7 +484,18 @@ def rebalance_object(object_id, source, destination, metadata_store, *,
             "the index holds no record for this object; a rebalance is not the "
             "moment to adopt an object of unknown privacy class")
 
-    holders = {record["primary_backend"], *record["replica_backends"]}
+    readable = _readable(record)
+    if readable is None:
+        return stop(
+            "BLOCKED_METADATA_UNCERTAIN",
+            "the index answered with something this module cannot read as a "
+            "manifest record; a row that has not been through the validator is "
+            "not a statement about what exists, and nothing is copied, "
+            "registered or removed on the strength of one (Spec S18). The "
+            "answer is deliberately not quoted")
+    holders = readable["holders"]
+    criticality = readable["criticality"]
+    attachable = readable["attachable"]
     if source_backend not in holders:
         return stop(
             "REFUSED_SOURCE_NOT_A_HOLDER",
@@ -383,7 +514,7 @@ def rebalance_object(object_id, source, destination, metadata_store, *,
             "never a reason to delete it or to propagate it (Spec S19)")
 
     try:
-        receipt = destination.put(object_id, payload, _attachable(record))
+        receipt = destination.put(object_id, payload, attachable)
     except Exception:  # noqa: BLE001 - see detail
         return stop(
             "DESTINATION_WRITE_FAILED",
@@ -436,7 +567,8 @@ def rebalance_object(object_id, source, destination, metadata_store, *,
             "the new replica could not be registered in the index; the copy "
             "exists but is unrecorded, so the source stays where it is rather "
             "than becoming a copy nobody can find (Spec S15/S18)",
-            destination_verified=True)
+            destination_verified=True,
+            verified_copies=(destination_backend,))
 
     # -- Spec S15 step 5: persist the recovery pointer ------------------------
     if checkpoint is not None:
@@ -457,24 +589,49 @@ def rebalance_object(object_id, source, destination, metadata_store, *,
                 "the recovery pointer was not persisted; both copies exist and "
                 "the source is retained, because a move GitHub has no pointer "
                 "to is a move a rebuild cannot follow (Spec S15/S23)",
-                destination_verified=True)
+                destination_verified=True,
+                verified_copies=(destination_backend,))
 
     # -- Spec S15 steps 6 and 7: remove the old copy only if policy permits ---
-    requirement = replication_requirement(record["criticality"])
-    copies_after_delete = len(holders_after - {source_backend})
     if not delete_source:
         return stop(
             "COPIED_SOURCE_RETAINED",
             "the caller asked for a copy rather than a move; both copies exist "
             "and both are registered",
-            destination_verified=True)
-    if copies_after_delete < requirement:
+            destination_verified=True, verified_copies=(destination_backend,))
+    if checkpoint is None:
         return stop(
             "COPIED_SOURCE_RETAINED",
-            "deleting the source would leave fewer independent provider copies "
-            "than this criticality class is owed, so the copy is kept and the "
-            "source stays (Spec S8)",
-            destination_verified=True)
+            "no recovery pointer was persisted because no checkpoint callable "
+            "was supplied, and a delete is not gated on the index alone: Spec "
+            "S15 step 5 sits between registering the replica and removing the "
+            "old copy, and Spec S18 forbids the metadata service being the "
+            "single point of failure that a rebuild would then have to follow. "
+            "Both copies exist and both are registered",
+            destination_verified=True, verified_copies=(destination_backend,))
+
+    # Step 7 verifies copies rather than counting claims. The destination is
+    # already confirmed - it was read back, re-hashed and cross-checked against
+    # its own head - and every other backend the record names is a claim until
+    # a store supplied for it says otherwise.
+    requirement = replication_requirement(criticality)
+    confirmed = {destination_backend}
+    if requirement > 1:
+        confirmed |= _confirmed_holders(
+            object_id, receipt,
+            sorted(holders_after - {source_backend, destination_backend}),
+            holder_stores)
+    verified_copies = tuple(sorted(confirmed))
+    if len(confirmed) < requirement:
+        return stop(
+            "COPIED_SOURCE_RETAINED",
+            "deleting the source would leave fewer *confirmed* independent "
+            "provider copies than this criticality class is owed, so the copy "
+            "is kept and the source stays (Spec S8/S15). A backend the record "
+            "merely names is a claim: it counts only when a store was supplied "
+            "for it and that store's own head agreed, and a holder whose store "
+            "was not supplied cannot be confirmed and does not count",
+            destination_verified=True, verified_copies=verified_copies)
 
     try:
         source.delete(object_id)
@@ -484,7 +641,7 @@ def rebalance_object(object_id, source, destination, metadata_store, *,
             "the verified copy exists and the source could not be removed; "
             "both copies are present and both are registered, which is the "
             "safe side of this failure",
-            destination_verified=True)
+            destination_verified=True, verified_copies=verified_copies)
 
     holders_final = holders_after - {source_backend}
     try:
@@ -496,13 +653,15 @@ def rebalance_object(object_id, source, destination, metadata_store, *,
             "now over-states the copies that exist, which is the direction that "
             "causes a repair rather than a deletion, and it is surfaced rather "
             "than hidden (Spec S19)",
-            source_deleted=True, destination_verified=True)
+            source_deleted=True, destination_verified=True,
+            verified_copies=verified_copies)
 
     return stop(
         "MOVED",
         "the destination was written, read back, confirmed by its own head and "
         "registered before the source was removed (Spec S15)",
-        source_deleted=True, destination_verified=True)
+        source_deleted=True, destination_verified=True,
+        verified_copies=verified_copies)
 
 
 __all__ = [

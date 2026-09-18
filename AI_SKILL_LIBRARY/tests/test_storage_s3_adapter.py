@@ -798,5 +798,232 @@ class ReceiptTests(unittest.TestCase):
                     s3_object.content_digest(value)
 
 
+def receipt_fields(**overrides):
+    """A legitimate ``ObjectReceipt`` field set, for the redaction sweeps below."""
+    fields = {
+        "object_id": OBJECT_ID,
+        "backend_id": "cloudflare_r2",
+        "content_sha256": OBJECT_ID[len("obj_"):],
+        "size_bytes": len(PAYLOAD),
+        "observed_at": TIME,
+        "digest_source": "computed",
+        "verified": True,
+    }
+    fields.update(overrides)
+    return fields
+
+
+class HeadAnswerRedactionTests(unittest.TestCase):
+    """A head answer's *keys* come from the far side of the transport.
+
+    The value sweep has always been here; the key sweep was the blind spot.
+    ``head`` is the one place this module took a provider-supplied string and
+    interpolated it into a refusal, which is the same leak as quoting a value
+    with the arguments the other way round.
+    """
+
+    def test_a_head_answer_key_is_never_echoed(self):
+        for key in (SMUGGLED_CREDENTIAL, "Bearer " + "A" * 40,
+                    "AKIAIOSFODNN7EXAMPLE", "x-amz-meta-" + "Q" * 200):
+            with self.subTest(key=key[:12]):
+                transport = FakeS3Transport(head_override={key: "value"})
+                text = refusal_text(store(transport).head, OBJECT_ID)
+                self.assertTrue(text, "an unrecognised head key must be refused")
+                self.assertNotIn(key, text)
+                self.assertNotIn("sk-A7bQ", text)
+                self.assertNotIn("AKIA", text)
+                self.assertNotIn("Q" * 64, text)
+
+    def test_a_head_answer_key_and_value_together_are_never_echoed(self):
+        # The reviewer's exact reproduction: the needle as the key, bulk as the
+        # value, checked against the whole formatted traceback rather than str.
+        transport = FakeS3Transport(
+            head_override={SMUGGLED_CREDENTIAL: "Q" * 2048})
+        subject = store(transport)
+        with self.assertRaises(s3_object.ObjectStoreError) as caught:
+            subject.head(OBJECT_ID)
+        exc = caught.exception
+        blob = str(exc) + repr(exc) + "".join(
+            traceback.format_exception(type(exc), exc, exc.__traceback__))
+        self.assertNotIn("sk-A7bQ", blob)
+        self.assertNotIn("Q" * 64, blob)
+
+    def test_a_head_answer_with_non_string_keys_is_refused_not_crashed(self):
+        # A mixture of key types made the old ``sorted`` raise TypeError out of
+        # the adapter, which is a crash rather than a refusal (Spec S14).
+        for override in ({1: "value"}, {1: "a", "zzz": "b"},
+                         {(1, 2): "value", "size_bytes": 1},
+                         {None: "value"}):
+            with self.subTest(override=repr(override)[:32]):
+                transport = FakeS3Transport(head_override=override)
+                with self.assertRaises(s3_object.ObjectStoreError):
+                    store(transport).head(OBJECT_ID)
+
+    def test_the_count_of_unrecognised_fields_is_still_reported(self):
+        transport = FakeS3Transport(head_override={"alpha_key": "a",
+                                                   "beta_key": "b"})
+        text = refusal_text(store(transport).head, OBJECT_ID)
+        self.assertIn("2", text)
+
+    def test_a_transport_answer_type_name_is_not_echoed(self):
+        # The class name of a transport-controlled object is chosen by whoever
+        # controls the transport, and it was interpolated verbatim.
+        smuggled = type("sk_A7bQ" + "A7bQ" * 100, (), {})
+
+        for method in ("get", "head"):
+            with self.subTest(method=method):
+                transport = FakeS3Transport(returns={method: smuggled()})
+                text = refusal_text(getattr(store(transport), method), OBJECT_ID)
+                self.assertTrue(text)
+                self.assertNotIn("sk_A7bQ", text)
+                self.assertNotIn("A7bQA7bQ", text)
+
+
+class ReceiptFieldRedactionTests(unittest.TestCase):
+    """``ObjectReceipt`` is public, and its own refusals must not quote input.
+
+    ``__post_init__`` delegated two of its checks to ``manifest.py``, whose
+    checkers quote what they were given - which is exactly why ``_bounded``
+    swallows them everywhere else in this module.
+    """
+
+    def test_a_backend_id_refusal_quotes_nothing(self):
+        for value in (SMUGGLED_CREDENTIAL, "Q" * 2048, "AKIAIOSFODNN7EXAMPLE",
+                      None, 1, True, b"cloudflare_r2", object()):
+            with self.subTest(value=repr(value)[:24]):
+                text = refusal_text(s3_object.ObjectReceipt,
+                                    **receipt_fields(backend_id=value))
+                self.assertTrue(text, "an unregistered backend must be refused")
+                self.assertNotIn("sk-A7bQ", text)
+                self.assertNotIn("Q" * 64, text)
+                self.assertNotIn("AKIA", text)
+
+    def test_an_observed_at_refusal_quotes_nothing(self):
+        for value in (SMUGGLED_CREDENTIAL, "Q" * 2048, "AKIAIOSFODNN7EXAMPLE",
+                      None, 1, True, b"2026-09-18T00:00:00Z", object()):
+            with self.subTest(value=repr(value)[:24]):
+                text = refusal_text(s3_object.ObjectReceipt,
+                                    **receipt_fields(observed_at=value))
+                self.assertTrue(text, "a malformed instant must be refused")
+                self.assertNotIn("sk-A7bQ", text)
+                self.assertNotIn("Q" * 64, text)
+                self.assertNotIn("AKIA", text)
+
+    def test_every_receipt_field_refusal_is_redaction_safe(self):
+        for field in sorted(receipt_fields()):
+            for value in (SMUGGLED_CREDENTIAL, "Q" * 2048):
+                with self.subTest(field=field, value=value[:8]):
+                    text = refusal_text(s3_object.ObjectReceipt,
+                                        **receipt_fields(**{field: value}))
+                    self.assertNotIn("sk-A7bQ", text)
+                    self.assertNotIn("Q" * 64, text)
+
+    def test_the_injected_clocks_answer_is_never_echoed(self):
+        for value in (SMUGGLED_CREDENTIAL, "Q" * 2048, None, 1, object()):
+            with self.subTest(value=repr(value)[:24]):
+                subject = store(clock=lambda _v=value: _v)
+                text = refusal_text(subject.put, OBJECT_ID, PAYLOAD,
+                                    object_metadata())
+                self.assertTrue(text, "a clock that is not an instant is refused")
+                self.assertNotIn("sk-A7bQ", text)
+                self.assertNotIn("Q" * 64, text)
+
+    def test_a_clock_that_raises_is_still_refused_without_a_chain(self):
+        def explode():
+            raise RuntimeError(f"clock failure {SMUGGLED_CREDENTIAL}")
+
+        text = refusal_text(store(clock=explode).put, OBJECT_ID, PAYLOAD,
+                            object_metadata())
+        self.assertNotIn("sk-A7bQ", text)
+
+
+class MimeTypeContentTests(unittest.TestCase):
+    """``mime_type`` is free text, and length alone is not a content bound.
+
+    Every other free-text classifier in this lane goes through
+    ``validate_object_name``, which applies the bare-hex rule and the
+    credential-shape rule. A mime type went through neither, and a ``/`` is all
+    it takes to split a 256-bit key into two halves that each pass on their own.
+    """
+
+    def test_a_hex_run_is_refused_in_either_mime_part(self):
+        half = "deadbeef" * 7 + "deadbe"
+        subject = store()
+        for value in (f"{half}/{half}", f"{half}/octet-stream",
+                      f"application/{half}"):
+            with self.subTest(value=value[:24]):
+                with self.assertRaises(ValueError):
+                    subject.put(OBJECT_ID, PAYLOAD,
+                                object_metadata(mime_type=value))
+
+    def test_nothing_is_sent_when_the_mime_type_is_refused(self):
+        half = "deadbeef" * 7 + "deadbe"
+        transport = FakeS3Transport()
+        subject = store(transport)
+        with self.assertRaises(ValueError):
+            subject.put(OBJECT_ID, PAYLOAD,
+                        object_metadata(mime_type=f"{half}/{half}"))
+        self.assertEqual(transport.calls, [],
+                         "key material reached the ciphertext provider's own "
+                         "object tags, which is the one place Spec S22 says it "
+                         "must never be written")
+
+    def test_a_credential_shaped_mime_type_is_refused(self):
+        subject = store()
+        for value in ("application/" + "sk-" + "A" * 40,
+                      "application/AKIAIOSFODNN7EXAMPLE"):
+            with self.subTest(value=value[:24]):
+                with self.assertRaises(ValueError):
+                    subject.put(OBJECT_ID, PAYLOAD,
+                                object_metadata(mime_type=value))
+
+    def test_a_mime_type_refusal_quotes_nothing(self):
+        half = "deadbeef" * 7 + "deadbe"
+        text = refusal_text(store().put, OBJECT_ID, PAYLOAD,
+                            object_metadata(mime_type=f"{half}/{half}"))
+        self.assertNotIn(half, text)
+        self.assertNotIn("deadbeefdeadbeef", text)
+
+    def test_ordinary_mime_types_are_still_accepted(self):
+        subject = store()
+        for value in ("application/octet-stream", "text/plain",
+                      "application/json", "image/png",
+                      "application/vnd.api+json"):
+            with self.subTest(value=value):
+                receipt = subject.put(OBJECT_ID, PAYLOAD,
+                                      object_metadata(mime_type=value))
+                self.assertEqual(receipt.object_id, OBJECT_ID)
+
+
+class AbsentProviderAssertionTests(unittest.TestCase):
+    """An absent assertion is unknown, and unknown is not zero."""
+
+    def test_an_absent_size_stays_absent_rather_than_becoming_empty(self):
+        transport = FakeS3Transport(
+            head_override={"content_sha256": OBJECT_ID[len("obj_"):]})
+        receipt = store(transport).head(OBJECT_ID)
+        self.assertIsNone(receipt.size_bytes,
+                          "'the provider said nothing' is not 'the object is "
+                          "empty'; the content_sha256 two lines above is "
+                          "handled exactly this way")
+
+    def test_an_absent_size_is_not_agreement_with_a_real_object(self):
+        from AI_SKILL_LIBRARY.v4.storage import replication as replication_module
+        transport = FakeS3Transport(
+            head_override={"content_sha256": OBJECT_ID[len("obj_"):]})
+        receipt = store(transport).head(OBJECT_ID)
+        self.assertIs(replication_module.verify_copy(PAYLOAD, receipt), False)
+
+    def test_a_genuinely_empty_object_still_reports_zero(self):
+        empty = b""
+        empty_id = "obj_" + s3_object.content_digest(empty)
+        transport = FakeS3Transport(head_override={"size_bytes": 0,
+                                                   "content_sha256":
+                                                       s3_object.content_digest(empty)})
+        receipt = store(transport).head(empty_id)
+        self.assertEqual(receipt.size_bytes, 0)
+
+
+
 if __name__ == "__main__":
     unittest.main()

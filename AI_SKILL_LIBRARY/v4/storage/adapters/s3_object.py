@@ -190,9 +190,37 @@ _ATTACHABLE_FIELDS = (
 #: deliberate choice: a second, independently-written copy of "what a bounded
 #: classifier looks like" is a copy that will drift, and the looser of the two
 #: is the one that gets used.
+def _check_attached_mime_type(value, *, field):
+    """``metadata.py``'s mime bound, plus the content rules a pattern cannot make.
+
+    Every other free-text classifier in this lane reaches a provider through
+    ``validate_object_name``, which applies ``_HEX_TOKEN_RE`` and
+    ``assert_no_credential_material``. ``_MIME_RE`` applies neither, and its two
+    parts are 63 characters each: a 256-bit key in hex is 64 characters, and a
+    single ``/`` is all it takes to split one into two halves that would each be
+    refused on their own. Spec S22 names the ciphertext provider's own object
+    tags as the one place key material must never be written, so the content
+    rules are applied here, per part, at the boundary that writes them.
+    """
+    _metadata._RECORD_FIELD_CHECKS["mime_type"](value, field=field)
+    _manifest.assert_no_credential_material(value, where=field)
+    for part in value.split("/"):
+        if _manifest._HEX_TOKEN_RE.match(part):
+            raise ValueError(
+                f"{field} carries a bare hex run, which is indistinguishable "
+                "from key material wherever it appears; the run is not quoted "
+                "(Spec S21/S22)")
+        _manifest.assert_no_credential_material(part, where=field)
+
+
 OBJECT_METADATA_VALUE_CHECKS = {
     field: _metadata._RECORD_FIELD_CHECKS[field] for field in _ATTACHABLE_FIELDS
 }
+
+#: The one field whose ``metadata.py`` checker is not sufficient at this
+#: boundary. Overridden rather than replaced, so the schema bound still runs
+#: first and this can only ever be the stricter of the two.
+OBJECT_METADATA_VALUE_CHECKS["mime_type"] = _check_attached_mime_type
 
 #: The other half of the partition, with the reason attached. Together with the
 #: table above this covers every property of the manifest schema, and the tests
@@ -314,6 +342,40 @@ def _namable(field):
     return "'<redacted>'"
 
 
+#: The type names it is safe to print. ``type(answer).__name__`` reads a string
+#: chosen by whoever wrote the class, and on the far side of a transport that is
+#: whoever controls the transport: a class named with a credential puts one into
+#: every refusal that interpolates it. An allow-list of built-in names keeps the
+#: diagnostic without keeping the carrier.
+_NAMABLE_TYPES = frozenset((
+    "NoneType", "bool", "int", "float", "complex", "str", "bytes", "bytearray",
+    "memoryview", "list", "tuple", "dict", "set", "frozenset", "range",
+    "object", "function", "type", "generator",
+))
+
+
+def _type_name(value):
+    """The answer's type, when the type's name is one this module recognises."""
+    try:
+        name = type(value).__name__
+    except Exception:  # noqa: BLE001 - a type that will not name itself
+        return "<unrecognised type>"
+    if isinstance(name, str) and name in _NAMABLE_TYPES:
+        return name
+    return "<unrecognised type>"
+
+
+def _redacted(exception_type, message):
+    """Raise ``message`` with no chained context, whatever is being handled.
+
+    The bounded checkers borrowed from ``manifest.py`` and ``metadata.py`` quote
+    their input, which is right for a manifest built from repository data and
+    wrong at this boundary. ``from None`` is what keeps the quoted value out of
+    ``__context__``, which ``str(exc)`` hides and every traceback prints.
+    """
+    raise exception_type(message) from None
+
+
 def _refuse(field, reason):
     """Raise a refusal that names the field and never quotes the value.
 
@@ -371,7 +433,7 @@ class ObjectReceipt:
     object_id: str
     backend_id: str
     content_sha256: str | None
-    size_bytes: int
+    size_bytes: int | None
     observed_at: str
     digest_source: str
     verified: bool
@@ -382,18 +444,36 @@ class ObjectReceipt:
             raise ValueError(
                 "object_id must be 'obj_' followed by a lower-case SHA-256 "
                 "digest; identity in this mesh is the content and nothing else")
-        _manifest._check_backend(self.backend_id, role="backend_id")
+        try:
+            _manifest._check_backend(self.backend_id, role="backend_id")
+        except Exception:  # noqa: BLE001 - the text is discarded on purpose
+            _redacted(ValueError,
+                      "backend_id must be a backend the provider registry "
+                      "names. The value is deliberately not quoted: a receipt "
+                      "is public, a caller may build one from provider or "
+                      "config data, and a refusal that echoes its input is how "
+                      "a mistyped credential reaches a log (Spec S21/S22)")
         if self.content_sha256 is not None and (
                 not isinstance(self.content_sha256, str)
                 or not _manifest._SHA256_RE.match(self.content_sha256)):
             raise ValueError(
                 "content_sha256 must be a lower-case SHA-256 digest, or None "
                 "where the store asserted nothing at all")
-        if (not isinstance(self.size_bytes, int)
+        if self.size_bytes is not None and (
+                not isinstance(self.size_bytes, int)
                 or isinstance(self.size_bytes, bool)
                 or not 0 <= self.size_bytes <= MAX_OBJECT_BYTES):
-            raise ValueError("size_bytes must be a bounded, non-negative integer")
-        _manifest._check_timestamp(self.observed_at, field="observed_at")
+            raise ValueError(
+                "size_bytes must be a bounded, non-negative integer, or None "
+                "where the store asserted nothing at all. None is not zero: an "
+                "absent assertion is unknown, and unknown is not agreement")
+        try:
+            _manifest._check_timestamp(self.observed_at, field="observed_at")
+        except Exception:  # noqa: BLE001 - the text is discarded on purpose
+            _redacted(ValueError,
+                      "observed_at must be an RFC 3339 instant. The value is "
+                      "deliberately not quoted, for the same reason backend_id "
+                      "is not (Spec S21/S22)")
         if self.digest_source not in DIGEST_SOURCES:
             raise ValueError(f"digest_source must be one of {DIGEST_SOURCES}")
         if not isinstance(self.verified, bool):
@@ -788,7 +868,7 @@ class ObjectStore:
                 "missing one are opposite facts")
         if not isinstance(answer, (bytes, bytearray)) or isinstance(answer, bool):
             raise ObjectStoreError(
-                f"the transport returned {type(answer).__name__} where object "
+                f"the transport returned {_type_name(answer)} where object "
                 "bytes were expected; an unrecognised answer is not content")
         body = bytes(answer)
         if content_digest(body) != object_id[len(_manifest.OBJECT_ID_PREFIX):]:
@@ -812,23 +892,35 @@ class ObjectStore:
             return None
         if not isinstance(answer, Mapping):
             raise ObjectStoreError(
-                f"the transport returned {type(answer).__name__} where an "
+                f"the transport returned {_type_name(answer)} where an "
                 "object head was expected")
-        unknown = sorted(set(answer) - set(HEAD_FIELDS))
+        # The keys come from the far side of the transport, so they are named
+        # through ``_namable`` exactly as metadata keys are: "unrecognised
+        # field 'X'" that quotes X is the same leak as one that quotes a value,
+        # with the arguments the other way round. The count is reported because
+        # a count carries no payload. ``sorted`` runs over the rendered names
+        # rather than the keys themselves, since a mixture of key types makes
+        # sorting the keys raise - a crash where a refusal belongs (Spec S14).
+        unknown = [field for field in answer if field not in HEAD_FIELDS]
         if unknown:
+            named = ", ".join(sorted(_namable(field) for field in unknown))
             raise ObjectStoreError(
-                f"the head answer carries unrecognised field(s) {unknown}; a "
-                "row is not trustworthy for having been found, and an "
-                "unrecognised key is refused rather than ignored")
+                f"the head answer carries {len(unknown)} unrecognised "
+                f"field(s) {named}; a row is not trustworthy for having been "
+                "found, and an unrecognised key is refused rather than ignored")
         digest = answer.get("content_sha256")
         if digest is not None and (not isinstance(digest, str)
                                    or not _manifest._SHA256_RE.match(digest)):
             raise ObjectStoreError(
                 "the head answer's content_sha256 is not a SHA-256 digest")
+        # An absent size stays absent. Coercing it to 0 turns "the provider
+        # said nothing" into "the object is empty", which is the one place an
+        # absent provider assertion was defaulted rather than carried through as
+        # unknown - and unknown is not agreement. ``content_sha256`` two lines
+        # above is handled exactly this way.
         size = answer.get("size_bytes")
-        if size is None:
-            size = 0
-        if (not isinstance(size, int) or isinstance(size, bool)
+        if size is not None and (
+                not isinstance(size, int) or isinstance(size, bool)
                 or not 0 <= size <= MAX_OBJECT_BYTES):
             raise ObjectStoreError(
                 "the head answer's size_bytes is not a bounded, non-negative "
@@ -867,7 +959,13 @@ class ObjectStore:
         except Exception:  # noqa: BLE001 - a clock is an input, not a permission
             raise ObjectStoreError("the injected clock did not return an "
                                    "instant") from None
-        _manifest._check_timestamp(value, field="observed_at")
+        try:
+            _manifest._check_timestamp(value, field="observed_at")
+        except Exception:  # noqa: BLE001 - the text is discarded on purpose
+            _redacted(ObjectStoreError,
+                      "the injected clock did not return an RFC 3339 instant. "
+                      "Its answer is deliberately not quoted: a clock is an "
+                      "injected input like any other (Spec S21/S22)")
         return value
 
 

@@ -499,3 +499,55 @@ Task 5 binds private names in sibling modules (`metadata._RECORD_FIELD_CHECKS`,
 That is the pattern `metadata.py` blesses - a second copy is a copy that will drift - but
 those modules were being edited concurrently while Task 5 was written. The follow-up owed
 against `manifest.py` should export these under public names.
+
+| 5 | done | 9fcbc309 | subagent | 163 focused / 717 storage | review: 9 findings, 5 MAJOR | 1 | The one behaviour held under ~60 attacks. The count did not. |
+
+## Task 5 review — the delete gate held; the arithmetic behind it did not
+The reviewer drove `rebalance_object` through roughly sixty failure shapes and could not
+make it delete before verification. That part of the design is sound. Two findings behind
+it were not.
+
+**A CRITICAL object could end with one verified copy.** Step 7 read
+`copies_after_delete = len(holders_after - {source_backend})` - set arithmetic over what
+the *manifest claims*, when only the destination had actually been read back and
+head-checked. A record naming a replica that no longer exists still satisfied the count and
+the source was deleted. Spec S8 wants two independent copies; S15 step 7 says "verify final
+replica count", and this verified a number rather than a copy. Now `_confirmed_holders`
+probes each other claimed holder through an injected `holder_stores` mapping and confirms
+only when the store is real, answers for that exact backend, and asserts the same digest
+**and** the same length. `RebalanceResult.verified_copies` records what was confirmed
+instead of what was claimed.
+
+**The default call deleted with no recovery pointer.** `if checkpoint is not None:` meant a
+plain `rebalance_object(oid, src, dst, index)` went from metadata registration straight to
+delete, skipping S15 step 5 entirely. The previous implementer disclosed this accurately -
+and accurate disclosure is not conformance when the *default* path is the non-conformant
+one. A missing checkpoint now caps the outcome at COPIED_SOURCE_RETAINED.
+
+Also closed: the module raised KeyError/TypeError on a malformed index record while its own
+docstring promised it does not raise (the tests only ever used the validating fake); a
+provider-supplied `head` *key* was echoed verbatim into an exception, repr and traceback;
+`ObjectReceipt` called manifest's checkers raw, and those checkers quote their input, which
+is precisely why `_bounded` swallows them everywhere else.
+
+**The mime_type finding is the one to remember.** `mime_type` was bounded by length but not
+by content, so `"deadbeef"*7+"deadbe"` on each side of the `/` - a 256-bit key in hex, twice
+over - was accepted and written to the ciphertext provider's own object tags, the single
+place S22 says key material must never go. Each half alone would have been refused as a
+bucket or object name. The `/` was all it took to get past the credential scan. Fixed at
+this boundary only, since metadata.py was out of scope.
+
+### Controller verification
+717 storage tests green. Exactly one `source.delete`, still the last statement of the last
+branch. The claim-counting expression is gone from the source; `_confirmed_holders` is
+present; `verified_copies` is on the result; `checkpoint is None` caps at
+COPIED_SOURCE_RETAINED.
+
+### Two consequences worth the owner knowing
+1. **`holder_stores` is now a caller obligation.** A caller who does not supply the other
+   holders' stores gets COPIED_SOURCE_RETAINED for any class owed more than one copy, so a
+   CRITICAL object never moves unless the caller wires them in. That is the fail-closed
+   direction and there is no caller in the repo yet, but it is a real interface burden.
+2. **`ObjectReceipt.size_bytes` widened to `int | None`.** A `head` that asserted nothing
+   now carries None rather than being coerced to 0 - "the provider said nothing" is not
+   "the object is empty". Both consumers treat None as not-agreement.

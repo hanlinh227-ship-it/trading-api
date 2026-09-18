@@ -180,6 +180,24 @@ def receipt_for(payload=PAYLOAD, **overrides):
     return s3_object.ObjectReceipt(**fields)
 
 
+def accept(pointer):
+    """A recovery pointer sink that acknowledges. Spec S15 step 5.
+
+    A delete now requires one. The default call - no checkpoint - is a copy,
+    because a move GitHub holds no pointer to is a move a rebuild cannot follow
+    and Supabase must not be the only record of it (Spec S18/S23).
+    """
+    return True
+
+
+def holder_store(backend_id, *, holds=True, **kwargs):
+    """A third backend that claims-and-really-holds, or claims and does not."""
+    transport = FakeS3Transport(**kwargs)
+    if holds:
+        transport.objects[OBJECT_ID] = (PAYLOAD, {})
+    return object_store(backend_id, transport)
+
+
 HOSTILE = (SMUGGLED_CREDENTIAL, "A" * 300, "", None, -1, 10 ** 30, True,
            False, 1.5, 2, [], {}, (), b"bytes", bytearray(b"bytes"),
            memoryview(b"bytes"), object(), "unexpected", set())
@@ -408,7 +426,7 @@ class RebalanceNeverDeletesFirstTests(unittest.TestCase):
         source, destination, index = mesh(
             source_kwargs={"raise_on": ("delete",)})
         result = replication.rebalance_object(OBJECT_ID, source, destination,
-                                              index)
+                                              index, checkpoint=accept)
         self.assertEqual(result.status, "DELETE_FAILED")
         self.assertIs(result.source_deleted, False)
         self.assertIs(result.destination_verified, True)
@@ -503,7 +521,7 @@ class RebalanceMetadataGateTests(unittest.TestCase):
         log = []
         source, destination, index = mesh(log=log)
         result = replication.rebalance_object(OBJECT_ID, source, destination,
-                                              index)
+                                              index, checkpoint=accept)
         self.assertEqual(result.status, "MOVED")
         first_registration = index.writes[0]
         self.assertIn(DESTINATION_BACKEND,
@@ -519,7 +537,7 @@ class RebalanceSuccessTests(unittest.TestCase):
     def test_a_verified_move_completes(self):
         source, destination, index = mesh()
         result = replication.rebalance_object(OBJECT_ID, source, destination,
-                                              index)
+                                              index, checkpoint=accept)
         self.assertEqual(result.status, "MOVED")
         self.assertIs(result.source_deleted, True)
         self.assertIs(result.destination_verified, True)
@@ -549,13 +567,20 @@ class RebalanceSuccessTests(unittest.TestCase):
         self.assertEqual(holders(index),
                          {SOURCE_BACKEND, DESTINATION_BACKEND})
 
-    def test_a_critical_object_with_another_replica_may_move(self):
+    def test_a_critical_object_with_a_confirmed_replica_may_move(self):
+        # The other holder is *probed*, not counted. Its store is supplied, it
+        # answers head with the right digest and length, and only then does the
+        # source become removable.
         source, destination, index = mesh(
             records=[record("CRITICAL", replica_backends=("oracle_object_storage",))])
-        result = replication.rebalance_object(OBJECT_ID, source, destination,
-                                              index)
+        result = replication.rebalance_object(
+            OBJECT_ID, source, destination, index, checkpoint=accept,
+            holder_stores={"oracle_object_storage":
+                           holder_store("oracle_object_storage")})
         self.assertEqual(result.status, "MOVED")
         self.assertEqual(holders(index),
+                         {DESTINATION_BACKEND, "oracle_object_storage"})
+        self.assertEqual(set(result.verified_copies),
                          {DESTINATION_BACKEND, "oracle_object_storage"})
 
     def test_the_caller_may_forbid_deleting_the_source(self):
@@ -736,6 +761,271 @@ class RebalanceLeakTests(unittest.TestCase):
         # above; assert it still describes the same object so a change there
         # fails here rather than silently weakening the comparison.
         self.assertEqual(object_metadata()["content_sha256"], DIGEST)
+
+
+class RecoveryPointerRequiredTests(unittest.TestCase):
+    """Spec S15 step 5 is not optional before step 6.
+
+    The module's own docstring calls the ordering "the whole of it", and step 5
+    is persisting the recovery pointer. Spec S18 is explicit that Supabase must
+    not be a single point of failure, and the GitHub pointer is what survives a
+    Supabase outage - so the *default* call, the one with no checkpoint, is a
+    copy and not a move.
+    """
+
+    def test_the_default_call_does_not_delete(self):
+        source, destination, index = mesh()
+        result = replication.rebalance_object(OBJECT_ID, source, destination,
+                                              index)
+        self.assertEqual(result.status, "COPIED_SOURCE_RETAINED")
+        self.assertIs(result.source_deleted, False)
+        self.assertIs(result.destination_verified, True)
+        self.assertEqual(source._transport.deleted, [])
+        self.assertEqual(source.get(OBJECT_ID), PAYLOAD)
+        self.assertEqual(destination.get(OBJECT_ID), PAYLOAD)
+
+    def test_the_detail_names_the_missing_pointer(self):
+        source, destination, index = mesh()
+        result = replication.rebalance_object(OBJECT_ID, source, destination,
+                                              index)
+        self.assertIn("recovery pointer", result.detail)
+
+    def test_both_copies_are_registered_without_a_pointer(self):
+        source, destination, index = mesh()
+        replication.rebalance_object(OBJECT_ID, source, destination, index)
+        self.assertEqual(holders(index), {SOURCE_BACKEND, DESTINATION_BACKEND})
+
+    def test_a_copy_is_always_allowed_without_a_pointer(self):
+        source, destination, index = mesh()
+        result = replication.rebalance_object(OBJECT_ID, source, destination,
+                                              index, delete_source=False)
+        self.assertEqual(result.status, "COPIED_SOURCE_RETAINED")
+        self.assertEqual(destination.get(OBJECT_ID), PAYLOAD)
+
+    def test_the_pointer_is_what_unlocks_the_delete(self):
+        source, destination, index = mesh()
+        result = replication.rebalance_object(OBJECT_ID, source, destination,
+                                              index, checkpoint=accept)
+        self.assertEqual(result.status, "MOVED")
+        self.assertEqual(source._transport.deleted, [OBJECT_ID])
+
+
+class VerifiedReplicaCountTests(unittest.TestCase):
+    """Spec S15 step 7 verifies *copies*, not a number.
+
+    ``len(holders_after - {source})`` counts the backends the manifest claims.
+    Only the destination was ever read back and head-checked, so a record naming
+    a replica that no longer exists reached the requirement on paper and the
+    source was deleted - leaving a CRITICAL object with exactly one copy
+    anybody had verified, against Spec S8's two independent providers.
+    """
+
+    def _critical(self, **kwargs):
+        return mesh(records=[record(
+            "CRITICAL", replica_backends=("oracle_object_storage",))], **kwargs)
+
+    def test_a_claimed_holder_that_is_never_probed_does_not_count(self):
+        source, destination, index = self._critical()
+        result = replication.rebalance_object(OBJECT_ID, source, destination,
+                                              index, checkpoint=accept)
+        self.assertEqual(result.status, "COPIED_SOURCE_RETAINED")
+        self.assertIs(result.source_deleted, False)
+        self.assertEqual(source._transport.deleted, [])
+        self.assertEqual(source.get(OBJECT_ID), PAYLOAD)
+        self.assertEqual(tuple(result.verified_copies), (DESTINATION_BACKEND,))
+
+    def test_the_detail_says_an_unsupplied_store_cannot_be_confirmed(self):
+        source, destination, index = self._critical()
+        result = replication.rebalance_object(OBJECT_ID, source, destination,
+                                              index, checkpoint=accept)
+        self.assertIn("not supplied", result.detail)
+
+    def test_a_claimed_holder_that_denies_holding_it_does_not_count(self):
+        source, destination, index = self._critical()
+        result = replication.rebalance_object(
+            OBJECT_ID, source, destination, index, checkpoint=accept,
+            holder_stores={"oracle_object_storage":
+                           holder_store("oracle_object_storage", holds=False)})
+        self.assertEqual(result.status, "COPIED_SOURCE_RETAINED")
+        self.assertEqual(source._transport.deleted, [])
+        self.assertEqual(tuple(result.verified_copies), (DESTINATION_BACKEND,))
+
+    def test_a_claimed_holder_whose_head_disagrees_does_not_count(self):
+        source, destination, index = self._critical()
+        result = replication.rebalance_object(
+            OBJECT_ID, source, destination, index, checkpoint=accept,
+            holder_stores={"oracle_object_storage": holder_store(
+                "oracle_object_storage",
+                head_override={"size_bytes": 1, "content_sha256": "c" * 64})})
+        self.assertEqual(result.status, "COPIED_SOURCE_RETAINED")
+        self.assertEqual(source._transport.deleted, [])
+
+    def test_a_claimed_holder_asserting_no_digest_does_not_count(self):
+        source, destination, index = self._critical()
+        result = replication.rebalance_object(
+            OBJECT_ID, source, destination, index, checkpoint=accept,
+            holder_stores={"oracle_object_storage": holder_store(
+                "oracle_object_storage",
+                head_override={"size_bytes": len(PAYLOAD)})})
+        self.assertEqual(result.status, "COPIED_SOURCE_RETAINED")
+        self.assertEqual(source._transport.deleted, [])
+
+    def test_a_claimed_holder_that_cannot_be_reached_does_not_count(self):
+        source, destination, index = self._critical()
+        result = replication.rebalance_object(
+            OBJECT_ID, source, destination, index, checkpoint=accept,
+            holder_stores={"oracle_object_storage": holder_store(
+                "oracle_object_storage", raise_on=("head",))})
+        self.assertEqual(result.status, "COPIED_SOURCE_RETAINED")
+        self.assertEqual(source._transport.deleted, [])
+
+    def test_a_store_filed_under_another_backends_name_does_not_count(self):
+        # The mapping is the caller's, and a store answering for a backend it
+        # is not is a confirmation of the wrong provider (Spec S8 independence).
+        source, destination, index = self._critical()
+        result = replication.rebalance_object(
+            OBJECT_ID, source, destination, index, checkpoint=accept,
+            holder_stores={"oracle_object_storage":
+                           holder_store(DESTINATION_BACKEND)})
+        self.assertEqual(result.status, "COPIED_SOURCE_RETAINED")
+        self.assertEqual(source._transport.deleted, [])
+
+    def test_a_duck_typed_holder_store_does_not_count(self):
+        class LooksLikeOne:
+            backend_id = "oracle_object_storage"
+
+            def head(self, object_id):
+                return True
+
+        source, destination, index = self._critical()
+        result = replication.rebalance_object(
+            OBJECT_ID, source, destination, index, checkpoint=accept,
+            holder_stores={"oracle_object_storage": LooksLikeOne()})
+        self.assertEqual(result.status, "COPIED_SOURCE_RETAINED")
+        self.assertEqual(source._transport.deleted, [])
+
+    def test_a_confirmed_holder_counts_and_the_move_completes(self):
+        source, destination, index = self._critical()
+        result = replication.rebalance_object(
+            OBJECT_ID, source, destination, index, checkpoint=accept,
+            holder_stores={"oracle_object_storage":
+                           holder_store("oracle_object_storage")})
+        self.assertEqual(result.status, "MOVED")
+        self.assertIs(result.source_deleted, True)
+        self.assertEqual(set(result.verified_copies),
+                         {DESTINATION_BACKEND, "oracle_object_storage"})
+
+    def test_a_hostile_holder_stores_argument_is_refused(self):
+        for value in HOSTILE:
+            if value is None:
+                continue
+            with self.subTest(value=repr(value)[:24]):
+                source, destination, index = mesh()
+                result = replication.rebalance_object(
+                    OBJECT_ID, source, destination, index,
+                    holder_stores=value)
+                self.assertIn(result.status, replication.REBALANCE_STATUSES)
+                self.assertIs(result.source_deleted, False)
+                self.assertEqual(source._transport.deleted, [])
+
+    def test_a_single_copy_class_needs_no_other_holder(self):
+        # IMPORTANT is owed one copy, the destination is that copy, and it was
+        # verified here rather than counted.
+        source, destination, index = mesh()
+        result = replication.rebalance_object(OBJECT_ID, source, destination,
+                                              index, checkpoint=accept)
+        self.assertEqual(result.status, "MOVED")
+        self.assertEqual(tuple(result.verified_copies), (DESTINATION_BACKEND,))
+
+    def test_verified_copies_never_include_the_deleted_source(self):
+        source, destination, index = mesh()
+        result = replication.rebalance_object(OBJECT_ID, source, destination,
+                                              index, checkpoint=accept)
+        self.assertNotIn(SOURCE_BACKEND, result.verified_copies)
+
+
+class MalformedIndexRecordTests(unittest.TestCase):
+    """The docstring promises it does not raise. The index answer was unguarded.
+
+    ``can_perform_destructive_lifecycle`` only requires a ``MetadataStore``, and
+    any subclass - a caching layer, a partial-record fast path - can answer with
+    something ``validate_metadata_record`` never saw. The two field extractions
+    that followed were the only statements in the function without a guard.
+    """
+
+    class UnvalidatedIndex(FakeMetadataStore):
+        """A real MetadataStore whose read path is overridden, as a cache's is."""
+
+        def __init__(self, answer, **kwargs):
+            super().__init__(records=[record()], **kwargs)
+            self.answer = answer
+
+        def get_manifest(self, object_id):
+            return self.answer
+
+    def _answers(self):
+        good = record()
+        without_primary = {key: value for key, value in good.items()
+                           if key != "primary_backend"}
+        without_replicas = {key: value for key, value in good.items()
+                            if key != "replica_backends"}
+        without_criticality = {key: value for key, value in good.items()
+                               if key != "criticality"}
+        return {
+            "missing primary_backend": without_primary,
+            "missing replica_backends": without_replicas,
+            "missing criticality": without_criticality,
+            "null replica_backends": dict(good, replica_backends=None),
+            "string replica_backends": dict(good, replica_backends="r2"),
+            "unhashable replica entry": dict(good, replica_backends=[["r2"]]),
+            "non-string replica entry": dict(good, replica_backends=[1, 2, 3]),
+            "non-string primary": dict(good, primary_backend=1),
+            "a list": [1, 2, 3],
+            "bytes": b"not a record",
+            "an object": object(),
+            "a string": "not a record",
+            "an integer": 7,
+            "a needle": SMUGGLED_CREDENTIAL,
+        }
+
+    def test_a_non_validated_record_returns_rather_than_raises(self):
+        for label, answer in self._answers().items():
+            with self.subTest(answer=label):
+                source, destination, _ = mesh()
+                index = self.UnvalidatedIndex(answer)
+                result = replication.rebalance_object(OBJECT_ID, source,
+                                                      destination, index,
+                                                      checkpoint=accept)
+                self.assertIn(result.status, replication.REBALANCE_STATUSES)
+                self.assertIs(result.source_deleted, False)
+                self.assertEqual(source._transport.deleted, [])
+                self.assertEqual(source.get(OBJECT_ID), PAYLOAD)
+
+    def test_a_shape_it_cannot_read_blocks_on_metadata_uncertainty(self):
+        for label, answer in self._answers().items():
+            with self.subTest(answer=label):
+                source, destination, _ = mesh()
+                index = self.UnvalidatedIndex(answer)
+                result = replication.rebalance_object(OBJECT_ID, source,
+                                                      destination, index,
+                                                      checkpoint=accept)
+                self.assertEqual(result.status, "BLOCKED_METADATA_UNCERTAIN")
+
+    def test_nothing_is_copied_on_a_record_it_cannot_read(self):
+        source, destination, _ = mesh()
+        index = self.UnvalidatedIndex(object())
+        replication.rebalance_object(OBJECT_ID, source, destination, index,
+                                     checkpoint=accept)
+        self.assertEqual(destination._transport.calls, [])
+
+    def test_a_malformed_record_is_never_echoed_into_the_result(self):
+        source, destination, _ = mesh()
+        index = self.UnvalidatedIndex({"primary_backend": SMUGGLED_CREDENTIAL})
+        result = replication.rebalance_object(OBJECT_ID, source, destination,
+                                              index, checkpoint=accept)
+        blob = json.dumps(result.as_dict(), default=repr) + repr(result)
+        self.assertNotIn("sk-A7bQ", blob)
+
 
 
 if __name__ == "__main__":
