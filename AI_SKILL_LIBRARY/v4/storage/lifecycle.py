@@ -99,6 +99,13 @@ MAX_PROVIDERS = 256
 MAX_ACTIONS = 4096
 MAX_ACTION_BYTES = 1024
 
+#: Surviving backends named in a DELETE's evidence. The survivor list is now
+#: registry-bounded, but a *sample* beside a count is what keeps the action's
+#: size a property of this module rather than of the registry's length: a
+#: destructive proposal silently dropped by ``_bounded`` for being verbose is
+#: indistinguishable, to the caller, from one that was never made.
+MAX_EVIDENCE_BACKENDS = 8
+
 #: Object classes whose growth Spec S14 step 2 answers with compaction rather
 #: than with deletion. A closed vocabulary: "compact whatever looks like a log"
 #: is how a benchmark bundle gets aggregated into a rate.
@@ -129,6 +136,14 @@ ACTION_KINDS = (
     "ENTER_DEGRADED_READ_ONLY",
     # Not one of the eight: the answer when a record cannot be read at all.
     "HOLD_UNCERTAIN_RECORD",
+    # Also not one of the eight. A step that raised is not a step that is
+    # exhausted, and a caller that cannot tell those apart will read an
+    # exception as "nothing to do here".
+    "HOLD_STEP_NOT_EVALUATED",
+    # ...and a destructive step held back by ``destructive_allowed`` is blocked,
+    # not finished. Non-destructive by construction: it names what *would* have
+    # been proposed had the evidence been there, and proposes nothing.
+    "HOLD_DESTRUCTIVE_STEP_GATED",
 )
 
 DESTRUCTIVE_KINDS = frozenset({"DELETE"})
@@ -145,6 +160,8 @@ REASONS = (
     "EMERGENCY_RESERVE_FOR_CRITICAL",
     "NO_SAFE_FREE_CAPACITY_REMAINS",
     "MALFORMED_RECORD",
+    "STEP_EVALUATION_FAILED",
+    "DESTRUCTIVE_AUTHORIZATION_ABSENT",
 )
 
 
@@ -187,6 +204,43 @@ def _never_capacity_deleted():
 
 
 NEVER_CAPACITY_DELETED = _never_capacity_deleted()
+
+
+def _registered_backends():
+    """The provider registry's ids, resolved once, like the policy above.
+
+    ``policy.yaml`` ``backend_identity`` says ``unresolvable_backend: REJECT``
+    and ``unadmitted_backend: REJECT``. A record's own backends already go
+    through that gate; ``confirmed_copies`` did not, and was admitted on shape
+    alone - the regex in ``capacity.is_provider_id``. That made it the looser of
+    the two statements of "what a backend is", and the looser of the two is the
+    one a deletion gets to use: survivors were counted from the whole confirmed
+    set while only registry-backed ids were deletion targets, so an id resolving
+    to no registry row could not be deleted but could authorise deleting one
+    that could.
+
+    An unreadable registry resolves to the empty set, which stops every
+    deletion. Registry membership is not admission - a row here is not a
+    provider anybody may write to - but a *non-member* is not a copy of
+    anything, and counting one as a survivor is counting a copy nobody holds.
+    """
+    try:
+        rows = _mesh_validator.load_providers()
+    except Exception:  # noqa: BLE001 - an unreadable registry is not permission
+        return frozenset()
+    names = set()
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        name = row.get("provider_id")
+        if _capacity.is_provider_id(name):
+            names.add(name)
+    return frozenset(names)
+
+
+#: Resolved at import, beside ``NEVER_CAPACITY_DELETED`` and for the same
+#: reasons: one read, no I/O while deciding, and a name a test can substitute.
+REGISTERED_BACKENDS = _registered_backends()
 
 
 # --- the structural guard ------------------------------------------------------
@@ -383,12 +437,26 @@ def _confirmed(confirmed_copies):
     string is refused even though it is a Sequence: ``"cloudflare_r2"`` iterated
     one character at a time would "confirm" thirteen copies that do not exist,
     which is the most expensive way this could be wrong.
+
+    A name must pass **both** gates. ``capacity.is_provider_id`` is the cheap
+    first one and is a statement about *shape*; resolving the name against
+    ``REGISTERED_BACKENDS`` is the second, and is the statement the record's own
+    backends already have to make. An id that resolves to no registry row is not
+    a copy of anything: counting it as a survivor is how a deletion of the last
+    real copy gets authorised by a copy that does not exist.
+
+    Both dimensions are bounded, because this table feeds a destructive
+    proposal's evidence and an unbounded evidence field is an unbounded field in
+    the one structure that gets logged.
     """
     if not isinstance(confirmed_copies, Mapping):
         return {}
+    registry = REGISTERED_BACKENDS
+    if not registry:  # an unreadable or empty registry confirms nothing
+        return {}
     table = {}
     try:
-        items = list(confirmed_copies.items())
+        items = list(confirmed_copies.items())[:MAX_OBJECTS]
     except Exception:  # noqa: BLE001 - an unusable mapping confirms nothing
         return {}
     for object_id, backends in items:
@@ -398,10 +466,21 @@ def _confirmed(confirmed_copies):
             continue
         if not isinstance(backends, (Sequence, Set)):
             continue
-        names = {name for name in backends if isinstance(name, str)
-                 and _capacity.is_provider_id(name)}
+        try:
+            # Refused, not truncated. A holder list longer than the registry
+            # itself is not evidence about one object, and silently keeping the
+            # first ``MAX_PROVIDERS`` of it would be this module choosing which
+            # confirmations to believe.
+            if len(backends) > MAX_PROVIDERS:
+                continue
+            names = {name for name in backends
+                     if isinstance(name, str)
+                     and _capacity.is_provider_id(name)
+                     and name in registry}
+        except Exception:  # noqa: BLE001 - an unusable collection confirms nothing
+            continue
         if names:
-            table[object_id] = frozenset(names)
+            table[object_id] = frozenset(sorted(names)[:MAX_PROVIDERS])
     return table
 
 
@@ -419,6 +498,12 @@ class _Context:
     destructive_allowed: bool
     confirmed: Mapping
     clock: object
+
+    #: Deliberately mutable, and deliberately not part of the gate. A step that
+    #: was blocked by ``destructive_allowed`` records the fact here; the loop's
+    #: "first step with anything to propose" decision is made on real proposals
+    #: only, so a marker can never promote or suppress a step.
+    gated: list = dataclasses.field(default_factory=list)
 
 
 # --- the shared destructive gate ------------------------------------------------
@@ -449,7 +534,7 @@ def _delete_proposals(ctx, record, *, step, reason):
     significant to the reader, which is why the cheapest refusals are stated
     first.
     """
-    if not ctx.destructive_allowed:
+    if ctx.clock is None:
         return []
     criticality = record["criticality"]
     if criticality in NEVER_CAPACITY_DELETED:
@@ -478,6 +563,24 @@ def _delete_proposals(ctx, record, *, step, reason):
     # forgotten still counts as a survivor, while a proposal to remove one would
     # be this module acting on a holder nothing in the mesh has registered.
     targets = confirmed & {record["primary_backend"], *record["replica_backends"]}
+    if not targets:
+        return []
+
+    # The authorisation gate is deliberately last. Everything above is a fact
+    # about the object; this is a fact about the caller's evidence, and holding
+    # it here is what lets a *blocked* step be distinguished from a finished
+    # one. The marker goes to a sink rather than into the return value, so the
+    # ordered gates still turn on real proposals only.
+    if not ctx.destructive_allowed:
+        ctx.gated.append(Action(
+            step=step, kind="HOLD_DESTRUCTIVE_STEP_GATED",
+            object_id=record["object_id"], provider_id=None,
+            reason="DESTRUCTIVE_AUTHORIZATION_ABSENT",
+            destructive=False, requires_authorization=False,
+            evidence={"criticality": criticality,
+                      "candidate_backend_count": len(targets)},
+        ))
+        return []
 
     required = _survivors_required(criticality)
     remaining = set(confirmed)
@@ -498,7 +601,14 @@ def _delete_proposals(ctx, record, *, step, reason):
             evidence={
                 "criticality": criticality,
                 "required_confirmed_copies": required,
-                "surviving_confirmed_copies": sorted(survivors),
+                # A bounded sample beside the count it was drawn from. The count
+                # is the fact the gate turned on; the sample is for the reader,
+                # and naming all of them would let a long registry push a
+                # destructive proposal past ``MAX_ACTION_BYTES`` and out of the
+                # list without anybody being told.
+                "surviving_confirmed_copy_count": len(survivors),
+                "surviving_confirmed_copies":
+                    sorted(survivors)[:MAX_EVIDENCE_BACKENDS],
             },
         ))
     return proposals
@@ -509,6 +619,8 @@ def _delete_proposals(ctx, record, *, step, reason):
 
 def _step_1_expire_ephemeral(ctx):
     """1. expire EPHEMERAL data."""
+    if ctx.clock is None:
+        return []
     out = []
     for record in ctx.records:
         if record["criticality"] != "EPHEMERAL":
@@ -738,8 +850,11 @@ def lifecycle_actions(objects, provider_states, *, now=None,
     head-verified - because this function cannot look and will not count a claim
     as a copy.
 
-    Without all three, no ``DELETE`` is ever proposed. That is not caution for
-    its own sake: an absent fact is never permission.
+    ``now`` is not one of the gates: it defaults to the current instant, so
+    omitting it does not by itself stop a ``DELETE`` - only an instant that will
+    not *parse* does. ``metadata_store`` and ``confirmed_copies`` are the gates,
+    and without either of them no ``DELETE`` is ever proposed. That is not
+    caution for its own sake: for those two, an absent fact is never permission.
     """
     try:
         records, held = _records(objects)
@@ -786,14 +901,31 @@ def lifecycle_actions(objects, provider_states, *, now=None,
         # that proposes: a later step never runs before an earlier one is
         # exhausted, and pressure is part of a step's trigger rather than part
         # of any comparison between steps.
-        for _number, _name, step in PRESSURE_STEPS:
+        # A step that raised is not a step that is exhausted. Swallowing the
+        # exception and carrying on promotes the *next* step - possibly the
+        # destructive step 3 - on the strength of a failure, which is the one
+        # way an ordered gate can be reordered without anybody editing the
+        # tuple. The loop stops instead, and says so.
+        for number, _name, step in PRESSURE_STEPS:
             try:
                 proposed = list(step(ctx))
             except Exception:  # noqa: BLE001 - degrade, never crash (Spec S14)
-                proposed = []
+                actions.append(Action(
+                    step=number, kind="HOLD_STEP_NOT_EVALUATED",
+                    object_id=None, provider_id=None,
+                    reason="STEP_EVALUATION_FAILED",
+                    destructive=False, requires_authorization=False,
+                    evidence={"step": number},
+                ))
+                break
             if proposed:
                 actions.extend(proposed)
                 break
+
+        # Markers for destructive steps that were blocked rather than finished.
+        # Appended after the loop so they take no part in the gate: a blocked
+        # step neither proposes nor suppresses.
+        actions.extend(ctx.gated)
 
         criticalities = {record["object_id"]: record["criticality"]
                          for record in records}
@@ -808,9 +940,14 @@ def _bounded(actions):
     """Cap the list, and drop anything that grew a way to hold bulk.
 
     Every field of an ``Action`` is drawn from a closed vocabulary, a validated
-    object id, a validated provider id or a small integer, so this bound is
-    unreachable by a well-formed proposal and is meant to stay that way. It is
-    here so that a field added later with a careless value cannot turn a
+    object id, a validated provider id, a small integer, or a list bounded by
+    ``MAX_EVIDENCE_BACKENDS``. The bound was once described here as unreachable
+    by a well-formed proposal, and it was not: ``surviving_confirmed_copies``
+    was an unbounded ``sorted(survivors)``, so a long enough confirmed set made
+    a *destructive* proposal oversized and this function dropped it in silence.
+    Silently discarding a destructive proposal is not the same as refusing one,
+    so the evidence is bounded at its source now and this is the last resort it
+    was meant to be: a field added later with a careless value cannot turn a
     proposal into a payload slot.
     """
     out = []
@@ -831,6 +968,7 @@ __all__ = [
     "MAX_PROVIDERS", "MAX_ACTIONS", "MAX_ACTION_BYTES", "ACTION_KINDS",
     "DESTRUCTIVE_KINDS", "REASONS", "NEVER_CAPACITY_DELETED",
     "TELEMETRY_OBJECT_CLASSES", "COMPACTABLE_STATES", "COMPRESSIBLE_STATES",
-    "IMMOVABLE_TIERS", "DECISION_VALUE_CHECKS", "DECISION_FIELDS",
+    "IMMOVABLE_TIERS", "REGISTERED_BACKENDS", "MAX_EVIDENCE_BACKENDS",
+    "DECISION_VALUE_CHECKS", "DECISION_FIELDS",
     "IGNORED_MANIFEST_FIELDS", "PRESSURE_STEPS", "Action", "lifecycle_actions",
 ]

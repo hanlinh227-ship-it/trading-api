@@ -119,6 +119,22 @@ def deletes(actions):
     return [action for action in actions if action.kind == "DELETE"]
 
 
+def bulk_backends():
+    """Every registered backend a bulk object may actually name.
+
+    ``supabase`` is a metadata and index backend: naming it forces the METADATA
+    tier (Spec S18/S25), so a fixture that sweeps "the whole registry" has to
+    leave it out or it is testing the manifest's tier rule instead of the thing
+    it meant to test. Read from the registry's own
+    ``bulk_object_backend_allowed`` rather than spelled as a name here, so that
+    a second metadata-only backend added later does not quietly turn these
+    tests into tier-rule tests.
+    """
+    allowed = {row["provider_id"] for row in mesh_validator.load_providers()
+               if row.get("bulk_object_backend_allowed") is True}
+    return sorted(set(lifecycle.REGISTERED_BACKENDS) & allowed)
+
+
 class AuthorityTests(unittest.TestCase):
     """Spec S2. A subordinate subsystem that proposes and never decides."""
 
@@ -678,6 +694,262 @@ class PrivacyTests(unittest.TestCase):
     def test_a_reason_is_drawn_from_a_closed_vocabulary(self):
         for reason in lifecycle.REASONS:
             self.assertRegex(reason, r"\A[A-Z][A-Z0-9_]{2,63}\Z")
+
+
+class ConfirmedCopiesResolveAgainstTheRegistryTests(unittest.TestCase):
+    """A backend id is a shape *and* a registry row, on both sides of the gate.
+
+    ``policy.yaml`` ``backend_identity`` says ``unresolvable_backend: REJECT``
+    and ``unadmitted_backend: REJECT``. The record's own backends go through
+    that gate. ``confirmed_copies`` used to be admitted on shape alone, which
+    made it the looser of the two - and the looser of the two is the one a
+    deletion gets to use. Survivors were counted from the whole confirmed set
+    while only registry-backed ids were deletion targets, so an id that resolves
+    to nothing could not be deleted but could authorise deleting one that could.
+    """
+
+    GHOSTS = ("zzz_ghost_backend", "ghost_a", "ghost_b")
+
+    def test_the_registry_is_resolved_from_the_provider_registry(self):
+        registered = {row["provider_id"]
+                      for row in mesh_validator.load_providers()}
+        self.assertEqual(set(lifecycle.REGISTERED_BACKENDS), registered)
+        for ghost in self.GHOSTS:
+            self.assertTrue(capacity.is_provider_id(ghost), ghost)
+            self.assertNotIn(ghost, lifecycle.REGISTERED_BACKENDS)
+
+    def test_a_ghost_beside_the_only_real_copy_proposes_nothing(self):
+        """One real copy and one unregistered id. The shape gate admits both;
+        the registry admits one, and one confirmed copy is the last one."""
+        record = obj()
+        confirmed = {record["object_id"]: {PRIMARY, "zzz_ghost_backend"}}
+        actions = lifecycle.lifecycle_actions(
+            [record], {PRIMARY: "NEAR_FULL"}, now=NOW,
+            metadata_store=healthy_store(), confirmed_copies=confirmed)
+        self.assertEqual(deletes(actions), [])
+
+    def test_ghosts_never_stand_in_for_the_last_real_copies(self):
+        """Two real copies and two ghosts. The old behaviour proposed removing
+        *both* real copies and left the ghosts as the named survivors."""
+        record = obj()
+        confirmed = {record["object_id"]:
+                     {PRIMARY, REPLICA, "ghost_a", "ghost_b"}}
+        actions = lifecycle.lifecycle_actions(
+            [record], {PRIMARY: "NEAR_FULL"}, now=NOW,
+            metadata_store=healthy_store(), confirmed_copies=confirmed)
+        proposals = deletes(actions)
+        # One of the two genuine copies may go; the other is the survivor.
+        self.assertLessEqual(len(proposals), 1)
+        self.assertNotEqual({action.provider_id for action in proposals},
+                            {PRIMARY, REPLICA})
+        for action in proposals:
+            survivors = set(action.evidence["surviving_confirmed_copies"])
+            self.assertTrue(survivors)
+            self.assertTrue(survivors <= set(lifecycle.REGISTERED_BACKENDS))
+            self.assertFalse(survivors & set(self.GHOSTS))
+
+    def test_no_ghost_is_ever_named_as_a_survivor(self):
+        record = obj()
+        confirmed = {record["object_id"]:
+                     {PRIMARY, REPLICA, THIRD, *self.GHOSTS}}
+        actions = lifecycle.lifecycle_actions(
+            [record], {PRIMARY: "NEAR_FULL"}, now=NOW,
+            metadata_store=healthy_store(), confirmed_copies=confirmed)
+        for action in deletes(actions):
+            self.assertFalse(
+                set(action.evidence["surviving_confirmed_copies"])
+                & set(self.GHOSTS))
+
+    def test_a_confirmed_set_of_nothing_but_ghosts_confirms_nothing(self):
+        record = obj()
+        confirmed = {record["object_id"]: set(self.GHOSTS)}
+        self.assertEqual(lifecycle._confirmed(confirmed), {})
+        actions = lifecycle.lifecycle_actions(
+            [record], {PRIMARY: "NEAR_FULL"}, now=NOW,
+            metadata_store=healthy_store(), confirmed_copies=confirmed)
+        self.assertEqual(deletes(actions), [])
+
+    def test_an_unreadable_registry_confirms_nothing(self):
+        """Fail closed, like every other absent fact in this module."""
+        record = obj()
+        confirmed = {record["object_id"]: {PRIMARY, REPLICA}}
+        with mock.patch.object(lifecycle, "REGISTERED_BACKENDS", frozenset()):
+            self.assertEqual(lifecycle._confirmed(confirmed), {})
+            actions = lifecycle.lifecycle_actions(
+                [record], {PRIMARY: "NEAR_FULL"}, now=NOW,
+                metadata_store=healthy_store(), confirmed_copies=confirmed)
+        self.assertEqual(deletes(actions), [])
+
+    def test_the_shape_check_is_still_the_cheap_first_gate(self):
+        record = obj()
+        for hostile in ("Not A Provider", "", "A", 3, None, True, object()):
+            with self.subTest(hostile=repr(hostile)):
+                self.assertEqual(
+                    lifecycle._confirmed({record["object_id"]: [hostile]}), {})
+
+
+class BoundedConfirmedEvidenceTests(unittest.TestCase):
+    """A destructive proposal that is silently dropped is not a refusal.
+
+    ``_bounded`` discards an oversized ``Action``. That is the right answer for
+    a field that grew a way to hold bulk and the wrong answer for a DELETE that
+    is merely verbose, because the caller cannot tell the two apart: both look
+    like "nothing was proposed".
+    """
+
+    def test_the_confirmed_table_is_bounded_in_entries(self):
+        huge = {f"obj_{index:064x}": [PRIMARY] for index in range(20000)}
+        self.assertLessEqual(len(lifecycle._confirmed(huge)),
+                             lifecycle.MAX_OBJECTS)
+
+    def test_the_backends_per_object_are_bounded(self):
+        names = [f"b{index:05d}" for index in range(5000)]
+        with mock.patch.object(lifecycle, "REGISTERED_BACKENDS",
+                               frozenset(names)):
+            table = lifecycle._confirmed({"obj_" + "a" * 64: names})
+        # Refused rather than truncated: keeping the first MAX_PROVIDERS would
+        # be this module choosing which confirmations to believe.
+        self.assertLessEqual(len(table.get("obj_" + "a" * 64, ())),
+                             lifecycle.MAX_PROVIDERS)
+        with mock.patch.object(lifecycle, "REGISTERED_BACKENDS",
+                               frozenset(names)):
+            kept = lifecycle._confirmed(
+                {"obj_" + "a" * 64: names[:lifecycle.MAX_PROVIDERS]})
+        self.assertEqual(len(kept["obj_" + "a" * 64]), lifecycle.MAX_PROVIDERS)
+
+    def test_a_delete_is_never_silently_dropped_for_being_verbose(self):
+        """Every provider in the registry confirmed at once - the widest
+        survivor list this module can ever build - still fits the bound."""
+        registry = bulk_backends()
+        record = obj(primary_backend=PRIMARY,
+                     replica_backends=tuple(
+                         name for name in registry if name != PRIMARY))
+        confirmed = {record["object_id"]: set(registry)}
+        actions = lifecycle.lifecycle_actions(
+            [record], {PRIMARY: "NEAR_FULL"}, now=NOW,
+            metadata_store=healthy_store(), confirmed_copies=confirmed)
+        proposals = deletes(actions)
+        self.assertTrue(proposals)
+        for action in proposals:
+            encoded = json.dumps(action.as_dict(), sort_keys=True)
+            self.assertLessEqual(len(encoded), lifecycle.MAX_ACTION_BYTES)
+
+    def test_the_survivor_evidence_is_a_bounded_sample_beside_a_count(self):
+        registry = bulk_backends()
+        record = obj(primary_backend=PRIMARY,
+                     replica_backends=tuple(
+                         name for name in registry if name != PRIMARY))
+        confirmed = {record["object_id"]: set(registry)}
+        actions = lifecycle.lifecycle_actions(
+            [record], {PRIMARY: "NEAR_FULL"}, now=NOW,
+            metadata_store=healthy_store(), confirmed_copies=confirmed)
+        for action in deletes(actions):
+            sample = action.evidence["surviving_confirmed_copies"]
+            count = action.evidence["surviving_confirmed_copy_count"]
+            self.assertLessEqual(len(sample),
+                                 lifecycle.MAX_EVIDENCE_BACKENDS)
+            self.assertGreaterEqual(count, len(sample))
+            self.assertGreaterEqual(
+                count, action.evidence["required_confirmed_copies"])
+
+
+class GateLoopTests(unittest.TestCase):
+    """A step that raised is not a step that is exhausted.
+
+    Falling through from a raising step to the next one promotes the following
+    step - which may be the destructive step 3 - on the strength of an
+    exception. Not reachable from any input today, which is exactly why it is
+    worth making structural rather than incidental.
+    """
+
+    def raising_step(self, number, name):
+        def explode(context):
+            raise RuntimeError("step failed")
+
+        return tuple(
+            (number, name, explode) if entry[0] == number else entry
+            for entry in lifecycle.PRESSURE_STEPS)
+
+    def test_a_raising_step_does_not_promote_a_later_destructive_step(self):
+        record = obj()
+        patched = self.raising_step(1, "EXPIRE_EPHEMERAL")
+        with mock.patch.object(lifecycle, "PRESSURE_STEPS", patched):
+            actions = lifecycle.lifecycle_actions(
+                [record], {PRIMARY: "NEAR_FULL"}, now=NOW,
+                metadata_store=healthy_store(),
+                confirmed_copies=all_confirmed(record))
+        self.assertEqual(deletes(actions), [])
+
+    def test_a_raising_step_is_reported_rather_than_passed_over(self):
+        patched = self.raising_step(1, "EXPIRE_EPHEMERAL")
+        with mock.patch.object(lifecycle, "PRESSURE_STEPS", patched):
+            actions = lifecycle.lifecycle_actions(
+                [obj()], {PRIMARY: "NEAR_FULL"}, now=NOW,
+                metadata_store=healthy_store())
+        self.assertTrue(any(action.kind == "HOLD_STEP_NOT_EVALUATED"
+                            for action in actions))
+        self.assertTrue(all(action.destructive is False for action in actions))
+
+    def test_a_gated_destructive_step_is_marked_rather_than_silent(self):
+        """Everything but the authorisation is present. A blocked step must not
+        read the same as a finished one."""
+        record = obj()
+        actions = lifecycle.lifecycle_actions(
+            [record], {PRIMARY: "NEAR_FULL"}, now=NOW,
+            confirmed_copies=all_confirmed(record))
+        self.assertEqual(deletes(actions), [])
+        gated = [action for action in actions
+                 if action.kind == "HOLD_DESTRUCTIVE_STEP_GATED"]
+        self.assertTrue(gated)
+        for action in gated:
+            self.assertIs(action.destructive, False)
+            self.assertIs(action.requires_authorization, False)
+            self.assertEqual(action.object_id, record["object_id"])
+
+    def test_no_marker_when_the_step_had_nothing_to_propose_anyway(self):
+        actions = lifecycle.lifecycle_actions(
+            [obj()], {PRIMARY: "NEAR_FULL"}, now=NOW)
+        self.assertEqual([action for action in actions
+                          if action.kind == "HOLD_DESTRUCTIVE_STEP_GATED"], [])
+
+    def test_no_marker_when_the_destructive_step_is_authorised(self):
+        record = obj()
+        actions = lifecycle.lifecycle_actions(
+            [record], {PRIMARY: "NEAR_FULL"}, now=NOW,
+            metadata_store=healthy_store(),
+            confirmed_copies=all_confirmed(record))
+        self.assertTrue(deletes(actions))
+        self.assertEqual([action for action in actions
+                          if action.kind == "HOLD_DESTRUCTIVE_STEP_GATED"], [])
+
+
+class EntryPointDocstringTests(unittest.TestCase):
+    """The docstring is read as a contract; a false clause in it is a bug.
+
+    ``now`` is not a permission gate: ``capacity._clock(None)`` resolves to the
+    current instant, so omitting it still yields a DELETE. ``metadata_store``
+    and ``confirmed_copies`` *are* gates, and the "absent is never permission"
+    wording belongs to them.
+    """
+
+    def test_omitting_now_does_not_by_itself_stop_a_delete(self):
+        record = obj()
+        actions = lifecycle.lifecycle_actions(
+            [record], {PRIMARY: "NEAR_FULL"},
+            metadata_store=healthy_store(),
+            confirmed_copies=all_confirmed(record))
+        self.assertTrue(deletes(actions))
+
+    def test_the_docstring_does_not_claim_now_is_required(self):
+        doc = lifecycle.lifecycle_actions.__doc__
+        self.assertNotIn("Without all three", doc)
+        self.assertIn("defaults to the current instant", doc)
+        self.assertIn("metadata_store", doc)
+        self.assertIn("confirmed_copies", doc)
+
+    def test_the_bound_docstring_no_longer_claims_to_be_unreachable(self):
+        self.assertNotIn("unreachable by a well-formed proposal",
+                         lifecycle._bounded.__doc__)
 
 
 if __name__ == "__main__":

@@ -42,6 +42,7 @@ import pathlib
 import re
 import traceback
 import unittest
+from collections.abc import Sequence
 
 from AI_SKILL_LIBRARY.v4.storage import compaction
 from AI_SKILL_LIBRARY.v4.storage import manifest as manifest_module
@@ -572,6 +573,156 @@ class HostileInputTests(unittest.TestCase):
         Task 3 and is checked for by name here."""
         with self.assertRaises(compaction.CompactionInputError):
             compaction.dedupe(b"not-records")
+
+
+class MinimalRowTests(unittest.TestCase):
+    """The fixture populates every optional field, which is its virtue and also
+    what hid a subscript on an optional one.
+
+    ``experience_ledger.schema.json`` requires four fields and no more. A row
+    carrying exactly those four is schema-valid, and a module that promises only
+    ``CompactionInputError`` may not answer it with a ``KeyError``.
+    """
+
+    def minimal(self, **overrides):
+        row = {name: experience()[name]
+               for name in compaction.REQUIRED_EXPERIENCE_FIELDS}
+        row.update(overrides)
+        return row
+
+    def test_the_minimal_row_carries_only_the_schema_required_fields(self):
+        self.assertEqual(set(self.minimal()),
+                         set(compaction.REQUIRED_EXPERIENCE_FIELDS))
+
+    def test_a_row_without_verifier_passed_is_aggregated_not_crashed(self):
+        out = compaction.aggregate_experience(
+            [experience(verifier_passed=_ABSENT)], "hour")
+        self.assertEqual(sum(row["run_count"] for row in out), 1)
+        self.assertEqual(out[0]["verifier_pass_count"], 0)
+        self.assertEqual(out[0]["verifier_fail_count"], 0)
+        self.assertIsNone(out[0]["verifier_pass_rate"])
+
+    def test_the_count_invariant_holds_for_rows_with_no_optional_fields(self):
+        for window in compaction.WINDOWS:
+            with self.subTest(window=window):
+                records = [self.minimal(experience_id=f"exp-{index:04d}")
+                           for index in range(5)]
+                out = compaction.aggregate_experience(records, window)
+                self.assertEqual(sum(row["run_count"] for row in out),
+                                 len(records))
+
+    def test_dedupe_works_on_rows_with_no_optional_fields(self):
+        out = compaction.dedupe([self.minimal(), self.minimal()])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["duplicate_count"], 2)
+
+    def test_every_optional_field_may_be_omitted_one_at_a_time(self):
+        optional = (set(compaction.EXPERIENCE_FIELDS)
+                    - set(compaction.REQUIRED_EXPERIENCE_FIELDS))
+        for field in sorted(optional):
+            with self.subTest(field=field):
+                out = compaction.aggregate_experience(
+                    [experience(**{field: _ABSENT})], "hour")
+                self.assertEqual(sum(row["run_count"] for row in out), 1)
+
+
+class ForeignSequenceTests(unittest.TestCase):
+    """The allowed-but-unbounded class, as a container rather than a string.
+
+    ``_bounded_array`` admits any ``Sequence`` that is not ``str``/``bytes`` and
+    checks only the items. A normalisation keyed on a *narrower* predicate than
+    the one that admitted the value carries the foreign object through verbatim,
+    with whatever state is attached to it - state no string-walker, no encoder
+    and no output checker can see, because it rides on an attribute.
+    """
+
+    def evil(self, items):
+        needle = SMUGGLED_CREDENTIAL
+
+        class Evil(Sequence):
+            def __init__(self, entries):
+                self._entries = list(entries)
+                self.payload = needle
+
+            def __getitem__(self, index):
+                return self._entries[index]
+
+            def __len__(self):
+                return len(self._entries)
+
+        return Evil(items)
+
+    ARRAY_FIELDS = ("skill_ids", "escalation_path", "fallback_path")
+
+    def test_a_foreign_sequence_is_normalised_to_a_plain_list(self):
+        for field in self.ARRAY_FIELDS:
+            with self.subTest(field=field):
+                out = compaction.aggregate_experience(
+                    [experience(**{field: self.evil(["storage-mesh"])})],
+                    "hour")[0]
+                self.assertIs(type(out[field]), list)
+                self.assertEqual(out[field], ["storage-mesh"])
+                self.assertFalse(hasattr(out[field], "payload"))
+
+    def test_the_smuggled_attribute_never_reaches_the_emitted_row(self):
+        for field in self.ARRAY_FIELDS:
+            with self.subTest(field=field):
+                out = compaction.aggregate_experience(
+                    [experience(**{field: self.evil(["storage-mesh"])})],
+                    "hour")[0]
+                rendered = repr(out) + str(out) + json.dumps(out, default=str)
+                self.assertNotIn(SMUGGLED_CREDENTIAL, rendered)
+
+    def test_every_emitted_row_survives_a_json_round_trip(self):
+        """The output-side assertion that would have caught all three symptoms
+        at once: an unserialisable row is not a row this module may emit."""
+        for field in self.ARRAY_FIELDS:
+            with self.subTest(field=field):
+                out = compaction.aggregate_experience(
+                    [experience(**{field: self.evil(["storage-mesh"])})],
+                    "hour")
+                for row in out:
+                    self.assertEqual(json.loads(json.dumps(row)), row)
+
+    def test_dedupe_accepts_a_foreign_sequence_without_a_bare_type_error(self):
+        out = compaction.dedupe(
+            [experience(skill_ids=self.evil(["storage-mesh"])),
+             experience(skill_ids=["storage-mesh"])])
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["duplicate_count"], 2)
+        self.assertIs(type(out[0]["skill_ids"]), list)
+        json.dumps(out[0])
+
+    def test_an_unhashable_sequence_in_a_grouping_field_is_not_a_type_error(self):
+        class Unhashable(Sequence):
+            __hash__ = None
+
+            def __init__(self, entries):
+                self._entries = list(entries)
+
+            def __getitem__(self, index):
+                return self._entries[index]
+
+            def __len__(self):
+                return len(self._entries)
+
+        for call in (lambda: compaction.aggregate_experience(
+                        [experience(skill_ids=Unhashable(["storage-mesh"]))],
+                        "hour"),
+                     lambda: compaction.dedupe(
+                        [experience(skill_ids=Unhashable(["storage-mesh"]))])):
+            try:
+                call()
+            except compaction.CompactionInputError:
+                pass
+            except BaseException as exc:  # noqa: BLE001 - the subject
+                self.fail(f"{type(exc).__name__}: {exc}")
+
+    def test_validate_aggregate_record_refuses_an_unserialisable_row(self):
+        row = compaction.aggregate_experience([experience()], "hour")[0]
+        row["skill_ids"] = self.evil(["storage-mesh"])
+        with self.assertRaises(compaction.CompactionInputError):
+            compaction.validate_aggregate_record(row)
 
 
 if __name__ == "__main__":

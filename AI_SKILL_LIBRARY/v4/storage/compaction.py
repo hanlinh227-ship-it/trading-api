@@ -235,21 +235,49 @@ def _check_feedback_signal(value, *, field):
             "normalized signal, never the user's words verbatim")
 
 
+def _is_array(value):
+    """The predicate that admits a container field, stated once.
+
+    ``_admit`` normalises on this same predicate rather than on a narrower
+    ``isinstance(value, (list, tuple))``. Normalising on a narrower test than
+    the one that *accepted* the value is how a foreign ``Sequence`` subclass
+    passes validation and is then carried verbatim into the emitted row, with
+    whatever state is attached to it - state that rides on an attribute, where
+    ``_encode``, ``validate_aggregate_record`` and any walker that descends only
+    dict/list are all blind to it.
+    """
+    return not isinstance(value, (str, bytes, bytearray)) and isinstance(
+        value, Sequence)
+
+
 def _bounded_array(check, *, max_items, unique=False):
+    """A checker that also *returns* the normalised list it admitted.
+
+    Returning the normalisation from the checker is what keeps the admitting
+    predicate and the normalising predicate from ever being two different
+    predicates again.
+    """
     def checker(value, *, field):
-        if isinstance(value, (str, bytes, bytearray)) or not isinstance(
-                value, Sequence):
+        if not _is_array(value):
             raise ValueError(
                 f"{field} must be a sequence; a string is iterated one "
                 "character at a time, and ``bytes`` is a Sequence too")
+        # The bound is checked against the value's own length *before* it is
+        # materialised: a foreign Sequence that merely claims to hold a billion
+        # entries must be refused, not built.
         if len(value) > max_items:
             raise ValueError(
                 f"{field} holds {len(value)} entries, over the {max_items} the "
                 "schema allows")
-        if unique and len(set(value)) != len(value):
+        items = list(value)
+        if len(items) > max_items:
+            raise ValueError(
+                f"{field} materialised {len(items)} entries, over {max_items}")
+        if unique and len(set(items)) != len(items):
             raise ValueError(f"{field} repeats an entry")
-        for index, item in enumerate(value):
+        for index, item in enumerate(items):
             check(item, field=f"{field}[{index}]")
+        return items
     return checker
 
 
@@ -473,7 +501,17 @@ def validate_aggregate_record(row):
         except Exception:  # noqa: BLE001 - see the module docstring
             raise CompactionInputError(
                 f"an aggregate row's {field} is outside its bound") from None
-    return dict(row)
+    out = dict(row)
+    # The output-side assertion. Every field above passed a bounded checker, and
+    # a row can still hold a foreign object that no checker and no string-walker
+    # can see, because the payload rides on an attribute rather than in the
+    # structure. A row this module emits is a row that round-trips through JSON;
+    # anything else is not a row, it is a carrier.
+    if json.loads(_encode(out)) != out:
+        raise CompactionInputError(
+            "an aggregate row does not survive a JSON round-trip; the value is "
+            "not echoed")
+    return out
 
 
 # --- input admission ----------------------------------------------------------
@@ -538,19 +576,38 @@ def _admit(record):
             continue
         value = record[field]
         try:
-            EXPERIENCE_VALUE_CHECKS[field](value, field=field)
+            normalised = EXPERIENCE_VALUE_CHECKS[field](value, field=field)
         except Exception:  # noqa: BLE001 - see this function's docstring
             raise CompactionInputError(
                 f"an experience record's {field} is outside the bound the "
                 "ledger schema sets for it; the value is not echoed") from None
-        admitted[field] = list(value) if isinstance(value, (list, tuple)) else value
+        # The checker that admitted a container returns the normalised list, so
+        # the admitting predicate and the normalising predicate are the same
+        # predicate by construction. The belt-and-braces branch below covers a
+        # checker that returns nothing, and uses ``_is_array`` - the predicate
+        # ``_bounded_array`` admits on - rather than a narrower type test.
+        if normalised is None and _is_array(value):
+            normalised = list(value)
+        admitted[field] = value if normalised is None else normalised
     return admitted
 
 
 def _encode(record):
-    """The canonical encoding a content address is taken over."""
-    return json.dumps(record, sort_keys=True, separators=(",", ":"),
-                      ensure_ascii=True)
+    """The canonical encoding a content address is taken over.
+
+    A value that will not serialise leaves through ``CompactionInputError`` like
+    every other refusal. A bare ``TypeError`` out of ``json`` would be an
+    undeclared exception type from a module that promises exactly one, and the
+    value is not echoed because the thing that would not serialise may be the
+    thing carrying the credential.
+    """
+    try:
+        return json.dumps(record, sort_keys=True, separators=(",", ":"),
+                          ensure_ascii=True)
+    except Exception:  # noqa: BLE001 - see this function's docstring
+        raise CompactionInputError(
+            "a record does not survive a JSON round-trip; the value is not "
+            "echoed") from None
 
 
 # --- Spec S13: content dedupe --------------------------------------------------
@@ -649,7 +706,13 @@ def _group_key(record, period_start):
     parts = [period_start]
     for field in GROUPING_FIELDS:
         value = record.get(field, _ABSENT)
-        parts.append(tuple(value) if isinstance(value, list) else value)
+        parts.append(tuple(value) if _is_array(value) else value)
+    try:
+        hash(tuple(parts))
+    except Exception:  # noqa: BLE001 - an unhashable group key is a refusal
+        raise CompactionInputError(
+            "a grouping field holds a value that cannot key a group; the value "
+            "is not echoed") from None
     return tuple(parts)
 
 
@@ -706,8 +769,14 @@ def _summarise(members, start, window):
     run_count = len(members)
     success_count = sum(1 for row in members if row["success"] is True)
 
-    verifier_pass = sum(1 for row in members if row["verifier_passed"] is True)
-    verifier_fail = sum(1 for row in members if row["verifier_passed"] is False)
+    # ``verifier_passed`` is optional in ``experience_ledger.schema.json`` - the
+    # required set is only experience_id/timestamp/request_class/success - so a
+    # schema-valid row may omit it. A subscript here answers such a row with a
+    # bare ``KeyError`` from a module that promises only ``CompactionInputError``.
+    verifier_pass = sum(1 for row in members
+                        if row.get("verifier_passed") is True)
+    verifier_fail = sum(1 for row in members
+                        if row.get("verifier_passed") is False)
     verifier_unknown = sum(1 for row in members
                            if row.get("verifier_passed") == "unknown")
     verifier_sample = verifier_pass + verifier_fail
@@ -757,7 +826,7 @@ def _summarise(members, start, window):
     }
     for field in GROUPING_FIELDS:
         value = template.get(field)
-        row[field] = list(value) if isinstance(value, list) else value
+        row[field] = list(value) if _is_array(value) else value
     return validate_aggregate_record(row)
 
 
