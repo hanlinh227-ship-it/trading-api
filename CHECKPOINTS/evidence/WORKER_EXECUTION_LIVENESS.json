@@ -1,19 +1,13 @@
 {
   "tool": "worker_execution_liveness",
   "OBSERVED_ON": {
-    "host_fingerprint": "0458bd264bb1a40500b4af1cf2aa3817",
+    "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
     "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
     "machine": "x86_64",
     "cpu_count": 4,
     "cpu_flags_present": [
       "avx",
       "avx2",
-      "avx512_vnni",
-      "avx512bw",
-      "avx512cd",
-      "avx512dq",
-      "avx512f",
-      "avx512vl",
       "f16c",
       "fma"
     ],
@@ -25,7 +19,7 @@
     "reason": "the engine imported and identified itself"
   },
   "EXECUTION_LIVE": true,
-  "worker_id": "local-engine-0458bd264bb1a40500b4af1cf2aa3817",
+  "worker_id": "local-engine-9b455005c0ee4d97847eb044fdf62dc8",
   "execution_liveness": "EXECUTION_LIVE",
   "stranded_roles": [
     "REASONING_BRANCH",
@@ -43,8 +37,8 @@
     "CODING_BRANCH",
     "VERIFICATION_BRANCH"
   ],
-  "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
-  "proof_timestamp": "2026-09-18T09:20:25Z",
+  "source_sha": "d240bcaa5c84d3e168de430ef09a526acc2a0a96",
+  "proof_timestamp": "2026-09-18T09:39:55Z",
   "roles_with_a_local_primary": [
     {
       "role_id": "REASONING_BRANCH",
@@ -204,8 +198,8 @@
       "EXECUTION_LIVE": true,
       "worker_id": "local-engine-9b455005c0ee4d97847eb044fdf62dc8",
       "execution_liveness": "EXECUTION_LIVE",
-      "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
-      "proof_timestamp": "2026-09-18T09:10:03Z"
+      "source_sha": "d240bcaa5c84d3e168de430ef09a526acc2a0a96",
+      "proof_timestamp": "2026-09-18T09:39:55Z"
     },
     "0458bd264bb1a40500b4af1cf2aa3817": {
       "OBSERVED_ON": {

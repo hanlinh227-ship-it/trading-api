@@ -1,21 +1,15 @@
 {
   "tool": "free_worker_mesh_proof",
-  "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
-  "proof_timestamp": "2026-09-18T09:25:05Z",
+  "source_sha": "d240bcaa5c84d3e168de430ef09a526acc2a0a96",
+  "proof_timestamp": "2026-09-18T09:42:27Z",
   "OBSERVED_ON": {
-    "host_fingerprint": "0458bd264bb1a40500b4af1cf2aa3817",
+    "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
     "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
     "machine": "x86_64",
     "cpu_count": 4,
     "cpu_flags_present": [
       "avx",
       "avx2",
-      "avx512_vnni",
-      "avx512bw",
-      "avx512cd",
-      "avx512dq",
-      "avx512f",
-      "avx512vl",
       "f16c",
       "fma"
     ],
@@ -146,7 +140,7 @@
       "scenario": "large_model_keeps_its_named_requirement",
       "passed": true,
       "failures": [],
-      "refusal": "has 14943 MB RAM available, needs 37200 MB",
+      "refusal": "has 14997 MB RAM available, needs 37200 MB",
       "note": "a statement about the machines attached, not about the model"
     },
     {
@@ -172,13 +166,13 @@
           "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
           "error": null,
-          "latency_ms": 13870.732
+          "latency_ms": 10244.785
         },
         {
           "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
           "error": null,
-          "latency_ms": 4525.208
+          "latency_ms": 3677.476
         }
       ],
       "models": [
@@ -188,7 +182,7 @@
       "routing_authority": "task_router",
       "model_selection_authority": "model_mesh",
       "answer": "<think>\nOkay, the user is asking, \"In one sentence, what does a worker contribute to a federation?\" Let me break this down.\n\nFirst, I need to understand what a federation is. A federation is a political entity where multiple",
-      "wall_ms": 26407.927,
+      "wall_ms": 24222.647,
       "note": "a real completion from an admitted local model, not a placement"
     }
   ],

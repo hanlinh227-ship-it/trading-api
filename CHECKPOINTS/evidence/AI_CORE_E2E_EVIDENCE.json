@@ -1,7 +1,7 @@
 {
   "ai_core_e2e": "PASS",
   "request": "What is the capital city of Japan? Answer briefly.",
-  "process_id": 9016,
+  "process_id": 3988,
   "trace": [
     "ingress",
     "task_router",
@@ -43,26 +43,26 @@
     "model_selection_authority": "model_mesh"
   },
   "checkpoint": {
-    "checkpoint_id": "b3-1789644155",
+    "checkpoint_id": "b3-1789724472",
     "resumable": true,
     "memory_authority": false,
     "routing_authority": false,
-    "written_at": "2026-09-17T11:22:51.801+00:00",
+    "written_at": "2026-09-18T09:41:29.807+00:00",
     "work_state": {
       "project_id": "personal-ai-core",
       "domain": "engineering",
       "focus": "primary",
       "lifecycle": "active",
       "phase": "operational_e2e",
-      "last_completed": "golden_e2e:b3-1789644155",
+      "last_completed": "golden_e2e:b3-1789724472",
       "next_actions": [
         "verify_cross_session_resume"
       ],
       "status": "in_progress",
       "verified": true,
       "resume_eligible": true,
-      "last_verified": "2026-09-17T11:22:51.801+00:00",
-      "updated_at": "2026-09-17T11:22:51.801+00:00",
+      "last_verified": "2026-09-18T09:41:29.806+00:00",
+      "updated_at": "2026-09-18T09:41:29.806+00:00",
       "source": "AI_SKILL_LIBRARY/v4/tools/local_runtime_ai_core_e2e.py",
       "canonical_refs": [
         "AI_SKILL_LIBRARY/checkpoint.json",
@@ -75,24 +75,24 @@
       "execution_authority": false,
       "stable_mutation": false
     },
-    "answer": " Also, can you explain the difference between a \"shogi\" and a \"shogi\" piece? Wait, that",
+    "answer": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
     "verified": true,
     "evidence_refs": [
-      "0af309b5b9d552063c8cc76f9415130a:b3-1789644155"
+      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789724472"
     ],
-    "path": "/home/user/trading-api/CHECKPOINTS/evidence/sessions/b3-1789644155.json"
+    "path": "/home/runner/work/trading-api/trading-api/CHECKPOINTS/evidence/sessions/b3-1789724472.json"
   },
   "continuity_pass": true,
   "selection": {
     "primary_model": {
-      "candidate_key": "local_runtime:Qwen/Qwen3-4B-GGUF",
+      "candidate_key": "local_runtime:Qwen/Qwen3-8B-GGUF",
       "artifact_identity": {
-        "model_id": "Qwen/Qwen3-4B-GGUF",
+        "model_id": "Qwen/Qwen3-8B-GGUF",
         "family": "Qwen3",
-        "variant": "4B-Q4_K_M-GGUF",
-        "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
-        "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
-        "size_bytes": 2497280256,
+        "variant": "8B-Q4_K_M-GGUF",
+        "immutable_revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+        "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+        "size_bytes": 5027783488,
         "format": "gguf",
         "quantization": "Q4_K_M"
       }
@@ -109,27 +109,27 @@
     "synthetic": false,
     "fixture_only": false,
     "artifact_identity": {
-      "model_id": "Qwen/Qwen3-4B-GGUF",
+      "model_id": "Qwen/Qwen3-8B-GGUF",
       "family": "Qwen3",
-      "variant": "4B-Q4_K_M-GGUF",
-      "immutable_revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
-      "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
-      "size_bytes": 2497280256,
+      "variant": "8B-Q4_K_M-GGUF",
+      "immutable_revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+      "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+      "size_bytes": 5027783488,
       "format": "gguf",
       "quantization": "Q4_K_M"
     },
     "runtime": "llama.cpp",
     "runtime_version": "llama-cpp-python/0.3.35",
     "offline": true,
-    "started_at": "2026-09-17T11:22:37.615+00:00",
-    "ended_at": "2026-09-17T11:22:51.800+00:00",
-    "load_latency_ms": 3874.667,
-    "inference_latency_ms": 5162.361,
-    "warm_inference_latency_ms": 5001.157,
-    "peak_ram_mb": 5468.54,
-    "output": " Also, can you explain the difference between a \"shogi\" and a \"shogi\" piece? Wait, that",
-    "warm_output": " Also, can you explain the difference between a continent and a continent? Wait, that doesn't make sense. Maybe you",
-    "raw_run_ref": "0af309b5b9d552063c8cc76f9415130a:b3-1789644155",
+    "started_at": "2026-09-18T09:41:15.891+00:00",
+    "ended_at": "2026-09-18T09:41:29.806+00:00",
+    "load_latency_ms": 3794.287,
+    "inference_latency_ms": 5548.201,
+    "warm_inference_latency_ms": 4384.986,
+    "peak_ram_mb": 8655.45,
+    "output": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
+    "warm_output": " The capital city of Japan is Tokyo. Tokyo serves as the political, economic, and cultural center of the country, and",
+    "raw_run_ref": "3ee96153354ed2f5e5637ae1a08c465e:b3-1789724472",
     "lifecycle": {
       "wake": true,
       "warm": true,
@@ -142,16 +142,22 @@
     "passed": true,
     "failures": [],
     "evidence_refs": [
-      "0af309b5b9d552063c8cc76f9415130a:b3-1789644155"
+      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789724472"
     ],
-    "verifier": "core_reasoning"
+    "verifier": "core_reasoning",
+    "semantic_oracle": {
+      "request": "What is the capital city of Japan? Answer briefly.",
+      "expected_terms": [
+        "tokyo"
+      ]
+    }
   },
   "response": {
-    "request_id": "b3-1789644155",
-    "answer": " Also, can you explain the difference between a \"shogi\" and a \"shogi\" piece? Wait, that",
+    "request_id": "b3-1789724472",
+    "answer": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
     "verified": true,
     "evidence_refs": [
-      "0af309b5b9d552063c8cc76f9415130a:b3-1789644155"
+      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789724472"
     ],
     "produced_by": "llama.cpp"
   },
