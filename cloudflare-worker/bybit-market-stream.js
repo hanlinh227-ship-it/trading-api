@@ -234,9 +234,10 @@ export class BybitMarketStream {
     const meaningful=force||flow>=.10||move>=1.2||book>=.22;
     if(!meaningful)return;
     this.lastEvalAt=now;this.evalInFlight=true;
-    Promise.resolve(runBybitAutoControlled(this.env,{trigger:'CLOUD_BYBIT_WS_STATE_CHANGE',triggerReason:reason}))
+    const task=Promise.resolve(runBybitAutoControlled(this.env,{trigger:'CLOUD_BYBIT_WS_STATE_CHANGE',triggerReason:reason}))
       .catch(error=>recordBybitAutoSchedulerError(this.env,error))
       .finally(()=>{this.evalInFlight=false;});
+    if(typeof this.state.waitUntil==='function')this.state.waitUntil(task);
   }
 }
 
