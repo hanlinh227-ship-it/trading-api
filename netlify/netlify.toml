@@ -1,0 +1,11 @@
+# Netlify TERTIARY runtime. Free tier only; no paid plan is required or implied.
+# This config exists so the adapter is deployable the moment credentials are
+# supplied. It does NOT mean the runtime is live - the canonical registry keeps
+# every verification axis false until a real probe passes.
+[build]
+  command = "echo 'no build step: the function wraps the shared runtime source'"
+  functions = "functions"
+  publish = "public"
+
+[functions]
+  node_bundler = "esbuild"

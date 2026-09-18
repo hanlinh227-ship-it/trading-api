@@ -1,0 +1,18 @@
+# Render free-tier EMERGENCY container runtime.
+#
+# Prepared, NOT verified. Render's free web services sleep when idle, which is
+# acceptable for an emergency tier and unacceptable for a primary - that is why
+# this is tier: emergency in the canonical registry and never a stable
+# requirement.
+#
+# free_tier_verified stays false until actually checked.
+services:
+  - type: web
+    name: crypto-research-gateway-emergency
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: DEPLOYMENT_SOURCE_SHA
+        sync: false

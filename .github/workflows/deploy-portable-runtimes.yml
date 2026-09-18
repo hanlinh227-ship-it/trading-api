@@ -1,8 +1,13 @@
-name: Deploy Deno Secondary Runtime
+name: Deploy Portable Runtimes
 
-# The zero-cost SECONDARY runtime. Capacity and failover only: it holds no
-# routing, reasoning or model-selection authority, and the Cloudflare primary
-# never waits on it.
+# The zero-cost PORTABLE runtimes - Deno secondary and Netlify tertiary.
+# Capacity and failover only: neither holds routing, reasoning or
+# model-selection authority, and the Cloudflare primary never waits on either.
+#
+# One lane rather than one per provider, deliberately. A lane per provider
+# multiplies workflow budget for no added proof, and lets the providers' checks
+# drift apart - which is exactly how a tertiary ends up admitting what the
+# primary rejects.
 #
 # This workflow FAILS CLOSED when Deno credentials are absent. It does not
 # print DENO_HEALTH=PASS, and it does not print DENO_DEPLOYED=true, unless a
@@ -16,23 +21,25 @@ on:
     branches: [main]
     paths:
       - 'deno-secondary/**'
+      - 'netlify/**'
       - 'crypto-research-gateway/src/**'
-      - '.github/workflows/deploy-deno-secondary.yml'
+      - '.github/workflows/deploy-portable-runtimes.yml'
   # Build and probe on the PR too. Without this the lane only ran AFTER merge,
   # which is exactly how a secondary that did not type-check reached main: the
   # PR that introduced it had no check to fail. Deploy stays main-only below.
   pull_request:
     paths:
       - 'deno-secondary/**'
+      - 'netlify/**'
       - 'crypto-research-gateway/src/**'
-      - '.github/workflows/deploy-deno-secondary.yml'
+      - '.github/workflows/deploy-portable-runtimes.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: deno-secondary-runtime
+  group: portable-runtimes
   cancel-in-progress: false
 
 jobs:
@@ -109,6 +116,28 @@ jobs:
               echo "REFUSED: deno-secondary/main.ts must declare $flag" >&2; exit 1; }
           done
           echo "DENO_SECONDARY_AUTHORITY=NONE"
+
+      - name: Netlify tertiary adapter wraps the shared contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The tertiary must WRAP the shared handler, not reimplement it.
+          # A forked implementation drifts, and a tertiary that admits what the
+          # primary rejects is a hole shaped like a failover.
+          grep -qF "from '../../deno-secondary/main.ts'" netlify/functions/research-gateway.mts || {
+            echo "REFUSED: the Netlify adapter must import the shared handler" >&2; exit 1; }
+          for forbidden in 'parseMarketInput' 'ALLOWED_KEYS' 'EXECUTION_VENUES'; do
+            if grep -qF "const $forbidden" netlify/functions/research-gateway.mts; then
+              echo "REFUSED: $forbidden is reimplemented in the Netlify adapter" >&2; exit 1
+            fi
+          done
+          for flag in 'ROUTING_AUTHORITY = false' 'REASONING_AUTHORITY = false' 'MODEL_SELECTION_AUTHORITY = false'; do
+            grep -qF "const $flag" netlify/functions/research-gateway.mts || {
+              echo "REFUSED: netlify adapter must declare $flag" >&2; exit 1; }
+          done
+          echo "NETLIFY_STATE=ADAPTER_READY"
+          echo "NETLIFY_DEPLOYED=false"
+          echo "NETLIFY_HEALTH=NOT_PROBED"
 
       - name: Deploy to Deno Deploy, or refuse truthfully
         id: deploy

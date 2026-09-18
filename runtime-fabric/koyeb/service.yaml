@@ -1,0 +1,26 @@
+# Koyeb free-tier EMERGENCY container runtime.
+#
+# Prepared, NOT verified. Koyeb's free allowance is not assumed from the
+# provider having a free plan; the canonical registry records
+# free_tier_verified: false until it is actually checked, and an unverified
+# free tier is never production eligible.
+#
+# Only for workloads that cannot run on edge/serverless. Stable production must
+# never require this.
+name: crypto-research-gateway-emergency
+service_type: web
+regions:
+  - fra
+instance_type: free
+scaling:
+  min: 0
+  max: 1
+ports:
+  - port: 8000
+    protocol: http
+health_checks:
+  - path: /health
+    port: 8000
+env:
+  - key: DEPLOYMENT_SOURCE_SHA
+    value: ""   # set to the exact deployed commit; never a branch name
