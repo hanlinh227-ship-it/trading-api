@@ -1,7 +1,7 @@
 {
   "ai_core_e2e": "PASS",
   "request": "What is the capital city of Japan? Answer briefly.",
-  "process_id": 3896,
+  "process_id": 3890,
   "trace": [
     "ingress",
     "task_router",
@@ -43,26 +43,26 @@
     "model_selection_authority": "model_mesh"
   },
   "checkpoint": {
-    "checkpoint_id": "b3-1789722245",
+    "checkpoint_id": "b3-1789722674",
     "resumable": true,
     "memory_authority": false,
     "routing_authority": false,
-    "written_at": "2026-09-18T09:04:22.335+00:00",
+    "written_at": "2026-09-18T09:11:31.739+00:00",
     "work_state": {
       "project_id": "personal-ai-core",
       "domain": "engineering",
       "focus": "primary",
       "lifecycle": "active",
       "phase": "operational_e2e",
-      "last_completed": "golden_e2e:b3-1789722245",
+      "last_completed": "golden_e2e:b3-1789722674",
       "next_actions": [
         "verify_cross_session_resume"
       ],
       "status": "in_progress",
       "verified": true,
       "resume_eligible": true,
-      "last_verified": "2026-09-18T09:04:22.334+00:00",
-      "updated_at": "2026-09-18T09:04:22.334+00:00",
+      "last_verified": "2026-09-18T09:11:31.739+00:00",
+      "updated_at": "2026-09-18T09:11:31.739+00:00",
       "source": "AI_SKILL_LIBRARY/v4/tools/local_runtime_ai_core_e2e.py",
       "canonical_refs": [
         "AI_SKILL_LIBRARY/checkpoint.json",
@@ -78,9 +78,9 @@
     "answer": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
     "verified": true,
     "evidence_refs": [
-      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789722245"
+      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789722674"
     ],
-    "path": "/home/runner/work/trading-api/trading-api/CHECKPOINTS/evidence/sessions/b3-1789722245.json"
+    "path": "/home/runner/work/trading-api/trading-api/CHECKPOINTS/evidence/sessions/b3-1789722674.json"
   },
   "continuity_pass": true,
   "selection": {
@@ -121,15 +121,15 @@
     "runtime": "llama.cpp",
     "runtime_version": "llama-cpp-python/0.3.35",
     "offline": true,
-    "started_at": "2026-09-18T09:04:09.828+00:00",
-    "ended_at": "2026-09-18T09:04:22.334+00:00",
-    "load_latency_ms": 3333.079,
-    "inference_latency_ms": 5027.421,
-    "warm_inference_latency_ms": 3976.865,
-    "peak_ram_mb": 8651.71,
+    "started_at": "2026-09-18T09:11:18.363+00:00",
+    "ended_at": "2026-09-18T09:11:31.738+00:00",
+    "load_latency_ms": 3270.969,
+    "inference_latency_ms": 5477.593,
+    "warm_inference_latency_ms": 4466.619,
+    "peak_ram_mb": 8665.4,
     "output": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
     "warm_output": " The capital city of Japan is Tokyo. Tokyo serves as the political, economic, and cultural center of the country, and",
-    "raw_run_ref": "3ee96153354ed2f5e5637ae1a08c465e:b3-1789722245",
+    "raw_run_ref": "3ee96153354ed2f5e5637ae1a08c465e:b3-1789722674",
     "lifecycle": {
       "wake": true,
       "warm": true,
@@ -142,7 +142,7 @@
     "passed": true,
     "failures": [],
     "evidence_refs": [
-      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789722245"
+      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789722674"
     ],
     "verifier": "core_reasoning",
     "semantic_oracle": {
@@ -153,11 +153,11 @@
     }
   },
   "response": {
-    "request_id": "b3-1789722245",
+    "request_id": "b3-1789722674",
     "answer": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
     "verified": true,
     "evidence_refs": [
-      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789722245"
+      "3ee96153354ed2f5e5637ae1a08c465e:b3-1789722674"
     ],
     "produced_by": "llama.cpp"
   },

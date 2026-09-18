@@ -1,10 +1,10 @@
 {
-  "resume_status": "RESUMED",
-  "reason": null,
-  "process_id": 3910,
   "checkpoint_id": "b3-1789722674",
-  "checkpoints_on_disk": 3,
-  "resumed_state": {
+  "resumable": true,
+  "memory_authority": false,
+  "routing_authority": false,
+  "written_at": "2026-09-18T09:11:31.739+00:00",
+  "work_state": {
     "project_id": "personal-ai-core",
     "domain": "engineering",
     "focus": "primary",
@@ -31,8 +31,9 @@
     "execution_authority": false,
     "stable_mutation": false
   },
-  "recovered_answer": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
-  "selected_by": "memory_continuity.select_continuation",
-  "memory_authority": false,
-  "routing_authority": false
+  "answer": " Tokyo is the capital city of Japan. It is the country's largest city and serves as the political, economic, and",
+  "verified": true,
+  "evidence_refs": [
+    "3ee96153354ed2f5e5637ae1a08c465e:b3-1789722674"
+  ]
 }

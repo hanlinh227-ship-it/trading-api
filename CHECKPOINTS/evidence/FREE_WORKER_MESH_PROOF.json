@@ -1,7 +1,7 @@
 {
   "tool": "free_worker_mesh_proof",
-  "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
-  "proof_timestamp": "2026-09-18T09:04:59Z",
+  "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
+  "proof_timestamp": "2026-09-18T09:12:10Z",
   "OBSERVED_ON": {
     "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
     "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
@@ -142,7 +142,7 @@
       "scenario": "large_model_keeps_its_named_requirement",
       "passed": true,
       "failures": [],
-      "refusal": "has 14926 MB RAM available, needs 37200 MB",
+      "refusal": "has 14969 MB RAM available, needs 37200 MB",
       "note": "a statement about the machines attached, not about the model"
     },
     {
@@ -170,7 +170,7 @@
           "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
           "error": null,
-          "latency_ms": 9862.966
+          "latency_ms": 10817.958
         },
         {
           "model_id": "local_runtime:microsoft/Phi-3-mini-4k-instruct-gguf",
@@ -186,7 +186,7 @@
       "routing_authority": "task_router",
       "model_selection_authority": "model_mesh",
       "answer": "<think>\nOkay, the user is asking, \"In one sentence, what does a worker contribute to a federation?\" Let me break this down.\n\nFirst, I need to understand what a federation is. A federation is a political entity where multiple",
-      "wall_ms": 17512.094,
+      "wall_ms": 18205.466,
       "note": "a real completion from an admitted local model, not a placement"
     }
   ],

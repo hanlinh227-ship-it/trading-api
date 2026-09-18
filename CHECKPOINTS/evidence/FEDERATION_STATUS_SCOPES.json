@@ -1,7 +1,7 @@
 {
   "tool": "federation_status_scopes",
-  "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
-  "proof_timestamp": "2026-09-18T09:05:00Z",
+  "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
+  "proof_timestamp": "2026-09-18T09:12:10Z",
   "OBSERVED_ON": {
     "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
     "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
@@ -45,11 +45,11 @@
         "freshness": "CURRENT_REVISION",
         "locality": "THIS_HOST",
         "scope": "CURRENT_ENV",
-        "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
-        "proof_timestamp": "2026-09-18T09:02:11Z",
-        "age_seconds": 168,
+        "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
+        "proof_timestamp": "2026-09-18T09:10:03Z",
+        "age_seconds": 127,
         "reasons": [
-          "bound to HEAD d742601342ae5ed0ffd01c09e4f081b47a45d87a"
+          "bound to HEAD db15016166dd316b0702f43701ccb63999149d0a"
         ],
         "evidence": "WORKER_EXECUTION_LIVENESS.json",
         "claim_field": "EXECUTION_LIVE",
@@ -96,18 +96,18 @@
       "counts_as_canonical": false
     }
   ],
-  "LAST_VERIFIED_AT": "2026-09-18T09:02:11Z",
+  "LAST_VERIFIED_AT": "2026-09-18T09:10:03Z",
   "EVIDENCE_FRESHNESS": {
     "FEDERATION_24X7_PROOF.json": {
       "binding": "BOUND_TO_REVISION",
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
-      "proof_timestamp": "2026-09-18T09:04:42Z",
-      "age_seconds": 17,
+      "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
+      "proof_timestamp": "2026-09-18T09:11:52Z",
+      "age_seconds": 18,
       "reasons": [
-        "bound to HEAD d742601342ae5ed0ffd01c09e4f081b47a45d87a"
+        "bound to HEAD db15016166dd316b0702f43701ccb63999149d0a"
       ],
       "claim_field": "federation_status",
       "claims_pass": false
@@ -117,11 +117,11 @@
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
-      "proof_timestamp": "2026-09-18T09:04:59Z",
+      "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
+      "proof_timestamp": "2026-09-18T09:12:10Z",
       "age_seconds": 0,
       "reasons": [
-        "bound to HEAD d742601342ae5ed0ffd01c09e4f081b47a45d87a"
+        "bound to HEAD db15016166dd316b0702f43701ccb63999149d0a"
       ],
       "claim_field": "mesh_status",
       "claims_pass": false
@@ -133,7 +133,7 @@
       "scope": "HISTORICAL",
       "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
       "proof_timestamp": "2026-09-18T08:19:01Z",
-      "age_seconds": 2758,
+      "age_seconds": 3189,
       "reasons": [
         "d53e99e534cc2587ef9969be95308400fede73eb is an ancestor of HEAD, but AI_SKILL_LIBRARY/ or cloudflare-worker/ moved between them"
       ],
@@ -145,11 +145,11 @@
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "d742601342ae5ed0ffd01c09e4f081b47a45d87a",
-      "proof_timestamp": "2026-09-18T09:02:11Z",
-      "age_seconds": 168,
+      "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
+      "proof_timestamp": "2026-09-18T09:10:03Z",
+      "age_seconds": 127,
       "reasons": [
-        "bound to HEAD d742601342ae5ed0ffd01c09e4f081b47a45d87a"
+        "bound to HEAD db15016166dd316b0702f43701ccb63999149d0a"
       ],
       "claim_field": "EXECUTION_LIVE",
       "claims_pass": true
