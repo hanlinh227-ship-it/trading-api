@@ -192,12 +192,14 @@ jobs:
           const fs=require('fs');
           const x=JSON.parse(fs.readFileSync(process.env.FILE,'utf8'));
           const providers=new Set(x.providers||[]);
-          const okx=(x.observations||[]).find(o=>o.provider==='okx');
+          const now=Date.now();
+          const observations=(x.observations||[]).filter(o=>Number(o.price)>0&&Number(o.sourceTimestampMs)>0);
+          const freshProviders=new Set(observations.filter(o=>Math.abs(now-Number(o.sourceTimestampMs))<=10000).map(o=>o.provider));
           const dc=x.dataContract||{};
           if(x.ok!==true||x.degraded===true||x.capability!=='market_snapshot')process.exit(2);
-          if(!providers.has('okx')||providers.size<2||!okx||Number(okx.price)<=0)process.exit(3);
+          if(providers.size<2||freshProviders.size<2)process.exit(3);
           if(dc.source_sha!==process.env.GITHUB_SHA||dc.freshness!=='FRESH'||dc.research_only!==true||dc.authority?.execution!=='none')process.exit(4);
-          console.log('LIVE_RESEARCH_SMOKE=PASS provider=okx exact_sha=true research_only=true');
+          console.log('LIVE_RESEARCH_SMOKE=PASS providers='+[...freshProviders].sort().join(',')+' exact_sha=true research_only=true');
           NODE
           rm -f "$FILE"
       - name: Deployment authority record
