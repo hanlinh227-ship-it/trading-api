@@ -27,6 +27,26 @@
     "detail": "SIGILL (4): the CPU refused an instruction the installed binary issued. The usual cause is a prebuilt engine meeting a CPU without the extensions it was compiled for, but check OBSERVED_ON.cpu_flags_present before concluding that - a host advertising the expected extensions and still taking SIGILL points elsewhere, to a microarchitecture mismatch or a damaged install. Either way the artifact and the code are unchanged and the machine under them is not."
   },
   "EXECUTION_LIVE": false,
+  "worker_id": "local-engine-93891604e58e2451985a873a94b53e49",
+  "execution_liveness": "EXECUTION_DEAD",
+  "stranded_roles": [
+    "REASONING_BRANCH",
+    "CODING_BRANCH",
+    "VERIFICATION_BRANCH",
+    "PLANNING_BRANCH",
+    "TOOL_USE_BRANCH",
+    "RESEARCH_BRANCH",
+    "MULTILINGUAL_BRANCH",
+    "VIETNAMESE_BRANCH",
+    "SCIENCE_TECH_BRANCH"
+  ],
+  "critical_stranded": [
+    "REASONING_BRANCH",
+    "CODING_BRANCH",
+    "VERIFICATION_BRANCH"
+  ],
+  "source_sha": "03f864449561024c8028b5c2fad1254d18984589",
+  "proof_timestamp": "2026-09-18T05:23:00Z",
   "roles_with_a_local_primary": [
     {
       "role_id": "REASONING_BRANCH",
@@ -160,7 +180,11 @@
         "signal": 4,
         "detail": "SIGILL (4): the CPU refused an instruction the installed binary issued. The usual cause is a prebuilt engine meeting a CPU without the extensions it was compiled for, but check OBSERVED_ON.cpu_flags_present before concluding that - a host advertising the expected extensions and still taking SIGILL points elsewhere, to a microarchitecture mismatch or a damaged install. Either way the artifact and the code are unchanged and the machine under them is not."
       },
-      "EXECUTION_LIVE": false
+      "EXECUTION_LIVE": false,
+      "worker_id": "local-engine-93891604e58e2451985a873a94b53e49",
+      "execution_liveness": "EXECUTION_DEAD",
+      "source_sha": "03f864449561024c8028b5c2fad1254d18984589",
+      "proof_timestamp": "2026-09-18T05:23:00Z"
     }
   },
   "hosts_observed": 2,

@@ -7,7 +7,9 @@ interesting cases - killed by a signal, hung, exited non-zero - cannot be
 produced on demand by the live machine.
 """
 
+import json
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -112,6 +114,120 @@ class ReportTests(unittest.TestCase):
         with mock.patch.object(liveness, "probe_local_engine",
                                return_value={"state": "EXECUTION_LIVE", "reason": "x"}):
             self.assertEqual(liveness.main(["--root", str(ROOT), "--strict"]), 0)
+
+
+class StructuredFieldTests(unittest.TestCase):
+    """The fields a downstream redundancy proof reads, and what they may not do.
+
+    These fields exist so that a consumer never re-derives execution truth from
+    prose. That makes them load-bearing in a way the narrative keys are not: if
+    ``execution_liveness`` ever disagreed with ``LOCAL_ENGINE.state``, a gate
+    reading the short field would pass on a host that cannot run anything.
+    """
+
+    #: The contract Task 2 names. Driven from one tuple so that a field dropped
+    #: from the report fails here rather than silently at the consumer.
+    CONTRACT = ("worker_id", "execution_liveness", "stranded_roles",
+                "critical_stranded", "source_sha", "proof_timestamp")
+
+    def _build(self, state):
+        with mock.patch.object(liveness, "probe_local_engine",
+                               return_value={"state": state, "reason": "x"}):
+            return liveness.build(ROOT, source_sha="a" * 40)
+
+    def test_the_report_carries_every_field_the_contract_names(self):
+        report = self._build("EXECUTION_LIVE")
+        missing = [field for field in self.CONTRACT if field not in report]
+        self.assertEqual(missing, [])
+
+    def test_execution_liveness_is_the_engine_state_verbatim(self):
+        for state in ("EXECUTION_LIVE", "EXECUTION_DEAD", "EXECUTION_UNKNOWN"):
+            with self.subTest(state=state):
+                report = self._build(state)
+                self.assertEqual(report["execution_liveness"], state)
+                self.assertEqual(report["execution_liveness"],
+                                 report["LOCAL_ENGINE"]["state"])
+
+    def test_a_sigill_reading_stays_dead_in_the_short_field_too(self):
+        """The whole point: the new field must not launder a signal into health."""
+        with mock.patch.object(liveness.subprocess, "run",
+                               return_value=_completed(-4)):
+            engine = liveness.probe_local_engine(ROOT)
+        with mock.patch.object(liveness, "probe_local_engine", return_value=engine):
+            report = liveness.build(ROOT, source_sha="a" * 40)
+        self.assertEqual(report["execution_liveness"], "EXECUTION_DEAD")
+        self.assertIs(report["EXECUTION_LIVE"], False)
+        self.assertEqual(report["LOCAL_ENGINE"]["signal"], 4)
+
+    def test_an_unknown_probe_is_not_reported_as_live(self):
+        report = self._build("EXECUTION_UNKNOWN")
+        self.assertEqual(report["execution_liveness"], "EXECUTION_UNKNOWN")
+        self.assertIs(report["EXECUTION_LIVE"], False)
+
+    def test_the_short_role_fields_repeat_the_long_ones_exactly(self):
+        report = self._build("EXECUTION_DEAD")
+        self.assertEqual(report["stranded_roles"],
+                         report["roles_stranded_if_the_local_engine_is_dead"])
+        self.assertEqual(report["critical_stranded"], report["critical_roles_stranded"])
+
+    def test_the_worker_id_names_the_host_that_answered(self):
+        report = self._build("EXECUTION_LIVE")
+        self.assertIn(report["OBSERVED_ON"]["host_fingerprint"][:16], report["worker_id"])
+
+    def test_a_revision_that_cannot_be_read_is_null_rather_than_invented(self):
+        with mock.patch.object(liveness, "current_source_sha", return_value=None):
+            with mock.patch.object(liveness, "probe_local_engine",
+                                   return_value={"state": "EXECUTION_LIVE", "reason": "x"}):
+                report = liveness.build(ROOT)
+        self.assertIsNone(report["source_sha"])
+
+    def test_the_timestamp_is_an_rfc3339_utc_instant(self):
+        report = self._build("EXECUTION_LIVE")
+        self.assertRegex(report["proof_timestamp"],
+                         r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z\Z")
+
+
+class PerHostReadingTests(unittest.TestCase):
+    """One reading per machine, each one naming its own revision and instant."""
+
+    def _write_reading(self, path, state, fingerprint):
+        observed = {"host_fingerprint": fingerprint, "platform": "test"}
+        with mock.patch.object(liveness, "observing_host", return_value=observed):
+            with mock.patch.object(liveness, "probe_local_engine",
+                                   return_value={"state": state, "reason": "x"}):
+                report = liveness.build(ROOT, source_sha="b" * 40)
+        merged = liveness._merge_readings(path, report)
+        path.write_text(json.dumps(merged, indent=2), encoding="utf-8")
+        return merged
+
+    def test_two_hosts_both_survive_and_each_names_its_own_revision(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "live.json"
+            self._write_reading(path, "EXECUTION_LIVE", "aaaa1111")
+            merged = self._write_reading(path, "EXECUTION_DEAD", "bbbb2222")
+        readings = merged["READINGS_BY_HOST"]
+        self.assertEqual(sorted(readings), ["aaaa1111", "bbbb2222"])
+        for key, reading in readings.items():
+            with self.subTest(host=key):
+                self.assertEqual(reading["source_sha"], "b" * 40)
+                self.assertIn("proof_timestamp", reading)
+                self.assertEqual(reading["execution_liveness"],
+                                 reading["LOCAL_ENGINE"]["state"])
+        self.assertIs(merged["EXECUTION_IS_HOST_DEPENDENT"], True)
+
+    def test_a_legacy_reading_without_a_revision_is_not_retrofitted_with_one(self):
+        """An unattributable reading must not be made to look current."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "live.json"
+            path.write_text(json.dumps({
+                "OBSERVED_ON": {},
+                "LOCAL_ENGINE": {"state": "EXECUTION_LIVE", "reason": "old"},
+                "EXECUTION_LIVE": True,
+            }), encoding="utf-8")
+            merged = self._write_reading(path, "EXECUTION_DEAD", "cccc3333")
+        legacy = merged["READINGS_BY_HOST"]["host_not_recorded"]
+        self.assertIsNone(legacy.get("source_sha"))
+        self.assertEqual(merged["READINGS_BY_HOST"]["cccc3333"]["source_sha"], "b" * 40)
 
 
 if __name__ == "__main__":
