@@ -32,3 +32,17 @@ universal_fabric:
     secret_persistence: forbidden
     stable_direct_write: false
     permission_widening: false
+
+continuous_skill_learning:
+  cycle_runner: AI_SKILL_LIBRARY/v4/tools/run_learning_cycle.py
+  competency_required_for_model_role_preference_change: true
+  curriculum_required_for_skill_instruction_change: true
+  user_feedback_alone_sufficient_for_promotion: false
+  direct_model_mesh_write: false
+  stable_write_allowed: false
+  permission_expansion_by_learning: forbidden
+  authority_change_by_learning: forbidden
+  class_a_auto_promotion: existing_evergreen_gates_only
+  class_b_auto_promotion: existing_evergreen_gates_plus_sandbox
+  class_c_auto_promotion: false
+  class_d_auto_promotion: false
