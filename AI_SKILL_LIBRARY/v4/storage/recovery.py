@@ -9,7 +9,12 @@ and content hashes. This module is both halves: ``export_recovery_snapshot``
 writes the pointer set, ``rebuild_manifest`` reconstructs records from it.
 
 It reads a metadata store and returns dicts. It contacts no provider, opens no
-connection, touches no credential, writes no file and performs no cryptography.
+connection, touches no credential, writes no file of its own and performs no
+cryptography. ``restore_into_store`` is the one function that writes anywhere:
+it hands the rebuilt records to a *destination* ``MetadataStore``, through the
+same validated ``put_manifest`` boundary as any other write, so a restore drill
+can prove a reconstruction without a second rebuild path existing beside this
+one.
 
 **"Bounded" is the whole design, and it is bounded in several directions.**
 
@@ -795,6 +800,51 @@ def rebuild_manifest(provider_records, recovery_snapshot):
     return rebuild_report(provider_records, recovery_snapshot)["rebuilt"]
 
 
+def restore_into_store(store, provider_records, recovery_snapshot, *,
+                       require_complete=True):
+    """Rebuild from a snapshot and write the result into a *destination* index.
+
+    The half of Spec S23 that ``rebuild_report`` stops one step short of. The
+    report says what can be proved; this writes those records into a metadata
+    store that is not the one they came from, through ``put_manifest``, so the
+    restored index is validated and health-gated exactly like any other write.
+    A restore drill needs this and nothing more: a second rebuild path written
+    beside this one would be the looser of the two, and the looser one is the
+    one an edit gets to use.
+
+    ``require_complete`` is the fail-closed default. A rebuild that names
+    unrecoverable or unverified objects is a *partial* restore, and a partial
+    restore written into a fresh index and then called a restore is how a
+    recovery drill certifies a loss. Counts are named; object ids are not
+    echoed into the message, because the caller has the report.
+
+    Returns the ``rebuild_report`` mapping plus ``restored``: the object ids
+    written, in order. Raises ``ValueError`` for a destination that is not a
+    ``MetadataStore``; ``rebuild_report`` raises for a snapshot or an
+    observation it refuses.
+    """
+    if not isinstance(store, _metadata.MetadataStore):
+        raise ValueError(
+            "restore_into_store needs a MetadataStore as its destination; an "
+            "object that merely answers put_manifest() has not been through the "
+            "validation that makes the restored index mean anything")
+
+    report = rebuild_report(provider_records, recovery_snapshot)
+    if require_complete and (report["unrecoverable"] or report["unverified"]):
+        raise ValueError(
+            f"refusing to write a partial restore: "
+            f"{len(report['unrecoverable'])} object(s) unrecoverable and "
+            f"{len(report['unverified'])} unverified. A partial restore "
+            "written into a fresh index and reported as a restore is how a "
+            "drill certifies a loss (Spec S23 step 9)")
+
+    restored = []
+    for record in report["rebuilt"]:
+        store.put_manifest(record)
+        restored.append(record["object_id"])
+    return dict(report, restored=restored)
+
+
 __all__ = [
     "AUTHORITY", "AUTHORITY_FLAGS", "CANONICAL_AUTHORITY",
     "ENCRYPTION_IMPLEMENTED_HERE", "SNAPSHOT_VERSION", "RECOVERY_MANIFEST_PATH",
@@ -806,4 +856,5 @@ __all__ = [
     "PROVIDER_RECORD_VALUE_CHECKS",
     "REQUIRED_PROVIDER_RECORD_FIELDS", "assert_snapshot_is_clean",
     "export_recovery_snapshot", "rebuild_manifest", "rebuild_report",
+    "restore_into_store",
 ]

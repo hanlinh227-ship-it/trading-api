@@ -268,3 +268,79 @@ def verify_restore(
 def manifest_to_json(manifest: Mapping[str, Any]) -> str:
     """Deterministic JSON serialization of a recovery manifest."""
     return json.dumps(manifest, sort_keys=True, separators=(",", ":"))
+
+
+#: How many files one scan may report, and how large any one of them may be.
+#:
+#: A scan is the observation half of a restore drill: it reads what is actually
+#: on disk and turns it into the metadata-only entries ``create_recovery_manifest``
+#: already understands. Both bounds are here because an unbounded walk of an
+#: unexpected directory is how a restore verifier turns into a way to read a
+#: filesystem into a document - and because "there were nine hundred thousand
+#: files" is a fact the caller must be told, not one to absorb.
+MAX_SCAN_OBJECTS = 1024
+MAX_SCAN_OBJECT_BYTES = 8 * 1024 * 1024
+
+
+def scan_objects(
+    root: Any,
+    *,
+    max_objects: int = MAX_SCAN_OBJECTS,
+    max_object_bytes: int = MAX_SCAN_OBJECT_BYTES,
+) -> List[Dict[str, Any]]:
+    """Observe a directory tree as metadata-only recovery entries.
+
+    Returns ``[{"path", "sha256", "size_bytes"}, ...]`` ordered by path, where
+    the digest and the size are *measured from the bytes on disk* rather than
+    taken from anything that claims to describe them. That is the whole reason
+    this exists: ``verify_restore`` compares a restored manifest against an
+    expected one, and a restored manifest assembled from the same declaration
+    that produced the expected one proves nothing at all.
+
+    Contents are hashed and discarded. Nothing is written, nothing is opened
+    outside ``root``, and no file content reaches the returned entries - a
+    restored object may be anything, including something that must never be
+    copied into a document.
+
+    Raises ``ValueError`` when ``root`` is not a readable directory or when
+    either bound is exceeded. A scan that silently stopped early would report a
+    smaller restore than happened, and the verifier would call the difference
+    "faithful".
+    """
+    import os as _os  # local: this module is otherwise filesystem-free
+
+    base = _os.fspath(root)
+    if not _os.path.isdir(base):
+        raise ValueError("scan_objects needs an existing directory to observe")
+    if not isinstance(max_objects, int) or isinstance(max_objects, bool) or max_objects < 1:
+        raise ValueError("max_objects must be a positive integer")
+    if (not isinstance(max_object_bytes, int) or isinstance(max_object_bytes, bool)
+            or max_object_bytes < 1):
+        raise ValueError("max_object_bytes must be a positive integer")
+
+    found: List[Dict[str, Any]] = []
+    for dirpath, dirnames, filenames in _os.walk(base):
+        dirnames.sort()
+        for name in sorted(filenames):
+            full = _os.path.join(dirpath, name)
+            if _os.path.islink(full) or not _os.path.isfile(full):
+                raise ValueError(
+                    "scan_objects observes regular files only; a link or device "
+                    "node in a restore tree is not a restored object")
+            relative = _normalize_path(_os.path.relpath(full, base))
+            if relative is None:
+                raise ValueError("scan_objects found a path it cannot name safely")
+            size = _os.path.getsize(full)
+            if size > max_object_bytes:
+                raise ValueError(
+                    "scan_objects refuses an object over the %d-byte bound"
+                    % max_object_bytes)
+            with open(full, "rb") as handle:
+                digest = _sha256_hex(handle.read())
+            found.append({"path": relative, "sha256": digest, "size_bytes": size})
+            if len(found) > max_objects:
+                raise ValueError(
+                    "scan_objects refuses more than %d objects; a bound nobody "
+                    "measures is a bound nobody has" % max_objects)
+    found.sort(key=lambda entry: entry["path"])
+    return found
