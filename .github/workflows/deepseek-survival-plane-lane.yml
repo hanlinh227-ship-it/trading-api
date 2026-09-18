@@ -1,4 +1,4 @@
-name: DeepSeek Lane — Front Door Project Resolution
+name: DeepSeek Lane — AI CORE Always-On Gate
 
 on:
   push:
@@ -40,37 +40,76 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          prompt = '''Implement only Task 1 of the approved Front Door Closure plan: default project resolution.
+          prompt = '''Implement Task 1 of the approved AI CORE E2E Closure plan: a fail-closed six-gate aggregator.
+
           Return one JSON object with exactly one key, "files". "files" must map exactly these two repository paths to complete UTF-8 file contents:
-          cloudflare-worker/project-resolution.js
-          cloudflare-worker/test-project-resolution.mjs
+          AI_SKILL_LIBRARY/v4/tools/ai_core_always_on_gate.py
+          AI_SKILL_LIBRARY/tests/test_ai_core_always_on_gate.py
 
-          Required interface:
-          resolveProjectId(request, clientConfig, storedDefault) -> string|null
+          Required CLI:
+          python AI_SKILL_LIBRARY/v4/tools/ai_core_always_on_gate.py \
+            --source-sha <sha> \
+            --control <path> \
+            --durable-job <path> \
+            --critical-redundancy <path> \
+            --survival <path> \
+            --disaster-recovery <path> \
+            --front-door <path> \
+            [--output <path>]
 
-          Invariants:
-          - explicit project_id supplied by the authenticated request wins when valid;
-          - otherwise an explicitly approved client default may be used;
-          - otherwise an explicitly stored approved default may be used;
-          - never guess across projects;
-          - conflicting ambiguous project identifiers fail closed;
-          - malformed, empty, non-string, or unapproved defaults return null rather than guessing;
-          - no secret material, transcript content, or connector token is persisted/logged;
-          - IMPORTANT: cloudflare-worker is ESM. Use native ES module syntax only: export function / export { ... }. Do NOT use module.exports, exports.*, require(), __dirname, or CommonJS;
-          - ChatGPT/Claude/Gemini are clients, never Brain authorities;
-          - project continuity remains bounded/versioned and this resolver has no routing/reasoning/scheduling/trading authority.
-          Tests must cover explicit wins, approved default, stored default, ambiguity, malformed inputs, and no-guess behavior.
-          Do not modify existing Cloudflare files, adapters registry, checkpoint, shared state, Storage Mesh, Survival Plane, or release pointers.
-          No new dependencies. Node tests only. Return no prose outside the JSON object.
+          Exact gate names:
+          CONTROL_PLANE_READY
+          DURABLE_JOB_READY
+          CRITICAL_ROLE_REDUNDANCY_READY
+          SURVIVAL_PLANE_READY
+          DISASTER_RECOVERY_READY
+          FRONT_DOOR_READY
+
+          Each evidence JSON is valid only when:
+          - it is a JSON object;
+          - source_sha exactly equals --source-sha;
+          - gate exactly equals the expected gate name;
+          - ready is literally true;
+          - proofs is a non-empty JSON list.
+
+          Fail closed:
+          - missing file => affected gate false;
+          - malformed JSON => affected gate false;
+          - stale/wrong source_sha => affected gate false;
+          - wrong gate name => affected gate false;
+          - ready missing/false/non-boolean => affected gate false;
+          - empty/missing/non-list proofs => affected gate false.
+
+          Output:
+          - print exactly one KEY=true|false line for each of the six gates in the order above;
+          - then print AI_CORE_ALWAYS_ON_READY=true|false;
+          - optional --output writes an atomic JSON summary containing source_sha, each six boolean gate keys, and AI_CORE_ALWAYS_ON_READY;
+          - exit code 0 only when all six gates are true on the requested SHA, otherwise exit code 1;
+          - never mutate input evidence;
+          - no network, no secrets, no repository writes except optional --output;
+          - no routing/reasoning/merge/deployment/trading/evidence authority.
+
+          Tests must use temporary files/directories and cover:
+          1. missing evidence;
+          2. malformed JSON;
+          3. stale SHA;
+          4. wrong gate name;
+          5. one false gate;
+          6. empty proofs;
+          7. all six valid => exit 0 and final true;
+          8. --output summary is written atomically and contains the exact booleans.
+
+          Keep implementation small, deterministic, Python stdlib only.
+          Return no prose outside the JSON object.
           '''
           request = {
               "model": "deepseek-chat",
               "max_tokens": 6000,
               "temperature": 0,
-                          "response_format": {"type": "json_object"},
-                          "messages": [
-              {"role": "system", "content":"You are a bounded coding worker. Reply with exactly one JSON object whose only key is \"files\" mapping exactly the two allowed paths. Keep the resolver deterministic, small, fail-closed, and non-authoritative."},
-              {"role": "user", "content": prompt},
+              "response_format": {"type": "json_object"},
+              "messages": [
+                  {"role": "system", "content":"You are a bounded coding worker. Reply with exactly one JSON object whose only key is \"files\" mapping exactly the two allowed paths. Implement a small deterministic fail-closed readiness aggregator and focused stdlib tests."},
+                  {"role": "user", "content": prompt},
               ],
           }
           Path('/tmp/deepseek-request.json').write_text(json.dumps(request),encoding='utf-8')
@@ -92,7 +131,30 @@ jobs:
       - name: Enforce file ownership
         run: |
           set -euo pipefail
-          allowed='^(cloudflare-worker/project-resolution\.js|cloudflare-worker/test-project-resolution\.mjs)$'
+          allowed='^(AI_SKILL_LIBRARY/v4/tools/ai_core_always_on_gate\.py|AI_SKILL_LIBRARY/tests/test_ai_core_always_on_gate\.py)
+          unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
+          if [ -n "${unexpected}" ]; then
+            echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
+            printf '%s\n' "${unexpected}"
+            exit 1
+          fi
+          echo "DEEPSEEK_FILE_OWNERSHIP=PASS"
+      - name: Run focused tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest AI_SKILL_LIBRARY.tests.test_ai_core_always_on_gate -v
+          echo "DEEPSEEK_TESTS=PASS"
+      - name: Commit DeepSeek always-on gate
+        run: |
+          set -euo pipefail
+          git config user.name 'DeepSeek Coding Lane'
+          git config user.email 'deepseek-lane@users.noreply.github.com'
+          git add AI_SKILL_LIBRARY/v4/tools/ai_core_always_on_gate.py AI_SKILL_LIBRARY/tests/test_ai_core_always_on_gate.py
+          git commit -m 'feat(ai-core): add fail-closed always-on readiness gate'
+          git push origin HEAD:work/deepseek-survival-plane-442
+          echo "DEEPSEEK_AI_CORE_GATE_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_CODING_LANE_READY=PASS"
+
           unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
