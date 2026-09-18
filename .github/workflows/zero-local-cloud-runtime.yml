@@ -9,6 +9,13 @@ on:
     paths:
       - 'AI_SKILL_LIBRARY/**'
       - 'crypto-research-gateway/**'
+      # The lane that VERIFIES the Cloudflare Worker must run when the Worker
+      # changes. It did not: c8a1dc8d rewrote prepare-wrangler.mjs and the
+      # Worker's health output, deployed successfully, and this verification
+      # never ran - so CLOUDFLARE_HEALTH and LIVE_RESEARCH_SMOKE went
+      # unobserved on the very commit that fixed the deploy.
+      - 'cloudflare-worker/**'
+      - 'tests/test_private_bridge_optional.py'
       - 'tests/test_cloud_runtime_policy.py'
       - 'tests/test_live_price_policy.py'
       - 'tests/test_zero_local_manifest.py'
@@ -19,6 +26,13 @@ on:
     paths:
       - 'AI_SKILL_LIBRARY/**'
       - 'crypto-research-gateway/**'
+      # The lane that VERIFIES the Cloudflare Worker must run when the Worker
+      # changes. It did not: c8a1dc8d rewrote prepare-wrangler.mjs and the
+      # Worker's health output, deployed successfully, and this verification
+      # never ran - so CLOUDFLARE_HEALTH and LIVE_RESEARCH_SMOKE went
+      # unobserved on the very commit that fixed the deploy.
+      - 'cloudflare-worker/**'
+      - 'tests/test_private_bridge_optional.py'
       - 'tests/test_cloud_runtime_policy.py'
       - 'tests/test_live_price_policy.py'
       - 'tests/test_zero_local_manifest.py'

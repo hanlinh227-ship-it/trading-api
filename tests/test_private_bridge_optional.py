@@ -137,6 +137,31 @@ class WorkflowRequirementTests(unittest.TestCase):
                 self.assertIn("PRIVATE_BRIDGE_ENABLED", env, step.get("name"))
 
 
+class VerificationLaneCoverageTests(unittest.TestCase):
+    """The lane that verifies the Worker must run when the Worker changes."""
+
+    ZERO_LOCAL = ROOT / ".github/workflows/zero-local-cloud-runtime.yml"
+
+    def setUp(self):
+        workflow = yaml.safe_load(self.ZERO_LOCAL.read_text(encoding="utf-8"))
+        self.on = workflow.get(True) or workflow.get("on")
+
+    def test_the_lane_triggers_on_worker_changes(self):
+        """c8a1dc8d changed the Worker, deployed, and this lane never ran - so
+        the health and smoke gates went unobserved on the commit that most
+        needed them."""
+        self.assertIn("cloudflare-worker/**", self.on["push"]["paths"])
+        self.assertIn("cloudflare-worker/**", self.on["pull_request"]["paths"])
+
+    def test_push_and_pull_request_watch_exactly_the_same_paths(self):
+        """A lane that checks a path pre-merge but not post-merge, or the
+        reverse, is a gate with a hole in one direction."""
+        self.assertEqual(self.on["push"]["paths"], self.on["pull_request"]["paths"])
+
+    def test_the_private_bridge_test_is_watched(self):
+        self.assertIn("tests/test_private_bridge_optional.py", self.on["push"]["paths"])
+
+
 class CapabilityFailsClosedTests(unittest.TestCase):
     """C. A capability that needs the bridge must refuse, never emulate."""
 
