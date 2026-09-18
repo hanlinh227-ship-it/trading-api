@@ -1,32 +1,38 @@
 {
   "tool": "federation_24x7_proof",
-  "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
-  "proof_timestamp": "2026-09-18T09:11:52Z",
+  "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
+  "proof_timestamp": "2026-09-18T09:24:39Z",
   "OBSERVED_ON": {
-    "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
+    "host_fingerprint": "0458bd264bb1a40500b4af1cf2aa3817",
     "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
     "machine": "x86_64",
     "cpu_count": 4,
     "cpu_flags_present": [
       "avx",
       "avx2",
+      "avx512_vnni",
+      "avx512bw",
+      "avx512cd",
+      "avx512dq",
+      "avx512f",
+      "avx512vl",
       "f16c",
       "fma"
     ],
     "why_the_flags": "a prebuilt engine raises SIGILL on a CPU lacking the extensions it was compiled for, so these decide liveness for an unchanged commit and an unchanged artifact"
   },
   "reading_scope": "a fact about the machine named in OBSERVED_ON at the moment it ran, against the revision named in source_sha; not a standing property of the code",
-  "federation_status": "FAILED",
+  "federation_status": "PROVEN",
   "live_round": {
-    "live_round_status": "ROUND_FAILED",
-    "why": "the round ran and did not pass",
+    "live_round_status": "PASSED",
+    "why": "the round ran here and passed",
     "engine_state": null
   },
-  "live_round_status": "ROUND_FAILED",
+  "live_round_status": "PASSED",
   "state_rounds_total": 21,
   "state_rounds_failed": [],
-  "blocking_class": "ROUND_FAILED",
-  "rounds_passed": 21,
+  "blocking_class": "NONE",
+  "rounds_passed": 22,
   "rounds_total": 22,
   "rounds": [
     {
@@ -268,22 +274,20 @@
     {
       "round": "V",
       "scenario": "live_federated_role_execution",
-      "passed": false,
-      "failures": [
-        "ran model(s) no role branch maps: local_runtime:microsoft/Phi-3-mini-4k-instruct-gguf"
-      ],
+      "passed": true,
+      "failures": [],
       "domain": "core",
       "primary_skill": "core_reasoning",
       "collaboration_mode": "MAKER_CHECKER",
       "models_run": [
         "Qwen/Qwen3-8B-GGUF",
-        "local_runtime:microsoft/Phi-3-mini-4k-instruct-gguf"
+        "microsoft/Phi-3-mini-4k-instruct-gguf"
       ],
       "answer": "<think>\nOkay, let's see. The question is: If every A is a B, and every B is a C, is every A a C? I need to answer yes or no and give a short reason.\n\nFirst, I",
       "routing_authority": "task_router",
       "model_selection_authority": "model_mesh",
       "resolved_by_vote": false,
-      "all_models_are_role_mapped": false
+      "all_models_are_role_mapped": true
     }
   ],
   "note": "every round breaks something real and asks the existing mesh what it does. A round that could not run does not pass.",

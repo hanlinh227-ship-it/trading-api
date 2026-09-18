@@ -1,15 +1,21 @@
 {
   "tool": "free_worker_mesh_proof",
-  "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
-  "proof_timestamp": "2026-09-18T09:12:10Z",
+  "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
+  "proof_timestamp": "2026-09-18T09:25:05Z",
   "OBSERVED_ON": {
-    "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
+    "host_fingerprint": "0458bd264bb1a40500b4af1cf2aa3817",
     "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
     "machine": "x86_64",
     "cpu_count": 4,
     "cpu_flags_present": [
       "avx",
       "avx2",
+      "avx512_vnni",
+      "avx512bw",
+      "avx512cd",
+      "avx512dq",
+      "avx512f",
+      "avx512vl",
       "f16c",
       "fma"
     ],
@@ -17,20 +23,18 @@
   },
   "reading_scope": "a fact about the machine named in OBSERVED_ON at the moment it ran, against the revision named in source_sha; not a standing property of the code",
   "rounds_run": 10,
-  "rounds_passed": 9,
-  "failed_rounds": [
-    "J"
-  ],
-  "mesh_status": "FAILED",
+  "rounds_passed": 10,
+  "failed_rounds": [],
+  "mesh_status": "PROVEN",
   "live_round": {
-    "live_round_status": "ROUND_FAILED",
-    "why": "the round ran and did not pass",
+    "live_round_status": "PASSED",
+    "why": "the round ran here and passed",
     "engine_state": null
   },
-  "live_round_status": "ROUND_FAILED",
+  "live_round_status": "PASSED",
   "state_rounds_total": 9,
   "state_rounds_failed": [],
-  "blocking_class": "ROUND_FAILED",
+  "blocking_class": "NONE",
   "worker_classes_supported": [
     "CI_EPHEMERAL",
     "EPHEMERAL_LOCAL",
@@ -142,7 +146,7 @@
       "scenario": "large_model_keeps_its_named_requirement",
       "passed": true,
       "failures": [],
-      "refusal": "has 14969 MB RAM available, needs 37200 MB",
+      "refusal": "has 14943 MB RAM available, needs 37200 MB",
       "note": "a statement about the machines attached, not about the model"
     },
     {
@@ -161,32 +165,30 @@
     {
       "round": "J",
       "scenario": "live_federated_inference",
-      "passed": false,
-      "failures": [
-        "local_runtime:microsoft/Phi-3-mini-4k-instruct-gguf as checker errored: no verified artifact cached"
-      ],
+      "passed": true,
+      "failures": [],
       "workers": [
         {
           "model_id": "Qwen/Qwen3-8B-GGUF",
           "role": "maker",
           "error": null,
-          "latency_ms": 10817.958
+          "latency_ms": 13870.732
         },
         {
-          "model_id": "local_runtime:microsoft/Phi-3-mini-4k-instruct-gguf",
+          "model_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
           "role": "checker",
-          "error": "no verified artifact cached",
-          "latency_ms": null
+          "error": null,
+          "latency_ms": 4525.208
         }
       ],
       "models": [
         "Qwen/Qwen3-8B-GGUF",
-        "local_runtime:microsoft/Phi-3-mini-4k-instruct-gguf"
+        "microsoft/Phi-3-mini-4k-instruct-gguf"
       ],
       "routing_authority": "task_router",
       "model_selection_authority": "model_mesh",
       "answer": "<think>\nOkay, the user is asking, \"In one sentence, what does a worker contribute to a federation?\" Let me break this down.\n\nFirst, I need to understand what a federation is. A federation is a political entity where multiple",
-      "wall_ms": 18205.466,
+      "wall_ms": 26407.927,
       "note": "a real completion from an admitted local model, not a placement"
     }
   ],

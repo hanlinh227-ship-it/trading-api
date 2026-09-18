@@ -1,13 +1,19 @@
 {
   "tool": "worker_execution_liveness",
   "OBSERVED_ON": {
-    "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
+    "host_fingerprint": "0458bd264bb1a40500b4af1cf2aa3817",
     "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
     "machine": "x86_64",
     "cpu_count": 4,
     "cpu_flags_present": [
       "avx",
       "avx2",
+      "avx512_vnni",
+      "avx512bw",
+      "avx512cd",
+      "avx512dq",
+      "avx512f",
+      "avx512vl",
       "f16c",
       "fma"
     ],
@@ -19,7 +25,7 @@
     "reason": "the engine imported and identified itself"
   },
   "EXECUTION_LIVE": true,
-  "worker_id": "local-engine-9b455005c0ee4d97847eb044fdf62dc8",
+  "worker_id": "local-engine-0458bd264bb1a40500b4af1cf2aa3817",
   "execution_liveness": "EXECUTION_LIVE",
   "stranded_roles": [
     "REASONING_BRANCH",
@@ -37,8 +43,8 @@
     "CODING_BRANCH",
     "VERIFICATION_BRANCH"
   ],
-  "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
-  "proof_timestamp": "2026-09-18T09:10:03Z",
+  "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
+  "proof_timestamp": "2026-09-18T09:20:25Z",
   "roles_with_a_local_primary": [
     {
       "role_id": "REASONING_BRANCH",
@@ -200,10 +206,40 @@
       "execution_liveness": "EXECUTION_LIVE",
       "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
       "proof_timestamp": "2026-09-18T09:10:03Z"
+    },
+    "0458bd264bb1a40500b4af1cf2aa3817": {
+      "OBSERVED_ON": {
+        "host_fingerprint": "0458bd264bb1a40500b4af1cf2aa3817",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "machine": "x86_64",
+        "cpu_count": 4,
+        "cpu_flags_present": [
+          "avx",
+          "avx2",
+          "avx512_vnni",
+          "avx512bw",
+          "avx512cd",
+          "avx512dq",
+          "avx512f",
+          "avx512vl",
+          "f16c",
+          "fma"
+        ],
+        "why_the_flags": "a prebuilt engine raises SIGILL on a CPU lacking the extensions it was compiled for, so these decide liveness for an unchanged commit and an unchanged artifact"
+      },
+      "LOCAL_ENGINE": {
+        "state": "EXECUTION_LIVE",
+        "reason": "the engine imported and identified itself"
+      },
+      "EXECUTION_LIVE": true,
+      "worker_id": "local-engine-0458bd264bb1a40500b4af1cf2aa3817",
+      "execution_liveness": "EXECUTION_LIVE",
+      "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
+      "proof_timestamp": "2026-09-18T09:20:25Z"
     }
   },
-  "hosts_observed": 3,
-  "hosts_where_the_engine_runs": 2,
+  "hosts_observed": 4,
+  "hosts_where_the_engine_runs": 3,
   "EXECUTION_IS_HOST_DEPENDENT": true,
   "host_dependence_note": "the same commit and the same artifacts execute on some of the hosts observed and not on others. Neither reading is wrong. This is the SINGLE_PATH_RISK made concrete: one host holds every local weight, so whether the federation can run locally depends on which machine answered."
 }

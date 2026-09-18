@@ -1,15 +1,21 @@
 {
   "tool": "federation_status_scopes",
-  "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
-  "proof_timestamp": "2026-09-18T09:12:10Z",
+  "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
+  "proof_timestamp": "2026-09-18T09:25:06Z",
   "OBSERVED_ON": {
-    "host_fingerprint": "9b455005c0ee4d97847eb044fdf62dc8",
+    "host_fingerprint": "0458bd264bb1a40500b4af1cf2aa3817",
     "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
     "machine": "x86_64",
     "cpu_count": 4,
     "cpu_flags_present": [
       "avx",
       "avx2",
+      "avx512_vnni",
+      "avx512bw",
+      "avx512cd",
+      "avx512dq",
+      "avx512f",
+      "avx512vl",
       "f16c",
       "fma"
     ],
@@ -30,8 +36,8 @@
     "LICENSE_GATE_REQUIRED": "reaching it needs a licence acceptance that has not been recorded",
     "UNAVAILABLE": "it was reached, or reachably attempted, and cannot serve"
   },
-  "CURRENT_ENV_24X7_READY": false,
-  "CANONICAL_24X7_FEDERATION_READY": false,
+  "CURRENT_ENV_24X7_READY": true,
+  "CANONICAL_24X7_FEDERATION_READY": true,
   "CURRENT_ENV_ACTIVE_WORKERS": 1,
   "CANONICAL_VERIFIED_WORKERS": 1,
   "CURRENT_PROVIDER_LIVENESS": [
@@ -45,11 +51,11 @@
         "freshness": "CURRENT_REVISION",
         "locality": "THIS_HOST",
         "scope": "CURRENT_ENV",
-        "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
-        "proof_timestamp": "2026-09-18T09:10:03Z",
-        "age_seconds": 127,
+        "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
+        "proof_timestamp": "2026-09-18T09:20:25Z",
+        "age_seconds": 280,
         "reasons": [
-          "bound to HEAD db15016166dd316b0702f43701ccb63999149d0a"
+          "bound to HEAD fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1"
         ],
         "evidence": "WORKER_EXECUTION_LIVENESS.json",
         "claim_field": "EXECUTION_LIVE",
@@ -96,35 +102,35 @@
       "counts_as_canonical": false
     }
   ],
-  "LAST_VERIFIED_AT": "2026-09-18T09:10:03Z",
+  "LAST_VERIFIED_AT": "2026-09-18T09:25:05Z",
   "EVIDENCE_FRESHNESS": {
     "FEDERATION_24X7_PROOF.json": {
       "binding": "BOUND_TO_REVISION",
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
-      "proof_timestamp": "2026-09-18T09:11:52Z",
-      "age_seconds": 18,
+      "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
+      "proof_timestamp": "2026-09-18T09:24:39Z",
+      "age_seconds": 26,
       "reasons": [
-        "bound to HEAD db15016166dd316b0702f43701ccb63999149d0a"
+        "bound to HEAD fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1"
       ],
       "claim_field": "federation_status",
-      "claims_pass": false
+      "claims_pass": true
     },
     "FREE_WORKER_MESH_PROOF.json": {
       "binding": "BOUND_TO_REVISION",
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
-      "proof_timestamp": "2026-09-18T09:12:10Z",
+      "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
+      "proof_timestamp": "2026-09-18T09:25:05Z",
       "age_seconds": 0,
       "reasons": [
-        "bound to HEAD db15016166dd316b0702f43701ccb63999149d0a"
+        "bound to HEAD fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1"
       ],
       "claim_field": "mesh_status",
-      "claims_pass": false
+      "claims_pass": true
     },
     "CRITICAL_ROLE_REDUNDANCY_PROOF.json": {
       "binding": "BOUND_TO_REVISION",
@@ -133,7 +139,7 @@
       "scope": "HISTORICAL",
       "source_sha": "d53e99e534cc2587ef9969be95308400fede73eb",
       "proof_timestamp": "2026-09-18T08:19:01Z",
-      "age_seconds": 3189,
+      "age_seconds": 3964,
       "reasons": [
         "d53e99e534cc2587ef9969be95308400fede73eb is an ancestor of HEAD, but AI_SKILL_LIBRARY/ or cloudflare-worker/ moved between them"
       ],
@@ -145,11 +151,11 @@
       "freshness": "CURRENT_REVISION",
       "locality": "THIS_HOST",
       "scope": "CURRENT_ENV",
-      "source_sha": "db15016166dd316b0702f43701ccb63999149d0a",
-      "proof_timestamp": "2026-09-18T09:10:03Z",
-      "age_seconds": 127,
+      "source_sha": "fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1",
+      "proof_timestamp": "2026-09-18T09:20:25Z",
+      "age_seconds": 280,
       "reasons": [
-        "bound to HEAD db15016166dd316b0702f43701ccb63999149d0a"
+        "bound to HEAD fbebbcb95e4a81a29bd74b828684d6beb2c4ffd1"
       ],
       "claim_field": "EXECUTION_LIVE",
       "claims_pass": true
