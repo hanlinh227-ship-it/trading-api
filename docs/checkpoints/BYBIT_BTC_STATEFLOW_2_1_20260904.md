@@ -29,6 +29,19 @@ Funding, OI, order-book imbalance or a single liquidation print can never create
 - `LIQUIDATION_EXHAUSTION_RECLAIM`
 - `STRUCTURE_TRANSITION_CONFIRM`
 
+## AI Legion addendum — 2026-09-19
+
+The autonomous AI Legion is integrated as a subordinate evidence gate, not as a replacement strategy or execution authority.
+
+- StateFlow selects the BTCUSDT candidate first.
+- Three required distinct Model Mesh workers evaluate structure/regime, flow/liquidity and derivatives/risk; a fourth distinct worker is an optional independent checker.
+- Required structure and flow roles must SUPPORT. Any required VETO blocks new risk. The optional checker may veto. No majority vote is used.
+- AI output can only reduce the deterministic risk multiplier to 0.50..1.00. It cannot increase risk, change leverage, place orders, alter credentials or expand the BTC-only execution universe.
+- AI receives public market/candidate evidence only. Secrets and private account state stay outside provider prompts.
+- Demo and Live use the same engine, risk, reconciliation and native-protection path. Demo targets Bybit Demo REST; Live retains the existing Bybit production transport.
+- Live AI-autotrade requires `BYBIT_AUTO_LIVE=true`, `BYBIT_BTC_LIVE_ACK=true` and `BYBIT_AI_LEGION_LIVE_ENABLED=true`.
+- Missing/stale AI evidence fails closed for new DEMO/LIVE risk, while deterministic management of an already-open protected position continues.
+
 ## Scale / risk
 - Continuous equity compounding.
 - Normal entry risk 0.75% equity; strong 1.00%; A+ 1.25%; hard single-entry cap 1.50%.
