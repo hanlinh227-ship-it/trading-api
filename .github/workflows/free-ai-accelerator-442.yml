@@ -57,32 +57,38 @@ jobs:
               print('FREE_AI_PROVIDER='+str(r.get('providerId'))+'|'+str(r.get('modelId'))+'|'+str(r.get('state'))+'|'+str(r.get('status')))
           PY
 
-      - name: Build bounded public project context
+      - name: Build bounded public project context from current PR 442 head
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin main --depth=1 || true
+          git fetch origin refs/pull/442/head:refs/remotes/origin/pr442 --force
+          TARGET_SHA="$(git rev-parse refs/remotes/origin/pr442)"
           {
             echo "Repository: ${GITHUB_REPOSITORY}"
-            echo "Current accelerator SHA: ${GITHUB_SHA}"
-            echo "Target integration work: PR #442 AI CORE closure."
+            echo "Accelerator implementation SHA: ${GITHUB_SHA}"
+            echo "Target PR #442 SHA: ${TARGET_SHA}"
+            echo "Target integration work: PR #442 AI CORE E2E closure."
             echo "Canonical authority: GITHUB_BRAIN_V4; task_router sole routing authority."
-            echo "Claude owns Storage Mesh and shared integration-sensitive files."
-            echo "DeepSeek owns already-green bounded Survival/Always-On/Redundancy commits."
-            echo "Work owns Front Door integration lane."
+            echo "Claude is the sole final integration writer."
+            echo "DeepSeek and FREE_ONLY cloud models are bounded specialist workers only."
+            echo "Work implementation lane is retired except emergency reserve."
             echo
-            echo "Changed-file summary relative to main (bounded):"
-            git diff --name-status origin/main...HEAD -- \
+            echo "Changed-file summary relative to main for CURRENT PR HEAD (bounded):"
+            git diff --name-status origin/main...refs/remotes/origin/pr442 -- \
               cloudflare-worker \
+              AI_SKILL_LIBRARY/v4/storage \
               AI_SKILL_LIBRARY/v4/survival \
               AI_SKILL_LIBRARY/v4/always_on \
               AI_SKILL_LIBRARY/v4/local_runtime \
-              AI_SKILL_LIBRARY/tests 2>/dev/null | head -n 160
+              AI_SKILL_LIBRARY/v4/control_plane \
+              AI_SKILL_LIBRARY/v4/tools \
+              AI_SKILL_LIBRARY/tests 2>/dev/null | head -n 220
             echo
-            echo "Recent commits:"
-            git log --oneline -n 20
+            echo "Recent PR #442 commits:"
+            git log --oneline -n 24 refs/remotes/origin/pr442
           } > /tmp/free-ai-context.txt
-          head -c 12000 /tmp/free-ai-context.txt > /tmp/free-ai-context-bounded.txt
+          head -c 14000 /tmp/free-ai-context.txt > /tmp/free-ai-context-bounded.txt
 
       - name: Compile canonical Model Mesh contracts
         shell: bash
