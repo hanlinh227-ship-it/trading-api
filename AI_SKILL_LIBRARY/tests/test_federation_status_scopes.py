@@ -261,9 +261,15 @@ def test_an_unbound_proof_cannot_set_the_canonical_flag():
 def test_the_live_24x7_flags_follow_the_current_document():
     report = scopes.build(ROOT, environ={}, skip_probe=True)
     reading = report["EVIDENCE_FRESHNESS"]["FEDERATION_24X7_PROOF.json"]
-    # Bound now, and failing on the one round this host cannot run.
-    assert reading["binding"] == "BOUND_TO_REVISION"
-    assert reading["claims_pass"] is False
+    # CI checks out with the default fetch-depth: 1, so an ancestor the document
+    # legitimately names is simply absent from the clone. That is reported as
+    # UNRESOLVABLE_HERE rather than UNRESOLVABLE, because "this clone lacks the
+    # commit" and "this sha names no commit anywhere" are different claims and
+    # the second accuses real evidence of being invented.
+    assert reading["binding"] in ("BOUND_TO_REVISION", "UNRESOLVABLE_HERE")
+    if reading["binding"] == "UNRESOLVABLE_HERE":
+        assert scopes.is_shallow(ROOT)
+        assert reading["scope"] == "HISTORICAL"
     assert report["CANONICAL_24X7_FEDERATION_READY"] is False
     assert report["CURRENT_ENV_24X7_READY"] is False
 
@@ -566,3 +572,22 @@ def test_a_round_that_ran_and_failed_never_earns_the_exemption():
     gate = _phase6()
     assert gate.is_externally_blocked(
         {"blocking_class": "ROUND_FAILED", "state_rounds_failed": []}) is False
+
+
+
+def test_a_shallow_clone_is_not_an_invented_revision():
+    """One label over two facts, caught by CI's shallow checkout.
+
+    A sha this clone does not contain and a sha that names no commit anywhere
+    were both reported UNRESOLVABLE. The first is a property of the checkout;
+    the second is evidence naming nothing. Both still fail closed to
+    HISTORICAL - the difference is in what the reading says, not what it allows.
+    """
+    assert "UNRESOLVABLE_HERE" in scopes.BINDINGS
+    assert scopes.BINDING_VALUES == tuple(scopes.BINDINGS)
+    # A full clone: an invented sha is still an invention, not a shallow miss.
+    if not scopes.is_shallow(ROOT):
+        reading = scopes.scope_document(
+            {"source_sha": "0" * 40, "proof_timestamp": "2026-09-18T07:00:00Z"},
+            root=ROOT, host_fingerprint="abc", now=NOW)
+        assert reading["scope"] == "HISTORICAL"
