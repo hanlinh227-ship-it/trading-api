@@ -1,0 +1,38 @@
+# Survival Plane recovery policy (Task 5).
+# Conservative restore verification requirements. No authority flags.
+
+recovery_policy:
+  version: 1
+  description: >-
+    Restore verification is authoritative for recovery readiness. Backup
+    creation success alone never implies a healthy backup.
+
+  restore_verification:
+    require_manifest: true
+    require_sha256: true
+    require_size_bytes: true
+    require_object_paths: true
+    allow_unexpected_objects: false
+    fail_closed: true
+    verify_before_marking_ready: true
+
+  manifest:
+    store_raw_contents: false
+    store_plaintext_secrets: false
+    metadata_only: true
+    deterministic_ordering: true
+    bounded: true
+
+  external_mechanics:
+    restic: external
+    opentofu: external
+    ansible: external
+    required_by_contract: false
+
+  authority:
+    routing_authority: false
+    reasoning_authority: false
+    scheduling_authority: false
+    merge_authority: false
+    deployment_authority: false
+    trading_authority: false
