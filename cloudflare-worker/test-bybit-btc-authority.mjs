@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {BYBIT_AUTO_CONFIG} from './bybit-auto-config.js';
+import {BYBIT_AUTO_CONFIG,bybitExecutionMode,bybitExecutionAllowsOrders} from './bybit-auto-config.js';
 import {handleBybitControlApi} from './bybit-control-plane.js';
 import {BYBIT_RUNTIME_CONTRACT,BYBIT_AUTO_VERSION,LEGACY_BYBIT_MULTI_COIN_DISABLED} from './bybit-runtime-contract.js';
 import {BYBIT_TRADE_UNIVERSE,isSupportedTradeSymbol} from './bybit-coin-profiles.js';
@@ -22,6 +22,15 @@ assert.equal(BYBIT_RUNTIME_CONTRACT.dynamicBybitScalpUniverse,false);
 assert.equal(BYBIT_AUTO_CONFIG.symbol,'BTCUSDT');
 assert.deepEqual(BYBIT_AUTO_CONFIG.symbols,['BTCUSDT']);
 assert.equal(BYBIT_AUTO_CONFIG.multiAsset,false);
+assert.equal(BYBIT_AUTO_CONFIG.aiLegion.authority,'ADVISORY_EVIDENCE_ONLY');
+assert.equal(BYBIT_AUTO_CONFIG.aiLegion.mayPlaceOrders,false);
+assert.equal(BYBIT_AUTO_CONFIG.aiLegion.mayIncreaseRisk,false);
+assert.equal(BYBIT_RUNTIME_CONTRACT.aiLegionVersion,'BYBIT_AI_LEGION_V1');
+assert.equal(BYBIT_RUNTIME_CONTRACT.aiLegionMayPlaceOrders,false);
+assert.equal(BYBIT_RUNTIME_CONTRACT.demoExecutionSupported,true);
+assert.equal(bybitExecutionMode({BYBIT_AUTO_DEMO:'true'}),'DEMO');
+assert.equal(bybitExecutionAllowsOrders('DEMO'),true);
+assert.equal(bybitExecutionMode({BYBIT_AUTO_DEMO:'true',BYBIT_AUTO_LIVE:'true',BYBIT_BTC_LIVE_ACK:'true'}),'BLOCKED');
 assert.deepEqual(BYBIT_AUTO_CONFIG.portfolio.concurrentByEquity,[{equityUsd:0,max:1}]);
 
 // Broad crypto discovery remains available as read-only/research evidence only.
