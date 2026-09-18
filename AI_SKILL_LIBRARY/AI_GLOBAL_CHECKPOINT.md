@@ -20,8 +20,11 @@ This file is the cross-chat operational checkpoint for substantive work that use
 - Autonomous promotion boundary: Class A/B may promote only after all required gates (and sandbox for B); Class C/D require explicit human authorization and cannot unattended-promote.
 - Open-source fusion rule: upstream repositories are reference/evidence only; strengthen existing canonical skills first; no parallel reasoning authority; no permission widening; no mandatory local runtime
 - Plain-language presentation: enabled; user-facing default locale `vi`, simple language; exact technical tokens remain available when needed
-- Live-price research runtime: Railway service `crypto-research-gateway-prod`, Southeast Asia / Singapore, one replica
-- Live-price public research gateway: `crypto-research-gateway-prod-production.up.railway.app`
+- Live-price research runtime: **Cloudflare Workers**, Worker `trading-v77-scanner` (`PRIMARY_RUNTIME = CLOUDFLARE_WORKERS`)
+- Live-price public research gateway: `trading-v77-scanner.hanlinh227.workers.dev`
+- `RAILWAY_REQUIRED = false`, `PERSONAL_PC_REQUIRED = false`, paid fallback not permitted
+- Secondary runtime: Deno Deploy, capacity/failover only, **not deployed and not health-probed** — it holds no routing, reasoning or model-selection authority and the Cloudflare cutover never depended on it
+- Historical (do not read as current): live-price research ran on the Railway service `crypto-research-gateway-prod` in Southeast Asia / Singapore until the Railway exit. That evidence stays valid for the period it describes and is not current runtime truth.
 - Live-price release marker: `live-price-execution-v1`
 - Local user installation required: **NO**
 
@@ -51,7 +54,7 @@ This implementation exists on isolated branch `github-brain-v4-afmm-implementati
 
 High-risk gates remain unchanged: no autonomous live financial execution, fund transfer, credential/secret mutation, destructive production operation, production permission widening, security-control disabling, authority-hierarchy self-modification, high-risk self-promotion, or quota/access-control circumvention.
 
-The Cloudflare Skill Gateway rollout does **not** by itself migrate live-price/exchange research authority away from Railway. Keep those runtime responsibilities separate until a dedicated live-research Cloudflare cutover is independently verified.
+Live-price/exchange research authority has now been migrated to Cloudflare Workers by a dedicated cutover, verified independently of the Skill Gateway rollout. Skill routing and live-price research still deploy through their own gates; they are separate responsibilities on one runtime, not one merged contract.
 
 ## Skill-Mandatory Fast Gateway contract
 
@@ -147,17 +150,25 @@ Production Skill Gateway releases use GitHub Actions exact-main deployment to Cl
 
 ## Live-price research deployment contract
 
-Live-price research production remains on Railway and continues to use `railway_connector_exact_commit` until a separate migration is verified.
+Live-price research production runs on **Cloudflare Workers**. Railway is not
+part of the production dependency graph and is not a fallback.
 
 1. GitHub `main` remains the source of truth.
-2. Railway GitHub autodeploy is not required for this runtime.
-3. A live-research release is deployed through the Railway connector using an exact verified `main` commit.
-4. The non-secret variable `DEPLOYMENT_SOURCE_SHA` must equal the exact GitHub commit selected for deployment.
-5. `/health` exposes that value as `deploymentSourceSha` and, when Railway Git metadata is unavailable, as compatibility field `deploymentCommitSha`.
-6. Railway deployment metadata must independently report the same source commit and `SUCCESS` before the live-research release is considered verified.
-7. No local CLI, Node/npm/Python install, local MCP server, or local computer is part of the normal release path.
+2. A qualifying `main` push deploys automatically; no connector step and no local action.
+3. `.github/workflows/deploy-skill-mandatory-fast-gateway.yml` is the single deployment authority for `trading-v77-scanner`. The Zero-Local lane verifies and never mutates production.
+4. `RUNTIME_REVISION` is set to the exact deployed `main` commit.
+5. `/health` exposes that value as `deploymentSourceSha`, alongside `runtimeProvider = cloudflare-workers` and `localInstallRequired = false`.
+6. A release is verified only on the exact commit: an unmatched `deploymentSourceSha` fails closed.
+7. No local CLI, Node/npm/Python install, local MCP server, or local computer is part of the release path.
 
-Do not silently replace this live-research contract with the Skill Gateway Cloudflare deployment contract.
+This is stricter than the Railway contract it replaces. Railway's connector
+could not carry the repository commit, so that gate compared gateway source
+TREES; the Worker is deployed at an exact revision, so this compares the commit
+itself.
+
+Historical (do not read as current): the `railway_connector_exact_commit`
+contract and its `deploymentCommitSha` compatibility field governed this runtime
+before the exit. Evidence recorded under it stays valid for its period.
 
 ## Live-price execution authority
 
@@ -191,8 +202,8 @@ For Skill Gateway work, completion requires:
 For live-price research work, completion still requires:
 
 - exact source commit identified on GitHub `main`;
-- Railway production deployment `SUCCESS` with matching deployment commit metadata;
-- `/health` reports `deploymentRelease = live-price-execution-v1` and matching `deploymentSourceSha` / compatibility `deploymentCommitSha`;
+- Cloudflare deployment success at that exact commit;
+- `/health` reports `deploymentRelease = live-price-execution-v1`, `runtimeProvider = cloudflare-workers` and matching `deploymentSourceSha`;
 - `localInstallRequired = false`;
 - `/capabilities` exposes read-only tools only;
 - live venue-bound execution quotes pass freshness, bid/ask, timestamp, spread, instrument and semantic checks;

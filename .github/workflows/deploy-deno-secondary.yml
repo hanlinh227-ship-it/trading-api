@@ -1,0 +1,117 @@
+name: Deploy Deno Secondary Runtime
+
+# The zero-cost SECONDARY runtime. Capacity and failover only: it holds no
+# routing, reasoning or model-selection authority, and the Cloudflare primary
+# never waits on it.
+#
+# This workflow FAILS CLOSED when Deno credentials are absent. It does not
+# print DENO_HEALTH=PASS, and it does not print DENO_DEPLOYED=true, unless a
+# real deployment answered a real health probe. An unconfigured secondary is a
+# truthful "not available", never a quiet pass -- claiming a failover path that
+# does not exist is worse than having none, because it would be trusted the one
+# time the primary is down.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deno-secondary/**'
+      - 'crypto-research-gateway/src/**'
+      - '.github/workflows/deploy-deno-secondary.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deno-secondary-runtime
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    name: Build secondary artifact and deploy if configured
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check the secondary adapter
+        run: |
+          set -euo pipefail
+          # The artifact must be buildable whether or not it can be deployed.
+          # A secondary that stopped compiling unnoticed would be discovered
+          # during an outage, which is the worst possible time.
+          deno check deno-secondary/main.ts
+          echo "DENO_ARTIFACT_BUILD=PASS"
+
+      - name: Secondary holds no authority
+        run: |
+          set -euo pipefail
+          # Structural, not decorative: the secondary must never become a second
+          # router, Brain or Model Mesh.
+          for flag in 'ROUTING_AUTHORITY = false' 'REASONING_AUTHORITY = false' 'MODEL_SELECTION_AUTHORITY = false'; do
+            grep -qF "const $flag" deno-secondary/main.ts || {
+              echo "REFUSED: deno-secondary/main.ts must declare $flag" >&2; exit 1; }
+          done
+          echo "DENO_SECONDARY_AUTHORITY=NONE"
+
+      - name: Deploy to Deno Deploy, or refuse truthfully
+        id: deploy
+        env:
+          DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
+          DENO_PROJECT: ${{ secrets.DENO_PROJECT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DENO_DEPLOY_TOKEN:-}" ] || [ -z "${DENO_PROJECT:-}" ]; then
+            echo "DENO_DEPLOYED=false"
+            echo "DENO_HEALTH=NOT_PROBED"
+            echo "DENO_SECONDARY=NOT_CONFIGURED"
+            echo "deployed=false" >> "$GITHUB_OUTPUT"
+            echo "The secondary runtime is prepared but not configured: DENO_DEPLOY_TOKEN and DENO_PROJECT are required. This is not a failure of the primary cutover, which never depends on the secondary."
+            exit 0
+          fi
+          deno install -gArf jsr:@deno/deployctl
+          deployctl deploy \
+            --project="$DENO_PROJECT" \
+            --prod \
+            --token="$DENO_DEPLOY_TOKEN" \
+            deno-secondary/main.ts
+          echo "deployed=true" >> "$GITHUB_OUTPUT"
+          echo "DENO_DEPLOYED=true"
+
+      - name: Probe the deployed secondary
+        if: steps.deploy.outputs.deployed == 'true'
+        env:
+          DENO_SECONDARY_URL: ${{ secrets.DENO_SECONDARY_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DENO_SECONDARY_URL:-}" ]; then
+            echo "DENO_HEALTH=NOT_PROBED"
+            echo "REFUSED: deployed but DENO_SECONDARY_URL is unset, so health cannot be established. Not calling this live." >&2
+            exit 1
+          fi
+          curl --fail --silent --max-time 20 "$DENO_SECONDARY_URL/health" > /tmp/deno-health.json
+          cat /tmp/deno-health.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('/tmp/deno-health.json').read_text())
+          if data.get('ok') is not True:
+              raise SystemExit('secondary /health did not report ok')
+          if data.get('runtimeProvider') != 'deno-deploy':
+              raise SystemExit('secondary did not identify as deno-deploy')
+          if data.get('runtimeRole') != 'secondary-capacity-only':
+              raise SystemExit('secondary must declare itself capacity-only')
+          for field in ('routingAuthority', 'reasoningAuthority', 'modelSelectionAuthority'):
+              if data.get(field) is not False:
+                  raise SystemExit(f'secondary claims {field}; it holds no authority')
+          if data.get('localInstallRequired') is not False:
+              raise SystemExit('secondary unexpectedly requires local install')
+          print('DENO_HEALTH=PASS')
+          PY

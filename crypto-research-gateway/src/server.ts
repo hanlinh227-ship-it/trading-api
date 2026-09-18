@@ -163,7 +163,7 @@ function attachDataContract(
   const degraded = result.degraded === true;
   const ok = result.ok === true;
   const freshness: DataFreshness = !ok ? 'UNKNOWN' : degraded ? 'DEGRADED' : 'FRESH';
-  const sourceSha = process.env.DEPLOYMENT_SOURCE_SHA ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? 'UNKNOWN';
+  const sourceSha = process.env.DEPLOYMENT_SOURCE_SHA ?? process.env.RUNTIME_REVISION ?? 'UNKNOWN';
   const provenance: Record<string, unknown> = {
     providers: Array.isArray(result.providers) ? result.providers : [],
     failures: Array.isArray(result.failures) ? result.failures : [],
@@ -227,7 +227,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     const providers = runtime.getHealth();
     const healthyProviders = Object.entries(providers).filter(([, status]) => status.ok).map(([id]) => id);
     const degradedProviders = Object.entries(providers).filter(([, status]) => !status.ok).map(([id]) => id);
-    const deploymentSourceSha = process.env.DEPLOYMENT_SOURCE_SHA ?? null;
+    const deploymentSourceSha = process.env.DEPLOYMENT_SOURCE_SHA ?? process.env.RUNTIME_REVISION ?? null;
     return {
       ok: true,
       service: SERVICE_NAME,
@@ -235,7 +235,6 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       runtimeMode: RUNTIME_MODE,
       deploymentRelease: 'live-price-execution-v1',
       deploymentSourceSha,
-      deploymentCommitSha: process.env.RAILWAY_GIT_COMMIT_SHA ?? deploymentSourceSha,
       localInstallRequired: false,
       lastPublicProbeTimestamp: runtime.getLastProbeAt(),
       healthyProviders,

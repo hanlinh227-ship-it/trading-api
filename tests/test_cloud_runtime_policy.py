@@ -23,8 +23,13 @@ class ZeroLocalCloudRuntimePolicyTests(unittest.TestCase):
         self.assertTrue(data["cloud_runtime_required_for_provider_execution"])
         self.assertFalse(data["high_risk_cloud_execution"])
         self.assertFalse(data["auth_read_only_default_enabled"])
-        self.assertEqual(data["runtime"], "railway")
+        self.assertEqual(data["runtime"], "cloudflare_workers")
         self.assertEqual(data["node_major"], 22)
+        # Railway exit: the canonical contract must not require it, and must not
+        # permit a paid or personal-machine path to creep back in as a fallback.
+        self.assertFalse(data["railway_required"])
+        self.assertFalse(data["personal_pc_required"])
+        self.assertFalse(data["paid_fallback_allowed"])
 
     def test_runtime_policy_has_no_local_install_fallback(self):
         data = yaml.safe_load((LIB / "skills/registry/runtime_policy.yaml").read_text(encoding="utf-8"))

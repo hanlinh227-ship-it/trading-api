@@ -12,7 +12,6 @@ const HEALTH_TTL_MS=30_000;
 const MAX_BODY_BYTES=256_000;
 const FALLBACK_TIMEOUT_MS=12_000;
 const MAX_EXECUTION_QUOTE_AGE_MS=5_000;
-const DEFAULT_FALLBACK_GATEWAY_URL='https://crypto-research-gateway-prod-production.up.railway.app';
 const ACTIONS=new Set(['snapshot','candles','orderbook','funding_oi','execution_quote']);
 const INSTRUMENTS=new Set(['spot','perpetual']);
 const SIDES=new Set(['LONG','SHORT']);
@@ -161,7 +160,7 @@ async function runBybitSafetyFallback(input,result,{fallbackFetch,fallbackGatewa
       ...body,
       upstreamDataContract,
       edgeRuntimeProvider:'cloudflare-workers',
-      upstreamFallback:'railway',
+      upstreamFallback:'secondary-research-gateway',
       fallbackReason:String(result.error||result.reason||'cloudflare_bybit_degraded').slice(0,160),
     };
   }catch{
@@ -169,11 +168,29 @@ async function runBybitSafetyFallback(input,result,{fallbackFetch,fallbackGatewa
   }
 }
 
+// Hosts that must never serve the secondary path again. Railway was removed
+// from the production dependency graph deliberately; a URL is the easiest way
+// for it to return, so the refusal lives in code rather than only in a test.
+const RETIRED_SECONDARY_HOST_PATTERN=/(^|\.)railway\.app$/i;
+
+// The secondary gateway is OPTIONAL and provider-neutral. There is no default:
+// when it is unset the primary path is the only path, and a degraded primary
+// fails closed truthfully rather than reaching for somewhere unnamed.
+export function resolveSecondaryGatewayUrl(value){
+  const raw=String(value||'').trim();
+  if(!raw)return null;
+  let parsed;
+  try{parsed=new URL(raw);}catch{return null;}
+  if(parsed.protocol!=='https:')return null;
+  if(RETIRED_SECONDARY_HOST_PATTERN.test(parsed.hostname))return null;
+  return raw.replace(/\/+$/,'');
+}
+
 export function createResearchGatewayHandler({
   runtime=new ResearchRuntime(),
   now=()=>Date.now(),
   fallbackFetch=fetch,
-  fallbackGatewayUrl=DEFAULT_FALLBACK_GATEWAY_URL,
+  fallbackGatewayUrl=null,
 }={}){
   let probePromise=null;
   let healthValidUntil=0;
@@ -209,7 +226,7 @@ export function createResearchGatewayHandler({
         deploymentRelease:DEPLOYMENT_RELEASE,
         deploymentSourceSha:String(env.RUNTIME_REVISION||''),
         localInstallRequired:false,
-        bybitTransportPriority:['cloudflare-vpc-bridge','railway-safety-fallback'],
+        bybitTransportPriority:['cloudflare-vpc-bridge','secondary-research-gateway'],
         lastPublicProbeTimestamp:runtime.getLastProbeAt(),
         healthyProviders,
         degradedProviders,
@@ -231,9 +248,12 @@ export function createResearchGatewayHandler({
     await ensureHealth();
     const result=await runtime.runMarket(input);
     const nowMs=now();
-    const fallback=await runBybitSafetyFallback(input,result,{fallbackFetch,fallbackGatewayUrl});
+    const secondaryGatewayUrl=resolveSecondaryGatewayUrl(
+      fallbackGatewayUrl??env.SECONDARY_RESEARCH_GATEWAY_URL);
+    const fallback=await runBybitSafetyFallback(
+      input,result,{fallbackFetch,fallbackGatewayUrl:secondaryGatewayUrl});
     if(fallback){
-      return json(withEdgeDataContract(fallback,env,nowMs,{upstream:'railway',upstreamPayloadHash:fallback.upstreamDataContract?.payload_hash??null}),200);
+      return json(withEdgeDataContract(fallback,env,nowMs,{upstream:'secondary-research-gateway',upstreamPayloadHash:fallback.upstreamDataContract?.payload_hash??null}),200);
     }
     const finalResult=withEdgeDataContract(result,env,nowMs,{runtime:'cloudflare-workers'});
     return json(finalResult,result?.degraded===true&&result?.ok===false?503:200);

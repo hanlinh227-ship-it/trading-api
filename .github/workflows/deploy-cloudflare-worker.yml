@@ -26,48 +26,7 @@ env:
   WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
 
 jobs:
-  deploy-public-bridge:
-    runs-on: [self-hosted, Linux, X64, trading-vps]
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 1
-      - name: Verify public proxy safety contract
-        run: python3 bybit-live-bridge/test_public_proxy.py
-      - name: Install exact-main bridge service
-        id: install_bridge
-        continue-on-error: true
-        working-directory: bybit-live-bridge
-        run: bash install.sh
-      - name: Verify bridge service health
-        id: verify_bridge
-        if: steps.install_bridge.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          for attempt in 1 2 3 4 5; do
-            if curl -fsS --connect-timeout 3 --max-time 8 http://127.0.0.1:8789/health | python3 -c "import json,sys;x=json.load(sys.stdin);assert x.get('ok') is True;print('BYBIT_VPS_BRIDGE_HEALTH=PASS')"; then
-              exit 0
-            fi
-            sleep 2
-          done
-          exit 1
-      - name: Record VPC bridge readiness
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "${{ steps.install_bridge.outcome }}" = "success" ] && [ "${{ steps.verify_bridge.outcome }}" = "success" ]; then
-            echo 'BYBIT_VPC_BRIDGE=READY'
-          else
-            echo 'BYBIT_VPC_BRIDGE=DEGRADED_RAILWAY_SAFETY_FALLBACK_ACTIVE'
-          fi
-
   validate-and-deploy:
-    needs: deploy-public-bridge
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -228,6 +187,6 @@ jobs:
       - name: Deployment authority record
         run: |
           echo 'CLOUDFLARE_DEPLOYMENT_AUTHORITY=GITHUB_ACTIONS_EXACT_MAIN'
-          echo 'BYBIT_PUBLIC_TRANSPORT=VPC_UNSIGNED_MARKET_FIRST_RAILWAY_SAFETY_FALLBACK'
+          echo 'BYBIT_PUBLIC_TRANSPORT=VPC_UNSIGNED_MARKET_FIRST_OPTIONAL_SECONDARY'
           echo 'USER_LOCAL_RUNTIME_REQUIRED=false'
           echo 'RUNTIME_SWITCH_MUTATION=false'

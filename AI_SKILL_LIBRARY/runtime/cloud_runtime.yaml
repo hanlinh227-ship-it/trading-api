@@ -1,5 +1,5 @@
 version: 1
-runtime: railway
+runtime: cloudflare_workers
 node_major: 22
 local_install_required: false
 local_cli_execution: false
@@ -13,6 +13,9 @@ capabilities_path: /capabilities
 mcp_path: /mcp
 service_root: crypto-research-gateway
 live_price_policy_path: AI_SKILL_LIBRARY/skills/registry/live_price_policy.yaml
+railway_required: false
+personal_pc_required: false
+paid_fallback_allowed: false
 legion_runtime:
   handler: cloudflare-worker/skill-gateway-handler.js
   health_path: /brain/legion/health
@@ -32,19 +35,47 @@ production_source:
   provider: github
   repository: hanlinh227-ship-it/trading-api
   branch: main
-  deployment_trigger: railway_connector_exact_commit
-  auto_deploy_on_push: false
+  deployment_trigger: github_actions_exact_main
+  auto_deploy_on_push: true
   github_app_required: false
   user_local_action_required: false
-  deployment_commit_pin_required: true
 production_verification:
   release_marker: live-price-execution-v1
-  railway_success_required: true
+  primary_runtime: cloudflare_workers
+  railway_success_required: false
+  exact_source_sha_required: true
+  primary_health_required: true
   live_execution_smoke_required: true
   required_execution_venues:
     - bybit
   exact_source_sha_health_field: deploymentSourceSha
-  railway_deployment_metadata_must_match_source_sha: true
+# The primary runtime is the only production authority. A secondary exists to
+# absorb Cloudflare being unavailable or out of free quota, and is CAPACITY
+# ONLY: it never routes, reasons, or selects models, and it is never required
+# for the primary to be considered live.
+runtime_scheduler:
+  primary:
+    id: cloudflare_workers
+    worker: trading-v77-scanner
+    base_url: https://trading-v77-scanner.hanlinh227.workers.dev
+    deploy_authority: .github/workflows/deploy-skill-mandatory-fast-gateway.yml
+    cost_tier: free
+  secondary:
+    id: deno_deploy
+    cost_tier: free
+    routing_authority: false
+    reasoning_authority: false
+    model_selection_authority: false
+    # Deliberately unverified. The adapter and workflow exist; no Deno
+    # deployment has been health-probed, so nothing may report it as live.
+    deployed: false
+    health_verified: false
+    required_for_primary_cutover: false
+  # Exhausted primary with no VERIFIED secondary is a truthful refusal, never a
+  # silent escalation to paid compute and never a return to Railway.
+  no_verified_secondary_behaviour: CAPABILITY_TEMPORARILY_UNAVAILABLE
+  paid_fallback_allowed: false
+  railway_fallback_allowed: false
 execution_boundary:
   reasoning_authority: false
   provider_evidence_only: true

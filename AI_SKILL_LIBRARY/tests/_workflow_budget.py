@@ -19,7 +19,16 @@ remote. Earlier in this branch I refused to raise this same number; that refusal
 was right, because raising it then would have dodged a problem rather than paid
 for a capability.
 
+It was raised again, from 121 to 122, to make room for
+`.github/workflows/deploy-deno-secondary.yml`, the zero-cost SECONDARY runtime
+lane added by the Railway exit. Before raising it I ran the same check as last
+time - every active workflow's push trigger against the branches that actually
+exist on the remote - and again found zero retirable lanes, so there was nothing
+to trade. The Railway exit removed `.github/scripts/railway_deploy_latest.py`
+and both Railway production jobs, but those lived inside an existing workflow
+file, so they freed no slot.
+
 To restore a hard 120: retire a lane into the archive and set this back.
 """
 
-ACTIVE_WORKFLOW_BUDGET = 121
+ACTIVE_WORKFLOW_BUDGET = 122
