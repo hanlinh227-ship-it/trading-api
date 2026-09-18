@@ -327,6 +327,12 @@ jobs:
             printf '%s\n' "$BRAIN" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.sourceSha!==process.env.EXPECTED||x.schemaVersion!==1||x.primarySkillRequired!==true||x.capsuleRequired!==true||x.externalRoutingCalls!==0)process.exit(3);console.log('BRAIN_HEALTH=PASS '+x.sourceSha)}catch{process.exit(3)}})" || return 1
             MESH="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/brain/mesh/health" || true)"
             printf '%s\n' "$MESH" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.mode!=='FREE_ONLY'||x.sourceSha!==process.env.EXPECTED||x.routingAuthority!==false||x.reasoningAuthority!==false||x.maxParallelStandard!==2||x.maxParallelDeep!==4||typeof x.executionEnabled!=='boolean')process.exit(4);console.log('MODEL_MESH_HEALTH=PASS '+x.sourceSha+' configured='+x.configuredProviderCount+' active='+x.activeProviderCount)}catch{process.exit(4)}})" || return 1
+            # The research gateway's own /health carries the deployment identity
+            # separately from /runtime/contract. Asserting both means a partial
+            # deploy - a Worker serving the new Brain while /health still names
+            # the old revision - cannot pass as a clean exact-SHA deployment.
+            GATEWAY="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/health" || true)"
+            printf '%s\n' "$GATEWAY" | EXPECTED="$SKILL_GATEWAY_SOURCE_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok!==true||x.runtimeProvider!=='cloudflare-workers'||x.deploymentSourceSha!==process.env.EXPECTED)process.exit(5);console.log('GATEWAY_HEALTH=PASS provider='+x.runtimeProvider+' sha='+x.deploymentSourceSha)}catch{process.exit(5)}})" || return 1
             return 0
           }
           for attempt in 1 2 3 4 5 6; do

@@ -11,7 +11,26 @@ export async function modelFingerprint(model){
   const identity=JSON.stringify([String(model?.provider_id||''),String(model?.model_id||''),String(model?.model_family||''),String(model?.model_variant||''),String(model?.endpoint_family||'')]);
   return hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(identity)));
 }
-export function healthKey(model,fingerprint){return `${PREFIX}${String(model?.provider_id||'unknown').replace(/[^a-z0-9_-]/gi,'_')}:${fingerprint}`;}
+//: Evidence that belongs to no pinned revision. It is its own bucket, not a
+//: wildcard: unpinned evidence must never be able to answer for a revision.
+export const UNPINNED_REVISION='unpinned';
+export function revisionScope(sourceSha){
+  const cleaned=String(sourceSha||'').trim().toLowerCase().replace(/[^a-f0-9]/g,'').slice(0,40);
+  return cleaned||UNPINNED_REVISION;
+}
+
+/**
+ * Where one model's health evidence lives, scoped to the source revision it
+ * was observed under.
+ *
+ * The revision is part of the KEY, not merely a field checked on read. Sharing
+ * one slot across revisions meant a probe that began under the old revision
+ * could finish after a deploy and overwrite the new revision's evidence with
+ * its own - evidence the reader then correctly rejected as belonging to
+ * another revision, leaving the provider unavailable with nothing left to
+ * read. Separate keys make that overwrite impossible rather than detectable.
+ */
+export function healthKey(model,fingerprint,sourceSha){return `${PREFIX}${String(model?.provider_id||'unknown').replace(/[^a-z0-9_-]/gi,'_')}:${revisionScope(sourceSha)}:${fingerprint}`;}
 
 function baseState(model){return freeOnlyEligible(model)?'CONFIGURED':'NOT_ELIGIBLE';}
 function safeRecord(value){
@@ -26,7 +45,7 @@ function safeRecord(value){
 export async function readModelHealth(kv,model,{sourceSha='',nowMs=Date.now()}={}){
   if(!freeOnlyEligible(model))return {state:'NOT_ELIGIBLE',category:'FREE_ONLY_POLICY'};
   if(!kv||typeof kv.get!=='function')return {state:'CONFIGURED',category:'NO_HEALTH_STORE'};
-  const fingerprint=await modelFingerprint(model),key=healthKey(model,fingerprint);
+  const fingerprint=await modelFingerprint(model),key=healthKey(model,fingerprint,sourceSha);
   let parsed=null;
   try{const raw=await kv.get(key);if(raw)parsed=safeRecord(JSON.parse(raw));}catch{return {state:'DEGRADED',category:'HEALTH_STORE_UNAVAILABLE'};}
   if(!parsed)return {state:'CONFIGURED',category:'NO_LIVE_EVIDENCE',fingerprint};
@@ -90,8 +109,23 @@ export async function writeProbeHealth(kv,model,probe,{sourceSha='',nowMs=Date.n
   const consecutiveFailures=probe?.ok===true?0:previousFailures+1;
   const record=safeRecord({schemaVersion:1,providerId:model.provider_id,modelId:model.model_id,fingerprint,sourceSha,state:transition.state,category:transition.category,observedAt:iso(nowMs),expiresAt:iso(expiresMs),latencyMs:Number(probe?.latencyMs),consecutiveFailures,cooldownUntil:transition.state==='COOLDOWN'?iso(expiresMs):null});
   if(!kv||typeof kv.put!=='function')return {...record,persisted:false};
-  const key=healthKey(model,fingerprint),serialized=JSON.stringify(record);
-  try{await kv.put(key,serialized,{expirationTtl:Math.max(60,Math.ceil((transition.ttlMs+60*60*1000)/1000))});}catch{return {...record,persisted:false,storeCategory:'HEALTH_STORE_UNAVAILABLE'};}
+  const key=healthKey(model,fingerprint,sourceSha),serialized=JSON.stringify(record);
+  let outcome;
+  try{outcome=await kv.put(key,serialized,{expirationTtl:Math.max(60,Math.ceil((transition.ttlMs+60*60*1000)/1000)),observedAtMs:nowMs});}
+  catch{return {...record,persisted:false,storeCategory:'HEALTH_STORE_UNAVAILABLE'};}
+  // An eventually-consistent KV namespace cannot compare-and-set, so it never
+  // refuses a write. Say which guarantee was actually available rather than
+  // letting both stores report the same word for different assurances.
+  const guardEnforced=outcome?.guardEnforced===true;
+  if(outcome&&outcome.stored===false){
+    // Our observation lost to a newer one. Reporting our own record now would
+    // hand the caller a state that is NOT what the store holds - the exact
+    // divergence between "what this probe saw" and "what the mesh will read"
+    // that made the deploy canary fail. Return the winner, and say we lost.
+    const winner=await readModelHealth(kv,model,{sourceSha,nowMs});
+    return {...winner,persisted:true,superseded:true,writeGuard:'ENFORCED',
+      supersededReason:outcome.reason||'superseded_by_newer_observation'};
+  }
   // A resolved kv.put IS the durability guarantee. Workers KV is eventually
   // consistent and caches reads at the edge, so a read-back moments later can
   // legitimately miss a write that did land -- previously that made the deploy
@@ -102,7 +136,7 @@ export async function writeProbeHealth(kv,model,probe,{sourceSha='',nowMs=Date.n
     try{if(await kv.get(key)===serialized){readBack='confirmed';break;}}catch{readBack='unavailable';break;}
     if(attempt+1<verifyAttempts)await delay(25*(attempt+1));
   }
-  return {...record,persisted:true,readBack};
+  return {...record,persisted:true,superseded:false,writeGuard:guardEnforced?'ENFORCED':'UNENFORCED_EVENTUALLY_CONSISTENT',readBack};
 }
 
 export async function recordModelExecutionHealth(kv,model,result,options={}){

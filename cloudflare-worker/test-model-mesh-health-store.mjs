@@ -11,7 +11,13 @@ const model={provider_id:'groq',model_id:'openai/gpt-oss-120b',model_family:'gpt
 const sourceSha='a'.repeat(40),nowMs=Date.parse('2026-09-15T12:00:00Z');
 const fingerprint=await modelFingerprint(model);
 assert.match(fingerprint,/^[a-f0-9]{64}$/);
-assert.equal(healthKey(model,fingerprint),`brain:model-mesh:health:v1:groq:${fingerprint}`);
+// Evidence lives in a per-revision bucket. Two revisions therefore cannot
+// share a slot, so a probe belonging to one can never overwrite the other's.
+assert.equal(healthKey(model,fingerprint,sourceSha),`brain:model-mesh:health:v1:groq:${sourceSha}:${fingerprint}`);
+assert.notEqual(healthKey(model,fingerprint,sourceSha),healthKey(model,fingerprint,'b'.repeat(40)));
+// Unpinned evidence gets its own bucket rather than answering for a revision.
+assert.equal(healthKey(model,fingerprint),`brain:model-mesh:health:v1:groq:unpinned:${fingerprint}`);
+assert.equal(healthKey(model,fingerprint,'not-a-sha!!'),`brain:model-mesh:health:v1:groq:unpinned:${fingerprint}`.replace('unpinned','aa'));
 
 assert.equal((await readModelHealth(null,model,{sourceSha,nowMs})).state,'CONFIGURED');
 assert.equal((await readModelHealth(null,{...model,free_status:'trial_credit'},{sourceSha,nowMs})).state,'NOT_ELIGIBLE');
@@ -37,7 +43,23 @@ const stale=await readModelHealth(kv,model,{sourceSha,nowMs:Date.parse(quarantin
 assert.equal(stale.state,'DEGRADED');
 assert.equal(stale.category,'STALE_EVIDENCE');
 
-const mismatch=await readModelHealth(kv,model,{sourceSha:'b'.repeat(40),nowMs:nowMs+3000});
+// Cross-revision leakage is now structural, not merely detected: another
+// revision reads its OWN bucket, which is empty, so there is nothing of ours
+// for it to inherit or to overwrite.
+const otherRevision=await readModelHealth(kv,model,{sourceSha:'b'.repeat(40),nowMs:nowMs+3000});
+assert.notEqual(otherRevision.state,'LIVE_HEALTHY');
+assert.equal(otherRevision.category,'NO_LIVE_EVIDENCE');
+
+// The body check stays as defence in depth: a record that somehow lands in the
+// right bucket while claiming another revision is still refused.
+const planted=await modelFingerprint(model);
+kv.rows.set(healthKey(model,planted,sourceSha),JSON.stringify({
+  schemaVersion:1,providerId:'groq',modelId:model.model_id,fingerprint:planted,
+  sourceSha:'c'.repeat(40),state:'LIVE_HEALTHY',category:null,
+  observedAt:new Date(nowMs).toISOString(),expiresAt:new Date(nowMs+600000).toISOString(),
+  latencyMs:1,consecutiveFailures:0,cooldownUntil:null,
+}));
+const mismatch=await readModelHealth(kv,model,{sourceSha,nowMs:nowMs+3000});
 assert.equal(mismatch.state,'DEGRADED');
 assert.equal(mismatch.category,'SOURCE_REVISION_MISMATCH');
 
