@@ -1,0 +1,8 @@
+{
+  "//sloppy": "The shared research sources are authored for Node's NodeNext resolution, so they import sibling TypeScript as '.js'. Deno resolves that only with sloppy imports. The alternative was rewriting those specifiers, which would break the Node build the Cloudflare primary and the gateway tests depend on - so the secondary adapts to the shared source, not the other way round.",
+  "//zod": "Pinned to the same major the gateway's package.json declares (^4.0.0). A secondary validating with a different schema library version could accept input the primary rejects, which is exactly the divergence this runtime must not introduce.",
+  "unstable": ["sloppy-imports"],
+  "imports": {
+    "zod": "npm:zod@^4.0.0"
+  }
+}

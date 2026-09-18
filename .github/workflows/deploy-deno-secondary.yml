@@ -45,8 +45,51 @@ jobs:
           # The artifact must be buildable whether or not it can be deployed.
           # A secondary that stopped compiling unnoticed would be discovered
           # during an outage, which is the worst possible time.
-          deno check deno-secondary/main.ts
+          #
+          # --config is required: the shared research sources use Node NodeNext
+          # '.js' specifiers and npm zod, which Deno resolves only via the
+          # sloppy-imports and import-map settings in deno-secondary/deno.json.
+          deno check --config deno-secondary/deno.json deno-secondary/main.ts
           echo "DENO_ARTIFACT_BUILD=PASS"
+
+      - name: Boot the secondary and probe its contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Type-checking is not running. The first version of this workflow
+          # checked types only, and a compiling adapter still tells you nothing
+          # about whether it serves the contract. This boots it for real.
+          deno run --config deno-secondary/deno.json \
+            --allow-net --allow-env deno-secondary/main.ts &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -sf --max-time 3 http://127.0.0.1:8000/capabilities >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS --max-time 10 http://127.0.0.1:8000/capabilities > /tmp/deno-caps.json
+          curl -fsS --max-time 40 http://127.0.0.1:8000/health > /tmp/deno-local-health.json
+          code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 -X POST http://127.0.0.1:8000/health)"
+          test "$code" = "405" || { echo "REFUSED: /health must reject POST, got $code" >&2; exit 1; }
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          caps = json.loads(Path('/tmp/deno-caps.json').read_text())
+          health = json.loads(Path('/tmp/deno-local-health.json').read_text())
+          if caps.get('runtimeRole') != 'secondary-capacity-only':
+              raise SystemExit('secondary must declare itself capacity-only')
+          if 'market_execution_quote' not in caps.get('tools', []):
+              raise SystemExit('market_execution_quote missing')
+          if re.search(r'place_order|cancel_order|withdraw|transfer|swap|bridge|wallet|payment',
+                       json.dumps(caps.get('tools', [])), re.I):
+              raise SystemExit('write/high-risk tool exposed by the secondary')
+          for field in ('routingAuthority', 'reasoningAuthority', 'modelSelectionAuthority'):
+              if health.get(field) is not False:
+                  raise SystemExit(f'secondary claims {field}')
+          if health.get('localInstallRequired') is not False:
+              raise SystemExit('secondary requires local install')
+          print('DENO_ARTIFACT_CONTRACT=PASS')
+          PY
 
       - name: Secondary holds no authority
         run: |
@@ -76,11 +119,19 @@ jobs:
             exit 0
           fi
           deno install -gArf jsr:@deno/deployctl
+          # NOTE: deployctl's --config selects the DEPLOYCTL config, not the Deno
+          # config, so it is deliberately not passed here; deno.json travels with
+          # the uploaded files instead and supplies the import map at runtime.
+          # This invocation is the one step in this workflow that has NOT been
+          # executed, because no Deno Deploy account is configured. The
+          # type-check and the contract probe above have both been run for real.
           deployctl deploy \
             --project="$DENO_PROJECT" \
             --prod \
             --token="$DENO_DEPLOY_TOKEN" \
-            deno-secondary/main.ts
+            --include=deno-secondary \
+            --include=crypto-research-gateway/src \
+            --entrypoint=deno-secondary/main.ts
           echo "deployed=true" >> "$GITHUB_OUTPUT"
           echo "DENO_DEPLOYED=true"
 
