@@ -143,6 +143,21 @@ def gate(root: Path) -> dict[str, Any]:
         and "ai_legion" in trace and "model_mesh" in trace
         and trace.index("ai_legion") < trace.index("model_mesh")
     )
+
+    semantic_pass = False
+    semantic_failures: list[str] = []
+    if e2e is not MISSING:
+        try:
+            from AI_SKILL_LIBRARY.v4.local_runtime.golden_e2e import make_verifier
+            semantic_report = make_verifier(str(_dig(e2e, "request")))(
+                "core_reasoning",
+                _dig(e2e, "runtime_evidence"),
+            )
+            semantic_pass = semantic_report.get("passed") is True
+            semantic_failures = list(semantic_report.get("failures") or [])
+        except Exception as exc:
+            semantic_failures = [f"semantic_verifier_error:{type(exc).__name__}"]
+
     checks.append(_check(
         "golden_e2e",
         "the canonical trace ran in order with real inference and no failures",
@@ -158,6 +173,8 @@ def gate(root: Path) -> dict[str, Any]:
         ("B2 did not pass", _dig(e2e, "B2_pass") is True),
         ("B3 did not pass", _dig(e2e, "B3_pass") is True),
         ("B4 did not pass", _dig(e2e, "B4_pass") is True),
+        ("the recorded answer fails the canonical semantic verifier: " + ",".join(semantic_failures),
+         semantic_pass),
     ))
 
     # 3. Work survived the process that did it. A resume inside the same process
