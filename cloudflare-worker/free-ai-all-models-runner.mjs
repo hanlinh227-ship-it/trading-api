@@ -46,18 +46,20 @@ async function callModel(model){
   if(!liveKeys.has(model.provider_id+'\u0000'+model.model_id))return {ok:false,skipped:'not_live_healthy'};
   const apiKey=envValue(binding.secret_name);
   if(!apiKey)return {ok:false,skipped:'credential_not_present'};
+  const contextLimit=(model.provider_id==='openrouter'||model.provider_id==='alibaba_model_studio')?5000:9000;
+  const boundedContext=context.slice(0,contextLimit);
   const prompt=(taskByProvider[model.provider_id]||'Review the AI CORE integration context and return only concrete acceleration actions.')+
-    '\n\nConstraints: GITHUB_BRAIN_V4 is sole Brain authority; task_router is sole routing authority; no merge/deploy/trading authority; public context only.\n\n'+context;
+    '\n\nConstraints: GITHUB_BRAIN_V4 is sole Brain authority; task_router is sole routing authority; no merge/deploy/trading authority; public context only. Be concise.\n\n'+boundedContext;
   const messages=[{role:'user',content:prompt}];
   let result;
   if(binding.endpoint_family==='gemini'){
-    result=await callGemini({baseUrl:binding.endpoint_url,apiKey,model:model.model_id,messages,timeoutMs:90000});
+    result=await callGemini({baseUrl:binding.endpoint_url,apiKey,model:model.model_id,messages,timeoutMs:180000});
   }else if(binding.endpoint_family==='cloudflare_ai'){
     const accountId=envValue(binding.account_id_env||'CLOUDFLARE_ACCOUNT_ID');
     if(!accountId)return {ok:false,skipped:'account_id_not_present'};
-    result=await callCloudflareAI({accountId,apiKey,model:model.model_id,messages,timeoutMs:90000});
+    result=await callCloudflareAI({accountId,apiKey,model:model.model_id,messages,timeoutMs:180000});
   }else{
-    result=await callOpenAICompatible({baseUrl:binding.endpoint_url,apiKey,model:model.model_id,messages,timeoutMs:90000});
+    result=await callOpenAICompatible({baseUrl:binding.endpoint_url,apiKey,model:model.model_id,messages,timeoutMs:180000});
   }
   return {
     ok:Boolean(result?.ok),
