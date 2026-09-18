@@ -121,10 +121,17 @@ GOLDEN_EVIDENCE_PREFERENCE = (
 
 
 def golden_evidence_source(root: Path) -> str:
-    """The document the gate will judge for this tree."""
-    first = _load(root, GOLDEN_EVIDENCE_PREFERENCE[0])
-    if first is not MISSING and _dig(first, "ai_core_e2e") is not MISSING:
-        return GOLDEN_EVIDENCE_PREFERENCE[0]
+    """The document the gate will judge for this tree.
+
+    A present-but-unreadable preferred document is still the preferred
+    document, and must fail closed. Falling back in that case would let corrupt
+    current evidence be masked by an older compatibility file.
+    """
+    preferred = root / EVIDENCE_DIR / GOLDEN_EVIDENCE_PREFERENCE[0]
+    if preferred.exists():
+        first = _load(root, GOLDEN_EVIDENCE_PREFERENCE[0])
+        if first is MISSING or _dig(first, "ai_core_e2e") is not MISSING:
+            return GOLDEN_EVIDENCE_PREFERENCE[0]
     return GOLDEN_EVIDENCE_PREFERENCE[1]
 
 
@@ -136,11 +143,8 @@ def gate(root: Path) -> dict[str, Any]:
     # historical AI_CORE_E2E_EVIDENCE.json only as a compatibility fallback for
     # older checkpoints. This prevents a fresh semantic PASS from being rejected
     # because the release gate inspected stale pre-hardening evidence instead.
-    e2e_source = GOLDEN_EVIDENCE_PREFERENCE[0]
+    e2e_source = golden_evidence_source(root)
     e2e = _load(root, e2e_source)
-    if e2e is MISSING or _dig(e2e, "ai_core_e2e") is MISSING:
-        e2e_source = GOLDEN_EVIDENCE_PREFERENCE[1]
-        e2e = _load(root, e2e_source)
     resume = _load(root, "AI_CORE_RESUME_EVIDENCE.json")
     failure = _load(root, "FAILURE_PATH_PROOF.json")
     selfdev = _load(root, "SELFDEV_CYCLE_EVIDENCE.json")
