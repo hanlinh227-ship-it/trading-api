@@ -70,16 +70,13 @@ jobs:
               "temperature": 0,
               "response_format": {"type": "json_object"},
               "messages": [
-                  {"role": "system", "content": "You are a bounded coding worker. Obey the exact file allowlist and return complete files only. Your entire reply must be one JSON object: the first character you emit is { and the final character you emit is }. No prose, no explanation, no Markdown fences, nothing before or after the object. The object has exactly one key, \"files\", mapping exactly the four allowed repository paths to complete UTF-8 file contents. The complete JSON object with all four files must fit in this response. Keep implementations minimal and focused; do not add commentary, examples, or extra helpers beyond the stated requirements."},
+                  {"role": "system", "content": "You are a bounded coding worker. Obey the exact file allowlist and return complete files only. Your entire reply must be one JSON object: the first character you emit is { and the final character you emit is }. No prose, no explanation, no Markdown fences, nothing before or after the object. The object has exactly one key, \"files\", mapping exactly the four allowed repository paths to complete UTF-8 file contents. Keep implementations minimal and focused."},
                   {"role": "user", "content": prompt},
               ],
           }
           Path('/tmp/deepseek-request.json').write_text(json.dumps(request), encoding='utf-8')
           PY
 
-      # Order item 7: local proof before a paid call. Four runs were spent
-      # discovering an output-contract bug that costs nothing to find offline.
-      # If the parser or the ownership guard is broken, the call never happens.
       - name: Prove the output contract offline before spending anything
         run: |
           set -euo pipefail
@@ -110,10 +107,11 @@ jobs:
       - name: Enforce file ownership
         run: |
           set -euo pipefail
-          allowed='^(AI_SKILL_LIBRARY/v4/survival/(artifact_scan.py|provenance.py)|AI_SKILL_LIBRARY/tests/(test_artifact_scan.py|test_survival_provenance.py))
+          allowed='^(AI_SKILL_LIBRARY/v4/survival/(artifact_scan\.py|provenance\.py)|AI_SKILL_LIBRARY/tests/(test_artifact_scan\.py|test_survival_provenance\.py))$'
           unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
+            printf '%s\n' "${unexpected}"
             exit 1
           fi
           echo "DEEPSEEK_FILE_OWNERSHIP=PASS"
@@ -139,35 +137,4 @@ jobs:
           git commit -m 'feat(survival): add artifact scan and provenance contracts'
           git push origin HEAD:work/deepseek-survival-plane-442
           echo "DEEPSEEK_ARTIFACT_TRUST_COMMIT=$(git rev-parse HEAD)"
-          echo "DEEPSEEK_CODING_LANE_READY=PASS"
-
-          unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
-          if [ -n "${unexpected}" ]; then
-            echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
-            exit 1
-          fi
-          echo "DEEPSEEK_FILE_OWNERSHIP=PASS"
-
-      - name: Run focused tests
-        run: |
-          python3 -m pip install -r AI_SKILL_LIBRARY/requirements.txt pytest
-          python3 -m pytest -q \
-            AI_SKILL_LIBRARY/tests/test_survival_policy.py \
-            AI_SKILL_LIBRARY/tests/test_survival_secrets.py
-          echo "DEEPSEEK_TESTS=PASS"
-
-      - name: Commit first DeepSeek task
-        run: |
-          set -euo pipefail
-          git config user.name 'DeepSeek Coding Lane'
-          git config user.email 'deepseek-lane@users.noreply.github.com'
-          git add \
-            AI_SKILL_LIBRARY/v4/survival/policy.yaml \
-            AI_SKILL_LIBRARY/v4/survival/policy_adapter.py \
-            AI_SKILL_LIBRARY/v4/survival/secrets.py \
-            AI_SKILL_LIBRARY/tests/test_survival_policy.py \
-            AI_SKILL_LIBRARY/tests/test_survival_secrets.py
-          git commit -m 'feat(survival): add policy and secret-reference contracts'
-          git push origin HEAD:work/deepseek-survival-plane-442
-          echo "DEEPSEEK_FIRST_COMMIT=$(git rev-parse HEAD)"
           echo "DEEPSEEK_CODING_LANE_READY=PASS"
