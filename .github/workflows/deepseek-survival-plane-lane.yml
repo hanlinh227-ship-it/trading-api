@@ -1,4 +1,4 @@
-name: DeepSeek Lane — Survival Recovery Contract
+name: DeepSeek Lane — Survival Closure Proof
 
 on:
   push:
@@ -44,30 +44,40 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          prompt = '''Implement only Task 5 of the approved Survival Plane plan: backup/restore contract.
-          Return one JSON object with exactly one key, "files". "files" must map exactly these three repository paths to complete UTF-8 file contents:
-          AI_SKILL_LIBRARY/v4/survival/recovery.py
-          AI_SKILL_LIBRARY/v4/survival/recovery_policy.yaml
-          AI_SKILL_LIBRARY/tests/test_survival_recovery.py
+          prompt = '''Implement the non-shared-file portion of Task 6 of the approved Survival Plane plan.
+          Return one JSON object with exactly one key, "files". "files" must map exactly these two repository paths to complete UTF-8 file contents:
+          AI_SKILL_LIBRARY/v4/tools/survival_plane_proof.py
+          AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py
+
+          Required output contract from the proof tool:
+          SURVIVAL_PLANE_READY=PASS|FAIL
+          DISASTER_RECOVERY_READY=PASS|FAIL
+          POLICY_ENFORCEMENT=PASS|FAIL
+          SECRET_REFERENCE_ONLY=PASS|FAIL
+          ARTIFACT_TRUST=PASS|FAIL
+          RESTORE_DRILL=PASS|FAIL
 
           Requirements:
-          - Implement create_recovery_manifest(...)->dict and verify_restore(restored, expected)->RecoveryReport.
-          - The recovery manifest must be bounded, deterministic where inputs are the same, contain object paths plus hashes/metadata but NEVER raw object contents or plaintext secret payloads, and carry enough metadata to verify a faithful restore.
-          - verify_restore must fail closed on missing objects, unexpected objects where policy forbids them, hash mismatch, malformed manifest, or incomplete required metadata. Missing fields such as sha256 must NEVER raise KeyError/TypeError; return a RecoveryReport with success=false and explicit reasons instead.
-          - Backup is never considered healthy merely because creation succeeded; restore verification is authoritative for recovery readiness.
-          - restic/OpenTofu/Ansible are external mechanics behind the contract; tests must not require those tools or network access.
-          - recovery_policy.yaml must define conservative restore verification requirements and no authority flags.
-          - routing/reasoning/scheduling/merge/deployment/trading authority are all false.
-          - Do not modify Storage Mesh files, checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, or Tasks 1-4 files.
-          - Tests must explicitly cover missing sha256 and other required fields and assert a fail-closed RecoveryReport rather than an exception. For the no-plaintext test, use sentinel content values that do NOT appear in filenames/paths (for example SECRET_PAYLOAD_ALPHA_7F9C), because paths are legitimate manifest metadata; assert the sentinel content is absent rather than banning substrings that may occur in a path. No new dependencies. Return no Markdown or prose outside the JSON object.
+          - Use the existing Survival Plane modules created by Tasks 1-5; do not create a parallel authority or duplicate policy engine.
+          - Proof must be deterministic, offline, and fail closed.
+          - POLICY_ENFORCEMENT may pass only when the canonical policy adapter contract is present and its fail-closed behavior can be evidenced.
+          - SECRET_REFERENCE_ONLY may pass only when SecretRef/reference-only behavior is evidenced without exposing secret values.
+          - ARTIFACT_TRUST may pass only when artifact scan + provenance contracts exist and reject missing/mismatched/unverified trust evidence.
+          - RESTORE_DRILL and DISASTER_RECOVERY_READY MUST remain FAIL unless explicit faithful isolated restore-drill evidence is supplied and validated. Never synthesize or assume such evidence.
+          - SURVIVAL_PLANE_READY may reflect the non-DR survival controls, but must not imply disaster recovery is ready.
+          - Tests must pin all fail-closed behavior and must prove missing restore-drill evidence stays FAIL.
+          - Do NOT modify AI_SKILL_LIBRARY/checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, Storage Mesh files, or any existing Survival Plane module.
+          - routing/reasoning/scheduling/merge/deployment/trading authority all remain false.
+          - No new dependencies and no network access in tests.
+          - Return no prose outside the JSON object.
           '''
           request = {
               "model": "deepseek-chat",
-              "max_tokens": 9000,
+              "max_tokens": 6000,
               "temperature": 0,
               "response_format": {"type": "json_object"},
               "messages": [
-                  {"role": "system", "content": "You are a bounded coding worker. Reply with one JSON object only, first character { and final character }. The object has exactly one key, \"files\", mapping exactly the three allowed paths to complete file contents. Keep code minimal, testable, fail-closed, and within scope."},
+                  {"role": "system", "content": "You are a bounded coding worker. Reply with one JSON object only, first character { and final character }. The object has exactly one key, \"files\", mapping exactly the two allowed paths to complete file contents. Be fail-closed and never invent restore evidence."},
                   {"role": "user", "content": prompt},
               ],
           }
@@ -99,7 +109,7 @@ jobs:
       - name: Enforce file ownership
         run: |
           set -euo pipefail
-          allowed='^(AI_SKILL_LIBRARY/v4/survival/(recovery\.py|recovery_policy\.yaml)|AI_SKILL_LIBRARY/tests/test_survival_recovery\.py)$'
+          allowed='^(AI_SKILL_LIBRARY/v4/tools/survival_plane_proof\.py|AI_SKILL_LIBRARY/tests/test_survival_plane_proof\.py)$'
           unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
@@ -111,19 +121,18 @@ jobs:
       - name: Run focused tests
         run: |
           python3 -m pip install -r AI_SKILL_LIBRARY/requirements.txt pytest
-          python3 -m pytest -q AI_SKILL_LIBRARY/tests/test_survival_recovery.py
+          python3 -m pytest -q AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py
           echo "DEEPSEEK_TESTS=PASS"
 
-      - name: Commit DeepSeek recovery contract
+      - name: Commit DeepSeek survival proof
         run: |
           set -euo pipefail
           git config user.name 'DeepSeek Coding Lane'
           git config user.email 'deepseek-lane@users.noreply.github.com'
           git add \
-            AI_SKILL_LIBRARY/v4/survival/recovery.py \
-            AI_SKILL_LIBRARY/v4/survival/recovery_policy.yaml \
-            AI_SKILL_LIBRARY/tests/test_survival_recovery.py
-          git commit -m 'feat(survival): add backup and restore verification contract'
+            AI_SKILL_LIBRARY/v4/tools/survival_plane_proof.py \
+            AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py
+          git commit -m 'feat(survival): add fail-closed closure proof'
           git push origin HEAD:work/deepseek-survival-plane-442
-          echo "DEEPSEEK_RECOVERY_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_SURVIVAL_PROOF_COMMIT=$(git rev-parse HEAD)"
           echo "DEEPSEEK_CODING_LANE_READY=PASS"
