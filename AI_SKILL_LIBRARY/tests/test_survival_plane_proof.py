@@ -3,7 +3,6 @@ import json
 import os
 import sys
 
-import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _LIB = os.path.dirname(_HERE)

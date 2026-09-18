@@ -1,10 +1,31 @@
+import importlib.util
 import os
 import sys
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "v4", "survival"))
+# Loaded by path under a distinct name, NOT by putting v4/survival on sys.path.
+#
+# That directory holds a file called `secrets.py`, and inserting it at the front
+# of sys.path shadows the standard library's `secrets` module for the whole
+# process. It is not a hypothetical: `AI_SKILL_LIBRARY/v4/storage/encryption.py`
+# imports `secrets` for `token_bytes`, its AEAD nonce source, and under the old
+# sys.path trick that name resolved to this file instead - which has no
+# `token_bytes` at all. A test that quietly replaces the CSPRNG behind another
+# module's nonce is a worse bug than the import error that exposed it.
+_SURVIVAL = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "v4", "survival")
+_spec = importlib.util.spec_from_file_location(
+    "survival_secrets", os.path.join(_SURVIVAL, "secrets.py"))
+survival_secrets = importlib.util.module_from_spec(_spec)
+# Registered before exec: @dataclass resolves annotations through
+# sys.modules[cls.__module__], which is None for a module that is not there yet.
+sys.modules[_spec.name] = survival_secrets
+_spec.loader.exec_module(survival_secrets)
 
-from secrets import SecretError, SecretRef, resolve_secret, serialize_secret  # noqa: E402
+SecretError = survival_secrets.SecretError
+SecretRef = survival_secrets.SecretRef
+resolve_secret = survival_secrets.resolve_secret
+serialize_secret = survival_secrets.serialize_secret
 
 
 class TestSurvivalSecrets(unittest.TestCase):
