@@ -1,0 +1,206 @@
+name: DeepSeek Lane — Front Door Canary Hardening
+
+on:
+  push:
+    branches: [work/deepseek-front-door-canary-442]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deepseek-front-door-canary-442
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    if: github.repository == 'hanlinh227-ship-it/trading-api' && github.actor == 'hanlinh227-ship-it'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/deepseek-front-door-canary-442
+          fetch-depth: 0
+
+      - name: Declare bounded authority
+        run: |
+          echo "routing_authority=false"
+          echo "brain_authority=false"
+          echo "model_selection_authority=false"
+          echo "merge_authority=false"
+          echo "deployment_authority=false"
+          echo "evidence_authority=false"
+          echo "trading_authority=false"
+
+      - name: Verify secret presence by name only
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${DEEPSEEK_API_KEY:-}"
+          echo "DEEPSEEK_SECRET_PRESENT=PRESENT"
+
+      - name: Verify bounded parser
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/scripts/deepseek_front_door_apply.py
+          python3 - <<'PY'
+          import json,tempfile
+          from pathlib import Path
+          files={
+            "cloudflare-worker/validate-universal-canary.mjs":"export const a=1;\n",
+            "cloudflare-worker/test-universal-canary.mjs":"console.log('ok');\n",
+          }
+          payload=json.dumps({"files":files})
+          doc={"choices":[{"finish_reason":"stop","message":{"content":payload}}],"usage":{"prompt_tokens":1,"completion_tokens":1}}
+          root=Path(tempfile.mkdtemp())
+          response=root/"r.json"
+          response.write_text(json.dumps(doc),encoding="utf-8")
+          import subprocess,sys
+          p=subprocess.run([sys.executable,".github/scripts/deepseek_front_door_apply.py",str(response),str(root)])
+          assert p.returncode==0
+          assert (root/"cloudflare-worker/validate-universal-canary.mjs").read_text()=="export const a=1;\n"
+          assert (root/"cloudflare-worker/test-universal-canary.mjs").read_text()=="console.log('ok');\n"
+          print("DEEPSEEK_FRONT_DOOR_PARSER_TEST=PASS")
+          PY
+
+      - name: Build narrow coding request
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          current_validate=Path("cloudflare-worker/validate-universal-canary.mjs").read_text(encoding="utf-8")
+          current_test=Path("cloudflare-worker/test-universal-canary.mjs").read_text(encoding="utf-8")
+          prompt = """Implement ONLY the approved AI CORE E2E Closure Task 5 by hardening the EXISTING production canary. Do not create a second canary.
+
+Return one JSON object with exactly one key named files. files must map exactly these two repository paths to their complete UTF-8 contents:
+cloudflare-worker/validate-universal-canary.mjs
+cloudflare-worker/test-universal-canary.mjs
+
+Repository constraints:
+- GITHUB_BRAIN_V4 remains sole Brain authority.
+- task_router remains sole routing authority.
+- no merge/deploy/trading/evidence authority.
+- FRONT_DOOR_READY MUST remain false unless native ChatGPT account/platform authorization is independently proven outside repo-only tests.
+- Do not change any other file.
+- Preserve all existing canary behavior and checks.
+
+Required changes:
+1. Add per-run anti-cache/live-proof hardening to every HTTP request made by runUniversalCanary.
+2. runUniversalCanary accepts an optional canaryNonce argument. If absent, generate one with globalThis.crypto.randomUUID() when available, otherwise a bounded timestamp/random fallback. Validate/sanitize the nonce to a conservative ASCII token shape and bounded length.
+3. Every request must:
+   - append a query parameter named __canary_nonce carrying the same per-run nonce, preserving existing query params like project_id;
+   - send Cache-Control: no-store;
+   - send Pragma: no-cache;
+   - send X-Canary-Nonce with the same nonce;
+   - preserve x-brain-client, Authorization, Content-Type, method, and body semantics.
+4. Keep sourceSha exact validation as-is or stricter; do not weaken 40-hex source SHA requirements.
+5. The successful returned result must add:
+   frontDoor.liveCanaryPass = true
+   frontDoor.cacheBypassProven = true
+   while accountIntegrationProven stays false and ready stays false.
+6. The successful returned result must include a normalized frontDoorEvidence object with exactly these load-bearing fields:
+   source_sha: exact sourceSha
+   gate: "FRONT_DOOR_READY"
+   ready: false
+   proofs: a non-empty array of non-blank strings including evidence for:
+     live production service-principal canary,
+     cache-busted/no-store requests,
+     project-state round trip,
+     fresh Claude bootstrap/resume,
+     stale-version 409,
+     project isolation
+   live_canary_pass: true
+   cache_bypass_proven: true
+   account_integration_proven: false
+   blocking_reason: "native_account_authorization_not_proven"
+   This shape is advisory/input evidence only. It must never claim ready=true from repo-only execution.
+7. main() must log LIVE_PRODUCTION_CANARY=PASS and CACHE_BYPASS_PROVEN=PASS only after runUniversalCanary completes successfully. It must still log ACCOUNT_INTEGRATION_PROVEN=FALSE and FRONT_DOOR_READY=FALSE.
+8. Never serialize or print client tokens. Existing sanitizeCheck behavior must remain.
+9. Do not add dependencies or network endpoints.
+
+Tests in test-universal-canary.mjs must remain deterministic and must verify:
+- a fixed injected canaryNonce can be used;
+- EVERY recorded request URL includes __canary_nonce with the exact fixed nonce;
+- EVERY recorded request has cache-control=no-store, pragma=no-cache, x-canary-nonce=<fixed nonce>;
+- existing Authorization and x-brain-client assertions remain;
+- existing project state, bootstrap, 409, isolation and high-risk checks still pass;
+- result.frontDoor.liveCanaryPass === true;
+- result.frontDoor.cacheBypassProven === true;
+- result.frontDoor.accountIntegrationProven === false;
+- result.frontDoor.ready === false;
+- frontDoorEvidence has exact source_sha/gate/ready/blocking fields and every proof is a non-blank string;
+- tokens do not occur in JSON.stringify(result.frontDoorEvidence);
+- malformed/unsafe canaryNonce is rejected before fetch is called.
+Use only Node built-ins already available; no package changes.
+
+Run target after applying:
+node cloudflare-worker/test-universal-canary.mjs
+
+Current validate-universal-canary.mjs follows:
+---BEGIN VALIDATE---
+""" + current_validate + """
+---END VALIDATE---
+
+Current test-universal-canary.mjs follows:
+---BEGIN TEST---
+""" + current_test + """
+---END TEST---
+
+Return no prose outside the JSON object."""
+          request={
+            "model": "deepseek-chat",
+            "max_tokens": 8000,
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+            "messages":[
+              {"role":"system","content":"You are a bounded coding worker. Reply with exactly one JSON object whose only key is files mapping exactly the two allowed paths. No prose."},
+              {"role":"user","content":prompt},
+            ],
+          }
+          Path("/tmp/deepseek-request.json").write_text(json.dumps(request),encoding="utf-8")
+          PY
+
+      - name: Run one bounded DeepSeek coding call
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /tmp/deepseek-response.json -w '%{http_code}' \
+            --connect-timeout 15 --max-time 300 \
+            -H "Authorization: Bearer ${DEEPSEEK_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/deepseek-request.json \
+            https://api.deepseek.com/v1/chat/completions || echo 000)"
+          test "${code}" = "200"
+          echo "DEEPSEEK_API_HEALTH=PASS"
+          python3 .github/scripts/deepseek_front_door_apply.py /tmp/deepseek-response.json .
+
+      - name: Enforce exact file ownership
+        run: |
+          set -euo pipefail
+          allowed='^(cloudflare-worker/validate-universal-canary\.mjs|cloudflare-worker/test-universal-canary\.mjs)$'
+          unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
+          if [ -n "${unexpected}" ]; then
+            echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
+            printf '%s\n' "${unexpected}"
+            exit 1
+          fi
+          echo "DEEPSEEK_FILE_OWNERSHIP=PASS"
+
+      - name: Run focused Front Door canary test
+        run: |
+          set -euo pipefail
+          node cloudflare-worker/test-universal-canary.mjs
+          echo "DEEPSEEK_FRONT_DOOR_TESTS=PASS"
+
+      - name: Commit bounded Front Door hardening
+        run: |
+          set -euo pipefail
+          git config user.name 'DeepSeek Coding Lane'
+          git config user.email 'deepseek-lane@users.noreply.github.com'
+          git add cloudflare-worker/validate-universal-canary.mjs cloudflare-worker/test-universal-canary.mjs
+          git commit -m 'feat(front-door): harden live canary against cached proof'
+          git push origin HEAD:work/deepseek-front-door-canary-442
+          echo "DEEPSEEK_FRONT_DOOR_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_CODING_LANE_READY=PASS"
