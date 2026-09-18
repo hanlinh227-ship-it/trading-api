@@ -25,6 +25,14 @@ registries:
     load: after_domain_match
     routing_authority: false
     capability_role: evidence_and_tool_selection
+  - id: upstream_capability_knowledge
+    scope: all
+    path: AI_SKILL_LIBRARY/v4/integrations/upstream_knowledge_fusion.yaml
+    load: after_domain_match
+    routing_authority: false
+    reasoning_authority: false
+    capability_role: reference_patterns_and_integration_hints
+    max_candidates: 3
 selection_contract:
   reasoning_selection:
     primary_skill_count: 1
