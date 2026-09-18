@@ -11,15 +11,29 @@ writes the pointer set, ``rebuild_manifest`` reconstructs records from it.
 It reads a metadata store and returns dicts. It contacts no provider, opens no
 connection, touches no credential, writes no file and performs no cryptography.
 
-**"Bounded" is the whole design, and it is three bounds, not one.**
+**"Bounded" is the whole design, and it is bounded in several directions.**
 
 ``MAX_SNAPSHOT_ENTRIES`` caps how many objects are indexed, ``MAX_SNAPSHOT_BYTES``
 caps the serialised document, and ``MAX_SNAPSHOT_STRING`` caps every individual
-string inside it. The third is the one that actually stops a credential. A
-snapshot can satisfy both of the first two and still carry two kilobytes of
-secret in one allowed field, and a check like ``assert "api_key" not in blob``
-would not notice: that is a substring test on field *names*, and the field a
-secret arrives in is never called ``api_key``.
+string inside it. The third is the one that stops a credential. A snapshot can
+satisfy both of the first two and still carry two kilobytes of secret in one
+allowed field, and a check like ``assert "api_key" not in blob`` would not
+notice: that is a substring test on field *names*, and the field a secret
+arrives in is never called ``api_key``.
+
+But a per-string cap bounds one string, not a thousand of them.
+``manifest_schema_version`` was an allowed field with no validator of any kind,
+and 177 KB of attacker-chosen keys and values fitted inside it with every
+individual string under 256 characters and the entry cap simply routed around
+by not using an entry. So there are two more bounds -
+``MAX_SNAPSHOT_FIELD_BYTES`` on any one non-entry field and
+``MAX_SNAPSHOT_DEPTH`` on nesting - and, more importantly, the thing that would
+have caught it in the first place: **every field is validated through a
+declared table**. ``SNAPSHOT_VALUE_CHECKS``, ``ENTRY_VALUE_CHECKS`` and
+``PROVIDER_RECORD_VALUE_CHECKS`` map every admitted field to a bounded check,
+the field tuples are derived from those tables, and the validators dispatch
+through them instead of restating them as a run of ``if``. A field admitted by
+name and validated by nothing is the hole this project has now had four times.
 
 **The snapshot is a projection, not a copy.** An entry may carry only the
 fields in ``ENTRY_FIELDS``. Everything else in a manifest record is dropped
@@ -101,47 +115,6 @@ MAX_SNAPSHOT_BYTES = 262144
 #: credential does not need a field named after it - it needs an unbounded one.
 MAX_SNAPSHOT_STRING = 256
 
-#: The projection. An entry carries these fields and no others.
-ENTRY_FIELDS = (
-    "object_id", "content_sha256", "size_bytes", "privacy_class", "criticality",
-    "storage_tier", "encryption_state", "encryption", "primary_backend",
-    "replica_backends", "created_at", "lifecycle_state", "reproducible",
-)
-
-REQUIRED_ENTRY_FIELDS = tuple(f for f in ENTRY_FIELDS if f != "encryption")
-
-#: Of the six encryption metadata fields a manifest may carry, three reach
-#: GitHub: what construction was used, which scheme version, and where the key
-#: is kept. ``nonce`` and ``tag`` are per-object ciphertext parameters that live
-#: with the ciphertext and are not needed to identify or re-place an object, and
-#: ``key_rotation_generation`` is not either. Fewer fields in a checkpoint is
-#: strictly better (Spec S22 keeps checkpoints out of the key business).
-SNAPSHOT_ENCRYPTION_FIELDS = ("algorithm", "scheme_version", "key_ref")
-
-#: What a provider scan can actually observe about an object: which backend
-#: holds it, what it claims to be, how big it is, and when it was seen. Closed,
-#: because an undeclared field is the only way an unbounded string reaches a
-#: recovery input at all.
-PROVIDER_RECORD_FIELDS = (
-    "backend_id", "object_id", "content_sha256", "size_bytes", "observed_at",
-)
-REQUIRED_PROVIDER_RECORD_FIELDS = (
-    "backend_id", "object_id", "content_sha256", "size_bytes",
-)
-
-SNAPSHOT_FIELDS = (
-    "version", "manifest_schema_version", "generated_at", "canonical_authority",
-    "authority", "authority_flags", "metadata_service", "pointers", "caps",
-    "entry_count", "truncated", "omitted_entries", "critical_object_index",
-    "entries",
-)
-
-#: Which objects survive truncation. Spec S18 requires the *critical-object
-#: index* to be among what GitHub keeps, so CRITICAL is kept first and the cap
-#: is a hard error rather than a silent drop if criticals alone exceed it.
-_CRITICALITY_RANK = {name: rank for rank, name in enumerate(
-    ("CRITICAL", "IMPORTANT", "REPRODUCIBLE", "EPHEMERAL"))}
-
 #: A pointer is a repository-relative path under ``AI_SKILL_LIBRARY/`` and
 #: nothing else - not a URL, not an absolute path, not a traversal. A rebuild
 #: reads what these name, so the field is a redirect if it is left open.
@@ -151,6 +124,12 @@ _POINTER_RE = re.compile(
 #: Spec S18/S25 and ``policy.yaml`` ``metadata_service``, restated in the
 #: checkpoint so that a rebuild reading only this file still learns that the
 #: index is not canonical and that no project has been verified to exist.
+#:
+#: ``last_successful_export_ref`` is the Spec S18 obligation and is a parameter
+#: of ``export_recovery_snapshot``, not a constant: a field hard-coded ``None``
+#: with no way to set it is that obligation structurally unimplementable. The
+#: default stays ``None`` because this repository has no export evidence to
+#: point at, and a reference nobody can produce is not one to invent.
 _METADATA_SERVICE = {
     "provider_id": "supabase",
     "role": "metadata_and_object_index_only",
@@ -167,17 +146,288 @@ _POINTERS = {
     "portable_state_contract": PORTABLE_STATE_CONTRACT,
 }
 
+#: Of the six encryption metadata fields a manifest may carry, three reach
+#: GitHub: what construction was used, which scheme version, and where the key
+#: is kept. ``nonce`` and ``tag`` are per-object ciphertext parameters that live
+#: with the ciphertext and are not needed to identify or re-place an object, and
+#: ``key_rotation_generation`` is not either. Fewer fields in a checkpoint is
+#: strictly better (Spec S22 keeps checkpoints out of the key business).
+SNAPSHOT_ENCRYPTION_FIELDS = ("algorithm", "scheme_version", "key_ref")
+
+#: A bound on any one snapshot field that is not the entry list.
+#:
+#: The per-string cap bounds one string; it does not bound a thousand of them.
+#: ``manifest_schema_version`` was an allowed field with no validator at all,
+#: and 177 KB of attacker-chosen keys and values fitted in it while every
+#: individual string stayed under 256 characters and ``MAX_SNAPSHOT_ENTRIES``
+#: was simply routed around by not using an entry. Every field now has a
+#: declared check, which is the real fix; this is the bound that holds if a
+#: field is added tomorrow with a careless one. The largest legitimate non-entry
+#: field is a few hundred bytes.
+MAX_SNAPSHOT_FIELD_BYTES = 4096
+
+#: And the same for one entry, whose legitimate size is around 600 bytes.
+MAX_SNAPSHOT_ENTRY_BYTES = 2048
+
+#: Nesting is bounded too. The deepest legitimate path in a snapshot is
+#: ``entries[i].encryption.algorithm`` - four levels. A document that nests
+#: forty deep is not a pointer set, and depth is the other way bulk arrives
+#: without any single string being long.
+MAX_SNAPSHOT_DEPTH = 8
+
+#: Fields bounded by their own element counts rather than by a byte budget:
+#: the entry list is capped at ``MAX_SNAPSHOT_ENTRIES`` entries of
+#: ``MAX_SNAPSHOT_ENTRY_BYTES`` each, and the critical-object index at
+#: ``MAX_SNAPSHOT_ENTRIES`` object ids of a fixed 68 characters.
+_ELEMENT_BOUNDED_FIELDS = ("entries", "critical_object_index")
+
+
+# --- declared value checks ----------------------------------------------------
+#
+# Three tables, one per document shape, each mapping a field name to a bounded
+# validator - and the validators below *dispatch* through them rather than
+# restating them as a run of ``if``.
+#
+# This is not style. ``manifest_schema_version`` was in ``SNAPSHOT_FIELDS``,
+# emitted by the exporter and present in the checked-in snapshot, and the
+# cleanliness gate validated the other thirteen top-level fields and skipped it
+# - so it accepted a credential-shaped string, 177 KB of arbitrary content, and
+# a schema version the rebuild does not speak. Nothing could have caught that
+# except a reviewer reading a hundred lines of ``if`` and noticing an absence.
+# A table makes completeness *checkable*: ``SNAPSHOT_FIELDS`` is derived from
+# the table, so a field with no check cannot be an allowed field, and the tests
+# assert the entry projection is a subset of the manifest schema's properties.
+# ``capacity.PROVIDER_VALUE_CHECKS`` and ``placement.MANIFEST_VALUE_CHECKS``
+# are the same pattern; this is the fourth occurrence of the class of bug that
+# happens when a module skips it.
+
+
+def _bounded_int(low, high):
+    def check(value, *, field):
+        _manifest._check_bounded_int(value, low, high, field=field)
+    return check
+
+
+def _enum(allowed):
+    def check(value, *, field):
+        _manifest._check_enum(value, allowed, field=field)
+    return check
+
+
+def _check_snapshot_authority(value, *, field):
+    if value is not False:
+        raise ValueError(
+            f"{field}: a recovery snapshot is evidence about objects, never "
+            "authority over them")
+
+
+def _check_canonical_authority(value, *, field):
+    if value != CANONICAL_AUTHORITY:
+        raise ValueError(
+            f"{field} must remain {CANONICAL_AUTHORITY}; the metadata service "
+            "is an index and GitHub stays canonical (Spec S18)")
+
+
+def _check_metadata_service(value, *, field):
+    if not isinstance(value, Mapping) or set(value) != set(_METADATA_SERVICE):
+        raise ValueError(
+            f"{field} must name exactly {sorted(_METADATA_SERVICE)}")
+    if value["authority"] is not False or value["role"] != _METADATA_SERVICE["role"]:
+        raise ValueError(
+            f"{field} must remain a non-authoritative index; a checkpoint that "
+            "says otherwise is a checkpoint that promotes Supabase to canonical "
+            "by being read (Spec S18/S32)")
+    if value["provider_id"] != _METADATA_SERVICE["provider_id"]:
+        raise ValueError(
+            f"{field}.provider_id must remain "
+            f"{_METADATA_SERVICE['provider_id']!r}")
+    if value["project_exists_verified"] is not False:
+        raise ValueError(
+            "project_exists_verified may only be asserted from runtime "
+            "evidence, and there is none: Spec S25 records that the connected "
+            "account has no projects")
+    reference = value["last_successful_export_ref"]
+    if reference is not None:
+        _manifest._check_evidence_ref(
+            reference, field=f"{field}.last_successful_export_ref")
+
+
+def _check_pointers(value, *, field):
+    if not isinstance(value, Mapping) or set(value) != set(_POINTERS):
+        raise ValueError(f"{field} must name exactly {sorted(_POINTERS)}")
+    for name, path in value.items():
+        if not isinstance(path, str) or not _POINTER_RE.match(path):
+            raise ValueError(
+                f"{field}.{name} must be a repository-relative path under "
+                "AI_SKILL_LIBRARY/; GitHub is where the canonical documents "
+                "are, and a pointer that can be an arbitrary URL is a pointer "
+                "that can send a rebuild somewhere else")
+
+
+def _check_caps(value, *, field):
+    if value != {"max_entries": MAX_SNAPSHOT_ENTRIES,
+                 "max_bytes": MAX_SNAPSHOT_BYTES,
+                 "max_string": MAX_SNAPSHOT_STRING}:
+        raise ValueError(
+            f"{field} must state this module's actual bounds; a snapshot "
+            "carrying looser numbers than the code enforces documents a "
+            "permission nobody granted")
+
+
+def _check_bool(value, *, field):
+    if not isinstance(value, bool):
+        raise ValueError(f"{field} must be a boolean")
+
+
+def _check_critical_object_index(value, *, field):
+    """A sorted, duplicate-free list of object ids - checked in that order.
+
+    Every member is required to be an object id *before* anything sorts or
+    hashes it. ``index != sorted(set(index))`` raises ``TypeError`` on
+    ``[[1, 2]]`` and on a list mixing ints with strings, and the contract here
+    is ``ValueError``: a caller wrapping a recovery read in ``except
+    ValueError`` should not be taken out by an exception it was never told to
+    expect.
+    """
+    if not isinstance(value, list):
+        raise ValueError(f"{field} must be a list")
+    if len(value) > MAX_SNAPSHOT_ENTRIES:
+        raise ValueError(
+            f"{field} holds {len(value)} ids, over the {MAX_SNAPSHOT_ENTRIES} "
+            "a snapshot indexes")
+    for position, member in enumerate(value):
+        _metadata._check_object_id(member, field=f"{field}[{position}]")
+    if value != sorted(set(value)):
+        raise ValueError(f"{field} must be a sorted, duplicate-free list")
+
+
+def _check_entries(value, *, field):
+    if not isinstance(value, list):
+        raise ValueError(f"{field} must be a list")
+    if len(value) > MAX_SNAPSHOT_ENTRIES:
+        raise ValueError(
+            f"recovery snapshot holds {len(value)} entries, over the "
+            f"{MAX_SNAPSHOT_ENTRIES} cap")
+    for position, entry in enumerate(value):
+        _check_entry(entry, where=f"{field}[{position}]")
+
+
+def _check_entry_encryption(value, *, field):
+    admitted = _manifest._closed_mapping(
+        value, SNAPSHOT_ENCRYPTION_FIELDS, field=field,
+        required=SNAPSHOT_ENCRYPTION_FIELDS)
+    for key, nested in admitted.items():
+        _manifest._ENCRYPTION_FIELD_CHECKS[key](nested, field=f"{field}.{key}")
+
+
+def _check_replica_backends(value, *, field):
+    if isinstance(value, str) or not isinstance(value, list):
+        raise ValueError(f"{field} must be a list")
+    if len(value) > _manifest._MAX_REPLICAS:
+        raise ValueError(f"{field} is over the {_manifest._MAX_REPLICAS} bound")
+    for backend in value:
+        _manifest._check_backend(backend, role=f"{field}[]")
+    if len(set(value)) != len(value):
+        raise ValueError(f"{field} names a backend twice")
+
+
+def _check_backend(value, *, field):
+    _manifest._check_backend(value, role=field)
+
+
+#: One bounded validator per field of a snapshot entry. The set is asserted
+#: equal to ``ENTRY_FIELDS`` and a subset of the manifest schema's properties:
+#: the entry is a *projection* of a manifest record, so a name here that the
+#: schema does not have is a field being invented on the way to GitHub.
+ENTRY_VALUE_CHECKS = {
+    "object_id": _metadata._check_object_id,
+    "content_sha256": _metadata._check_sha256,
+    "size_bytes": _bounded_int(0, _manifest._MAX_SIZE_BYTES),
+    "privacy_class": _enum(PRIVACY_CLASSES),
+    "criticality": _enum(CRITICALITY_CLASSES),
+    "storage_tier": _enum(STORAGE_TIERS),
+    "encryption_state": _enum(_manifest.ENCRYPTION_STATES),
+    "encryption": _check_entry_encryption,
+    "primary_backend": _check_backend,
+    "replica_backends": _check_replica_backends,
+    "created_at": _manifest._check_timestamp,
+    "lifecycle_state": _enum(LIFECYCLE_STATES),
+    "reproducible": _check_bool,
+}
+
+#: The projection. An entry carries these fields and no others, and the list is
+#: derived from the check table so that the two cannot drift apart.
+ENTRY_FIELDS = tuple(ENTRY_VALUE_CHECKS)
+
+REQUIRED_ENTRY_FIELDS = tuple(f for f in ENTRY_FIELDS if f != "encryption")
+
+#: What a provider scan can actually observe about an object: which backend
+#: holds it, what it claims to be, how big it is, and when it was seen. Closed,
+#: because an undeclared field is the only way an unbounded string reaches a
+#: recovery input at all.
+PROVIDER_RECORD_VALUE_CHECKS = {
+    "backend_id": _check_backend,
+    "object_id": _metadata._check_object_id,
+    "content_sha256": _metadata._check_sha256,
+    "size_bytes": _bounded_int(0, _manifest._MAX_SIZE_BYTES),
+    "observed_at": _manifest._check_timestamp,
+}
+
+PROVIDER_RECORD_FIELDS = tuple(PROVIDER_RECORD_VALUE_CHECKS)
+REQUIRED_PROVIDER_RECORD_FIELDS = (
+    "backend_id", "object_id", "content_sha256", "size_bytes",
+)
+
+#: One bounded validator per top-level snapshot field, including the one that
+#: had none.
+SNAPSHOT_VALUE_CHECKS = {
+    "version": _metadata._check_const(SNAPSHOT_VERSION, field="version"),
+    # Validated, not merely carried. It is the one field telling a rebuild
+    # which schema the entries were written against, and nothing read it,
+    # compared it to MANIFEST_VERSION or bounded it: a snapshot could claim
+    # version 99 and produce rebuilt records claiming version 1.
+    "manifest_schema_version": _metadata._check_const(
+        _metadata.MANIFEST_VERSION, field="manifest_schema_version"),
+    "generated_at": _manifest._check_timestamp,
+    "canonical_authority": _check_canonical_authority,
+    "authority": _check_snapshot_authority,
+    "authority_flags": _metadata._check_authority_flags,
+    "metadata_service": _check_metadata_service,
+    "pointers": _check_pointers,
+    "caps": _check_caps,
+    "entry_count": _bounded_int(0, 2 ** 31 - 1),
+    "truncated": _check_bool,
+    "omitted_entries": _bounded_int(0, 2 ** 31 - 1),
+    "critical_object_index": _check_critical_object_index,
+    "entries": _check_entries,
+}
+
+SNAPSHOT_FIELDS = tuple(SNAPSHOT_VALUE_CHECKS)
+
+#: Which objects survive truncation. Spec S18 requires the *critical-object
+#: index* to be among what GitHub keeps, so CRITICAL is kept first and the cap
+#: is a hard error rather than a silent drop if criticals alone exceed it.
+_CRITICALITY_RANK = {name: rank for rank, name in enumerate(
+    ("CRITICAL", "IMPORTANT", "REPRODUCIBLE", "EPHEMERAL"))}
+
 
 # --- cleanliness --------------------------------------------------------------
 
 
-def _walk_values(value, *, where):
+def _walk_values(value, *, where, depth=0):
     """Bound and scan every string in the document, keys included.
 
     Keys as well as values, because a hand-edited or machine-merged snapshot can
     grow a key as easily as a value, and a 2KB key is exactly as much storage as
-    a 2KB value.
+    a 2KB value. Depth as well as length, because nesting is the other way a
+    document grows without any single string being long.
     """
+    if depth > MAX_SNAPSHOT_DEPTH:
+        raise ValueError(
+            f"{where} nests deeper than {MAX_SNAPSHOT_DEPTH}; the deepest "
+            "legitimate path in a snapshot is four levels, and a pointer set "
+            "that nests further is carrying something rather than pointing "
+            "at it")
     if isinstance(value, str):
         if len(value) > MAX_SNAPSHOT_STRING:
             raise ValueError(
@@ -196,12 +446,12 @@ def _walk_values(value, *, where):
         for key, nested in value.items():
             if not isinstance(key, str):
                 raise ValueError(f"{where}: keys must be strings")
-            _walk_values(key, where=f"{where}.<key>")
-            _walk_values(nested, where=f"{where}.{key}")
+            _walk_values(key, where=f"{where}.<key>", depth=depth + 1)
+            _walk_values(nested, where=f"{where}.{key}", depth=depth + 1)
         return
     if isinstance(value, list):
         for index, nested in enumerate(value):
-            _walk_values(nested, where=f"{where}[{index}]")
+            _walk_values(nested, where=f"{where}[{index}]", depth=depth + 1)
         return
     raise ValueError(
         f"{where} holds {type(value).__name__}; a recovery snapshot carries "
@@ -209,10 +459,24 @@ def _walk_values(value, *, where):
         "not round-trippable and anything else is not a pointer")
 
 
+def _check_serialised_size(value, *, field, limit):
+    """A byte budget for one field, measured rather than assumed."""
+    try:
+        encoded = json.dumps(value, sort_keys=True)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field} is not JSON-serialisable") from None
+    if len(encoded) > limit:
+        raise ValueError(
+            f"{field} serialises to {len(encoded)} bytes, over its {limit}-byte "
+            "budget. GitHub carries pointers, not bulk (Spec S6/S32), and a "
+            "per-string bound stops one long string rather than a thousand "
+            "short ones")
+
+
 def _check_entry(entry, *, where):
     if not isinstance(entry, Mapping):
         raise ValueError(f"{where} must be a mapping, got {type(entry).__name__}")
-    unknown = sorted(set(entry) - set(ENTRY_FIELDS))
+    unknown = sorted(set(entry) - set(ENTRY_VALUE_CHECKS))
     if unknown:
         raise ValueError(
             f"{where} rejects field(s) {unknown}: a snapshot entry is a "
@@ -222,47 +486,26 @@ def _check_entry(entry, *, where):
     if missing:
         raise ValueError(f"{where} is missing required field(s) {missing}")
 
-    _metadata._check_object_id(entry["object_id"], field=f"{where}.object_id")
-    _metadata._check_sha256(entry["content_sha256"],
-                            field=f"{where}.content_sha256")
-    if entry["object_id"] != f"{_manifest.OBJECT_ID_PREFIX}{entry['content_sha256']}":
-        raise ValueError(f"{where}.object_id is not the content digest")
-    _manifest._check_bounded_int(entry["size_bytes"], 0, _manifest._MAX_SIZE_BYTES,
-                                 field=f"{where}.size_bytes")
-    for field, allowed in (("privacy_class", PRIVACY_CLASSES),
-                           ("criticality", CRITICALITY_CLASSES),
-                           ("storage_tier", STORAGE_TIERS),
-                           ("lifecycle_state", LIFECYCLE_STATES),
-                           ("encryption_state", _manifest.ENCRYPTION_STATES)):
-        _manifest._check_enum(entry[field], allowed, field=f"{where}.{field}")
-    _manifest._check_timestamp(entry["created_at"], field=f"{where}.created_at")
-    if not isinstance(entry["reproducible"], bool):
-        raise ValueError(f"{where}.reproducible must be a boolean")
-    _manifest._check_backend(entry["primary_backend"],
-                             role=f"{where}.primary_backend")
-    replicas = entry["replica_backends"]
-    if isinstance(replicas, str) or not isinstance(replicas, list):
-        raise ValueError(f"{where}.replica_backends must be a list")
-    if len(replicas) > _manifest._MAX_REPLICAS or len(set(replicas)) != len(replicas):
-        raise ValueError(f"{where}.replica_backends is duplicated or over bound")
-    for backend in replicas:
-        _manifest._check_backend(backend, role=f"{where}.replica_backends[]")
+    for field, value in entry.items():
+        ENTRY_VALUE_CHECKS[field](value, field=f"{where}.{field}")
+    _check_serialised_size(dict(entry), field=where,
+                           limit=MAX_SNAPSHOT_ENTRY_BYTES)
 
     encryption = entry.get("encryption")
     if encryption is None:
         if entry["encryption_state"] != "NONE":
             raise ValueError(
                 f"{where} claims ciphertext with no encryption metadata")
-    else:
-        if entry["encryption_state"] == "NONE":
-            raise ValueError(
-                f"{where} says plaintext and carries encryption metadata")
-        admitted = _manifest._closed_mapping(
-            encryption, SNAPSHOT_ENCRYPTION_FIELDS, field=f"{where}.encryption",
-            required=SNAPSHOT_ENCRYPTION_FIELDS)
-        for key, value in admitted.items():
-            _manifest._ENCRYPTION_FIELD_CHECKS[key](
-                value, field=f"{where}.encryption.{key}")
+    elif entry["encryption_state"] == "NONE":
+        raise ValueError(
+            f"{where} says plaintext and carries encryption metadata")
+
+    # The invariants no single field can state on its own, shared with the
+    # metadata store rather than restated. Without them the public cleanliness
+    # gate certified a checkpoint asserting that LOCAL_ONLY data is on
+    # Cloudflare R2, and a legitimately-edited entry became "unrecoverable" -
+    # reported data loss - instead of a named contradiction.
+    _metadata.check_placement_cross_field_rules(entry, where=where)
 
 
 def assert_snapshot_is_clean(snapshot):
@@ -273,99 +516,38 @@ def assert_snapshot_is_clean(snapshot):
     a snapshot read back from GitHub has been through a merge, a rebase, an
     editor and possibly a hand edit, and a recovery path that trusts its input
     is a recovery path that will one day rebuild from someone else's file.
+
+    Every field is checked through ``SNAPSHOT_VALUE_CHECKS``; what is left here
+    afterwards is only what no single field can answer.
     """
     if not isinstance(snapshot, Mapping):
         raise ValueError(
             f"a recovery snapshot must be a mapping, got {type(snapshot).__name__}")
-    unknown = sorted(set(snapshot) - set(SNAPSHOT_FIELDS))
+    unknown = sorted(set(snapshot) - set(SNAPSHOT_VALUE_CHECKS))
     if unknown:
         raise ValueError(f"recovery snapshot rejects unknown field(s) {unknown}")
     missing = sorted(set(SNAPSHOT_FIELDS) - set(snapshot))
     if missing:
         raise ValueError(f"recovery snapshot is missing field(s) {missing}")
 
-    if snapshot["version"] != SNAPSHOT_VERSION or isinstance(
-            snapshot["version"], bool):
-        raise ValueError(
-            f"recovery snapshot version must be {SNAPSHOT_VERSION}")
-    if snapshot["authority"] is not False:
-        raise ValueError(
-            "a recovery snapshot is evidence about objects, never authority "
-            "over them")
-    _metadata._check_authority_flags(snapshot["authority_flags"],
-                                     field="authority_flags")
-    if snapshot["canonical_authority"] != CANONICAL_AUTHORITY:
-        raise ValueError(
-            f"canonical_authority must remain {CANONICAL_AUTHORITY}; the "
-            "metadata service is an index and GitHub stays canonical (Spec S18)")
-    _manifest._check_timestamp(snapshot["generated_at"], field="generated_at")
-
-    service = snapshot["metadata_service"]
-    if not isinstance(service, Mapping) or set(service) != set(_METADATA_SERVICE):
-        raise ValueError(
-            f"metadata_service must name exactly {sorted(_METADATA_SERVICE)}")
-    if service["authority"] is not False or service["role"] != _METADATA_SERVICE["role"]:
-        raise ValueError(
-            "metadata_service must remain a non-authoritative index; a "
-            "checkpoint that says otherwise is a checkpoint that promotes "
-            "Supabase to canonical by being read (Spec S18/S32)")
-    if service["project_exists_verified"] is not False:
-        raise ValueError(
-            "project_exists_verified may only be asserted from runtime "
-            "evidence, and there is none: Spec S25 records that the connected "
-            "account has no projects")
-    reference = service["last_successful_export_ref"]
-    if reference is not None:
-        _manifest._check_evidence_ref(
-            reference, field="metadata_service.last_successful_export_ref")
-
-    if snapshot["caps"] != {"max_entries": MAX_SNAPSHOT_ENTRIES,
-                            "max_bytes": MAX_SNAPSHOT_BYTES,
-                            "max_string": MAX_SNAPSHOT_STRING}:
-        raise ValueError(
-            "caps must state this module's actual bounds; a snapshot carrying "
-            "looser numbers than the code enforces documents a permission "
-            "nobody granted")
-
-    pointers = snapshot["pointers"]
-    if not isinstance(pointers, Mapping) or set(pointers) != set(_POINTERS):
-        raise ValueError(f"pointers must name exactly {sorted(_POINTERS)}")
-    for name, path in pointers.items():
-        if not isinstance(path, str) or not _POINTER_RE.match(path):
-            raise ValueError(
-                f"pointers.{name} must be a repository-relative path under "
-                "AI_SKILL_LIBRARY/; GitHub is where the canonical documents "
-                "are, and a pointer that can be an arbitrary URL is a pointer "
-                "that can send a rebuild somewhere else")
+    for field in SNAPSHOT_FIELDS:
+        value = snapshot[field]
+        SNAPSHOT_VALUE_CHECKS[field](value, field=field)
+        if field not in _ELEMENT_BOUNDED_FIELDS:
+            _check_serialised_size(value, field=field,
+                                   limit=MAX_SNAPSHOT_FIELD_BYTES)
 
     entries = snapshot["entries"]
-    if not isinstance(entries, list):
-        raise ValueError("entries must be a list")
-    if len(entries) > MAX_SNAPSHOT_ENTRIES:
-        raise ValueError(
-            f"recovery snapshot holds {len(entries)} entries, over the "
-            f"{MAX_SNAPSHOT_ENTRIES} cap")
-    for index, entry in enumerate(entries):
-        _check_entry(entry, where=f"entries[{index}]")
-
     ids = [entry["object_id"] for entry in entries]
     if ids != sorted(ids) or len(set(ids)) != len(ids):
         raise ValueError(
             "entries must be ordered by object_id and each object named once; "
             "a snapshot that is not deterministic cannot be reviewed as a diff")
 
-    index = snapshot["critical_object_index"]
-    if not isinstance(index, list) or index != sorted(set(index)):
-        raise ValueError(
-            "critical_object_index must be a sorted, duplicate-free list")
-    if not set(index) <= set(ids):
+    if not set(snapshot["critical_object_index"]) <= set(ids):
         raise ValueError(
             "critical_object_index names an object the snapshot does not carry")
 
-    for field in ("entry_count", "omitted_entries"):
-        _manifest._check_bounded_int(snapshot[field], 0, 2 ** 31 - 1, field=field)
-    if not isinstance(snapshot["truncated"], bool):
-        raise ValueError("truncated must be a boolean")
     if snapshot["entry_count"] - len(entries) != snapshot["omitted_entries"]:
         raise ValueError(
             "omitted_entries must equal entry_count minus the entries carried; "
@@ -406,18 +588,32 @@ def _now_instant():
         "%Y-%m-%dT%H:%M:%SZ")
 
 
-def export_recovery_snapshot(store, *, generated_at=None):
+def export_recovery_snapshot(store, *, generated_at=None,
+                             last_successful_export_ref=None):
     """Render the bounded pointer set GitHub keeps (Spec S18).
 
     Refuses an unhealthy store rather than exporting what it managed to read:
     a partial snapshot presented as a complete one is worse than no snapshot,
     because the next rebuild treats everything missing from it as lost.
+
+    ``last_successful_export_ref`` is the sixth thing Spec S18 lists among what
+    GitHub retains. It is a parameter rather than a constant because a field
+    hard-coded ``None`` with no way to set it is an obligation that cannot be
+    met by any caller. It is a bounded evidence reference - a path to a
+    checkpoint the export actually produced - and it stays ``None`` when the
+    caller has none, because a reference nobody can produce is not one to
+    invent.
     """
     if not isinstance(store, _metadata.MetadataStore):
         raise ValueError(
             "export_recovery_snapshot needs a MetadataStore; an object that "
             "merely answers list_manifests() has not been through the "
             "validation that makes its answer mean anything")
+
+    export_ref = last_successful_export_ref
+    if export_ref is not None:
+        _manifest._check_evidence_ref(export_ref,
+                                      field="last_successful_export_ref")
 
     records = store.list_manifests()
     entries = [_project(record) for record in records]
@@ -445,7 +641,8 @@ def export_recovery_snapshot(store, *, generated_at=None):
         "canonical_authority": CANONICAL_AUTHORITY,
         "authority": False,
         "authority_flags": {flag: False for flag in AUTHORITY_FLAGS},
-        "metadata_service": dict(_METADATA_SERVICE),
+        "metadata_service": dict(_METADATA_SERVICE,
+                                 last_successful_export_ref=export_ref),
         "pointers": dict(_POINTERS),
         "caps": {
             "max_entries": MAX_SNAPSHOT_ENTRIES,
@@ -471,7 +668,7 @@ def _validate_provider_record(row):
     if not isinstance(row, Mapping):
         raise ValueError(
             f"a provider record must be a mapping, got {type(row).__name__}")
-    unknown = sorted(set(row) - set(PROVIDER_RECORD_FIELDS))
+    unknown = sorted(set(row) - set(PROVIDER_RECORD_VALUE_CHECKS))
     if unknown:
         raise ValueError(
             f"provider record rejects unknown field(s) {unknown}: the field set "
@@ -481,15 +678,11 @@ def _validate_provider_record(row):
     if missing:
         raise ValueError(f"provider record is missing field(s) {missing}")
 
-    _manifest._check_backend(row["backend_id"], role="provider record backend_id")
-    _metadata._check_object_id(row["object_id"], field="provider record object_id")
-    _metadata._check_sha256(row["content_sha256"],
-                            field="provider record content_sha256")
-    _manifest._check_bounded_int(row["size_bytes"], 0, _manifest._MAX_SIZE_BYTES,
-                                 field="provider record size_bytes")
-    if "observed_at" in row:
-        _manifest._check_timestamp(row["observed_at"],
-                                   field="provider record observed_at")
+    for field, value in row.items():
+        PROVIDER_RECORD_VALUE_CHECKS[field](
+            value, field=f"provider record {field}")
+    _check_serialised_size(dict(row), field="provider record",
+                           limit=MAX_SNAPSHOT_ENTRY_BYTES)
     return {field: row[field] for field in PROVIDER_RECORD_FIELDS if field in row}
 
 
@@ -606,8 +799,11 @@ __all__ = [
     "AUTHORITY", "AUTHORITY_FLAGS", "CANONICAL_AUTHORITY",
     "ENCRYPTION_IMPLEMENTED_HERE", "SNAPSHOT_VERSION", "RECOVERY_MANIFEST_PATH",
     "MAX_SNAPSHOT_ENTRIES", "MAX_SNAPSHOT_BYTES", "MAX_SNAPSHOT_STRING",
-    "SNAPSHOT_FIELDS", "ENTRY_FIELDS", "REQUIRED_ENTRY_FIELDS",
+    "MAX_SNAPSHOT_FIELD_BYTES", "MAX_SNAPSHOT_ENTRY_BYTES",
+    "MAX_SNAPSHOT_DEPTH", "SNAPSHOT_FIELDS", "SNAPSHOT_VALUE_CHECKS",
+    "ENTRY_FIELDS", "ENTRY_VALUE_CHECKS", "REQUIRED_ENTRY_FIELDS",
     "SNAPSHOT_ENCRYPTION_FIELDS", "PROVIDER_RECORD_FIELDS",
+    "PROVIDER_RECORD_VALUE_CHECKS",
     "REQUIRED_PROVIDER_RECORD_FIELDS", "assert_snapshot_is_clean",
     "export_recovery_snapshot", "rebuild_manifest", "rebuild_report",
 ]

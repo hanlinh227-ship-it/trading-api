@@ -277,6 +277,64 @@ REQUIRED_RECORD_FIELDS = (
 )
 
 
+def check_placement_cross_field_rules(row, *, where="metadata record"):
+    """The cross-field invariants any placement-bearing row must satisfy.
+
+    Exported and factored out because a *snapshot entry* is the same claim in
+    a narrower shape: it names a privacy class, a tier, a primary backend and
+    a replica list, and every one of the rules below is about the relationship
+    between those. ``recovery.assert_snapshot_is_clean`` used to apply none of
+    them, so the public cleanliness gate on the GitHub checkpoint would certify
+    a document stating that LOCAL_ONLY data is on Cloudflare R2.
+
+    A second, independently-written copy of these rules is a copy that will
+    drift, and the looser of the two is the one an edit gets to use. This is
+    the only copy.
+
+    Takes anything carrying ``object_id``, ``content_sha256``, ``criticality``,
+    ``reproducible``, ``privacy_class``, ``encryption_state``, ``storage_tier``,
+    ``size_bytes``, ``primary_backend`` and ``replica_backends``; an optional
+    ``encryption`` mapping is read with ``get``. Raises ``ValueError``.
+    """
+    if row["object_id"] != f"{_manifest.OBJECT_ID_PREFIX}{row['content_sha256']}":
+        raise ValueError(
+            f"{where}: object_id must be the content digest and nothing else, "
+            "so that re-tiering and rebalancing cannot change what an object is")
+
+    if row["criticality"] == "REPRODUCIBLE" and not row["reproducible"]:
+        raise ValueError(
+            f"{where}: criticality REPRODUCIBLE with reproducible=False is a "
+            "contradiction: Spec S8 permits eviction precisely because the "
+            "object can be regenerated")
+
+    encryption = row.get("encryption")
+    backends = [row["primary_backend"], *row["replica_backends"]]
+    external = sorted({b for b in backends if not _manifest._is_local(b)})
+    if row["privacy_class"] == "LOCAL_ONLY" and external:
+        raise ValueError(
+            f"{where}: privacy class LOCAL_ONLY may not name external "
+            f"backend(s) {external}; it never leaves owned storage (Spec S4), "
+            "and a row saying otherwise is the row that authorises the upload")
+    if row["privacy_class"] == "CONFIDENTIAL" and external and (
+            row["encryption_state"] != "CLIENT_SIDE_ENCRYPTED"
+            or encryption is None):
+        raise ValueError(
+            f"{where}: a CONFIDENTIAL object reaches an external backend only "
+            "as ciphertext, and only with the encryption metadata that proves "
+            "it (Spec S4/S21)")
+
+    if row["storage_tier"] in mesh_validator.NON_BULK_TIERS and (
+            row["size_bytes"] > mesh_validator.BULK_OBJECT_THRESHOLD_BYTES):
+        raise ValueError(
+            f"{where}: storage tier {row['storage_tier']} carries pointers, "
+            f"not payloads: {row['size_bytes']} bytes exceeds "
+            f"{mesh_validator.BULK_OBJECT_THRESHOLD_BYTES} (Spec S6)")
+    if "supabase" in backends and row["storage_tier"] != "METADATA":
+        raise ValueError(
+            f"{where}: supabase is a metadata and index backend only; naming "
+            "it forces the METADATA tier (Spec S18/S25)")
+
+
 def _check_cross_field_rules(record):
     """The invariants no single field can state on its own.
 
@@ -284,17 +342,12 @@ def _check_cross_field_rules(record):
     arriving at the index has no bytes behind it: it may have come from a
     provider scan during a rebuild, and ``StorageObject`` quite correctly
     refuses to be built from anything but content.
-    """
-    if record["object_id"] != f"{_manifest.OBJECT_ID_PREFIX}{record['content_sha256']}":
-        raise ValueError(
-            "object_id must be the content digest and nothing else, so that "
-            "re-tiering and rebalancing cannot change what an object is")
 
-    if record["criticality"] == "REPRODUCIBLE" and not record["reproducible"]:
-        raise ValueError(
-            "criticality REPRODUCIBLE with reproducible=False is a "
-            "contradiction: Spec S8 permits eviction precisely because the "
-            "object can be regenerated")
+    The placement-bearing half is shared with the recovery snapshot through
+    ``check_placement_cross_field_rules``; what stays here is the part that
+    needs a field a snapshot entry does not carry.
+    """
+    check_placement_cross_field_rules(record)
 
     encryption = record.get("encryption")
     if record["encryption_state"] == "NONE":
@@ -314,32 +367,6 @@ def _check_cross_field_rules(record):
             and record["encryption_scheme_version"] != encryption["scheme_version"]):
         raise ValueError(
             "encryption_scheme_version contradicts encryption.scheme_version")
-
-    backends = [record["primary_backend"], *record["replica_backends"]]
-    external = sorted({b for b in backends if not _manifest._is_local(b)})
-    if record["privacy_class"] == "LOCAL_ONLY" and external:
-        raise ValueError(
-            f"privacy class LOCAL_ONLY may not name external backend(s) "
-            f"{external}; it never leaves owned storage (Spec S4), and an index "
-            "row saying otherwise is the record that authorises the upload")
-    if record["privacy_class"] == "CONFIDENTIAL" and external and (
-            record["encryption_state"] != "CLIENT_SIDE_ENCRYPTED"
-            or encryption is None):
-        raise ValueError(
-            "a CONFIDENTIAL object reaches an external backend only as "
-            "ciphertext, and only with the encryption metadata that proves it "
-            "(Spec S4/S21)")
-
-    if record["storage_tier"] in mesh_validator.NON_BULK_TIERS and (
-            record["size_bytes"] > mesh_validator.BULK_OBJECT_THRESHOLD_BYTES):
-        raise ValueError(
-            f"storage tier {record['storage_tier']} carries pointers, not "
-            f"payloads: {record['size_bytes']} bytes exceeds "
-            f"{mesh_validator.BULK_OBJECT_THRESHOLD_BYTES} (Spec S6)")
-    if "supabase" in backends and record["storage_tier"] != "METADATA":
-        raise ValueError(
-            "supabase is a metadata and index backend only; naming it forces "
-            "the METADATA tier (Spec S18/S25)")
 
 
 def validate_metadata_record(record):
@@ -479,7 +506,16 @@ class MetadataStore(abc.ABC):
         raw = self._get_record(key)
         if raw is None:
             return None
-        return validate_metadata_record(raw)
+        record = validate_metadata_record(raw)
+        if record["object_id"] != key:
+            raise MetadataStoreError(
+                f"the index answered {key} with the record for "
+                f"{record['object_id']}. Validating the row as *a* record is "
+                "not checking it is *the* record, and this read is what a "
+                "caller consults to decide whether an object may be evicted: a "
+                "swapped row hands it another object's criticality, privacy "
+                "class and reproducible flag (Spec S18, FAIL_CLOSED)")
+        return record
 
     def list_manifests(self):
         """Every record, validated, ordered by ``object_id``.
@@ -494,6 +530,16 @@ class MetadataStore(abc.ABC):
                 "the metadata store is not healthy; an empty list and an "
                 "unreachable index are the same shape and opposite facts")
         records = [validate_metadata_record(raw) for raw in self._all_records()]
+        seen = set()
+        for record in records:
+            if record["object_id"] in seen:
+                raise MetadataStoreError(
+                    f"the index holds more than one row for "
+                    f"{record['object_id']}. An index that disagrees with "
+                    "itself about an object cannot be the basis of a repair, a "
+                    "migration or a deletion, and until now the duplicate only "
+                    "surfaced later as an ordering error from the exporter")
+            seen.add(record["object_id"])
         return sorted(records, key=lambda record: record["object_id"])
 
 
@@ -513,12 +559,23 @@ def can_perform_destructive_lifecycle(store):
     answer mean anything, and accepting it would make the gate satisfiable by
     any two-line stub that happened to be passed in by mistake.
 
+    The call to ``healthy`` is itself guarded. ``MetadataStore.healthy`` already
+    swallows everything its probe can throw, but ``healthy`` is an ordinary
+    overridable method: a subclass that raises out of it would propagate the
+    exception through this gate, and a destructive-action gate that raises is a
+    gate whose caller has to remember to handle one. Unknown fails closed here
+    too.
+
     This function grants no authority and performs no action. It answers a
     question; the caller with the authority decides what to do with it.
     """
     if not isinstance(store, MetadataStore):
         return False
-    return store.healthy() is True
+    try:
+        answer = store.healthy()
+    except BaseException:  # noqa: BLE001 - unknown fails closed, as everywhere
+        return False
+    return answer is True
 
 
 __all__ = [
@@ -526,5 +583,6 @@ __all__ = [
     "ENCRYPTION_IMPLEMENTED_HERE", "MANIFEST_VERSION", "MAX_RECORD_BYTES",
     "RECORD_FIELDS", "REQUIRED_RECORD_FIELDS", "MetadataStore",
     "MetadataStoreError", "MetadataStoreUnavailable",
-    "validate_metadata_record", "can_perform_destructive_lifecycle",
+    "validate_metadata_record", "check_placement_cross_field_rules",
+    "can_perform_destructive_lifecycle",
 ]

@@ -44,6 +44,7 @@ from AI_SKILL_LIBRARY.v4.storage.manifest import assert_no_credential_material
 from AI_SKILL_LIBRARY.tests.test_storage_metadata import (
     AUTHORITY_FLAGS,
     FakeMetadataStore,
+    MANIFEST_SCHEMA,
     MANIFEST_VALIDATOR,
     SMUGGLED_CREDENTIAL,
     TIME,
@@ -554,6 +555,232 @@ class CheckedInRecoveryManifestTests(unittest.TestCase):
     def test_its_pointers_resolve(self):
         for pointer in self.document["pointers"].values():
             self.assertTrue((ROOT / pointer).exists(), pointer)
+
+
+#: 177 KB of attacker-chosen keys and values: the shape that was certified
+#: clean inside ``manifest_schema_version``. Not a credential and not one long
+#: string, so neither the credential patterns nor the per-string bound sees it.
+def bulk_payload(keys=700, width=250):
+    filler = ("S3cr3tPayl0ad" * 19)[:width]
+    return {("k%03d" % index): filler for index in range(keys)}
+
+
+class DeclaredValueCheckTests(unittest.TestCase):
+    """Validation is driven off a table, not off a hand-maintained run of ``if``.
+
+    ``manifest_schema_version`` sat in ``SNAPSHOT_FIELDS`` with no validator of
+    any kind because the only thing that could have noticed was a reviewer
+    reading 110 lines of ``if``. The tables below make completeness checkable,
+    the way ``capacity.PROVIDER_VALUE_CHECKS`` and
+    ``placement.MANIFEST_VALUE_CHECKS`` already are.
+    """
+
+    def test_every_snapshot_field_has_a_declared_value_check(self):
+        self.assertEqual(set(recovery.SNAPSHOT_VALUE_CHECKS),
+                         set(recovery.SNAPSHOT_FIELDS))
+
+    def test_every_entry_field_has_a_declared_value_check(self):
+        self.assertEqual(set(recovery.ENTRY_VALUE_CHECKS),
+                         set(recovery.ENTRY_FIELDS))
+
+    def test_the_entry_projection_is_a_subset_of_the_manifest_schema(self):
+        self.assertTrue(
+            set(recovery.ENTRY_FIELDS) <= set(MANIFEST_SCHEMA["properties"]),
+            sorted(set(recovery.ENTRY_FIELDS) - set(MANIFEST_SCHEMA["properties"])))
+
+    def test_every_provider_record_field_has_a_declared_value_check(self):
+        self.assertEqual(set(recovery.PROVIDER_RECORD_VALUE_CHECKS),
+                         set(recovery.PROVIDER_RECORD_FIELDS))
+
+    def test_the_declared_checks_are_the_ones_actually_run(self):
+        """A table nothing dispatches through is documentation, not a guard."""
+        snapshot = snapshot_of([safe_manifest()])
+        for field in recovery.SNAPSHOT_FIELDS:
+            with self.subTest(field=field):
+                broken = json.loads(json.dumps(snapshot))
+                broken[field] = bulk_payload(4, 8)
+                with self.assertRaises(ValueError):
+                    recovery.assert_snapshot_is_clean(broken)
+
+    def test_every_entry_field_rejects_a_foreign_shape(self):
+        snapshot = snapshot_of([safe_manifest()])
+        for field in recovery.ENTRY_FIELDS:
+            with self.subTest(field=field):
+                broken = json.loads(json.dumps(snapshot))
+                broken["entries"][0][field] = bulk_payload(4, 8)
+                with self.assertRaises(ValueError):
+                    recovery.assert_snapshot_is_clean(broken)
+
+    def test_every_provider_record_field_rejects_a_foreign_shape(self):
+        record = safe_manifest()
+        snapshot = snapshot_of([record])
+        for field in recovery.PROVIDER_RECORD_FIELDS:
+            with self.subTest(field=field):
+                row = observed(record)
+                row[field] = bulk_payload(4, 8)
+                with self.assertRaises(ValueError):
+                    recovery.rebuild_manifest([row], snapshot)
+
+
+class ManifestSchemaVersionTests(unittest.TestCase):
+    """The one snapshot field that had no validator of any kind."""
+
+    def test_the_exporter_emits_the_schema_version_it_wrote_against(self):
+        snapshot = snapshot_of([safe_manifest()])
+        self.assertEqual(snapshot["manifest_schema_version"],
+                         metadata.MANIFEST_VERSION)
+
+    def test_a_credential_shaped_value_is_refused(self):
+        snapshot = snapshot_of([safe_manifest()])
+        snapshot["manifest_schema_version"] = (
+            "wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY01")
+        with self.assertRaises(ValueError):
+            recovery.assert_snapshot_is_clean(snapshot)
+
+    def test_it_cannot_become_a_bulk_carrier(self):
+        """177 KB of arbitrary keys and values, in the file GitHub carries."""
+        snapshot = snapshot_of([safe_manifest()])
+        snapshot["manifest_schema_version"] = bulk_payload()
+        self.assertGreater(len(json.dumps(snapshot["manifest_schema_version"])),
+                           170000)
+        with self.assertRaises(ValueError):
+            recovery.assert_snapshot_is_clean(snapshot)
+
+    def test_a_version_the_rebuild_does_not_speak_is_refused(self):
+        """The one field naming the schema the entries were written against
+        was never consulted: a snapshot could claim 99 and rebuild records
+        claiming 1."""
+        snapshot = snapshot_of([safe_manifest()])
+        for bad in (99, 0, -1, True, "1", 1.0, None, [1]):
+            with self.subTest(bad=repr(bad)):
+                broken = json.loads(json.dumps(snapshot))
+                broken["manifest_schema_version"] = bad
+                with self.assertRaises(ValueError):
+                    recovery.assert_snapshot_is_clean(broken)
+
+
+class NonEntryFieldsAreBoundedTests(unittest.TestCase):
+    """The per-string cap bounds one string. It does not bound a thousand."""
+
+    def test_no_snapshot_field_can_carry_a_hundred_kilobytes(self):
+        snapshot = snapshot_of([safe_manifest()])
+        payload = bulk_payload()
+        for field in recovery.SNAPSHOT_FIELDS:
+            with self.subTest(field=field):
+                broken = json.loads(json.dumps(snapshot))
+                broken[field] = payload
+                with self.assertRaises(ValueError):
+                    recovery.assert_snapshot_is_clean(broken)
+
+    def test_deep_nesting_is_refused(self):
+        deep = "leaf"
+        for _ in range(40):
+            deep = {"n": deep}
+        with self.assertRaises(ValueError):
+            recovery._walk_values(deep, where="probe")
+
+    def test_a_legitimate_full_snapshot_is_still_accepted(self):
+        """The new bounds must not be tighter than a real, full snapshot."""
+        cap = recovery.MAX_SNAPSHOT_ENTRIES
+        records = [safe_manifest(content=str(n).encode()) for n in range(cap)]
+        snapshot = snapshot_of(records)
+        recovery.assert_snapshot_is_clean(snapshot)
+        self.assertEqual(len(snapshot["critical_object_index"]), cap)
+
+
+class SnapshotCrossFieldRulesTests(unittest.TestCase):
+    """A snapshot documenting a policy violation is not a clean snapshot.
+
+    ``assert_snapshot_is_clean`` is the public gate on the document GitHub
+    carries, and its own docstring names a hand edit as the threat model. Each
+    of these was certified clean while saying, on the record, that LOCAL_ONLY
+    data is on Cloudflare R2.
+    """
+
+    def clean_snapshot(self, **overrides):
+        return snapshot_of([safe_manifest(**overrides)])
+
+    def assert_refused(self, snapshot, **entry_overrides):
+        broken = json.loads(json.dumps(snapshot))
+        broken["entries"][0].update(entry_overrides)
+        with self.assertRaises(ValueError):
+            recovery.assert_snapshot_is_clean(broken)
+
+    def test_local_only_may_not_be_documented_on_an_external_backend(self):
+        snapshot = self.clean_snapshot(
+            privacy_class="LOCAL_ONLY", encryption_state="NONE", encryption=None,
+            encryption_scheme_version=None, primary_backend="local_owned_store",
+            replica_backends=())
+        self.assert_refused(snapshot, primary_backend="cloudflare_r2")
+        self.assert_refused(snapshot, replica_backends=["cloudflare_r2"])
+
+    def test_reproducible_criticality_may_not_contradict_reproducible(self):
+        snapshot = self.clean_snapshot(criticality="REPRODUCIBLE",
+                                       reproducible=True)
+        self.assert_refused(snapshot, reproducible=False)
+
+    def test_the_metadata_tier_may_not_document_a_payload(self):
+        snapshot = self.clean_snapshot()
+        self.assert_refused(snapshot, storage_tier="METADATA",
+                            size_bytes=1099511627776)
+
+    def test_supabase_may_not_be_documented_as_a_bulk_backend(self):
+        snapshot = self.clean_snapshot(storage_tier="HOT")
+        self.assert_refused(snapshot, primary_backend="supabase")
+
+    def test_confidential_plaintext_may_not_be_documented_off_owned_storage(self):
+        snapshot = self.clean_snapshot(
+            privacy_class="PUBLIC", criticality="IMPORTANT",
+            encryption_state="NONE", encryption=None,
+            encryption_scheme_version=None, primary_backend="cloudflare_r2",
+            replica_backends=())
+        self.assert_refused(snapshot, privacy_class="CONFIDENTIAL")
+
+
+class CriticalObjectIndexTests(unittest.TestCase):
+
+    def test_an_unhashable_member_raises_value_error_not_type_error(self):
+        """The contract is ValueError; a caller doing ``except ValueError``
+        around a recovery read should not meet a TypeError from ``sorted``."""
+        snapshot = snapshot_of([safe_manifest()])
+        for bad in ([[1, 2]], [1, "a"], [{"k": "v"}], [None], [17],
+                    ["not-an-object-id"]):
+            with self.subTest(bad=repr(bad)):
+                broken = json.loads(json.dumps(snapshot))
+                broken["critical_object_index"] = bad
+                with self.assertRaises(ValueError):
+                    recovery.assert_snapshot_is_clean(broken)
+
+
+class LastSuccessfulExportRefTests(unittest.TestCase):
+    """Spec S18 lists the last successful export reference among what GitHub
+    keeps. A constant ``None`` with no way to set it is that obligation
+    structurally unimplementable."""
+
+    def test_the_exporter_can_record_one(self):
+        snapshot = recovery.export_recovery_snapshot(
+            FakeMetadataStore(), generated_at=TIME,
+            last_successful_export_ref="CHECKPOINTS/storage/export.json")
+        self.assertEqual(
+            snapshot["metadata_service"]["last_successful_export_ref"],
+            "CHECKPOINTS/storage/export.json")
+
+    def test_it_defaults_to_none_and_says_nothing_it_cannot_prove(self):
+        snapshot = recovery.export_recovery_snapshot(FakeMetadataStore(),
+                                                     generated_at=TIME)
+        self.assertIsNone(
+            snapshot["metadata_service"]["last_successful_export_ref"])
+
+    def test_the_reference_is_bounded_like_any_other_evidence_ref(self):
+        """The same bound every other evidence pointer in this lane gets -
+        ``manifest._check_evidence_ref``, not a second copy of it."""
+        for bad in (SMUGGLED_CREDENTIAL, 17, "a" * 400,
+                    "https://x.example.com/" + "A7bQ" * 12):
+            with self.subTest(bad=repr(bad)[:32]):
+                with self.assertRaises(ValueError):
+                    recovery.export_recovery_snapshot(
+                        FakeMetadataStore(), generated_at=TIME,
+                        last_successful_export_ref=bad)
 
 
 if __name__ == "__main__":

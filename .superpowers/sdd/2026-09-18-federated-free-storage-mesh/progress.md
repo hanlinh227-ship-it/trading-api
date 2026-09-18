@@ -375,3 +375,74 @@ My probe could not instantiate the MetadataStore ABC (it requires private hooks)
 before that I checked `key_ref` at the wrong granularity — it lives inside the nested
 `encryption` projection, not in ENTRY_FIELDS. Both times the module was right and my probe
 was wrong. Noted for the fourth time this session.
+
+## Task 4 review — the fourth occurrence, and the structural answer that is finally right
+
+The review returned 8 findings, 2 BLOCKER. I reproduced both before dispatching.
+
+`manifest_schema_version` was a declared snapshot field with **no validator of any kind** —
+in `SNAPSHOT_FIELDS`, written by the exporter, present in the checked-in
+`recovery_manifest.json`, skipped by `assert_snapshot_is_clean`, referenced by no test. Via
+that one field: an AWS-secret-shaped string passed untouched; a snapshot declaring schema
+version 99 was certified clean while the rebuild stamped records version 1; and **177 KB of
+arbitrary attacker-chosen keys and values was certified clean in the file GitHub carries**
+(181300 bytes smuggled, document 183113 of a 262144 cap). The per-string cap of 256 chars
+does not stop bulk because it bounds each string, not how many there are, so
+`MAX_SNAPSHOT_ENTRIES` was routed around by not using an entry at all. Spec S6/S32 forbid
+exactly this.
+
+**Why it happened is the second blocker, and it is the interesting one.** `metadata.py` did
+build Task 3's schema-driven guard, correctly - the reviewer's fuzz found nothing in it.
+`recovery.py` did not: three hand-listed field tuples and ~110 lines of `if`, with neither
+`SNAPSHOT_FIELDS` nor `PROVIDER_RECORD_FIELDS` referenced by a single test. One half of one
+task used the guard and held; the other half skipped it and produced the fourth occurrence
+of this class on this branch.
+
+### The fix is stronger than Task 3's, and the difference matters
+Task 3 kept a field tuple beside a checker table and asserted they were equal. Task 4's fix
+**derives the tuple from the table**: `SNAPSHOT_FIELDS = tuple(SNAPSHOT_VALUE_CHECKS)`,
+`ENTRY_FIELDS = tuple(ENTRY_VALUE_CHECKS)`, `PROVIDER_RECORD_FIELDS` likewise. An
+allowed-but-unvalidated field is no longer something a test catches; it is something the
+code cannot express. That is the right shape, and Task 3's parallel-tuple version should
+eventually follow it.
+
+Plus real bounds where the per-string cap was not enough: `MAX_SNAPSHOT_FIELD_BYTES = 4096`
+on every non-entry field, `MAX_SNAPSHOT_ENTRY_BYTES = 2048` per entry and provider record,
+`MAX_SNAPSHOT_DEPTH = 8`. `entries` and `critical_object_index` are exempt from the byte
+budget because they are bounded by element count x per-element bound instead, which is
+documented rather than implicit.
+
+### The other finding that mattered
+`get_manifest(object_id)` never checked the returned record was *for* that object. A
+substituted row was accepted: asked about a CRITICAL/`reproducible=False` object, answered
+with an EPHEMERAL/`reproducible=True` one. That is a fail-**open** on precisely the
+criticality read that `can_perform_destructive_lifecycle` exists to gate, and it reproduced
+through the base class, so it was not an adapter defect. Fixed, along with
+`list_manifests` silently returning duplicate object ids.
+
+`assert_snapshot_is_clean` also certified snapshots documenting five policy violations
+(LOCAL_ONLY on an external backend, REPRODUCIBLE contradiction, METADATA tier holding 1 TB,
+supabase as a HOT bulk backend, CONFIDENTIAL plaintext external). Now shares one copy of
+the rules via `metadata.check_placement_cross_field_rules` rather than growing a second.
+
+### Controller verification
+All three exploits refused. No non-entry snapshot field accepts bulk. The cross-field and
+critical-index cases refused. `SNAPSHOT_FIELDS`/`ENTRY_FIELDS` confirmed derived from their
+tables, not parallel to them. 554 storage tests green; ci_validate fails only on the two
+pre-existing SIGILL crashes.
+
+### Still open, stated not buried
+- **EXPLOIT1 is half-closed.** `manifest_schema_version` is a constant now and can hold no
+  string at all, but `manifest.assert_no_credential_material` still has no pattern for an
+  AWS *secret* access key or a generic opaque base64 run - it covers AKIA ids, GitHub,
+  Slack, JWT, bearer, `sk-`. `manifest.py` was out of scope for this fix. **Any future
+  string-valued snapshot field inherits that gap.** Follow-up task owed against manifest.py,
+  which should also export the checkers its siblings currently bind privately.
+- `last_successful_export_ref` accepts a scheme-qualified reference such as
+  `https://evil.example.com/x`, because it reuses the lane's shared `_check_evidence_ref`
+  rather than growing a second stricter copy. It is documentation read by nothing; the
+  pointer fields a rebuild actually reads keep the strict `_POINTER_RE`. Reusing the shared
+  rule over duplicating it is the right call and the residual is recorded.
+- Two pre-existing adapter tests were edited. Neither was weakened: both now use the
+  documented `manifest` column envelope, which is the F7 fix landing rather than a check
+  being relaxed.

@@ -99,6 +99,12 @@ storage_objects(
 -- object content, credentials or key material (Spec S18/S22).
 """
 
+#: The column ``TABLE_CONTRACT`` declares, named once so that the write and the
+#: read cannot drift: the adapter used to send ``record`` and expect the bare
+#: manifest back, which round-trips against nothing but a transport written to
+#: match it.
+MANIFEST_COLUMN = "manifest"
+
 #: The operations the adapter asks a transport to perform. A closed vocabulary:
 #: an adapter that could ask for an arbitrary operation is an adapter through
 #: which an arbitrary statement could be sent.
@@ -177,18 +183,47 @@ class SupabaseMetadataStore(_metadata.MetadataStore):
         return self._call("health", {}) is True
 
     def _put_record(self, object_id, record):
-        row = {"object_id": object_id, "record": record}
+        row = {"object_id": object_id, MANIFEST_COLUMN: record}
         self._call("upsert", row)
+
+    @staticmethod
+    def _manifest_of(row):
+        """The record out of a table row, in the shape ``_put_record`` wrote.
+
+        A read that expected the bare record while the write sent an envelope
+        round-trips only against a transport written to match the asymmetry;
+        against a real table it reads back something it never wrote. Both
+        halves now name the column ``TABLE_CONTRACT`` documents.
+
+        The row is not trusted for being found: what comes back is handed to
+        the base class, which re-validates it. What is checked here is only
+        that the row is the documented shape, and that the key column and the
+        record inside it name the same object - a table whose primary key and
+        payload disagree is not a row this adapter will pass on as a fact.
+        """
+        if not isinstance(row, Mapping):
+            raise _metadata.MetadataStoreError(
+                f"the transport returned {type(row).__name__} where a metadata "
+                "row was expected")
+        if MANIFEST_COLUMN not in row:
+            raise ValueError(
+                f"a metadata row must carry the {MANIFEST_COLUMN!r} column "
+                f"named by TABLE_CONTRACT, got columns {sorted(row)}")
+        record = row[MANIFEST_COLUMN]
+        key = row.get("object_id")
+        if key is not None and isinstance(record, Mapping) and (
+                record.get("object_id") != key):
+            raise _metadata.MetadataStoreError(
+                f"row {key!r} carries the manifest for "
+                f"{record.get('object_id')!r}; a primary key and a payload that "
+                "disagree are not an object this adapter can report on")
+        return record
 
     def _get_record(self, object_id):
         row = self._call("select", {"object_id": object_id})
         if row is None:
             return None
-        if not isinstance(row, Mapping):
-            raise _metadata.MetadataStoreError(
-                f"the transport returned {type(row).__name__} where a metadata "
-                "row was expected")
-        return row
+        return self._manifest_of(row)
 
     def _all_records(self):
         rows = self._call("select_all", {})
@@ -197,7 +232,7 @@ class SupabaseMetadataStore(_metadata.MetadataStore):
                 f"the transport returned {type(rows).__name__} where a list of "
                 "metadata rows was expected; an unrecognised answer is not an "
                 "empty index")
-        return rows
+        return [self._manifest_of(row) for row in rows]
 
 
 __all__ = [
@@ -205,5 +240,6 @@ __all__ = [
     "ENCRYPTION_IMPLEMENTED_HERE", "IS_CANONICAL_AUTHORITY", "ROLE",
     "PROVIDER_ID", "BULK_OBJECT_BACKEND_ALLOWED", "CREATES_EXTERNAL_RESOURCES",
     "PROVISIONING_AUTHORIZED", "PROJECT_EXISTS_VERIFIED", "MAX_ROW_BYTES",
-    "MAX_PROJECT_URL", "TABLE_CONTRACT", "OPERATIONS", "SupabaseMetadataStore",
+    "MAX_PROJECT_URL", "TABLE_CONTRACT", "MANIFEST_COLUMN", "OPERATIONS",
+    "SupabaseMetadataStore",
 ]

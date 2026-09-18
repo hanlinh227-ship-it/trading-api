@@ -653,8 +653,7 @@ class SupabaseAdapterTests(unittest.TestCase):
             if operation == "health":
                 return True
             if operation == "select_all":
-                return [payload["record"] for op, payload, _ in sent
-                        if op == "upsert"]
+                return [payload for op, payload, _ in sent if op == "upsert"]
             return None
 
         store = self.store(transport=transport)
@@ -667,7 +666,7 @@ class SupabaseAdapterTests(unittest.TestCase):
         self.assertIn("upsert", operations)
         self.assertTrue(set(operations) <= set(supabase_metadata.OPERATIONS))
         upsert = [payload for op, payload, _ in sent if op == "upsert"][0]
-        self.assertEqual(upsert["record"], record)
+        self.assertEqual(upsert[supabase_metadata.MANIFEST_COLUMN], record)
         self.assertEqual(upsert["object_id"], record["object_id"])
 
         # The credential is fetched per call and appears only as the call
@@ -690,19 +689,154 @@ class SupabaseAdapterTests(unittest.TestCase):
 
     def test_a_row_the_transport_returns_is_validated_before_it_is_believed(self):
         poisoned = {"object_id": "obj_" + "a" * 64, "api_key": SMUGGLED_CREDENTIAL}
+        row = {"object_id": poisoned["object_id"],
+               supabase_metadata.MANIFEST_COLUMN: poisoned}
 
         def transport(operation, payload, *, project_url, credential):
             if operation == "health":
                 return True
             if operation == "select_all":
-                return [poisoned]
-            return poisoned
+                return [row]
+            return row
 
         store = self.store(transport=transport)
         with self.assertRaises(ValueError):
             store.list_manifests()
         with self.assertRaises(ValueError):
             store.get_manifest("obj_" + "a" * 64)
+
+
+class RecordIdentityTests(unittest.TestCase):
+    """A read answers about the object that was asked for, or it does not answer.
+
+    ``get_manifest`` validated the row it got back as *a* record and returned
+    it without ever checking it was *the* record. That is a fail-open on
+    exactly the decision ``can_perform_destructive_lifecycle`` exists to gate:
+    a caller reading a record to decide whether an object may be evicted was
+    handed another object's criticality.
+    """
+
+    def test_get_manifest_refuses_a_row_for_a_different_object(self):
+        critical = safe_manifest(content=b"critical-object")
+        other = safe_manifest(content=b"some-other-object",
+                              criticality="EPHEMERAL", reproducible=True)
+        self.assertEqual(critical["criticality"], "CRITICAL")
+        self.assertIs(critical["reproducible"], False)
+
+        class Swapped(FakeMetadataStore):
+            def _get_record(self, object_id):
+                return json.loads(json.dumps(other))
+
+        store = Swapped(records=[critical])
+        with self.assertRaises(metadata.MetadataStoreError):
+            store.get_manifest(critical["object_id"])
+
+    def test_the_swap_is_refused_through_the_real_adapter_too(self):
+        """It reproduces through the base class, so it is not an adapter bug -
+        but the adapter is where a real transport would hand it over."""
+        critical = safe_manifest(content=b"critical-object")
+        other = safe_manifest(content=b"some-other-object",
+                              criticality="EPHEMERAL", reproducible=True)
+
+        def transport(operation, payload, *, project_url, credential):
+            if operation == "health":
+                return True
+            if operation == "select":
+                return {"object_id": other["object_id"], "manifest": other}
+            return None
+
+        store = supabase_metadata.SupabaseMetadataStore(
+            project_url="https://abcdefghijklmnopqrst.supabase.co",
+            credential_provider=lambda: "injected", transport=transport)
+        with self.assertRaises(metadata.MetadataStoreError):
+            store.get_manifest(critical["object_id"])
+
+    def test_the_right_row_still_comes_back(self):
+        record = safe_manifest()
+        store = FakeMetadataStore(records=[record])
+        self.assertEqual(store.get_manifest(record["object_id"]), record)
+
+    def test_list_manifests_refuses_a_duplicated_object_id(self):
+        """Two rows for one object is an index that disagrees with itself. It
+        surfaced only later, as a confusing ordering error from the exporter."""
+        record = safe_manifest()
+
+        class Doubled(FakeMetadataStore):
+            def _all_records(self):
+                return [json.loads(json.dumps(record)),
+                        json.loads(json.dumps(record))]
+
+        with self.assertRaises(metadata.MetadataStoreError):
+            Doubled().list_manifests()
+
+
+class DestructiveGateIsUnconditionalTests(unittest.TestCase):
+
+    def test_a_store_whose_healthy_raises_does_not_escape_the_gate(self):
+        """``healthy`` is overridable. A subclass that raises out of it used to
+        propagate straight through the destructive-action gate."""
+
+        class Loud(FakeMetadataStore):
+            def healthy(self):
+                raise RuntimeError("supabase project is paused")
+
+        self.assertIs(metadata.can_perform_destructive_lifecycle(Loud()), False)
+
+    def test_a_store_whose_healthy_answers_vaguely_is_not_healthy(self):
+        class Vague(FakeMetadataStore):
+            def healthy(self):
+                return "yes"
+
+        self.assertIs(metadata.can_perform_destructive_lifecycle(Vague()), False)
+
+
+class SupabaseRoundTripSymmetryTests(unittest.TestCase):
+    """The adapter wrote ``record`` and the contract documents ``manifest``."""
+
+    URL = "https://abcdefghijklmnopqrst.supabase.co"
+
+    def test_the_payload_key_is_the_documented_column(self):
+        sent = []
+
+        def transport(operation, payload, *, project_url, credential):
+            sent.append((operation, json.loads(json.dumps(payload))))
+            return True if operation == "health" else None
+
+        store = supabase_metadata.SupabaseMetadataStore(
+            project_url=self.URL, credential_provider=lambda: "injected",
+            transport=transport)
+        record = safe_manifest()
+        store.put_manifest(record)
+        upsert = [payload for op, payload in sent if op == "upsert"][0]
+        self.assertIn("manifest", supabase_metadata.TABLE_CONTRACT)
+        self.assertEqual(set(upsert), {"object_id", "manifest"})
+        self.assertEqual(upsert["manifest"], record)
+
+    def test_what_the_adapter_writes_is_what_the_adapter_reads_back(self):
+        """A table standing in for a real one: whatever ``upsert`` stores is
+        what ``select`` hands back. An asymmetric adapter round-trips only
+        against a transport written to match its bug."""
+        table = {}
+
+        def transport(operation, payload, *, project_url, credential):
+            if operation == "health":
+                return True
+            if operation == "upsert":
+                table[payload["object_id"]] = json.loads(json.dumps(payload))
+                return None
+            if operation == "select":
+                return table.get(payload["object_id"])
+            if operation == "select_all":
+                return list(table.values())
+            return None
+
+        store = supabase_metadata.SupabaseMetadataStore(
+            project_url=self.URL, credential_provider=lambda: "injected",
+            transport=transport)
+        record = safe_manifest()
+        store.put_manifest(record)
+        self.assertEqual(store.get_manifest(record["object_id"]), record)
+        self.assertEqual(store.list_manifests(), [record])
 
 
 if __name__ == "__main__":
