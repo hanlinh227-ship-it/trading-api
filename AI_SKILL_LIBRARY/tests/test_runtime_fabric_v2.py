@@ -278,7 +278,15 @@ class SelectionTests(unittest.TestCase):
         return reg
 
     def test_no_eligible_runtime_fails_closed_with_the_named_refusal(self):
-        chosen, detail = fabric.select_runtime(registry(), capability="http_api")
+        reg = registry()
+        states = {
+            "cloudflare_workers": "CIRCUIT_OPEN",
+            "deno_deploy": "CIRCUIT_OPEN",
+            "netlify_functions": "DISABLED",
+            "koyeb_free": "DISABLED",
+            "render_free": "DISABLED",
+        }
+        chosen, detail = fabric.select_runtime(reg, capability="http_api", states=states)
         self.assertIsNone(chosen)
         self.assertEqual(detail["refusal"], fabric.NO_ELIGIBLE_RUNTIME)
         self.assertTrue(detail["rejected"])
@@ -412,7 +420,9 @@ class AntiRailwayRegressionTests(unittest.TestCase):
             "capabilities": ["http_api"], "lifecycle": "STABLE",
             "verification": {axis: True for axis in fabric.VERIFICATION_AXES},
         }
-        chosen, detail = fabric.select_runtime(reg, capability="http_api")
+        chosen, detail = fabric.select_runtime(
+            reg, capability="http_api",
+            states={"cloudflare_workers": "CIRCUIT_OPEN", "deno_deploy": "CIRCUIT_OPEN"})
         self.assertNotEqual(chosen, "railway")
         self.assertIn("retired_provider:railway", detail["rejected"]["railway"])
 
@@ -425,7 +435,9 @@ class AntiRailwayRegressionTests(unittest.TestCase):
             "base_url": "https://crypto-research-gateway-prod-production.up.railway.app",
             "verification": {axis: True for axis in fabric.VERIFICATION_AXES},
         }
-        chosen, detail = fabric.select_runtime(reg, capability="http_api")
+        chosen, detail = fabric.select_runtime(
+            reg, capability="http_api",
+            states={"cloudflare_workers": "CIRCUIT_OPEN", "deno_deploy": "CIRCUIT_OPEN"})
         self.assertNotEqual(chosen, "legacy_gateway")
         self.assertIn("retired_provider:railway",
                       detail["rejected"]["legacy_gateway"])
@@ -506,11 +518,16 @@ class TruthfulStateTests(unittest.TestCase):
                 self.assertTrue(verification["deployed"],
                                 f"{runtime_id} claims exact SHA without deployment")
 
-    def test_deno_is_not_claimed_deployed_or_health_verified(self):
-        """Explicitly required until a real deployment and probe succeed."""
-        verification = entry("deno_deploy")["verification"]
-        self.assertIs(verification["deployed"], False)
-        self.assertIs(verification["health_verified"], False)
+    def test_deno_records_the_live_probe_truthfully(self):
+        """A real Deno deployment, exact-SHA probe and research smoke have succeeded."""
+        row = entry("deno_deploy")
+        verification = row["verification"]
+        self.assertEqual(row["lifecycle"], "STABLE")
+        self.assertIs(verification["configured"], True)
+        self.assertIs(verification["deployed"], True)
+        self.assertIs(verification["health_verified"], True)
+        self.assertIs(verification["exact_sha_verified"], True)
+        self.assertTrue(fabric.production_eligible(row, capability="http_api"))
 
     def test_netlify_is_adapter_ready_not_verified(self):
         row = entry("netlify_functions")
@@ -523,13 +540,12 @@ class TruthfulStateTests(unittest.TestCase):
             self.assertIs(entry(runtime_id)["verification"]["free_tier_verified"],
                           False, runtime_id)
 
-    def test_cloudflare_records_the_frozen_revision_honestly(self):
-        """It serves, so health is true; it serves an OLD commit, so exact-SHA
-        is false. Collapsing these would hide a frozen production runtime."""
+    def test_cloudflare_records_the_current_exact_revision_honestly(self):
+        """Primary has passed health and exact-main deployment verification."""
         verification = entry("cloudflare_workers")["verification"]
         self.assertIs(verification["health_verified"], True)
-        self.assertIs(verification["exact_sha_verified"], False)
-        self.assertFalse(fabric.production_eligible(
+        self.assertIs(verification["exact_sha_verified"], True)
+        self.assertTrue(fabric.production_eligible(
             entry("cloudflare_workers"), capability="http_api"))
 
 

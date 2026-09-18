@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-09-18T15:18:59Z",
+  "repository": "hanlinh227-ship-it/trading-api",
+  "workflow": "Deploy Portable Runtimes",
+  "workflow_run_id": 35361589900,
+  "source_sha": "06e813bb3765495371fb3a3fd5095d1046c22445",
+  "secondary_runtime": "deno_deploy",
+  "secondary_url": "https://trading-api-secondary.hanlinh227-ship-it.deno.net",
+  "checks": {
+    "DENO_DEPLOYED": true,
+    "DENO_HEALTH": "PASS",
+    "DENO_SHA_MATCH": "PASS",
+    "DENO_CAPABILITIES": "PASS",
+    "DENO_RESEARCH_SMOKE": "PASS"
+  },
+  "authority": {
+    "runtime_role": "secondary-capacity-only",
+    "routing_authority": false,
+    "reasoning_authority": false,
+    "model_selection_authority": false,
+    "research_only": true,
+    "execution": "none"
+  },
+  "personal_pc_required": false,
+  "paid_fallback": false,
+  "railway_required": false
+}

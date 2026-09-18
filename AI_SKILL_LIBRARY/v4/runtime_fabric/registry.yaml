@@ -49,15 +49,9 @@ runtimes:
     lifecycle: STABLE
     verification:
       configured: true
-      # Deployed and serving, but at an OLDER commit: the deploy authority is
-      # currently rejected by Cloudflare (auth error 10000), so the Worker is
-      # frozen at b236a615. /health answers, which is why health_verified is
-      # true while exact_sha_verified is false. Those are separate facts and
-      # collapsing them would hide a frozen production runtime behind a green
-      # health check.
       deployed: true
       health_verified: true
-      exact_sha_verified: false
+      exact_sha_verified: true
       free_tier_verified: true
 
   deno_deploy:
@@ -66,15 +60,17 @@ runtimes:
     http: true
     capabilities: [http_api, research_market]
     entrypoint: deno-secondary/main.ts
+    base_url: https://trading-api-secondary.hanlinh227-ship-it.deno.net
     deploy_authority: .github/workflows/deploy-portable-runtimes.yml
-    # The adapter builds, boots and serves the shared contract in CI. That is
-    # TESTED. It is not LIVE_PROBED, because no deployment exists to probe.
-    lifecycle: TESTED
+    # Live-probed on GitHub Actions run 35361589900 at source SHA
+    # 06e813bb3765495371fb3a3fd5095d1046c22445: /health, exact SHA,
+    # /capabilities and live /research/market all passed.
+    lifecycle: STABLE
     verification:
-      configured: false
-      deployed: false
-      health_verified: false
-      exact_sha_verified: false
+      configured: true
+      deployed: true
+      health_verified: true
+      exact_sha_verified: true
       free_tier_verified: true
 
   netlify_functions:
