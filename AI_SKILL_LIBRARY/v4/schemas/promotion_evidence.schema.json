@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "promotion_evidence.schema.json",
+  "title": "Continuous-learning promotion evidence ledger",
+  "type": "object",
+  "required": [
+    "version",
+    "ledger_id",
+    "authority",
+    "stable_write",
+    "authority_flags",
+    "records"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "ledger_id": {
+      "const": "LEARNING_PROMOTION_EVIDENCE"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "authority": {
+      "const": false
+    },
+    "stable_write": {
+      "const": false
+    },
+    "authority_flags": {
+      "type": "object",
+      "required": [
+        "routing_authority",
+        "reasoning_authority",
+        "model_selection_authority",
+        "admission_authority",
+        "scheduling_authority",
+        "evidence_authority",
+        "stable_write_authority",
+        "merge_authority",
+        "trading_authority"
+      ],
+      "properties": {
+        "routing_authority": {
+          "const": false
+        },
+        "reasoning_authority": {
+          "const": false
+        },
+        "model_selection_authority": {
+          "const": false
+        },
+        "admission_authority": {
+          "const": false
+        },
+        "scheduling_authority": {
+          "const": false
+        },
+        "evidence_authority": {
+          "const": false
+        },
+        "stable_write_authority": {
+          "const": false
+        },
+        "merge_authority": {
+          "const": false
+        },
+        "trading_authority": {
+          "const": false
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 500
+        }
+      },
+      "additionalProperties": false
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "required": [
+          "cycle_id",
+          "candidate_id",
+          "state",
+          "promotion_class",
+          "evidence_refs",
+          "stable_write"
+        ],
+        "properties": {
+          "cycle_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,127}$"
+          },
+          "candidate_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "state": {
+            "enum": [
+              "REJECTED",
+              "HUMAN_GATE",
+              "PROMOTION_CANDIDATE",
+              "COMPLETE"
+            ]
+          },
+          "promotion_class": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "automatic": {
+            "type": "boolean"
+          },
+          "explicit_authorization_required": {
+            "type": "boolean"
+          },
+          "reasons": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "uniqueItems": true
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "uniqueItems": true
+          },
+          "stable_write": {
+            "const": false
+          },
+          "routing_authority": {
+            "const": false
+          },
+          "model_selection_authority": {
+            "const": false
+          },
+          "merge_authority": {
+            "const": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
