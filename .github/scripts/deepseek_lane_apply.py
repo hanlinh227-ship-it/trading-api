@@ -39,10 +39,9 @@ from pathlib import Path, PurePosixPath
 
 #: The lane's entire remit for the current bounded task. Exact paths only.
 ALLOWED_FILES = {
-    "AI_SKILL_LIBRARY/v4/always_on/retry.py",
-    "AI_SKILL_LIBRARY/tests/test_always_on_retry.py",
-    "AI_SKILL_LIBRARY/v4/always_on/reconciler.py",
-    "AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py",
+    "AI_SKILL_LIBRARY/v4/always_on/job.schema.json",
+    "AI_SKILL_LIBRARY/v4/always_on/policy.yaml",
+    "AI_SKILL_LIBRARY/tests/test_always_on_job_contract.py",
 }
 
 #: Closed vocabulary. A reason is produced here and never interpolates any part

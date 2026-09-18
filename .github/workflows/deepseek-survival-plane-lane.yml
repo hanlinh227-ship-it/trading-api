@@ -1,4 +1,4 @@
-name: DeepSeek Lane — Always-On Retry and Reconciler
+name: DeepSeek Lane — Always-On Durable Job Contract
 
 on:
   push:
@@ -44,42 +44,39 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          prompt = '''Implement only Tasks 4 and 5 of the approved Always-On Execution Closure plan.
-          Return one JSON object with exactly one key, "files". "files" must map exactly these four repository paths to complete UTF-8 file contents:
-          AI_SKILL_LIBRARY/v4/always_on/retry.py
-          AI_SKILL_LIBRARY/tests/test_always_on_retry.py
-          AI_SKILL_LIBRARY/v4/always_on/reconciler.py
-          AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py
+          prompt = '''Implement only Task 1 of the approved Always-On Execution Closure plan: durable job contract.
+          Return one JSON object with exactly one key, "files". "files" must map exactly these three repository paths to complete UTF-8 file contents:
+          AI_SKILL_LIBRARY/v4/always_on/job.schema.json
+          AI_SKILL_LIBRARY/v4/always_on/policy.yaml
+          AI_SKILL_LIBRARY/tests/test_always_on_job_contract.py
 
-          Task 4 interfaces:
-          - classify_failure(kind)->"retryable"|"terminal"
-          - next_retry_delay(attempt, base_seconds=5, cap_seconds=900)->int
-          - should_dead_letter(attempt, max_attempts)->bool
-          Requirements: bounded exponential backoff, cap enforced, deterministic jitter injection available for tests, fail closed on invalid values, no unbounded retry.
+          Required job fields:
+          job_id, request_id, project_id, role_id, capability, privacy_class, priority,
+          idempotency_key, attempt, max_attempts, created_at, available_at, deadline_at,
+          lease_owner, lease_expires_at, source_revision, evidence_refs, authority.
 
-          Task 5 interface:
-          - reconcile(desired, observed)->list[Action]
-          Allowed actions include REQUEUE_EXPIRED_LEASE, QUARANTINE_PROVIDER, REQUEST_REPLICA_REPAIR, EXCLUDE_STALE_WORKER.
-          Requirements: pure deterministic desired-vs-observed reconciliation; no I/O, no network, no busy polling, no model selection, no routing, no scheduling authority, no trade authority. Inputs must not be mutated. Duplicate inputs must not produce duplicate unsafe actions.
-
-          Global constraints:
-          - GITHUB_BRAIN_V4 remains sole Brain.
-          - task_router remains sole routing authority.
-          - Model Mesh remains model/provider selection layer.
+          Requirements:
+          - JSON Schema must require the exact durable fields needed by the approved plan and validate basic types/bounds.
+          - authority MUST be constrained to false, never merely default false.
+          - attempts/max_attempts must be bounded non-negative/positive integers with sensible fail-closed validation.
+          - privacy_class must use the existing canonical privacy vocabulary: PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY.
+          - policy.yaml must explicitly set routing_authority=false, scheduling_authority=false, trading_authority=false, model_selection_authority=false, merge_authority=false, deployment_authority=false.
           - paid execution fallback remains disabled.
-          - background work is bounded/event-driven.
-          - DeepSeek has no authority flags.
-          - Do not modify Storage Mesh, Survival Plane, checkpoint.json, shared_state.yaml, universal_fabric.yaml, Cloudflare worker files, or release pointers.
-          - No new dependencies. Tests must be offline.
+          - background processing remains bounded/event-driven; no busy polling.
+          - duplicate delivery must be side-effect safe via idempotency_key contract.
+          - GITHUB_BRAIN_V4 remains sole Brain, task_router sole routing authority, Model Mesh remains model/provider selector.
+          - Tests must fail closed on missing authority, authority=true, missing required durable fields, invalid privacy class, invalid attempt bounds, and malformed evidence_refs.
+          - Do not touch Cloudflare worker files, Storage Mesh, Survival Plane, checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, or existing Always-On retry/reconciler files.
+          - No new dependencies. Tests offline only.
           - Return no prose outside the JSON object.
           '''
           request = {
               "model": "deepseek-chat",
-              "max_tokens": 9000,
+              "max_tokens": 7000,
               "temperature": 0,
               "response_format": {"type": "json_object"},
               "messages": [
-                  {"role": "system", "content": "You are a bounded coding worker. Reply with one JSON object only. The object has exactly one key, \"files\", mapping exactly the four allowed paths to complete file contents. Keep implementations compact, deterministic, fail-closed, and non-authoritative."},
+                  {"role": "system", "content": "You are a bounded coding worker. Reply with exactly one JSON object whose only key is \"files\" mapping exactly the three allowed paths to complete file contents. Keep the contract minimal, strict, non-authoritative, and fail-closed."},
                   {"role": "user", "content": prompt},
               ],
           }
@@ -111,7 +108,7 @@ jobs:
       - name: Enforce file ownership
         run: |
           set -euo pipefail
-          allowed='^(AI_SKILL_LIBRARY/v4/always_on/(retry\.py|reconciler\.py)|AI_SKILL_LIBRARY/tests/(test_always_on_retry\.py|test_always_on_reconciler\.py))$'
+          allowed='^(AI_SKILL_LIBRARY/v4/always_on/(job\.schema\.json|policy\.yaml)|AI_SKILL_LIBRARY/tests/test_always_on_job_contract\.py)$'
           unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
@@ -123,22 +120,19 @@ jobs:
       - name: Run focused tests
         run: |
           python3 -m pip install -r AI_SKILL_LIBRARY/requirements.txt pytest
-          python3 -m pytest -q \
-            AI_SKILL_LIBRARY/tests/test_always_on_retry.py \
-            AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py
+          python3 -m pytest -q AI_SKILL_LIBRARY/tests/test_always_on_job_contract.py
           echo "DEEPSEEK_TESTS=PASS"
 
-      - name: Commit DeepSeek Always-On tasks
+      - name: Commit DeepSeek durable job contract
         run: |
           set -euo pipefail
           git config user.name 'DeepSeek Coding Lane'
           git config user.email 'deepseek-lane@users.noreply.github.com'
           git add \
-            AI_SKILL_LIBRARY/v4/always_on/retry.py \
-            AI_SKILL_LIBRARY/v4/always_on/reconciler.py \
-            AI_SKILL_LIBRARY/tests/test_always_on_retry.py \
-            AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py
-          git commit -m 'feat(always-on): add bounded retry and pure reconciler'
+            AI_SKILL_LIBRARY/v4/always_on/job.schema.json \
+            AI_SKILL_LIBRARY/v4/always_on/policy.yaml \
+            AI_SKILL_LIBRARY/tests/test_always_on_job_contract.py
+          git commit -m 'feat(always-on): define durable job contract'
           git push origin HEAD:work/deepseek-survival-plane-442
-          echo "DEEPSEEK_ALWAYS_ON_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_DURABLE_JOB_COMMIT=$(git rev-parse HEAD)"
           echo "DEEPSEEK_CODING_LANE_READY=PASS"
