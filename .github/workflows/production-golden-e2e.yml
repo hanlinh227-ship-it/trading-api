@@ -128,7 +128,7 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY' >> "$GITHUB_OUTPUT"
-          import os, yaml
+          import json, os, yaml
           model_id = os.environ["MODEL_ID"]
           rows = yaml.safe_load(
               open("AI_SKILL_LIBRARY/v4/open_model_universe/registry.yaml"))["models"]
@@ -139,10 +139,30 @@ jobs:
               raise SystemExit("REFUSED: %s is %s, not AVAILABLE"
                                % (model_id, row.get("lifecycle_state")))
           identity = row["artifact_identity"]
+
+          # The intake is manifest-driven: it matches on the manifest's own `id`
+          # and expects the staged file under the manifest's `filename`. The
+          # first run passed the registry model_id, which matches no entry, so
+          # the tool filtered every entry out and reported INCOMPLETE over an
+          # empty list - a refusal that looked like a verification failure.
+          entries = json.load(
+              open("AI_SKILL_LIBRARY/v4/open_model_universe/staging_manifest.json"))["entries"]
+          entry = next((e for e in entries if e.get("hf_repo") == model_id), None)
+          if entry is None:
+              raise SystemExit("REFUSED: %s has no staging manifest entry" % model_id)
+
+          # Two documents name this artifact's digest. If they ever disagree,
+          # neither is authoritative and this job must not pick one.
+          if entry.get("expected_sha256") != identity.get("sha256"):
+              raise SystemExit(
+                  "REFUSED: the registry and the staging manifest disagree about "
+                  "the digest of %s" % model_id)
+
           print("url=%s" % row["weights_source"])
           print("sha256=%s" % identity["sha256"])
           print("size=%s" % identity["size_bytes"])
-          print("filename=%s" % row["weights_source"].rsplit("/", 1)[-1])
+          print("filename=%s" % entry["filename"])
+          print("manifest_id=%s" % entry["id"])
           PY
 
       - name: Cache the artifact by its digest
@@ -176,7 +196,8 @@ jobs:
           # local path uses, so the cache this run reads from was populated the
           # one way the runtime trusts.
           python AI_SKILL_LIBRARY/v4/tools/local_runtime_staging_verify.py \
-            --staging "${STAGING_DIR}" --cache "${CACHE_DIR}" --only "${MODEL_ID}"
+            --staging "${STAGING_DIR}" --cache "${CACHE_DIR}" \
+            --only "${{ steps.artifact.outputs.manifest_id }}"
 
       - name: Run the canonical golden chain
         run: |
