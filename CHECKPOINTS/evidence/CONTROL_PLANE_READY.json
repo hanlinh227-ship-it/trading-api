@@ -1,0 +1,8 @@
+{
+  "gate": "CONTROL_PLANE_READY",
+  "proofs": [
+    "-m unittest AI_SKILL_LIBRARY.tests.test_personal_ai_control_plane_wiring -v -> exit 0"
+  ],
+  "ready": true,
+  "source_sha": "ffadc83b64da682bcbd3d0ccd5fde4303fc00428"
+}

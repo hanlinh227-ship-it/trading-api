@@ -1,0 +1,10 @@
+{
+  "gate": "DURABLE_JOB_READY",
+  "proofs": [
+    "-m unittest AI_SKILL_LIBRARY.tests.test_always_on_job_contract -v -> exit 0",
+    "-m pytest -q AI_SKILL_LIBRARY/tests/test_always_on_retry.py -> exit 1",
+    "-m pytest -q AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py -> exit 1"
+  ],
+  "ready": false,
+  "source_sha": "ffadc83b64da682bcbd3d0ccd5fde4303fc00428"
+}

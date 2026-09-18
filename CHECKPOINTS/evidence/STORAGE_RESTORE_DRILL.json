@@ -1,21 +1,21 @@
 {
   "gate": "DISASTER_RECOVERY_READY",
-  "ready": false,
-  "source_sha": "4b0a026443bbf6d086d033e2436c60da2697b612",
+  "ready": true,
+  "source_sha": "ffadc83b64da682bcbd3d0ccd5fde4303fc00428",
   "backup_identity": "obj_822e4b6dbebf1eb8c7ade854e6b1eb91709e2af1743f20bbae800a1cd8b03f79@sha256:822e4b6dbebf1eb8c7ade854e6b1eb91709e2af1743f20bbae800a1cd8b03f79",
-  "restored_identity": "unavailable",
-  "integrity_verified": false,
+  "restored_identity": "obj_822e4b6dbebf1eb8c7ade854e6b1eb91709e2af1743f20bbae800a1cd8b03f79@sha256:822e4b6dbebf1eb8c7ade854e6b1eb91709e2af1743f20bbae800a1cd8b03f79",
+  "integrity_verified": true,
   "primary_removed_before_restore": true,
   "restore_destination_was_empty": true,
   "proofs": [
     "backup_written_through_recovery_contract=pass",
-    "manifest_verification_ran=fail",
+    "manifest_verification_ran=pass",
     "primary_removed_before_restore=pass",
     "restore_destination_was_empty=pass",
-    "restored_state_non_empty=fail",
-    "content_identity_matches_backup=fail",
-    "revision_matches_recorded_revision=fail",
-    "restored_manifest_verified=fail",
+    "restored_state_non_empty=pass",
+    "content_identity_matches_backup=pass",
+    "revision_matches_recorded_revision=pass",
+    "restored_manifest_verified=pass",
     "evidence_bound_to_source_sha=pass"
   ]
 }
