@@ -19,6 +19,7 @@
 
 import { ResearchRuntime } from '../crypto-research-gateway/src/research.ts';
 import { buildDataEnvelope } from '../crypto-research-gateway/src/normalization/data-contract.ts';
+import type { DataFreshness } from '../crypto-research-gateway/src/normalization/data-contract.ts';
 
 const SERVICE_NAME = 'crypto-research-gateway';
 const SERVICE_VERSION = '0.1.0';
@@ -97,7 +98,7 @@ function parseMarketInput(value: unknown): Record<string, unknown> | null {
   };
 }
 
-function freshnessFor(result: Record<string, unknown>): string {
+function freshnessFor(result: Record<string, unknown>): DataFreshness {
   if (result?.ok !== true) return 'UNKNOWN';
   return result?.degraded === true ? 'DEGRADED' : 'FRESH';
 }
