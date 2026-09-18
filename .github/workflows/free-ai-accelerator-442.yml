@@ -89,6 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           cd cloudflare-worker
+          node prepare-workers-build.mjs
           node free-ai-all-models-runner.mjs \
             ../AI_SKILL_LIBRARY/v4/model_mesh/active.json \
             ../AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json \
