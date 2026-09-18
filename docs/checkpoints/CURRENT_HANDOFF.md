@@ -10,11 +10,14 @@ All legacy multi-coin Bybit, Forex, Meme, Signal V10/V11 and AI-council strategy
 ## KEEP — LIVE INFRASTRUCTURE
 Do not remove or replace these capabilities without an explicit migration:
 - Bybit LIVE credential lookup (`BYBIT_AUTO_API_KEY` / `BYBIT_AUTO_API_SECRET` with existing fallback names).
+- Separate Bybit Demo credential lookup (`BYBIT_DEMO_API_KEY` / `BYBIT_DEMO_API_SECRET`).
 - Bybit V5 signing primitive.
-- VPS signed private proxy contract `/bybit/private`.
-- Cloudflare VPC/service binding used by the private proxy.
+- Direct Cloudflare -> Bybit signed REST transport.
+- Cloudflare-native public WebSocket collector via `BybitMarketStream` Durable Object.
 - Bybit readonly health/control/deployment verification.
 - Existing BTC state KV key so open BTC tranche state is not casually reset.
+
+The canonical V1 runtime no longer requires a VPS or VPC/private bridge.
 
 ## STRATEGY AUTHORITY
 Indicators are not primary entry authority. Use state-first evidence:
@@ -47,7 +50,7 @@ Execution modes:
 - DEMO and LIVE requested together is a hard conflict and blocks execution.
 
 The Legion never becomes a second trading authority. Final chain:
-`VPS market event -> StateFlow setup -> AI Legion evidence gate -> deterministic Risk Governor -> Bybit execution -> fill/protection reconciliation`.
+`Cloudflare Bybit WebSocket event -> StateFlow setup -> AI Legion evidence gate -> deterministic Risk Governor -> direct Bybit REST execution -> fill/protection reconciliation`.
 
 ## SCALE / RISK
 - Continuous equity compounding.
@@ -60,7 +63,7 @@ The Legion never becomes a second trading authority. Final chain:
 - DD governor: 5% x0.80, 10% x0.55, 15% x0.30, 20% new-risk lock.
 
 ## MICROSTRUCTURE
-Preferred source is the BTC-only VPS WebSocket collector (`orderbook.50`, `publicTrade`, `allLiquidation`). REST snapshots remain a fail-safe fallback until/when the collector is deployed and healthy.
+Preferred source is the Cloudflare-native outbound Bybit WebSocket collector (`orderbook.50.BTCUSDT`, `publicTrade.BTCUSDT`, `allLiquidation.BTCUSDT`, `tickers.BTCUSDT`). REST snapshots remain a diagnostic/fail-safe fallback. New autonomous risk requires fresh cloud-stream evidence.
 
 ## LIVE SWITCH
 LIVE AI-autotrade requires ALL THREE:
@@ -71,4 +74,5 @@ LIVE AI-autotrade requires ALL THREE:
 Never report a source commit as LIVE. Require successful worker validation/deploy plus `/bybit/health` runtime-revision/version alignment and authenticated account access.
 
 ## CANONICAL CHECKPOINT
-Read `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md` for the migration and strategy details.
+Read `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md` for the strategy authority.
+Read `docs/checkpoints/BYBIT_AI_CLOUD_AUTOTRADE_V1_20260919.md` for the VPS-free cloud runtime, AI Legion roles, Demo/Live activation order and credential handoff.
