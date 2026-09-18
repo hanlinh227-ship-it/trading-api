@@ -35,9 +35,9 @@ assert.equal(BYBIT_RUNTIME_CONTRACT.privateTransport,'CLOUDFLARE_BYBIT_PRIVATE_D
 assert.equal(bybitExecutionMode({BYBIT_AUTO_DEMO:'true'}),'DEMO');
 assert.equal(bybitExecutionAllowsOrders('DEMO'),true);
 assert.equal(bybitExecutionMode({BYBIT_AUTO_DEMO:'true',BYBIT_AUTO_LIVE:'true',BYBIT_BTC_LIVE_ACK:'true'}),'BLOCKED');
-const widenAttempt=bybitAutoConfig({BYBIT_BTC_MAX_ACTIVE_RISK_PCT:'12',BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT:'85'});
-assert.equal(widenAttempt.risk.maxActiveRiskPct,6);
-assert.equal(widenAttempt.risk.maxPortfolioMarginPct,65);
+const hardCeilingAttempt=bybitAutoConfig({BYBIT_BTC_MAX_ACTIVE_RISK_PCT:'12',BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT:'150'});
+assert.equal(hardCeilingAttempt.risk.maxActiveRiskPct,6);
+assert.equal(hardCeilingAttempt.risk.maxPortfolioMarginPct,100);
 const tightenAttempt=bybitAutoConfig({BYBIT_BTC_MAX_ACTIVE_RISK_PCT:'3.5',BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT:'50'});
 assert.equal(tightenAttempt.risk.maxActiveRiskPct,3.5);
 assert.equal(tightenAttempt.risk.maxPortfolioMarginPct,50);
