@@ -71,8 +71,10 @@ runtime_scheduler:
     model_selection_authority: false
     # Deliberately unverified. The adapter and workflow exist; no Deno
     # deployment has been health-probed, so nothing may report it as live.
-    deployed: false
-    health_verified: false
+    deployed: true
+    health_verified: true
+    exact_sha_verified: true
+    base_url: https://trading-api-secondary.hanlinh227-ship-it.deno.net
     required_for_primary_cutover: false
   # Exhausted primary with no VERIFIED secondary is a truthful refusal, never a
   # silent escalation to paid compute and never a return to Railway.
