@@ -38,6 +38,10 @@ subordinate_subsystems:
     extends: AI_SKILL_LIBRARY/v4/runtime/shared_state.yaml#interfaces.ObjectStore
     policy: AI_SKILL_LIBRARY/v4/storage/policy.yaml
     providers: AI_SKILL_LIBRARY/v4/storage/providers.yaml
+    provider_schema: AI_SKILL_LIBRARY/v4/schemas/storage_provider.schema.json
+    object_manifest_schema: AI_SKILL_LIBRARY/v4/schemas/storage_object_manifest.schema.json
+    learning_may_request_storage_classes: true
+    learning_storage_provider_selection_authority: false
     canonical_authority: github
     storage_authority: false
     routing_authority: false
