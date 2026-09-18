@@ -279,7 +279,28 @@ jobs:
       - name: Prove continuity in a second process
         run: |
           set -euo pipefail
-          python AI_SKILL_LIBRARY/v4/tools/local_runtime_ai_core_e2e.py --resume
+          # `--evidence` is not optional here. Without it the resume runs, prints,
+          # and writes nothing - so AI_CORE_RESUME_EVIDENCE.json kept naming an
+          # older checkpoint while the fresh run wrote a new one, and the gate
+          # correctly reported "a different checkpoint was resumed". The run was
+          # fine; the evidence of it was never recorded. Second time I have made
+          # exactly this mistake with a tool whose evidence path is opt-in.
+          python AI_SKILL_LIBRARY/v4/tools/local_runtime_ai_core_e2e.py --resume \
+            --evidence CHECKPOINTS/evidence/AI_CORE_RESUME_EVIDENCE.json
+          python - <<'PY'
+          import json
+          resumed = json.load(
+              open("CHECKPOINTS/evidence/AI_CORE_RESUME_EVIDENCE.json"))
+          golden = json.load(
+              open("CHECKPOINTS/evidence/B3_B4_GOLDEN_E2E_EVIDENCE.json"))
+          written = (golden.get("checkpoint") or {}).get("checkpoint_id")
+          print("CHECKPOINT_WRITTEN=%s" % written)
+          print("CHECKPOINT_RESUMED=%s" % resumed.get("checkpoint_id"))
+          if resumed.get("checkpoint_id") != written:
+              raise SystemExit(
+                  "REFUSED: the second process resumed a different checkpoint "
+                  "than this run wrote; continuity is not proved")
+          PY
 
       - name: Re-check the answer with the verifier that refuses today
         run: |
