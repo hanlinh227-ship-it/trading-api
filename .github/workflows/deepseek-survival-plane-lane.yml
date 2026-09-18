@@ -73,11 +73,11 @@ jobs:
           '''
           request = {
               "model": "deepseek-chat",
-              "max_tokens": 6000,
+              "max_tokens": 9000,
               "temperature": 0,
               "response_format": {"type": "json_object"},
               "messages": [
-                  {"role": "system", "content": "You are a bounded coding worker. Reply with one JSON object only, first character { and final character }. The object has exactly one key, \"files\", mapping exactly the two allowed paths to complete file contents. Be fail-closed and never invent restore evidence."},
+                  {"role": "system", "content": "You are a bounded coding worker. Reply with one JSON object only, first character { and final character }. The object has exactly one key, \"files\", mapping exactly the two allowed paths to complete file contents. Be fail-closed and never invent restore evidence. Keep the implementation compact; avoid explanatory comments, duplicate helpers, and large fixtures so the complete two-file JSON fits within the output limit."},
                   {"role": "user", "content": prompt},
               ],
           }
