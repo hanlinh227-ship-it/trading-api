@@ -68,16 +68,18 @@ class ZeroLocalManifestTests(unittest.TestCase):
         self.assertIn("if len(healthy_research) < 2:", validate)
         self.assertIn("public research redundancy insufficient", validate)
 
-    def test_production_smoke_does_not_promote_research_only_symbols_or_optional_venues(self):
+    def test_production_smoke_verifies_research_safe_primary_without_promoting_execution(self):
         text = WORKFLOW_PATH.read_text(encoding="utf-8")
         production = text.split("  production-smoke:", 1)[1]
-        self.assertIn("'bybit LONG BTCUSDT ask'", production)
-        self.assertIn("'bybit SHORT BTCUSDT bid'", production)
-        self.assertNotIn("'bybit SHORT SOLUSDT bid'", production)
-        self.assertNotIn("'binance LONG BTCUSDT ask'", production)
-        self.assertNotIn("'binance SHORT SOLUSDT bid'", production)
-        manifest_text = MANIFEST_PATH.read_text(encoding="utf-8")
-        self.assertNotIn("required_execution_venues:\n    - bybit\n    - binance", manifest_text)
+        self.assertIn('"action":"snapshot"', production)
+        self.assertIn('"preferredVenue":"okx"', production)
+        self.assertIn("LIVE_RESEARCH_SMOKE=PASS", production)
+        self.assertNotIn("'bybit LONG BTCUSDT ask'", production)
+        self.assertNotIn("'bybit SHORT BTCUSDT bid'", production)
+        manifest = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8"))
+        verification = manifest["production_verification"]
+        self.assertEqual(verification["required_research_venues"], ["okx"])
+        self.assertEqual(verification["required_execution_venues"], [])
 
     def test_global_checkpoint_is_resolved_for_every_new_work_cycle(self):
         checkpoint = json.loads((ROOT / "AI_SKILL_LIBRARY/checkpoint.json").read_text(encoding="utf-8"))
@@ -127,8 +129,11 @@ class CanonicalRuntimeContractTests(unittest.TestCase):
         self.assertIs(verification["railway_success_required"], False)
         self.assertIs(verification["exact_source_sha_required"], True)
         self.assertIs(verification["primary_health_required"], True)
-        self.assertIs(verification["live_execution_smoke_required"], True)
-        self.assertEqual(verification["required_execution_venues"], ["bybit"])
+        self.assertIs(verification["live_research_smoke_required"], True)
+        self.assertEqual(verification["required_research_venues"], ["okx"])
+        self.assertIs(verification["live_execution_smoke_required"], False)
+        self.assertEqual(verification["required_execution_venues"], [])
+        self.assertIs(verification["private_execution_capability_optional"], True)
 
     def test_the_contract_no_longer_requires_a_railway_deployment(self):
         text = MANIFEST_PATH.read_text(encoding="utf-8")
