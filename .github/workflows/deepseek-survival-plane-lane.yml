@@ -53,13 +53,13 @@ jobs:
           Requirements:
           - Implement create_recovery_manifest(...)->dict and verify_restore(restored, expected)->RecoveryReport.
           - The recovery manifest must be bounded, deterministic where inputs are the same, reference hashes rather than plaintext secrets, and carry enough metadata to verify a faithful restore.
-          - verify_restore must fail closed on missing objects, unexpected objects where policy forbids them, hash mismatch, malformed manifest, or incomplete required metadata.
+          - verify_restore must fail closed on missing objects, unexpected objects where policy forbids them, hash mismatch, malformed manifest, or incomplete required metadata. Missing fields such as sha256 must NEVER raise KeyError/TypeError; return a RecoveryReport with success=false and explicit reasons instead.
           - Backup is never considered healthy merely because creation succeeded; restore verification is authoritative for recovery readiness.
           - restic/OpenTofu/Ansible are external mechanics behind the contract; tests must not require those tools or network access.
           - recovery_policy.yaml must define conservative restore verification requirements and no authority flags.
           - routing/reasoning/scheduling/merge/deployment/trading authority are all false.
           - Do not modify Storage Mesh files, checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, or Tasks 1-4 files.
-          - No new dependencies. Return no Markdown or prose outside the JSON object.
+          - Tests must explicitly cover missing sha256 and other required fields and assert a fail-closed RecoveryReport rather than an exception. No new dependencies. Return no Markdown or prose outside the JSON object.
           '''
           request = {
               "model": "deepseek-chat",
