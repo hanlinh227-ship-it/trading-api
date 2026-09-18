@@ -1,4 +1,4 @@
-name: DeepSeek Lane — Always-On Durable Job Contract
+name: DeepSeek Lane — Private Mesh Contract
 
 on:
   push:
@@ -27,8 +27,8 @@ jobs:
           echo "routing_authority=false"
           echo "reasoning_authority=false"
           echo "scheduling_authority=false"
+          echo "worker_admission_authority=false"
           echo "merge_authority=false"
-          echo "deployment_authority=false"
           echo "trading_authority=false"
 
       - name: Verify secret presence by name only
@@ -44,39 +44,34 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          prompt = '''Implement only Task 1 of the approved Always-On Execution Closure plan: durable job contract.
-          Return one JSON object with exactly one key, "files". "files" must map exactly these three repository paths to complete UTF-8 file contents:
-          AI_SKILL_LIBRARY/v4/always_on/job.schema.json
-          AI_SKILL_LIBRARY/v4/always_on/policy.yaml
-          AI_SKILL_LIBRARY/tests/test_always_on_job_contract.py
-
-          Required job fields:
-          job_id, request_id, project_id, role_id, capability, privacy_class, priority,
-          idempotency_key, attempt, max_attempts, created_at, available_at, deadline_at,
-          lease_owner, lease_expires_at, source_revision, evidence_refs, authority.
+          prompt = '''Implement only Task 4 of the approved Critical Role Redundancy Closure plan: private mesh adapter contract.
+          Return one JSON object with exactly one key, "files". "files" must map exactly these two repository paths to complete UTF-8 file contents:
+          AI_SKILL_LIBRARY/v4/local_runtime/private_mesh.yaml
+          AI_SKILL_LIBRARY/tests/test_private_mesh_contract.py
 
           Requirements:
-          - JSON Schema must require the exact durable fields needed by the approved plan and validate basic types/bounds.
-          - authority MUST be constrained to false, never merely default false.
-          - attempts/max_attempts must be bounded non-negative/positive integers with sensible fail-closed validation.
-          - privacy_class must use the existing canonical privacy vocabulary: PUBLIC, INTERNAL, CONFIDENTIAL, LOCAL_ONLY.
-          - policy.yaml must explicitly set routing_authority=false, scheduling_authority=false, trading_authority=false, model_selection_authority=false, merge_authority=false, deployment_authority=false.
-          - paid execution fallback remains disabled.
-          - background processing remains bounded/event-driven; no busy polling.
-          - duplicate delivery must be side-effect safe via idempotency_key contract.
-          - GITHUB_BRAIN_V4 remains sole Brain, task_router sole routing authority, Model Mesh remains model/provider selector.
-          - Tests must fail closed on missing authority, authority=true, missing required durable fields, invalid privacy class, invalid attempt bounds, and malformed evidence_refs.
-          - Do not touch Cloudflare worker files, Storage Mesh, Survival Plane, checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, or existing Always-On retry/reconciler files.
-          - No new dependencies. Tests offline only.
+          - Supported backends: tailscale and headscale.
+          - Network membership NEVER implies worker admission, attestation, eligibility, capability, privacy permission, routing eligibility, or execution authority.
+          - No new worker registry, router, scheduler, provider registry, or model selector.
+          - Same-host aliases never count as independent execution paths merely due to separate mesh identities.
+          - Private-mesh connectivity is transport/convenience only.
+          - Headscale is the provider-neutral/self-hosted escape contract.
+          - Tailscale may be convenience/default where configured, but no vendor dependency may become authority.
+          - privacy/free-only policy outranks capacity/connectivity.
+          - all authority flags false, including routing_authority, scheduling_authority, worker_admission_authority, model_selection_authority, trading_authority.
+          - contract must be fail closed if backend is unknown or if configuration attempts to imply automatic worker admission.
+          - tests must load/validate YAML and pin all invariants above, including unknown-backend rejection and membership-not-admission.
+          - Do not modify workers.py, free_worker_mesh.py, WorkerRegistry, Storage Mesh, Survival Plane, checkpoint.json, shared_state.yaml, universal_fabric.yaml, release pointers, or Cloudflare worker files.
+          - No new dependencies; tests offline only.
           - Return no prose outside the JSON object.
           '''
           request = {
               "model": "deepseek-chat",
-              "max_tokens": 7000,
+              "max_tokens": 6000,
               "temperature": 0,
               "response_format": {"type": "json_object"},
               "messages": [
-                  {"role": "system", "content": "You are a bounded coding worker. Reply with exactly one JSON object whose only key is \"files\" mapping exactly the three allowed paths to complete file contents. Keep the contract minimal, strict, non-authoritative, and fail-closed."},
+                  {"role": "system", "content": "You are a bounded coding worker. Reply with exactly one JSON object whose only key is \"files\" mapping exactly the two allowed paths. Keep the contract strict, minimal, non-authoritative, and fail-closed."},
                   {"role": "user", "content": prompt},
               ],
           }
@@ -108,7 +103,7 @@ jobs:
       - name: Enforce file ownership
         run: |
           set -euo pipefail
-          allowed='^(AI_SKILL_LIBRARY/v4/always_on/(job\.schema\.json|policy\.yaml)|AI_SKILL_LIBRARY/tests/test_always_on_job_contract\.py)$'
+          allowed='^(AI_SKILL_LIBRARY/v4/local_runtime/private_mesh\.yaml|AI_SKILL_LIBRARY/tests/test_private_mesh_contract\.py)$'
           unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
@@ -120,19 +115,18 @@ jobs:
       - name: Run focused tests
         run: |
           python3 -m pip install -r AI_SKILL_LIBRARY/requirements.txt pytest
-          python3 -m pytest -q AI_SKILL_LIBRARY/tests/test_always_on_job_contract.py
+          python3 -m pytest -q AI_SKILL_LIBRARY/tests/test_private_mesh_contract.py
           echo "DEEPSEEK_TESTS=PASS"
 
-      - name: Commit DeepSeek durable job contract
+      - name: Commit DeepSeek private mesh contract
         run: |
           set -euo pipefail
           git config user.name 'DeepSeek Coding Lane'
           git config user.email 'deepseek-lane@users.noreply.github.com'
           git add \
-            AI_SKILL_LIBRARY/v4/always_on/job.schema.json \
-            AI_SKILL_LIBRARY/v4/always_on/policy.yaml \
-            AI_SKILL_LIBRARY/tests/test_always_on_job_contract.py
-          git commit -m 'feat(always-on): define durable job contract'
+            AI_SKILL_LIBRARY/v4/local_runtime/private_mesh.yaml \
+            AI_SKILL_LIBRARY/tests/test_private_mesh_contract.py
+          git commit -m 'feat(redundancy): add private mesh transport contract'
           git push origin HEAD:work/deepseek-survival-plane-442
-          echo "DEEPSEEK_DURABLE_JOB_COMMIT=$(git rev-parse HEAD)"
+          echo "DEEPSEEK_PRIVATE_MESH_COMMIT=$(git rev-parse HEAD)"
           echo "DEEPSEEK_CODING_LANE_READY=PASS"
