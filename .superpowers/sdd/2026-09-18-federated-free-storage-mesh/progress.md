@@ -204,3 +204,73 @@ no external writable home today.
 - Replication obligations (spec S8: CRITICAL >=2 independent copies) are enforced nowhere
   yet. `select_primary` returning a provider does NOT mean a CRITICAL object's replication
   requirement is satisfiable. That is Task 5.
+
+## Task 3 review — the same class, a third time, and the guard that should end it
+
+The independent review returned 10 findings, 5 MAJOR. Findings 1-4 were all one defect:
+**an allowed field whose value nothing bounds.** I verified every one before dispatching
+the fix. A 2KB credential rode through `adapter_type` on every row. A registry row could
+declare `authority: true` and all eight authority flags true and still be admitted. An
+owned row's `free_status_evidence` was never closed at all, because it was only checked
+inside the external-only cost path. A CONFIDENTIAL object carrying 2052 characters in
+`encryption.nonce` was **placed on an external backend**. `_object_is_placeable` was true
+for a record with no `object_id` and no `content_sha256`. A malformed `max_object_bytes`
+made the size gate vanish rather than fail closed. And `bytes` is a `collections.abc
+.Sequence`, so `privacy_classes_allowed=b"PUBLIC"` crashed `placement_report` with a
+TypeError - failing open with a crash, against Spec S14's degrade-don't-crash rule.
+
+Three occurrences now: Learning Fabric (unbounded field), Task 2 (admitted-but-unchecked
+encryption metadata), Task 3 (nearly every allowed field). Each time the closed vocabulary
+was sound and each time it was the wrong question. **A closed key set bounds which fields
+exist, not what fits inside them.**
+
+### The fix is the guard, not the patches
+Both modules now carry a table with one checker per schema property -
+`capacity.PROVIDER_VALUE_CHECKS` (29 entries) and `placement.MANIFEST_VALUE_CHECKS` (24) -
+and every declared field's value runs through its entry. Four structural tests drive the
+field list from the schema on disk: the table's key set must equal the schema's property
+set, and a hostile-value sweep asserts the module is never looser than the schema that
+`jsonschema` enforces. 166 provider combinations and 189 manifest combinations were RED.
+Each sweep is paired with a "a schema-valid record is not gratuitously refused" test, so
+"quarantine everything" cannot pass.
+
+The weaker duplicate checkers were deleted, not left beside the new ones: both modules now
+bind manifest.py's checkers at a single commented import block. That is the structural
+answer to a third copy drifting from the first two.
+
+### Controller verification
+All ten reproductions refused; valid records still admitted (external HEALTHY, owned
+HEALTHY, object placed on both); schema property sets equal the table key sets exactly
+(29/29, 24/24); and removing one checker makes the guard fire. 424 storage tests green.
+
+### Judgement calls in the fix that a reader should know about
+- **Finding 7 was answered by correcting the claim, not the code.** The review said "now=
+  can only narrow" was false. Clamping to `min(now, wall clock)` would break the legitimate
+  forward-narrowing an existing test asserts, and `max(...)` would make every result depend
+  on the real clock. So `_clock` now states the true invariant: `now` is an evaluation
+  instant, not a permission boundary, it does not only narrow, and it must come from the
+  mesh and never from anything being judged. A test fails if the old claim returns. I
+  prefer this to a clamp that would have made the docstring true by making the behaviour
+  worse.
+- **`REQUIRED_MANIFEST_FIELDS` is 10 of the schema's 15.** `primary_backend`,
+  `replica_backends`, `created_at`, `lifecycle_state` and `reproducible` are validated when
+  present but not required, because choosing the backends is what this module is *for* - a
+  manifest handed to the engine before its placement exists legitimately has none.
+- **`capacity.py` now imports `manifest.py`**, and through it `_check_backend` lazily reads
+  `providers.yaml` via `mesh_validator`. The purity tests still pass because they scan each
+  module's own source, but the module is no longer transitively file-free. Chosen over
+  mirroring the registry-derived backend enum a fourth time. Flagged here because it is a
+  real coupling the purity tests do not describe.
+
+### Open, carried forward
+- The manifest schema's cross-field `allOf` rules (LOCAL_ONLY implies local backends;
+  CONFIDENTIAL external implies ciphertext at manifest level; supabase implies METADATA
+  tier; CANONICAL/METADATA size ceiling) are not mirrored in `_object_is_placeable`.
+  manifest.py enforces them at construction and placement's gates cover the
+  placement-relevant half. **The structural sweep does not catch these**, because its
+  hostile values never trip those conditionals - a known gap that closes honestly only with
+  a record-level fuzz over field *combinations*, which is larger than this task.
+- manifest.py should export the checkers the siblings now bind privately
+  (`_check_bounded_int`, `_check_evidence_ref`, `_check_timestamp`, `_check_opaque_token`,
+  `_check_key_ref`, `_check_backend`, and the shared patterns) under public names. Not done
+  here: manifest.py was out of this fix's scope.

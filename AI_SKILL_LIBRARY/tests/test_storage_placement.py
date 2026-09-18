@@ -156,8 +156,21 @@ def owned(provider_id="local_owned_store", **overrides):
 
 
 def obj(**overrides):
-    """The plainest legitimate object: small, public, reproducible, warm."""
+    """The plainest legitimate object: small, public, reproducible, warm.
+
+    It carries its identity - ``object_id``, ``content_sha256``, the version
+    and the two authority denials - because the engine requires them. An object
+    with no content hash has nothing a copy can be verified against (Spec S15)
+    and an object with no id is not an object (Spec S8); a fixture that omitted
+    both was how eleven of the schema's fifteen required fields became optional
+    without anybody noticing.
+    """
     record = {
+        "version": 1,
+        "authority": False,
+        "authority_flags": {flag: False for flag in AUTHORITY_FLAGS},
+        "object_id": "obj_" + DIGEST,
+        "content_sha256": DIGEST,
         "privacy_class": "PUBLIC",
         "criticality": "REPRODUCIBLE",
         "size_bytes": 10,
@@ -165,6 +178,9 @@ def obj(**overrides):
         "encryption_state": "NONE",
         "object_class": "benchmark-bundle",
         "retention_class": "bounded",
+        "primary_backend": "local_owned_store",
+        "replica_backends": [],
+        "created_at": NOW,
         "lifecycle_state": "RAW",
         "reproducible": True,
     }
@@ -781,11 +797,30 @@ class DeterminismTests(unittest.TestCase):
         self.assertEqual(json.dumps(rows, sort_keys=True), before_rows)
         self.assertEqual(json.dumps(record, sort_keys=True), before_obj)
 
-    def test_the_only_clock_input_is_injectable_and_can_only_narrow(self):
+    def test_the_only_clock_input_is_injectable(self):
         row = provider(free_status="VERIFIED_FREE", free_expiry_at="2027-01-01T00:00:00Z")
         self.assertEqual(chosen(obj(), [row]), "cloudflare_r2")
         self.assertIsNone(
             placement.select_primary(obj(), [row], now="2028-01-01T00:00:00Z"))
+
+    def test_an_unresolvable_instant_refuses_rather_than_raises(self):
+        self.assertEqual(
+            ids(placement.placement_candidates(
+                obj(), [provider(), owned()], now="not-a-time")), [])
+        self.assertEqual(
+            len(placement.placement_report(
+                obj(), [provider(), owned()], now="not-a-time")), 2)
+
+    def test_the_module_does_not_claim_the_clock_can_only_narrow(self):
+        # A ``now`` in the past un-expires a lapsed free tier, so the claim the
+        # docstring used to make was false, and a reader who believed it would
+        # pass a caller-supplied instant straight through.
+        source = (ROOT / "AI_SKILL_LIBRARY/v4/storage/placement.py").read_text(
+            encoding="utf-8")
+        for claim in ("can only ever withdraw", "can only ever narrow",
+                      "can only narrow"):
+            with self.subTest(claim=claim):
+                self.assertNotIn(claim, source)
 
 
 class ReportTests(unittest.TestCase):
@@ -923,6 +958,363 @@ class TypedManifestIntegrationTests(unittest.TestCase):
         self.assertIs(record["authority"], False)
         placement.placement_candidates(record, [provider()], now=NOW)
         self.assertIs(record["authority"], False)
+
+
+#: A string with the shape of real credential material, long enough that no
+#: bounded field in either contract could hold it.
+CRED = "AKIA" + "Z" * 2048
+
+
+#: The identity-bearing fixture is now simply ``obj``; the alias keeps the
+#: tests below reading as what they are about.
+full_obj = obj
+
+
+class ObjectIdentityRequiredTests(unittest.TestCase):
+    """Finding 3: 11 of the schema's 15 required fields were optional here."""
+
+    def test_an_object_with_no_content_hash_is_placed_nowhere(self):
+        self.assertEqual(
+            ids(placement.placement_candidates(
+                full_obj(content_sha256=ABSENT), [provider(), owned()], now=NOW)),
+            [])
+
+    def test_an_object_with_no_identity_is_placed_nowhere(self):
+        for field in ("object_id", "version", "authority", "authority_flags"):
+            with self.subTest(field=field):
+                self.assertEqual(
+                    ids(placement.placement_candidates(
+                        full_obj(**{field: ABSENT}), [provider(), owned()],
+                        now=NOW)),
+                    [])
+
+    def test_an_object_with_only_the_placement_inputs_is_not_placeable(self):
+        # Everything the old engine actually read, and nothing else: the six
+        # fields it validated were enough to be placed.
+        bare = {"privacy_class": "PUBLIC", "criticality": "REPRODUCIBLE",
+                "size_bytes": 10, "storage_tier": "WARM",
+                "encryption_state": "NONE", "object_class": "benchmark-bundle",
+                "retention_class": "bounded", "lifecycle_state": "RAW"}
+        self.assertEqual(
+            ids(placement.placement_candidates(bare, [provider()], now=NOW)), [])
+
+    def test_a_fully_described_object_is_still_placed(self):
+        self.assertEqual(chosen(full_obj(), [provider()]), "cloudflare_r2")
+
+
+class BoundedManifestValueTests(unittest.TestCase):
+    """Finding 3: ``MANIFEST_FIELDS`` was closed and 18 of 24 values unread."""
+
+    def placed_nowhere(self, **overrides):
+        self.assertEqual(
+            ids(placement.placement_candidates(
+                full_obj(**overrides), [provider(), owned()], now=NOW)),
+            [], f"{sorted(overrides)} was placed")
+
+    def test_the_identity_fields_are_pattern_bounded(self):
+        for field, value in (
+                ("object_id", CRED), ("object_id", "obj_" + "A" * 64),
+                ("object_id", DIGEST), ("object_id", 7),
+                ("content_sha256", CRED), ("content_sha256", "a" * 63),
+                ("content_sha256", "A" * 64), ("content_sha256", None),
+                ("mime_type", CRED), ("mime_type", "application"),
+                ("mime_type", 7),
+                ("version", CRED), ("version", 2), ("version", True),
+                ("authority", CRED), ("authority", True),
+                ("reproducible", CRED), ("reproducible", 1)):
+            with self.subTest(field=field, value=repr(value)[:24]):
+                self.placed_nowhere(**{field: value})
+
+    def test_every_authority_flag_must_be_exactly_false(self):
+        self.placed_nowhere(
+            authority_flags={flag: True for flag in AUTHORITY_FLAGS})
+        self.placed_nowhere(
+            authority_flags={flag: CRED for flag in AUTHORITY_FLAGS})
+        self.placed_nowhere(
+            authority_flags={flag: False for flag in AUTHORITY_FLAGS[:-1]})
+
+    def test_the_backend_fields_are_bounded(self):
+        for field, value in (
+                ("primary_backend", CRED), ("primary_backend", "R2"),
+                ("replica_backends", [CRED] * 500),
+                ("replica_backends", ["cloudflare_r2"] * 9),
+                ("replica_backends", ["cloudflare_r2", "cloudflare_r2"]),
+                ("replica_backends", "cloudflare_r2"),
+                ("replica_backends", b"cloudflare_r2")):
+            with self.subTest(field=field, value=repr(value)[:24]):
+                self.placed_nowhere(**{field: value})
+
+    def test_the_timestamps_are_timestamps(self):
+        for field in ("created_at", "last_accessed_at", "last_verified_at"):
+            for value in (CRED, "yesterday", 7, "9999-99-99T99:99:99Z"):
+                with self.subTest(field=field, value=repr(value)[:24]):
+                    self.placed_nowhere(**{field: value})
+
+    def test_nested_record_values_are_bounded_not_merely_their_keys(self):
+        for field, value in (
+                ("source_provenance", {"origin_class": CRED}),
+                ("source_provenance", {"origin_class": "bundle",
+                                       "producer_id": CRED}),
+                ("source_provenance", {"origin_class": "bundle",
+                                       "evidence_ref": CRED}),
+                ("source_provenance", {"producer_id": "x"}),
+                ("verification", {"verified_replica_count": -9}),
+                ("verification", {"verified_replica_count": CRED}),
+                ("verification", {"hash_verified": CRED}),
+                ("verification", {"last_probe_at": CRED}),
+                ("verification", {"evidence_ref": CRED}),
+                ("encryption_scheme_version", CRED),
+                ("encryption_scheme_version", 0)):
+            with self.subTest(field=field, value=repr(value)[:40]):
+                self.placed_nowhere(**{field: value})
+
+    def test_a_schema_valid_object_is_not_gratuitously_refused(self):
+        record = full_obj(
+            mime_type="application/octet-stream",
+            replica_backends=["cloudflare_r2"],
+            source_provenance={"origin_class": "benchmark-bundle"},
+            verification={"hash_verified": True, "verified_replica_count": 1})
+        self.assertEqual(
+            [f"{list(e.absolute_path)}: {e.message}"
+             for e in Draft202012Validator(MANIFEST_SCHEMA).iter_errors(record)],
+            [])
+        self.assertEqual(chosen(record, [provider()]), "cloudflare_r2")
+
+
+class EncryptionMetadataBoundsTests(unittest.TestCase):
+    """Finding 2: ``nonce``, ``tag`` and the rotation counter were unchecked."""
+
+    def encrypted(self, **meta):
+        record = {"algorithm": "aes-256-gcm", "scheme_version": 1,
+                  "key_ref": "secretstore://mesh/objects/dek"}
+        record.update(meta)
+        return full_obj(privacy_class="CONFIDENTIAL",
+                        encryption_state="CLIENT_SIDE_ENCRYPTED",
+                        encryption=record)
+
+    def row(self):
+        return provider(privacy_classes_allowed=["PUBLIC", "CONFIDENTIAL"],
+                        encryption_required_classes=["CONFIDENTIAL"])
+
+    def test_a_key_sized_nonce_never_reaches_an_external_backend(self):
+        for value in ("A" * 2052, CRED, "a" * 64, "short", 7, None,
+                      "!!!!!!!!!!!!"):
+            with self.subTest(value=repr(value)[:24]):
+                self.assertEqual(
+                    ids(placement.placement_candidates(
+                        self.encrypted(nonce=value), [self.row()], now=NOW)),
+                    [])
+
+    def test_a_key_sized_tag_never_reaches_an_external_backend(self):
+        for value in ("A" * 2052, CRED, "a" * 64, "short", 7):
+            with self.subTest(value=repr(value)[:24]):
+                self.assertEqual(
+                    ids(placement.placement_candidates(
+                        self.encrypted(tag=value), [self.row()], now=NOW)),
+                    [])
+
+    def test_the_rotation_generation_is_a_bounded_integer(self):
+        for value in (CRED, -1, 65536, True, 1.0, None):
+            with self.subTest(value=repr(value)[:24]):
+                self.assertEqual(
+                    ids(placement.placement_candidates(
+                        self.encrypted(key_rotation_generation=value),
+                        [self.row()], now=NOW)),
+                    [])
+
+    def test_well_formed_encryption_metadata_is_still_admitted(self):
+        record = self.encrypted(nonce="qwertyuiopas", tag="ZXCVBNMASDFG",
+                                key_rotation_generation=3)
+        self.assertEqual(chosen(record, [self.row()]), "cloudflare_r2")
+
+
+class SizeLimitFailClosedTests(unittest.TestCase):
+    """Finding 4: a malformed ceiling made position 6 disappear."""
+
+    def test_a_malformed_ceiling_excludes_rather_than_admits(self):
+        big = full_obj(size_bytes=10 ** 9)
+        for value in ("1000", -1, 5.0, True, [], {}, "unlimited"):
+            with self.subTest(value=repr(value)[:24]):
+                row = provider(object_size_limits={"max_object_bytes": value})
+                self.assertEqual(
+                    ids(placement.placement_candidates(big, [row], now=NOW)), [])
+                [entry] = placement.placement_report(big, [row], now=NOW)
+                self.assertIn("OBJECT_SIZE_ABOVE_PROVIDER_LIMIT", entry["reasons"])
+
+    def test_a_malformed_floor_excludes_rather_than_admits(self):
+        big = full_obj(size_bytes=10 ** 9)
+        for value in ("1000", -1, 5.0, True):
+            with self.subTest(value=repr(value)[:24]):
+                row = provider(object_size_limits={"min_object_bytes": value})
+                self.assertEqual(
+                    ids(placement.placement_candidates(big, [row], now=NOW)), [])
+
+    def test_a_null_limit_stays_a_no_op(self):
+        # The schema types these as ["integer", "null"]; null is "no declared
+        # limit" and has to remain exactly that.
+        row = provider(object_size_limits={"max_object_bytes": None,
+                                           "min_object_bytes": None})
+        self.assertEqual(chosen(full_obj(), [row]), "cloudflare_r2")
+
+    def test_a_well_formed_limit_still_decides(self):
+        big = full_obj(size_bytes=10 ** 9)
+        self.assertEqual(
+            ids(placement.placement_candidates(
+                big, [provider(object_size_limits={"max_object_bytes": 100})],
+                now=NOW)),
+            [])
+        self.assertEqual(
+            chosen(full_obj(size_bytes=10),
+                   [provider(object_size_limits={"max_object_bytes": 100})]),
+            "cloudflare_r2")
+
+
+class BytesAreNotTokenListsTests(unittest.TestCase):
+    """Finding 5: ``bytes`` is a ``Sequence``, so the module crashed open."""
+
+    def test_a_bytes_valued_allowance_degrades_instead_of_crashing(self):
+        for field in ("privacy_classes_allowed", "encryption_required_classes",
+                      "tiers_allowed", "preferred_tiers"):
+            for value in (b"PUBLIC", bytearray(b"WARM")):
+                with self.subTest(field=field, value=repr(value)[:24]):
+                    row = provider(**{field: value})
+                    self.assertEqual(
+                        ids(placement.placement_candidates(
+                            full_obj(), [row], now=NOW)), [])
+                    report = placement.placement_report(
+                        full_obj(), [row], now=NOW)
+                    self.assertEqual(len(report), 1)
+                    self.assertFalse(report[0]["eligible"])
+
+
+class ProviderTighteningTests(unittest.TestCase):
+    """Finding 9: 'stricter, never looser' applies on owned storage too."""
+
+    def test_an_owned_rows_own_encryption_requirement_is_honoured(self):
+        row = owned(encryption_required_classes=["INTERNAL"])
+        record = full_obj(privacy_class="INTERNAL")
+        self.assertEqual(
+            ids(placement.placement_candidates(record, [row], now=NOW)), [])
+        [entry] = placement.placement_report(record, [row], now=NOW)
+        self.assertIn("PRIVACY_ENCRYPTION_REQUIRED", entry["reasons"])
+
+    def test_the_same_rule_reaches_a_local_only_object(self):
+        row = owned(encryption_required_classes=["LOCAL_ONLY"])
+        record = full_obj(privacy_class="LOCAL_ONLY")
+        self.assertEqual(
+            ids(placement.placement_candidates(record, [row], now=NOW)), [])
+
+    def test_an_owned_row_that_requires_nothing_still_takes_plaintext(self):
+        self.assertEqual(
+            chosen(full_obj(privacy_class="LOCAL_ONLY"), [owned()]),
+            "local_owned_store")
+
+
+class ReportDeterminismTests(unittest.TestCase):
+    """Finding 6: sorting on a collapsed identifier is not a total order."""
+
+    def test_unidentifiable_rows_report_in_a_stable_order(self):
+        rows = [42, provider(provider_id="BAD-ID")]
+        forward = placement.placement_report(full_obj(), rows, now=NOW)
+        backward = placement.placement_report(
+            full_obj(), list(reversed(rows)), now=NOW)
+        self.assertEqual(forward, backward)
+
+    def test_duplicate_identifiers_report_in_a_stable_order(self):
+        rows = [provider("cloudflare_r2", health="OFFLINE"),
+                provider("cloudflare_r2", privacy_classes_allowed=[])]
+        self.assertEqual(
+            placement.placement_report(full_obj(), rows, now=NOW),
+            placement.placement_report(full_obj(), list(reversed(rows)), now=NOW))
+
+    def test_the_candidate_list_is_unaffected(self):
+        rows = [provider("b2"), provider("cloudflare_r2")]
+        self.assertEqual(
+            ids(placement.placement_candidates(full_obj(), rows, now=NOW)),
+            ids(placement.placement_candidates(
+                full_obj(), list(reversed(rows)), now=NOW)))
+
+
+class DeadConstantTests(unittest.TestCase):
+    """Finding 10: a policy number defined here and referenced nowhere."""
+
+    def test_the_bulk_threshold_is_not_duplicated_in_this_module(self):
+        self.assertFalse(hasattr(placement, "BULK_OBJECT_THRESHOLD_BYTES"))
+        self.assertNotIn("BULK_OBJECT_THRESHOLD_BYTES", placement.__all__)
+
+
+class SchemaSubsetTests(unittest.TestCase):
+    """The structural guard, driven FROM the schema rather than from a list.
+
+    Findings 1 to 4 are one defect - an allowed field whose value nothing
+    bounds - and it has now reached review three times. A per-field test only
+    closes the fields somebody thought of. This walks
+    ``storage_object_manifest.schema.json`` itself, so a field added to the
+    contract later cannot arrive unchecked.
+    """
+
+    def test_every_schema_property_has_a_declared_value_check(self):
+        self.assertEqual(set(placement.MANIFEST_VALUE_CHECKS),
+                         set(MANIFEST_SCHEMA["properties"]))
+
+    def test_the_engine_is_never_looser_than_the_manifest_schema(self):
+        validator = Draft202012Validator(MANIFEST_SCHEMA)
+        hostile = (CRED, "A" * 300, "", None, -1, 10 ** 30, True, 1.5, 2,
+                   [], {}, [CRED], {"leak": CRED}, "unexpected", b"PUBLIC")
+        rows = [provider(), owned()]
+        for field in sorted(MANIFEST_SCHEMA["properties"]):
+            for value in hostile:
+                record = full_obj(**{field: value})
+                if not validator.is_valid(record):
+                    with self.subTest(field=field, value=repr(value)[:24]):
+                        self.assertEqual(
+                            ids(placement.placement_candidates(
+                                record, rows, now=NOW)), [],
+                            f"{field}={value!r} is refused by the schema and "
+                            "placed by the engine")
+
+    def test_the_engine_is_never_looser_than_the_provider_schema(self):
+        hostile = (CRED, "A" * 300, "", None, -1, 10 ** 30, True, 1.5, 1,
+                   [], {}, [CRED], {"leak": CRED}, "unexpected", b"PUBLIC")
+        for field in sorted(PROVIDER_SCHEMA["properties"]):
+            for value in hostile:
+                row = provider(**{field: value})
+                if not PROVIDER_VALIDATOR.is_valid(row):
+                    with self.subTest(field=field, value=repr(value)[:24]):
+                        self.assertEqual(
+                            ids(placement.placement_candidates(
+                                full_obj(), [row], now=NOW)), [],
+                            f"{field}={value!r} is refused by the schema and "
+                            "admitted by the engine")
+
+    def test_no_hostile_value_ever_crashes_the_report(self):
+        # Spec S14: this lane must degrade rather than crash, and the report is
+        # the path a caller uses to explain a refusal - the worst possible
+        # place to raise.
+        hostile = (CRED, None, -1, True, b"PUBLIC", bytearray(b"HOT"), 1.5,
+                   [CRED], {"leak": CRED}, object())
+        for field in sorted(PROVIDER_SCHEMA["properties"]):
+            for value in hostile:
+                with self.subTest(field=field, value=repr(value)[:24]):
+                    report = placement.placement_report(
+                        full_obj(), [provider(**{field: value})], now=NOW)
+                    self.assertEqual(len(report), 1)
+        for field in sorted(MANIFEST_SCHEMA["properties"]):
+            for value in hostile:
+                with self.subTest(object_field=field, value=repr(value)[:24]):
+                    report = placement.placement_report(
+                        full_obj(**{field: value}), [provider()], now=NOW)
+                    self.assertEqual(len(report), 1)
+
+    def test_no_report_ever_echoes_a_hostile_value(self):
+        blob = json.dumps([
+            placement.placement_report(
+                full_obj(**{field: CRED}), [provider(**{field2: CRED})], now=NOW)
+            for field in sorted(MANIFEST_SCHEMA["properties"])
+            for field2 in sorted(PROVIDER_SCHEMA["properties"])
+        ])
+        self.assertNotIn("AKIA", blob)
+        self.assertNotIn("ZZZZZZZZ", blob)
 
 
 if __name__ == "__main__":

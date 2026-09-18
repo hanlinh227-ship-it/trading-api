@@ -39,8 +39,11 @@ result deterministic.
 Determinism matters enough to state plainly: the same inputs produce the same
 order. Nothing here iterates a set, depends on dict insertion order or consults
 a clock of its own. The single time-dependent input is the free-tier expiry
-check inside the Capacity Broker, which is injectable through ``now`` and can
-only ever withdraw a permission.
+check inside the Capacity Broker, which is injectable through ``now``. That
+instant is an input and not a permission boundary - set in the past it
+un-expires a lapsed free tier - so it comes from the mesh and never from a
+registry row or anything else being judged; an instant that cannot be resolved
+refuses everything rather than raising.
 
 Two refusals are worth calling out because they are what a careless
 implementation gets wrong.
@@ -68,6 +71,7 @@ import re
 from collections.abc import Mapping, Sequence
 
 from AI_SKILL_LIBRARY.v4.storage import capacity
+from AI_SKILL_LIBRARY.v4.storage import manifest as _manifest
 
 #: This module holds no authority of any kind. Denied by name rather than by
 #: omission, matching the rest of the lane.
@@ -145,25 +149,10 @@ ENCRYPTION_ALGORITHMS = frozenset({
     "aead-standard-library", "aes-256-gcm", "aes-256-gcm-siv",
     "chacha20-poly1305", "xchacha20-poly1305",
 })
-_ENCRYPTION_FIELDS = frozenset({
-    "algorithm", "scheme_version", "key_ref", "key_rotation_generation",
-    "nonce", "tag",
-})
-
-#: The manifest schema's other closed objects. Refused structurally for the
-#: same reason as the top level: a nested object is the second place an
-#: undeclared - and therefore unbounded - string tries to enter.
-_PROVENANCE_FIELDS = frozenset({"origin_class", "producer_id", "evidence_ref"})
-_VERIFICATION_FIELDS = frozenset({
-    "hash_verified", "verified_replica_count", "last_probe_at", "evidence_ref",
-})
-_AUTHORITY_FLAG_FIELDS = frozenset(AUTHORITY_FLAGS)
-
-#: Spec S22: the key *locations* the spec permits. An object-storage URL is not
-#: among them, which is how key/ciphertext separation is a control rather than
-#: a recommendation.
-_KEY_REF_RE = re.compile(
-    r"^(env|secretstore|worker-secret|kms)://[A-Za-z0-9][A-Za-z0-9._/-]{2,180}\Z")
+#: The closed field sets of the manifest schema's nested objects are the key
+#: sets of the per-field check tables below, rather than a second list beside
+#: them: a whitelist and a validator that can disagree will. Spec S22's key
+#: *locations* are ``manifest._check_key_ref``'s, for the same reason.
 
 #: storage_object_manifest.schema.json is ``additionalProperties: false``. Same
 #: reasoning as ``capacity.PROVIDER_FIELDS``: an unbounded string can only reach
@@ -177,8 +166,12 @@ MANIFEST_FIELDS = frozenset({
     "lifecycle_state", "source_provenance", "reproducible", "verification",
 })
 
-#: policy.yaml ``bulk_object_threshold_bytes`` and the schema's size ceiling.
-BULK_OBJECT_THRESHOLD_BYTES = 1048576
+#: The schema's size ceiling. The bulk-object *threshold* is deliberately not
+#: mirrored here: this module's bulk gate is unconditional - a row that is not
+#: ``bulk_object_backend_allowed`` holds no object at any size - so a threshold
+#: would have no work to do, and a second copy of a policy number with no
+#: reader is drift waiting to happen. ``mesh_validator.BULK_OBJECT_THRESHOLD_BYTES``
+#: is the one definition, and ``policy.yaml`` is its authority.
 _MAX_OBJECT_BYTES = 1099511627776
 
 #: The reserved namespace that makes the LOCAL_ONLY rule airtight (Spec S4).
@@ -186,9 +179,12 @@ LOCAL_BACKEND_PREFIX = "local_"
 
 #: ``\Z`` rather than ``$`` throughout: Python's ``$`` also matches before a
 #: final newline, and a validator looser than the schema it mirrors is the bug
-#: class this lane keeps closing.
-_PROVIDER_ID_RE = re.compile(r"^[a-z][a-z0-9_]{1,63}\Z")
-_CLASS_TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,39}\Z")
+#: class this lane keeps closing. Neither the provider identifier nor the class
+#: token is re-implemented here - ``capacity`` and ``manifest`` already bound
+#: them, and a third copy is how bounds get dropped.
+_is_provider_id = capacity.is_provider_id
+_is_class_token = capacity.is_class_token
+_OBJECT_ID_RE = re.compile(r"^obj_[0-9a-f]{64}\Z")
 
 #: What a report calls a row whose identifier is not a bounded token. The
 #: identifier is the only caller-supplied string a report ever shows, so it is
@@ -219,40 +215,161 @@ EXCLUSION_REASONS = (
 
 
 # --- input validation -------------------------------------------------------
+#
+# One checker per property of ``storage_object_manifest.schema.json``, built
+# out of ``capacity``'s shared combinators and ``manifest``'s checked-in
+# checkers. A table rather than a run of ``if`` statements because that is what
+# makes *completeness* checkable: the tests walk the schema's property set and
+# assert every one of them has an entry here, so a field added to the contract
+# later cannot arrive unchecked.
+#
+# This is the fix for the class rather than for the instances. The old version
+# closed ``MANIFEST_FIELDS`` and then validated six of its twenty-four members,
+# which bounds which fields exist and not what fits inside them - and a
+# 2052-character ``nonce`` sitting next to ``key_ref`` inside an object bound
+# for an external backend is the shape that defect takes every time.
 
-def _is_byte_count(value, ceiling=_MAX_OBJECT_BYTES):
-    return (isinstance(value, int) and not isinstance(value, bool)
-            and 0 <= value <= ceiling)
+_is_byte_count = capacity.bounded_int(0, _MAX_OBJECT_BYTES)
+_MAX_REPLICAS = 8
+_MAX_MIME_LENGTH = 128
 
 
-def _is_class_token(value):
-    return isinstance(value, str) and bool(_CLASS_TOKEN_RE.match(value))
+def _is_token_list(value):
+    """A list of tokens - and neither a string nor a buffer is one.
 
-
-def _closed(value, fields):
-    """A nested object is absent, or a mapping with no key outside ``fields``."""
-    if value is None:
-        return True
-    return isinstance(value, Mapping) and not (set(value) - fields)
-
-
-def _encryption_metadata_is_sound(record):
-    """Shape only. This module names encryption fields and checks nothing else.
-
-    It chooses no algorithm, derives no key and verifies no ciphertext; that is
-    the encryption contract's job and it lives elsewhere.
+    ``bytes`` is a ``collections.abc.Sequence``, so the usual
+    ``isinstance(v, Sequence) and not isinstance(v, str)`` guard let
+    ``privacy_classes_allowed=b"PUBLIC"`` through to ``"PUBLIC" not in
+    b"PUBLIC"``, which raises ``TypeError``. Failing open with a crash is worse
+    than failing open quietly: it takes down ``placement_report``, which is the
+    path a caller uses to explain a refusal. Spec S14 requires this lane to
+    degrade rather than crash, so the exclusion lives in one helper used
+    everywhere rather than in four hand-written guards, three of which were
+    right.
     """
-    meta = record.get("encryption")
-    if not isinstance(meta, Mapping) or (set(meta) - _ENCRYPTION_FIELDS):
+    return (isinstance(value, Sequence)
+            and not isinstance(value, (str, bytes, bytearray, memoryview)))
+
+
+def _is_backend_id(value):
+    """A backend the provider registry actually lists.
+
+    The schema's ``backend_id`` is an enum sourced from the registry, so a
+    value that merely looks like an identifier - ``"unexpected"`` - is not one.
+    Resolved through ``manifest``'s registry-backed checker rather than by
+    mirroring the enum here, because a mirrored registry is a registry that
+    drifts.
+    """
+    try:
+        _manifest._check_backend(value, role="placement")
+    except ValueError:
         return False
-    if meta.get("algorithm") not in ENCRYPTION_ALGORITHMS:
+    return True
+
+
+def _is_replica_list(value):
+    if not _is_token_list(value):
         return False
-    version = meta.get("scheme_version")
-    if not (isinstance(version, int) and not isinstance(version, bool)
-            and 1 <= version <= 4096):
+    items = list(value)
+    if len(items) > _MAX_REPLICAS or len(set(items)) != len(items):
         return False
-    key_ref = meta.get("key_ref")
-    return isinstance(key_ref, str) and bool(_KEY_REF_RE.match(key_ref))
+    return all(_is_backend_id(item) for item in items)
+
+
+#: ``$defs.encryption_metadata``, one checker per property. ``nonce``, ``tag``
+#: and ``key_rotation_generation`` are ``manifest``'s own - it bounds them
+#: correctly and this module had re-implemented the object around them and
+#: dropped exactly those three. ``algorithm`` stays a local enum so that
+#: deciding a placement reads no file.
+_ENCRYPTION_FIELD_CHECKS = {
+    "algorithm": lambda value: isinstance(value, str) and value in ENCRYPTION_ALGORITHMS,
+    "scheme_version": capacity.bounded_int(1, 4096),
+    "key_ref": lambda value: capacity.passes(
+        _manifest._check_key_ref, value, field="key_ref"),
+    "key_rotation_generation": capacity.bounded_int(0, 65535),
+    "nonce": lambda value: capacity.passes(
+        _manifest._check_opaque_token, value, field="nonce"),
+    "tag": lambda value: capacity.passes(
+        _manifest._check_opaque_token, value, field="tag"),
+}
+
+_PROVENANCE_CHECKS = {
+    "origin_class": _is_class_token,
+    "producer_id": _is_class_token,
+    "evidence_ref": lambda value: capacity.passes(
+        _manifest._check_evidence_ref, value, field="evidence_ref"),
+}
+
+_VERIFICATION_CHECKS = {
+    "hash_verified": capacity.is_bool,
+    "verified_replica_count": capacity.bounded_int(0, 9),
+    "last_probe_at": capacity.is_timestamp,
+    "evidence_ref": lambda value: capacity.passes(
+        _manifest._check_evidence_ref, value, field="evidence_ref"),
+}
+
+#: Every flag is ``const: false``. Denied by name rather than by omission on
+#: the object too: a manifest that declares ``storage_authority: true`` is not
+#: a manifest this engine places, however tidy its key set.
+_AUTHORITY_FLAG_CHECKS = {
+    flag: lambda value: value is False for flag in AUTHORITY_FLAGS
+}
+
+MANIFEST_VALUE_CHECKS = {
+    "version": lambda value: value == 1 and not isinstance(value, bool) \
+        and isinstance(value, int),
+    "authority": lambda value: value is False,
+    "authority_flags": capacity.checked_mapping(
+        _AUTHORITY_FLAG_CHECKS, required=tuple(AUTHORITY_FLAGS)),
+    "object_id": lambda value: isinstance(value, str) and bool(
+        _OBJECT_ID_RE.match(value)),
+    "object_class": _is_class_token,
+    "content_sha256": lambda value: isinstance(value, str) and bool(
+        _manifest._SHA256_RE.match(value)),
+    "size_bytes": _is_byte_count,
+    "mime_type": lambda value: isinstance(value, str) \
+        and len(value) <= _MAX_MIME_LENGTH and bool(_manifest._MIME_RE.match(value)),
+    "privacy_class": capacity.string_enum(PRIVACY_CLASSES),
+    "criticality": capacity.string_enum(CRITICALITY_CLASSES),
+    "storage_tier": capacity.string_enum(STORAGE_TIERS),
+    "retention_class": _is_class_token,
+    "encryption_state": capacity.string_enum(ENCRYPTION_STATES),
+    "encryption_scheme_version": capacity.nullable(capacity.bounded_int(1, 4096)),
+    "encryption": capacity.checked_mapping(
+        _ENCRYPTION_FIELD_CHECKS,
+        required=("algorithm", "scheme_version", "key_ref")),
+    "primary_backend": _is_backend_id,
+    "replica_backends": _is_replica_list,
+    "created_at": capacity.is_timestamp,
+    "last_accessed_at": capacity.is_timestamp,
+    "last_verified_at": capacity.is_timestamp,
+    "lifecycle_state": capacity.string_enum(LIFECYCLE_STATES),
+    "source_provenance": capacity.checked_mapping(
+        _PROVENANCE_CHECKS, required=("origin_class",)),
+    "reproducible": capacity.is_bool,
+    "verification": capacity.checked_mapping(_VERIFICATION_CHECKS),
+}
+
+#: What an object must carry before this engine will decide anything about it.
+#:
+#: The schema requires fifteen fields; eleven of them used to be optional here,
+#: so an object with no ``content_sha256`` and no ``object_id`` was placeable.
+#: An object with no content hash has nothing any copy can be verified against
+#: (Spec S15) and an object with no identity is not an object (Spec S8), so
+#: both are required, along with the version and the two authority denials that
+#: make the document a manifest rather than a dict.
+#:
+#: The remaining four schema-required fields - ``primary_backend``,
+#: ``replica_backends``, ``created_at``, ``lifecycle_state``, ``reproducible`` -
+#: are validated when present and not required, because deciding the backends
+#: is what this module is *for*: a manifest handed to the engine before its
+#: placement exists legitimately has none yet. They are the schema's business
+#: at the moment the record is stored, which is ``manifest.py``'s job.
+REQUIRED_MANIFEST_FIELDS = frozenset({
+    "version", "authority", "authority_flags", "object_id", "content_sha256",
+    "size_bytes", "privacy_class", "criticality", "storage_tier",
+    "encryption_state",
+})
 
 
 def _object_is_placeable(record):
@@ -266,13 +383,12 @@ def _object_is_placeable(record):
         return False
     if set(record) - MANIFEST_FIELDS:
         return False
+    if REQUIRED_MANIFEST_FIELDS - set(record):
+        return False
+    if not all(MANIFEST_VALUE_CHECKS[field](value)
+               for field, value in record.items()):
+        return False
 
-    if record.get("privacy_class") not in PRIVACY_CLASSES:
-        return False
-    if record.get("criticality") not in CRITICALITY_CLASSES:
-        return False
-    if record.get("storage_tier") not in STORAGE_TIERS:
-        return False
     # Spec S6. CANONICAL is GitHub's and METADATA is the index's; neither
     # carries object payloads, so an object declaring one has no placement to
     # make rather than a backend to find. Enforced on the object rather than on
@@ -280,30 +396,21 @@ def _object_is_placeable(record):
     # create the path by claiming it.
     if record["storage_tier"] in NON_PLACEABLE_TIERS:
         return False
-    if record.get("encryption_state") not in ENCRYPTION_STATES:
-        return False
-    if not _is_byte_count(record.get("size_bytes")):
-        return False
-
-    if "lifecycle_state" in record and record["lifecycle_state"] not in LIFECYCLE_STATES:
-        return False
-    if not _closed(record.get("source_provenance"), _PROVENANCE_FIELDS):
-        return False
-    if not _closed(record.get("verification"), _VERIFICATION_FIELDS):
-        return False
-    if not _closed(record.get("authority_flags"), _AUTHORITY_FLAG_FIELDS):
-        return False
-    for field in ("object_class", "retention_class"):
-        if field in record and not _is_class_token(record[field]):
-            return False
 
     # The two halves of the encryption claim have to agree before anything is
     # decided about where the object may go.
     if record["encryption_state"] == "CLIENT_SIDE_ENCRYPTED":
-        if not _encryption_metadata_is_sound(record):
+        if "encryption" not in record:
             return False
-    elif "encryption" in record:
-        return False
+    else:
+        if "encryption" in record:
+            return False
+        # The schema pins ``encryption_scheme_version`` to null on a plaintext
+        # object. A version number beside ``encryption_state: NONE`` is a
+        # record whose two halves disagree, and disagreement is not a state
+        # this engine picks a winner for.
+        if record.get("encryption_scheme_version") is not None:
+            return False
 
     return True
 
@@ -312,7 +419,7 @@ def _display_id(row):
     """The only caller-supplied string a report ever shows, and only if bounded."""
     if isinstance(row, Mapping):
         provider_id = row.get("provider_id")
-        if isinstance(provider_id, str) and _PROVIDER_ID_RE.match(provider_id):
+        if _is_provider_id(provider_id):
             return provider_id
     return UNNAMED_PROVIDER
 
@@ -325,10 +432,21 @@ def _privacy_reasons(record, row):
     privacy_class = record["privacy_class"]
     external = row.get("external")
     allowed = row.get("privacy_classes_allowed")
+    plaintext = record["encryption_state"] != "CLIENT_SIDE_ENCRYPTED"
 
-    if not isinstance(allowed, Sequence) or isinstance(allowed, str) \
-            or privacy_class not in allowed:
+    if not _is_token_list(allowed) or privacy_class not in allowed:
         reasons.append("PRIVACY_CLASS_NOT_ADMITTED")
+
+    # A provider's own declared tightening is honoured wherever the row sits.
+    # ``policy.yaml``: "Provider-specific limits may be stricter, never
+    # looser." This used to be read only after the owned-storage return, so an
+    # owned row that declared a class encryption-required had that declaration
+    # silently discarded - the one direction a provider is allowed to move the
+    # rule was the one direction the engine ignored.
+    required = row.get("encryption_required_classes")
+    requires_ciphertext = _is_token_list(required) and privacy_class in required
+    if requires_ciphertext and plaintext:
+        reasons.append("PRIVACY_ENCRYPTION_REQUIRED")
 
     if privacy_class == "LOCAL_ONLY":
         # Both halves are required. ``external is False`` alone would trust a
@@ -344,25 +462,28 @@ def _privacy_reasons(record, row):
     if external is False:
         return reasons
 
-    # From here the object is leaving owned storage.
-    if external is not True or row.get("free_status") not in capacity.VERIFIED_FREE_STATUSES:
+    # From here the object is leaving owned storage. ``free_status`` is read
+    # through ``isinstance`` first because a set membership test hashes its
+    # left operand, and a row carrying a list or a dict there would raise
+    # ``TypeError`` out of the middle of a report rather than refuse.
+    free_status = row.get("free_status")
+    if external is not True or not (
+            isinstance(free_status, str)
+            and free_status in capacity.VERIFIED_FREE_STATUSES):
         # Spec S4: PUBLIC may go to any *admitted* backend whose terms and
         # health are verified; INTERNAL is verified-only; CONFIDENTIAL is
         # encrypted-verified-only. Every external residency needs a verified
         # row, not merely a listed one.
         reasons.append("PRIVACY_EXTERNAL_RESIDENCY_NOT_VERIFIED")
 
-    required = row.get("encryption_required_classes")
-    requires_ciphertext = (
-        isinstance(required, Sequence) and not isinstance(required, str)
-        and privacy_class in required)
-    if privacy_class == "CONFIDENTIAL":
-        if not requires_ciphertext:
-            reasons.append("PRIVACY_ENCRYPTION_REQUIRED")
-        if record["encryption_state"] != "CLIENT_SIDE_ENCRYPTED":
-            reasons.append("PRIVACY_ENCRYPTION_REQUIRED")
-    elif requires_ciphertext and record["encryption_state"] != "CLIENT_SIDE_ENCRYPTED":
+    if privacy_class == "CONFIDENTIAL" and not requires_ciphertext:
+        # Registry incoherence: admitting the class without requiring the
+        # ciphertext is a row that cannot hold it. The plaintext objection is
+        # added here rather than above only because the tightening check has
+        # already raised it whenever the row *did* require encryption.
         reasons.append("PRIVACY_ENCRYPTION_REQUIRED")
+        if plaintext:
+            reasons.append("PRIVACY_ENCRYPTION_REQUIRED")
 
     return reasons
 
@@ -381,13 +502,13 @@ def _integrity_reasons(record, row):
     elif use_class == "human-backup-only" and tier != "HUMAN_BACKUP":
         # Spec S6: backup surfaces, not canonical runtime object stores.
         reasons.append("INTEGRITY_USE_CLASS_FORBIDS_OBJECT")
-    elif use_class == "ai-artifacts-only" and \
-            record.get("object_class") not in AI_ARTIFACT_OBJECT_CLASSES:
+    elif use_class == "ai-artifacts-only" and not (
+            _is_class_token(record.get("object_class"))
+            and record["object_class"] in AI_ARTIFACT_OBJECT_CLASSES):
         reasons.append("INTEGRITY_USE_CLASS_FORBIDS_OBJECT")
 
     served = row.get("tiers_allowed")
-    if not isinstance(served, Sequence) or isinstance(served, str) \
-            or tier not in served:
+    if not _is_token_list(served) or tier not in served:
         reasons.append("INTEGRITY_TIER_NOT_SERVED")
 
     # Every placeable tier is a bulk object tier, so a backend that is not one
@@ -409,12 +530,22 @@ def _size_reasons(record, row):
         reasons.append("OBJECT_SIZE_ABOVE_PROVIDER_LIMIT")
         return reasons
 
-    ceiling = limits.get("max_object_bytes")
-    if _is_byte_count(ceiling) and size > ceiling:
-        reasons.append("OBJECT_SIZE_ABOVE_PROVIDER_LIMIT")
-    floor = limits.get("min_object_bytes")
-    if _is_byte_count(floor) and size < floor:
-        reasons.append("OBJECT_SIZE_BELOW_PROVIDER_LIMIT")
+    # A limit that does not parse is not "no limit". The function already
+    # refuses when ``limits`` itself is not a mapping; the same reflex has to
+    # reach one level down, or a typo in ``max_object_bytes`` deletes position 6
+    # of the decision order and the object is admitted. ``null`` is a value the
+    # schema types explicitly and means "no declared limit", so it stays a
+    # no-op; everything else that is present and not a byte count excludes.
+    ceiling = limits.get("max_object_bytes", None)
+    if ceiling is not None:
+        if not _is_byte_count(ceiling) or size > ceiling:
+            reasons.append("OBJECT_SIZE_ABOVE_PROVIDER_LIMIT")
+    floor = limits.get("min_object_bytes", None)
+    if floor is not None:
+        if not _is_byte_count(floor):
+            reasons.append("OBJECT_SIZE_ABOVE_PROVIDER_LIMIT")
+        elif size < floor:
+            reasons.append("OBJECT_SIZE_BELOW_PROVIDER_LIMIT")
     return reasons
 
 
@@ -477,7 +608,7 @@ def _criticality_fit(record, row):
 def _access_frequency_fit(record, row):
     """Spec S5 position 7. The tiers *are* the access-frequency classes (S6)."""
     preferred = row.get("preferred_tiers")
-    if isinstance(preferred, Sequence) and not isinstance(preferred, str):
+    if _is_token_list(preferred):
         return 0 if record["storage_tier"] in preferred else 1
     return 1
 
@@ -533,7 +664,7 @@ def _duplicated_ids(providers):
 
 
 def _rows(providers):
-    if isinstance(providers, Sequence) and not isinstance(providers, (str, bytes)):
+    if _is_token_list(providers):
         return list(providers)
     return []
 
@@ -575,7 +706,13 @@ def placement_report(obj, providers, *, now=None):
             "reasons": tuple(reasons),
         })
 
-    entries.sort(key=lambda entry: entry["provider_id"])
+    # A total order, not just the identifier: every unidentifiable row collapses
+    # to UNNAMED_PROVIDER, and Python's stable sort then preserves *input*
+    # order, so the same set of rows in a different order produced a different
+    # report. State and reasons are closed vocabularies, so sorting on them
+    # echoes nothing a caller supplied.
+    entries.sort(key=lambda entry: (entry["provider_id"], entry["state"],
+                                    entry["reasons"]))
     return entries
 
 
@@ -597,7 +734,7 @@ def placement_candidates(obj, providers, *, now=None):
         if not isinstance(row, Mapping):
             continue
         provider_id = row.get("provider_id")
-        if not (isinstance(provider_id, str) and _PROVIDER_ID_RE.match(provider_id)):
+        if not (_is_provider_id(provider_id)):
             continue
         if provider_id in duplicated:
             continue
@@ -628,7 +765,8 @@ __all__ = [
     "PRIVACY_CLASSES", "CRITICALITY_CLASSES", "STORAGE_TIERS",
     "NON_PLACEABLE_TIERS", "ACCEPTABLE_USE_CLASSES",
     "AI_ARTIFACT_OBJECT_CLASSES", "ENCRYPTION_ALGORITHMS", "MANIFEST_FIELDS",
-    "BULK_OBJECT_THRESHOLD_BYTES", "LOCAL_BACKEND_PREFIX", "UNNAMED_PROVIDER",
+    "MANIFEST_VALUE_CHECKS", "REQUIRED_MANIFEST_FIELDS",
+    "LOCAL_BACKEND_PREFIX", "UNNAMED_PROVIDER",
     "EXCLUSION_REASONS", "placement_report", "placement_candidates",
     "select_primary",
 ]

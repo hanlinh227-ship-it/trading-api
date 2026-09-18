@@ -708,5 +708,266 @@ class ShippedRegistryTests(unittest.TestCase):
                                  "QUARANTINED")
 
 
+#: A string with the shape of real credential material, long enough that no
+#: bounded field in either contract could hold it. Every test below that uses
+#: it is asking the same question: does this module bound the *value* of a
+#: field it allows, or only the *name*?
+CRED = "AKIA" + "Z" * 2048
+
+
+class BoundedValueTests(unittest.TestCase):
+    """Findings 1: a closed key set bounds which fields exist, not what fits.
+
+    ``storage_provider.schema.json`` gives every declared field a type, an enum,
+    a pattern or a range. A broker that closes the key set and then reads the
+    values without checking them is looser than the contract it claims to
+    mirror, and the gap is exactly wide enough for a credential.
+    """
+
+    def assertQuarantined(self, row, message=""):
+        self.assertEqual(capacity.provider_state(row, now=NOW), "QUARANTINED",
+                         message)
+
+    def test_adapter_type_outside_the_schema_enum_is_quarantined(self):
+        for value in (CRED, "s3", "", None, 7, True, ["s3_compatible"]):
+            with self.subTest(value=repr(value)[:24]):
+                self.assertQuarantined(external_provider(adapter_type=value))
+
+    def test_authority_must_be_exactly_false(self):
+        for value in (CRED, True, "false", None, 1, [], {}):
+            with self.subTest(value=repr(value)[:24]):
+                self.assertQuarantined(external_provider(authority=value))
+
+    def test_every_authority_flag_must_be_exactly_false(self):
+        flags = {flag: True for flag in AUTHORITY_FLAGS}
+        self.assertQuarantined(
+            external_provider(authority_flags=flags),
+            "a row declared storage_authority: true and the broker admitted it")
+        for flag in AUTHORITY_FLAGS:
+            with self.subTest(flag=flag):
+                one = {name: False for name in AUTHORITY_FLAGS}
+                one[flag] = True
+                self.assertQuarantined(external_provider(authority_flags=one))
+                leaky = {name: False for name in AUTHORITY_FLAGS}
+                leaky[flag] = CRED
+                self.assertQuarantined(external_provider(authority_flags=leaky))
+
+    def test_authority_flags_must_declare_every_flag(self):
+        partial = {flag: False for flag in AUTHORITY_FLAGS[:-1]}
+        self.assertQuarantined(external_provider(authority_flags=partial))
+        for value in (None, CRED, [], 7):
+            with self.subTest(value=repr(value)[:24]):
+                self.assertQuarantined(external_provider(authority_flags=value))
+
+    def test_free_status_is_bounded_on_an_owned_row_too(self):
+        # ``_cost_is_verified_free`` returns True for ``external is False``
+        # before reading anything, so an owned row is where an unchecked value
+        # rides free. The field is required on every row, owned or not.
+        for value in (CRED, "free", "", None, 7):
+            with self.subTest(value=repr(value)[:24]):
+                self.assertQuarantined(local_provider(free_status=value))
+
+    def test_free_status_evidence_is_bounded_on_an_owned_row_too(self):
+        for evidence in (
+                {"evidence_class": "not_applicable", "leak": CRED},
+                {"evidence_class": CRED},
+                {"evidence_class": "not_applicable", "observed_by": CRED},
+                {"evidence_class": "not_applicable", "verified_at": CRED},
+                {"evidence_class": "not_applicable", "evidence_ref": CRED},
+                {},
+                CRED,
+                None,
+        ):
+            with self.subTest(evidence=repr(evidence)[:40]):
+                self.assertQuarantined(local_provider(free_status_evidence=evidence))
+
+    def test_rate_limit_values_are_bounded_not_merely_named(self):
+        for limits in (
+                {"requests_per_minute": CRED},
+                {"bytes_per_day": -5},
+                {"verified": CRED},
+                {"requests_per_minute": True},
+                {"bytes_per_day": 10 ** 30},
+                CRED,
+        ):
+            with self.subTest(limits=repr(limits)[:40]):
+                self.assertQuarantined(external_provider(rate_limits=limits))
+
+    def test_object_size_limit_values_are_bounded_not_merely_named(self):
+        for limits in ({"max_object_bytes": CRED}, {"min_object_bytes": -1},
+                       {"multipart_required_above_bytes": True},
+                       {"max_object_bytes": 10 ** 30}, CRED):
+            with self.subTest(limits=repr(limits)[:40]):
+                self.assertQuarantined(external_provider(object_size_limits=limits))
+
+    def test_list_members_are_bounded_not_merely_the_list(self):
+        for field, value in (
+                ("privacy_classes_allowed", ["PUBLIC", CRED]),
+                ("encryption_required_classes", [CRED]),
+                ("tiers_allowed", ["WARM", CRED]),
+                ("preferred_tiers", [CRED]),
+                ("lifecycle_support", [CRED]),
+                ("privacy_classes_allowed", CRED),
+                ("tiers_allowed", "WARM"),
+        ):
+            with self.subTest(field=field, value=repr(value)[:24]):
+                self.assertQuarantined(external_provider(**{field: value}))
+
+    def test_list_length_and_uniqueness_follow_the_schema(self):
+        for field, value in (
+                ("privacy_classes_allowed",
+                 ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "LOCAL_ONLY", "PUBLIC"]),
+                ("tiers_allowed", ["HOT", "HOT"]),
+                ("preferred_tiers", ["HOT", "WARM", "COLD", "HUMAN_BACKUP",
+                                     "CANONICAL", "METADATA", "HOT"]),
+                ("lifecycle_support", ["a"] * 9),
+        ):
+            with self.subTest(field=field):
+                self.assertQuarantined(external_provider(**{field: value}))
+
+    def test_the_provider_identifier_is_pattern_bounded(self):
+        for value in (CRED, "A" * 300, "Cloudflare-R2", "", "x", 7, None,
+                      "a" * 65):
+            with self.subTest(value=repr(value)[:24]):
+                self.assertQuarantined(external_provider(provider_id=value))
+
+    def test_the_remaining_enums_are_closed(self):
+        for field, value in (
+                ("health", CRED), ("health", 7),
+                ("acceptable_use_class", CRED),
+                ("acceptable_use_class", "bulk-dump"),
+                ("free_status", CRED),
+                ("paid_spillover_possible", CRED),
+                ("paid_spillover_possible", 0),
+        ):
+            with self.subTest(field=field, value=repr(value)[:24]):
+                self.assertQuarantined(external_provider(**{field: value}))
+
+    def test_the_booleans_are_booleans(self):
+        for field in ("external", "hard_stop_verified", "autonomous_write_allowed",
+                      "read_enabled", "write_enabled",
+                      "bulk_object_backend_allowed"):
+            for value in (CRED, 1, "true", []):
+                with self.subTest(field=field, value=repr(value)[:24]):
+                    self.assertQuarantined(external_provider(**{field: value}))
+
+    def test_the_timestamps_are_timestamps(self):
+        for field in ("free_expiry_at", "last_probe_at"):
+            for value in (CRED, "yesterday", 7, True):
+                with self.subTest(field=field, value=repr(value)[:24]):
+                    self.assertQuarantined(external_provider(**{field: value}))
+
+    def test_no_admitted_row_carries_credential_shaped_material_anywhere(self):
+        # The general form of every case above: whatever field it is put in,
+        # a string shaped like a credential never leaves the row HEALTHY.
+        for field in sorted(capacity.PROVIDER_FIELDS):
+            with self.subTest(field=field):
+                self.assertQuarantined(
+                    external_provider(**{field: CRED}),
+                    f"{field}={CRED[:8]}... was admitted")
+
+
+class InjectedClockTests(unittest.TestCase):
+    """Finding 7: ``now`` is an evaluation instant, not a permission boundary."""
+
+    def test_an_unparseable_now_quarantines_rather_than_raising(self):
+        for value in ("not-a-time", "9999-99-99T99:99:99Z", 7, True, [], ""):
+            with self.subTest(value=repr(value)[:24]):
+                self.assertEqual(
+                    capacity.provider_state(external_provider(), now=value),
+                    "QUARANTINED")
+                self.assertEqual(
+                    capacity.usable_headroom_bytes(external_provider(), now=value), 0)
+                self.assertIs(
+                    capacity.admits_write(external_provider(), 1, now=value), False)
+
+    def test_the_module_does_not_claim_the_clock_can_only_narrow(self):
+        # A ``now`` in the past un-expires a free tier, so the invariant the
+        # docstring used to assert was false. The claim is the bug: a reader
+        # who believes it will pass a caller-supplied ``now`` straight through.
+        source = (ROOT / "AI_SKILL_LIBRARY/v4/storage/capacity.py").read_text(
+            encoding="utf-8")
+        row = external_provider(free_status="VERIFIED_FREE",
+                                free_expiry_at="2021-01-01T00:00:00Z",
+                                last_probe_at="2018-01-01T00:00:00Z")
+        self.assertEqual(capacity.provider_state(row, now=NOW), "QUARANTINED")
+        self.assertEqual(
+            capacity.provider_state(row, now="2019-01-01T00:00:00Z"), "HEALTHY",
+            "characterisation: an earlier now genuinely does un-expire a tier, "
+            "which is why the module must not claim otherwise")
+        for claim in ("can only ever narrow", "it never grants one",
+                      "can only narrow"):
+            with self.subTest(claim=claim):
+                self.assertNotIn(claim, source)
+
+
+class ProbeEvidenceTests(unittest.TestCase):
+    """Finding 8: ``last_probe_at`` was pattern-matched and never parsed."""
+
+    def test_a_calendar_impossible_probe_timestamp_is_not_evidence(self):
+        self.assertEqual(
+            capacity.provider_state(
+                external_provider(last_probe_at="9999-99-99T99:99:99Z"), now=NOW),
+            "QUARANTINED")
+
+    def test_a_probe_from_the_future_is_not_evidence(self):
+        for value in ("3000-01-01T00:00:00Z", "2026-09-19T00:00:00Z"):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    capacity.provider_state(
+                        external_provider(last_probe_at=value), now=NOW),
+                    "QUARANTINED")
+
+    def test_a_probe_at_or_before_now_is_still_evidence(self):
+        for value in (NOW, PAST):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    capacity.provider_state(
+                        external_provider(last_probe_at=value), now=NOW),
+                    "HEALTHY")
+
+
+class SchemaSubsetTests(unittest.TestCase):
+    """The structural guard. Drive the field list FROM the schema.
+
+    Findings 1 to 4 are one defect - an allowed field whose value nothing
+    bounds - and it has now reached review three times. A per-field test only
+    closes the fields somebody thought of; this walks
+    ``storage_provider.schema.json`` itself, so a field added to the contract
+    later cannot arrive unchecked.
+    """
+
+    def test_every_schema_property_has_a_declared_value_check(self):
+        self.assertEqual(set(capacity.PROVIDER_VALUE_CHECKS),
+                         set(PROVIDER_SCHEMA["properties"]))
+
+    def test_the_broker_is_never_looser_than_the_schema(self):
+        # For every declared field, a value the schema rejects must not leave
+        # the row in a non-QUARANTINED state. The values are generic rather
+        # than field-specific on purpose: the point is the sweep, not the
+        # cleverness of any single input.
+        hostile = (CRED, "A" * 300, "", None, -1, 10 ** 30, True, 1.5, 1,
+                   [], {}, [CRED], {"leak": CRED}, "unexpected")
+        for field in sorted(PROVIDER_SCHEMA["properties"]):
+            for value in hostile:
+                row = external_provider(**{field: value})
+                if not PROVIDER_VALIDATOR.is_valid(row):
+                    with self.subTest(field=field, value=repr(value)[:24]):
+                        self.assertEqual(
+                            capacity.provider_state(row, now=NOW), "QUARANTINED",
+                            f"{field}={value!r} is refused by the schema and "
+                            "admitted by the broker")
+
+    def test_a_row_the_schema_accepts_is_not_gratuitously_refused(self):
+        # The other direction, so "quarantine everything" is not a passing
+        # implementation: the admitted fixture validates and is HEALTHY.
+        self.assertEqual(schema_errors(external_provider()), [])
+        self.assertEqual(capacity.provider_state(external_provider(), now=NOW),
+                         "HEALTHY")
+        self.assertEqual(schema_errors(local_provider()), [])
+        self.assertEqual(capacity.provider_state(local_provider(), now=NOW),
+                         "HEALTHY")
+
+
 if __name__ == "__main__":
     unittest.main()

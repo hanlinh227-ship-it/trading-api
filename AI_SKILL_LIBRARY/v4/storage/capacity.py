@@ -34,6 +34,22 @@ compute - each of them is QUARANTINED. "We have not looked" and "we looked and
 it is bad" produce the same refusal, which is the only arrangement in which the
 first of the two cannot quietly be spent.
 
+**A closed key set is not a bound.** The row's field set is the contract's,
+and then *every declared field's value* is checked against the type, enum,
+pattern or range the schema gives it - nested objects included. Closing the key
+set alone bounds which fields exist, not what fits inside them, and an allowed
+field whose value nothing bounds is a field wide enough to carry a credential
+on every row in the registry. The checkers are ``manifest.py``'s rather than a
+third copy of them, and ``PROVIDER_VALUE_CHECKS`` is driven off the schema's
+property set by the tests, so a field added to the contract later cannot arrive
+unchecked.
+
+**The clock is an input, not a permission.** ``now`` is injectable so that the
+answer is reproducible; it is not a boundary and it does not only narrow, since
+an instant set in the past un-expires a lapsed free tier. It must come from the
+mesh and never from anything being judged. An instant that cannot be resolved
+quarantines rather than raising.
+
 **The limits are integer arithmetic.** Spec S10 sets SOFT_LIMIT 80%,
 HARD_LIMIT 92% and EMERGENCY_RESERVE 5%. The comparisons are done by scaling to
 ten-thousandths and comparing whole numbers, because a threshold that moves
@@ -53,6 +69,10 @@ from __future__ import annotations
 import datetime as _datetime
 import re
 from collections.abc import Mapping
+
+from AI_SKILL_LIBRARY.v4.storage import PRIVACY_CLASSES as _PRIVACY_CLASSES
+from AI_SKILL_LIBRARY.v4.storage import STORAGE_TIERS as _STORAGE_TIERS
+from AI_SKILL_LIBRARY.v4.storage import manifest as _manifest
 
 #: This module holds no authority of any kind. Denied by name rather than by
 #: omission, so a later edit cannot acquire one by adding a key.
@@ -143,44 +163,6 @@ REQUIRED_PROVIDER_FIELDS = frozenset({
     "authority", "authority_flags",
 })
 
-#: The closed field sets of the schema's nested objects. A key outside one of
-#: these never validated either, and a nested object is the obvious second
-#: place to try hiding an undeclared string once the top level refuses one.
-_EVIDENCE_FIELDS = frozenset({
-    "evidence_class", "verified_at", "evidence_ref", "observed_by",
-})
-_OBJECT_SIZE_LIMIT_FIELDS = frozenset({
-    "max_object_bytes", "min_object_bytes", "multipart_required_above_bytes",
-})
-_RATE_LIMIT_FIELDS = frozenset({"requests_per_minute", "bytes_per_day", "verified"})
-_AUTHORITY_FLAG_FIELDS = frozenset(AUTHORITY_FLAGS)
-
-#: The provider record's free-form string fields, as opposed to its enums. Each
-#: one is a ``class_token`` in the schema: at most 40 characters, lower-case,
-#: and explicitly not a long hex run. They are checked here because an allowed
-#: *unbounded* string is how a credential gets into a record that otherwise has
-#: no field wide enough to hold one.
-_CLASS_TOKEN_FIELDS = ("quota_reset_semantics", "retention_policy_class")
-_CLASS_TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,39}\Z")
-_HEX_TOKEN_RE = re.compile(r"^[0-9a-f]{16,}\Z")
-
-#: ``\Z`` rather than ``$`` throughout. Python's ``$`` also matches immediately
-#: before a final newline, and JSON Schema's does not, so a mirrored pattern
-#: anchored with ``$`` is looser than the contract it claims to mirror.
-_TIMESTAMP_RE = re.compile(
-    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
-    r"([.][0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})\Z")
-
-#: The schema caps an evidence reference at 200 characters. The second
-#: alternative is quantified rather than left open: ``[A-Za-z0-9._/-]`` is a
-#: superset of URL-safe base64 and of hex, so an unbounded run there is a field
-#: that can carry a key. Bounded here and length-checked below.
-_EVIDENCE_REF_MAX = 200
-_EVIDENCE_REF_RE = re.compile(
-    r"^(?:[a-z][a-z0-9+.-]{1,31}://[A-Za-z0-9][A-Za-z0-9._~:/-]{2,180}"
-    r"|[A-Za-z0-9][A-Za-z0-9._/-]{0,150}/[A-Za-z0-9][A-Za-z0-9._-]{0,60}"
-    r"[.][A-Za-z0-9]{1,16})\Z")
-
 #: The largest quota the schema will hold, so an absurd number is refused here
 #: too rather than turning into an absurd amount of headroom.
 _MAX_QUOTA_BYTES = 1125899906842624
@@ -205,13 +187,14 @@ def _is_byte_count(value):
             and 0 <= value <= _MAX_QUOTA_BYTES)
 
 
-def _valid_timestamp(value):
-    return isinstance(value, str) and bool(_TIMESTAMP_RE.match(value))
-
-
 def _parse_instant(value):
-    """Parse an RFC 3339 instant into an aware datetime, or None."""
-    if not _valid_timestamp(value):
+    """Parse an RFC 3339 instant into an aware datetime, or None.
+
+    Pattern *and* parse. ``9999-99-99T99:99:99Z`` satisfies the pattern and is
+    not a moment in any calendar, so a timestamp that is only ever matched is a
+    timestamp nothing bounds.
+    """
+    if not (isinstance(value, str) and _TIMESTAMP_RE.match(value)):
         return None
     try:
         parsed = _datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -222,70 +205,291 @@ def _parse_instant(value):
     return parsed
 
 
-def _now(now):
-    """The one clock input, and it is injectable.
+def _clock(now):
+    """Resolve the one clock input, or ``None`` when it cannot be resolved.
 
-    The free-tier expiry check is the only time-dependent decision in the
-    broker, and it can only ever narrow: a date in the past withdraws a
-    permission, it never grants one. Callers that need a reproducible answer -
-    every test here, and the placement engine - pass ``now`` explicitly.
+    ``now`` is the *evaluation instant*, and it is injectable so that every
+    test here and the placement engine get a reproducible answer. Two things
+    about it are worth stating plainly, because an earlier version of this
+    docstring claimed something false and a reader who believed it would pass a
+    caller-supplied ``now`` straight through:
+
+    * it is **not** a permission boundary and it does **not** only narrow. A
+      ``now`` set in the past un-expires a free tier that has already lapsed,
+      which is a widening. Choosing the instant is a decision the caller owns,
+      so the caller must own the instant: ``now`` comes from the mesh, never
+      from a registry row, a provider response or anything else being judged;
+    * an instant that cannot be resolved is not an instant. It quarantines -
+      every state, zero headroom, no write - rather than raising, because Spec
+      S14 requires this lane to degrade rather than crash and a broker that
+      throws from the middle of a report takes the explanation down with it.
     """
     if now is None:
         return _datetime.datetime.now(_datetime.timezone.utc)
     if isinstance(now, _datetime.datetime):
         return now if now.tzinfo else now.replace(tzinfo=_datetime.timezone.utc)
-    parsed = _parse_instant(now)
-    if parsed is None:
-        raise ValueError("now must be an RFC 3339 instant or a datetime")
-    return parsed
+    return _parse_instant(now)
+
+#: manifest.py already carries correct, bounded, tested checkers for every
+#: shape this record uses - class tokens, timestamps, evidence references,
+#: bounded integers, and the credential-shape scan over values. capacity.py and
+#: placement.py had each grown a weaker copy and dropped bounds along the way,
+#: which is how findings 1 to 3 happened. They are *reused* here rather than
+#: maintained a third time. Several of them are private to manifest.py and are
+#: bound deliberately, at this one site, so the coupling is a single import
+#: block a reader can see: manifest.py should export them.
+_check_bounded_int = _manifest._check_bounded_int
+_check_evidence_ref = _manifest._check_evidence_ref
+assert_no_credential_material = _manifest.assert_no_credential_material
+
+#: ``\Z`` rather than ``$`` throughout. Python's ``$`` also matches immediately
+#: before a final newline, and JSON Schema's does not, so a mirrored pattern
+#: anchored with ``$`` is looser than the contract it claims to mirror. These
+#: are manifest.py's patterns, not second copies of them.
+_CLASS_TOKEN_RE = _manifest._CLASS_TOKEN_RE
+_HEX_TOKEN_RE = _manifest._HEX_TOKEN_RE
+_TIMESTAMP_RE = _manifest._TIMESTAMP_RE
+
+#: The closed enums of ``storage_provider.schema.json``. Mirrored here for a
+#: stable import-time constant exactly as the package vocabularies are, and
+#: ``test_storage_capacity`` walks the schema and asserts every one of them
+#: agrees - the drift guard is the test, not the comment.
+ADAPTER_TYPES = (
+    "local_filesystem", "s3_compatible", "huggingface_hub", "google_drive_api",
+    "microsoft_graph_api", "dropbox_api", "supabase_metadata",
+)
+FREE_STATUSES = (
+    "UNVERIFIED", "DOCUMENTED_ONLY", "VERIFIED_FREE", "VERIFIED_RECURRING_FREE",
+    "PAID_ONLY", "FREE_EXPIRED", "NOT_APPLICABLE",
+)
+ACCEPTABLE_USE_CLASSES = (
+    "owned-storage", "object-storage", "ai-artifacts-only",
+    "human-backup-only", "metadata-index-only",
+)
+EVIDENCE_CLASSES = (
+    "none", "provider_documentation", "runtime_account_evidence",
+    "not_applicable",
+)
+
+#: The schema's own numeric ceilings, per field rather than one global number:
+#: ``requests_per_minute`` stops at a million and an object at a terabyte, and
+#: reading them all as "some large int" is how a bound stops being a bound.
+_MAX_OBJECT_BYTES = 1099511627776
+_MAX_REQUESTS_PER_MINUTE = 1000000
 
 
-def _is_class_token(value):
+# The bounded-value combinators below are the lane's shared vocabulary rather
+# than this module's private one: ``placement.py`` builds its own per-field
+# table out of exactly these, because two modules that bound the same shape
+# differently are two modules neither of which bounds it. Anything with a
+# checked-in checker in ``manifest.py`` is taken from there instead.
+
+
+def is_bool(value):
+    """Exactly ``True`` or ``False``. ``1`` is not a boolean to any validator."""
+    return value is True or value is False
+
+
+def is_class_token(value):
     """At most 40 lower-case characters, and not a long opaque hex run."""
     return (isinstance(value, str) and bool(_CLASS_TOKEN_RE.match(value))
             and not _HEX_TOKEN_RE.match(value))
 
 
-def _closed(value, fields):
-    """A nested object is absent, or a mapping with no key outside ``fields``."""
-    if value is None:
-        return True
-    return isinstance(value, Mapping) and not (set(value) - fields)
+def is_timestamp(value):
+    """RFC 3339 by pattern *and* by parse.
+
+    The pattern alone accepts ``9999-99-99T99:99:99Z``, which is not a moment
+    in any calendar; a field checked by regex and never parsed is a field whose
+    value nothing bounds.
+    """
+    return (isinstance(value, str) and bool(_TIMESTAMP_RE.match(value))
+            and _parse_instant(value) is not None)
+
+
+def passes(check, value, *, field):
+    """Adapt one of manifest.py's raising checkers to a predicate."""
+    try:
+        check(value, field=field)
+    except ValueError:
+        return False
+    return True
+
+
+def nullable(check):
+    """The schema writes several fields as ``["integer", "null"]``.
+
+    ``null`` is a declared value and means "unknown"; every caller here already
+    treats unknown as a refusal, so it is admitted as a shape and refused as an
+    answer. It is not the same as the field being outside its type.
+    """
+    return lambda value: value is None or check(value)
+
+
+def string_enum(allowed):
+    return lambda value: isinstance(value, str) and value in allowed
+
+
+def bounded_int(low, high):
+    return lambda value: passes(
+        lambda v, *, field: _check_bounded_int(v, low, high, field=field),
+        value, field="value")
+
+
+def enum_array(allowed, max_items):
+    """An array whose *members* are checked, not merely its membership.
+
+    ``privacy_classes_allowed=["PUBLIC", <2KB>]`` passed a "is the class in the
+    list" test every time, because the test read the list and never read what
+    was in it.
+    """
+    def check(value):
+        if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, (list, tuple)):
+            return False
+        if len(value) > max_items or len(set(value)) != len(value):
+            return False
+        return all(isinstance(item, str) and item in allowed for item in value)
+    return check
+
+
+def token_array(max_items):
+    def check(value):
+        if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, (list, tuple)):
+            return False
+        if len(value) > max_items or len(set(value)) != len(value):
+            return False
+        return all(is_class_token(item) for item in value)
+    return check
+
+
+def checked_mapping(checks, *, required=()):
+    """A nested object: closed key set *and* a checker for every value.
+
+    The key set alone was the whole of the old check, which is the defect this
+    module is being fixed for. ``None`` is not admitted: the schema types these
+    as objects, and an absent nested object is absent, not null.
+    """
+    def check(value):
+        if not isinstance(value, Mapping):
+            return False
+        if set(value) - set(checks):
+            return False
+        if set(required) - set(value):
+            return False
+        return all(checks[key](nested) for key, nested in value.items())
+    return check
+
+
+def is_provider_id(value):
+    """The schema's ``provider_id``: 2 to 64 lower-case, underscore-only.
+
+    Defined once, here, and used by ``placement`` too - a registry key that two
+    modules bound differently is a registry key neither of them bounds.
+    """
+    return isinstance(value, str) and bool(_PROVIDER_ID_RE.match(value))
+
+
+_PROVIDER_ID_RE = re.compile(r"^[a-z][a-z0-9_]{1,63}\Z")
+
+_EVIDENCE_CHECKS = {
+    "evidence_class": string_enum(EVIDENCE_CLASSES),
+    "verified_at": is_timestamp,
+    "evidence_ref": lambda value: passes(
+        _check_evidence_ref, value, field="evidence_ref"),
+    "observed_by": is_class_token,
+}
+
+_OBJECT_SIZE_LIMIT_CHECKS = {
+    field: nullable(bounded_int(0, _MAX_OBJECT_BYTES))
+    for field in ("max_object_bytes", "min_object_bytes",
+                  "multipart_required_above_bytes")
+}
+
+_RATE_LIMIT_CHECKS = {
+    "requests_per_minute": nullable(bounded_int(0, _MAX_REQUESTS_PER_MINUTE)),
+    "bytes_per_day": nullable(bounded_int(0, _MAX_QUOTA_BYTES)),
+    "verified": is_bool,
+}
+
+#: Every flag is ``const: false`` in the schema. Denied by name rather than by
+#: omission on the record too, so a row cannot declare ``storage_authority:
+#: true`` and be admitted by a broker that only checked the key set.
+_AUTHORITY_FLAG_CHECKS = {
+    flag: lambda value: value is False for flag in AUTHORITY_FLAGS
+}
+
+
+def _is_spillover(value):
+    """Tri-state: ``true``, ``false`` or the string ``"unknown"``.
+
+    ``0`` and ``1`` are not booleans here, and anything else is not the enum.
+    """
+    return value is True or value is False or (
+        isinstance(value, str) and value == "unknown")
+
+
+#: One checker per property of ``storage_provider.schema.json``. A table rather
+#: than a run of ``if`` statements so that *completeness is checkable*: the
+#: tests walk the schema's property set and assert every one of them has an
+#: entry here. This is the fix for the class rather than for the instances -
+#: a field added to the contract later cannot arrive unchecked, because the
+#: structural test fails the moment the two sets differ.
+PROVIDER_VALUE_CHECKS = {
+    "provider_id": is_provider_id,
+    "adapter_type": string_enum(ADAPTER_TYPES),
+    "external": is_bool,
+    "free_status": string_enum(FREE_STATUSES),
+    "free_status_evidence": checked_mapping(_EVIDENCE_CHECKS,
+                                     required=("evidence_class",)),
+    "free_expiry_at": nullable(is_timestamp),
+    "quota_reset_semantics": is_class_token,
+    "quota_total": nullable(bounded_int(0, _MAX_QUOTA_BYTES)),
+    "quota_used": nullable(bounded_int(0, _MAX_QUOTA_BYTES)),
+    "quota_reserved": nullable(bounded_int(0, _MAX_QUOTA_BYTES)),
+    "hard_stop_verified": is_bool,
+    "paid_spillover_possible": _is_spillover,
+    "privacy_classes_allowed": enum_array(_PRIVACY_CLASSES, 4),
+    "encryption_required_classes": enum_array(_PRIVACY_CLASSES, 4),
+    "health": string_enum(PROVIDER_STATES),
+    "autonomous_write_allowed": is_bool,
+    "read_enabled": is_bool,
+    "write_enabled": is_bool,
+    "bulk_object_backend_allowed": is_bool,
+    "tiers_allowed": enum_array(_STORAGE_TIERS, 6),
+    "preferred_tiers": enum_array(_STORAGE_TIERS, 6),
+    "object_size_limits": checked_mapping(_OBJECT_SIZE_LIMIT_CHECKS),
+    "rate_limits": checked_mapping(_RATE_LIMIT_CHECKS),
+    "lifecycle_support": token_array(8),
+    "retention_policy_class": is_class_token,
+    "acceptable_use_class": string_enum(ACCEPTABLE_USE_CLASSES),
+    "last_probe_at": nullable(is_timestamp),
+    "authority": lambda value: value is False,
+    "authority_flags": checked_mapping(_AUTHORITY_FLAG_CHECKS,
+                                required=tuple(AUTHORITY_FLAGS)),
+}
 
 
 def _is_record(provider):
     """A mapping shaped like the contract, all the way down.
 
-    Keys exactly the contract's - no more, no fewer - nested objects closed the
-    same way, and every free-form string bounded. A row that fails any of these
-    is a row that never validated against ``storage_provider.schema.json``, and
-    a broker that reasons about one anyway is reasoning about a document nobody
-    agreed to.
+    Keys exactly the contract's - no more, no fewer - and then *every declared
+    field's value* against the type, enum, pattern or range the schema gives
+    it, nested objects included. The key set alone was the old check, and a
+    closed key set bounds which fields exist, not what fits inside them: an
+    allowed field whose value nothing bounds is a field wide enough for a
+    credential, and it is the same defect whichever field it is.
+
+    A row that fails any of this is a row that never validated against
+    ``storage_provider.schema.json``, and a broker that reasons about one
+    anyway is reasoning about a document nobody agreed to.
     """
     if not isinstance(provider, Mapping):
         return False
     keys = set(provider)
     if (keys - PROVIDER_FIELDS) or (REQUIRED_PROVIDER_FIELDS - keys):
         return False
-
-    if not _closed(provider.get("object_size_limits"), _OBJECT_SIZE_LIMIT_FIELDS):
-        return False
-    if not _closed(provider.get("rate_limits"), _RATE_LIMIT_FIELDS):
-        return False
-    if not _closed(provider.get("authority_flags"), _AUTHORITY_FLAG_FIELDS):
-        return False
-
-    for field in _CLASS_TOKEN_FIELDS:
-        value = provider.get(field)
-        if value is not None and not _is_class_token(value):
-            return False
-    support = provider.get("lifecycle_support")
-    if support is not None:
-        if isinstance(support, str) or not isinstance(support, (list, tuple)):
-            return False
-        if not all(_is_class_token(item) for item in support):
-            return False
-    return True
+    return all(PROVIDER_VALUE_CHECKS[field](value)
+               for field, value in provider.items())
 
 
 def _quota(provider):
@@ -315,12 +519,18 @@ def _quota(provider):
     return total, committed
 
 
-def _cost_is_verified_free(provider, now):
+def _cost_is_verified_free(provider, clock):
     """Spec S11. Is writing here provably free, for this account, today?
 
     Owned storage is exempt because nobody bills a disk we already have. Every
     other answer - including "we have not looked" - is no.
+
+    ``clock`` is already resolved. The *shape* of every field read here has
+    been settled by ``_is_record``; what is left is the evidence question.
     """
+    if clock is None:
+        return False
+
     external = provider.get("external")
     if external is False:
         return True
@@ -332,18 +542,14 @@ def _cost_is_verified_free(provider, now):
         return False
 
     evidence = provider.get("free_status_evidence")
-    if not _closed(evidence, _EVIDENCE_FIELDS) or evidence is None:
-        return False
-    observed_by = evidence.get("observed_by")
-    if observed_by is not None and not _is_class_token(observed_by):
+    if not isinstance(evidence, Mapping):
         return False
     if evidence.get("evidence_class") != "runtime_account_evidence":
         return False
-    if not _valid_timestamp(evidence.get("verified_at")):
-        return False
-    ref = evidence.get("evidence_ref")
-    if not isinstance(ref, str) or len(ref) > _EVIDENCE_REF_MAX \
-            or not _EVIDENCE_REF_RE.match(ref):
+    # Spec S16/S20: a VERIFIED_* status is reachable only with a dated,
+    # referenced observation. Both are optional to the schema and neither is
+    # optional here.
+    if "verified_at" not in evidence or "evidence_ref" not in evidence:
         return False
 
     if provider.get("hard_stop_verified") is not True:
@@ -364,30 +570,40 @@ def _cost_is_verified_free(provider, now):
     parsed = _parse_instant(expiry)
     if parsed is None:
         return False
-    return parsed > _now(now)
+    return parsed > clock
 
 
 def provider_state(provider, *, now=None):
     """Spec S10: which runtime state this provider row is in.
 
     Always one of ``PROVIDER_STATES``. Everything unknown, undeclared,
-    unprobed, unverified or incoherent is ``QUARANTINED``.
+    unprobed, unverified or incoherent is ``QUARANTINED`` - including an
+    evaluation instant that cannot be resolved, which refuses rather than
+    raises.
     """
+    clock = _clock(now)
+    if clock is None:
+        return "QUARANTINED"
     if not _is_record(provider):
         return "QUARANTINED"
 
     declared = provider.get("health")
-    if declared not in PROVIDER_STATES:
-        return "QUARANTINED"
     if declared == "QUARANTINED":
         return "QUARANTINED"
 
     # A health value with no probe behind it is a claim, not evidence. Matching
-    # mesh_validator, which refuses the same pairing in the registry.
-    if not _valid_timestamp(provider.get("last_probe_at")):
+    # mesh_validator, which refuses the same pairing in the registry. The
+    # timestamp is parsed rather than merely matched, and a probe dated after
+    # the evaluation instant is not evidence either: the calendar-impossible
+    # ``9999-99-99T99:99:99Z`` and the simply-untrue ``3000-01-01T00:00:00Z``
+    # were both accepted as freshness while the field was only pattern-checked.
+    # The spec sets no staleness window, so none is invented here; a probe from
+    # the past is still a probe.
+    probe = _parse_instant(provider.get("last_probe_at"))
+    if probe is None or probe > clock:
         return "QUARANTINED"
 
-    if not _cost_is_verified_free(provider, now):
+    if not _cost_is_verified_free(provider, clock):
         return "QUARANTINED"
 
     quota = _quota(provider)
@@ -474,5 +690,10 @@ __all__ = [
     "PROVIDER_STATES", "WRITABLE_STATES", "VERIFIED_FREE_STATUSES",
     "RECURRING_FREE_STATUS", "SOFT_LIMIT_RATIO", "HARD_LIMIT_RATIO",
     "EMERGENCY_RESERVE_RATIO", "PROVIDER_FIELDS", "REQUIRED_PROVIDER_FIELDS",
+    "PROVIDER_VALUE_CHECKS", "ADAPTER_TYPES", "FREE_STATUSES",
+    "ACCEPTABLE_USE_CLASSES", "EVIDENCE_CLASSES", "is_provider_id",
+    "is_bool", "is_class_token", "is_timestamp", "passes", "nullable",
+    "string_enum", "bounded_int", "enum_array", "token_array",
+    "checked_mapping",
     "provider_state", "usable_headroom_bytes", "admits_write",
 ]
