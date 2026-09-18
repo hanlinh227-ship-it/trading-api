@@ -81,7 +81,7 @@ export const BYBIT_AUTO_CONFIG={
   scan:{decisionAuthority:'EVENT_DRIVEN_BTCUSDT_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
   aiLegion:{enabledByDefault:true,demoAuto:true,liveRequiresExplicitAck:true,liveAckEnv:'BYBIT_AI_LEGION_LIVE_ENABLED',modelMeshRequired:true,requiredDistinctWorkers:3,maxDistinctWorkers:4,authority:'ADVISORY_EVIDENCE_ONLY',mayIncreaseRisk:false,mayPlaceOrders:false,mayOverrideStateFlow:false},
   risk:{
-    mode:'ADAPTIVE_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',fullAccountAuthority:true,
+    mode:'PROGRESSIVE_COMPOUNDING_WITH_DRAWDOWN_CONTRACTION',fullAccountAuthority:true,compoundContinuously:true,riskGrowsWithCapital:true,riskShrinksWithDrawdown:true,
     baseEntryRiskPct:.75,strongEntryRiskPct:1.00,aPlusEntryRiskPct:1.25,absoluteSingleEntryRiskPct:1.50,
     maxActiveRiskPct:6.0,temporaryAPlusActiveRiskPct:8.0,maxPortfolioMarginPct:65,maxMarginPerPositionPct:65,minFreeReservePct:25,
     addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,maxSameDirectionPositions:1,riskRecycleAfterProtection:true,
@@ -90,16 +90,38 @@ export const BYBIT_AUTO_CONFIG={
     tierUpgradeMinR:.24,
     tierUpgradeMaxRemainingRiskPct:62,
     capitalBase:{enabled:true,unrealizedProfitCreditPct:25,useLowerOfBalanceAndEquityOnDrawdown:true,continuousTimeScale:true,smoothingHalfLifeMs:900000,instantDownside:true},
-    equityScale:{enabled:true,anchorUsd:39,steps:[
-      {equityUsd:39,riskMult:1.00,marginCapPct:65},
-      {equityUsd:50,riskMult:1.00,marginCapPct:65},
-      {equityUsd:75,riskMult:1.00,marginCapPct:65},
-      {equityUsd:100,riskMult:1.00,marginCapPct:65},
-      {equityUsd:150,riskMult:1.00,marginCapPct:65},
-      {equityUsd:250,riskMult:1.00,marginCapPct:65},
-      {equityUsd:500,riskMult:1.00,marginCapPct:65}
-    ],maxRiskMult:1.00,maxMarginCapPct:65},
-    drawdownGovernor:[{ddPct:5,multiplier:.80},{ddPct:10,multiplier:.55},{ddPct:15,multiplier:.30},{ddPct:20,multiplier:0}]
+    equityScale:{
+      enabled:true,
+      authority:'PROGRESSIVE_COMPOUNDING_REALIZED_CAPITAL_FIRST',
+      anchorUsd:39,
+      steps:[
+        {equityUsd:39,riskMult:.75,marginCapPct:65},
+        {equityUsd:50,riskMult:.80,marginCapPct:65},
+        {equityUsd:75,riskMult:.88,marginCapPct:65},
+        {equityUsd:100,riskMult:.95,marginCapPct:65},
+        {equityUsd:150,riskMult:1.00,marginCapPct:65},
+        {equityUsd:250,riskMult:1.05,marginCapPct:65},
+        {equityUsd:500,riskMult:1.10,marginCapPct:65},
+        {equityUsd:1000,riskMult:1.16,marginCapPct:65},
+        {equityUsd:2500,riskMult:1.22,marginCapPct:65},
+        {equityUsd:5000,riskMult:1.28,marginCapPct:65},
+        {equityUsd:10000,riskMult:1.32,marginCapPct:65},
+        {equityUsd:25000,riskMult:1.35,marginCapPct:65}
+      ],
+      maxRiskMult:1.35,
+      maxMarginCapPct:65,
+      scaleUpOnRealizedCapital:true,
+      unrealizedProfitCreditLimitedByCapitalBase:true,
+      instantDownscaleOnEquityLoss:true
+    },
+    drawdownGovernor:[
+      {ddPct:2,multiplier:.92},
+      {ddPct:5,multiplier:.80},
+      {ddPct:8,multiplier:.65},
+      {ddPct:10,multiplier:.55},
+      {ddPct:15,multiplier:.30},
+      {ddPct:20,multiplier:0}
+    ]
   },
   positionControl:{
     authority:'MULTI_STAGE_THESIS_INVALIDATION_HOLD_WINNERS',
