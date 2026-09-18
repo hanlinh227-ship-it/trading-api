@@ -22,6 +22,15 @@
 name: Production Golden E2E
 
 on:
+  # A workflow that exists only on a feature branch is not dispatchable by name
+  # - the API answers 404 until it reaches the default branch. So the trigger is
+  # a push that touches THIS FILE, on this branch only. That keeps the job
+  # deliberate rather than ambient: ordinary commits do not start a 60-minute
+  # inference run, and re-running it is an explicit edit to the workflow itself.
+  # `workflow_dispatch` stays for when this reaches the default branch.
+  push:
+    branches: [claude/magical-euler-uu98r8]
+    paths: ['.github/workflows/production-golden-e2e.yml']
   workflow_dispatch:
     inputs:
       model_id:
