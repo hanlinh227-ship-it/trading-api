@@ -27,6 +27,50 @@
 
 ---
 
+### Task 0: Make canonical CI collect every merged closure test
+
+**Files:**
+- Modify: `.github/workflows/ai-skill-library-ci.yml`
+
+**Interfaces:**
+- Consumes: the existing four pytest-style closure test modules.
+- Produces: canonical CI evidence that all 41 module-level tests actually execute on every relevant PR/push.
+
+- [ ] **Step 1: Add one focused pytest collection/execution step after canonical `ci_validate.py`**
+
+Install pytest only in this CI job, without changing runtime/library dependencies:
+
+```bash
+python -m pip install 'pytest>=8,<9'
+```
+
+Then run exactly:
+
+```bash
+python -m pytest -q \
+  AI_SKILL_LIBRARY/tests/test_survival_plane_proof.py \
+  AI_SKILL_LIBRARY/tests/test_survival_recovery.py \
+  AI_SKILL_LIBRARY/tests/test_always_on_retry.py \
+  AI_SKILL_LIBRARY/tests/test_always_on_reconciler.py
+```
+
+- [ ] **Step 2: Verify the pytest step reports 41 collected tests**
+
+Expected: 41 tests collected and all pass.
+
+- [ ] **Step 3: Keep the existing unittest-based `ci_validate.py` path unchanged**
+
+Do not replace unittest globally and do not rewrite assertions merely to satisfy the collector.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add .github/workflows/ai-skill-library-ci.yml
+git commit -m "ci(ai-core): execute pytest-only closure tests"
+```
+
+---
+
 ### Task 1: Add the fail-closed six-gate aggregator
 
 **Files:**
@@ -317,95 +361,73 @@ git commit -m "feat(ai-core): seal closure evidence on one revision"
 
 ---
 
-### Task 5: Add a fail-closed real Front Door canary contract
+### Task 5: Reuse and harden the existing production Front Door canary
 
 **Files:**
-- Create: `cloudflare-worker/front-door-live-canary.mjs`
-- Create: `cloudflare-worker/test-front-door-live-canary.mjs`
-- Modify only if necessary for test exposure: existing Front Door handler modules under `cloudflare-worker/`
+- Modify: `cloudflare-worker/validate-universal-canary.mjs`
+- Modify: `cloudflare-worker/test-universal-canary.mjs`
+- Create only if needed for evidence normalization: `AI_SKILL_LIBRARY/v4/tools/front_door_readiness_proof.py`
+- Test only if that proof tool is created: `AI_SKILL_LIBRARY/tests/test_front_door_readiness_proof.py`
 
 **Interfaces:**
-- Consumes: live Front Door base URL, authorized account/client token supplied only through environment, and a dedicated canary project id.
+- Consumes: existing authorized production canary results from `validate-universal-canary.mjs` plus an external/native ChatGPT account-authorization proof when the platform makes one available.
 - Produces: `CHECKPOINTS/evidence/FRONT_DOOR_LIVE_CANARY.json` with gate name `FRONT_DOOR_READY`.
 
-- [ ] **Step 1: Write fail-closed tests**
+- [ ] **Step 1: Preserve the already-proven production checks**
 
-Test these cases with mocked fetch:
-
-1. missing authorization env => false;
-2. bootstrap HTTP failure => false;
-3. project-state read/write mismatch => false;
-4. session A write then session B resume mismatch => false;
-5. expected version-conflict request does not return 409 => false;
-6. all live-path expectations pass => true.
-
-The unit test may prove the canary logic, but it must not itself create production-ready evidence.
-
-- [ ] **Step 2: Run Node test and verify RED**
-
-```bash
-cd cloudflare-worker
-node --test test-front-door-live-canary.mjs
-```
-
-Expected: module-not-found before implementation.
-
-- [ ] **Step 3: Implement the live canary**
-
-The canary must execute the real sequence:
+Do not duplicate or remove the existing canary checks for:
 
 ```text
-authorized bootstrap
-→ deterministic project resolution
-→ read project state
-→ write a unique canary revision
-→ create a fresh logical session
-→ bootstrap/resume from that fresh session
-→ attempt stale-version write and require HTTP 409
-→ read final state
+/brain/universal/health exact source SHA
+all user adapters
+project-state read
+project-state write
+independent Claude bootstrap/resume
+stale expected_version -> HTTP 409
+project isolation
+high-risk fail-closed behavior
 ```
 
-It must redact tokens and fail closed if any expected response, project id, revision, or state marker differs.
+- [ ] **Step 2: Add anti-cache proof to the existing request helper**
 
-Only a run with real authorization and real production endpoint may emit `ready=true`.
+Add a per-run unpredictable public canary nonce that is safe to log and send it as a request header or query parameter together with `cache-control: no-store`. Tests must assert each live canary request carries the anti-cache marker and that the marker contains no secret/token material.
 
-- [ ] **Step 4: Run Node tests**
+- [ ] **Step 3: Keep native account authorization fail-closed**
 
-```bash
-cd cloudflare-worker
-node --test test-front-door-live-canary.mjs
-```
+The repository can prove service-principal adapter authentication but cannot prove native ChatGPT account/platform authorization by itself.
 
-Expected: green.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add cloudflare-worker/front-door-live-canary.mjs cloudflare-worker/test-front-door-live-canary.mjs
-git commit -m "feat(front-door): add fail-closed live production canary"
-```
-
-- [ ] **Step 6: Execute the real canary only after platform authorization exists**
-
-Run through the repository's authorized operational environment, never by placing secrets in source or chat.
-
-Expected production evidence:
+The normalized Front Door evidence must therefore remain:
 
 ```json
 {
-  "source_sha": "<exact integrated sha>",
   "gate": "FRONT_DOOR_READY",
-  "ready": true,
-  "proofs": [
-    "authorized_bootstrap",
-    "project_state_round_trip",
-    "fresh_session_resume",
-    "stale_version_409"
-  ]
+  "ready": false
 }
 ```
 
-Without this real evidence, keep Front Door false and continue other closure work.
+until both the live canary passes on the exact source SHA and a real platform/native-account authorization proof is supplied.
+
+- [ ] **Step 4: Run the existing canary tests**
+
+```bash
+cd cloudflare-worker
+node test-universal-canary.mjs
+```
+
+Expected: green, including new anti-cache assertions.
+
+- [ ] **Step 5: Execute the real production canary through the existing authorized deployment workflow**
+
+Do not paste tokens into source or chat. The production run must prove the exact deployed source SHA.
+
+- [ ] **Step 6: Commit only the minimal canary hardening**
+
+```bash
+git add cloudflare-worker/validate-universal-canary.mjs cloudflare-worker/test-universal-canary.mjs
+git commit -m "test(front-door): harden live canary against cached proof"
+```
+
+If a separate evidence-normalization tool is necessary, commit it with its focused test in the same task.
 
 ---
 
