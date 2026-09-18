@@ -53,14 +53,17 @@ The Legion never becomes a second trading authority. Final chain:
 `Cloudflare Bybit WebSocket event -> StateFlow setup -> AI Legion evidence gate -> deterministic Risk Governor -> direct Bybit REST execution -> fill/protection reconciliation`.
 
 ## SCALE / RISK
-- Continuous equity compounding.
-- Unlimited strategic trade count; actual entries are constrained by risk/margin/market state, not a daily quota.
-- Normal/Strong/A+ risk: 0.75% / 1.00% / 1.25%; hard single entry 1.50%.
+- Progressive continuous compounding: dollar risk grows automatically with the capital base and the percentage multiplier increases gradually only at larger realized-capital tiers.
+- Scale-up is realized-capital-first. Unrealized profit receives only the bounded capital-base credit already defined by the risk engine, so a temporary floating winner cannot instantly unlock a large risk jump.
+- Equity-scale multiplier: $39=0.75x, $50=0.80x, $75=0.88x, $100=0.95x, $150=1.00x, $250=1.05x, $500=1.10x, $1k=1.16x, $2.5k=1.22x, $5k=1.28x, $10k=1.32x, $25k+=1.35x.
+- Normal/Strong/A+ base risk remains 0.75% / 1.00% / 1.25%; hard single-entry cap remains 1.50%, so growth cannot widen the absolute per-entry ceiling beyond authority.
+- Losses contract risk twice: the capital base falls immediately and the drawdown multiplier reduces percentage risk.
+- DD governor: 2% x0.92, 5% x0.80, 8% x0.65, 10% x0.55, 15% x0.30, 20% new-risk lock.
 - Active risk 6% normal, 8% temporary A+.
-- Margin cap 65%, target reserve >=25%.
+- Margin cap stays 65% at every account size; target reserve >=25%. Larger accounts do not unlock a wider portfolio margin cap.
+- Unlimited strategic trade count; actual entries are constrained by risk/margin/market state, not a daily quota.
 - Winner pyramiding ON; risk recycling ON.
 - Add-to-loser OFF; martingale OFF; grid rescue OFF.
-- DD governor: 5% x0.80, 10% x0.55, 15% x0.30, 20% new-risk lock.
 
 ## MICROSTRUCTURE
 Preferred source is the Cloudflare-native outbound Bybit WebSocket collector (`orderbook.50.BTCUSDT`, `publicTrade.BTCUSDT`, `allLiquidation.BTCUSDT`, `tickers.BTCUSDT`). REST snapshots remain a diagnostic/fail-safe fallback. New autonomous risk requires fresh cloud-stream evidence.
