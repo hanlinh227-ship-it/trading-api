@@ -84,12 +84,25 @@ jobs:
           } > /tmp/free-ai-context.txt
           head -c 12000 /tmp/free-ai-context.txt > /tmp/free-ai-context-bounded.txt
 
+      - name: Compile canonical Model Mesh contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -q -r AI_SKILL_LIBRARY/requirements.txt
+          python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$GITHUB_SHA" --skip-tests
+          cd cloudflare-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+          export GITHUB_SHA="$GITHUB_SHA"
+          npm run prepare:universal-fabric
+          npm run prepare:skill-gateway
+          npm run prepare:model-mesh
+          node prepare-workers-build.mjs
+
       - name: Fan out across every eligible FREE_ONLY model
         shell: bash
         run: |
           set -euo pipefail
           cd cloudflare-worker
-          node prepare-workers-build.mjs
           node free-ai-all-models-runner.mjs \
             ../AI_SKILL_LIBRARY/v4/model_mesh/active.json \
             ../AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json \
