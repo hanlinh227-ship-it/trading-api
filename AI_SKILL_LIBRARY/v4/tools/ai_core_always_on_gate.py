@@ -12,8 +12,24 @@ No network, no secrets, no repository writes except optional --output.
 import argparse
 import json
 import os
+import re
 import sys
 import tempfile
+
+#: A revision, not merely a string two copies of which are equal. The original
+#: check was `evidence.source_sha == --source-sha`, which two empty strings
+#: satisfy, and two runs of whitespace likewise - turning the one field that
+#: binds all six gates to a single integrated revision into a field that can
+#: bind them to nothing. Abbreviated hashes are legitimate, so the floor is 7.
+_SOURCE_SHA_RE = re.compile(r"^[0-9a-f]{7,64}\Z")
+
+#: A proof is a statement someone can check. The original test was
+#: `isinstance(proofs, list) and len(proofs) > 0`, which [""] and [None] both
+#: satisfy: the list was bounded in length and unbounded in content. That is
+#: the allowed-but-unbounded shape this repository has been bitten by four
+#: times, and this is the one tool whose whole job is refusing unproven claims.
+_MAX_PROOFS = 64
+_MAX_PROOF_CHARS = 4096
 
 GATES = [
     ("CONTROL_PLANE_READY", "control"),
@@ -41,9 +57,21 @@ def evaluate_gate(path, source_sha, expected_gate):
         return False
     if data.get("ready") is not True:
         return False
-    proofs = data.get("proofs")
-    if not isinstance(proofs, list) or len(proofs) == 0:
+    return _proofs_are_proofs(data.get("proofs"))
+
+
+def _proofs_are_proofs(proofs):
+    """Non-empty, bounded, and every entry a non-blank string."""
+    if not isinstance(proofs, list) or not proofs:
         return False
+    if len(proofs) > _MAX_PROOFS:
+        return False
+    for proof in proofs:
+        # bool first: isinstance(True, int) is True, and True is not a proof.
+        if isinstance(proof, bool) or not isinstance(proof, str):
+            return False
+        if not proof.strip() or len(proof) > _MAX_PROOF_CHARS:
+            return False
     return True
 
 
@@ -77,6 +105,18 @@ def main(argv=None):
     parser.add_argument("--front-door", required=True)
     parser.add_argument("--output", default=None)
     args = parser.parse_args(argv)
+
+    if not _SOURCE_SHA_RE.match(args.source_sha or ""):
+        # Fail closed and say why: a run that cannot name its revision has not
+        # proved anything about one. Every gate stays false.
+        sys.stderr.write(
+            "--source-sha must be a git revision (7-64 hex characters); "
+            "a blank or non-revision value binds the evidence to nothing\n")
+        for gate_name, _ in GATES:
+            sys.stdout.write("%s=false\n" % gate_name)
+        sys.stdout.write("AI_CORE_ALWAYS_ON_READY=false\n")
+        sys.stdout.flush()
+        return 1
 
     paths = {
         "control": args.control,
