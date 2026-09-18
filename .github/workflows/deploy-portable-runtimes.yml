@@ -159,6 +159,27 @@ jobs:
           PY
           echo "GITHUB_ACTIONS_COMPUTE_PLANE=READY"
 
+      - name: Control Tower observes without commanding
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The Tower READS this fabric; it must never re-derive it, and it must
+          # never let an unobserved value render as a healthy one. These tests
+          # damage each guard and require a refusal, and each one has been
+          # mutation-checked: breaking the guard fails the suite.
+          # Run the files directly: node --test on a directory resolves it as a
+          # module here, which fails before any test runs.
+          node --test control-center/test/control-tower.test.mjs \
+                      control-center/test/renderer.test.mjs
+          # Anti-regression: a second derivation of the acceptance matrix inside
+          # the dashboard would make it a second evidence authority. The Tower
+          # may mention the canonical tool; it may not import the fabric.
+          if grep -rn "acceptance_matrix\|from .fabric import\|require(.*fabric.py" control-center/ --include=*.mjs --include=*.js; then
+            echo "Control Tower must consume acceptance.py output, never re-derive it" >&2
+            exit 1
+          fi
+          echo "CONTROL_TOWER=OBSERVABILITY_ONLY"
+
       - name: Netlify tertiary adapter wraps the shared contract
         shell: bash
         run: |

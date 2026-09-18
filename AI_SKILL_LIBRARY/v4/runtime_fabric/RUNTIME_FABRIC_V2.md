@@ -35,10 +35,11 @@ eligibility flag and the facts it summarises are two things wearing one name,
 and every time this repository has let one label carry two facts, a bypass
 followed. A test asserts no entry declares it.
 
-The distinction earns its keep immediately: Cloudflare is `health_verified:
-true` and `exact_sha_verified: false` — it answers, but at a commit from before
-the deploy authority started failing. A single "healthy" flag would have hidden
-a frozen production runtime behind a green check.
+The distinction earned its keep immediately: while the deploy authority was
+failing, Cloudflare was `health_verified: true` and `exact_sha_verified: false`
+— it answered, but at a commit from before the failure. A single "healthy" flag
+would have hidden a frozen production runtime behind a green check. Both axes
+are true now, and they became true separately, which is the point.
 
 ## States
 
@@ -124,14 +125,24 @@ and require refusal.
 
 ## Current truthful state
 
+This table is a **reading of the registry, not a second record of it**. It goes
+stale the moment the registry moves, so treat `registry.yaml` and
+`acceptance.py` as the authority and this as commentary. (It did go stale once,
+describing a frozen Cloudflare and an undeployed Deno after both had been
+promoted — a doc asserting a state the evidence contradicts is the same
+one-label-two-facts defect this module exists to refuse.)
+
 | Runtime | Tier | Lifecycle | Production eligible |
 |---|---|---|---|
-| cloudflare_workers | primary | STABLE | **no** — `exact_sha_verified: false` |
-| deno_deploy | secondary | TESTED | no — not deployed |
-| netlify_functions | tertiary | ADAPTER_READY | no — not deployed |
+| cloudflare_workers | primary | STABLE | yes — all five axes verified |
+| deno_deploy | secondary | STABLE | yes — live-probed, exact SHA matched |
+| netlify_functions | tertiary | ADAPTER_READY | no — not configured, not deployed |
 | github_actions | batch_recovery | STABLE | yes, for batch — never for HTTP |
 | koyeb_free | emergency | DISCOVERED | no — free tier unverified |
 | render_free | emergency | DISCOVERED | no — free tier unverified |
 
-No HTTP runtime is currently production eligible. That is not a modelling
-artefact — it is the true state, and the fabric says so rather than rounding up.
+Registry eligibility is not the acceptance matrix. `FULL_ACTIVE` stays false
+while `CLOUDFLARE_DEPLOY`, `CLOUDFLARE_HEALTH`, `CLOUDFLARE_SHA_MATCH` and
+`LIVE_RESEARCH_SMOKE` are `NOT_OBSERVED` — recorded verification and a gate
+observed on this run are different facts, and not observing a gate never counts
+as passing it.

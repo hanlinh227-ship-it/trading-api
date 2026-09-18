@@ -171,6 +171,17 @@ def acceptance_matrix(registry: dict | None = None, *,
 
         "RUNTIME_PORTABLE": adapters_present >= 2,
         "FAILOVER_PROOF": failover["status"],
+
+        # The stable/lab split is emitted HERE rather than left to readers.
+        # Grouping runtimes by lifecycle is a derivation, and a reader that
+        # derives it separately is a second authority on which runtimes may
+        # take stable traffic. One derivation, read by everyone.
+        "STABLE_RUNTIMES": sorted(
+            name for name, row in runtimes.items() if row.get("lifecycle") == "STABLE"),
+        "DEVELOPMENT_LAB_RUNTIMES": sorted(
+            name for name, row in runtimes.items() if row.get("lifecycle") != "STABLE"),
+        "RUNTIME_LIFECYCLES": {
+            name: row.get("lifecycle", "UNVERIFIED") for name, row in sorted(runtimes.items())},
     }
 
     # FULL_ACTIVE has no setter. It is the conjunction of the gates that must
@@ -204,4 +215,14 @@ def render_matrix(matrix: dict) -> str:
 
 
 if __name__ == "__main__":  # pragma: no cover
-    print(render_matrix(acceptance_matrix()))
+    import sys
+
+    # `--json` exists so a reader (the Control Tower) can CONSUME this matrix
+    # instead of re-deriving it. A second derivation would be a second evidence
+    # authority, and two derivations of one fact eventually disagree.
+    if "--json" in sys.argv[1:]:
+        import json
+
+        print(json.dumps(acceptance_matrix(), sort_keys=True))
+    else:
+        print(render_matrix(acceptance_matrix()))

@@ -1,1 +1,53 @@
-<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Trading Multi-AI Control Center</title><link rel="stylesheet" href="/style.css"></head><body><main><header><div><h1>Trading Multi-AI Control Center</h1><p id="updated">Đang tải trạng thái thật…</p></div><span id="liveBadge" class="badge unknown">UNKNOWN</span></header><section><h2>System</h2><div id="systems" class="grid"></div></section><section><h2>AI Workers</h2><div id="ai" class="grid"></div></section><section><h2>Pipeline</h2><div id="pipeline" class="timeline"></div></section><section><h2>Live Events</h2><div id="events" class="events"></div></section><footer>Chỉ hiển thị evidence vận hành. UNKNOWN/stale không bao giờ được coi là ONLINE.</footer></main><script src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Personal AI Control Tower</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<a class="skip" href="#view">Bỏ qua điều hướng</a>
+
+<div class="shell">
+  <aside class="rail" aria-label="Điều hướng">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="brandText"><b>Control Tower</b><small>observability only</small></span>
+    </div>
+    <nav id="nav"></nav>
+    <div class="railFoot">
+      <span class="pill readonly" title="Bề mặt này chỉ đọc. Mọi hành động đi qua Brain ingress → task_router.">READ-ONLY SURFACE</span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="commandBar">
+      <div class="cbLeft">
+        <h1 id="viewTitle">Tổng quan</h1>
+        <p id="viewSub" class="sub">Đang đọc evidence…</p>
+      </div>
+      <div class="cbRight">
+        <label class="search">
+          <span class="srOnly">Lọc hiển thị</span>
+          <input id="filter" type="search" placeholder="Lọc (chỉ lọc hiển thị, không ra lệnh)" autocomplete="off">
+        </label>
+        <span id="liveBadge" class="badge unknown">UNKNOWN</span>
+      </div>
+    </header>
+
+    <div class="legend" id="legend"></div>
+
+    <main id="view" tabindex="-1"></main>
+
+    <footer class="foot">
+      <span>Chỉ hiển thị evidence vận hành. UNKNOWN/stale không bao giờ được coi là ONLINE.</span>
+      <span id="footMeta"></span>
+    </footer>
+  </div>
+</div>
+
+<script src="/app.js" type="module"></script>
+</body>
+</html>
