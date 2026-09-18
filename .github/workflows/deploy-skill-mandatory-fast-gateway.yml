@@ -178,7 +178,7 @@ jobs:
           const fs=require('fs');const x=JSON.parse(fs.readFileSync('wrangler.jsonc','utf8'));
           const expected=process.env.SKILL_GATEWAY_SOURCE_SHA;
           if(x.name!=='trading-v77-scanner'||x.keep_vars!==true||x.vars?.RUNTIME_REVISION!==expected)throw new Error('unsafe_skill_gateway_deploy_config');
-          for(const key of ['BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_AUTO_ENABLED'])if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('runtime_switch_must_not_be_generated:'+key);
+          for(const key of ['BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_AUTO_ENABLED','BYBIT_AI_LEGION_LIVE_ENABLED','BYBIT_AI_LEGION_ENABLED','BYBIT_AI_LEGION_DEMO_ENABLED'])if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('runtime_switch_must_not_be_generated:'+key);
           const forbiddenSecretKeys=['MODEL_MESH_EXECUTION_TOKEN','TINY_FISH_API','GROQ_API_KEY','GEMINI_API_KEY','CLOUDFLARE_AI_API_TOKEN','OPENROUTER_API_KEY','MISTRAL_API_KEY','COHERE_API_KEY','HF_TOKEN','NVIDIA_API_KEY','CEREBRAS_API_KEY','SAMBANOVA_API_KEY','DASHSCOPE_API_KEY','OPENCODE_ZEN_API_KEY'];
           for(const key of forbiddenSecretKeys)if(Object.prototype.hasOwnProperty.call(x.vars||{},key))throw new Error('provider_secret_must_not_be_generated:'+key);
           console.log('SKILL_GATEWAY_DEPLOY_CONFIG=PASS revision='+expected);

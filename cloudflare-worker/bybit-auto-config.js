@@ -20,7 +20,7 @@ const BTC_EXECUTION_PORTFOLIO_POLICY=Object.freeze({
 export const BYBIT_AUTO_CONFIG={
   symbol:BYBIT_EXECUTION_SYMBOL,symbols:BYBIT_EXECUTION_UNIVERSE,multiAsset:false,portfolio:BTC_EXECUTION_PORTFOLIO_POLICY,category:'linear',settleCoin:'USDT',
   strategyAuthority:'BYBIT-BTC-STATEFLOW-2.1',
-  trigger:{authority:'VPS_WS_MARKET_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
+  trigger:{authority:'CLOUD_BYBIT_WS_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
   leverage:{
     min:3,max:125,authority:'EXCHANGE_CAPPED_CONTINUOUS_CAPITAL_LEVERAGE',holdConstantInsideOpenCluster:true,profitFloorAdaptive:true,profitFloorMax:125,exchangeInstrumentCapRequired:true,
     equityAdaptive:{enabled:true,steps:[
@@ -79,26 +79,61 @@ export const BYBIT_AUTO_CONFIG={
     }
   },
   scan:{decisionAuthority:'EVENT_DRIVEN_BTCUSDT_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
+  aiLegion:{enabledByDefault:true,demoAuto:true,liveRequiresExplicitAck:true,liveAckEnv:'BYBIT_AI_LEGION_LIVE_ENABLED',modelMeshRequired:true,requiredDistinctWorkers:3,maxDistinctWorkers:4,authority:'ADVISORY_EVIDENCE_ONLY',mayIncreaseRisk:false,mayPlaceOrders:false,mayOverrideStateFlow:false},
   risk:{
-    mode:'ADAPTIVE_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',fullAccountAuthority:true,
-    baseEntryRiskPct:1.00,strongEntryRiskPct:1.45,aPlusEntryRiskPct:2.00,absoluteSingleEntryRiskPct:2.25,
-    maxActiveRiskPct:7.0,temporaryAPlusActiveRiskPct:8.5,maxPortfolioMarginPct:78,maxMarginPerPositionPct:65,minFreeReservePct:12,
-    addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,maxSameDirectionPositions:1,riskRecycleAfterProtection:true,
+    mode:'PROGRESSIVE_COMPOUNDING_WITH_DRAWDOWN_CONTRACTION',fullAccountAuthority:true,compoundContinuously:true,riskGrowsWithCapital:true,riskShrinksWithDrawdown:true,
+    baseEntryRiskPct:.75,strongEntryRiskPct:1.00,aPlusEntryRiskPct:1.25,absoluteSingleEntryRiskPct:1.50,
+    maxActiveRiskPct:6.0,temporaryAPlusActiveRiskPct:8.0,maxPortfolioMarginPct:100,maxMarginPerPositionPct:100,minFreeReservePct:0,
+    addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,dailyLossLimit:false,dailyMaxProfit:false,dailyMaxLoss:false,maxDailyTrades:null,maxSameDirectionPositions:1,riskRecycleAfterProtection:true,
     timedPause:false,lossStreakTimeGate:false,
     priorRiskProtectionThresholdPct:30,
     tierUpgradeMinR:.24,
     tierUpgradeMaxRemainingRiskPct:62,
     capitalBase:{enabled:true,unrealizedProfitCreditPct:25,useLowerOfBalanceAndEquityOnDrawdown:true,continuousTimeScale:true,smoothingHalfLifeMs:900000,instantDownside:true},
-    equityScale:{enabled:true,anchorUsd:39,steps:[
-      {equityUsd:39,riskMult:1.00,marginCapPct:72},
-      {equityUsd:50,riskMult:1.06,marginCapPct:74},
-      {equityUsd:75,riskMult:1.12,marginCapPct:76},
-      {equityUsd:100,riskMult:1.18,marginCapPct:78},
-      {equityUsd:150,riskMult:1.24,marginCapPct:80},
-      {equityUsd:250,riskMult:1.30,marginCapPct:82},
-      {equityUsd:500,riskMult:1.36,marginCapPct:84}
-    ],maxRiskMult:1.40,maxMarginCapPct:84},
-    drawdownGovernor:[{ddPct:2,multiplier:.88},{ddPct:4,multiplier:.75},{ddPct:7,multiplier:.60},{ddPct:10,multiplier:.45},{ddPct:15,multiplier:.25},{ddPct:20,multiplier:0}]
+    equityScale:{
+      enabled:true,
+      authority:'PROGRESSIVE_COMPOUNDING_FULL_CAPITAL_NO_DAILY_LIMITS',
+      anchorUsd:39,
+      steps:[
+        {equityUsd:39,riskMult:.75,marginCapPct:100},
+        {equityUsd:50,riskMult:.80,marginCapPct:100},
+        {equityUsd:75,riskMult:.88,marginCapPct:100},
+        {equityUsd:100,riskMult:.95,marginCapPct:100},
+        {equityUsd:150,riskMult:1.00,marginCapPct:100},
+        {equityUsd:250,riskMult:1.05,marginCapPct:100},
+        {equityUsd:500,riskMult:1.10,marginCapPct:100},
+        {equityUsd:1000,riskMult:1.16,marginCapPct:100},
+        {equityUsd:2500,riskMult:1.22,marginCapPct:100},
+        {equityUsd:5000,riskMult:1.28,marginCapPct:100},
+        {equityUsd:10000,riskMult:1.32,marginCapPct:100},
+        {equityUsd:25000,riskMult:1.35,marginCapPct:100}
+      ],
+      maxRiskMult:1.35,
+      maxMarginCapPct:100,
+      scaleUpOnRealizedCapital:true,
+      unrealizedProfitCreditLimitedByCapitalBase:true,
+      instantDownscaleOnEquityLoss:true
+    },
+    drawdownGovernor:[
+      {ddPct:2,multiplier:.92},
+      {ddPct:5,multiplier:.80},
+      {ddPct:8,multiplier:.65},
+      {ddPct:10,multiplier:.55},
+      {ddPct:15,multiplier:.30},
+      {ddPct:20,multiplier:0}
+    ]
+  },
+  aiLearning:{
+    enabled:true,
+    authority:'POST_TRADE_EVIDENCE_CANDIDATES_ONLY',
+    autoMutateLive:false,
+    autoIncreaseRisk:false,
+    minClosedTradesBeforeCandidate:30,
+    minPerRegimeSamples:12,
+    rollingWindows:[30,75,150],
+    metrics:['net_expectancy_r','win_rate_context','profit_factor','max_adverse_excursion_r','max_favorable_excursion_r','slippage_bps','fee_cost_bps','stop_sweep_then_thesis_recovery','target_miss_then_reversal','ai_veto_precision'],
+    boundedCandidateAdjustments:{entryThresholdPct:10,stopNoiseBufferPct:15,targetRPct:10,aiRiskReductionPct:15},
+    promotionRequires:['DEMO_EVIDENCE','INDEPENDENT_CHECK','NO_RISK_CEILING_EXPANSION','ROLLBACK_SNAPSHOT'],
   },
   positionControl:{
     authority:'MULTI_STAGE_THESIS_INVALIDATION_HOLD_WINNERS',
@@ -146,6 +181,7 @@ export const BYBIT_AUTO_CONFIG={
 
 const n=(env,k,d)=>Number.isFinite(Number(env[k]))?Number(env[k]):d;
 const on=v=>String(v||'').toLowerCase()==='true';
-export function bybitAutoConfig(env={}){const c=structuredClone(BYBIT_AUTO_CONFIG);c.risk.maxActiveRiskPct=Math.max(2,Math.min(12,n(env,'BYBIT_BTC_MAX_ACTIVE_RISK_PCT',c.risk.maxActiveRiskPct)));c.risk.maxPortfolioMarginPct=Math.max(30,Math.min(85,n(env,'BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT',c.risk.maxPortfolioMarginPct)));c.risk.capitalBase.unrealizedProfitCreditPct=Math.max(0,Math.min(50,n(env,'BYBIT_BTC_UNREALIZED_SCALE_CREDIT_PCT',c.risk.capitalBase.unrealizedProfitCreditPct)));c.execution.recvWindow=Math.max(5000,Math.min(20000,Math.round(n(env,'BYBIT_RECV_WINDOW_MS',c.execution.recvWindow))));return c;}
-export function bybitExecutionMode(env={}){return on(env.BYBIT_AUTO_LIVE)&&on(env.BYBIT_BTC_LIVE_ACK)?'LIVE':'PAPER';}
-export function bybitCredentials(env={}){const demo=on(env.BYBIT_AUTO_DEMO);if(demo)return {apiKey:env.HYRO_BYBIT_API_KEY||'',apiSecret:env.HYRO_BYBIT_API_SECRET||'',source:'HYRO_BYBIT_DEMO'};return {apiKey:env.BYBIT_AUTO_API_KEY||env.HYRO_BYBIT_LIVE_API_KEY||'',apiSecret:env.BYBIT_AUTO_API_SECRET||env.HYRO_BYBIT_LIVE_API_SECRET||'',source:env.BYBIT_AUTO_API_KEY&&env.BYBIT_AUTO_API_SECRET?'BYBIT_AUTO':'HYRO_BYBIT_LIVE_FALLBACK'};}
+export function bybitAutoConfig(env={}){const c=structuredClone(BYBIT_AUTO_CONFIG);const requestedActive=n(env,'BYBIT_BTC_MAX_ACTIVE_RISK_PCT',c.risk.maxActiveRiskPct),requestedMargin=n(env,'BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT',c.risk.maxPortfolioMarginPct);c.risk.maxActiveRiskPct=Math.max(.5,Math.min(c.risk.maxActiveRiskPct,requestedActive));c.risk.maxPortfolioMarginPct=Math.max(10,Math.min(c.risk.maxPortfolioMarginPct,requestedMargin));c.risk.capitalBase.unrealizedProfitCreditPct=Math.max(0,Math.min(50,n(env,'BYBIT_BTC_UNREALIZED_SCALE_CREDIT_PCT',c.risk.capitalBase.unrealizedProfitCreditPct)));c.execution.recvWindow=Math.max(5000,Math.min(20000,Math.round(n(env,'BYBIT_RECV_WINDOW_MS',c.execution.recvWindow))));return c;}
+export function bybitExecutionMode(env={}){const demo=on(env.BYBIT_AUTO_DEMO),liveRequested=on(env.BYBIT_AUTO_LIVE),liveAck=on(env.BYBIT_BTC_LIVE_ACK);if(demo&&liveRequested)return 'BLOCKED';if(demo)return 'DEMO';return liveRequested&&liveAck?'LIVE':'PAPER';}
+export function bybitExecutionAllowsOrders(mode){return ['LIVE','DEMO'].includes(String(mode||'').toUpperCase());}
+export function bybitCredentials(env={}){const demo=on(env.BYBIT_AUTO_DEMO);if(demo){const apiKey=env.BYBIT_DEMO_API_KEY||env.HYRO_BYBIT_API_KEY||'',apiSecret=env.BYBIT_DEMO_API_SECRET||env.HYRO_BYBIT_API_SECRET||'';return {apiKey,apiSecret,source:env.BYBIT_DEMO_API_KEY&&env.BYBIT_DEMO_API_SECRET?'BYBIT_DEMO':'HYRO_BYBIT_DEMO_FALLBACK'};}return {apiKey:env.BYBIT_AUTO_API_KEY||env.HYRO_BYBIT_LIVE_API_KEY||'',apiSecret:env.BYBIT_AUTO_API_SECRET||env.HYRO_BYBIT_LIVE_API_SECRET||'',source:env.BYBIT_AUTO_API_KEY&&env.BYBIT_AUTO_API_SECRET?'BYBIT_AUTO':'HYRO_BYBIT_LIVE_FALLBACK'};}
