@@ -59,10 +59,15 @@ ROLE_STATE_VALUES = tuple(ROLE_STATES)
 
 #: Slot to state, in precedence order. A model named primary somewhere is
 #: PRIMARY even if another branch names it as a fallback.
+#: `reserve` holds the ranked candidates no named slot takes - the matrix used
+#: to discard them, which is why a measured model could read as unmapped. A
+#: reserve entry is a fallback path in the plain sense: the branch reaches it
+#: when everything above it is gone.
 SLOT_PRECEDENCE = (("primary", "PRIMARY"),
                    ("secondary", "SECONDARY"),
                    ("fallback", "FALLBACK"),
-                   ("emergency_fallback", "FALLBACK"))
+                   ("emergency_fallback", "FALLBACK"),
+                   ("reserve", "FALLBACK"))
 SLOTS = tuple(slot for slot, _ in SLOT_PRECEDENCE)
 
 #: A model counts as ACTIVE only if the registry says both. `lifecycle_state`
@@ -90,17 +95,25 @@ def mapped_slots(matrix: Any) -> dict[str, list[dict[str, str]]]:
     for row in rows or []:
         if not isinstance(row, dict):
             continue
-        branch = str(row.get("branch") or row.get("role") or "UNNAMED_BRANCH")
+        # `role_id` is what the matrix actually calls it. Reading `branch` or
+        # `role` first meant every entry came back UNNAMED_BRANCH, which left
+        # the flag correct (it counts membership, not names) and the provenance
+        # useless - you could not see WHICH branch was keeping a model mapped.
+        branch = str(row.get("role_id") or row.get("branch")
+                     or row.get("role") or "UNNAMED_BRANCH")
         for slot in SLOTS:
             candidate = row.get(slot)
-            model_id = None
-            if isinstance(candidate, dict):
-                model_id = candidate.get("model_id")
-            elif isinstance(candidate, str) and candidate:
-                model_id = candidate
-            if model_id:
-                out.setdefault(str(model_id), []).append(
-                    {"branch": branch, "slot": slot})
+            # `reserve` is a list; the four named slots hold one candidate each.
+            entries = candidate if isinstance(candidate, list) else [candidate]
+            for entry in entries:
+                model_id = None
+                if isinstance(entry, dict):
+                    model_id = entry.get("model_id")
+                elif isinstance(entry, str) and entry:
+                    model_id = entry
+                if model_id:
+                    out.setdefault(str(model_id), []).append(
+                        {"branch": branch, "slot": slot})
     return out
 
 

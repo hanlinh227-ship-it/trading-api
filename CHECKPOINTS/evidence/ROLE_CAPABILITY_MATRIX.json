@@ -178,6 +178,168 @@
           "WAVE0_CAPABILITY_SMOLLM2_360M.json"
         ]
       },
+      "reserve": [
+        {
+          "model_id": "Qwen/Qwen3-1.7B-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.5,
+          "per_capability": {
+            "deep_reasoning": {
+              "model_id": "Qwen/Qwen3-1.7B-GGUF",
+              "capability": "deep_reasoning",
+              "specialization_score": 0.5,
+              "measured_score": 0.833333,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_QWEN3_1_7B.json"
+            },
+            "text_reasoning": {
+              "model_id": "Qwen/Qwen3-1.7B-GGUF",
+              "capability": "text_reasoning",
+              "specialization_score": 0.833333,
+              "measured_score": 0.833333,
+              "confidence": 1.0,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_QWEN3_1_7B.json"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "WAVE0_CAPABILITY_QWEN3_1_7B.json"
+          ]
+        },
+        {
+          "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.475,
+          "per_capability": {
+            "deep_reasoning": {
+              "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+              "capability": "deep_reasoning",
+              "specialization_score": 0.475,
+              "measured_score": 0.791667,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_GRANITE_3_3_2B.json"
+            },
+            "text_reasoning": {
+              "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+              "capability": "text_reasoning",
+              "specialization_score": 0.791667,
+              "measured_score": 0.791667,
+              "confidence": 1.0,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_GRANITE_3_3_2B.json"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "WAVE0_CAPABILITY_GRANITE_3_3_2B.json"
+          ]
+        },
+        {
+          "model_id": "Qwen/Qwen3-0.6B-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.45,
+          "per_capability": {
+            "deep_reasoning": {
+              "model_id": "Qwen/Qwen3-0.6B-GGUF",
+              "capability": "deep_reasoning",
+              "specialization_score": 0.45,
+              "measured_score": 0.75,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_EVIDENCE.json"
+            },
+            "text_reasoning": {
+              "model_id": "Qwen/Qwen3-0.6B-GGUF",
+              "capability": "text_reasoning",
+              "specialization_score": 0.75,
+              "measured_score": 0.75,
+              "confidence": 1.0,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_EVIDENCE.json"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "WAVE0_CAPABILITY_EVIDENCE.json"
+          ]
+        },
+        {
+          "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.45,
+          "per_capability": {
+            "deep_reasoning": {
+              "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+              "capability": "deep_reasoning",
+              "specialization_score": 0.45,
+              "measured_score": 0.75,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_GRANITE_4_2_3B.json"
+            },
+            "text_reasoning": {
+              "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+              "capability": "text_reasoning",
+              "specialization_score": 0.75,
+              "measured_score": 0.75,
+              "confidence": 1.0,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "WAVE0_CAPABILITY_GRANITE_4_2_3B.json"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "WAVE0_CAPABILITY_GRANITE_4_2_3B.json"
+          ]
+        }
+      ],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "deep_reasoning": [
@@ -432,6 +594,7 @@
         ]
       },
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "coding": [
@@ -704,6 +867,92 @@
           "local_engineering_judgment@1.0.0"
         ]
       },
+      "reserve": [
+        {
+          "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.4,
+          "per_capability": {
+            "verifier_checker": {
+              "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+              "capability": "verifier_checker",
+              "specialization_score": 0.6,
+              "measured_score": 1.0,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "local_engineering_judgment@1.0.0"
+            },
+            "code_review": {
+              "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+              "capability": "code_review",
+              "specialization_score": 0.4,
+              "measured_score": 0.666667,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "local_engineering_judgment@1.0.0"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "local_engineering_judgment@1.0.0"
+          ]
+        },
+        {
+          "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.4,
+          "per_capability": {
+            "verifier_checker": {
+              "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+              "capability": "verifier_checker",
+              "specialization_score": 0.4,
+              "measured_score": 0.666667,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "local_engineering_judgment@1.0.0"
+            },
+            "code_review": {
+              "model_id": "ibm-granite/granite-4.2-3b-GGUF",
+              "capability": "code_review",
+              "specialization_score": 0.5,
+              "measured_score": 0.833333,
+              "confidence": 0.6,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "local_engineering_judgment@1.0.0"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "local_engineering_judgment@1.0.0"
+          ]
+        }
+      ],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "verifier_checker": [
@@ -840,6 +1089,7 @@
       },
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "agentic_planning": [
@@ -944,6 +1194,7 @@
       },
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "tool_calling": [
@@ -1079,6 +1330,7 @@
       },
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "long_context": [
@@ -1171,6 +1423,7 @@
       "secondary": null,
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "PIPELINE",
       "per_capability_paths": {
         "embedding": [
@@ -1280,6 +1533,7 @@
       "secondary": null,
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "embedding": [
@@ -1378,6 +1632,7 @@
       "secondary": null,
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "vision": [
@@ -1435,6 +1690,7 @@
       "secondary": null,
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "NOTHING",
       "per_capability_paths": {
         "ocr": [
@@ -1497,6 +1753,7 @@
       "secondary": null,
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "PIPELINE",
       "per_capability_paths": {
         "speech_to_text": [
@@ -1602,6 +1859,7 @@
       },
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "multilingual": [
@@ -1766,6 +2024,64 @@
           "wave0"
         ]
       },
+      "reserve": [
+        {
+          "model_id": "Qwen/Qwen3-1.7B-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.2,
+          "per_capability": {
+            "vietnamese_reasoning": {
+              "model_id": "Qwen/Qwen3-1.7B-GGUF",
+              "capability": "vietnamese_reasoning",
+              "specialization_score": 0.2,
+              "measured_score": 0.666667,
+              "confidence": 0.3,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "thin evidence: 3 scored item(s)",
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "wave0"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "wave0"
+          ]
+        },
+        {
+          "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+          "covers": "WHOLE_ROLE",
+          "specialization_score": 0.2,
+          "per_capability": {
+            "vietnamese_reasoning": {
+              "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
+              "capability": "vietnamese_reasoning",
+              "specialization_score": 0.2,
+              "measured_score": 0.666667,
+              "confidence": 0.3,
+              "efficiency_factor": 1.0,
+              "evidence_class": "MEASURED",
+              "penalties": [
+                "thin evidence: 3 scored item(s)",
+                "suite saturated: the score bounds the suite, not the model"
+              ],
+              "execution_mode": "EXACT_MODEL",
+              "placement": "LOCAL",
+              "evidence_ref": "wave0"
+            }
+          },
+          "execution_mode": "EXACT_MODEL",
+          "placement": "LOCAL",
+          "evidence_refs": [
+            "wave0"
+          ]
+        }
+      ],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "vietnamese_reasoning": [
@@ -1913,6 +2229,7 @@
       },
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "WHOLE_ROLE_MODEL",
       "per_capability_paths": {
         "scientific_reasoning": [
@@ -1991,6 +2308,7 @@
       "secondary": null,
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "NOTHING",
       "per_capability_paths": {
         "finance_analysis": []
@@ -2029,6 +2347,7 @@
       "secondary": null,
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "NOTHING",
       "per_capability_paths": {
         "creative_writing": [],
@@ -2069,6 +2388,7 @@
       "secondary": null,
       "fallback": null,
       "emergency_fallback": null,
+      "reserve": [],
       "served_by": "NOTHING",
       "per_capability_paths": {
         "future_multimodal": []

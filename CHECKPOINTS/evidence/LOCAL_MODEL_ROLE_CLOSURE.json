@@ -10,18 +10,10 @@
   "models_in_registry": 10,
   "active_models": 8,
   "quarantined_models": 2,
-  "NO_UNMAPPED_ACTIVE_MODEL": false,
+  "NO_UNMAPPED_ACTIVE_MODEL": true,
   "ALL_LOCAL_MODELS_ACCOUNTED_FOR": true,
-  "ALL_ACTIVE_LOCAL_MODELS_ROLE_MAPPED": false,
-  "unmapped_active_models": [
-    {
-      "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
-      "why": "admitted, mesh-eligible and named by no role branch in any slot, with a measured capability",
-      "capabilities": {
-        "text_reasoning": 0.791667
-      }
-    }
-  ],
+  "ALL_ACTIVE_LOCAL_MODELS_ROLE_MAPPED": true,
+  "unmapped_active_models": [],
   "models": [
     {
       "model_id": "Qwen/Qwen3-0.6B-GGUF",
@@ -35,7 +27,11 @@
       },
       "role_slots": [
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "REASONING_BRANCH",
+          "slot": "reserve"
+        },
+        {
+          "branch": "VIETNAMESE_BRANCH",
           "slot": "fallback"
         }
       ]
@@ -52,14 +48,22 @@
       },
       "role_slots": [
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "REASONING_BRANCH",
+          "slot": "reserve"
+        },
+        {
+          "branch": "VERIFICATION_BRANCH",
           "slot": "emergency_fallback"
+        },
+        {
+          "branch": "VIETNAMESE_BRANCH",
+          "slot": "reserve"
         }
       ]
     },
     {
       "model_id": "ibm-granite/granite-3.3-2b-instruct-GGUF",
-      "role_state": "STANDBY",
+      "role_state": "FALLBACK",
       "lifecycle_state": "AVAILABLE",
       "mesh_eligible": true,
       "active": true,
@@ -67,7 +71,20 @@
       "capabilities": {
         "text_reasoning": 0.791667
       },
-      "role_slots": []
+      "role_slots": [
+        {
+          "branch": "REASONING_BRANCH",
+          "slot": "reserve"
+        },
+        {
+          "branch": "VERIFICATION_BRANCH",
+          "slot": "reserve"
+        },
+        {
+          "branch": "VIETNAMESE_BRANCH",
+          "slot": "reserve"
+        }
+      ]
     },
     {
       "model_id": "Qwen/Qwen3-4B-GGUF",
@@ -81,39 +98,39 @@
       },
       "role_slots": [
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "REASONING_BRANCH",
           "slot": "primary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "CODING_BRANCH",
           "slot": "secondary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "VERIFICATION_BRANCH",
           "slot": "secondary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "PLANNING_BRANCH",
           "slot": "primary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "TOOL_USE_BRANCH",
           "slot": "primary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "RESEARCH_BRANCH",
           "slot": "primary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "MULTILINGUAL_BRANCH",
           "slot": "secondary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "VIETNAMESE_BRANCH",
           "slot": "primary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "SCIENCE_TECH_BRANCH",
           "slot": "primary"
         }
       ]
@@ -130,7 +147,7 @@
       },
       "role_slots": [
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "REASONING_BRANCH",
           "slot": "emergency_fallback"
         }
       ]
@@ -171,11 +188,19 @@
       },
       "role_slots": [
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "REASONING_BRANCH",
+          "slot": "reserve"
+        },
+        {
+          "branch": "CODING_BRANCH",
           "slot": "primary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "VERIFICATION_BRANCH",
+          "slot": "reserve"
+        },
+        {
+          "branch": "VIETNAMESE_BRANCH",
           "slot": "emergency_fallback"
         }
       ]
@@ -192,15 +217,15 @@
       },
       "role_slots": [
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "REASONING_BRANCH",
           "slot": "fallback"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "CODING_BRANCH",
           "slot": "fallback"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "VERIFICATION_BRANCH",
           "slot": "fallback"
         }
       ]
@@ -217,35 +242,35 @@
       },
       "role_slots": [
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "REASONING_BRANCH",
           "slot": "secondary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "VERIFICATION_BRANCH",
           "slot": "primary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "PLANNING_BRANCH",
           "slot": "secondary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "TOOL_USE_BRANCH",
           "slot": "secondary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "RESEARCH_BRANCH",
           "slot": "secondary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "MULTILINGUAL_BRANCH",
           "slot": "primary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "VIETNAMESE_BRANCH",
           "slot": "secondary"
         },
         {
-          "branch": "UNNAMED_BRANCH",
+          "branch": "SCIENCE_TECH_BRANCH",
           "slot": "secondary"
         }
       ]

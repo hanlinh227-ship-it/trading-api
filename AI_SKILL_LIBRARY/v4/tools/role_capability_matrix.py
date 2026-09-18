@@ -372,6 +372,24 @@ def build(root: Path) -> dict[str, Any]:
         # the floor. It exists to keep a minimum service, not to be good.
         emergency = candidates[-1] if len(candidates) > 3 else None
 
+        # Everything the ranking found that no named slot takes.
+        #
+        # Four names - primary, secondary, fallback, emergency_fallback - were
+        # being drawn from a candidate list of unbounded length, at indices 0,
+        # 1, 2 and -1. REASONING_BRANCH ranks eight candidates, so indices 3
+        # through 6 went into a hole: measured, above the floor, ordered, and
+        # recorded nowhere. `ibm-granite/granite-3.3-2b-instruct-GGUF` sits at
+        # [4] here, [3] on VERIFICATION_BRANCH and [4] on VIETNAMESE_BRANCH -
+        # ranked on three branches, named by none of them - which is why the
+        # fleet read it as an admitted active model with no role at all.
+        #
+        # This adds no ordering and moves nothing. The ranking above is derived
+        # from measured scores and is unchanged; this only stops the matrix
+        # discarding the part of its own answer that the four names could not
+        # hold. A reserve entry is a real fallback path: the branch uses it when
+        # the ones above it are gone.
+        reserve = list(candidates[3:-1]) if len(candidates) > 4 else []
+
         # Independent paths: a local model and a hosted one are independent;
         # two local models on one host are NOT, because the host is the single
         # thing that fails. Counting distinct placements rather than distinct
@@ -427,6 +445,7 @@ def build(root: Path) -> dict[str, Any]:
             "secondary": secondary,
             "fallback": fallback,
             "emergency_fallback": emergency,
+            "reserve": reserve,
             "served_by": ("WHOLE_ROLE_MODEL" if candidates
                           else "PIPELINE" if served_by_pipeline else "NOTHING"),
             "per_capability_paths": {
