@@ -19,7 +19,17 @@ assert.ok(s39.riskMult<s150.riskMult);
 assert.ok(s150.riskMult<s500.riskMult);
 assert.ok(s500.riskMult<s2500.riskMult);
 assert.ok(s2500.riskMult<=s25000.riskMult);
-assert.equal(s25000.marginCapPct,65);
+assert.equal(s25000.marginCapPct,100);
+assert.equal(cfg.risk.maxPortfolioMarginPct,100);
+assert.equal(cfg.risk.maxMarginPerPositionPct,100);
+assert.equal(cfg.risk.minFreeReservePct,0);
+assert.equal(cfg.risk.dailyTarget,false);
+assert.equal(cfg.risk.dailyLossLimit,false);
+assert.equal(cfg.risk.dailyMaxProfit,false);
+assert.equal(cfg.risk.dailyMaxLoss,false);
+assert.equal(cfg.risk.maxDailyTrades,null);
+assert.equal(cfg.scan.hardDailyTradeQuota,false);
+assert.equal(cfg.scan.entryQuotaPerDay,null);
 
 const d0=drawdownState({equityUsd:1000,highWaterUsd:1000,cfg});
 const d2=drawdownState({equityUsd:980,highWaterUsd:1000,cfg});
