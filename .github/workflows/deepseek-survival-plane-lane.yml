@@ -131,7 +131,7 @@ jobs:
       - name: Enforce file ownership
         run: |
           set -euo pipefail
-          allowed='^(AI_SKILL_LIBRARY/v4/tools/ai_core_always_on_gate\.py|AI_SKILL_LIBRARY/tests/test_ai_core_always_on_gate\.py)
+          allowed='^(AI_SKILL_LIBRARY/v4/tools/ai_core_always_on_gate\.py|AI_SKILL_LIBRARY/tests/test_ai_core_always_on_gate\.py)$'
           unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
           if [ -n "${unexpected}" ]; then
             echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
@@ -139,11 +139,13 @@ jobs:
             exit 1
           fi
           echo "DEEPSEEK_FILE_OWNERSHIP=PASS"
+
       - name: Run focused tests
         run: |
           set -euo pipefail
           python3 -m unittest AI_SKILL_LIBRARY.tests.test_ai_core_always_on_gate -v
           echo "DEEPSEEK_TESTS=PASS"
+
       - name: Commit DeepSeek always-on gate
         run: |
           set -euo pipefail
@@ -153,27 +155,4 @@ jobs:
           git commit -m 'feat(ai-core): add fail-closed always-on readiness gate'
           git push origin HEAD:work/deepseek-survival-plane-442
           echo "DEEPSEEK_AI_CORE_GATE_COMMIT=$(git rev-parse HEAD)"
-          echo "DEEPSEEK_CODING_LANE_READY=PASS"
-
-          unexpected="$(git status --short --untracked-files=all | awk '{print $2}' | grep -Ev "${allowed}" || true)"
-          if [ -n "${unexpected}" ]; then
-            echo "DEEPSEEK_FILE_OWNERSHIP=FAIL"
-            printf '%s\n' "${unexpected}"
-            exit 1
-          fi
-          echo "DEEPSEEK_FILE_OWNERSHIP=PASS"
-      - name: Run focused tests
-        run: |
-          set -euo pipefail
-          node cloudflare-worker/test-project-resolution.mjs
-          echo "DEEPSEEK_TESTS=PASS"
-      - name: Commit DeepSeek project resolver
-        run: |
-          set -euo pipefail
-          git config user.name 'DeepSeek Coding Lane'
-          git config user.email 'deepseek-lane@users.noreply.github.com'
-          git add cloudflare-worker/project-resolution.js cloudflare-worker/test-project-resolution.mjs
-          git commit -m 'feat(front-door): add deterministic project resolver'
-          git push origin HEAD:work/deepseek-survival-plane-442
-          echo "DEEPSEEK_FRONT_DOOR_RESOLVER_COMMIT=$(git rev-parse HEAD)"
           echo "DEEPSEEK_CODING_LANE_READY=PASS"
