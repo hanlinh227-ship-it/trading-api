@@ -540,12 +540,29 @@ def test_phase6_exemption_fails_closed_on_junk():
         assert gate.is_externally_blocked(proof) is False
 
 
-def test_the_committed_24x7_proof_earns_the_exemption():
+def test_the_committed_24x7_proof_is_judged_by_what_it_records():
+    """The rule, not a fixed expectation of which host last ran the proof.
+
+    This asserted the committed proof earns the exemption, which was true while
+    every reading came from a host whose engine is dead. A GitHub-hosted runner
+    executes, so the live round now RUNS there - and when it runs and fails,
+    `blocking_class` is ROUND_FAILED and the exemption must not apply. Pinning
+    the old value would have meant asserting that a real round failure is an
+    external blocker, which is the one thing the exemption exists to prevent.
+    """
     gate = _phase6()
     document = json.loads(
         (ROOT / "CHECKPOINTS/evidence/FEDERATION_24X7_PROOF.json")
         .read_text(encoding="utf-8"))
-    assert gate.is_externally_blocked(document) is True
-    # ...and it is still not claiming a live path.
-    assert document["live_round_status"] == "REAL_RUNTIME_REQUIRED"
-    assert document["federation_status"] == "FAILED"
+    expected = (document.get("blocking_class") == "REAL_RUNTIME_REQUIRED"
+                and not document.get("state_rounds_failed"))
+    assert gate.is_externally_blocked(document) is bool(expected)
+    if document.get("live_round_status") == "ROUND_FAILED":
+        assert gate.is_externally_blocked(document) is False
+
+
+def test_a_round_that_ran_and_failed_never_earns_the_exemption():
+    """The invariant that must hold whatever host produced the document."""
+    gate = _phase6()
+    assert gate.is_externally_blocked(
+        {"blocking_class": "ROUND_FAILED", "state_rounds_failed": []}) is False

@@ -98,7 +98,7 @@ jobs:
             [test_survival_recovery.py]=13
             [test_always_on_retry.py]=9
             [test_always_on_reconciler.py]=7
-            [test_federation_status_scopes.py]=57
+            [test_federation_status_scopes.py]=58
           )
           total=0
           for file in "${!expected[@]}"; do

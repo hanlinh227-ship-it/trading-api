@@ -91,6 +91,78 @@ def preview(root: Path, request: str = CANONICAL_REQUEST) -> dict[str, Any]:
     }
 
 
+FEDERATED_REQUEST = "In one sentence, what does a worker contribute to a federation?"
+
+
+def federated_plan_models(root: Path, request: str = FEDERATED_REQUEST) -> list[str]:
+    """Every model the federated live round PLANS to run, maker and checker.
+
+    The golden chain runs one model. The live rounds in the free-worker and
+    24x7 proofs run a maker AND a checker, and a worker staged one model, so
+    the checker came back "no verified artifact cached" - a correct refusal to
+    a question nobody had prepared for. This replays the planning half of
+    `run_federated` and stops: route, admit, select, plan. No backend is
+    constructed and no weights are touched, so it needs no engine.
+    """
+    from AI_SKILL_LIBRARY.v4.local_runtime.multi_model import (  # noqa: PLC0415
+        _worker_task, admitted, mesh, mesh_select, plan_execution, route_request)
+    import datetime
+
+    observed_at = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    routed = route_request(request, root=root)
+    domain, primary_skill = routed["domain"], routed["primary_skill"]
+    pairs = admitted(root, observed_at)
+    if not pairs:
+        return []
+    candidates = [candidate for candidate, _ in pairs]
+    winner, _ = mesh_select(candidates, domain=domain, primary_skill=primary_skill)
+    if winner is None:
+        return []
+    primary_key = "%s:%s" % (winner.get("provider_id"), winner.get("model_id"))
+    supporting = [
+        worker for worker in mesh.select_workers(
+            _worker_task(domain, primary_skill, "STANDARD", candidates),
+            list(candidates), max_workers=4)
+        if "%s:%s" % (worker.get("provider_id"), worker.get("model_id")) != primary_key
+    ]
+    plan = plan_execution(
+        "STANDARD",
+        {"primary_model": {"candidate_key": primary_key,
+                           "model_id": winner.get("model_id")},
+         "supporting_models": [
+             {"candidate_key": "%s:%s" % (w.get("provider_id"), w.get("model_id")),
+              "model_id": w.get("model_id")} for w in supporting],
+         "verifier": primary_skill},
+        [primary_skill.upper()])
+    out = []
+    for entry in (plan.get("models") or []):
+        # Entries carry a candidate_key and sometimes a bare model_id; the two
+        # spellings are why the round-V role check had to be normalised too.
+        raw = str(entry.get("model_id") or entry.get("candidate_key") or "")
+        _, separator, remainder = raw.partition(":")
+        bare = remainder if separator and remainder else raw
+        if bare and bare not in out:
+            out.append(bare)
+    return out
+
+
+def required_models(root: Path, request: str = CANONICAL_REQUEST) -> list[str]:
+    """Everything a full production run needs staged, in one list.
+
+    The golden primary first, then whatever the federated live rounds plan.
+    Staging fewer than this is how a run reaches real inference and then fails
+    on a round nobody provisioned for.
+    """
+    models: list[str] = []
+    report = preview(root, request)
+    if report.get("selected_model_id"):
+        models.append(report["selected_model_id"])
+    for model_id in federated_plan_models(root):
+        if model_id not in models:
+            models.append(model_id)
+    return models
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     repo_root = Path(__file__).resolve().parents[3]
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -99,7 +171,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--evidence", type=Path, default=None)
     parser.add_argument("--print-model-id", action="store_true",
                         help="print only the selected model_id, for shell capture")
+    parser.add_argument("--print-required-models", action="store_true",
+                        help="print every model a full run must stage, one per line")
     args = parser.parse_args(list(argv) if argv is not None else None)
+
+    if args.print_required_models:
+        for model_id in required_models(args.root, args.request):
+            print(model_id)
+        return 0
 
     report = preview(args.root, args.request)
     if args.evidence:
