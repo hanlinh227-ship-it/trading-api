@@ -67,7 +67,7 @@
       "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"
     },
     "identifier": {
-      "description": "An identifier as the Model Mesh and Free Worker Mesh actually write them: 'Qwen/Qwen3-8B-GGUF', '@cf/baai/bge-m3', 'cf-worker-01'. Wider than class_token because real model ids carry an owner prefix, a leading '@' and a quantization suffix; still narrow enough to exclude whitespace and '=', so 'API_KEY=sk-live-...' cannot be written here.",
+      "description": "An identifier as the Model Mesh and Free Worker Mesh actually write them: 'Qwen/Qwen3-8B-GGUF', '@cf/baai/bge-m3', 'cf-worker-01'. Wider than class_token because real model ids carry an owner prefix, a leading '@' and a quantization suffix; still narrow enough to exclude whitespace and '=', so a credential-shaped 'KEY=VALUE' string cannot be written here.",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,

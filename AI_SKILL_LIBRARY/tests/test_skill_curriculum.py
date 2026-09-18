@@ -401,8 +401,11 @@ REALISTIC_EVIDENCE_REFS = (
 )
 #: What a leaked prompt/secret actually looks like arriving through a field that
 #: was only ever typed "string".
+#: Deliberately not a realistic credential. What the schema actually rejects is
+#: the *shape* - length, whitespace, "=" - so the fixture carries that shape and
+#: nothing that a secret scanner or a reader could mistake for a real key.
 LEAKY_STRING = (
-    "API_KEY=sk-live-0123456789abcdef passphrase=hunter2 "
+    "API_KEY=EXAMPLE-NOT-A-REAL-KEY passphrase=EXAMPLE-NOT-A-REAL-PASSPHRASE "
     "and here is the user's whole prompt: " + ("please summarise this " * 60)
 )
 PLACEHOLDER_REFS = ("   ", "n/a", "TODO", "-", "")
