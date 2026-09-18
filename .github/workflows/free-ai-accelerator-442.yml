@@ -19,6 +19,14 @@ jobs:
     env:
       WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
       MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      CLOUDFLARE_AI_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -76,48 +84,17 @@ jobs:
           } > /tmp/free-ai-context.txt
           head -c 12000 /tmp/free-ai-context.txt > /tmp/free-ai-context-bounded.txt
 
-      - name: Run free AI workers in parallel
+      - name: Fan out across every eligible FREE_ONLY model
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json, pathlib
-          ctx=pathlib.Path('/tmp/free-ai-context-bounded.txt').read_text(errors='replace')
-          tasks={
-            'integration_guard': """You are a bounded AI CORE integration assistant. Using only the public project context below, identify the highest-probability integration conflicts or sequencing mistakes that could slow PR #442. Do not redesign architecture. Return concise actionable findings with exact file/path references when present in context. Prioritize blockers that Claude/Work can act on immediately.\n\n"""+ctx,
-            'test_gap_hunter': """You are a bounded test-gap hunter. Using only the public project context below, propose the smallest focused tests/checks most likely to catch integration failures across Front Door, Survival, Always-On, Redundancy and Storage Mesh boundaries. Do not propose broad full-repo tests. Return commands/files/checks only, ranked by leverage.\n\n"""+ctx,
-            'speed_optimizer': """You are a bounded delivery optimizer. Using only the public project context below, identify independent mechanical tasks that can be delegated immediately without touching Storage Mesh/shared authority files. Prefer tasks suitable for cheap/free models and that shorten AI CORE closure. Return no more than five tasks with exact allowed path scopes and a suggested verification command.\n\n"""+ctx,
-          }
-          pathlib.Path('/tmp/free-ai-tasks.json').write_text(json.dumps(tasks))
-          PY
-
-          python3 - <<'PY'
-          import json, os, subprocess, pathlib, concurrent.futures
-          base=os.environ['WORKER_BASE_URL']
-          token=os.environ['MODEL_MESH_EXECUTION_TOKEN']
-          tasks=json.load(open('/tmp/free-ai-tasks.json'))
-          def run(item):
-              name,prompt=item
-              body=json.dumps({'text':prompt,'dataClass':'PUBLIC'})
-              p=subprocess.run([
-                  'curl','-fsS','--connect-timeout','5','--max-time','180',
-                  '-X','POST','-H','content-type: application/json',
-                  '-H',f'x-model-mesh-token: {token}',
-                  '-d',body,f'{base}/brain/mesh/execute'
-              ],capture_output=True,text=True)
-              if p.returncode!=0:
-                  return name, {'ok':False,'error':'request_failed'}
-              try:
-                  data=json.loads(p.stdout)
-              except Exception:
-                  return name, {'ok':False,'error':'invalid_json'}
-              return name,data
-          out={}
-          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
-              for name,data in ex.map(run,tasks.items()):
-                  out[name]=data
-          pathlib.Path('/tmp/free-ai-results.json').write_text(json.dumps(out))
-          PY
+          cd cloudflare-worker
+          node free-ai-all-models-runner.mjs \
+            ../AI_SKILL_LIBRARY/v4/model_mesh/active.json \
+            ../AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json \
+            /tmp/free-ai-probe.json \
+            /tmp/free-ai-context-bounded.txt \
+            /tmp/free-ai-all-model-results.json
 
       - name: Publish sanitized acceleration handoff to job summary
         shell: bash
@@ -126,25 +103,21 @@ jobs:
           python3 - <<'PY'
           import json, pathlib
           probe=json.load(open('/tmp/free-ai-probe.json'))
-          data=json.load(open('/tmp/free-ai-results.json'))
-          lines=['FREE AI ACCELERATOR — LIVE SUPPORT RESULTS','']
+          data=json.load(open('/tmp/free-ai-all-model-results.json'))
+          lines=['FREE AI ACCELERATOR — ALL ELIGIBLE REPO MODELS','']
           healthy=[r for r in (probe.get('results') or []) if r.get('ok') is True]
           lines.append('Healthy FREE_ONLY providers: '+(', '.join(f"{r.get('providerId')}:{r.get('modelId')}" for r in healthy) or 'none'))
+          lines.append(f"Eligible repo models: {data.get('eligible_count',0)}")
+          lines.append(f"Models actually used this run: {data.get('live_count',0)}")
           lines.append('')
-          for name in ('integration_guard','test_gap_hunter','speed_optimizer'):
-              lines.append('## '+name)
-              d=data.get(name) or {}
-              if not d.get('ok'):
-                  lines.append('No usable result: '+str(d.get('error','unknown')))
-              else:
-                  results=d.get('results') or []
-                  for r in results[:4]:
-                      provider=str(r.get('provider_id','unknown'))
-                      model=str(r.get('model_id','unknown'))
-                      text=str(r.get('text','')).strip()
-                      if text:
-                          lines.append(f"### {provider} / {model}")
-                          lines.append(text[:5000])
+          for r in data.get('rows') or []:
+              provider=str(r.get('provider_id','unknown'))
+              model=str(r.get('model_id','unknown'))
+              status='USED' if r.get('ok') else str(r.get('skipped') or r.get('category') or r.get('error') or 'FAILED')
+              lines.append(f"## {provider} / {model} — {status}")
+              text=str(r.get('text','')).strip()
+              if text:
+                  lines.append(text[:5000])
               lines.append('')
           lines += [
             'Authority remains unchanged: routing=false, reasoning=false, merge=false, deployment=false, trading=false.',
