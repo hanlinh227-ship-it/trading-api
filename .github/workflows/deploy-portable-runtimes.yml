@@ -117,6 +117,43 @@ jobs:
           done
           echo "DENO_SECONDARY_AUTHORITY=NONE"
 
+      - name: GitHub Actions ephemeral compute plane
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This job IS the compute plane: ephemeral, zero-cost, exact-SHA by
+          # construction. It runs the fabric's own acceptance matrix, which is
+          # generated from the registry rather than written by hand, so a row
+          # cannot read PASS because someone typed PASS.
+          python -m pip install --disable-pip-version-check -q pyyaml
+          # Run the files directly: AI_SKILL_LIBRARY/tests is not an importable
+          # package, so `unittest discover` cannot load it. Verified locally.
+          for suite in AI_SKILL_LIBRARY/tests/test_runtime_fabric_v2.py \
+                       AI_SKILL_LIBRARY/tests/test_runtime_fabric_acceptance.py; do
+            echo "--- $suite ---"
+            PYTHONPATH="$PWD" python "$suite"
+          done
+          python - <<'PY'
+          import importlib.util, sys
+          from pathlib import Path
+          d = Path('AI_SKILL_LIBRARY/v4/runtime_fabric')
+          sys.path.insert(0, str(d))
+          for name in ('fabric', 'acceptance'):
+              spec = importlib.util.spec_from_file_location(name, d / (name + '.py'))
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+          import acceptance
+          matrix = acceptance.acceptance_matrix()
+          print(acceptance.render_matrix(matrix))
+          # The plane must never report a runtime live that was not probed.
+          if matrix['SECONDARY_DEPLOYED'] or matrix['SECONDARY_HEALTH_VERIFIED']:
+              raise SystemExit('secondary claims deployment without live evidence')
+          if matrix['FAILOVER_PROOF'] == 'PASS' and not matrix['SECONDARY_DEPLOYED']:
+              raise SystemExit('failover claimed PASS without a deployed secondary')
+          PY
+          echo "GITHUB_ACTIONS_COMPUTE_PLANE=READY"
+
       - name: Netlify tertiary adapter wraps the shared contract
         shell: bash
         run: |
