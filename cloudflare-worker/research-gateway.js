@@ -3,6 +3,7 @@ import {PROVIDERS} from '../crypto-research-gateway/src/providers/index.ts';
 import {BybitProvider} from '../crypto-research-gateway/src/providers/bybit.ts';
 import {buildDataEnvelope,computePayloadHash,validateDataEnvelope} from '../crypto-research-gateway/src/normalization/data-contract.ts';
 import {createBybitBridgeFetchJson} from './research-bybit-transport.js';
+import {privateBridgeState,bybitTransportPriority} from './private-bridge.js';
 
 const SERVICE_NAME='crypto-research-gateway';
 const SERVICE_VERSION='0.1.0';
@@ -226,7 +227,10 @@ export function createResearchGatewayHandler({
         deploymentRelease:DEPLOYMENT_RELEASE,
         deploymentSourceSha:String(env.RUNTIME_REVISION||''),
         localInstallRequired:false,
-        bybitTransportPriority:['cloudflare-vpc-bridge','secondary-research-gateway'],
+        // Derived from the deployment, not asserted: an absent private bridge
+        // is a normal state for the public primary and must be visible as one.
+        privateBridge:privateBridgeState(env),
+        bybitTransportPriority:bybitTransportPriority(env),
         lastPublicProbeTimestamp:runtime.getLastProbeAt(),
         healthyProviders,
         degradedProviders,
