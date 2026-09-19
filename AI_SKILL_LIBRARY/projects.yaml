@@ -23,7 +23,7 @@ projects:
     routed_by: trading_router
     load_only_when: [trading, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, backtesting, mt5_mql5, trading_bot, live_data_validation, market_analysis, multi_market_analysis, risk_execution, quant_backtesting]
     retired_execution_authorities:
-      - unrestricted legacy multi-coin Bybit
+      - legacy multi-coin Bybit
       - Forex
       - Meme
       - Signal V10/V11
