@@ -1,11 +1,26 @@
-# CURRENT HANDOFF — BTCUSDT BYBIT ONLY
+# CURRENT HANDOFF — BYBIT TOP-100 MARKET-CAP STATEFLOW
 
 Updated: 2026-09-19 UTC+7
 
 ## SINGLE TRADING AUTHORITY
-The repository is now targeted at one production strategy only: **BTCUSDT Linear Perpetual on Bybit**.
-Source target: `BYBIT-BTC-STATEFLOW-2.1`.
-All legacy multi-coin Bybit, Forex, Meme, Signal V10/V11 and AI-council strategy/execution authority is retired.
+The repository is now targeted at one production execution family: **up to 100 high-market-cap Bybit USDT Linear Perpetual symbols**, dynamically intersected with the external top-100 market-cap universe and strict Bybit liquidity/execution-quality gates.
+Source target: `BYBIT-TOP100-STATEFLOW-3.0`.
+Forex, Meme, Signal V10/V11 and AI-council execution authority remains retired. Legacy broad multi-coin execution is not restored blindly; only symbols passing the canonical top-100 market-cap + liquidity + anti-sweep gate may receive new risk.
+
+
+## TOP-100 EXECUTION UNIVERSE
+New-risk admission is fail-closed and requires all of the following:
+- CoinGecko public market-cap rank <= 100 with market cap >= USD 250M; cached for 30 minutes, stale cache accepted for at most 24h.
+- Active Bybit USDT linear perpetual with valid instrument metadata.
+- Listing age >= 30 days when launch metadata is available.
+- 24h Bybit turnover >= USD 10M.
+- Open-interest value >= USD 3M.
+- Spread <= 10 bps at universe admission; per-symbol strategy profile may be stricter.
+- Anti-sweep liquidity score >= 0.62 from turnover, OI, spread and listing age.
+- Fresh microstructure is required before new risk; non-BTC symbols use the private VPC public-WS mirror when available.
+- Existing structure-first setup selection, sweep/reclaim or break/retest evidence, flow/near-touch depth, derivatives context, volatility, risk and execution gates remain mandatory.
+
+This reduces stop-sweep exposure but does **not** guarantee that a stop can never be swept. Stops remain outside structural invalidation with volatility/liquidity noise buffers, and dynamic symbols use a wider anti-sweep buffer plus lower default risk/leverage than core symbols.
 
 ## KEEP — LIVE INFRASTRUCTURE
 Do not remove or replace these capabilities without an explicit migration:
