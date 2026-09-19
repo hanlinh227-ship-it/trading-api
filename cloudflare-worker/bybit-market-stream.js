@@ -177,6 +177,7 @@ export class BybitMarketStream {
   async ensureConnected(){
     if(this.connected||this.connecting)return;
     this.connecting=true;
+    try{for(const interval of ['5','15','60']){const stored=await this.state.storage.get('klines:'+interval);if(Array.isArray(stored)&&stored.length)this.klines[interval]=stored.slice(-220);}}catch{}
     this.lastError=null;
     try{
       const response=await fetch(FETCH_URL,{headers:{Upgrade:'websocket'}});
@@ -260,6 +261,7 @@ export class BybitMarketStream {
       if(i>=0)arr[i]=row;else arr.push(row);
       arr.sort((a,b)=>a.t-b.t);
       this.klines[interval]=arr.slice(-220);
+      const persist=this.state.storage.put('klines:'+interval,this.klines[interval]).catch(()=>{});if(typeof this.state.waitUntil==='function')this.state.waitUntil(persist);
     }
   }
 
