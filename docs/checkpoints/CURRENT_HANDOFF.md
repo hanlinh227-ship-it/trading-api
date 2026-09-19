@@ -45,10 +45,10 @@ A single indicator, funding value, OI change, book imbalance, liquidation print,
 
 StateFlow and the deterministic Risk Governor remain the only strategy/risk/execution authority. The AI layer is subordinate evidence and may block or reduce risk, never force an order or expand risk.
 
-Four distinct AI roles are assigned to distinct live model families when available:
+Four specialist AI desks are assigned to distinct live model families when available, while the wider healthy model pool rotates across events:
 - `macro_news_agent`: reads only supplied public macro/crypto-news context. Sources include CoinDesk, Cointelegraph, Federal Reserve press releases and BLS latest indicators. It may flag catalyst/event risk, but cannot invent missing news.
 - `market_structure_flow_agent`: structure, sweep/reclaim, break/retest, regime, executed flow, L2 near-touch liquidity, microprice and liquidation coherence.
-- `order_risk_architect_agent`: OI/funding/premium/crowding, fee/slippage, stop/target geometry, leverage/risk constraints and execution quality. It may only reduce the deterministic risk multiplier.
+- `order_risk_architect_agent`: OI/funding/premium/crowding, fee/slippage, entry quality, stop/target geometry, leverage/risk constraints and execution quality. It emits a bounded order-plan suggestion and may only reduce the deterministic risk multiplier.
 - `independent_adversarial_checker`: red-team challenge for stale/conflicting evidence, crowded traps, obvious stop placement, cost mismatch and unsupported confidence.
 
 Model Mesh remains bounded to at most four concurrent external workers. When more eligible model families exist, the role assignment rotates across market events so additional healthy AI families participate over time without exceeding the hard parallelism ceiling.
@@ -67,7 +67,7 @@ Rules:
 - AI may block or reduce risk; it may not increase risk, set leverage above deterministic limits, place/cancel/amend orders, widen symbol authority, mutate credentials, or bypass StateFlow.
 - Existing protected-position management remains deterministic if AI is temporarily unavailable.
 
-Continuous opportunity mode means the system continuously scans/ranks the top-100 universe and keeps looking for the next qualified setup. It does **not** mean forcing an order when edge is absent. No architecture can guarantee a profitable order at all times.
+Continuous opportunity mode means the system continuously scans/ranks the top-100 universe and always returns a decision (`ENTER`, `MANAGE`, or `NO_TRADE`). It does **not** force an order when edge is absent. No architecture can guarantee a profitable order at all times.
 
 Final chain:
 `market/news data -> top-100 universe gate -> StateFlow candidate -> 4-role AI evidence -> deterministic Risk Governor -> Bybit V5 execution -> protection/reconciliation -> post-trade evidence`.
