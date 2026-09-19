@@ -174,6 +174,36 @@ try{
   globalThis.fetch=originalFetchVpc;
 }
 
+const originalFetchPublic=globalThis.fetch;
+globalThis.fetch=async url=>{
+  const href=String(url);
+  if(href.startsWith('https://api.bybit.com/')||href.startsWith('https://api.bytick.com/'))return new Response('blocked',{status:403,headers:{'content-type':'text/plain'}});
+  throw new Error('unexpected fetch '+href);
+};
+try{
+  const publicFallback=bybitV5({
+    BYBIT_AUTO_DEMO:'true',
+    BYBIT_DEMO_API_KEY:'demo-key',
+    BYBIT_DEMO_API_SECRET:'demo-secret',
+    V11_AI_BRIDGE_SECRET:'bridge-secret',
+    AI_BRIDGE:{
+      fetch:async request=>{
+        const u=new URL(request.url);
+        assert.equal(u.pathname,'/bybit/public/v5/market/tickers');
+        assert.equal(u.searchParams.get('category'),'linear');
+        assert.equal(u.searchParams.get('symbol'),'BTCUSDT');
+        assert.equal(request.headers.get('authorization'),'Bearer bridge-secret');
+        return new Response(JSON.stringify({retCode:0,retMsg:'OK',result:{list:[{symbol:'BTCUSDT',lastPrice:'80000'}]}}),{status:200,headers:{'content-type':'application/json'}});
+      }
+    }
+  });
+  const ticker=await publicFallback.ticker('BTCUSDT');
+  assert.equal(ticker.retCode,0);
+  assert.equal(ticker.result.list[0].symbol,'BTCUSDT');
+}finally{
+  globalThis.fetch=originalFetchPublic;
+}
+
 console.log('BYBIT_TOP100_EXECUTION_AUTHORITY_VALIDATION=PASS');
 
 assert.equal(BYBIT_RUNTIME_CONTRACT.aiSoleExecutorRole,'order_risk_architect_agent');
