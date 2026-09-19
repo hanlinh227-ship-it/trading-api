@@ -67,6 +67,16 @@ The Legion never becomes a second trading authority. Final chain:
 - Winner pyramiding ON; risk recycling ON.
 - Add-to-loser OFF; martingale OFF; grid rescue OFF.
 
+## LATENCY PROFILE
+- Zero physical/network latency is impossible. The runtime is therefore optimized for minimum internal decision/execution delay while preserving risk and AI gates.
+- Cloud market-event debounce default: 150 ms; hard floor: 75 ms.
+- Market events arriving during an in-flight evaluation are coalesced and immediately re-evaluated after the current cycle, rather than silently dropped.
+- AI Legion refresh is off the critical market-data path when a Durable Object context is available; stale AI evidence still blocks new DEMO/LIVE risk until a fresh cached decision exists.
+- Account/capital reconciliation runs in parallel with the trading decision path.
+- BTCUSDT instrument metadata is cached in-process for 5 minutes to remove a redundant public REST call from most market events.
+- Post-order fill reconciliation polls at 80 ms intervals instead of 200 ms.
+- No latency optimization may bypass native protection, freshness, AI veto, risk governor, symbol authority or Demo/Live separation.
+
 ## MICROSTRUCTURE
 Preferred source is the Cloudflare-native outbound Bybit WebSocket collector (`orderbook.50.BTCUSDT`, `publicTrade.BTCUSDT`, `allLiquidation.BTCUSDT`, `tickers.BTCUSDT`). REST snapshots remain a diagnostic/fail-safe fallback. New autonomous risk requires fresh cloud-stream evidence.
 
