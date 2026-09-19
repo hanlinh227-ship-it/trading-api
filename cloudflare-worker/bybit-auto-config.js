@@ -69,7 +69,7 @@ export const BYBIT_AUTO_CONFIG={
     }
   },
   scan:{decisionAuthority:'EVENT_DRIVEN_TOP100_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
-  aiLegion:{enabledByDefault:true,demoAuto:true,liveRequiresExplicitAck:true,liveAckEnv:'BYBIT_AI_LEGION_LIVE_ENABLED',modelMeshRequired:true,requiredDistinctWorkers:3,maxDistinctWorkers:4,authority:'ADVISORY_EVIDENCE_ONLY',mayIncreaseRisk:false,mayPlaceOrders:false,mayOverrideStateFlow:false},
+  aiLegion:{enabledByDefault:true,demoAuto:true,liveRequiresExplicitAck:true,liveAckEnv:'BYBIT_AI_LEGION_LIVE_ENABLED',modelMeshRequired:true,requiredDistinctWorkers:3,maxDistinctWorkers:4,authority:'SINGLE_AI_EXECUTOR_WITH_RESEARCH_SWARM',mayIncreaseRisk:false,mayPlaceOrders:true,soleExecutorRole:'order_risk_architect_agent',otherAgentsResearchOnly:true,signedWriteStillRiskGated:true,mayOverrideStateFlow:false},
   risk:{
     mode:'PROGRESSIVE_COMPOUNDING_WITH_DRAWDOWN_CONTRACTION',fullAccountAuthority:true,compoundContinuously:true,riskGrowsWithCapital:true,riskShrinksWithDrawdown:true,
     baseEntryRiskPct:.75,strongEntryRiskPct:1.00,aPlusEntryRiskPct:1.25,absoluteSingleEntryRiskPct:1.50,
