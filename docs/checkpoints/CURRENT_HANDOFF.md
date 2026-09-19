@@ -12,12 +12,12 @@ Do not remove or replace these capabilities without an explicit migration:
 - Bybit LIVE credential lookup (`BYBIT_AUTO_API_KEY` / `BYBIT_AUTO_API_SECRET` with existing fallback names).
 - Separate Bybit Demo credential lookup (`BYBIT_DEMO_API_KEY` / `BYBIT_DEMO_API_SECRET`).
 - Bybit V5 signing primitive.
-- Direct Cloudflare -> Bybit signed REST transport.
+- Direct Cloudflare -> Bybit signed REST transport, with a DEMO-only authenticated Deno Deploy egress fallback when Cloudflare receives a Bybit/CloudFront 403.
 - Cloudflare-native public WebSocket collector via `BybitMarketStream` Durable Object.
 - Bybit readonly health/control/deployment verification.
 - Existing BTC state KV key so open BTC tranche state is not casually reset.
 
-The canonical V1 runtime no longer requires a VPS or VPC/private bridge.
+The canonical V1 runtime no longer requires a VPS or VPC/private bridge. Demo fallback remains serverless: Cloudflare signs the Bybit request locally, Deno receives only the signed request envelope (never the Bybit API secret), and forwards only an allowlisted set of Bybit Demo V5 private paths.
 
 ## STRATEGY AUTHORITY
 Indicators are not primary entry authority. Use state-first evidence:
