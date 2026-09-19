@@ -2,7 +2,7 @@ import {runBybitAutoControlled,recordBybitAutoSchedulerError} from './bybit-auto
 
 const VERSION='BYBIT_CLOUD_MARKET_STREAM_V1';
 const SYMBOL='BTCUSDT';
-const URL='wss://stream.bybit.com/v5/public/linear';
+const WS_URL='wss://stream.bybit.com/v5/public/linear';
 const FETCH_URL='https://stream.bybit.com/v5/public/linear';
 const TOPICS=[
   'orderbook.50.BTCUSDT',
@@ -130,7 +130,7 @@ export class BybitMarketStream {
 
   health(){
     return {
-      version:VERSION,symbol:SYMBOL,url:URL,connected:this.connected,connecting:this.connecting,
+      version:VERSION,symbol:SYMBOL,url:WS_URL,connected:this.connected,connecting:this.connecting,
       lastConnectAt:this.lastConnectAt||null,lastMessageAt:this.lastMessageAt||null,lastDisconnectAt:this.lastDisconnectAt||null,
       messageAgeMs:this.lastMessageAt?Date.now()-this.lastMessageAt:null,lastError:this.lastError,
       topics:TOPICS,decisionTrigger:'CLOUD_BYBIT_WS_STATE_CHANGE',vpsRequired:false,
