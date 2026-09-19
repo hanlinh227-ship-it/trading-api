@@ -71,7 +71,7 @@ export function bybitV5(env={}){
     const upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody));
     const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+recvWindow+payload);
     const headers={"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":recvWindow,"X-BAPI-SIGN":sig,"Content-Type":"application/json","Accept":"application/json","X-Trading-Runtime-Contract":BYBIT_RUNTIME_CONTRACT_VERSION};
-    const requestBody={method:upper,path,query:upper==="GET"?payload:"",body:upper==="GET"?"":payload,headers};
+    const requestBody={method:upper,path,query:upper==="GET"?payload:"",body:upper==="GET"?"":payload,headers,base:demo?"https://api-demo.bybit.com":(baseList[0]||"https://api.bybit.com")};
     let r,j;
     try{
       r=await env.AI_BRIDGE.fetch(new Request(BRIDGE_PRIVATE_URL,{method:"POST",headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+secret,"x-trading-runtime-contract":BYBIT_RUNTIME_CONTRACT_VERSION},body:JSON.stringify(requestBody),signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)}));
@@ -124,7 +124,16 @@ export function bybitV5(env={}){
         const r=await fetch(url,{method:upper,headers,body:upper==="GET"?undefined:payload,signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});
         try{return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PRIVATE_DIRECT"});}
         catch(e){
-          if(demo&&Number(e?.bybit?.httpStatus)===403&&demoEgressUrl(env)&&demoEgressSecret(env))return signedViaDemoEgress(upper,path,payload,headers);
+          if(demo&&Number(e?.bybit?.httpStatus)===403){
+            let relayErr=e;
+            if(demoEgressUrl(env)&&demoEgressSecret(env)){
+              try{return await signedViaDemoEgress(upper,path,payload,headers);}catch(de){relayErr=de;}
+            }
+            if(env.AI_BRIDGE&&typeof env.AI_BRIDGE.fetch==="function"&&bridgeSecret(env)){
+              try{return await signedViaVps(upper,path,paramsOrBody);}catch(ve){relayErr=ve;}
+            }
+            throw relayErr;
+          }
           throw e;
         }
       }catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403&&Number(e?.bybit?.httpStatus)!==429)throw e;}
