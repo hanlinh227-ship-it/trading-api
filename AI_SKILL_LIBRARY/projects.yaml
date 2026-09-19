@@ -18,8 +18,8 @@ projects:
     status: CURRENT
     domains: [trading]
     authority: docs/checkpoints/CURRENT_HANDOFF.md
-    canonical_checkpoint: docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md
-    authority_token: BYBIT-BTC-STATEFLOW-2.1
+    canonical_checkpoint: docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md
+    authority_token: BYBIT-TOP100-STATEFLOW-3.0
     routed_by: trading_router
     load_only_when: [trading, crypto, forex, futures, indices, market_microstructure, technical_analysis, risk_management, backtesting, mt5_mql5, trading_bot, live_data_validation, market_analysis, multi_market_analysis, risk_execution, quant_backtesting]
     retired_execution_authorities:
@@ -35,8 +35,9 @@ projects:
       - Cloudflare VPC/service binding
       - readonly health/control/deployment verification
       - existing BTC state KV key
+      - per-symbol state KV keys for admitted top-100 symbols
     execution_authority_never_from: [github_research, provider_consensus, legacy_memory, legacy_checkpoint, crypto_agent, multi_market_research, brain_upgrade, upstream_repository, plugin]
-    research_is_analysis_only: true
+    research_is_analysis_only: false
     live_claim_requires:
       - successful worker validation/deploy
       - /bybit/health runtime revision/version alignment

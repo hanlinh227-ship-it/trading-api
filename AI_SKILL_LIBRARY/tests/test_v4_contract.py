@@ -91,7 +91,7 @@ class V4ContractTests(unittest.TestCase):
         projects = yaml.safe_load((LIB / "projects.yaml").read_text(encoding="utf-8"))
         trading = next(row for row in projects["projects"] if row["id"] == "trading")
         self.assertEqual(trading["authority"], "docs/checkpoints/CURRENT_HANDOFF.md")
-        self.assertEqual(trading["canonical_checkpoint"], "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md")
+        self.assertEqual(trading["canonical_checkpoint"], "docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md")
 
 
 if __name__ == "__main__":

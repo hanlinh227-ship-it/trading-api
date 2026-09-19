@@ -13,7 +13,7 @@ const base={
   flowThresholdMult:1,qualityThresholdMult:1,bookToleranceMult:1,leverageMult:1,
   maxSpreadBps:7,minTurnoverUsd:25_000_000,runnerMaxR:3.8,holdMult:1.10,
   minNetProfitMult:1.00,profitGivebackMult:1.00,reverseExitEvidenceMult:1.00,
-  style:'BALANCED',correlationGroup:'ALT',priority:50,allowHighVolShockNewRisk:false,
+  style:'BALANCED',correlationGroup:'ALT',priority:50,allowHighVolShockNewRisk:false,antiSweepBufferMult:1,
   preferredRegimes:['TREND_UP','TREND_DOWN','BREAKOUT_UP','BREAKOUT_DOWN','SQUEEZE','TRANSITION','REVERSAL','RANGE']
 };
 const p=(symbol,name,x)=>freeze({...base,symbol,name,...x});
@@ -58,7 +58,7 @@ export const BYBIT_PORTFOLIO_POLICY=freeze({
 export function normalizeBybitSymbol(symbol='BTCUSDT'){
   return String(symbol||'BTCUSDT').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
 }
-const DYNAMIC_PROFILE_BASE=freeze({...base,marketCapClass:'DYNAMIC',riskMult:.55,targetMult:.98,stopMult:.96,signalGain:.98,flowThresholdMult:1.02,qualityThresholdMult:1.06,bookToleranceMult:.96,leverageMult:.82,maxSpreadBps:12.0,minTurnoverUsd:750_000,runnerMaxR:2.15,holdMult:.90,minNetProfitMult:.96,profitGivebackMult:.88,reverseExitEvidenceMult:.96,style:'BALANCED',correlationGroup:'DYNAMIC_ALT',priority:35,dynamicProfile:true});
+const DYNAMIC_PROFILE_BASE=freeze({...base,marketCapClass:'TOP100',riskMult:.42,targetMult:1.02,stopMult:1.12,signalGain:.98,flowThresholdMult:1.05,qualityThresholdMult:1.10,bookToleranceMult:.94,leverageMult:.68,maxSpreadBps:8.0,minTurnoverUsd:10_000_000,runnerMaxR:2.20,holdMult:.92,minNetProfitMult:1.00,profitGivebackMult:.86,reverseExitEvidenceMult:1.02,antiSweepBufferMult:1.35,style:'BALANCED',correlationGroup:'DYNAMIC_ALT',priority:35,dynamicProfile:true});
 const DYNAMIC_PROFILE_CACHE=new Map();
 const CORE_SCALP_PROFILE_CACHE=new Map();
 function scalpNormalizedCoreProfile(x){return freeze({...x,targetMult:Math.min(1.03,Number(x.targetMult)||1),stopMult:Math.min(1.02,Number(x.stopMult)||1),runnerMaxR:Math.min(2.25,Number(x.runnerMaxR)||2.25),holdMult:Math.min(1.03,Number(x.holdMult)||1),profitGivebackMult:Math.min(1.00,Number(x.profitGivebackMult)||1),reverseExitEvidenceMult:Math.min(1.05,Number(x.reverseExitEvidenceMult)||1)});}

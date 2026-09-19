@@ -1,11 +1,26 @@
-# CURRENT HANDOFF — BTCUSDT BYBIT ONLY
+# CURRENT HANDOFF — BYBIT TOP-100 MARKET-CAP STATEFLOW
 
 Updated: 2026-09-19 UTC+7
 
 ## SINGLE TRADING AUTHORITY
-The repository is now targeted at one production strategy only: **BTCUSDT Linear Perpetual on Bybit**.
-Source target: `BYBIT-BTC-STATEFLOW-2.1`.
-All legacy multi-coin Bybit, Forex, Meme, Signal V10/V11 and AI-council strategy/execution authority is retired.
+The repository is now targeted at one production execution family: **up to 100 high-market-cap Bybit USDT Linear Perpetual symbols**, dynamically intersected with the external top-100 market-cap universe and strict Bybit liquidity/execution-quality gates.
+Source target: `BYBIT-TOP100-STATEFLOW-3.0`.
+Forex, Meme, Signal V10/V11 and AI-council execution authority remains retired. Legacy broad multi-coin execution is not restored blindly; only symbols passing the canonical top-100 market-cap + liquidity + anti-sweep gate may receive new risk.
+
+
+## TOP-100 EXECUTION UNIVERSE
+New-risk admission is fail-closed and requires all of the following:
+- CoinGecko public market-cap rank <= 100 with market cap >= USD 250M; cached for 30 minutes, stale cache accepted for at most 24h.
+- Active Bybit USDT linear perpetual with valid instrument metadata.
+- Listing age >= 30 days when launch metadata is available.
+- 24h Bybit turnover >= USD 10M.
+- Open-interest value >= USD 3M.
+- Spread <= 10 bps at universe admission; per-symbol strategy profile may be stricter.
+- Anti-sweep liquidity score >= 0.62 from turnover, OI, spread and listing age.
+- Fresh microstructure is required before new risk; non-BTC symbols use the private VPC public-WS mirror when available.
+- Existing structure-first setup selection, sweep/reclaim or break/retest evidence, flow/near-touch depth, derivatives context, volatility, risk and execution gates remain mandatory.
+
+This reduces stop-sweep exposure but does **not** guarantee that a stop can never be swept. Stops remain outside structural invalidation with volatility/liquidity noise buffers, and dynamic symbols use a wider anti-sweep buffer plus lower default risk/leverage than core symbols.
 
 ## KEEP — LIVE INFRASTRUCTURE
 Do not remove or replace these capabilities without an explicit migration:
@@ -26,32 +41,36 @@ Indicators are not primary entry authority. Use state-first evidence:
 A single indicator, funding value, OI change, book imbalance, liquidation print, AI opinion or candle pattern cannot independently authorize a trade.
 
 
-## AI LEGION — CONTINUOUS AUTOTRADE V2 MARKET INTELLIGENCE
-The existing StateFlow engine remains the strategy/execution authority. The AI Legion is a subordinate evidence plane attached after deterministic setup selection and before new-risk admission.
+## AI LEGION — MULTI-ROLE MARKET INTELLIGENCE
 
-Role contract:
-- `structure_regime_agent`: structure, sweep/reclaim, break/retest and regime coherence.
-- `flow_liquidity_agent`: executed flow, near-touch L2, microprice and liquidation coherence.
-- `derivatives_risk_agent`: OI/funding/premium/crowding, cost and execution-risk context.
-- `independent_checker`: contradiction/staleness checker when a fourth distinct worker is available.
-- All roles use the market-intelligence playbook for structure/flow/derivatives/stop-target coherence. Stops are not treated as unsweepable.
+StateFlow and the deterministic Risk Governor remain the only strategy/risk/execution authority. The AI layer is subordinate evidence and may block or reduce risk, never force an order or expand risk.
+
+Four distinct AI roles are assigned to distinct live model families when available:
+- `macro_news_agent`: reads only supplied public macro/crypto-news context. Sources include CoinDesk, Cointelegraph, Federal Reserve press releases and BLS latest indicators. It may flag catalyst/event risk, but cannot invent missing news.
+- `market_structure_flow_agent`: structure, sweep/reclaim, break/retest, regime, executed flow, L2 near-touch liquidity, microprice and liquidation coherence.
+- `order_risk_architect_agent`: OI/funding/premium/crowding, fee/slippage, stop/target geometry, leverage/risk constraints and execution quality. It may only reduce the deterministic risk multiplier.
+- `independent_adversarial_checker`: red-team challenge for stale/conflicting evidence, crowded traps, obvious stop placement, cost mismatch and unsupported confidence.
+
+Model Mesh remains bounded to at most four concurrent external workers. When more eligible model families exist, the role assignment rotates across market events so additional healthy AI families participate over time without exceeding the hard parallelism ceiling.
+
+News/macro context:
+- cached for 5 minutes;
+- uses bounded stale fallback only up to 30 minutes;
+- is advisory context, not an order trigger;
+- missing news is never fabricated;
+- a headline alone cannot authorize a trade.
 
 Rules:
-- One selected Model Mesh worker/model family per role; minimum three distinct workers for autonomous new risk.
-- No majority vote. Required structure and flow roles must explicitly SUPPORT; any required VETO blocks the entry; the independent checker may veto.
-- AI receives PUBLIC market/candidate evidence only. Account secrets, API keys and hidden reasoning are not sent to the model.
-- AI may block a trade or reduce the deterministic risk multiplier; AI may never increase risk, set leverage, submit/cancel orders, mutate credentials, widen symbol authority, or override StateFlow/Risk Governor.
-- Stale/missing/invalid AI evidence fails closed for DEMO/LIVE new entries. Existing protected-position management continues under deterministic StateFlow even when AI is unavailable.
-- The event-driven path may refresh AI asynchronously and wait for the next market-state event rather than blocking the fast market-data loop on model latency.
+- Minimum three distinct workers for autonomous new risk.
+- No majority vote. Required market/order roles must pass; any required VETO blocks the entry; the adversarial checker may veto.
+- AI receives PUBLIC market/candidate/news evidence only. Account secrets/API keys/hidden reasoning are never sent to model providers.
+- AI may block or reduce risk; it may not increase risk, set leverage above deterministic limits, place/cancel/amend orders, widen symbol authority, mutate credentials, or bypass StateFlow.
+- Existing protected-position management remains deterministic if AI is temporarily unavailable.
 
-Execution modes:
-- `PAPER`: produces candidates/shadow AI evidence only; no exchange order.
-- `DEMO`: `BYBIT_AUTO_DEMO=true`; uses the same StateFlow + AI Legion + risk + reconciliation path against Bybit Demo REST. Prefer `BYBIT_DEMO_API_KEY` / `BYBIT_DEMO_API_SECRET`; legacy HYRO demo names are fallback only.
-- `LIVE`: requires the existing two live switches plus `BYBIT_AI_LEGION_LIVE_ENABLED=true`. The new AI switch is an additional explicit permission for AI-gated live entries, not a replacement for the existing Bybit live acknowledgements.
-- DEMO and LIVE requested together is a hard conflict and blocks execution.
+Continuous opportunity mode means the system continuously scans/ranks the top-100 universe and keeps looking for the next qualified setup. It does **not** mean forcing an order when edge is absent. No architecture can guarantee a profitable order at all times.
 
-The Legion never becomes a second trading authority. Final chain:
-`Cloudflare Bybit WebSocket event -> StateFlow setup -> AI Legion evidence gate -> deterministic Risk Governor -> direct Bybit REST execution -> fill/protection reconciliation`.
+Final chain:
+`market/news data -> top-100 universe gate -> StateFlow candidate -> 4-role AI evidence -> deterministic Risk Governor -> Bybit V5 execution -> protection/reconciliation -> post-trade evidence`.
 
 ## SCALE / RISK
 - Progressive continuous compounding: dollar risk grows automatically with the capital base and the percentage multiplier increases gradually only at larger realized-capital tiers.
@@ -78,7 +97,7 @@ The Legion never becomes a second trading authority. Final chain:
 - No latency optimization may bypass native protection, freshness, AI veto, risk governor, symbol authority or Demo/Live separation.
 
 ## MICROSTRUCTURE
-Preferred source is the Cloudflare-native outbound Bybit WebSocket collector (`orderbook.50.BTCUSDT`, `publicTrade.BTCUSDT`, `allLiquidation.BTCUSDT`, `tickers.BTCUSDT`). REST snapshots remain a diagnostic/fail-safe fallback. New autonomous risk requires fresh cloud-stream evidence.
+BTC keeps the Cloudflare-native outbound Bybit WebSocket collector. Non-BTC admitted symbols use the private VPC WebSocket mirror when available. REST snapshots remain diagnostic/fail-safe only. New autonomous risk requires fresh symbol-specific microstructure evidence.
 
 ## LIVE SWITCH
 LIVE AI-autotrade requires ALL THREE:
@@ -89,6 +108,6 @@ LIVE AI-autotrade requires ALL THREE:
 Never report a source commit as LIVE. Require successful worker validation/deploy plus `/bybit/health` runtime-revision/version alignment and authenticated account access.
 
 ## CANONICAL CHECKPOINT
-Read `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md` for the strategy authority.
+Read `docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md` for the strategy authority.
 Read `docs/checkpoints/BYBIT_AI_CLOUD_AUTOTRADE_V1_20260919.md` for the VPS-free cloud runtime, AI Legion roles, Demo/Live activation order and credential handoff.
 Read `docs/checkpoints/BYBIT_AI_MARKET_INTELLIGENCE_PLAYBOOK_V1_20260919.md` for evidence hierarchy, stop/target geometry, coin research and bounded self-calibration.

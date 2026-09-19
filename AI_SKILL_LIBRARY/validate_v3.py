@@ -123,7 +123,7 @@ def validate_v3_data(kernel: dict, migration: dict, context: dict, reliability: 
     else:
         trading = trading_rows[0]
         if trading.get("authority") != "docs/checkpoints/CURRENT_HANDOFF.md": errors.append("trading authority must remain docs/checkpoints/CURRENT_HANDOFF.md")
-        if trading.get("canonical_checkpoint") != "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md": errors.append("trading canonical checkpoint must remain BYBIT_BTC_STATEFLOW_2_1_20260904.md")
+        if trading.get("canonical_checkpoint") != "docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md": errors.append("trading canonical checkpoint must remain BYBIT_BTC_STATEFLOW_2_1_20260904.md")
 
     historical_files = ["AI_SKILL_LIBRARY/bootstrap.yaml", "AI_SKILL_LIBRARY/GITHUB_BRAIN_V3.md", "AI_SKILL_LIBRARY/kernel.yaml", "AI_SKILL_LIBRARY/router.yaml",
                         "AI_SKILL_LIBRARY/runtime.yaml", "AI_SKILL_LIBRARY/context.yaml", "AI_SKILL_LIBRARY/reliability.yaml", "AI_SKILL_LIBRARY/evidence.yaml",

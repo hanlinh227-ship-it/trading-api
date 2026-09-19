@@ -5,22 +5,12 @@ import {BYBIT_EXECUTION_SYMBOL,BYBIT_EXECUTION_UNIVERSE} from './bybit-execution
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 export {BYBIT_AUTO_VERSION};
 
-const BTC_EXECUTION_PORTFOLIO_POLICY=Object.freeze({
-  ...BYBIT_PORTFOLIO_POLICY,
-  authority:'BYBIT_BTC_STATEFLOW_SINGLE_EXECUTION_UNIVERSE',
-  maxNewEntriesPerEvent:1,
-  deepScanCount:1,
-  promotionScanCount:0,
-  physicalPositionBuffer:0,
-  maxCorrelatedSmall:1,
-  maxCorrelatedNormal:1,
-  concurrentByEquity:[{equityUsd:0,max:1}],
-});
+const TOP100_EXECUTION_PORTFOLIO_POLICY=Object.freeze({...BYBIT_PORTFOLIO_POLICY,authority:'BYBIT_TOP100_MARKET_CAP_STATEFLOW_PORTFOLIO'});
 
 export const BYBIT_AUTO_CONFIG={
-  symbol:BYBIT_EXECUTION_SYMBOL,symbols:BYBIT_EXECUTION_UNIVERSE,multiAsset:false,portfolio:BTC_EXECUTION_PORTFOLIO_POLICY,category:'linear',settleCoin:'USDT',
-  strategyAuthority:'BYBIT-BTC-STATEFLOW-2.1',
-  trigger:{authority:'CLOUD_BYBIT_WS_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
+  symbol:BYBIT_EXECUTION_SYMBOL,symbols:BYBIT_EXECUTION_UNIVERSE,multiAsset:true,portfolio:TOP100_EXECUTION_PORTFOLIO_POLICY,category:'linear',settleCoin:'USDT',
+  strategyAuthority:'BYBIT-TOP100-STATEFLOW-3.0',
+  trigger:{authority:'CLOUD_PLUS_VPC_BYBIT_WS_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
   leverage:{
     min:3,max:125,authority:'EXCHANGE_CAPPED_CONTINUOUS_CAPITAL_LEVERAGE',holdConstantInsideOpenCluster:true,profitFloorAdaptive:true,profitFloorMax:125,exchangeInstrumentCapRequired:true,
     equityAdaptive:{enabled:true,steps:[
@@ -78,7 +68,7 @@ export const BYBIT_AUTO_CONFIG={
       timeGate:false
     }
   },
-  scan:{decisionAuthority:'EVENT_DRIVEN_BTCUSDT_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
+  scan:{decisionAuthority:'EVENT_DRIVEN_TOP100_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
   aiLegion:{enabledByDefault:true,demoAuto:true,liveRequiresExplicitAck:true,liveAckEnv:'BYBIT_AI_LEGION_LIVE_ENABLED',modelMeshRequired:true,requiredDistinctWorkers:3,maxDistinctWorkers:4,authority:'ADVISORY_EVIDENCE_ONLY',mayIncreaseRisk:false,mayPlaceOrders:false,mayOverrideStateFlow:false},
   risk:{
     mode:'PROGRESSIVE_COMPOUNDING_WITH_DRAWDOWN_CONTRACTION',fullAccountAuthority:true,compoundContinuously:true,riskGrowsWithCapital:true,riskShrinksWithDrawdown:true,
@@ -172,7 +162,7 @@ export const BYBIT_AUTO_CONFIG={
     ultraFastFlow1s3s:true,marketPulseConsensus:true,orderBook:true,nearTouchDepthBands:true,orderFlowImbalance:true,microprice:true,liquidityFragility:true,
     liquidationFlow:true,openInterest:true,fundingRate:true,basisPremium:true,longShortRatio:true,realizedVolatility:true,
     stateFirst:true,indicatorsSupportingOnly:true,eventDrivenDecision:true,openPositionManagementAlwaysOn:true,
-    shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,multiAssetUniverse:false,perSymbolCognition:false,portfolioCorrelationGuard:false,peakGivebackProtection:true,profitScaleLadder:true,thesisAwareProfitHarvest:true,
+    shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,multiAssetUniverse:true,perSymbolCognition:true,portfolioCorrelationGuard:true,peakGivebackProtection:true,profitScaleLadder:true,thesisAwareProfitHarvest:true,
     netProfitFloorAfterFees:true,holdWhileEdgePersists:true,multiStageExitEvidence:true,perSymbolProfitFloor:true,profitFloorRetention:true,priceBasedProfitProtection:true,profitFloorAdaptiveLeverage:true,profileNormalizedQuality:true,peakNetProfitRetention:true,protectedRiskSlotReuse:true,uiReadOnlyContract:true,positiveAntiSweepLock:true,dynamicBybitScalpUniverse:false,momentumFootprint:true,continuousTimeCapitalScale:true,exchangeMaxLeverageCap:true
   },
   entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true,rangeMicroReclaimScalp:true,transitionWsScalp:true,shortHorizonReversal:true,sampleQualityGuard:true,probeConfirmFull:true},

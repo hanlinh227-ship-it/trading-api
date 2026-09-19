@@ -143,7 +143,7 @@ def validate_v4(root: Path = ROOT) -> tuple[list[str], list[str]]:
     else:
         if trading[0].get("authority") != "docs/checkpoints/CURRENT_HANDOFF.md":
             errors.append("Trading authority changed")
-        if trading[0].get("canonical_checkpoint") != "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md":
+        if trading[0].get("canonical_checkpoint") != "docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md":
             errors.append("Trading canonical checkpoint changed")
 
     for name in ("GITHUB_BRAIN_V1.md", "GITHUB_BRAIN_V2.md", "GITHUB_BRAIN_V3.md"):

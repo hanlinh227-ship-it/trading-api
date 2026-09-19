@@ -8,7 +8,14 @@ function streamStub(env={}){
 
 export async function fetchBtcMicrostructure(env={},symbol='BTCUSDT'){
   try{
-    if(String(symbol||'').toUpperCase()!=='BTCUSDT')return null;
+    const requested=String(symbol||'BTCUSDT').toUpperCase();
+    if(requested!=='BTCUSDT'){
+      if(!env.AI_BRIDGE||typeof env.AI_BRIDGE.fetch!=='function')return null;
+      const r=await env.AI_BRIDGE.fetch(new Request('http://127.0.0.1:8789/bybit/microstructure?symbol='+encodeURIComponent(requested),{method:'GET',headers:{accept:'application/json'},signal:AbortSignal.timeout(1500)}));
+      if(!r.ok)return null;
+      const j=await r.json().catch(()=>null);
+      return j?.ok?{ok:true,data:j}:null;
+    }
     const stub=streamStub(env);
     if(!stub)return null;
     const r=await stub.fetch(new Request('https://internal.bybit.stream/snapshot?symbol=BTCUSDT',{
