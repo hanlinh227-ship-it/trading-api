@@ -14,7 +14,8 @@ const TOPICS=[
   'kline.5.BTCUSDT',
   'kline.15.BTCUSDT',
   'kline.60.BTCUSDT',
-  ...CORE_TICKER_SYMBOLS.map(x=>'tickers.'+x),
+  'tickers.BTCUSDT',
+  ...CORE_TICKER_SYMBOLS.filter(x=>x!=='BTCUSDT').map(x=>'tickers.'+x),
 ];
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
 const on=v=>String(v||'').toLowerCase()==='true';
