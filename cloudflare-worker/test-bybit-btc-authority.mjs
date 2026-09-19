@@ -6,22 +6,22 @@ import {BYBIT_RUNTIME_CONTRACT,BYBIT_AUTO_VERSION,LEGACY_BYBIT_MULTI_COIN_DISABL
 import {BYBIT_TRADE_UNIVERSE,isSupportedTradeSymbol} from './bybit-coin-profiles.js';
 import {runBybitSymbolEngine} from './bybit-symbol-engine.js';
 
-const AUTH='BYBIT-BTC-STATEFLOW-2.1';
-const NON_BTC='BYBIT_NON_BTC_EXECUTION_RETIRED';
+const AUTH='BYBIT-TOP100-STATEFLOW-3.0';
+const NON_BTC='BYBIT_SYMBOL_OUTSIDE_TOP100_EXECUTION_AUTHORITY';
 
-// Production execution authority is BTCUSDT Linear Perpetual only.
+// Production execution authority is a fail-closed top-100 market-cap USDT-linear universe.
 assert.equal(BYBIT_AUTO_VERSION,AUTH);
 assert.equal(BYBIT_RUNTIME_CONTRACT.executionAuthority,AUTH);
-assert.equal(LEGACY_BYBIT_MULTI_COIN_DISABLED,true);
-assert.equal(BYBIT_RUNTIME_CONTRACT.symbol,'BTCUSDT');
-assert.deepEqual(BYBIT_RUNTIME_CONTRACT.symbols,['BTCUSDT']);
-assert.deepEqual(BYBIT_RUNTIME_CONTRACT.coreSymbols,['BTCUSDT']);
-assert.equal(BYBIT_RUNTIME_CONTRACT.multiAsset,false);
+assert.equal(LEGACY_BYBIT_MULTI_COIN_DISABLED,false);
+assert.equal(BYBIT_RUNTIME_CONTRACT.symbol,'DYNAMIC_TOP100');
+assert.deepEqual(BYBIT_RUNTIME_CONTRACT.symbols,['DYNAMIC_TOP100_MARKET_CAP_USDT_LINEAR']);
+assert.ok(BYBIT_RUNTIME_CONTRACT.coreSymbols.includes('BTCUSDT'));assert.ok(BYBIT_RUNTIME_CONTRACT.coreSymbols.includes('ETHUSDT'));
+assert.equal(BYBIT_RUNTIME_CONTRACT.multiAsset,true);
 assert.equal(BYBIT_RUNTIME_CONTRACT.allActiveCryptoEligible,false);
-assert.equal(BYBIT_RUNTIME_CONTRACT.dynamicBybitScalpUniverse,false);
+assert.equal(BYBIT_RUNTIME_CONTRACT.dynamicBybitScalpUniverse,true);
 assert.equal(BYBIT_AUTO_CONFIG.symbol,'BTCUSDT');
-assert.deepEqual(BYBIT_AUTO_CONFIG.symbols,['BTCUSDT']);
-assert.equal(BYBIT_AUTO_CONFIG.multiAsset,false);
+assert.deepEqual(BYBIT_AUTO_CONFIG.symbols,['DYNAMIC_TOP100_MARKET_CAP_USDT_LINEAR']);
+assert.equal(BYBIT_AUTO_CONFIG.multiAsset,true);
 assert.equal(BYBIT_AUTO_CONFIG.aiLegion.authority,'ADVISORY_EVIDENCE_ONLY');
 assert.equal(BYBIT_AUTO_CONFIG.aiLegion.mayPlaceOrders,false);
 assert.equal(BYBIT_AUTO_CONFIG.aiLegion.mayIncreaseRisk,false);
@@ -59,51 +59,37 @@ assert.equal(hardCeilingAttempt.risk.maxPortfolioMarginPct,100);
 const tightenAttempt=bybitAutoConfig({BYBIT_BTC_MAX_ACTIVE_RISK_PCT:'3.5',BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT:'50'});
 assert.equal(tightenAttempt.risk.maxActiveRiskPct,3.5);
 assert.equal(tightenAttempt.risk.maxPortfolioMarginPct,50);
-assert.deepEqual(BYBIT_AUTO_CONFIG.portfolio.concurrentByEquity,[{equityUsd:0,max:1}]);
+assert.ok(BYBIT_AUTO_CONFIG.portfolio.concurrentByEquity.length>=4);
 
 // Broad crypto discovery remains available as read-only/research evidence only.
 assert.ok(BYBIT_TRADE_UNIVERSE.includes('BTCUSDT'));
 assert.ok(BYBIT_TRADE_UNIVERSE.includes('ETHUSDT'));
 assert.equal(isSupportedTradeSymbol('ETHUSDT'),true);
 
-// Engine guard must reject non-BTC before any exchange/network dependency is touched.
-const blockedEngine=await runBybitSymbolEngine({}, {symbol:'ETHUSDT'});
-assert.equal(blockedEngine.executed,false);
-assert.equal(blockedEngine.mode,'BLOCKED');
-assert.equal(blockedEngine.reason,NON_BTC);
-assert.equal(blockedEngine.symbol,'ETHUSDT');
+// Symbol authority now permits USDT-linear symbols to reach the dynamic universe gate.
+assert.equal(isSupportedTradeSymbol('ETHUSDT'),true);
+assert.equal(isSupportedTradeSymbol('SOLUSDT'),true);
+assert.equal(isSupportedTradeSymbol('EURUSD'),false);
 
-// HTTP execution route must reject non-BTC before calling the execution engine.
-const blockedResponse=await handleBybitControlApi(new Request('https://local.test/bybit/auto/run',{
-  method:'POST',
-  headers:{authorization:'Bearer bridge-secret','x-bybit-symbol':'ETHUSDT'}
-}),{V11_AI_BRIDGE_SECRET:'bridge-secret',BYBIT_AUTO_ENABLED:'true'});
-assert.equal(blockedResponse.status,409);
-const blockedBody=await blockedResponse.json();
-assert.equal(blockedBody.reason,NON_BTC);
-assert.equal(blockedBody.symbol,'ETHUSDT');
-
-// UI bootstrap describes the execution lane, not the broad research universe.
+// UI bootstrap advertises the multi-asset execution family.
 const bootstrapResponse=await handleBybitControlApi(new Request('https://local.test/bybit/ui/bootstrap'),{});
 assert.equal(bootstrapResponse.status,200);
 const bootstrap=await bootstrapResponse.json();
-assert.deepEqual(bootstrap.coreUniverse,['BTCUSDT']);
-assert.equal(bootstrap.portfolio.authority,'BYBIT_BTC_STATEFLOW_SINGLE_EXECUTION_UNIVERSE');
-assert.deepEqual(bootstrap.portfolio.concurrentByEquity,[{equityUsd:0,max:1}]);
+assert.equal(bootstrap.executionAuthority,AUTH);
+assert.equal(bootstrap.portfolio.authority,'BYBIT_TOP100_MARKET_CAP_STATEFLOW_PORTFOLIO');
+assert.ok(Array.isArray(bootstrap.portfolio.concurrentByEquity));
 
-// Final signed-write barrier: research symbols from every non-BTC domain must fail before credentials/network.
+// Final signed-write primitive accepts syntactically valid USDT-linear symbols;
+// top-100/liquidity admission is enforced before the controller reaches signed writes.
 const client=bybitV5({});
-for(const symbol of ['ETHUSDT','SOLUSDT','EURUSD','NQ','GC']){
-  await assert.rejects(
-    ()=>client.order({symbol,side:'Buy',orderType:'Market',qty:'1'}),
-    error=>error?.code===NON_BTC&&error?.symbol===symbol
-  );
-}
 await assert.rejects(
-  ()=>client.signed('POST','/v5/order/create',{category:'linear',symbol:'SOLUSDT',side:'Buy',orderType:'Market',qty:'1'}),
-  error=>error?.code===NON_BTC&&error?.symbol==='SOLUSDT'
+  ()=>client.order({symbol:'ETHUSDT',side:'Buy',orderType:'Market',qty:'1'}),
+  error=>/CREDENTIAL|API_KEY|SECRET|MISSING/i.test(String(error?.message||error))
 );
-
+await assert.rejects(
+  ()=>client.order({symbol:'EURUSD',side:'Buy',orderType:'Market',qty:'1'}),
+  error=>error?.code===NON_BTC||/SYMBOL|INVALID/i.test(String(error?.message||error))
+);
 
 const originalFetch=globalThis.fetch;
 const fallbackCalls=[];
@@ -188,4 +174,4 @@ try{
   globalThis.fetch=originalFetchVpc;
 }
 
-console.log('BYBIT_BTC_EXECUTION_AUTHORITY_VALIDATION=PASS');
+console.log('BYBIT_TOP100_EXECUTION_AUTHORITY_VALIDATION=PASS');
