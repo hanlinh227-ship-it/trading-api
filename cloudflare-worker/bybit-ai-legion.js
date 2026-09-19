@@ -6,7 +6,7 @@ import {resolveLiveModels} from './model-mesh/runtime-health.js';
 import {selectModelWorkers} from './model-mesh/selector.js';
 import {executeSelectedModelWorker} from './model-mesh/provider-client.js';
 
-export const BYBIT_AI_LEGION_VERSION='BYBIT_AI_LEGION_V3_ROLE_FEDERATION';
+export const BYBIT_AI_LEGION_VERSION='BYBIT_AI_LEGION_V4_SINGLE_EXECUTOR_RESEARCH_SWARM';
 const STATE_KEY='bybit:ai-legion:v3:state';
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -17,23 +17,31 @@ const nowIso=()=>new Date().toISOString();
 export const BYBIT_AI_LEGION_ROLES=Object.freeze([
   Object.freeze({
     id:'macro_news_agent',
-    required:true,
-    purpose:'Economic-and-crypto intelligence desk: assess fresh macro policy/data, cross-asset risk and coin-specific news catalysts; never invent missing news.',
+    required:false,
+    researchOnly:true,
+    executionAuthority:false,
+    purpose:'Research-only macro and crypto intelligence desk. Supply evidence to the sole execution commander; never authorize, open, close, amend or cancel orders.',
   }),
   Object.freeze({
     id:'market_structure_flow_agent',
-    required:true,
-    purpose:'Technical market-analysis desk: validate HTF/LTF structure, sweep/reclaim or break/retest, regime, executed flow, L2 liquidity, microprice, liquidation and volatility coherence.',
+    required:false,
+    researchOnly:true,
+    executionAuthority:false,
+    purpose:'Research-only technical desk. Validate structure, flow, L2, liquidity, liquidation and volatility, then pass evidence to the sole execution commander.',
   }),
   Object.freeze({
     id:'order_risk_architect_agent',
     required:true,
-    purpose:'Order-design and risk desk: design/audit the bounded order plan around deterministic structure, including entry quality, invalidation stop, target, fees/slippage, leverage and risk; it may only reduce risk.',
+    researchOnly:false,
+    executionAuthority:true,
+    purpose:'SOLE AI EXECUTION COMMANDER. It alone may authorize OPEN/HOLD/CLOSE intent after reviewing deterministic StateFlow plus all research desks. Signed exchange writes still pass the deterministic Risk Governor and single execution gateway.',
   }),
   Object.freeze({
     id:'independent_adversarial_checker',
     required:false,
-    purpose:'Independent red-team desk: challenge every other desk for stale data, contradictory evidence, crowded traps, stop-hunt exposure, hidden execution risk and unsupported confidence.',
+    researchOnly:true,
+    executionAuthority:false,
+    purpose:'Research-only red-team desk. Challenge the thesis and send contradictions to the sole execution commander; it has no order authority.',
   }),
 ]);
 
@@ -54,7 +62,9 @@ function policy(env={},mode='PAPER'){
     refreshMinGapMs:Math.max(1000,Math.min(30000,num(env.BYBIT_AI_LEGION_REFRESH_MIN_GAP_MS)||5000)),
     minimumRequiredWorkers:3,
     maxWorkers:4,
-    participationMode:'ROTATING_ALL_HEALTHY_DISTINCT_MODEL_FAMILIES_MAX4_CONCURRENT',
+    participationMode:'ONE_STICKY_EXECUTOR_PLUS_ROTATING_RESEARCH_SWARM_MAX4',
+    executionModelPolicy:'ONE_STICKY_HEALTHY_EXECUTOR_FAILOVER_ONLY',
+    researchModelPolicy:'ROTATE_ALL_OTHER_HEALTHY_MODEL_FAMILIES',
     alwaysDecision:true,
     forcedTrade:false,
   };
@@ -183,14 +193,14 @@ function roleGuide(roleId){
 function rolePrompt(role,payload){
   return [
     'You are one bounded specialist inside BYBIT_AI_LEGION_V2_MARKET_INTELLIGENCE.',
-    'You are advisory evidence only. You cannot place orders, change leverage, increase risk, override StateFlow, or invent missing market data.',
+    role.executionAuthority?'You are the sole AI execution commander. You may authorize OPEN, HOLD or CLOSE intent, but signed exchange writes still require deterministic StateFlow/Risk Governor checks and the single execution gateway.':'You are research-only. You cannot authorize, open, close, amend or cancel orders; provide evidence to the sole execution commander.',
     'Never reveal chain-of-thought. Return strict JSON only.',
     `ROLE_ID: ${role.id}`,
     `ROLE_PURPOSE: ${role.purpose}`,
     ...roleGuide(role.id).map(x=>`ROLE_RULE: ${x}`),
     'Evaluate only the supplied PUBLIC market state, news context and the already-selected candidate for this symbol.',
     'Required JSON schema:',
-    '{"verdict":"SUPPORT|NEUTRAL|VETO","side":"BUY|SELL|NEUTRAL","confidence":0.0,"risk_multiplier":1.0,"reasons":["short reason"],"freshness_ok":true,"order_plan":{"entry_quality":"GOOD|MARGINAL|REJECT","stop_buffer_mult":1.0,"target_r_mult":1.0,"notes":"short"}}',
+    role.executionAuthority?'{"verdict":"SUPPORT|NEUTRAL|VETO","execution_action":"OPEN|HOLD|CLOSE","side":"BUY|SELL|NEUTRAL","confidence":0.0,"risk_multiplier":1.0,"reasons":["short reason"],"freshness_ok":true,"order_plan":{"entry_quality":"GOOD|MARGINAL|REJECT","stop_buffer_mult":1.0,"target_r_mult":1.0,"notes":"short"}}':'{"verdict":"SUPPORT|NEUTRAL|VETO","side":"BUY|SELL|NEUTRAL","confidence":0.0,"risk_multiplier":1.0,"reasons":["short research finding"],"freshness_ok":true}',
     'Rules:',
     '- confidence must be 0..1 and must reflect evidence quality, not optimism.',
     '- risk_multiplier must be 0.50..1.00 and can only reduce risk.',
@@ -228,30 +238,24 @@ function normalizeAgent(role,worker,result,setup){
   const candidateSide=String(setup.side||'').toUpperCase()==='BUY'?'BUY':String(setup.side||'').toUpperCase()==='SELL'?'SELL':'NEUTRAL';
   const sideConflict=side!=='NEUTRAL'&&candidateSide!=='NEUTRAL'&&side!==candidateSide;
   const op=parsed.order_plan&&typeof parsed.order_plan==='object'?parsed.order_plan:null;
+  const executionAction=role.executionAuthority&&['OPEN','HOLD','CLOSE'].includes(String(parsed.execution_action||'').toUpperCase())?String(parsed.execution_action).toUpperCase():(role.executionAuthority?'HOLD':null);
   const orderPlan=role.id==='order_risk_architect_agent'&&op?{entryQuality:['GOOD','MARGINAL','REJECT'].includes(String(op.entry_quality||'').toUpperCase())?String(op.entry_quality).toUpperCase():'MARGINAL',stopBufferMult:clamp(num(op.stop_buffer_mult)||1,1,1.5),targetRMult:clamp(num(op.target_r_mult)||1,.8,1.2),notes:String(op.notes||'').replace(/\s+/g,' ').slice(0,160)}:null;
   return {
     roleId:role.id,required:role.required,ok:freshnessOk&&!sideConflict,verdict:sideConflict?'VETO':verdict,side,
     confidence,riskMultiplier,reasons:sideConflict?['SIDE_CONFLICT_WITH_STATEFLOW_CANDIDATE',...reasons].slice(0,3):reasons,
-    freshnessOk,orderPlan,providerId:worker?.provider_id||null,modelId:worker?.model_id||null,modelFamily:worker?.model_family||null,
+    freshnessOk,executionAction,researchOnly:role.researchOnly===true,executionAuthority:role.executionAuthority===true,orderPlan,providerId:worker?.provider_id||null,modelId:worker?.model_id||null,modelFamily:worker?.model_family||null,
     latencyMs:num(result?.latency_ms),
   };
 }
 
 export function evaluateBybitAiLegionAgents(agents=[]){
   const byRole=Object.fromEntries(agents.map(x=>[x.roleId,x]));
-  const macro=byRole.macro_news_agent;
-  const market=byRole.market_structure_flow_agent;
-  const order=byRole.order_risk_architect_agent;
-  const checker=byRole.independent_adversarial_checker;
-  const required=[macro,market,order];
-  if(required.some(x=>!x))return {approved:false,reason:'AI_LEGION_REQUIRED_ROLE_MISSING',riskMultiplier:.5,confidenceFloor:0};
-  for(const x of required)if(!x.ok||x.verdict==='VETO')return {approved:false,reason:`AI_LEGION_${x.roleId.toUpperCase()}_VETO`,riskMultiplier:.5,confidenceFloor:Math.min(...required.map(z=>num(z.confidence)))};
-  if(market.verdict!=='SUPPORT')return {approved:false,reason:'AI_LEGION_MARKET_STRUCTURE_FLOW_SUPPORT_REQUIRED',riskMultiplier:.5,confidenceFloor:num(market.confidence)};
-  if(order.verdict!=='SUPPORT')return {approved:false,reason:'AI_LEGION_ORDER_RISK_SUPPORT_REQUIRED',riskMultiplier:.5,confidenceFloor:num(order.confidence)};
-  if(checker&&(!checker.ok||checker.verdict==='VETO'))return {approved:false,reason:'AI_LEGION_ADVERSARIAL_CHECKER_VETO',riskMultiplier:.5,confidenceFloor:Math.min(...[...required,checker].map(z=>num(z.confidence)))};
-  const riskMultiplier=Math.min(1,...agents.map(x=>clamp(num(x.riskMultiplier)||1,.5,1)));
-  const confidenceFloor=Math.min(...required.map(x=>clamp(num(x.confidence),0,1)));
-  return {approved:true,reason:'AI_LEGION_ROLE_CONTRACTS_PASS',riskMultiplier,confidenceFloor};
+  const executor=byRole.order_risk_architect_agent;
+  if(!executor)return {approved:false,reason:'AI_EXECUTOR_MISSING',riskMultiplier:.5,confidenceFloor:0,executionAction:'HOLD'};
+  if(!executor.ok||executor.verdict==='VETO')return {approved:false,reason:'AI_EXECUTOR_VETO',riskMultiplier:.5,confidenceFloor:num(executor.confidence),executionAction:'HOLD'};
+  const action=String(executor.executionAction||'HOLD');
+  const approved=executor.verdict==='SUPPORT'&&action==='OPEN';
+  return {approved,reason:approved?'SOLE_AI_EXECUTOR_OPEN_AUTHORIZED':action==='CLOSE'?'SOLE_AI_EXECUTOR_CLOSE_AUTHORIZED':'SOLE_AI_EXECUTOR_HOLD',riskMultiplier:clamp(num(executor.riskMultiplier)||1,.5,1),confidenceFloor:clamp(num(executor.confidence),0,1),executionAction:action};
 }
 
 async function selectWorkers(env,offset=0){
@@ -294,22 +298,21 @@ export async function refreshBybitAiLegion({env={},market={},setup={}}={}){
   }
   let newsContext=null;try{newsContext=await collectBybitNewsContext(env,String(market.symbol||setup.symbol||'BTCUSDT'));}catch(error){newsContext={version:'BYBIT_NEWS_CONTEXT_V1',at:Date.now(),symbol:String(market.symbol||setup.symbol||'BTCUSDT'),stale:true,sourceCount:0,items:[],macroSummary:[],error:String(error?.message||error).slice(0,160)}}
   const payload=publicMarketPayload(market,setup,newsContext);
-  const assignments=BYBIT_AI_LEGION_ROLES.slice(0,workers.length).map((role,index)=>({role,worker:workers[index]}));
   const route={primarySkill:'crypto',domain:'trading',sourceSha:selectedInfo.evidenceSnapshot?.source_sha||null,capsuleHash:null};
-  const settled=await Promise.allSettled(assignments.map(({role,worker})=>executeSelectedModelWorker({
-    selectedWorker:worker,env,text:rolePrompt(role,payload),route,modelSnapshot:selectedInfo.evidenceSnapshot,
-  })));
-  const agents=settled.map((item,index)=>{
-    const {role,worker}=assignments[index];
-    if(item.status!=='fulfilled')return {roleId:role.id,required:role.required,ok:false,verdict:'VETO',side:'NEUTRAL',confidence:0,riskMultiplier:.5,reasons:['MODEL_WORKER_FAILURE'],freshnessOk:false,providerId:worker.provider_id,modelId:worker.model_id,modelFamily:worker.model_family,latencyMs:0};
-    return normalizeAgent(role,worker,item.value,setup);
-  });
+  const executorRole=BYBIT_AI_LEGION_ROLES.find(x=>x.executionAuthority===true),researchRoles=BYBIT_AI_LEGION_ROLES.filter(x=>x.researchOnly===true);
+  const previousExecutorFamily=String(priorState?.executor?.modelFamily||''),executorWorker=workers.find(w=>String(w.model_family||'')===previousExecutorFamily)||workers[0];
+  const researchWorkers=workers.filter(w=>w!==executorWorker).slice(0,researchRoles.length),researchAssignments=researchRoles.slice(0,researchWorkers.length).map((role,index)=>({role,worker:researchWorkers[index]}));
+  const researchSettled=await Promise.allSettled(researchAssignments.map(({role,worker})=>executeSelectedModelWorker({selectedWorker:worker,env,text:rolePrompt(role,payload),route,modelSnapshot:selectedInfo.evidenceSnapshot})));
+  const researchAgents=researchSettled.map((item,index)=>{const {role,worker}=researchAssignments[index];if(item.status!=='fulfilled')return {roleId:role.id,required:false,ok:false,verdict:'NEUTRAL',side:'NEUTRAL',confidence:0,riskMultiplier:1,reasons:['RESEARCH_WORKER_FAILURE'],freshnessOk:false,researchOnly:true,executionAuthority:false,providerId:worker.provider_id,modelId:worker.model_id,modelFamily:worker.model_family,latencyMs:0};return normalizeAgent(role,worker,item.value,setup);});
+  const executorPayload={...payload,researchDesk:researchAgents.map(x=>({roleId:x.roleId,ok:x.ok,verdict:x.verdict,side:x.side,confidence:x.confidence,riskMultiplier:x.riskMultiplier,reasons:x.reasons,modelFamily:x.modelFamily}))};
+  let executorAgent;if(!executorWorker){executorAgent={roleId:executorRole.id,required:true,ok:false,verdict:'VETO',side:'NEUTRAL',confidence:0,riskMultiplier:.5,reasons:['EXECUTOR_WORKER_MISSING'],freshnessOk:false,executionAction:'HOLD',researchOnly:false,executionAuthority:true};}else{try{const result=await executeSelectedModelWorker({selectedWorker:executorWorker,env,text:rolePrompt(executorRole,executorPayload),route,modelSnapshot:selectedInfo.evidenceSnapshot});executorAgent=normalizeAgent(executorRole,executorWorker,result,setup);}catch{executorAgent={roleId:executorRole.id,required:true,ok:false,verdict:'VETO',side:'NEUTRAL',confidence:0,riskMultiplier:.5,reasons:['EXECUTOR_WORKER_FAILURE'],freshnessOk:false,executionAction:'HOLD',researchOnly:false,executionAuthority:true,providerId:executorWorker.provider_id,modelId:executorWorker.model_id,modelFamily:executorWorker.model_family,latencyMs:0};}}
+  const agents=[...researchAgents,executorAgent];
   const decision=evaluateBybitAiLegionAgents(agents);
   const state={
     version:BYBIT_AI_LEGION_VERSION,status:decision.approved?'READY':'BLOCKED',mode,fingerprint,
     approved:decision.approved,reason:decision.reason,riskMultiplier:decision.riskMultiplier,
     confidenceFloor:decision.confidenceFloor,workerCount:workers.length,requiredWorkers:p.minimumRequiredWorkers,newsContext:{sourceCount:num(newsContext?.sourceCount),stale:newsContext?.stale===true,at:newsContext?.at||null,error:newsContext?.error||null},
-    noMajorityVote:true,authority:'ADVISORY_EVIDENCE_ONLY',executionAuthority:'BYBIT-TOP100-STATEFLOW-3.0',decisionPolicy:'ALWAYS_DECIDE_NEVER_FORCE_TRADE',forcedTrade:false,
+    noMajorityVote:true,authority:'SINGLE_AI_EXECUTOR_WITH_RESEARCH_SWARM',executionAuthority:'SOLE_AI_EXECUTION_COMMANDER_PLUS_DETERMINISTIC_RISK_GATE',decisionPolicy:'ONE_AI_OPENS_CLOSES_OTHERS_RESEARCH',forcedTrade:false,executionAction:decision.executionAction||'HOLD',executor:{roleId:executorAgent?.roleId||'order_risk_architect_agent',providerId:executorAgent?.providerId||null,modelId:executorAgent?.modelId||null,modelFamily:executorAgent?.modelFamily||null},
     workerPoolSize:num(selectedInfo.poolSize),workerPool:selectedInfo.pool||[],participationMode:p.participationMode,
     agents,orderPlanSuggestion:agents.find(x=>x.roleId==='order_risk_architect_agent')?.orderPlan||null,workerRotationCursor:rotationCursor+Math.max(1,workers.length),workerRotationEnabled:true,startedAtMs:startedAt,updatedAt:nowIso(),updatedAtMs:Date.now(),expiresAtMs:Date.now()+p.freshnessMs,
   };
@@ -328,7 +331,7 @@ export async function resolveBybitAiLegionDecision({env={},mode='PAPER',market={
   const fingerprint=setupFingerprint(market,setup),state=await kvGet(env),ageMs=state?.updatedAtMs?Math.max(0,Date.now()-num(state.updatedAtMs)):Infinity;
   const fresh=state?.fingerprint===fingerprint&&ageMs<=p.freshnessMs&&num(state?.expiresAtMs)>=Date.now();
   if(fresh){
-    return {ready:true,approved:state.approved===true,reason:String(state.reason||'AI_LEGION_DECISION'),riskMultiplier:clamp(num(state.riskMultiplier)||1,.5,1),status:String(state.status||'UNKNOWN'),state};
+    return {ready:true,approved:state.approved===true,reason:String(state.reason||'AI_LEGION_DECISION'),riskMultiplier:clamp(num(state.riskMultiplier)||1,.5,1),executionAction:String(state.executionAction||'HOLD'),status:String(state.status||'UNKNOWN'),state};
   }
   const lastRequestMs=num(state?.refreshRequestedAtMs),tooSoon=lastRequestMs>0&&Date.now()-lastRequestMs<p.refreshMinGapMs;
   if(ctx&&typeof ctx.waitUntil==='function'){
@@ -340,5 +343,5 @@ export async function resolveBybitAiLegionDecision({env={},mode='PAPER',market={
     return {ready:false,approved:false,reason:'AI_LEGION_REFRESH_PENDING',riskMultiplier:.5,status:'REFRESH_PENDING',state};
   }
   const refreshed=await refreshBybitAiLegion({env,market,setup});
-  return {ready:true,approved:refreshed.approved===true,reason:String(refreshed.reason||'AI_LEGION_DECISION'),riskMultiplier:clamp(num(refreshed.riskMultiplier)||1,.5,1),status:String(refreshed.status||'UNKNOWN'),state:refreshed};
+  return {ready:true,approved:refreshed.approved===true,reason:String(refreshed.reason||'AI_LEGION_DECISION'),riskMultiplier:clamp(num(refreshed.riskMultiplier)||1,.5,1),executionAction:String(refreshed.executionAction||'HOLD'),status:String(refreshed.status||'UNKNOWN'),state:refreshed};
 }

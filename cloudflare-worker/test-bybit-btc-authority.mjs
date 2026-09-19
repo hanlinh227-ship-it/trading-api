@@ -22,11 +22,11 @@ assert.equal(BYBIT_RUNTIME_CONTRACT.dynamicBybitScalpUniverse,true);
 assert.equal(BYBIT_AUTO_CONFIG.symbol,'BTCUSDT');
 assert.deepEqual(BYBIT_AUTO_CONFIG.symbols,['DYNAMIC_TOP100_MARKET_CAP_USDT_LINEAR']);
 assert.equal(BYBIT_AUTO_CONFIG.multiAsset,true);
-assert.equal(BYBIT_AUTO_CONFIG.aiLegion.authority,'ADVISORY_EVIDENCE_ONLY');
-assert.equal(BYBIT_AUTO_CONFIG.aiLegion.mayPlaceOrders,false);
+assert.equal(BYBIT_AUTO_CONFIG.aiLegion.authority,'SINGLE_AI_EXECUTOR_WITH_RESEARCH_SWARM');
+assert.equal(BYBIT_AUTO_CONFIG.aiLegion.mayPlaceOrders,true);
 assert.equal(BYBIT_AUTO_CONFIG.aiLegion.mayIncreaseRisk,false);
-assert.equal(BYBIT_RUNTIME_CONTRACT.aiLegionVersion,'BYBIT_AI_LEGION_V3_ROLE_FEDERATION');
-assert.equal(BYBIT_RUNTIME_CONTRACT.aiLegionMayPlaceOrders,false);
+assert.equal(BYBIT_RUNTIME_CONTRACT.aiLegionVersion,'BYBIT_AI_LEGION_V4_SINGLE_EXECUTOR_RESEARCH_SWARM');
+assert.equal(BYBIT_RUNTIME_CONTRACT.aiLegionMayPlaceOrders,true);
 assert.equal(BYBIT_RUNTIME_CONTRACT.demoExecutionSupported,true);
 assert.equal(BYBIT_RUNTIME_CONTRACT.vpsRequired,false);
 assert.equal(BYBIT_RUNTIME_CONTRACT.cloudNativeMarketStream,true);
@@ -175,3 +175,7 @@ try{
 }
 
 console.log('BYBIT_TOP100_EXECUTION_AUTHORITY_VALIDATION=PASS');
+
+assert.equal(BYBIT_RUNTIME_CONTRACT.aiSoleExecutorRole,'order_risk_architect_agent');
+assert.equal(BYBIT_RUNTIME_CONTRACT.aiOtherAgentsResearchOnly,true);
+assert.equal(BYBIT_RUNTIME_CONTRACT.aiSignedWriteStillRiskGated,true);
