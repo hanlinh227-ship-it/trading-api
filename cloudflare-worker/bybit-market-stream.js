@@ -107,7 +107,7 @@ export class BybitMarketStream {
     const u=new URL(request.url);
     if(u.pathname.endsWith('/connect')){
       await this.ensureConnected();
-      return json(this.health());
+      return json({ok:true,...this.health()});
     }
     if(u.pathname.endsWith('/snapshot')){
       if(!this.connected&&!this.connecting)await this.ensureConnected();
