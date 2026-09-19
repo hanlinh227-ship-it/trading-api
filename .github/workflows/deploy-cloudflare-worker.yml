@@ -196,15 +196,17 @@ jobs:
           const observations=(x.observations||[]).filter(o=>Number(o.price)>0&&Number(o.sourceTimestampMs)>0);
           const freshProviders=new Set(observations.filter(o=>Math.abs(now-Number(o.sourceTimestampMs))<=10000).map(o=>o.provider));
           const dc=x.dataContract||{};
-          if(x.ok!==true||x.degraded===true||x.capability!=='market_snapshot')process.exit(2);
+          const conflict=x.conflict===true||(x.resolutions||[]).some(r=>String(r?.status||'').toLowerCase()==='conflict');
+          const freshnessOk=['FRESH','DEGRADED'].includes(String(dc.freshness||''));
+          if(x.ok!==true||x.capability!=='market_snapshot'||conflict)process.exit(2);
           if(providers.size<2||freshProviders.size<2)process.exit(3);
-          if(dc.source_sha!==process.env.GITHUB_SHA||dc.freshness!=='FRESH'||dc.research_only!==true||dc.authority?.execution!=='none')process.exit(4);
-          console.log('LIVE_RESEARCH_SMOKE=PASS providers='+[...freshProviders].sort().join(',')+' exact_sha=true research_only=true');
+          if(dc.source_sha!==process.env.GITHUB_SHA||!freshnessOk||dc.research_only!==true||dc.authority?.execution!=='none')process.exit(4);
+          console.log('LIVE_RESEARCH_SMOKE=PASS providers='+[...freshProviders].sort().join(',')+' degraded='+(x.degraded===true)+' exact_sha=true research_only=true');
           NODE
           rm -f "$FILE"
       - name: Deployment authority record
         run: |
           echo 'CLOUDFLARE_DEPLOYMENT_AUTHORITY=GITHUB_ACTIONS_EXACT_MAIN'
-          echo 'BYBIT_PUBLIC_TRANSPORT=VPC_UNSIGNED_MARKET_FIRST_OPTIONAL_SECONDARY'
+          echo 'BYBIT_PUBLIC_TRANSPORT=CLOUDFLARE_BYBIT_WS_PLUS_REST_DIRECT'
           echo 'USER_LOCAL_RUNTIME_REQUIRED=false'
           echo 'RUNTIME_SWITCH_MUTATION=false'

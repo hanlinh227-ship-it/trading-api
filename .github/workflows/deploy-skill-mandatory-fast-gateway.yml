@@ -342,6 +342,23 @@ jobs:
           done
           exit 1
 
+      - name: Production Bybit cloud market-stream canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          connect="$(curl -fsS --connect-timeout 5 --max-time 20 -X POST "$WORKER_BASE_URL/bybit/cloud-stream/connect" || true)"
+          printf '%s\n' "$connect" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok!==true||x.vpsRequired!==false||x.decisionTrigger!=='CLOUD_BYBIT_WS_STATE_CHANGE')process.exit(2);console.log('BYBIT_CLOUD_STREAM_CONNECT=PASS connected='+x.connected+' connecting='+x.connecting)}catch{process.exit(2)}})"
+          for attempt in $(seq 1 12); do
+            health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/cloud-stream/health" || true)"
+            if printf '%s\n' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok!==true||x.version!=='BYBIT_CLOUD_MARKET_STREAM_V1'||x.symbol!=='BTCUSDT'||x.vpsRequired!==false||x.decisionTrigger!=='CLOUD_BYBIT_WS_STATE_CHANGE'||x.connected!==true)process.exit(3);console.log('BYBIT_CLOUD_STREAM_HEALTH=PASS age_ms='+(x.messageAgeMs??'na'))}catch{process.exit(3)}})"; then
+              exit 0
+            fi
+            echo "BYBIT_CLOUD_STREAM_RETRY attempt=$attempt"
+            sleep 3
+          done
+          echo "BYBIT_CLOUD_STREAM_HEALTH=FAIL"
+          exit 1
+
       - name: Production Universal Brain adapter canary
         working-directory: cloudflare-worker
         env:

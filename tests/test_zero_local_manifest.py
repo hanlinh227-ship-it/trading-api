@@ -323,5 +323,20 @@ class SingleAuthorityTests(unittest.TestCase):
 # production-gate class, so running this file directly defined and ran only the
 # tests above it and silently skipped the rest; only `unittest discover` ever
 # executed them.
+    def test_bybit_cloud_stream_is_verified_after_exact_deploy(self):
+        text = (ROOT / ".github/workflows/deploy-skill-mandatory-fast-gateway.yml").read_text(encoding="utf-8")
+        self.assertIn("Production Bybit cloud market-stream canary", text)
+        self.assertIn("/bybit/cloud-stream/connect", text)
+        self.assertIn("/bybit/cloud-stream/health", text)
+        self.assertIn("CLOUD_BYBIT_WS_STATE_CHANGE", text)
+        self.assertIn("vpsRequired!==false", text)
+
+    def test_zero_local_observer_accepts_redundant_degraded_research(self):
+        text = (ROOT / ".github/workflows/deploy-cloudflare-worker.yml").read_text(encoding="utf-8")
+        self.assertNotIn("if(x.ok!==true||x.degraded===true", text)
+        self.assertIn("freshProviders.size<2", text)
+        self.assertIn("conflict", text)
+        self.assertIn("['FRESH','DEGRADED']", text)
+
 if __name__ == "__main__":
     unittest.main()
