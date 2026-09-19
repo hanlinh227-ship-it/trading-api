@@ -31,6 +31,8 @@ assert.equal(BYBIT_RUNTIME_CONTRACT.demoExecutionSupported,true);
 assert.equal(BYBIT_RUNTIME_CONTRACT.vpsRequired,false);
 assert.equal(BYBIT_RUNTIME_CONTRACT.cloudNativeMarketStream,true);
 assert.equal(BYBIT_RUNTIME_CONTRACT.directBybitRest,true);
+assert.equal(BYBIT_RUNTIME_CONTRACT.demoServerlessEgressFallback,true);
+assert.equal(BYBIT_RUNTIME_CONTRACT.demoServerlessEgressProvider,'DENO_DEPLOY');
 const demoApi=bybitV5({BYBIT_AUTO_DEMO:'true',BYBIT_DEMO_API_KEY:'demo-key',BYBIT_DEMO_API_SECRET:'demo-secret'});
 assert.deepEqual(demoApi.bases,['https://api-demo.bybit.com']);
 assert.ok(demoApi.publicBases.includes('https://api.bybit.com'));
