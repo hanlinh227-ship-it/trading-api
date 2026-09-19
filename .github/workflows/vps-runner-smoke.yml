@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   smoke:
@@ -42,11 +43,10 @@ jobs:
         run: |
           set -euo pipefail
           BASE=https://trading-v77-scanner.hanlinh227.workers.dev
-          set -a; source /etc/trading-v11-ai.env; set +a
-          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
-          test -n "$SECRET"
+          OIDC="$(curl -fsS -H \"Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN\" \"${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=bybit-demo-smoke\" | python3 -c 'import json,sys;print(json.load(sys.stdin)[\"value\"])')"
+          test -n "$OIDC"
           for i in $(seq 1 60); do
-            CODE="$(curl -sS -o "$RUNNER_TEMP/smoke-state.json" -w '%{http_code}' --max-time 15 -H "Authorization: Bearer $SECRET" "$BASE/bybit/demo/smoke-5x2m/state" || true)"
+            CODE="$(curl -sS -o "$RUNNER_TEMP/smoke-state.json" -w '%{http_code}' --max-time 15 -H "Authorization: Bearer $OIDC" "$BASE/bybit/demo/smoke-5x2m/state" || true)"
             [ "$CODE" = "200" ] && exit 0
             sleep 5
           done
@@ -60,7 +60,7 @@ jobs:
           BASE=https://trading-v77-scanner.hanlinh227.workers.dev
           set -a; source /etc/trading-v11-ai.env; set +a
           SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
-          curl -fsS --max-time 120 -X POST -H "Authorization: Bearer $SECRET" -H 'content-type: application/json' "$BASE/bybit/demo/smoke-5x2m/open" | tee "$RUNNER_TEMP/smoke-open.json"
+          curl -fsS --max-time 120 -X POST -H "Authorization: Bearer $OIDC" -H 'content-type: application/json' "$BASE/bybit/demo/smoke-5x2m/open" | tee "$RUNNER_TEMP/smoke-open.json"
           python3 - <<'PY'
           import json,os
           x=json.load(open(os.environ['RUNNER_TEMP']+'/smoke-open.json'))
@@ -78,7 +78,7 @@ jobs:
           BASE=https://trading-v77-scanner.hanlinh227.workers.dev
           set -a; source /etc/trading-v11-ai.env; set +a
           SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
-          curl -fsS --max-time 120 -X POST -H "Authorization: Bearer $SECRET" -H 'content-type: application/json' "$BASE/bybit/demo/smoke-5x2m/close" | tee "$RUNNER_TEMP/smoke-close.json"
+          curl -fsS --max-time 120 -X POST -H "Authorization: Bearer $OIDC" -H 'content-type: application/json' "$BASE/bybit/demo/smoke-5x2m/close" | tee "$RUNNER_TEMP/smoke-close.json"
           python3 - <<'PY'
           import json,os
           x=json.load(open(os.environ['RUNNER_TEMP']+'/smoke-close.json'));s=x.get('state') or {}
