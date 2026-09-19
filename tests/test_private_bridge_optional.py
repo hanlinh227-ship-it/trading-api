@@ -126,8 +126,8 @@ class WorkflowRequirementTests(unittest.TestCase):
             'if [ -z "${AI_BRIDGE_SERVICE_ID:-}" ] && [ -z "${V11_AI_BRIDGE_SERVICE_ID:-}" ]; then exit 1; fi',
             self.text)
 
-    def test_the_flag_defaults_to_false(self):
-        self.assertIn("vars.PRIVATE_BRIDGE_ENABLED || 'false'", self.text)
+    def test_bybit_private_fallback_explicitly_enables_bridge(self):
+        self.assertIn("PRIVATE_BRIDGE_ENABLED: 'true'", self.text)
 
     def test_every_config_building_step_receives_the_flag(self):
         steps = self.workflow["jobs"]["deploy-exact-main"]["steps"]
