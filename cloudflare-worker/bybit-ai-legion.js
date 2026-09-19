@@ -300,7 +300,7 @@ export async function refreshBybitAiLegion({env={},market={},setup={}}={}){
     version:BYBIT_AI_LEGION_VERSION,status:decision.approved?'READY':'BLOCKED',mode,fingerprint,
     approved:decision.approved,reason:decision.reason,riskMultiplier:decision.riskMultiplier,
     confidenceFloor:decision.confidenceFloor,workerCount:workers.length,requiredWorkers:p.minimumRequiredWorkers,
-    noMajorityVote:true,authority:'ADVISORY_EVIDENCE_ONLY',executionAuthority:'BYBIT-BTC-STATEFLOW-2.1',
+    noMajorityVote:true,authority:'ADVISORY_EVIDENCE_ONLY',executionAuthority:'BYBIT-TOP100-STATEFLOW-3.0',
     agents,startedAtMs:startedAt,updatedAt:nowIso(),updatedAtMs:Date.now(),expiresAtMs:Date.now()+p.freshnessMs,
   };
   await kvPut(env,state);
