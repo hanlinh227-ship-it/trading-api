@@ -73,4 +73,4 @@ assert.equal(BYBIT_RUNTIME_CONTRACT.boundedParallelDiscoveryScans,true);
 assert.equal(BYBIT_RUNTIME_CONTRACT.discoveryScanParallelism,4);
 assert.equal(BYBIT_RUNTIME_CONTRACT.wsExecutionTriggerScope,'PER_SYMBOL_ON_DEMAND_TOP100_DIRECT');
 
-assert.ok(engine.includes('scanOnly=true'),'ENGINE scanOnly');assert.ok(controller.includes('boundedMap'),'CONTROLLER boundedMap');assert.ok(controller.includes('scanOnly:true'),'CONTROLLER scanOnly discovery');assert.ok(client.includes('PUBLIC_REGION_BLOCKED_UNTIL'),'CLIENT region circuit');
+assert.ok(engine.includes('if(scanOnly)'),'ENGINE scanOnly');assert.ok(controller.includes('boundedMap'),'CONTROLLER boundedMap');assert.ok(controller.includes('scanOnly:true'),'CONTROLLER scanOnly discovery');assert.ok(client.includes('PUBLIC_REGION_BLOCKED_UNTIL'),'CLIENT region circuit');
