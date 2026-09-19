@@ -1,15 +1,20 @@
 import {recordBybitAutoSchedulerError} from './bybit-auto-controller.js';
 import {runBybitMultiAssetControlled} from './bybit-multi-asset-controller.js';
+import {BYBIT_TRADE_UNIVERSE} from './bybit-coin-profiles.js';
 
-const VERSION='BYBIT_CLOUD_MARKET_STREAM_V2_DIRECT_MULTI_ASSET_EXECUTION';
+const VERSION='BYBIT_CLOUD_MARKET_STREAM_V3_WS_UNIVERSE_FALLBACK';
 const SYMBOL='BTCUSDT';
 const WS_URL='wss://stream.bybit.com/v5/public/linear';
 const FETCH_URL='https://stream.bybit.com/v5/public/linear';
+const CORE_TICKER_SYMBOLS=[...new Set(BYBIT_TRADE_UNIVERSE.map(x=>String(x||'').toUpperCase()).filter(Boolean))];
 const TOPICS=[
   'orderbook.50.BTCUSDT',
   'publicTrade.BTCUSDT',
   'allLiquidation.BTCUSDT',
-  'tickers.BTCUSDT',
+  'kline.5.BTCUSDT',
+  'kline.15.BTCUSDT',
+  'kline.60.BTCUSDT',
+  ...CORE_TICKER_SYMBOLS.map(x=>'tickers.'+x),
 ];
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
 const on=v=>String(v||'').toLowerCase()==='true';
@@ -105,6 +110,8 @@ export class BybitMarketStream {
     this.trades=[];
     this.liquidations=[];
     this.ticker={};
+    this.tickers=new Map();
+    this.klines={'5':[],'15':[],'60':[]};
   }
 
   async fetch(request){
@@ -117,6 +124,7 @@ export class BybitMarketStream {
       if(!this.connected&&!this.connecting)await this.ensureConnected();
       return json({ok:true,data:this.snapshot()});
     }
+    if(u.pathname.endsWith('/universe-tickers')){if(!this.connected&&!this.connecting)await this.ensureConnected();return json({ok:true,data:this.universeTickers()});}
     if(u.pathname.endsWith('/health'))return json({ok:true,...this.health()});
     if(u.pathname.endsWith('/disconnect')){
       try{this.ws?.close(1000,'operator_disconnect');}catch{}
@@ -136,7 +144,7 @@ export class BybitMarketStream {
       version:VERSION,symbol:SYMBOL,url:WS_URL,connected:this.connected,connecting:this.connecting,
       lastConnectAt:this.lastConnectAt||null,lastMessageAt:this.lastMessageAt||null,lastDisconnectAt:this.lastDisconnectAt||null,
       messageAgeMs:this.lastMessageAt?Date.now()-this.lastMessageAt:null,lastError:this.lastError,
-      topics:TOPICS,decisionTrigger:'CLOUD_BYBIT_WS_STATE_CHANGE',vpsRequired:false,
+      topics:TOPICS,tickerSymbolCount:this.tickers.size,coreTickerTargetCount:CORE_TICKER_SYMBOLS.length,decisionTrigger:'CLOUD_BYBIT_WS_STATE_CHANGE',vpsRequired:false,
     };
   }
 
@@ -151,8 +159,19 @@ export class BybitMarketStream {
       trades:tradesMetrics(this.trades),
       liquidations:liquidationMetrics(this.liquidations),
       ticker:this.ticker,
+      klines:this.klines,
       health:this.health(),
     };
+  }
+
+  universeTickers(){
+    const now=Date.now(),rows=[];
+    for(const [symbol,ticker] of this.tickers.entries()){
+      const ts=num(ticker?.ts||ticker?.timestamp||0),ageMs=ts>0?now-ts:null;
+      if(ageMs!==null&&ageMs>15000)continue;
+      rows.push({...ticker,symbol,ts,ageMs});
+    }
+    return {source:'CLOUDFLARE_BYBIT_WS_TICKERS',at:now,rows,requestedSymbols:CORE_TICKER_SYMBOLS,freshCount:rows.length,targetCount:CORE_TICKER_SYMBOLS.length};
   }
 
   async ensureConnected(){
@@ -182,7 +201,7 @@ export class BybitMarketStream {
         this.connected=false;this.connecting=false;this.lastError='WS_ERROR';
         this.state.storage.setAlarm(Date.now()+1500).catch(()=>{});
       });
-      ws.send(JSON.stringify({op:'subscribe',args:TOPICS}));
+      for(let i=0;i<TOPICS.length;i+=10)ws.send(JSON.stringify({op:'subscribe',args:TOPICS.slice(i,i+10)}));
       await this.state.storage.setAlarm(Date.now()+30000);
     }catch(error){
       this.connecting=false;this.connected=false;this.ws=null;this.lastError='CONNECT_FAILED:'+String(error?.message||error).slice(0,180);
@@ -195,6 +214,7 @@ export class BybitMarketStream {
     if(topic.startsWith('orderbook.50.'))this.onBook(msg);
     else if(topic.startsWith('publicTrade.'))this.onTrades(msg);
     else if(topic.startsWith('allLiquidation.'))this.onLiquidations(msg);
+    else if(topic.startsWith('kline.'))this.onKline(msg);
     else if(topic.startsWith('tickers.'))this.onTicker(msg);
   }
 
@@ -225,8 +245,22 @@ export class BybitMarketStream {
   }
 
   onTicker(msg){
-    const d=Array.isArray(msg?.data)?msg.data[0]:(msg?.data||{});
-    this.ticker={...this.ticker,...d,ts:num(msg.ts)||Date.now()};
+    const d=Array.isArray(msg?.data)?msg.data[0]:(msg?.data||{}),topic=String(msg.topic||''),symbol=String(d.symbol||topic.split('.').at(-1)||'').toUpperCase(),next={...(this.tickers.get(symbol)||{}),...d,symbol,ts:num(msg.ts)||Date.now()};
+    if(symbol)this.tickers.set(symbol,next);
+    if(symbol===SYMBOL)this.ticker=next;
+  }
+
+  onKline(msg){
+    const topic=String(msg.topic||''),parts=topic.split('.'),interval=String(parts[1]||''),rows=Array.isArray(msg?.data)?msg.data:[msg?.data].filter(Boolean);
+    if(!this.klines[interval])return;
+    for(const x of rows){
+      const row={t:num(x.start),o:num(x.open),h:num(x.high),l:num(x.low),c:num(x.close),v:num(x.volume),turnover:num(x.turnover),confirm:x.confirm===true};
+      if(!(row.t>0&&row.c>0))continue;
+      const arr=this.klines[interval],i=arr.findIndex(z=>z.t===row.t);
+      if(i>=0)arr[i]=row;else arr.push(row);
+      arr.sort((a,b)=>a.t-b.t);
+      this.klines[interval]=arr.slice(-220);
+    }
   }
 
   maybeEvaluate(reason,force=false){
