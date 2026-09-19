@@ -224,7 +224,7 @@ export async function handle(request: Request): Promise<Response> {
       }
       return json({ ok: upstream.ok, httpStatus: upstream.status, upstream: parsed }, upstream.ok ? 200 : upstream.status);
     } catch (error) {
-      return json({ ok: false, error: 'bybit_demo_egress_fetch_failed', detail: String(error?.message ?? error).slice(0, 180) }, 502);
+      return json({ ok: false, error: 'bybit_demo_egress_fetch_failed', detail: String(error instanceof Error ? error.message : error).slice(0, 180) }, 502);
     }
   }
 
