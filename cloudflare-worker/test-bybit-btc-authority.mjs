@@ -5,7 +5,6 @@ import {bybitV5} from './bybit-v5-client.js';
 import {BYBIT_RUNTIME_CONTRACT,BYBIT_AUTO_VERSION,LEGACY_BYBIT_MULTI_COIN_DISABLED} from './bybit-runtime-contract.js';
 import {BYBIT_TRADE_UNIVERSE,isSupportedTradeSymbol} from './bybit-coin-profiles.js';
 import {runBybitSymbolEngine} from './bybit-symbol-engine.js';
-import {bybitV5} from './bybit-v5-client.js';
 
 const AUTH='BYBIT-BTC-STATEFLOW-2.1';
 const NON_BTC='BYBIT_NON_BTC_EXECUTION_RETIRED';
