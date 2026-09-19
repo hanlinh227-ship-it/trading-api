@@ -1,4 +1,4 @@
-run=2026-09-20T00:32+07:00
+run=2026-09-20T00:35+07:00
 purpose=5_demo_orders_hold_2m
 runtime=25534a30e48f7511a8fd4f1853b66871c0fe4220
-trigger=manual_user_demo_entry_test
+trigger=retry_after_oidc_fix
