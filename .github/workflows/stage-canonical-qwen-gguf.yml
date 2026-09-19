@@ -1,0 +1,49 @@
+name: Stage canonical Qwen GGUF
+
+on:
+  push:
+    branches:
+      - ops/model-artifact-staging
+    paths:
+      - .github/workflows/stage-canonical-qwen-gguf.yml
+
+permissions:
+  contents: read
+
+jobs:
+  stage-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Download immutable canonical artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staging
+          URL='https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf?download=true'
+          curl -L --fail --retry 5 --retry-all-errors --connect-timeout 20 \
+            --output staging/Qwen3-0.6B-Q8_0.gguf "$URL"
+
+      - name: Verify exact canonical bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE='staging/Qwen3-0.6B-Q8_0.gguf'
+          EXPECTED_SIZE='639446688'
+          EXPECTED_SHA='9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031'
+          ACTUAL_SIZE="$(stat -c '%s' "$FILE")"
+          ACTUAL_SHA="$(sha256sum "$FILE" | awk '{print $1}')"
+          test "$ACTUAL_SIZE" = "$EXPECTED_SIZE"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          printf '{\n  "model_id": "Qwen/Qwen3-0.6B-GGUF",\n  "variant": "0.6B-Q8_0-GGUF",\n  "immutable_revision": "1eaf4d9657fe65ad10a51eab76a8db5b363bddaa",\n  "filename": "Qwen3-0.6B-Q8_0.gguf",\n  "size_bytes": %s,\n  "sha256": "%s",\n  "source": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/1eaf4d9657fe65ad10a51eab76a8db5b363bddaa/Qwen3-0.6B-Q8_0.gguf",\n  "verified_by": "github-actions"\n}\n' "$ACTUAL_SIZE" "$ACTUAL_SHA" > staging/manifest.json
+
+      - name: Upload verified canonical artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-qwen3-0.6b-q8_0-gguf
+          path: |
+            staging/Qwen3-0.6B-Q8_0.gguf
+            staging/manifest.json
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
