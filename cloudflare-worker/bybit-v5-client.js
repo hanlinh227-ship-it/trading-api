@@ -11,6 +11,8 @@ const clean=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>v!==undef
 const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)])).toString();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const bridgeSecret=env=>String(env?.V11_AI_BRIDGE_SECRET||env?.BYBIT_VPS_BRIDGE_SECRET||"").trim();
+const demoEgressUrl=env=>String(env?.BYBIT_DEMO_EGRESS_URL||"").trim().replace(/\/$/,"");
+const demoEgressSecret=env=>String(env?.BYBIT_DEMO_EGRESS_SHARED_SECRET||"").trim();
 function guardSignedWrite(method,path,paramsOrBody={}){
   const upper=String(method||"").toUpperCase();
   if(upper==="GET"||!TRADING_WRITE_PATHS.has(String(path||"")))return null;
@@ -99,8 +101,13 @@ export function bybitV5(env={}){
       attempted.push(base);
       try{
         const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+recvWindow+payload),url=`${base}${path}${upper==="GET"&&payload?`?${payload}`:""}`;
-        const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":recvWindow,"X-BAPI-SIGN":sig,"Content-Type":"application/json",accept:"application/json","X-Trading-Runtime-Contract":BYBIT_RUNTIME_CONTRACT_VERSION},body:upper==="GET"?undefined:payload,signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});
-        return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PRIVATE_DIRECT"});
+        const headers={"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":recvWindow,"X-BAPI-SIGN":sig,"Content-Type":"application/json",accept:"application/json","X-Trading-Runtime-Contract":BYBIT_RUNTIME_CONTRACT_VERSION};
+        const r=await fetch(url,{method:upper,headers,body:upper==="GET"?undefined:payload,signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});
+        try{return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PRIVATE_DIRECT"});}
+        catch(e){
+          if(demo&&Number(e?.bybit?.httpStatus)===403&&demoEgressUrl(env)&&demoEgressSecret(env))return signedViaDemoEgress(upper,path,payload,headers);
+          throw e;
+        }
       }catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403&&Number(e?.bybit?.httpStatus)!==429)throw e;}
     }
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
