@@ -18,10 +18,14 @@ function guardSignedWrite(method,path,paramsOrBody={}){
   if(!raw){const error=new Error("BYBIT_EXECUTION_SYMBOL_REQUIRED");error.code="BYBIT_EXECUTION_SYMBOL_REQUIRED";throw error;}
   return assertBybitExecutionSymbol(raw);
 }
-function bases(env={}){
+function privateBases(env={}){
   const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";
   if(demo)return ["https://api-demo.bybit.com"];
   const preferred=String(env.BYBIT_API_BASE_URL||"").trim().replace(/\/$/,"");
+  return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
+}
+function marketBases(env={}){
+  const preferred=String(env.BYBIT_PUBLIC_API_BASE_URL||env.BYBIT_API_BASE_URL||"").trim().replace(/\/$/,"");
   return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
 }
 function bybitError(path,status,p,meta={}){const msg=p?.retMsg||meta.bodySnippet||`HTTP ${status}`;const e=new Error(`${path}: ${msg}`);e.bybit={path,httpStatus:status,retCode:Number.isFinite(Number(p?.retCode))?Number(p.retCode):null,retMsg:p?.retMsg||null,base:meta.base||null,attemptedBases:meta.attemptedBases||[],bodySnippet:meta.bodySnippet||null,transport:meta.transport||null,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION};return e;}
@@ -45,10 +49,10 @@ function entryOrderLinkId(body={}){
 }
 export function bybitV5(env={}){
   const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";
-  const c=bybitCredentials(env),cfg=bybitAutoConfig(env),baseList=bases(env),recvWindow=String(Math.max(5000,Math.min(20000,Number(cfg.execution?.recvWindow||10000))));
+  const c=bybitCredentials(env),cfg=bybitAutoConfig(env),baseList=privateBases(env),publicBaseList=marketBases(env),recvWindow=String(Math.max(5000,Math.min(20000,Number(cfg.execution?.recvWindow||10000))));
   async function pub(path,params={}){
     const q=qs(params),attempted=[];let lastErr;
-    for(const base of baseList){
+    for(const base of publicBaseList){
       attempted.push(base);
       try{const url=`${base}${path}${q?`?${q}`:""}`;const r=await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});}
       catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403&&Number(e?.bybit?.httpStatus)!==429)throw e;}
@@ -138,7 +142,7 @@ export function bybitV5(env={}){
     return signed("POST","/v5/order/create",enriched);
   }
   return {
-    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:demo?"CLOUDFLARE_BYBIT_DEMO_DIRECT":"CLOUDFLARE_BYBIT_PRIVATE_DIRECT",marketTransport:"CLOUDFLARE_BYBIT_PUBLIC_DIRECT",runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,recvWindowMs:Number(recvWindow),
+    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,publicBases:publicBaseList,privateTransport:demo?"CLOUDFLARE_BYBIT_DEMO_DIRECT":"CLOUDFLARE_BYBIT_PRIVATE_DIRECT",marketTransport:"CLOUDFLARE_BYBIT_PUBLIC_DIRECT",runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,recvWindowMs:Number(recvWindow),
     serverTime:()=>market("/v5/market/time"),
     wallet:()=>signed("GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),
     positions:()=>signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200}),
