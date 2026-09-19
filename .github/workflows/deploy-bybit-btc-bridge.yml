@@ -27,12 +27,39 @@ jobs:
         run: |
           python3 -c 'import websocket' 2>/dev/null || python3 -m pip install --disable-pip-version-check --break-system-packages websocket-client
       - name: Install bridge
+        shell: bash
         run: |
-          sudo install -m 0755 bybit-live-bridge/bybit_live_bridge.py /usr/local/bin/v11-manual-ai-bridge
-          sudo systemctl disable --now bybit-btc-event-driver.service 2>/dev/null || true
-          sudo systemctl daemon-reload
-          sudo systemctl restart v11-manual-ai-bridge.service
-          sudo systemctl is-active --quiet v11-manual-ai-bridge.service
+          set -euo pipefail
+          if sudo -n true 2>/dev/null; then
+            sudo install -m 0755 bybit-live-bridge/bybit_live_bridge.py /usr/local/bin/v11-manual-ai-bridge
+            sudo systemctl disable --now bybit-btc-event-driver.service 2>/dev/null || true
+            sudo systemctl daemon-reload
+            sudo systemctl restart v11-manual-ai-bridge.service
+            sudo systemctl is-active --quiet v11-manual-ai-bridge.service
+            echo "BYBIT_BRIDGE_LAUNCH=SYSTEMD"
+          else
+            mkdir -p "$HOME/.local/bin" "$HOME/.local/state/trading-api"
+            install -m 0755 bybit-live-bridge/bybit_live_bridge.py "$HOME/.local/bin/v11-manual-ai-bridge"
+            if [ -f "$HOME/.local/state/trading-api/bybit-bridge.pid" ]; then
+              old_pid="$(cat "$HOME/.local/state/trading-api/bybit-bridge.pid" 2>/dev/null || true)"
+              if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then kill "$old_pid" 2>/dev/null || true; fi
+            fi
+            set -a; source /etc/trading-v11-ai.env; set +a
+            export BYBIT_VPS_BRIDGE_HOST="${BYBIT_VPS_BRIDGE_HOST:-127.0.0.1}"
+            export BYBIT_VPS_BRIDGE_PORT="${BYBIT_VPS_BRIDGE_PORT:-8789}"
+            RUNNER_TRACKING_ID="" nohup "$HOME/.local/bin/v11-manual-ai-bridge" >"$HOME/.local/state/trading-api/bybit-bridge.log" 2>&1 </dev/null &
+            pid=$!
+            echo "$pid" > "$HOME/.local/state/trading-api/bybit-bridge.pid"
+            for i in $(seq 1 30); do
+              if curl -fsS --max-time 3 "http://127.0.0.1:${BYBIT_VPS_BRIDGE_PORT}/health" >/tmp/bybit-bridge-health.json; then
+                echo "BYBIT_BRIDGE_LAUNCH=USERSPACE pid=$pid"
+                exit 0
+              fi
+              sleep 1
+            done
+            cat "$HOME/.local/state/trading-api/bybit-bridge.log" || true
+            exit 1
+          fi
       - name: Verify representative live WS symbols
         shell: bash
         run: |
