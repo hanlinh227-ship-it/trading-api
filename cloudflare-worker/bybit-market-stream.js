@@ -2,7 +2,7 @@ import {recordBybitAutoSchedulerError} from './bybit-auto-controller.js';
 import {runBybitMultiAssetControlled} from './bybit-multi-asset-controller.js';
 import {BYBIT_TRADE_UNIVERSE,normalizeBybitSymbol} from './bybit-coin-profiles.js';
 
-const VERSION='BYBIT_CLOUD_MARKET_STREAM_V4_PER_SYMBOL_DIRECT';
+const VERSION='BYBIT_CLOUD_MARKET_STREAM_V5_PER_SYMBOL_SELF_HEAL';
 const DEFAULT_SYMBOL='BTCUSDT';
 const WS_URL='wss://stream.bybit.com/v5/public/linear';
 const FETCH_URL='https://stream.bybit.com/v5/public/linear';
@@ -60,20 +60,32 @@ function liquidationMetrics(rows=[]){
 
 export class BybitMarketStream {
   constructor(state,env){
-    this.state=state;this.env=env;this.symbol=null;this.ws=null;this.connected=false;this.connecting=false;this.lastMessageAt=0;this.lastConnectAt=0;this.lastDisconnectAt=0;this.lastError=null;this.lastEvalAt=0;this.evalInFlight=false;this.evalPending=false;this.evalPendingReason=null;this.bids=new Map();this.asks=new Map();this.trades=[];this.liquidations=[];this.ticker={};this.tickers=new Map();this.klines={'5':[],'15':[],'60':[]};
+    this.state=state;this.env=env;this.symbol=null;this.ws=null;this.connected=false;this.connecting=false;this.lastMessageAt=0;this.lastConnectAt=0;this.lastDisconnectAt=0;this.lastError=null;this.lastEvalAt=0;this.evalInFlight=false;this.evalPending=false;this.evalPendingReason=null;this.symbolRebinds=0;this.lastSymbolRebindAt=0;this.lastSymbolRebind=null;this.bids=new Map();this.asks=new Map();this.trades=[];this.liquidations=[];this.ticker={};this.tickers=new Map();this.klines={'5':[],'15':[],'60':[]};
+  }
+
+  async rebindSymbol(target,previous=null){
+    try{this.ws?.close(1000,'symbol_rebind');}catch{}
+    this.ws=null;this.connected=false;this.connecting=false;this.bids.clear();this.asks.clear();this.trades=[];this.liquidations=[];this.ticker={};this.tickers.clear();this.klines={'5':[],'15':[],'60':[]};
+    for(const interval of ['5','15','60']){try{await this.state.storage.delete('klines:'+interval);}catch{}}
+    this.symbol=target;this.symbolRebinds+=1;this.lastSymbolRebindAt=Date.now();this.lastSymbolRebind={from:previous||null,to:target,at:this.lastSymbolRebindAt};
+    try{await this.state.storage.put('symbol',target);}catch{}
+    return this.symbol;
   }
 
   async resolveSymbol(requested=null){
-    const req=validSymbol(requested||'');
+    const hasRequested=requested!==null&&requested!==undefined&&String(requested).trim()!=='',req=hasRequested?validSymbol(requested):null;
+    if(hasRequested&&!req)throw new Error('STREAM_SYMBOL_INVALID_'+String(requested).slice(0,40));
     if(!this.symbol){try{this.symbol=validSymbol(await this.state.storage.get('symbol'))||null;}catch{}}
-    const target=req||this.symbol||DEFAULT_SYMBOL;
-    if(this.symbol&&this.symbol!==target)throw new Error(`STREAM_SYMBOL_MISMATCH_${this.symbol}_${target}`);
+    if(req&&this.symbol&&this.symbol!==req)return await this.rebindSymbol(req,this.symbol);
+    const target=req||this.symbol||null;
+    if(!target)return null;
     if(!this.symbol){this.symbol=target;try{await this.state.storage.put('symbol',target);}catch{}}
     return this.symbol;
   }
 
   async fetch(request){
     const u=new URL(request.url),symbol=await this.resolveSymbol(u.searchParams.get('symbol'));
+    if(!symbol)return json({ok:false,error:'STREAM_SYMBOL_REQUIRED'},400);
     if(u.pathname.endsWith('/connect')){await this.ensureConnected(symbol);await this.waitForFresh(500);return json({ok:true,...this.health()});}
     if(u.pathname.endsWith('/snapshot')){if(!this.connected&&!this.connecting)await this.ensureConnected(symbol);await this.waitForFresh(450);return json({ok:true,data:this.snapshot()});}
     if(u.pathname.endsWith('/universe-tickers')){if(symbol!==DEFAULT_SYMBOL)return json({ok:false,error:'UNIVERSE_TICKERS_REQUIRE_BTC_ANCHOR'},409);if(!this.connected&&!this.connecting)await this.ensureConnected(symbol);await this.waitForFresh(450);return json({ok:true,data:this.universeTickers()});}
@@ -84,13 +96,14 @@ export class BybitMarketStream {
 
   async alarm(){
     const symbol=await this.resolveSymbol(null);
+    if(!symbol){this.lastError='STREAM_SYMBOL_UNRESOLVED';return;}
     if(!this.connected&&!this.connecting)await this.ensureConnected(symbol);
     await this.state.storage.setAlarm(Date.now()+30000);
   }
 
   health(){
-    const symbol=this.symbol||DEFAULT_SYMBOL,topics=topicsForSymbol(symbol);
-    return {version:VERSION,symbol,url:WS_URL,connected:this.connected,connecting:this.connecting,lastConnectAt:this.lastConnectAt||null,lastMessageAt:this.lastMessageAt||null,lastDisconnectAt:this.lastDisconnectAt||null,messageAgeMs:this.lastMessageAt?Date.now()-this.lastMessageAt:null,lastError:this.lastError,topics,tickerSymbolCount:this.tickers.size,coreTickerTargetCount:symbol===DEFAULT_SYMBOL?CORE_TICKER_SYMBOLS.length:1,decisionTrigger:'CLOUD_BYBIT_WS_STATE_CHANGE',vpsRequired:false,perSymbolDirect:true};
+    const symbol=this.symbol||null,topics=symbol?topicsForSymbol(symbol):[];
+    return {version:VERSION,symbol,url:WS_URL,connected:this.connected,connecting:this.connecting,lastConnectAt:this.lastConnectAt||null,lastMessageAt:this.lastMessageAt||null,lastDisconnectAt:this.lastDisconnectAt||null,messageAgeMs:this.lastMessageAt?Date.now()-this.lastMessageAt:null,lastError:this.lastError,topics,tickerSymbolCount:this.tickers.size,coreTickerTargetCount:symbol===DEFAULT_SYMBOL?CORE_TICKER_SYMBOLS.length:(symbol?1:0),decisionTrigger:'CLOUD_BYBIT_WS_STATE_CHANGE',vpsRequired:false,perSymbolDirect:true,symbolSelfHeal:true,symbolRebinds:this.symbolRebinds,lastSymbolRebindAt:this.lastSymbolRebindAt||null,lastSymbolRebind:this.lastSymbolRebind};
   }
 
   snapshot(){
