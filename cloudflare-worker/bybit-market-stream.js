@@ -97,6 +97,8 @@ export class BybitMarketStream {
     this.lastError=null;
     this.lastEvalAt=0;
     this.evalInFlight=false;
+    this.evalPending=false;
+    this.evalPendingReason=null;
     this.bids=new Map();
     this.asks=new Map();
     this.trades=[];
@@ -229,8 +231,8 @@ export class BybitMarketStream {
   maybeEvaluate(reason,force=false){
     if(!on(this.env.BYBIT_AUTO_ENABLED))return;
     const now=Date.now();
-    const minGap=Math.max(750,Math.min(10000,num(this.env.BYBIT_CLOUD_EVAL_MIN_GAP_MS)||2000));
-    if(this.evalInFlight)return;
+    const minGap=Math.max(75,Math.min(2000,num(this.env.BYBIT_CLOUD_EVAL_MIN_GAP_MS)||150));
+    if(this.evalInFlight){this.evalPending=true;this.evalPendingReason=reason;return;}
     if(!force&&now-this.lastEvalAt<minGap)return;
     const snap=this.snapshot();
     const flow=Math.abs(num(snap.trades?.window3s?.imbalance));
@@ -239,9 +241,17 @@ export class BybitMarketStream {
     const meaningful=force||flow>=.10||move>=1.2||book>=.22;
     if(!meaningful)return;
     this.lastEvalAt=now;this.evalInFlight=true;
-    const task=Promise.resolve(runBybitAutoControlled(this.env,{trigger:'CLOUD_BYBIT_WS_STATE_CHANGE',triggerReason:reason}))
+    const task=Promise.resolve(runBybitAutoControlled(this.env,{trigger:'CLOUD_BYBIT_WS_STATE_CHANGE',triggerReason:reason,ctx:this.state}))
       .catch(error=>recordBybitAutoSchedulerError(this.env,error))
-      .finally(()=>{this.evalInFlight=false;});
+      .finally(()=>{
+        this.evalInFlight=false;
+        if(this.evalPending){
+          const pendingReason=this.evalPendingReason||'COALESCED_STATE_CHANGE';
+          this.evalPending=false;
+          this.evalPendingReason=null;
+          this.maybeEvaluate(pendingReason,true);
+        }
+      });
     if(typeof this.state.waitUntil==='function')this.state.waitUntil(task);
   }
 }
