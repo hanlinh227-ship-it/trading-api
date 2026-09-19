@@ -31,13 +31,16 @@ projects:
     preserve_runtime_dependencies:
       - Bybit LIVE credential lookup
       - Bybit V5 signing primitive
-      - VPS signed private proxy /bybit/private
-      - Cloudflare VPC/service binding
+      - Direct Cloudflare -> Bybit signed V5 transport
+      - Cloudflare-native Bybit public WebSocket market stream
       - readonly health/control/deployment verification
       - existing BTC state KV key
       - per-symbol state KV keys for admitted top-100 symbols
     execution_authority_never_from: [github_research, provider_consensus, legacy_memory, legacy_checkpoint, crypto_agent, multi_market_research, brain_upgrade, upstream_repository, plugin]
-    research_is_analysis_only: false
+    research_is_analysis_only: true
+    ai_execution_model: single_executor_research_swarm
+    ai_sole_executor_role: order_risk_architect_agent
+    signed_write_authority: StateFlow_Risk_Governor_single_gateway
     live_claim_requires:
       - successful worker validation/deploy
       - /bybit/health runtime revision/version alignment
