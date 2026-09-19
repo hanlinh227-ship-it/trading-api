@@ -113,7 +113,7 @@ jobs:
           TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
           AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
           V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
-          PRIVATE_BRIDGE_ENABLED: ${{ vars.PRIVATE_BRIDGE_ENABLED || 'false' }}
+          PRIVATE_BRIDGE_ENABLED: 'true'
         shell: bash
         run: |
           set -euo pipefail
