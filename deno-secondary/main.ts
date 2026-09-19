@@ -38,6 +38,19 @@ const ACTIONS = new Set(['snapshot', 'candles', 'orderbook', 'funding_oi', 'exec
 const INSTRUMENTS = new Set(['spot', 'perpetual']);
 const SIDES = new Set(['LONG', 'SHORT']);
 const EXECUTION_VENUES = new Set(['bybit', 'binance']);
+const BYBIT_DEMO_BASE = 'https://api-demo.bybit.com';
+const BYBIT_PRIVATE_PATHS = new Set([
+  '/v5/account/wallet-balance',
+  '/v5/position/list',
+  '/v5/order/realtime',
+  '/v5/position/closed-pnl',
+  '/v5/order/create',
+  '/v5/order/amend',
+  '/v5/order/cancel',
+  '/v5/order/cancel-all',
+  '/v5/position/set-leverage',
+  '/v5/position/trading-stop',
+]);
 const MARKET_TOOLS = [
   'market_snapshot',
   'market_candles',
@@ -157,6 +170,62 @@ export async function handle(request: Request): Promise<Response> {
       localInstallRequired: false,
       tools: MARKET_TOOLS,
     });
+  }
+
+  if (url.pathname === '/bybit/private-egress') {
+    if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
+    const expected = Deno.env.get('BYBIT_DEMO_EGRESS_SHARED_SECRET') ?? '';
+    const supplied = request.headers.get('authorization') ?? '';
+    if (!expected || supplied !== 'Bearer ' + expected) return json({ ok: false, error: 'unauthorized' }, 401);
+
+    let raw: Record<string, unknown>;
+    try {
+      const text = await request.text();
+      if (encoder.encode(text).byteLength > 64_000) throw new Error('body_too_large');
+      raw = JSON.parse(text);
+    } catch {
+      return json({ ok: false, error: 'invalid_egress_request' }, 400);
+    }
+
+    const method = String(raw.method ?? '').toUpperCase();
+    const path = String(raw.path ?? '');
+    const query = String(raw.query ?? '');
+    const body = String(raw.body ?? '');
+    const headers = raw.headers && typeof raw.headers === 'object' && !Array.isArray(raw.headers)
+      ? raw.headers as Record<string, string>
+      : null;
+
+    if (!['GET', 'POST'].includes(method) || !BYBIT_PRIVATE_PATHS.has(path) || !headers) {
+      return json({ ok: false, error: 'egress_request_not_allowed' }, 400);
+    }
+
+    const forwardedHeaders = new Headers();
+    for (const key of ['X-BAPI-API-KEY', 'X-BAPI-TIMESTAMP', 'X-BAPI-RECV-WINDOW', 'X-BAPI-SIGN', 'Content-Type', 'Accept', 'X-Trading-Runtime-Contract']) {
+      const value = headers[key] ?? headers[key.toLowerCase()];
+      if (value) forwardedHeaders.set(key, String(value));
+    }
+    if (!forwardedHeaders.get('X-BAPI-API-KEY') || !forwardedHeaders.get('X-BAPI-SIGN') || !forwardedHeaders.get('X-BAPI-TIMESTAMP')) {
+      return json({ ok: false, error: 'missing_signed_headers' }, 400);
+    }
+
+    const target = BYBIT_DEMO_BASE + path + (method === 'GET' && query ? '?' + query : '');
+    try {
+      const upstream = await fetch(target, {
+        method,
+        headers: forwardedHeaders,
+        body: method === 'GET' ? undefined : body,
+        signal: AbortSignal.timeout(25_000),
+      });
+      const text = await upstream.text();
+      let parsed: unknown = null;
+      try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+      if (!parsed || typeof parsed !== 'object') {
+        return json({ ok: false, error: 'invalid_bybit_response', httpStatus: upstream.status }, 502);
+      }
+      return json({ ok: upstream.ok, httpStatus: upstream.status, upstream: parsed }, upstream.ok ? 200 : upstream.status);
+    } catch (error) {
+      return json({ ok: false, error: 'bybit_demo_egress_fetch_failed', detail: String(error?.message ?? error).slice(0, 180) }, 502);
+    }
   }
 
   if (url.pathname === '/research/market') {
