@@ -1,3 +1,4 @@
+// DEMO diagnostic smoke harness: five tiny positions, two-minute hold, never LIVE.
 import {bybitExecutionMode} from './bybit-auto-config.js';
 import {bybitV5,normalizeBybitFilter,roundTick} from './bybit-v5-client.js';
 import {buildBybitDynamicUniverse} from './bybit-dynamic-universe.js';
