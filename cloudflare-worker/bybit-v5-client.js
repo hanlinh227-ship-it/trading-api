@@ -27,7 +27,7 @@ function privateBases(env={}){
   return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
 }
 function marketBases(env={}){
-  const preferred=String(env.BYBIT_PUBLIC_API_BASE_URL||env.BYBIT_API_BASE_URL||"").trim().replace(/\/$/,"");
+  const preferred=String(env.BYBIT_PUBLIC_API_BASE_URL||"").trim().replace(/\/$/,"");
   return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
 }
 function bybitError(path,status,p,meta={}){const msg=p?.retMsg||meta.bodySnippet||`HTTP ${status}`;const e=new Error(`${path}: ${msg}`);e.bybit={path,httpStatus:status,retCode:Number.isFinite(Number(p?.retCode))?Number(p.retCode):null,retMsg:p?.retMsg||null,base:meta.base||null,attemptedBases:meta.attemptedBases||[],bodySnippet:meta.bodySnippet||null,transport:meta.transport||null,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION};return e;}
