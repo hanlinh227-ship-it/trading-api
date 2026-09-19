@@ -6,7 +6,7 @@ import {
   evaluateBybitAiLegionAgents,
 } from './bybit-ai-legion.js';
 
-assert.equal(BYBIT_AI_LEGION_VERSION,'BYBIT_AI_LEGION_V2_MARKET_INTELLIGENCE');
+assert.equal(BYBIT_AI_LEGION_VERSION,'BYBIT_AI_LEGION_V3_ROLE_FEDERATION');
 assert.deepEqual(BYBIT_AI_LEGION_ROLES.map(x=>x.id),[
   'macro_news_agent',
   'market_structure_flow_agent',
@@ -79,6 +79,9 @@ assert.equal(liveOn.enabled,true);
 assert.equal(liveOn.modelMeshEnabled,true);
 assert.equal(liveOn.minimumRequiredWorkers,3);
 assert.equal(liveOn.maxWorkers,4);
+assert.equal(liveOn.participationMode,'ROTATING_ALL_HEALTHY_DISTINCT_MODEL_FAMILIES_MAX4_CONCURRENT');
+assert.equal(liveOn.alwaysDecision,true);
+assert.equal(liveOn.forcedTrade,false);
 
 const demo=bybitAiLegionPolicy({
   MODEL_MESH_EXECUTION_ENABLED:'1',

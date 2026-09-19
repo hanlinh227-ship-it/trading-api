@@ -25,7 +25,7 @@ assert.equal(BYBIT_AUTO_CONFIG.multiAsset,true);
 assert.equal(BYBIT_AUTO_CONFIG.aiLegion.authority,'ADVISORY_EVIDENCE_ONLY');
 assert.equal(BYBIT_AUTO_CONFIG.aiLegion.mayPlaceOrders,false);
 assert.equal(BYBIT_AUTO_CONFIG.aiLegion.mayIncreaseRisk,false);
-assert.equal(BYBIT_RUNTIME_CONTRACT.aiLegionVersion,'BYBIT_AI_LEGION_V2_MARKET_INTELLIGENCE');
+assert.equal(BYBIT_RUNTIME_CONTRACT.aiLegionVersion,'BYBIT_AI_LEGION_V3_ROLE_FEDERATION');
 assert.equal(BYBIT_RUNTIME_CONTRACT.aiLegionMayPlaceOrders,false);
 assert.equal(BYBIT_RUNTIME_CONTRACT.demoExecutionSupported,true);
 assert.equal(BYBIT_RUNTIME_CONTRACT.vpsRequired,false);
