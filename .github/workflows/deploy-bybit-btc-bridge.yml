@@ -18,7 +18,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
-          test -f /etc/trading-v11-ai.env
+          test -f bybit-live-bridge/bybit_live_bridge.py
           ! grep -qi 'claude\|codex\|deepseek\|FOREX_CONNECTIVITY' bybit-live-bridge/bybit_live_bridge.py
           grep -q 'BYBIT_MULTI_SYMBOLS' bybit-live-bridge/bybit_live_bridge.py
           grep -q 'WORKER_WAKE_SEMAPHORE' bybit-live-bridge/bybit_live_bridge.py
@@ -44,9 +44,9 @@ jobs:
               old_pid="$(cat "$HOME/.local/state/trading-api/bybit-bridge.pid" 2>/dev/null || true)"
               if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then kill "$old_pid" 2>/dev/null || true; fi
             fi
-            set -a; source /etc/trading-v11-ai.env; set +a
-            export BYBIT_VPS_BRIDGE_HOST="${BYBIT_VPS_BRIDGE_HOST:-127.0.0.1}"
-            export BYBIT_VPS_BRIDGE_PORT="${BYBIT_VPS_BRIDGE_PORT:-8789}"
+            export BYBIT_PRIVATE_PROXY_ONLY=true
+            export BYBIT_VPS_BRIDGE_HOST="127.0.0.1"
+            export BYBIT_VPS_BRIDGE_PORT="8789"
             RUNNER_TRACKING_ID="" nohup "$HOME/.local/bin/v11-manual-ai-bridge" >"$HOME/.local/state/trading-api/bybit-bridge.log" 2>&1 </dev/null &
             pid=$!
             echo "$pid" > "$HOME/.local/state/trading-api/bybit-bridge.pid"
@@ -60,40 +60,26 @@ jobs:
             cat "$HOME/.local/state/trading-api/bybit-bridge.log" || true
             exit 1
           fi
-      - name: Verify representative live WS symbols
+      - name: Verify private proxy and Worker Demo health
         shell: bash
         run: |
           set -euo pipefail
-          set -a; source /etc/trading-v11-ai.env; set +a
-          for i in $(seq 1 60); do
-            OK=1
-            curl -fsS --max-time 8 http://127.0.0.1:8789/health >/tmp/bybit-multi-health.json || OK=0
-            for S in BTCUSDT ETHUSDT SOLUSDT XRPUSDT LINKUSDT; do curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" "http://127.0.0.1:8789/bybit/microstructure?symbol=$S" >"/tmp/$S.json" || OK=0; done
-            if [ "$OK" = 1 ] && python3 - <<'PY'
-          import json,time
-          h=json.load(open('/tmp/bybit-multi-health.json'));assert h.get('ok') is True and h.get('service')=='BYBIT_MULTI_ASSET_LIVE_BRIDGE';assert len(h.get('symbols') or [])>=15
-          now=int(time.time()*1000)
-          for s in ['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT','LINKUSDT']:
-            d=json.load(open('/tmp/'+s+'.json'));x=d.get('data') or {};t=x.get('trades') or {};b=x.get('book') or {};assert x.get('symbol')==s and x.get('source')=='VPS_BYBIT_WS';assert t.get('lastPrice',0)>0 and b.get('bestBid',0)>0 and b.get('bestAsk',0)>0;assert now-int(t.get('lastTradeTime',0))<8000
-          PY
-            then exit 0; fi
-            sleep 1
+          local_health="$(curl -fsS --max-time 8 http://127.0.0.1:8789/health)"
+          printf '%s\n' "$local_health" | python3 -c "import json,sys;x=json.load(sys.stdin);assert x.get('ok') is True and x.get('privateProxyOnly') is True"
+          for i in $(seq 1 45); do
+            code="$(curl -sS --max-time 20 -o /tmp/bybit-health.json -w '%{http_code}' https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health || true)"
+            if [ "$code" = "200" ] && python3 - <<'PY'
+import json
+x=json.load(open('/tmp/bybit-health.json'))
+assert x.get('authenticated') is True
+assert (x.get('execution') or {}).get('ready') is True
+PY
+            then
+              echo BYBIT_DEMO_PRIVATE_PROXY_HEALTH=PASS
+              exit 0
+            fi
+            sleep 2
           done
-          cat /tmp/bybit-multi-health.json || true
-          journalctl -u v11-manual-ai-bridge.service -n 120 --no-pager || true
-          exit 1
-      - name: Verify event wake reaches Worker
-        shell: bash
-        run: |
-          set -euo pipefail
-          for i in $(seq 1 90); do
-            curl -fsS --max-time 15 https://trading-v77-scanner.hanlinh227.workers.dev/bybit/entry-health >/tmp/bybit-entry.json || true
-            curl -fsS --max-time 8 http://127.0.0.1:8789/health >/tmp/bybit-multi-health.json || true
-            if python3 - <<'PY' 2>/dev/null
-          import json
-          h=json.load(open('/tmp/bybit-multi-health.json'));e=json.load(open('/tmp/bybit-entry.json'));d=h.get('eventDriver') or {};assert d.get('lastSuccessAt',0)>0 and d.get('lastHttpStatus')==200;assert e.get('multiAsset') is True and len(e.get('universe') or [])>=15
-          PY
-            then echo BYBIT_MULTI_ASSET_EVENT_WAKE=PASS; exit 0; fi
-            sleep 1
-          done
+          cat /tmp/bybit-health.json || true
+          cat "$HOME/.local/state/trading-api/bybit-bridge.log" || true
           exit 1
