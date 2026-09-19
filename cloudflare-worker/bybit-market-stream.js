@@ -3,6 +3,7 @@ import {runBybitAutoControlled,recordBybitAutoSchedulerError} from './bybit-auto
 const VERSION='BYBIT_CLOUD_MARKET_STREAM_V1';
 const SYMBOL='BTCUSDT';
 const URL='wss://stream.bybit.com/v5/public/linear';
+const FETCH_URL='https://stream.bybit.com/v5/public/linear';
 const TOPICS=[
   'orderbook.50.BTCUSDT',
   'publicTrade.BTCUSDT',
@@ -156,12 +157,15 @@ export class BybitMarketStream {
     this.connecting=true;
     this.lastError=null;
     try{
-      const ws=new WebSocket(URL);
+      const response=await fetch(FETCH_URL,{headers:{Upgrade:'websocket'}});
+      const ws=response.webSocket;
+      if(!ws)throw new Error('WEBSOCKET_UPGRADE_REJECTED_'+response.status);
+      ws.accept();
       this.ws=ws;
-      ws.addEventListener('open',()=>{
-        this.connected=true;this.connecting=false;this.lastConnectAt=Date.now();this.lastError=null;
-        ws.send(JSON.stringify({op:'subscribe',args:TOPICS}));
-      });
+      this.connected=true;
+      this.connecting=false;
+      this.lastConnectAt=Date.now();
+      this.lastError=null;
       ws.addEventListener('message',event=>{
         this.lastMessageAt=Date.now();
         try{this.onMessage(JSON.parse(String(event.data||'{}')));}catch(error){this.lastError='MESSAGE_PARSE:'+String(error?.message||error).slice(0,180);}
@@ -175,9 +179,10 @@ export class BybitMarketStream {
         this.connected=false;this.connecting=false;this.lastError='WS_ERROR';
         this.state.storage.setAlarm(Date.now()+1500).catch(()=>{});
       });
+      ws.send(JSON.stringify({op:'subscribe',args:TOPICS}));
       await this.state.storage.setAlarm(Date.now()+30000);
     }catch(error){
-      this.connecting=false;this.connected=false;this.lastError='CONNECT_FAILED:'+String(error?.message||error).slice(0,180);
+      this.connecting=false;this.connected=false;this.ws=null;this.lastError='CONNECT_FAILED:'+String(error?.message||error).slice(0,180);
       await this.state.storage.setAlarm(Date.now()+3000);
     }
   }
