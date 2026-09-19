@@ -249,13 +249,13 @@ export function evaluateBybitAiLegionAgents(agents=[]){
   return {approved:true,reason:'AI_LEGION_ROLE_CONTRACTS_PASS',riskMultiplier,confidenceFloor};
 }
 
-async function selectWorkers(env){
+async function selectWorkers(env,offset=0){
   const evidenceSnapshot={...MODEL_MESH_SNAPSHOT,models:applyCapabilityEvidence(MODEL_MESH_SNAPSHOT?.models,MODEL_MESH_ACTIVE_CANDIDATE_INDEX)};
   const liveModels=await resolveLiveModels(evidenceSnapshot,env);
   const hardCapabilities=enabledHardCapabilities(MODEL_MESH_ACTIVE_CANDIDATE_INDEX,'trading');
   const selected=selectModelWorkers({
     profile:'DEEP',domain:'trading',dataClass:'PUBLIC',models:liveModels,hardCapabilities,
-    requiredCapability:'text_reasoning',
+    requiredCapability:'text_reasoning',offset,
   });
   return {evidenceSnapshot,selected:selected.slice(0,BYBIT_AI_LEGION_ROLES.length)};
 }
@@ -276,8 +276,9 @@ export async function refreshBybitAiLegion({env={},market={},setup={}}={}){
     await kvPut(env,state);return state;
   }
 
+  const priorState=await kvGet(env),rotationCursor=Math.max(0,Math.floor(num(priorState?.workerRotationCursor)));
   let selectedInfo;
-  try{selectedInfo=await selectWorkers(env);}catch(error){
+  try{selectedInfo=await selectWorkers(env,rotationCursor);}catch(error){
     const state={version:BYBIT_AI_LEGION_VERSION,status:'BLOCKED',mode,fingerprint,approved:false,reason:'AI_LEGION_WORKER_SELECTION_FAILED',error:String(error?.message||error).slice(0,180),riskMultiplier:.5,updatedAt:nowIso(),updatedAtMs:Date.now(),agents:[]};
     await kvPut(env,state);return state;
   }
@@ -304,7 +305,7 @@ export async function refreshBybitAiLegion({env={},market={},setup={}}={}){
     approved:decision.approved,reason:decision.reason,riskMultiplier:decision.riskMultiplier,
     confidenceFloor:decision.confidenceFloor,workerCount:workers.length,requiredWorkers:p.minimumRequiredWorkers,newsContext:{sourceCount:num(newsContext?.sourceCount),stale:newsContext?.stale===true,at:newsContext?.at||null,error:newsContext?.error||null},
     noMajorityVote:true,authority:'ADVISORY_EVIDENCE_ONLY',executionAuthority:'BYBIT-TOP100-STATEFLOW-3.0',
-    agents,startedAtMs:startedAt,updatedAt:nowIso(),updatedAtMs:Date.now(),expiresAtMs:Date.now()+p.freshnessMs,
+    agents,workerRotationCursor:rotationCursor+Math.max(1,workers.length),workerRotationEnabled:true,startedAtMs:startedAt,updatedAt:nowIso(),updatedAtMs:Date.now(),expiresAtMs:Date.now()+p.freshnessMs,
   };
   await kvPut(env,state);
   return state;
