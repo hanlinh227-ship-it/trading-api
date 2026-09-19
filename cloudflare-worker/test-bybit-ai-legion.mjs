@@ -8,23 +8,23 @@ import {
 
 assert.equal(BYBIT_AI_LEGION_VERSION,'BYBIT_AI_LEGION_V2_MARKET_INTELLIGENCE');
 assert.deepEqual(BYBIT_AI_LEGION_ROLES.map(x=>x.id),[
-  'structure_regime_agent',
-  'flow_liquidity_agent',
-  'derivatives_risk_agent',
-  'independent_checker',
+  'macro_news_agent',
+  'market_structure_flow_agent',
+  'order_risk_architect_agent',
+  'independent_adversarial_checker',
 ]);
 assert.equal(BYBIT_AI_LEGION_ROLES.filter(x=>x.required).length,3);
 
 const support=(roleId,{verdict='SUPPORT',confidence=.8,riskMultiplier=1,ok=true}={})=>({
-  roleId,required:roleId!=='independent_checker',ok,verdict,side:'BUY',
+  roleId,required:roleId!=='independent_adversarial_checker',ok,verdict,side:'BUY',
   confidence,riskMultiplier,reasons:[],freshnessOk:true,
 });
 
 let out=evaluateBybitAiLegionAgents([
-  support('structure_regime_agent',{confidence:.82,riskMultiplier:.9}),
-  support('flow_liquidity_agent',{confidence:.76,riskMultiplier:.8}),
-  support('derivatives_risk_agent',{verdict:'NEUTRAL',confidence:.71,riskMultiplier:.7}),
-  support('independent_checker',{verdict:'NEUTRAL',confidence:.74,riskMultiplier:.85}),
+  support('macro_news_agent',{confidence:.82,riskMultiplier:.9}),
+  support('market_structure_flow_agent',{confidence:.76,riskMultiplier:.8}),
+  support('order_risk_architect_agent',{verdict:'NEUTRAL',confidence:.71,riskMultiplier:.7}),
+  support('independent_adversarial_checker',{verdict:'NEUTRAL',confidence:.74,riskMultiplier:.85}),
 ]);
 assert.equal(out.approved,true);
 assert.equal(out.reason,'AI_LEGION_ROLE_CONTRACTS_PASS');
@@ -32,33 +32,33 @@ assert.equal(out.riskMultiplier,.7);
 assert.equal(out.confidenceFloor,.71);
 
 out=evaluateBybitAiLegionAgents([
-  support('structure_regime_agent'),
-  support('flow_liquidity_agent',{verdict:'VETO'}),
-  support('derivatives_risk_agent',{verdict:'NEUTRAL'}),
+  support('macro_news_agent'),
+  support('market_structure_flow_agent',{verdict:'VETO'}),
+  support('order_risk_architect_agent',{verdict:'NEUTRAL'}),
 ]);
 assert.equal(out.approved,false);
-assert.match(out.reason,/FLOW_LIQUIDITY_AGENT_VETO/);
+assert.match(out.reason,/MARKET_STRUCTURE_FLOW_AGENT_VETO/);
 
 out=evaluateBybitAiLegionAgents([
-  support('structure_regime_agent'),
-  support('flow_liquidity_agent'),
-  support('derivatives_risk_agent',{verdict:'NEUTRAL'}),
-  support('independent_checker',{verdict:'VETO'}),
+  support('macro_news_agent'),
+  support('market_structure_flow_agent'),
+  support('order_risk_architect_agent',{verdict:'NEUTRAL'}),
+  support('independent_adversarial_checker',{verdict:'VETO'}),
 ]);
 assert.equal(out.approved,false);
-assert.equal(out.reason,'AI_LEGION_INDEPENDENT_CHECKER_VETO');
+assert.equal(out.reason,'AI_LEGION_ADVERSARIAL_CHECKER_VETO');
 
 out=evaluateBybitAiLegionAgents([
-  support('structure_regime_agent',{riskMultiplier:1}),
-  support('flow_liquidity_agent',{riskMultiplier:1}),
-  support('derivatives_risk_agent',{verdict:'NEUTRAL',riskMultiplier:1}),
+  support('macro_news_agent',{riskMultiplier:1}),
+  support('market_structure_flow_agent',{riskMultiplier:1}),
+  support('order_risk_architect_agent',{verdict:'NEUTRAL',riskMultiplier:1}),
 ]);
 assert.equal(out.approved,true);
 assert.equal(out.riskMultiplier,1);
 
 out=evaluateBybitAiLegionAgents([
-  support('structure_regime_agent'),
-  support('derivatives_risk_agent',{verdict:'NEUTRAL'}),
+  support('macro_news_agent'),
+  support('order_risk_architect_agent',{verdict:'NEUTRAL'}),
 ]);
 assert.equal(out.approved,false);
 assert.equal(out.reason,'AI_LEGION_REQUIRED_ROLE_MISSING');
