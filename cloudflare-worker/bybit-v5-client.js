@@ -94,6 +94,25 @@ export function bybitV5(env={}){
   async function market(path,params={}){
     return pub(path,params);
   }
+  async function signedViaDemoEgress(method,path,payload,headers){
+    const endpoint=demoEgressUrl(env),secret=demoEgressSecret(env);
+    if(!demo||!endpoint||!secret)throw new Error("BYBIT_DEMO_EGRESS_NOT_CONFIGURED");
+    const upper=String(method).toUpperCase();
+    const response=await fetch(endpoint+"/bybit/private-egress",{
+      method:"POST",
+      headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+secret},
+      body:JSON.stringify({method:upper,path,query:upper==="GET"?payload:"",body:upper==="GET"?"":payload,headers}),
+      signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)
+    });
+    const text=await response.text();let data=null;try{data=text?JSON.parse(text):null;}catch{}
+    if(!response.ok||!data?.ok){
+      const snippet=data?.error||String(text||"").replace(/\s+/g," ").slice(0,240)||`HTTP ${response.status}`;
+      throw bybitError(path,response.status,data?.upstream||null,{bodySnippet:snippet,base:"https://api-demo.bybit.com",attemptedBases:["https://api-demo.bybit.com"],transport:"DENO_BYBIT_DEMO_EGRESS"});
+    }
+    const up=data.upstream||null,status=Number(data.httpStatus||0)||502;
+    if(Number(up?.retCode)!==0)throw bybitError(path,status,up,{base:"https://api-demo.bybit.com",attemptedBases:["https://api-demo.bybit.com"],transport:"DENO_BYBIT_DEMO_EGRESS"});
+    return up;
+  }
   async function signedDirect(method,path,paramsOrBody={}){
     if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
     const upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody)),attempted=[];let lastErr;
