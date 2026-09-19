@@ -110,14 +110,14 @@ def validate_authority_data(projects: dict, checkpoint: dict, *, root: Path = RO
         trading = trading_rows[0]
         if trading.get("authority") != "docs/checkpoints/CURRENT_HANDOFF.md":
             errors.append("trading authority must be docs/checkpoints/CURRENT_HANDOFF.md")
-        if trading.get("canonical_checkpoint") != "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md":
-            errors.append("trading canonical checkpoint must be BYBIT_BTC_STATEFLOW_2_1_20260904.md")
+        if trading.get("canonical_checkpoint") != "docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md":
+            errors.append("trading canonical checkpoint must be BYBIT_TOP100_STATEFLOW_3_0_20260919.md")
         authority = _inside(root, trading.get("authority"))
         if authority and authority.is_file():
             text = authority.read_text(encoding="utf-8", errors="replace")
-            if "BYBIT-BTC-STATEFLOW-2.1" not in text:
-                errors.append("trading authority is stale: missing BYBIT-BTC-STATEFLOW-2.1")
-            for retired in ("multi-coin", "Forex", "Meme", "Signal V10/V11"):
+            if "BYBIT-TOP100-STATEFLOW-3.0" not in text:
+                errors.append("trading authority is stale: missing BYBIT-TOP100-STATEFLOW-3.0")
+            for retired in ("legacy broad multi-coin", "Forex", "Meme", "Signal V10/V11"):
                 if retired not in text:
                     warnings.append(f"trading authority does not explicitly mention retired family {retired!r}")
 
