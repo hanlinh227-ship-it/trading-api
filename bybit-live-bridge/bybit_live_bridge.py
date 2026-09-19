@@ -19,11 +19,11 @@ DEFAULT_SYMBOLS='BTCUSDT,ETHUSDT,BNBUSDT,XRPUSDT,SOLUSDT,TRXUSDT,DOGEUSDT,ADAUSD
 WORKER_WAKE_SEMAPHORE=threading.Semaphore(1)
 WS_URL=os.environ.get('BYBIT_PUBLIC_WS','wss://stream.bybit.com/v5/public/linear')
 WORKER_URL=(os.environ.get('BYBIT_WORKER_URL') or 'https://trading-v77-scanner.hanlinh227.workers.dev').rstrip('/')
-EVENT_ENABLED=str(os.environ.get('BYBIT_EVENT_DRIVER_ENABLED','true')).lower() in ('1','true','yes')
 PRIVATE_PROXY_ONLY=str(os.environ.get('BYBIT_PRIVATE_PROXY_ONLY','false')).lower() in ('1','true','yes')
+EVENT_ENABLED=str(os.environ.get('BYBIT_EVENT_DRIVER_ENABLED','true')).lower() in ('1','true','yes') and not PRIVATE_PROXY_ONLY
 BYBIT_BASES=tuple(dict.fromkeys(x.rstrip('/') for x in [os.environ.get('BYBIT_API_BASE_URL','').strip(),'https://api.bybit.com','https://api.bytick.com'] if x.strip()))
 AUTO_DISCOVER=str(os.environ.get('BYBIT_DYNAMIC_WS_DISCOVERY','true')).lower() in ('1','true','yes')
-MAX_WS_SYMBOLS=max(18,min(120,int(os.environ.get('BYBIT_MAX_WS_SYMBOLS','72'))))
+MAX_WS_SYMBOLS=max(18,min(120,int(os.environ.get('BYBIT_MAX_WS_SYMBOLS','100'))))
 CORE_SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in DEFAULT_SYMBOLS.split(',') if x.strip()))
 MANUAL_SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in os.environ.get('BYBIT_MULTI_SYMBOLS','').split(',') if x.strip()))
 def discover_ws_symbols():
@@ -306,10 +306,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         u=urllib.parse.urlparse(self.path)
         if u.path=='/health':
-            if PRIVATE_PROXY_ONLY:return self.sendj(200,{'ok':True,'service':'BYBIT_PRIVATE_PROXY_BRIDGE','privateProxy':True,'privateProxyOnly':True,'auth':'BYBIT_V5_SIGNED_REQUEST_PLUS_LOOPBACK_VPC','host':HOST,'port':PORT,'timestamp':int(time.time()*1000)})
+            if PRIVATE_PROXY_ONLY:
+                snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')]
+                return self.sendj(200,{'ok':True,'service':'BYBIT_PRIVATE_PROXY_BRIDGE','privateProxy':True,'privateProxyOnly':True,'publicWsMirror':True,'symbols':list(SYMBOLS),'readySymbols':ready,'maxWsSymbols':MAX_WS_SYMBOLS,'auth':'BYBIT_V5_SIGNED_REQUEST_PLUS_LOOPBACK_VPC','host':HOST,'port':PORT,'timestamp':int(time.time()*1000)})
             snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')];drivers={s:m.event_status() for s,m in MICROS.items()};btc=MICROS.get(DEFAULT_SYMBOL);return self.sendj(200,{'ok':True,'service':'BYBIT_MULTI_ASSET_LIVE_BRIDGE','privateProxy':True,'symbols':list(SYMBOLS),'readySymbols':ready,'eventSymbols':sorted(EVENT_SYMBOLS),'eventSymbolLimit':EVENT_SYMBOL_LIMIT,'eventWakeAuthority':'BOUNDED_DRIVER_SET_GLOBAL_SERIAL_COALESCING','dynamicWsDiscovery':AUTO_DISCOVER,'maxWsSymbols':MAX_WS_SYMBOLS,'wsTelemetry':ws_telemetry(snaps),'marketTelemetry':market_telemetry(snaps),'microstructure':{'ready':DEFAULT_SYMBOL in ready,'connected':bool(snaps.get(DEFAULT_SYMBOL,{}).get('connected'))},'eventDriver':btc.event_status() if btc else {},'eventDrivers':drivers,'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
         if u.path=='/bybit/microstructure':
-            if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
+            if not PRIVATE_PROXY_ONLY and not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
             q=urllib.parse.parse_qs(u.query);symbol=str((q.get('symbol') or [DEFAULT_SYMBOL])[0]).upper();m=MICROS.get(symbol)
             if not m:return self.sendj(400,{'ok':False,'error':'SYMBOL_NOT_IN_MULTI_ASSET_BRIDGE','symbol':symbol})
             snap=m.snapshot();return self.sendj(200 if snap.get('ok') else 503,snap)
@@ -325,6 +327,6 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     if not SECRET and not PRIVATE_PROXY_ONLY:raise SystemExit('BYBIT_VPS_BRIDGE_SECRET_OR_V11_AI_BRIDGE_SECRET_REQUIRED')
-    if not PRIVATE_PROXY_ONLY:[m.start() for m in MICROS.values()]
+    [m.start() for m in MICROS.values()]
     ThreadingHTTPServer((HOST,PORT),Handler).serve_forever()
 if __name__=='__main__':main()
