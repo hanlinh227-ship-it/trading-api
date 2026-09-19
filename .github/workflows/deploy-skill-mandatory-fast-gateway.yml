@@ -348,10 +348,25 @@ jobs:
           set -euo pipefail
           check_stream() {
             symbol="$1"
+            generation_ready=0
+            # Cloudflare documents that Worker and Durable Object code updates
+            # are eventually consistent: a latest Worker can briefly call an
+            # object still running the previous code version for seconds to
+            # minutes. Wait for the SAME strict V5 object contract before
+            # connecting; never accept V4 as a successful deployment.
+            for propagation_attempt in $(seq 1 60); do
+              probe="$(curl -fsS --connect-timeout 5 --max-time 10 "$WORKER_BASE_URL/bybit/cloud-stream/health?symbol=$symbol" || true)"
+              if printf '%s\n' "$probe" | EXPECTED_SYMBOL="$symbol" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);const safe={ok:x.ok,reason:x.reason,error:x.error,version:x.version,symbol:x.symbol,symbolSelfHeal:x.symbolSelfHeal};console.log('BYBIT_CLOUD_STREAM_PROPAGATION_RESPONSE='+JSON.stringify(safe));if(x.ok!==true||x.symbol!==process.env.EXPECTED_SYMBOL||x.version!=='BYBIT_CLOUD_MARKET_STREAM_V5_PER_SYMBOL_SELF_HEAL'||x.symbolSelfHeal!==true)process.exit(2)}catch(e){process.exit(2)}})"; then
+                generation_ready=1
+                echo "BYBIT_CLOUD_STREAM_PROPAGATION=PASS symbol=$symbol attempt=$propagation_attempt"
+                break
+              fi
+              echo "BYBIT_CLOUD_STREAM_PROPAGATION_WAIT symbol=$symbol attempt=$propagation_attempt"
+              sleep 5
+            done
+            test "$generation_ready" = "1" || { echo "BYBIT_CLOUD_STREAM_PROPAGATION=FAIL symbol=$symbol"; return 1; }
+
             connect_ok=0
-            # Durable Objects can lag the Worker revision briefly during code
-            # propagation or cold boot. Retry the SAME strict symbol/version
-            # contract; never weaken it and never accept a stale V4 object.
             for connect_attempt in $(seq 1 6); do
               connect="$(curl -fsS --connect-timeout 5 --max-time 20 -X POST "$WORKER_BASE_URL/bybit/cloud-stream/connect?symbol=$symbol" || true)"
               if printf '%s\n' "$connect" | EXPECTED_SYMBOL="$symbol" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);const safe={ok:x.ok,reason:x.reason,error:x.error,version:x.version,symbol:x.symbol,connected:x.connected,connecting:x.connecting,lastError:x.lastError,vpsRequired:x.vpsRequired,decisionTrigger:x.decisionTrigger,symbolSelfHeal:x.symbolSelfHeal,lastSymbolRebind:x.lastSymbolRebind};console.log('BYBIT_CLOUD_STREAM_CONNECT_RESPONSE='+JSON.stringify(safe));if(x.ok!==true||x.symbol!==process.env.EXPECTED_SYMBOL||x.version!=='BYBIT_CLOUD_MARKET_STREAM_V5_PER_SYMBOL_SELF_HEAL'||x.vpsRequired!==false||x.decisionTrigger!=='CLOUD_BYBIT_WS_STATE_CHANGE'||x.symbolSelfHeal!==true)process.exit(2);console.log('BYBIT_CLOUD_STREAM_CONNECT=PASS symbol='+x.symbol+' connected='+x.connected+' connecting='+x.connecting)}catch(e){console.log('BYBIT_CLOUD_STREAM_CONNECT_PARSE_FAIL '+String(e?.message||e));process.exit(2)}})"; then
@@ -362,6 +377,7 @@ jobs:
               sleep 3
             done
             test "$connect_ok" = "1" || { echo "BYBIT_CLOUD_STREAM_CONNECT=FAIL symbol=$symbol"; return 1; }
+
             for attempt in $(seq 1 12); do
               health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/cloud-stream/health?symbol=$symbol" || true)"
               if printf '%s\n' "$health" | EXPECTED_SYMBOL="$symbol" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok!==true||x.version!=='BYBIT_CLOUD_MARKET_STREAM_V5_PER_SYMBOL_SELF_HEAL'||x.symbol!==process.env.EXPECTED_SYMBOL||x.vpsRequired!==false||x.decisionTrigger!=='CLOUD_BYBIT_WS_STATE_CHANGE'||x.connected!==true||x.symbolSelfHeal!==true)process.exit(3);console.log('BYBIT_CLOUD_STREAM_HEALTH=PASS symbol='+x.symbol+' age_ms='+(x.messageAgeMs??'na')+' rebinds='+(x.symbolRebinds??0))}catch{process.exit(3)}})"; then
