@@ -10,6 +10,19 @@ const TRADING_WRITE_PATHS=new Set(["/v5/order/create","/v5/order/amend","/v5/ord
 const clean=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>v!==undefined&&v!==null&&v!==""));
 const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)])).toString();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let PUBLIC_REGION_BLOCKED_UNTIL=0;
+let PUBLIC_REGION_BLOCK_REASON=null;
+const PUBLIC_REGION_BLOCK_TTL_MS=2*60*1000;
+function isRegionBlock(e){
+  const h=Number(e?.bybit?.httpStatus||0),msg=String(e?.bybit?.bodySnippet||e?.bybit?.retMsg||e?.message||'').toLowerCase();
+  return h===403&&(msg.includes('block access from your country')||msg.includes('cloudfront')||msg.includes('country'));
+}
+function publicCircuitError(path){
+  const e=new Error(path+': BYBIT_PUBLIC_REGION_BLOCK_CACHED');
+  e.bybit={path,httpStatus:403,retCode:null,retMsg:'BYBIT_PUBLIC_REGION_BLOCK_CACHED',base:null,attemptedBases:[],bodySnippet:PUBLIC_REGION_BLOCK_REASON,transport:'CLOUDFLARE_PUBLIC_DIRECT',runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,circuitOpenUntil:PUBLIC_REGION_BLOCKED_UNTIL};
+  return e;
+}
+
 const bridgeSecret=env=>String(env?.V11_AI_BRIDGE_SECRET||env?.BYBIT_VPS_BRIDGE_SECRET||"").trim();
 const demoEgressUrl=env=>String(env?.BYBIT_DEMO_EGRESS_URL||"").trim().replace(/\/$/,"");
 const demoEgressSecret=env=>String(env?.BYBIT_DEMO_EGRESS_SHARED_SECRET||"").trim();
@@ -55,17 +68,26 @@ export function bybitV5(env={}){
   const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";
   const c=bybitCredentials(env),cfg=bybitAutoConfig(env),baseList=privateBases(env),publicBaseList=marketBases(env),recvWindow=String(Math.max(5000,Math.min(20000,Number(cfg.execution?.recvWindow||10000))));
   async function pub(path,params={}){
+    const now=Date.now();
+    if(PUBLIC_REGION_BLOCKED_UNTIL>now)throw publicCircuitError(path);
     const q=qs(params),attempted=[];let lastErr;
     for(const base of publicBaseList){
       attempted.push(base);
       try{
         const url=`${base}${path}${q?`?${q}`:""}`;
-        const r=await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(8000)});
-        return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});
+        const r=await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(2500)});
+        const parsed=await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});
+        PUBLIC_REGION_BLOCKED_UNTIL=0;PUBLIC_REGION_BLOCK_REASON=null;
+        return parsed;
       }catch(e){
         lastErr=e;
+        if(isRegionBlock(e)){
+          PUBLIC_REGION_BLOCKED_UNTIL=Date.now()+PUBLIC_REGION_BLOCK_TTL_MS;
+          PUBLIC_REGION_BLOCK_REASON=String(e?.bybit?.bodySnippet||e?.bybit?.retMsg||e?.message||'REGION_BLOCK').slice(0,220);
+          throw e;
+        }
         const h=Number(e?.bybit?.httpStatus||0),ret=Number(e?.bybit?.retCode);
-        const retry=[0,403,408,425,429,500,502,503,504].includes(h)||[10000,10006,10016].includes(ret);
+        const retry=[0,408,425,429,500,502,503,504].includes(h)||[10000,10006,10016].includes(ret);
         if(!retry)throw e;
       }
     }
@@ -210,7 +232,8 @@ export function bybitV5(env={}){
     setLeverage,
     tradingStop,
     cancelAll:(symbol)=>signed("POST","/v5/order/cancel-all",{category:"linear",symbol}),
-    public:pub,market,signed
+    public:pub,market,signed,
+    publicCircuit:()=>({regionBlocked:PUBLIC_REGION_BLOCKED_UNTIL>Date.now(),blockedUntil:PUBLIC_REGION_BLOCKED_UNTIL||null,reason:PUBLIC_REGION_BLOCK_REASON})
   };
 }
 export function normalizeBybitFilter(x={}){const lot=x.lotSizeFilter||{},price=x.priceFilter||{},lev=x.leverageFilter||{};return {symbol:x.symbol,status:x.status,contractType:x.contractType,settleCoin:x.settleCoin,minQty:Number(lot.minOrderQty||0),maxQty:Number(lot.maxOrderQty||0),qtyStep:Number(lot.qtyStep||0),minNotional:Number(lot.minNotionalValue||5),tickSize:Number(price.tickSize||0),minLeverage:Number(lev.minLeverage||1),maxLeverage:Number(lev.maxLeverage||0),leverageStep:Number(lev.leverageStep||1)};}
