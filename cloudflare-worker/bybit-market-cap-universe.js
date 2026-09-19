@@ -15,9 +15,13 @@ function eligibleBase(base=''){
   return b&&!STABLE_BASES.has(b)&&!WRAPPED_PREFIXES.includes(b);
 }
 
-export async function loadTop100MarketCapUniverse(env){
-  const now=Date.now(),cached=await get(env,KEY,{});
-  if(Array.isArray(cached.rows)&&cached.rows.length>=50&&now-num(cached.at)<TTL_MS)return {...cached,cached:true,stale:false};
+export async function loadTop100MarketCapUniverse(env,opts={}){
+  const now=Date.now(),cached=await get(env,KEY,{}),age=now-num(cached.at),hasCache=Array.isArray(cached.rows)&&cached.rows.length>=50;
+  if(hasCache&&age<TTL_MS)return {...cached,cached:true,stale:false};
+  if(hasCache&&age<STALE_MAX_MS&&opts?.forceRefresh!==true&&opts?.ctx&&typeof opts.ctx.waitUntil==='function'){
+    opts.ctx.waitUntil(loadTop100MarketCapUniverse(env,{forceRefresh:true}).catch(()=>null));
+    return {...cached,cached:true,stale:true,refreshPending:true};
+  }
   try{
     const url='https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h';
     const res=await fetch(url,{headers:{accept:'application/json','user-agent':'trading-api-top100-marketcap/1.0'},signal:AbortSignal.timeout(8000)});
