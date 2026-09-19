@@ -2,7 +2,6 @@ import {hmacHex} from "./providers/bybit-signed-client.js";
 import {bybitCredentials,bybitAutoConfig} from "./bybit-auto-config.js";
 import {BYBIT_PRIVATE_TRANSPORT,BYBIT_MARKET_TRANSPORT,BYBIT_RUNTIME_CONTRACT_VERSION} from "./bybit-runtime-contract.js";
 import {assertBybitExecutionSymbol} from "./bybit-execution-authority.js";
-import {createBybitBridgeFetchJson} from "./research-bybit-transport.js";
 
 const DEFAULT_BASES=["https://api.bybit.com","https://api.bytick.com"];
 const BRIDGE_PRIVATE_URL="http://127.0.0.1:8789/bybit/private";
@@ -28,8 +27,10 @@ function privateBases(env={}){
   return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
 }
 function marketBases(env={}){
+  const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";
   const preferred=String(env.BYBIT_PUBLIC_API_BASE_URL||"").trim().replace(/\/$/,"");
-  return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
+  const demoPublic=demo?"https://api-demo.bybit.com":"";
+  return [...new Set([preferred,demoPublic,...DEFAULT_BASES].filter(Boolean))];
 }
 function bybitError(path,status,p,meta={}){const msg=p?.retMsg||meta.bodySnippet||`HTTP ${status}`;const e=new Error(`${path}: ${msg}`);e.bybit={path,httpStatus:status,retCode:Number.isFinite(Number(p?.retCode))?Number(p.retCode):null,retMsg:p?.retMsg||null,base:meta.base||null,attemptedBases:meta.attemptedBases||[],bodySnippet:meta.bodySnippet||null,transport:meta.transport||null,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION};return e;}
 async function parseResponse(r,path,meta={}){
@@ -59,23 +60,17 @@ export function bybitV5(env={}){
       attempted.push(base);
       try{
         const url=`${base}${path}${q?`?${q}`:""}`;
-        const r=await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});
+        const r=await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(8000)});
         return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});
       }catch(e){
         lastErr=e;
-        const h=Number(e?.bybit?.httpStatus||0);
-        if(![403,408,425,429,500,502,503,504].includes(h)&&h!==0)throw e;
+        const h=Number(e?.bybit?.httpStatus||0),ret=Number(e?.bybit?.retCode);
+        const retry=[0,403,408,425,429,500,502,503,504].includes(h)||[10000,10006,10016].includes(ret);
+        if(!retry)throw e;
       }
     }
-    if(env.AI_BRIDGE&&typeof env.AI_BRIDGE.fetch==="function"&&bridgeSecret(env)){
-      try{
-        const bridgeFetch=createBybitBridgeFetchJson(env),base=DEFAULT_BASES[0],url=`${base}${path}${q?`?${q}`:""}`;
-        const payload=await bridgeFetch(url);
-        if(Number(payload?.retCode)!==0)throw bybitError(path,502,payload,{base,attemptedBases:[...attempted,BRIDGE_PRIVATE_URL],transport:"VPC_BYBIT_PUBLIC_FALLBACK"});
-        return payload;
-      }catch(e){lastErr=e;}
-    }
-    if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
+    if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];
+    throw lastErr||new Error("BYBIT_PUBLIC_MARKET_UNAVAILABLE");
   }
   // VPS transport retained only as inactive compatibility code for rollback archaeology.
   // Canonical runtime below never selects it.
@@ -197,7 +192,7 @@ export function bybitV5(env={}){
     serverTime:async()=>{
       try{return await market("/v5/market/time");}
       catch(e){
-        if(demo&&Number(e?.bybit?.httpStatus)===403)return {retCode:0,retMsg:"DEMO_EDGE_CLOCK_FALLBACK",time:Date.now(),result:{},fallback:"EDGE_CLOCK"};
+        if(demo)return {retCode:0,retMsg:"DEMO_EDGE_CLOCK_FALLBACK",time:Date.now(),result:{},fallback:"EDGE_CLOCK",upstreamError:String(e?.message||e).slice(0,180)};
         throw e;
       }
     },

@@ -1,4 +1,4 @@
-name: Verify BTC StateFlow Production
+name: Verify Bybit Top100 Production
 on:
   push:
     branches: [main]
@@ -6,69 +6,46 @@ on:
       - '.github/bybit-production-verify-trigger'
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
-  group: verify-btc-stateflow-production
+  group: verify-bybit-top100-production
   cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     env:
       WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
     steps:
       - uses: actions/checkout@v4
-        with: {ref: main, fetch-depth: 0}
-      - name: Verify BTC-only runtime, canonical Bybit live price, live telemetry and StateFlow scan
+        with: {ref: main, fetch-depth: 1}
+      - name: Verify canonical Top100 runtime end-to-end readiness
         shell: bash
         run: |
-          set -uo pipefail
+          set -euo pipefail
           EXPECTED="$GITHUB_SHA"
-          mkdir -p docs/checkpoints
-          HEALTH_FILE="$(mktemp)"; SCAN_FILE="$(mktemp)"; CONTRACT_FILE="$(mktemp)"; ENTRY_FILE="$(mktemp)"; HUB_FILE="$(mktemp)"; PRICE_FILE="$(mktemp)"; MONITOR_FILE="$(mktemp)"; TELEMETRY_FILE="$(mktemp)"
-          HC=0
-          for i in $(seq 1 30); do
-            HC="$(curl -sS --connect-timeout 5 --max-time 25 -o "$HEALTH_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || echo 000)"
-            REV="$(node -e 'const fs=require("fs");try{const j=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(String(j.runtimeRevision||""))}catch{}' "$HEALTH_FILE")"
-            if [ "$HC" = 200 ] && [ "$REV" = "$EXPECTED" ]; then break; fi
-            sleep 15
+          CONTRACT="$(mktemp)"; HEALTH="$(mktemp)"; ENTRY="$(mktemp)"; UNIVERSE="$(mktemp)"; SCAN="$(mktemp)"
+          CC=0
+          for i in $(seq 1 40); do
+            CC="$(curl -sS --connect-timeout 5 --max-time 20 -o "$CONTRACT" -w '%{http_code}' "$WORKER_BASE_URL/runtime/contract" || true)"
+            REV="$(node -e 'const fs=require("fs");try{const j=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(String(j.runtimeRevision||""))}catch{}' "$CONTRACT")"
+            if [ "$CC" = 200 ] && [ "$REV" = "$EXPECTED" ]; then break; fi
+            sleep 10
           done
-          CC="$(curl -sS --connect-timeout 5 --max-time 25 -o "$CONTRACT_FILE" -w '%{http_code}' "$WORKER_BASE_URL/runtime/contract" || echo 000)"
-          EC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$ENTRY_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/entry-health" || echo 000)"
-          UC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$HUB_FILE" -w '%{http_code}' "$WORKER_BASE_URL/auto-hub/status" || echo 000)"
-          PC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$PRICE_FILE" -w '%{http_code}' "$WORKER_BASE_URL/btc/price" || echo 000)"
-          TC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$TELEMETRY_FILE" -w '%{http_code}' "$WORKER_BASE_URL/btc/telemetry" || echo 000)"
-          MC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$MONITOR_FILE" -w '%{http_code}' "$WORKER_BASE_URL/btc-monitor" || echo 000)"
-          SC="$(curl -sS --connect-timeout 10 --max-time 300 -o "$SCAN_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/scan" || echo 000)"
-          EXPECTED="$EXPECTED" HC="$HC" CC="$CC" EC="$EC" UC="$UC" PC="$PC" TC="$TC" MC="$MC" SC="$SC" HEALTH_FILE="$HEALTH_FILE" CONTRACT_FILE="$CONTRACT_FILE" ENTRY_FILE="$ENTRY_FILE" HUB_FILE="$HUB_FILE" PRICE_FILE="$PRICE_FILE" TELEMETRY_FILE="$TELEMETRY_FILE" MONITOR_FILE="$MONITOR_FILE" SCAN_FILE="$SCAN_FILE" node <<'NODE'
+          HC="$(curl -sS --connect-timeout 5 --max-time 35 -o "$HEALTH" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || true)"
+          EC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$ENTRY" -w '%{http_code}' "$WORKER_BASE_URL/bybit/entry-health" || true)"
+          UC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$UNIVERSE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/universe" || true)"
+          SC="$(curl -sS --connect-timeout 5 --max-time 60 -o "$SCAN" -w '%{http_code}' "$WORKER_BASE_URL/bybit/scan?symbol=BTCUSDT" || true)"
+          EXPECTED="$EXPECTED" CC="$CC" HC="$HC" EC="$EC" UC="$UC" SC="$SC" CONTRACT="$CONTRACT" HEALTH="$HEALTH" ENTRY="$ENTRY" UNIVERSE="$UNIVERSE" SCAN="$SCAN" node <<'NODE'
           const fs=require('fs');
           const read=p=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return {}}};
-          const h=read(process.env.HEALTH_FILE),c=read(process.env.CONTRACT_FILE),e=read(process.env.ENTRY_FILE),u=read(process.env.HUB_FILE),p=read(process.env.PRICE_FILE),t=read(process.env.TELEMETRY_FILE),s=read(process.env.SCAN_FILE),monitor=(()=>{try{return fs.readFileSync(process.env.MONITOR_FILE,'utf8')}catch{return ''}})(),expected=process.env.EXPECTED;
-          const revisionOk=h.runtimeRevision===expected&&c.runtimeRevision===expected&&u.runtimeRevision===expected;
-          const privateOk=h.privateTransport==='VPS_BYBIT_PRIVATE_PROXY'&&h.authenticated===true;
-          const marketOk=h.marketTransport==='VPS_BYBIT_MARKET_PROXY'&&Number(h.serverTime?.ms)>0;
-          const contractOk=process.env.CC==='200'&&c.ok===true&&c.executionAuthority==='BYBIT_BTC_ONLY'&&c.symbol==='BTCUSDT'&&c.legacyBybitMultiCoinDisabled===true&&c.legacyForexDisabled===true&&c.legacyMemeDisabled===true&&c.legacyAiCouncilDisabled===true;
-          const versionOk=!!c.autoVersion&&s.version===c.autoVersion&&e.version===c.autoVersion&&u.version===c.autoVersion;
-          const healthOk=process.env.HC==='200'&&h.ok===true&&privateOk&&marketOk&&revisionOk;
-          const entryInspectable=['BTC_ENTRY_INFRA_READY','BTC_ENTRY_BLOCKED'].includes(String(e.status))&&['200','503'].includes(process.env.EC);
-          const hubOk=process.env.UC==='200'&&u.ok===true&&u.symbol==='BTCUSDT'&&u.mode===h.mode&&u.modeAuthority?.mismatch!==true;
-          const priceSources=new Set(['BYBIT_LINEAR_WS_LAST_TRADE','BYBIT_LINEAR_LAST_PRICE']);
-          const canonicalPriceOk=process.env.PC==='200'&&p.ok===true&&p.symbol==='BTCUSDT'&&priceSources.has(String(p.source))&&Number(p.price)>0&&priceSources.has(String(u.btcPriceSource))&&u.btcPriceCanonical===true&&Number(u.btcPrice)>0;
-          const meter=t.marketMeter||{},audit=t.protocolAudit||{},sum=Number(meter.buyPct||0)+Number(meter.sellPct||0);
-          const telemetryOk=process.env.TC==='200'&&t.ok===true&&t.symbol==='BTCUSDT'&&priceSources.has(String(t.btcPriceSource))&&Number(t.btcPrice)>0&&meter.source==='VPS_BYBIT_WS'&&Number.isFinite(Number(meter.buyPct))&&Number.isFinite(Number(meter.sellPct))&&Math.abs(sum-100)<=1&&meter.note==='MOMENTUM_DIAGNOSTIC_NOT_WIN_PROBABILITY'&&audit.monitorAffectsTradeFrequency===false&&audit.decisionAuthority==='VPS_WS_MARKET_STATE_CHANGE'&&t.monitorReadOnly===true;
-          const monitorOk=process.env.MC==='200'&&monitor.includes('BTC SCALP')&&monitor.includes('/btc/telemetry')&&monitor.includes('ĐỘNG LƯỢNG BOT')&&monitor.includes('% lực thị trường, không phải xác suất thắng');
-          const eventCycleOk=!!u.lastEventCycleAt&&(h.mode!=='LIVE'||u.modeAuthority?.cycleMode==='LIVE')&&u.modeAuthority?.mismatch!==true;
-          const scanOk=process.env.SC==='200'&&s.ok===true&&s.symbol==='BTCUSDT'&&!!s.market&&typeof s.market.regime==='string'&&versionOk;
-          const selected=s.selected||{};
-          const out={verifiedAt:new Date().toISOString(),expectedRevision:expected,runtimeRevision:h.runtimeRevision||null,pass:healthOk&&contractOk&&entryInspectable&&hubOk&&canonicalPriceOk&&telemetryOk&&monitorOk&&eventCycleOk&&scanOk,health:{http:Number(process.env.HC)||0,ok:!!h.ok,exchange:h.exchange||null,mode:h.mode||null,authenticated:!!h.authenticated,privateTransport:h.privateTransport||null,marketTransport:h.marketTransport||null,serverTimeMs:Number(h.serverTime?.ms)||null,revisionOk},contract:{http:Number(process.env.CC)||0,version:c.autoVersion||null,contract:c.version||null,authority:c.executionAuthority||null,btcOnly:c.symbol==='BTCUSDT'},entryHealth:{http:Number(process.env.EC)||0,status:e.status||null,blockers:e.blockers||[],btcLiveAck:e.btcLiveAck??null,scheduled:e.scheduled??null},hub:{http:Number(process.env.UC)||0,ok:!!u.ok,mode:u.mode||null,modeMismatch:u.modeAuthority?.mismatch??null,cycleMode:u.modeAuthority?.cycleMode||null,cycleAgeSec:u.modeAuthority?.cycleAgeSec??null,lastEventCycleAt:u.lastEventCycleAt||null,lastEventResult:u.lastEventResult||null,lastEventResultVi:u.lastEventResultVi||null,lastEventResultShortVi:u.lastEventResultShortVi||null,regimeVi:u.regimeVi||null,btcPrice:Number(u.btcPrice)||null,btcPriceSource:u.btcPriceSource||null,btcPriceCanonical:u.btcPriceCanonical??null,position:u.position||null,activeTranches:Number(u.activeTranches||0),marketMeter:u.marketMeter||null,protocolAudit:u.protocolAudit||null,telegramNotification:u.telegramNotification||null},price:{http:Number(process.env.PC)||0,ok:!!p.ok,price:Number(p.price)||null,markPrice:Number(p.markPrice)||null,indexPrice:Number(p.indexPrice)||null,source:p.source||null,fetchedAt:Number(p.fetchedAt)||null},telemetry:{http:Number(process.env.TC)||0,ok:telemetryOk,btcPrice:Number(t.btcPrice)||null,source:t.btcPriceSource||null,marketMeter:meter,protocolAudit:audit,position:t.position||null,tp:Number(t.tp)||null,sl:Number(t.sl)||null},monitor:{http:Number(process.env.MC)||0,ok:monitorOk},scan:{http:Number(process.env.SC)||0,ok:!!s.ok,symbol:s.symbol||null,regime:s.market?.regime||null,microstructureSource:s.market?.microstructureSource||null,setupOk:selected.ok??null,setup:selected.setup?.setup||null,reason:selected.reason||null,diagnostic:selected.diagnostic||null},checks:{privateVpsTransport:privateOk,marketVpsTransport:marketOk,runtimeRevision:revisionOk,runtimeContract:contractOk,entryInspectable,hubRuntime:hubOk,canonicalBybitLivePrice:canonicalPriceOk,liveBuySellTelemetry:telemetryOk,btcMonitor:monitorOk,liveEventCycle:eventCycleOk,readOnlyStateFlowScan:scanOk}};
-          fs.writeFileSync('docs/checkpoints/BYBIT_PRODUCTION_VERIFY_LATEST.json',JSON.stringify(out,null,2)+'\n');
+          const c=read(process.env.CONTRACT),h=read(process.env.HEALTH),e=read(process.env.ENTRY),u=read(process.env.UNIVERSE),s=read(process.env.SCAN),expected=process.env.EXPECTED;
+          const contractOk=process.env.CC==='200'&&c.ok===true&&c.runtimeRevision===expected&&c.version==='BYBIT_TOP100_RUNTIME_3_0'&&c.executionAuthority==='BYBIT-TOP100-STATEFLOW-3.0'&&c.multiAsset===true&&c.decisionAuthority==='CLOUD_BYBIT_WS_STATE_CHANGE'&&c.aiSoleExecutorRole==='order_risk_architect_agent'&&c.aiOtherAgentsResearchOnly===true;
+          const healthOk=process.env.HC==='200'&&h.ok===true&&h.runtimeRevision===expected&&h.authenticated===true&&h.execution?.enabled===true&&h.execution?.ready===true&&h.runtimeContract?.cloudMarketStream?.connected===true;
+          const universeOk=process.env.UC==='200'&&u.ok===true&&u.executionSafe===true&&Array.isArray(u.tradeSymbols)&&u.tradeSymbols.length>0;
+          const entryOk=process.env.EC==='200'&&e.ok===true&&e.status==='BYBIT_TOP100_ENTRY_INFRA_READY'&&Array.isArray(e.blockers)&&e.blockers.length===0&&e.universeExecutionSafe===true;
+          const scanOk=process.env.SC==='200'&&s.ok===true&&s.symbol==='BTCUSDT'&&s.infraReady===true&&Number(s.market?.price)>0&&s.market?.quality?.freshBook===true&&s.market?.quality?.freshTrades===true;
+          const out={verifiedAt:new Date().toISOString(),expectedRevision:expected,pass:contractOk&&healthOk&&universeOk&&entryOk&&scanOk,http:{contract:Number(process.env.CC)||0,health:Number(process.env.HC)||0,entry:Number(process.env.EC)||0,universe:Number(process.env.UC)||0,scan:Number(process.env.SC)||0},checks:{contractOk,healthOk,universeOk,entryOk,scanOk},runtime:{revision:c.runtimeRevision||null,authority:c.executionAuthority||null,decisionAuthority:c.decisionAuthority||null,aiExecutor:c.aiSoleExecutorRole||null},health:{mode:h.mode||null,authenticated:h.authenticated??null,ready:h.execution?.ready??null,wsConnected:h.runtimeContract?.cloudMarketStream?.connected??null,blockers:h.blockers||[]},entry:{status:e.status||null,blockers:e.blockers||[],universeCount:Array.isArray(e.universe)?e.universe.length:0},universe:{executionSafe:u.executionSafe??null,stale:u.stale??null,tradeableNow:u.summary?.tradeableNow??null,error:u.error||null},scan:{ok:s.ok??null,infraReady:s.infraReady??null,price:Number(s.market?.price)||null,source:s.market?.microstructureSource||null,publicRestDegraded:s.market?.quality?.publicRestDegraded??null,selectedReason:s.selected?.reason||null}};
           console.log(JSON.stringify(out));
-          process.exitCode=out.pass?0:7;
+          if(!out.pass)process.exit(7);
           NODE
-          VERIFY_RC=$?
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/checkpoints/BYBIT_PRODUCTION_VERIFY_LATEST.json
-          git commit -m "chore: record BTC StateFlow production verification $EXPECTED" || true
-          git push origin HEAD:main || true
-          exit "$VERIFY_RC"
