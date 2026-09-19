@@ -6,8 +6,8 @@ import {resolveLiveModels} from './model-mesh/runtime-health.js';
 import {selectModelWorkers} from './model-mesh/selector.js';
 import {executeSelectedModelWorker} from './model-mesh/provider-client.js';
 
-export const BYBIT_AI_LEGION_VERSION='BYBIT_AI_LEGION_V2_MARKET_INTELLIGENCE';
-const STATE_KEY='bybit:btc:ai-legion:v2:state';
+export const BYBIT_AI_LEGION_VERSION='BYBIT_AI_LEGION_V3_ROLE_FEDERATION';
+const STATE_KEY='bybit:ai-legion:v3:state';
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const on=v=>String(v||'').toLowerCase()==='true';
@@ -18,22 +18,22 @@ export const BYBIT_AI_LEGION_ROLES=Object.freeze([
   Object.freeze({
     id:'macro_news_agent',
     required:true,
-    purpose:'Assess fresh macro-economic policy/data and crypto-news catalysts as contextual risk; never invent missing news.',
+    purpose:'Economic-and-crypto intelligence desk: assess fresh macro policy/data, cross-asset risk and coin-specific news catalysts; never invent missing news.',
   }),
   Object.freeze({
     id:'market_structure_flow_agent',
     required:true,
-    purpose:'Validate structure, sweep/reclaim or break/retest, regime, executed flow, L2 liquidity, microprice and liquidation coherence.',
+    purpose:'Technical market-analysis desk: validate HTF/LTF structure, sweep/reclaim or break/retest, regime, executed flow, L2 liquidity, microprice, liquidation and volatility coherence.',
   }),
   Object.freeze({
     id:'order_risk_architect_agent',
     required:true,
-    purpose:'Audit derivatives, fees, slippage, stop/target geometry, leverage/risk constraints and whether the deterministic order is executable.',
+    purpose:'Order-design and risk desk: design/audit the bounded order plan around deterministic structure, including entry quality, invalidation stop, target, fees/slippage, leverage and risk; it may only reduce risk.',
   }),
   Object.freeze({
     id:'independent_adversarial_checker',
     required:false,
-    purpose:'Challenge the candidate and the other evidence lanes for stale data, contradictions, crowded traps, obvious stop placement and unsupported confidence.',
+    purpose:'Independent red-team desk: challenge every other desk for stale data, contradictory evidence, crowded traps, stop-hunt exposure, hidden execution risk and unsupported confidence.',
   }),
 ]);
 
@@ -54,6 +54,9 @@ function policy(env={},mode='PAPER'){
     refreshMinGapMs:Math.max(1000,Math.min(30000,num(env.BYBIT_AI_LEGION_REFRESH_MIN_GAP_MS)||5000)),
     minimumRequiredWorkers:3,
     maxWorkers:4,
+    participationMode:'ROTATING_ALL_HEALTHY_DISTINCT_MODEL_FAMILIES_MAX4_CONCURRENT',
+    alwaysDecision:true,
+    forcedTrade:false,
   };
 }
 
@@ -108,7 +111,7 @@ function publicMarketPayload(market={},setup={},newsContext=null){
       targetFrontRun:Boolean(setup.targetFrontRun||setup.evidence?.targetFrontRun),
       reason:String(setup.reason||'').slice(0,300),
     },
-    newsContext:newsContext?{version:newsContext.version,at:newsContext.at,stale:newsContext.stale===true,sourceCount:num(newsContext.sourceCount),items:(newsContext.items||[]).slice(0,12),macroSummary:(newsContext.macroSummary||[]).slice(0,8),error:newsContext.error||null}:null,
+    newsContext:newsContext?{version:newsContext.version,at:newsContext.at,stale:newsContext.stale===true,sourceCount:num(newsContext.sourceCount),items:(newsContext.items||[]).slice(0,16),macroItems:(newsContext.items||[]).filter(x=>String(x.kind||'').startsWith('MACRO')).slice(0,8),cryptoItems:(newsContext.items||[]).filter(x=>String(x.kind||'').includes('CRYPTO')).slice(0,10),macroSummary:(newsContext.macroSummary||[]).slice(0,8),error:newsContext.error||null}:null,
     state:{
       regime:String(market.regime||''),
       price:num(market.price),
@@ -168,7 +171,7 @@ function roleGuide(roleId){
   ];
   if(roleId==='order_risk_architect_agent')return [
     'Audit OI, funding, premium/basis, crowding, volatility, fee/slippage and the supplied deterministic entry/stop/target geometry.',
-    'The stop should sit beyond thesis invalidation plus noise/volatility buffer; never claim it cannot be swept.',
+    'Design a bounded order-plan suggestion around the existing thesis: entry quality, invalidation stop, target logic and risk reduction. Never move a stop inside structural invalidation or claim it cannot be swept.',
     'You may only reduce risk. Do not propose leverage above the deterministic limit, do not widen authority, and VETO if expected cost or stop/target geometry is incoherent.'
   ];
   return [
@@ -187,7 +190,7 @@ function rolePrompt(role,payload){
     ...roleGuide(role.id).map(x=>`ROLE_RULE: ${x}`),
     'Evaluate only the supplied PUBLIC market state, news context and the already-selected candidate for this symbol.',
     'Required JSON schema:',
-    '{"verdict":"SUPPORT|NEUTRAL|VETO","side":"BUY|SELL|NEUTRAL","confidence":0.0,"risk_multiplier":1.0,"reasons":["short reason"],"freshness_ok":true}',
+    '{"verdict":"SUPPORT|NEUTRAL|VETO","side":"BUY|SELL|NEUTRAL","confidence":0.0,"risk_multiplier":1.0,"reasons":["short reason"],"freshness_ok":true,"order_plan":{"entry_quality":"GOOD|MARGINAL|REJECT","stop_buffer_mult":1.0,"target_r_mult":1.0,"notes":"short"}}',
     'Rules:',
     '- confidence must be 0..1 and must reflect evidence quality, not optimism.',
     '- risk_multiplier must be 0.50..1.00 and can only reduce risk.',
@@ -224,10 +227,12 @@ function normalizeAgent(role,worker,result,setup){
   const riskMultiplier=clamp(num(parsed.risk_multiplier)||1,.5,1);
   const candidateSide=String(setup.side||'').toUpperCase()==='BUY'?'BUY':String(setup.side||'').toUpperCase()==='SELL'?'SELL':'NEUTRAL';
   const sideConflict=side!=='NEUTRAL'&&candidateSide!=='NEUTRAL'&&side!==candidateSide;
+  const op=parsed.order_plan&&typeof parsed.order_plan==='object'?parsed.order_plan:null;
+  const orderPlan=role.id==='order_risk_architect_agent'&&op?{entryQuality:['GOOD','MARGINAL','REJECT'].includes(String(op.entry_quality||'').toUpperCase())?String(op.entry_quality).toUpperCase():'MARGINAL',stopBufferMult:clamp(num(op.stop_buffer_mult)||1,1,1.5),targetRMult:clamp(num(op.target_r_mult)||1,.8,1.2),notes:String(op.notes||'').replace(/\s+/g,' ').slice(0,160)}:null;
   return {
     roleId:role.id,required:role.required,ok:freshnessOk&&!sideConflict,verdict:sideConflict?'VETO':verdict,side,
     confidence,riskMultiplier,reasons:sideConflict?['SIDE_CONFLICT_WITH_STATEFLOW_CANDIDATE',...reasons].slice(0,3):reasons,
-    freshnessOk,providerId:worker?.provider_id||null,modelId:worker?.model_id||null,modelFamily:worker?.model_family||null,
+    freshnessOk,orderPlan,providerId:worker?.provider_id||null,modelId:worker?.model_id||null,modelFamily:worker?.model_family||null,
     latencyMs:num(result?.latency_ms),
   };
 }
@@ -253,11 +258,11 @@ async function selectWorkers(env,offset=0){
   const evidenceSnapshot={...MODEL_MESH_SNAPSHOT,models:applyCapabilityEvidence(MODEL_MESH_SNAPSHOT?.models,MODEL_MESH_ACTIVE_CANDIDATE_INDEX)};
   const liveModels=await resolveLiveModels(evidenceSnapshot,env);
   const hardCapabilities=enabledHardCapabilities(MODEL_MESH_ACTIVE_CANDIDATE_INDEX,'trading');
-  const selected=selectModelWorkers({
-    profile:'DEEP',domain:'trading',dataClass:'PUBLIC',models:liveModels,hardCapabilities,
-    requiredCapability:'text_reasoning',offset,
-  });
-  return {evidenceSnapshot,selected:selected.slice(0,BYBIT_AI_LEGION_ROLES.length)};
+  const selectAt=off=>selectModelWorkers({profile:'DEEP',domain:'trading',dataClass:'PUBLIC',models:liveModels,hardCapabilities,requiredCapability:'text_reasoning',offset:off});
+  const pool=new Map();
+  for(let i=0;i<Math.max(8,liveModels.length*2);i++)for(const worker of selectAt(i)){const key=String(worker.model_family||worker.model_id||worker.provider_id);if(!pool.has(key))pool.set(key,worker);}
+  const selected=selectAt(offset).slice(0,BYBIT_AI_LEGION_ROLES.length);
+  return {evidenceSnapshot,selected,poolSize:pool.size,pool:[...pool.values()].map(x=>({providerId:x.provider_id,modelId:x.model_id,modelFamily:x.model_family}))};
 }
 
 export async function refreshBybitAiLegion({env={},market={},setup={}}={}){
@@ -304,8 +309,9 @@ export async function refreshBybitAiLegion({env={},market={},setup={}}={}){
     version:BYBIT_AI_LEGION_VERSION,status:decision.approved?'READY':'BLOCKED',mode,fingerprint,
     approved:decision.approved,reason:decision.reason,riskMultiplier:decision.riskMultiplier,
     confidenceFloor:decision.confidenceFloor,workerCount:workers.length,requiredWorkers:p.minimumRequiredWorkers,newsContext:{sourceCount:num(newsContext?.sourceCount),stale:newsContext?.stale===true,at:newsContext?.at||null,error:newsContext?.error||null},
-    noMajorityVote:true,authority:'ADVISORY_EVIDENCE_ONLY',executionAuthority:'BYBIT-TOP100-STATEFLOW-3.0',
-    agents,workerRotationCursor:rotationCursor+Math.max(1,workers.length),workerRotationEnabled:true,startedAtMs:startedAt,updatedAt:nowIso(),updatedAtMs:Date.now(),expiresAtMs:Date.now()+p.freshnessMs,
+    noMajorityVote:true,authority:'ADVISORY_EVIDENCE_ONLY',executionAuthority:'BYBIT-TOP100-STATEFLOW-3.0',decisionPolicy:'ALWAYS_DECIDE_NEVER_FORCE_TRADE',forcedTrade:false,
+    workerPoolSize:num(selectedInfo.poolSize),workerPool:selectedInfo.pool||[],participationMode:p.participationMode,
+    agents,orderPlanSuggestion:agents.find(x=>x.roleId==='order_risk_architect_agent')?.orderPlan||null,workerRotationCursor:rotationCursor+Math.max(1,workers.length),workerRotationEnabled:true,startedAtMs:startedAt,updatedAt:nowIso(),updatedAtMs:Date.now(),expiresAtMs:Date.now()+p.freshnessMs,
   };
   await kvPut(env,state);
   return state;
