@@ -15,17 +15,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 1}
-      - name: Wait for exact runtime
+      - name: Wait for Demo smoke route
         shell: bash
         run: |
           set -euo pipefail
           BASE=https://trading-v77-scanner.hanlinh227.workers.dev
-          for i in $(seq 1 50); do
-            REV="$(curl -fsS --max-time 15 "$BASE/runtime/contract" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("runtimeRevision",""))' 2>/dev/null || true)"
-            [ "$REV" = "$GITHUB_SHA" ] && exit 0
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          test -n "$SECRET"
+          for i in $(seq 1 60); do
+            CODE="$(curl -sS -o "$RUNNER_TEMP/smoke-state.json" -w '%{http_code}' --max-time 15 -H "Authorization: Bearer $SECRET" "$BASE/bybit/demo/smoke-5x2m/state" || true)"
+            [ "$CODE" = "200" ] && exit 0
             sleep 5
           done
-          echo "runtime did not reach trigger revision $GITHUB_SHA" >&2
+          echo "Demo smoke route did not become available" >&2
           exit 1
       - name: Open five Demo diagnostic positions
         id: open
