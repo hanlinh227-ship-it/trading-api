@@ -6,7 +6,7 @@ import {
   evaluateBybitAiLegionAgents,
 } from './bybit-ai-legion.js';
 
-assert.equal(BYBIT_AI_LEGION_VERSION,'BYBIT_AI_LEGION_V3_ROLE_FEDERATION');
+assert.equal(BYBIT_AI_LEGION_VERSION,'BYBIT_AI_LEGION_V4_SINGLE_EXECUTOR_RESEARCH_SWARM');
 assert.deepEqual(BYBIT_AI_LEGION_ROLES.map(x=>x.id),[
   'macro_news_agent',
   'market_structure_flow_agent',
@@ -91,3 +91,7 @@ assert.equal(demo.requiredForNewRisk,true);
 assert.equal(demo.liveActivationRequired,false);
 
 console.log('BYBIT_AI_LEGION_TEST=PASS');
+
+assert.equal(BYBIT_AI_LEGION_ROLES.filter(x=>x.executionAuthority===true).length,1);
+assert.equal(BYBIT_AI_LEGION_ROLES.find(x=>x.executionAuthority===true).id,'order_risk_architect_agent');
+assert.ok(BYBIT_AI_LEGION_ROLES.filter(x=>x.researchOnly===true).length>=3);
