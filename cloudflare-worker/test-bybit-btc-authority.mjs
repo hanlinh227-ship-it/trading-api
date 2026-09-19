@@ -137,4 +137,21 @@ try{
   globalThis.fetch=originalFetch;
 }
 
+
+const originalFetchTime=globalThis.fetch;
+globalThis.fetch=async (url,options={})=>{
+  const href=String(url);
+  if(href.includes('/v5/market/time'))return new Response('blocked',{status:403,headers:{'content-type':'text/plain'}});
+  throw new Error('unexpected fetch '+href);
+};
+try{
+  const demoClock=bybitV5({BYBIT_AUTO_DEMO:'true',BYBIT_DEMO_API_KEY:'demo-key',BYBIT_DEMO_API_SECRET:'demo-secret'});
+  const t=await demoClock.serverTime();
+  assert.equal(t.retCode,0);
+  assert.equal(t.fallback,'EDGE_CLOCK');
+  assert.ok(Number(t.time)>0);
+}finally{
+  globalThis.fetch=originalFetchTime;
+}
+
 console.log('BYBIT_BTC_EXECUTION_AUTHORITY_VALIDATION=PASS');

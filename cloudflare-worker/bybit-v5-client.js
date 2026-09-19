@@ -169,7 +169,13 @@ export function bybitV5(env={}){
   }
   return {
     credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,publicBases:publicBaseList,privateTransport:demo?"CLOUDFLARE_BYBIT_DEMO_DIRECT":"CLOUDFLARE_BYBIT_PRIVATE_DIRECT",marketTransport:"CLOUDFLARE_BYBIT_PUBLIC_DIRECT",runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,recvWindowMs:Number(recvWindow),
-    serverTime:()=>market("/v5/market/time"),
+    serverTime:async()=>{
+      try{return await market("/v5/market/time");}
+      catch(e){
+        if(demo&&Number(e?.bybit?.httpStatus)===403)return {retCode:0,retMsg:"DEMO_EDGE_CLOCK_FALLBACK",time:Date.now(),result:{},fallback:"EDGE_CLOCK"};
+        throw e;
+      }
+    },
     wallet:()=>signed("GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),
     positions:()=>signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200}),
     openOrders:()=>signed("GET","/v5/order/realtime",{category:"linear",settleCoin:"USDT",openOnly:0,limit:50}),
