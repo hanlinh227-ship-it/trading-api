@@ -4,6 +4,7 @@ import {fetchBybitUniverseTickers} from './bybit-btc-microstructure-client.js';
 
 const META_KEY='bybit:dynamic:universe:meta:v2:crypto-only';
 const META_TTL_MS=15*60*1000;
+const META_STALE_MAX_MS=24*60*60*1000;
 const LAST_GOOD_KEY='bybit:dynamic:universe:last-good:v1';
 const LAST_GOOD_MAX_MS=30*60*1000;
 const PROMOTION_KEY='bybit:dynamic:promotion:evidence:v1';
@@ -22,16 +23,20 @@ function validLinearSymbol(symbol=''){
 }
 function isCryptoSymbolType(v=''){const t=String(v||'').trim().toLowerCase();return !NON_CRYPTO_SYMBOL_TYPES.has(t);}
 
-async function loadInstrumentMeta(env,api){
-  const now=Date.now(),cached=await get(env,META_KEY,{});
-  if(Array.isArray(cached.rows)&&now-num(cached.at)<META_TTL_MS)return cached;
+async function loadInstrumentMeta(env,api,opts={}){
+  const now=Date.now(),cached=await get(env,META_KEY,{}),age=now-num(cached.at),hasCache=Array.isArray(cached.rows)&&cached.rows.length>0;
+  if(hasCache&&age<META_TTL_MS)return cached;
+  if(hasCache&&age<META_STALE_MAX_MS&&opts?.forceRefresh!==true&&opts?.ctx&&typeof opts.ctx.waitUntil==='function'){
+    opts.ctx.waitUntil(loadInstrumentMeta(env,api,{forceRefresh:true}).catch(()=>null));
+    return {...cached,stale:true,refreshPending:true};
+  }
   const rows=[];let cursor='';
   try{
     for(let page=0;page<4;page++){
       const r=await api.instruments(cursor),list=r?.result?.list||[];
       for(const x of list){
         const symbol=normalizeBybitSymbol(x.symbol||'');if(!validLinearSymbol(symbol))continue;
-        rows.push({symbol,status:String(x.status||''),contractType:String(x.contractType||''),settleCoin:String(x.settleCoin||''),quoteCoin:String(x.quoteCoin||''),baseCoin:String(x.baseCoin||''),symbolType:String(x.symbolType||''),launchTime:num(x.launchTime),maxLeverage:num(x.leverageFilter?.maxLeverage),minLeverage:num(x.leverageFilter?.minLeverage),leverageStep:num(x.leverageFilter?.leverageStep)});
+        rows.push({symbol,status:String(x.status||''),contractType:String(x.contractType||''),settleCoin:String(x.settleCoin||''),quoteCoin:String(x.quoteCoin||''),baseCoin:String(x.baseCoin||''),symbolType:String(x.symbolType||''),launchTime:num(x.launchTime),maxLeverage:num(x.leverageFilter?.maxLeverage),minLeverage:num(x.leverageFilter?.minLeverage),leverageStep:num(x.leverageFilter?.leverageStep),tickSize:num(x.priceFilter?.tickSize),minQty:num(x.lotSizeFilter?.minOrderQty),maxQty:num(x.lotSizeFilter?.maxMktOrderQty||x.lotSizeFilter?.maxOrderQty),qtyStep:num(x.lotSizeFilter?.qtyStep),minNotional:num(x.lotSizeFilter?.minNotionalValue)});
       }
       const next=String(r?.result?.nextPageCursor||'');if(!next||next===cursor)break;cursor=next;
     }
@@ -67,14 +72,14 @@ function promotionSummary(ev={},row={},now=Date.now()){const hist=(Array.isArray
 function applyPromotion(row={},ev={},now=Date.now()){const promotion=promotionSummary(ev,row,now);if(row.marketCapTop100!==true)return {...row,promotion:{...promotion,qualified:false}};if(promotion.qualified)return {...row,classification:'TRADE_PROMOTED',eligible:true,reason:null,promotion};return {...row,promotion};}
 export async function updateBybitPromotionEvidence(env,observations=[]){const now=Date.now(),bucket=Math.floor(now/(5*60*1000)),state=await get(env,PROMOTION_KEY,{symbols:{}}),symbols={...(state.symbols||{})};for(const o of observations){const symbol=normalizeBybitSymbol(o.symbol||'');if(!validLinearSymbol(symbol))continue;const prev=symbols[symbol]||{},history=(Array.isArray(prev.history)?prev.history:[]).filter(x=>now-num(x.at)<=6*60*60*1000&&num(x.bucket)!==bucket),fresh=o.fresh===true,setupOk=o.setupOk===true,quality=num(o.quality),edge=num(o.edgeScore),netRR=num(o.netRR),directionOk=o.localCounterTrend!==true||o.reversalValidated===true,good=fresh&&setupOk&&directionOk&&quality>=.30&&edge>=.055&&netRR>=1.35;history.push({bucket,at:now,fresh,good,setupOk,quality:Number(quality.toFixed(4)),edge:Number(edge.toFixed(4)),netRR:Number(netRR.toFixed(3))});symbols[symbol]={lastAt:now,history:history.slice(-12)};}const out={at:now,symbols};await put(env,PROMOTION_KEY,out);return out;}
 
-export async function buildBybitDynamicUniverse(env,api){
+export async function buildBybitDynamicUniverse(env,api,opts={}){
   const now=Date.now(),cached=await get(env,LAST_GOOD_KEY,{});
   const [tickersResult,wsTickersResult,metaResult,promotionResult,capResult]=await Promise.allSettled([
     api.tickers(),
     fetchBybitUniverseTickers(env),
-    loadInstrumentMeta(env,api),
+    loadInstrumentMeta(env,api,{ctx:opts?.ctx}),
     get(env,PROMOTION_KEY,{symbols:{}}),
-    loadTop100MarketCapUniverse(env)
+    loadTop100MarketCapUniverse(env,{ctx:opts?.ctx})
   ]);
   const tickers=tickersResult.status==='fulfilled'?tickersResult.value:null;
   const wsTickerState=wsTickersResult.status==='fulfilled'?wsTickersResult.value:null;
@@ -96,6 +101,14 @@ export async function buildBybitDynamicUniverse(env,api){
   const out={authority:'BYBIT_TOP100_MARKET_CAP_ANTI_SWEEP_UNIVERSE_V1',marketCapSource:capState.source,marketCapAt:capState.at,marketCapStale:capState.stale===true,at:now,cryptoOnly:true,coreSymbols:BYBIT_TRADE_UNIVERSE,tradeSymbols:executionSafe?trade.map(x=>x.symbol):[],ranked:rows,watchNew,watchOnly,promotionCandidates,blocked,stale:false,executionSafe,tickerSource,tickerFallbackUsed,tickerCoverageCount:tickerList.length,fallbackCoreOnly:tickerFallbackUsed,tickerRestError:restError,summary:{authority:'BYBIT_TOP100_MARKET_CAP_ANTI_SWEEP_UNIVERSE_V1',cryptoOnly:true,totalLinearUsdt:rows.length,tradeableNow:executionSafe?trade.length:0,promotedNow:trade.filter(x=>x.classification==='TRADE_PROMOTED').length,promotionCandidates:promotionCandidates.length,watchNew:watchNew.length,watchOnly:watchOnly.length,doNotTrade:blocked.length,counts,topTrade:trade.slice(0,20).map(x=>({symbol:x.symbol,class:x.classification,score:Number(x.score.toFixed(4)),promotion:x.promotion,spreadBps:Number(x.spreadBps.toFixed(3)),turnover24h:x.turnover,maxLeverage:x.maxLeverage,style:x.style,symbolType:x.symbolType})),promotionQueue:promotionCandidates.slice(0,30).map(x=>({symbol:x.symbol,class:x.classification,potential:x.promotion?.potential??null,observations:x.promotion?.observations??0,goodRatio:x.promotion?.goodRatio??0,freshRatio:x.promotion?.freshRatio??0,turnover24h:x.turnover,spreadBps:Number(x.spreadBps.toFixed(3)),reason:x.reason})),newListings:watchNew.slice(0,20).map(x=>({symbol:x.symbol,ageDays:x.ageDays===null?null:Number(x.ageDays.toFixed(2)),turnover24h:x.turnover,spreadBps:Number(x.spreadBps.toFixed(3)),reason:x.reason,symbolType:x.symbolType})),watch:watchOnly.slice(0,20).map(x=>({symbol:x.symbol,class:x.classification,reason:x.reason,potential:x.promotion?.potential??null,turnover24h:x.turnover,spreadBps:Number(x.spreadBps.toFixed(3)),symbolType:x.symbolType})),blockedNonCrypto:blocked.filter(x=>String(x.reason||'').startsWith('NON_CRYPTO_LINEAR_PRODUCT_')).slice(0,30).map(x=>({symbol:x.symbol,symbolType:x.symbolType,reason:x.reason})),metaFresh:!metaState.stale,metaAt:metaState.at||null,degraded:!executionSafe,executionSafe,tickerSource,tickerFallbackUsed,tickerCoverageCount:tickerList.length,fallbackCoreOnly:tickerFallbackUsed,marketCapError:capState.error||null,metaError:metaState.error||null,tickerRestError:restError}};
   if(executionSafe)await put(env,LAST_GOOD_KEY,out);
   return out;
+}
+
+export async function getCachedBybitInstrumentFilter(env,symbol){
+  const s=normalizeBybitSymbol(symbol||''),state=await get(env,META_KEY,{}),row=(state.rows||[]).find(x=>normalizeBybitSymbol(x.symbol)===s);
+  if(!row)return null;
+  const complete=num(row.tickSize)>0&&num(row.qtyStep)>0&&num(row.minQty)>0;
+  if(!complete)return null;
+  return {symbol:s,status:row.status||'Trading',contractType:row.contractType||'LinearPerpetual',settleCoin:row.settleCoin||'USDT',minQty:num(row.minQty),maxQty:num(row.maxQty)||1e9,qtyStep:num(row.qtyStep),minNotional:num(row.minNotional)||10,tickSize:num(row.tickSize),minLeverage:Math.max(1,num(row.minLeverage)||1),maxLeverage:Math.max(1,num(row.maxLeverage)||1),leverageStep:Math.max(1,num(row.leverageStep)||1),source:'BYBIT_INSTRUMENT_META_CACHE',cachedAt:num(state.at)||null,stale:Date.now()-num(state.at)>META_TTL_MS};
 }
 
 export const BYBIT_DYNAMIC_UNIVERSE_VERSION='BYBIT_TOP100_MARKET_CAP_ANTI_SWEEP_UNIVERSE_V1';
