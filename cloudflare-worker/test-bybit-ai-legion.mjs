@@ -23,7 +23,7 @@ const support=(roleId,{verdict='SUPPORT',confidence=.8,riskMultiplier=1,ok=true}
 let out=evaluateBybitAiLegionAgents([
   support('macro_news_agent',{confidence:.82,riskMultiplier:.9}),
   support('market_structure_flow_agent',{confidence:.76,riskMultiplier:.8}),
-  support('order_risk_architect_agent',{verdict:'NEUTRAL',confidence:.71,riskMultiplier:.7}),
+  support('order_risk_architect_agent',{verdict:'SUPPORT',confidence:.71,riskMultiplier:.7}),
   support('independent_adversarial_checker',{verdict:'NEUTRAL',confidence:.74,riskMultiplier:.85}),
 ]);
 assert.equal(out.approved,true);
@@ -42,7 +42,7 @@ assert.match(out.reason,/MARKET_STRUCTURE_FLOW_AGENT_VETO/);
 out=evaluateBybitAiLegionAgents([
   support('macro_news_agent'),
   support('market_structure_flow_agent'),
-  support('order_risk_architect_agent',{verdict:'NEUTRAL'}),
+  support('order_risk_architect_agent',{verdict:'SUPPORT'}),
   support('independent_adversarial_checker',{verdict:'VETO'}),
 ]);
 assert.equal(out.approved,false);
@@ -51,14 +51,14 @@ assert.equal(out.reason,'AI_LEGION_ADVERSARIAL_CHECKER_VETO');
 out=evaluateBybitAiLegionAgents([
   support('macro_news_agent',{riskMultiplier:1}),
   support('market_structure_flow_agent',{riskMultiplier:1}),
-  support('order_risk_architect_agent',{verdict:'NEUTRAL',riskMultiplier:1}),
+  support('order_risk_architect_agent',{verdict:'SUPPORT',riskMultiplier:1}),
 ]);
 assert.equal(out.approved,true);
 assert.equal(out.riskMultiplier,1);
 
 out=evaluateBybitAiLegionAgents([
   support('macro_news_agent'),
-  support('order_risk_architect_agent',{verdict:'NEUTRAL'}),
+  support('order_risk_architect_agent',{verdict:'SUPPORT'}),
 ]);
 assert.equal(out.approved,false);
 assert.equal(out.reason,'AI_LEGION_REQUIRED_ROLE_MISSING');
