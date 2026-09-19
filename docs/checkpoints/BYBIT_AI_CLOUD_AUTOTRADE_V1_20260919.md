@@ -222,6 +222,8 @@ Planned Cloudflare secrets:
 - `BYBIT_DEMO_API_SECRET`
 - `BYBIT_AUTO_API_KEY`
 - `BYBIT_AUTO_API_SECRET`
+- `BYBIT_DEMO_EGRESS_URL` (Cloudflare variable, only when Demo fallback is needed)
+- `BYBIT_DEMO_EGRESS_SHARED_SECRET` (same secret configured on Cloudflare and Deno)
 
 Recommended Bybit key permissions:
 - contract trading/account reads needed by the bot;
