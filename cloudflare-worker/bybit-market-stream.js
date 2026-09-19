@@ -1,6 +1,7 @@
-import {runBybitAutoControlled,recordBybitAutoSchedulerError} from './bybit-auto-controller.js';
+import {recordBybitAutoSchedulerError} from './bybit-auto-controller.js';
+import {runBybitMultiAssetControlled} from './bybit-multi-asset-controller.js';
 
-const VERSION='BYBIT_CLOUD_MARKET_STREAM_V1';
+const VERSION='BYBIT_CLOUD_MARKET_STREAM_V2_DIRECT_MULTI_ASSET_EXECUTION';
 const SYMBOL='BTCUSDT';
 const WS_URL='wss://stream.bybit.com/v5/public/linear';
 const FETCH_URL='https://stream.bybit.com/v5/public/linear';
@@ -241,7 +242,7 @@ export class BybitMarketStream {
     const meaningful=force||flow>=.10||move>=1.2||book>=.22;
     if(!meaningful)return;
     this.lastEvalAt=now;this.evalInFlight=true;
-    const task=Promise.resolve(runBybitAutoControlled(this.env,{trigger:'CLOUD_BYBIT_WS_STATE_CHANGE',triggerReason:reason,ctx:this.state}))
+    const task=Promise.resolve(runBybitMultiAssetControlled(this.env,{symbol:SYMBOL,trigger:'CLOUD_BYBIT_WS_STATE_CHANGE',triggerReason:reason,ctx:this.state}))
       .catch(error=>recordBybitAutoSchedulerError(this.env,error))
       .finally(()=>{
         this.evalInFlight=false;
