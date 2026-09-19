@@ -154,4 +154,38 @@ try{
   globalThis.fetch=originalFetchTime;
 }
 
+
+const originalFetchVpc=globalThis.fetch;
+const vpcCalls=[];
+globalThis.fetch=async (url,options={})=>{
+  const href=String(url);
+  if(href.startsWith('https://api-demo.bybit.com/'))return new Response('blocked',{status:403,headers:{'content-type':'text/plain'}});
+  if(href==='https://demo-egress.example/bybit/private-egress')return new Response(JSON.stringify({ok:false,error:'bybit_demo_egress_fetch_failed'}),{status:502,headers:{'content-type':'application/json'}});
+  throw new Error('unexpected fetch '+href);
+};
+try{
+  const demoVpc=bybitV5({
+    BYBIT_AUTO_DEMO:'true',
+    BYBIT_DEMO_API_KEY:'demo-key',
+    BYBIT_DEMO_API_SECRET:'demo-secret',
+    BYBIT_DEMO_EGRESS_URL:'https://demo-egress.example',
+    BYBIT_DEMO_EGRESS_SHARED_SECRET:'relay-secret',
+    V11_AI_BRIDGE_SECRET:'bridge-secret',
+    AI_BRIDGE:{
+      fetch:async request=>{
+        const relay=await request.json();
+        vpcCalls.push(relay);
+        assert.equal(relay.base,'https://api-demo.bybit.com');
+        assert.equal(relay.path,'/v5/position/list');
+        return new Response(JSON.stringify({ok:true,httpStatus:200,upstream:{retCode:0,retMsg:'OK',result:{list:[]}},base:'https://api-demo.bybit.com',attempts:['https://api-demo.bybit.com'],transport:'VPS_BYBIT_PRIVATE_PROXY'}),{status:200,headers:{'content-type':'application/json'}});
+      }
+    }
+  });
+  const positions=await demoVpc.positions();
+  assert.equal(positions.retCode,0);
+  assert.equal(vpcCalls.length,1);
+}finally{
+  globalThis.fetch=originalFetchVpc;
+}
+
 console.log('BYBIT_BTC_EXECUTION_AUTHORITY_VALIDATION=PASS');
