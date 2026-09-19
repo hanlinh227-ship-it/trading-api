@@ -97,7 +97,7 @@ Final chain:
 - No latency optimization may bypass native protection, freshness, AI veto, risk governor, symbol authority or Demo/Live separation.
 
 ## MICROSTRUCTURE
-Preferred source is the Cloudflare-native outbound Bybit WebSocket collector (`orderbook.50.BTCUSDT`, `publicTrade.BTCUSDT`, `allLiquidation.BTCUSDT`, `tickers.BTCUSDT`). REST snapshots remain a diagnostic/fail-safe fallback. New autonomous risk requires fresh cloud-stream evidence.
+BTC keeps the Cloudflare-native outbound Bybit WebSocket collector. Non-BTC admitted symbols use the private VPC WebSocket mirror when available. REST snapshots remain diagnostic/fail-safe only. New autonomous risk requires fresh symbol-specific microstructure evidence.
 
 ## LIVE SWITCH
 LIVE AI-autotrade requires ALL THREE:
@@ -108,6 +108,6 @@ LIVE AI-autotrade requires ALL THREE:
 Never report a source commit as LIVE. Require successful worker validation/deploy plus `/bybit/health` runtime-revision/version alignment and authenticated account access.
 
 ## CANONICAL CHECKPOINT
-Read `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md` for the strategy authority.
+Read `docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md` for the strategy authority.
 Read `docs/checkpoints/BYBIT_AI_CLOUD_AUTOTRADE_V1_20260919.md` for the VPS-free cloud runtime, AI Legion roles, Demo/Live activation order and credential handoff.
 Read `docs/checkpoints/BYBIT_AI_MARKET_INTELLIGENCE_PLAYBOOK_V1_20260919.md` for evidence hierarchy, stop/target geometry, coin research and bounded self-calibration.
