@@ -68,13 +68,7 @@ jobs:
           printf '%s\n' "$local_health" | python3 -c "import json,sys;x=json.load(sys.stdin);assert x.get('ok') is True and x.get('privateProxyOnly') is True"
           for i in $(seq 1 45); do
             code="$(curl -sS --max-time 20 -o /tmp/bybit-health.json -w '%{http_code}' https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health || true)"
-            if [ "$code" = "200" ] && python3 - <<'PY'
-import json
-x=json.load(open('/tmp/bybit-health.json'))
-assert x.get('authenticated') is True
-assert (x.get('execution') or {}).get('ready') is True
-PY
-            then
+            if [ "$code" = "200" ] && python3 -c "import json;x=json.load(open('/tmp/bybit-health.json'));assert x.get('authenticated') is True;assert (x.get('execution') or {}).get('ready') is True"; then
               echo BYBIT_DEMO_PRIVATE_PROXY_HEALTH=PASS
               exit 0
             fi
