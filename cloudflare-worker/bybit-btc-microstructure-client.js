@@ -2,6 +2,9 @@ import {BYBIT_RUNTIME_CONTRACT_VERSION} from './bybit-runtime-contract.js';
 import {normalizeBybitSymbol} from './bybit-coin-profiles.js';
 
 const DEFAULT_SYMBOL='BTCUSDT';
+const SNAPSHOT_COLD_START_TIMEOUT_MS=3000;
+const CONNECT_COLD_START_TIMEOUT_MS=6000;
+const HEALTH_PROPAGATION_TIMEOUT_MS=1500;
 function validSymbol(v=''){
   const s=normalizeBybitSymbol(v||DEFAULT_SYMBOL);
   return /^[A-Z0-9]{2,28}USDT$/.test(s)?s:DEFAULT_SYMBOL;
@@ -21,7 +24,7 @@ async function streamFetch(env,symbol,path,{method='GET',timeoutMs=700}={}){
 
 export async function fetchBtcMicrostructure(env={},symbol=DEFAULT_SYMBOL){
   try{
-    const requested=validSymbol(symbol),j=await streamFetch(env,requested,'/snapshot',{timeoutMs:800}),got=normalizeBybitSymbol(j?.data?.symbol||'');
+    const requested=validSymbol(symbol),j=await streamFetch(env,requested,'/snapshot',{timeoutMs:SNAPSHOT_COLD_START_TIMEOUT_MS}),got=normalizeBybitSymbol(j?.data?.symbol||'');
     if(!j?.ok||!got||got!==requested)return null;
     return j;
   }catch{return null;}
@@ -36,16 +39,16 @@ export async function fetchBybitUniverseTickers(env={}){
 
 export async function connectBtcMicrostructure(env={},symbol=DEFAULT_SYMBOL){
   try{
-    const s=validSymbol(symbol),j=await streamFetch(env,s,'/connect',{method:'POST',timeoutMs:1200});
+    const s=validSymbol(symbol),j=await streamFetch(env,s,'/connect',{method:'POST',timeoutMs:CONNECT_COLD_START_TIMEOUT_MS});
     return j||{ok:false,reason:'BYBIT_CLOUD_STREAM_CONNECT_INVALID_RESPONSE',symbol:s};
   }catch(error){return {ok:false,reason:'BYBIT_CLOUD_STREAM_CONNECT_FAILED',error:String(error?.message||error).slice(0,180),symbol:validSymbol(symbol)};}
 }
 
 export async function btcMicrostructureHealth(env={},symbol=DEFAULT_SYMBOL){
   try{
-    const s=validSymbol(symbol),j=await streamFetch(env,s,'/health',{timeoutMs:700});
+    const s=validSymbol(symbol),j=await streamFetch(env,s,'/health',{timeoutMs:HEALTH_PROPAGATION_TIMEOUT_MS});
     return j||{ok:false,reason:'BYBIT_CLOUD_STREAM_HEALTH_INVALID_RESPONSE',symbol:s};
   }catch(error){return {ok:false,reason:'BYBIT_CLOUD_STREAM_HEALTH_FAILED',error:String(error?.message||error).slice(0,180),symbol:validSymbol(symbol)};}
 }
 
-export const BTC_MICROSTRUCTURE_CLIENT_VERSION='BYBIT_CLOUDFLARE_WS_MICROSTRUCTURE_CLIENT_V3_PER_SYMBOL_DIRECT';
+export const BTC_MICROSTRUCTURE_CLIENT_VERSION='BYBIT_CLOUDFLARE_WS_MICROSTRUCTURE_CLIENT_V4_COLD_START_TOLERANT';

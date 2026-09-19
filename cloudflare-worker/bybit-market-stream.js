@@ -66,7 +66,7 @@ export class BybitMarketStream {
   async rebindSymbol(target,previous=null){
     try{this.ws?.close(1000,'symbol_rebind');}catch{}
     this.ws=null;this.connected=false;this.connecting=false;this.bids.clear();this.asks.clear();this.trades=[];this.liquidations=[];this.ticker={};this.tickers.clear();this.klines={'5':[],'15':[],'60':[]};
-    for(const interval of ['5','15','60']){try{await this.state.storage.delete('klines:'+interval);}catch{}}
+    await Promise.all(['5','15','60'].map(interval=>this.state.storage.delete('klines:'+interval).catch(()=>{})));
     this.symbol=target;this.symbolRebinds+=1;this.lastSymbolRebindAt=Date.now();this.lastSymbolRebind={from:previous||null,to:target,at:this.lastSymbolRebindAt};
     try{await this.state.storage.put('symbol',target);}catch{}
     return this.symbol;
