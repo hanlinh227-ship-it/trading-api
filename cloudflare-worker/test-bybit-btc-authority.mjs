@@ -104,4 +104,37 @@ await assert.rejects(
   error=>error?.code===NON_BTC&&error?.symbol==='SOLUSDT'
 );
 
+
+const originalFetch=globalThis.fetch;
+const fallbackCalls=[];
+globalThis.fetch=async (url,options={})=>{
+  const href=String(url);
+  fallbackCalls.push({href,method:String(options.method||'GET')});
+  if(href.startsWith('https://api-demo.bybit.com/')){
+    return new Response('blocked',{status:403,headers:{'content-type':'text/plain'}});
+  }
+  if(href==='https://demo-egress.example/bybit/private-egress'){
+    const relay=JSON.parse(String(options.body||'{}'));
+    assert.equal(relay.path,'/v5/position/list');
+    assert.equal(relay.method,'GET');
+    assert.ok(relay.headers['X-BAPI-SIGN']);
+    return new Response(JSON.stringify({ok:true,httpStatus:200,upstream:{retCode:0,retMsg:'OK',result:{list:[]}}}),{status:200,headers:{'content-type':'application/json'}});
+  }
+  throw new Error('unexpected fetch '+href);
+};
+try{
+  const demoFallback=bybitV5({
+    BYBIT_AUTO_DEMO:'true',
+    BYBIT_DEMO_API_KEY:'demo-key',
+    BYBIT_DEMO_API_SECRET:'demo-secret',
+    BYBIT_DEMO_EGRESS_URL:'https://demo-egress.example',
+    BYBIT_DEMO_EGRESS_SHARED_SECRET:'relay-secret'
+  });
+  const positions=await demoFallback.positions();
+  assert.equal(positions.retCode,0);
+  assert.equal(fallbackCalls.some(x=>x.href==='https://demo-egress.example/bybit/private-egress'),true);
+}finally{
+  globalThis.fetch=originalFetch;
+}
+
 console.log('BYBIT_BTC_EXECUTION_AUTHORITY_VALIDATION=PASS');
