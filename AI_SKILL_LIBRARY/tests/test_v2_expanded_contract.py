@@ -66,7 +66,7 @@ class ExpandedCompatibilityContractTests(unittest.TestCase):
         self.assertEqual(len(trading), 1)
         project = trading[0]
         self.assertEqual(project["authority"], "docs/checkpoints/CURRENT_HANDOFF.md")
-        self.assertEqual(project["canonical_checkpoint"], "docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md")
+        self.assertEqual(project["canonical_checkpoint"], "docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md")
         self.assertEqual(project["status"], "CURRENT")
 
     def test_plugin_mapping_contains_required_providers(self):
