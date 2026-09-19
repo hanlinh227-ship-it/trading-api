@@ -31,31 +31,45 @@ function ultraFastState(book={},trades={}){const f1=num(trades?.window1s?.imbala
 function marketPulse(book={},trades={},fast={}){const f=[num(fast.flow1),num(fast.flow3),num(fast.flow5),num(fast.flow15)],b2=num(book.imbalance2),mp=clamp(num(book.micropriceEdgeBps)/.25,-1,1),p3=clamp(num(trades.priceChange3sBps)/4,-1,1),raw=.13*f[0]+.19*f[1]+.22*f[2]+.22*f[3]+.09*num(fast.pressureScore)+.07*num(fast.impulseScore)+.04*b2+.02*mp+.02*p3,score=clamp(raw,-1,1),dir=score>.045?'UP':score<-.045?'DOWN':'FLAT',sgn=score>=0?1:-1,inputs=[f[0],f[1],f[2],f[3],b2,mp,p3].filter(x=>Math.abs(x)>.025),agree=inputs.length?inputs.filter(x=>Math.sign(x)===sgn).length/inputs.length:.5,conf=clamp(Math.abs(score)*1.6+agree*.34+num(fast.speedScore)*.16,0,1),conflict=clamp(1-agree,0,1);return {direction:dir,score,confidence:conf,agreement:agree,conflict,speed:num(fast.speedScore)};}
 function executionCostState({fee,book,ticker,expectedHoldMinutes=15}){const now=Date.now(),minsToFunding=ticker.nextFundingTime>0?(ticker.nextFundingTime-now)/60000:null,spread=Math.max(0,num(book.spreadBps)),frag=clamp(num(book.fragility),0,1),estimatedSlippageBps=Math.max(.02,spread*.35+frag*.28),roundTripTakerFeeBps=fee.takerBps*2,roundTripMakerTakerFeeBps=fee.makerBps+fee.takerBps,baseRoundTripCostBps=roundTripTakerFeeBps+spread+estimatedSlippageBps*2,fundingWithinExpectedHold=minsToFunding!==null&&minsToFunding>=0&&minsToFunding<=expectedHoldMinutes;return {...fee,expectedHoldMinutes,minutesToFunding:minsToFunding,fundingWithinExpectedHold,estimatedSlippageBps,spreadBps:spread,roundTripTakerFeeBps,roundTripMakerTakerFeeBps,baseRoundTripCostBps,fundingRate:ticker.fundingRate,fundingBps:Math.abs(ticker.fundingRate)*10000,nextFundingTime:ticker.nextFundingTime};}
 export function classifyBtcRegime(s={}){const d15=num(s.structure15?.bias),d60=num(s.structure60?.bias),dir15=num(s.direction15),eff15=num(s.efficiency15),volRatio=num(s.volRatio),book=num(s.book?.imbalance5??s.book?.imbalance),flow=num(s.trades?.aggressorImbalance),px=num(s.price),priorHi=num(s.structure15?.priorHigh),priorLo=num(s.structure15?.priorLow);if(volRatio>2.50)return 'HIGH_VOL_SHOCK';const brokeUp=px>priorHi&&priorHi>0,brokeDn=px<priorLo&&priorLo>0;if(brokeUp&&flow>.05&&book>-.34)return 'BREAKOUT_UP';if(brokeDn&&flow<-.05&&book<.34)return 'BREAKOUT_DOWN';if(volRatio<.75&&eff15<.30)return 'SQUEEZE';if(d15>0&&d60>=0&&dir15>.13&&eff15>.30)return 'TREND_UP';if(d15<0&&d60<=0&&dir15<-.13&&eff15>.30)return 'TREND_DOWN';if(eff15<.34)return 'RANGE';if((d15>0&&d60<0)||(d15<0&&d60>0))return 'REVERSAL';return 'TRANSITION';}
-export async function buildBtcMarketState(env,api,symbol='BTCUSDT'){
-  const requests=[
-    api.kline(symbol,'5',180),
-    api.kline(symbol,'15',180),
-    api.kline(symbol,'60',140),
-    api.market('/v5/market/orderbook',{category:'linear',symbol,limit:50}),
-    api.market('/v5/market/recent-trade',{category:'linear',symbol,limit:1000}),
-    api.market('/v5/market/open-interest',{category:'linear',symbol,intervalTime:'5min',limit:6}),
-    api.market('/v5/market/account-ratio',{category:'linear',symbol,period:'5min',limit:6}),
-    api.ticker(symbol),
-    fetchBtcMicrostructure(env,symbol),
-    api.signed('GET','/v5/account/fee-rate',{category:'linear',symbol})
-  ];
-  const settled=await Promise.allSettled(requests),val=i=>settled[i]?.status==='fulfilled'?settled[i].value:null;
-  const [k5,k15,k60,book,trades,oi,ratio,ticker,bridgeRaw,feeRaw]=[0,1,2,3,4,5,6,7,8,9].map(val);
-  const failures=settled.map((x,i)=>x.status==='rejected'?{index:i,error:String(x.reason?.message||x.reason).slice(0,160)}:null).filter(Boolean);
-  const bridge=bridgeState(bridgeRaw||{}),rest5=rows(k5||{}),rest15=rows(k15||{}),rest60=rows(k60||{}),ws5=wsRows(bridge.klines?.['5']),ws15=wsRows(bridge.klines?.['15']),ws60=wsRows(bridge.klines?.['60']),r5=rest5.length?rest5:ws5,r15=rest15.length?rest15:ws15,r60=rest60.length?rest60:ws60,restBook=bookState(book||{}),restTrades=tradeState(trades||{}),o=oiState(oi||{}),ra=ratioState(ratio||{}),restTk=tickerState(ticker||{}),wsTk=wsTickerState(bridge.ticker||{}),tk=mergeTicker(restTk,wsTk),fee=feeState(feeRaw||{});
-  const rv5=realizedVol(r5,24),rvBase=realizedVol(r5,96),b=bridge.fresh&&bridge.book?{...restBook,...bridge.book,updateTime:num(bridge.at)}:restBook,tr=bridge.fresh&&bridge.trades?{...restTrades,...bridge.trades,updateTime:num(bridge.at)}:restTrades,price=bridge.fresh&&num(b.mid)>0?num(b.mid):(tk.last||restBook.mid),liq=bridge.fresh&&bridge.liquidations?bridge.liquidations:{longLiquidationUsd:0,shortLiquidationUsd:0,totalUsd:0,imbalance:0,events:0};
+export async function buildBtcMarketState(env,api,symbol='BTCUSDT',opts={}){
+  const scanOnly=opts?.scanOnly===true,startedAt=Date.now();
+  let bridgeRaw=null;
+  try{bridgeRaw=await fetchBtcMicrostructure(env,symbol);}catch{}
+  const bridge=bridgeState(bridgeRaw||{});
+  let k5=null,k15=null,k60=null,book=null,trades=null,oi=null,ratio=null,ticker=null,feeRaw=null,failures=[],publicRestSkipped=false;
+
+  if(bridge.fresh&&bridge.book&&bridge.trades&&bridge.ticker){
+    publicRestSkipped=true;
+  }else{
+    const requests=[
+      api.kline(symbol,'5',180),
+      api.kline(symbol,'15',180),
+      api.kline(symbol,'60',140),
+      api.market('/v5/market/orderbook',{category:'linear',symbol,limit:50}),
+      api.market('/v5/market/recent-trade',{category:'linear',symbol,limit:1000}),
+      api.market('/v5/market/open-interest',{category:'linear',symbol,intervalTime:'5min',limit:6}),
+      api.market('/v5/market/account-ratio',{category:'linear',symbol,period:'5min',limit:6}),
+      api.ticker(symbol),
+    ];
+    if(!scanOnly)requests.push(api.signed('GET','/v5/account/fee-rate',{category:'linear',symbol}));
+    const settled=await Promise.allSettled(requests),val=i=>settled[i]?.status==='fulfilled'?settled[i].value:null;
+    [k5,k15,k60,book,trades,oi,ratio,ticker]=[0,1,2,3,4,5,6,7].map(val);
+    if(!scanOnly)feeRaw=val(8);
+    failures=settled.map((x,i)=>x.status==='rejected'?{index:i,error:String(x.reason?.message||x.reason).slice(0,160)}:null).filter(Boolean);
+  }
+
+  const rest5=rows(k5||{}),rest15=rows(k15||{}),rest60=rows(k60||{}),ws5=wsRows(bridge.klines?.['5']),ws15=wsRows(bridge.klines?.['15']),ws60=wsRows(bridge.klines?.['60']),r5=rest5.length?rest5:ws5,r15=rest15.length?rest15:ws15,r60=rest60.length?rest60:ws60;
+  const restBook=bookState(book||{}),restTrades=tradeState(trades||{}),restO=oiState(oi||{}),ra=ratioState(ratio||{}),restTk=tickerState(ticker||{}),wsTk=wsTickerState(bridge.ticker||{}),tk=mergeTicker(restTk,wsTk),fee=feeState(feeRaw||{});
+  const o=restO.current>0?restO:{current:num(tk.openInterest),previous:num(tk.openInterest),deltaPct:0,timestamp:num(bridge.at)};
+  const b=bridge.fresh&&bridge.book?{...restBook,...bridge.book,updateTime:num(bridge.at)}:restBook,tr=bridge.fresh&&bridge.trades?{...restTrades,...bridge.trades,updateTime:num(bridge.at)}:restTrades,price=bridge.fresh&&num(b.mid)>0?num(b.mid):(tk.last||restBook.mid),liq=bridge.fresh&&bridge.liquidations?bridge.liquidations:{longLiquidationUsd:0,shortLiquidationUsd:0,totalUsd:0,imbalance:0,events:0};
   const fast=ultraFastState(b,tr),pulse=marketPulse(b,tr,fast),cost=executionCostState({fee,book:b,ticker:tk,expectedHoldMinutes:15});
-  const state={symbol,at:Date.now(),price,mark:tk.mark||price,index:tk.index,fundingRate:tk.fundingRate,nextFundingTime:tk.nextFundingTime,fundingIntervalHour:tk.fundingIntervalHour,basis:tk.basis,basisRate:tk.basisRate,premiumBps:tk.premiumBps,turnover24h:tk.turnover24h,book:b,trades:tr,ultraFast:fast,marketPulse:pulse,executionCost:cost,liquidations:liq,openInterest:o,longShort:ra,structure5:structure(r5),structure15:structure(r15),structure60:structure(r60),sweep5:sweepState(r5),sweep15:sweepState(r15),direction5:direction(r5,18),direction15:direction(r15,20),direction60:direction(r60,16),efficiency5:efficiency(r5,18),efficiency15:efficiency(r15,20),efficiency60:efficiency(r60,16),realizedVol5:rv5,realizedVolBase:rvBase,volRatio:rvBase>0?rv5/rvBase:1,range5:recentRange(r5,24),range15:recentRange(r15,24),range60:recentRange(r60,24),microstructureSource:bridge.fresh?bridge.source:(price>0?'BYBIT_REST_SNAPSHOT':'UNAVAILABLE')};
+  const state={symbol,at:Date.now(),price,mark:tk.mark||price,index:tk.index,fundingRate:tk.fundingRate,nextFundingTime:tk.nextFundingTime,fundingIntervalHour:tk.fundingIntervalHour,basis:tk.basis,basisRate:tk.basisRate,premiumBps:tk.premiumBps,turnover24h:tk.turnover24h,book:b,trades:tr,ultraFast:fast,marketPulse:pulse,executionCost:cost,liquidations:liq,openInterest:o,longShort:ra,structure5:structure(r5),structure15:structure(r15),structure60:structure(r60),sweep5:sweepState(r5),sweep15:sweepState(r15),direction5:direction(r5,18),direction15:direction(r15,20),direction60:direction(r60,16),efficiency5:efficiency(r5,18),efficiency15:efficiency(r15,20),efficiency60:efficiency(r60,16),realizedVol5:realizedVol(r5,24),realizedVolBase:realizedVol(r5,96),range5:recentRange(r5,24),range15:recentRange(r15,24),range60:recentRange(r60,24),microstructureSource:bridge.fresh?'CLOUDFLARE_BYBIT_WS':(price>0?'BYBIT_REST_SNAPSHOT':'UNAVAILABLE')};
+  state.volRatio=state.realizedVolBase>0?state.realizedVol5/state.realizedVolBase:1;
   state.regime=classifyBtcRegime(state);
   state.crowding={longHeavy:ra.buyRatio>.61||tk.fundingRate>.00045,shortHeavy:ra.sellRatio>.61||tk.fundingRate<-.00045,oiExpanding:o.deltaPct>.22,oiContracting:o.deltaPct<-.22,premiumRich:tk.premiumBps>6,premiumCheap:tk.premiumBps<-6};
   state.derivatives={oiDeltaPct:o.deltaPct,fundingRate:tk.fundingRate,nextFundingTime:tk.nextFundingTime,minutesToFunding:cost.minutesToFunding,premiumBps:tk.premiumBps,liquidationImbalance:num(liq.imbalance),liquidationUsd:num(liq.totalUsd)};
   const w3=tr.window3s||{},w15=tr.window15s||{},bookAge=num(b.updateTime)>0?Date.now()-num(b.updateTime):Infinity,tradeAge=num(tr.updateTime)>0?Date.now()-num(tr.updateTime):Infinity;
-  state.quality={freshBook:bookAge<5000,freshTrades:tradeAge<8000,spreadOk:num(b.spreadBps)<=8,liquid:num(tk.turnover24h)>0||num(w15.totalNotional)>0,microstructureSource:state.microstructureSource,wsFastPath:bridge.fresh,feeRateSource:fee.source,ultraFastReady:bridge.fresh&&(num(w3.trades)>0||num(w3.totalNotional)>0),sample15Trades:num(w15.trades),pulseConfidence:pulse.confidence,structure5Ready:r5.length>=20,structure15Ready:r15.length>=20,structure60Ready:r60.length>=20,structureSource:{m5:rest5.length?'BYBIT_PUBLIC_REST':ws5.length?'CLOUDFLARE_BYBIT_WS_KLINE':'UNAVAILABLE',m15:rest15.length?'BYBIT_PUBLIC_REST':ws15.length?'CLOUDFLARE_BYBIT_WS_KLINE':'UNAVAILABLE',m60:rest60.length?'BYBIT_PUBLIC_REST':ws60.length?'CLOUDFLARE_BYBIT_WS_KLINE':'UNAVAILABLE'},publicRestFailureCount:failures.length,publicRestDegraded:failures.length>0,publicRestErrors:failures};
+  state.quality={freshBook:bookAge<5000,freshTrades:tradeAge<8000,spreadOk:num(b.spreadBps)<=8,liquid:num(tk.turnover24h)>0||num(w15.totalNotional)>0,microstructureSource:state.microstructureSource,wsFastPath:bridge.fresh,feeRateSource:fee.source,ultraFastReady:bridge.fresh&&(num(w3.trades)>0||num(w3.totalNotional)>0),sample15Trades:num(w15.trades),pulseConfidence:pulse.confidence,structure5Ready:r5.length>=20,structure15Ready:r15.length>=20,structure60Ready:r60.length>=20,structureSource:{m5:rest5.length?'BYBIT_PUBLIC_REST':ws5.length?'CLOUDFLARE_BYBIT_WS_KLINE':'UNAVAILABLE',m15:rest15.length?'BYBIT_PUBLIC_REST':ws15.length?'CLOUDFLARE_BYBIT_WS_KLINE':'UNAVAILABLE',m60:rest60.length?'BYBIT_PUBLIC_REST':ws60.length?'CLOUDFLARE_BYBIT_WS_KLINE':'UNAVAILABLE'},publicRestSkipped,publicRestFailureCount:failures.length,publicRestDegraded:failures.length>0,publicRestErrors:failures,scanOnly,buildLatencyMs:Date.now()-startedAt};
   return state;
 }
 export const BTC_MARKET_STATE_VERSION='BTC_MARKET_STATE_V5_ULTRAFAST_1S3S_PULSE';

@@ -7,6 +7,7 @@ const DAY=86400000;
 const MIN_SHOCK_USD=.25;
 const SHOCK_PCT=.005;
 const UPSIDE_HALF_LIFE_MS=90_000;
+const TRANSACTION_SCAN_MIN_GAP_MS=15_000;
 
 async function get(env){try{return await env.TRADING_STATE?.get(KEY,{type:'json'})||{};}catch{return {};}}
 async function put(env,x){if(env.TRADING_STATE)await env.TRADING_STATE.put(KEY,JSON.stringify(x));}
@@ -54,7 +55,10 @@ function applySnapshot(state,snap,{forceUpside=false,reason='NORMAL'}={}){
 export async function reconcileBtcAccountBalance(env){
   const api=bybitV5(env),now=Date.now(),[wallet,state0]=await Promise.all([api.wallet(),get(env)]),snap=walletSnapshot(wallet),state={...state0};
   if(!(snap.equityUsd>0))return {ok:false,reason:'BALANCE_EQUITY_INVALID',snapshot:snap,state};
-  const previousScan=num(state.cashFlowScanAt)||0,startTime=Math.max(now-7*DAY,previousScan>0?previousScan-5*60000:now-DAY);
+  const previousScan=num(state.cashFlowScanAt)||0,startTime=Math.max(now-7*DAY,previousScan>0?previousScan-5*60000:now-DAY),priorWallet=num(state.lastWalletBalanceUsd),shockThreshold=Math.max(MIN_SHOCK_USD,Math.abs(priorWallet||snap.walletBalanceUsd)*SHOCK_PCT),walletShock=priorWallet>0&&Math.abs(snap.walletBalanceUsd-priorWallet)>=shockThreshold;
+  if(previousScan>0&&!walletShock&&now-previousScan<TRANSACTION_SCAN_MIN_GAP_MS){
+    applySnapshot(state,snap,{reason:'FAST_BALANCE_REFRESH_NO_CASHFLOW_SCAN'});if(!(state.highWaterUsd>0))state.highWaterUsd=snap.equityUsd;state.transactionScanDeferred=true;await put(env,state);return {ok:true,reason:'FAST_BALANCE_REFRESH_NO_CASHFLOW_SCAN',snapshot:snap,netExternalCashFlowUsd:0,events:[],state};
+  }
   let tx={rows:[],pages:0};
   try{tx=await transactionPages(api,startTime,now);}catch(e){
     state.lastBalanceReconcileError={at:iso(),error:String(e?.message||e).slice(0,240)};applySnapshot(state,snap,{reason:'TRANSACTION_LOG_UNAVAILABLE'});if(!(state.highWaterUsd>0))state.highWaterUsd=snap.equityUsd;await put(env,state);return {ok:true,reason:'WALLET_UPDATED_TRANSACTION_LOG_UNAVAILABLE',snapshot:snap,state,error:state.lastBalanceReconcileError};
