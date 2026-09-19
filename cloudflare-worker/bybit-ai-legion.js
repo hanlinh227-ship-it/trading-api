@@ -1,3 +1,4 @@
+import {collectBybitNewsContext} from './bybit-news-context.js';
 import {MODEL_MESH_SNAPSHOT} from './generated/model-mesh-snapshot.js';
 import {MODEL_MESH_ACTIVE_CANDIDATE_INDEX} from './generated/model-mesh-active-candidate-index.js';
 import {applyCapabilityEvidence,enabledHardCapabilities} from './model-mesh/capability-evidence.js';
@@ -15,24 +16,24 @@ const nowIso=()=>new Date().toISOString();
 
 export const BYBIT_AI_LEGION_ROLES=Object.freeze([
   Object.freeze({
-    id:'structure_regime_agent',
+    id:'macro_news_agent',
     required:true,
-    purpose:'Validate market structure, sweep/reclaim, break/retest, regime and side coherence.',
+    purpose:'Assess fresh macro-economic policy/data and crypto-news catalysts as contextual risk; never invent missing news.',
   }),
   Object.freeze({
-    id:'flow_liquidity_agent',
+    id:'market_structure_flow_agent',
     required:true,
-    purpose:'Validate executed flow, L2 near-touch liquidity, microprice and liquidation evidence.',
+    purpose:'Validate structure, sweep/reclaim or break/retest, regime, executed flow, L2 liquidity, microprice and liquidation coherence.',
   }),
   Object.freeze({
-    id:'derivatives_risk_agent',
+    id:'order_risk_architect_agent',
     required:true,
-    purpose:'Validate OI/funding/premium/crowding, cost, stale-data and execution-risk context. May only reduce risk.',
+    purpose:'Audit derivatives, fees, slippage, stop/target geometry, leverage/risk constraints and whether the deterministic order is executable.',
   }),
   Object.freeze({
-    id:'independent_checker',
+    id:'independent_adversarial_checker',
     required:false,
-    purpose:'Look only for contradiction, stale evidence or unsupported conclusions in the other evidence lanes.',
+    purpose:'Challenge the candidate and the other evidence lanes for stale data, contradictions, crowded traps, obvious stop placement and unsupported confidence.',
   }),
 ]);
 
@@ -85,7 +86,7 @@ function setupFingerprint(market={},setup={}){
   ].join('|');
 }
 
-function publicMarketPayload(market={},setup={}){
+function publicMarketPayload(market={},setup={},newsContext=null){
   return {
     symbol:String(market.symbol||'BTCUSDT'),
     observedAt:num(market.at)||Date.now(),
@@ -107,6 +108,7 @@ function publicMarketPayload(market={},setup={}){
       targetFrontRun:Boolean(setup.targetFrontRun||setup.evidence?.targetFrontRun),
       reason:String(setup.reason||'').slice(0,300),
     },
+    newsContext:newsContext?{version:newsContext.version,at:newsContext.at,stale:newsContext.stale===true,sourceCount:num(newsContext.sourceCount),items:(newsContext.items||[]).slice(0,12),macroSummary:(newsContext.macroSummary||[]).slice(0,8),error:newsContext.error||null}:null,
     state:{
       regime:String(market.regime||''),
       price:num(market.price),
@@ -154,24 +156,24 @@ function publicMarketPayload(market={},setup={}){
 }
 
 function roleGuide(roleId){
-  if(roleId==='structure_regime_agent')return [
-    'Use multi-horizon structure (5/15/60), sweep/reclaim and break/retest. Distinguish a liquidity sweep from a genuine break by close/flow follow-through.',
-    'Check that the stop is beyond thesis invalidation plus a noise buffer, not sitting exactly on an obvious swing. VETO if the stop is inside structural invalidation or geometry is inconsistent.',
-    'Do not support counter-trend trades unless reversal evidence is materially stronger than the prevailing 15/60 structure.'
+  if(roleId==='macro_news_agent')return [
+    'Use only supplied newsContext. Do not browse, invent headlines, dates, policy decisions or economic releases.',
+    'Separate direct symbol/crypto catalysts from broad macro context. A fresh high-impact conflict may VETO or reduce risk; ordinary headlines should not force a trade.',
+    'If newsContext is unavailable or stale, state that explicitly and return NEUTRAL unless the supplied context itself shows a material hazard.'
   ];
-  if(roleId==='flow_liquidity_agent')return [
-    'Prefer persistent 3s/5s/15s executed-flow agreement over a single 1s spike. Penalize spike-without-follow-through.',
-    'Use near-touch L2 imbalance, microprice, spread, fragility and liquidation flow together. Order-book size alone is not sufficient because displayed liquidity can disappear.',
-    'VETO if spread/liquidity/freshness makes expected execution materially worse than the candidate geometry.'
+  if(roleId==='market_structure_flow_agent')return [
+    'Use 5/15/60 structure, sweep/reclaim and break/retest together with persistent 3s/5s/15s executed flow.',
+    'Use near-touch L2 imbalance, microprice, spread, fragility and liquidation evidence together. Displayed size alone is not sufficient.',
+    'VETO when the candidate conflicts with higher-timeframe structure, lacks follow-through after a sweep/break, or execution liquidity is materially unsafe.'
   ];
-  if(roleId==='derivatives_risk_agent')return [
-    'Interpret price with OI, funding, premium/basis and long-short crowding. OI expansion is context, not a directional signal by itself.',
-    'Flag crowded positioning, funding exposure, volatility shock, stale derivatives data and cost-to-target problems.',
-    'Risk multiplier may only decrease. Use a larger reduction when crowding or volatility conflicts with the candidate.'
+  if(roleId==='order_risk_architect_agent')return [
+    'Audit OI, funding, premium/basis, crowding, volatility, fee/slippage and the supplied deterministic entry/stop/target geometry.',
+    'The stop should sit beyond thesis invalidation plus noise/volatility buffer; never claim it cannot be swept.',
+    'You may only reduce risk. Do not propose leverage above the deterministic limit, do not widen authority, and VETO if expected cost or stop/target geometry is incoherent.'
   ];
   return [
-    'Act as an adversarial checker. Search for stale data, cross-horizon conflict, stop geometry inside liquidity, target beyond nearby opposing liquidity, cost/fee mismatch, or unsupported confidence.',
-    'Do not invent a new trade thesis. VETO when material evidence conflicts or a required field is missing.'
+    'Act as an adversarial red-team checker. Search for stale inputs, source conflict, crowded traps, stop-hunt exposure, target beyond opposing liquidity, fee mismatch or overconfidence.',
+    'Do not invent a new trade thesis. VETO when a material contradiction remains unresolved; otherwise SUPPORT or NEUTRAL based on supplied evidence.'
   ];
 }
 
@@ -183,13 +185,13 @@ function rolePrompt(role,payload){
     `ROLE_ID: ${role.id}`,
     `ROLE_PURPOSE: ${role.purpose}`,
     ...roleGuide(role.id).map(x=>`ROLE_RULE: ${x}`),
-    'Evaluate only the supplied PUBLIC BTCUSDT market state and the already-selected candidate.',
+    'Evaluate only the supplied PUBLIC market state, news context and the already-selected candidate for this symbol.',
     'Required JSON schema:',
     '{"verdict":"SUPPORT|NEUTRAL|VETO","side":"BUY|SELL|NEUTRAL","confidence":0.0,"risk_multiplier":1.0,"reasons":["short reason"],"freshness_ok":true}',
     'Rules:',
     '- confidence must be 0..1 and must reflect evidence quality, not optimism.',
     '- risk_multiplier must be 0.50..1.00 and can only reduce risk.',
-    '- If evidence is stale, contradictory, malformed or insufficient: VETO.',
+    '- If required market evidence is stale, contradictory, malformed or insufficient: VETO. For optional news context, explicit unavailability may be NEUTRAL rather than fabricated.',
     '- SUPPORT means this role finds the candidate internally coherent; it is not a profit prediction.',
     '- Never claim a stop cannot be swept. Judge whether it is outside the thesis invalidation/noise zone.',
     '- Use max 3 concise reasons, each under 120 chars.',
@@ -232,18 +234,18 @@ function normalizeAgent(role,worker,result,setup){
 
 export function evaluateBybitAiLegionAgents(agents=[]){
   const byRole=Object.fromEntries(agents.map(x=>[x.roleId,x]));
-  const structure=byRole.structure_regime_agent;
-  const flow=byRole.flow_liquidity_agent;
-  const risk=byRole.derivatives_risk_agent;
-  const checker=byRole.independent_checker;
-  const missing=[structure,flow,risk].filter(x=>!x).length;
-  if(missing)return {approved:false,reason:'AI_LEGION_REQUIRED_ROLE_MISSING',riskMultiplier:.5,confidenceFloor:0};
-  for(const x of [structure,flow,risk])if(!x.ok||x.verdict==='VETO')return {approved:false,reason:`AI_LEGION_${x.roleId.toUpperCase()}_VETO`,riskMultiplier:.5,confidenceFloor:Math.min(...[structure,flow,risk].map(z=>num(z.confidence)))};
-  if(structure.verdict!=='SUPPORT')return {approved:false,reason:'AI_LEGION_STRUCTURE_SUPPORT_REQUIRED',riskMultiplier:.5,confidenceFloor:num(structure.confidence)};
-  if(flow.verdict!=='SUPPORT')return {approved:false,reason:'AI_LEGION_FLOW_SUPPORT_REQUIRED',riskMultiplier:.5,confidenceFloor:num(flow.confidence)};
-  if(checker&&(!checker.ok||checker.verdict==='VETO'))return {approved:false,reason:'AI_LEGION_INDEPENDENT_CHECKER_VETO',riskMultiplier:.5,confidenceFloor:Math.min(...[structure,flow,risk,checker].map(z=>num(z.confidence)))};
+  const macro=byRole.macro_news_agent;
+  const market=byRole.market_structure_flow_agent;
+  const order=byRole.order_risk_architect_agent;
+  const checker=byRole.independent_adversarial_checker;
+  const required=[macro,market,order];
+  if(required.some(x=>!x))return {approved:false,reason:'AI_LEGION_REQUIRED_ROLE_MISSING',riskMultiplier:.5,confidenceFloor:0};
+  for(const x of required)if(!x.ok||x.verdict==='VETO')return {approved:false,reason:`AI_LEGION_${x.roleId.toUpperCase()}_VETO`,riskMultiplier:.5,confidenceFloor:Math.min(...required.map(z=>num(z.confidence)))};
+  if(market.verdict!=='SUPPORT')return {approved:false,reason:'AI_LEGION_MARKET_STRUCTURE_FLOW_SUPPORT_REQUIRED',riskMultiplier:.5,confidenceFloor:num(market.confidence)};
+  if(order.verdict!=='SUPPORT')return {approved:false,reason:'AI_LEGION_ORDER_RISK_SUPPORT_REQUIRED',riskMultiplier:.5,confidenceFloor:num(order.confidence)};
+  if(checker&&(!checker.ok||checker.verdict==='VETO'))return {approved:false,reason:'AI_LEGION_ADVERSARIAL_CHECKER_VETO',riskMultiplier:.5,confidenceFloor:Math.min(...[...required,checker].map(z=>num(z.confidence)))};
   const riskMultiplier=Math.min(1,...agents.map(x=>clamp(num(x.riskMultiplier)||1,.5,1)));
-  const confidenceFloor=Math.min(...[structure,flow,risk].map(x=>clamp(num(x.confidence),0,1)));
+  const confidenceFloor=Math.min(...required.map(x=>clamp(num(x.confidence),0,1)));
   return {approved:true,reason:'AI_LEGION_ROLE_CONTRACTS_PASS',riskMultiplier,confidenceFloor};
 }
 
@@ -284,7 +286,8 @@ export async function refreshBybitAiLegion({env={},market={},setup={}}={}){
     const state={version:BYBIT_AI_LEGION_VERSION,status:'BLOCKED',mode,fingerprint,approved:false,reason:'AI_LEGION_INSUFFICIENT_DISTINCT_WORKERS',workerCount:workers.length,minimumRequiredWorkers:p.minimumRequiredWorkers,riskMultiplier:.5,updatedAt:nowIso(),updatedAtMs:Date.now(),agents:[]};
     await kvPut(env,state);return state;
   }
-  const payload=publicMarketPayload(market,setup);
+  let newsContext=null;try{newsContext=await collectBybitNewsContext(env,String(market.symbol||setup.symbol||'BTCUSDT'));}catch(error){newsContext={version:'BYBIT_NEWS_CONTEXT_V1',at:Date.now(),symbol:String(market.symbol||setup.symbol||'BTCUSDT'),stale:true,sourceCount:0,items:[],macroSummary:[],error:String(error?.message||error).slice(0,160)}}
+  const payload=publicMarketPayload(market,setup,newsContext);
   const assignments=BYBIT_AI_LEGION_ROLES.slice(0,workers.length).map((role,index)=>({role,worker:workers[index]}));
   const route={primarySkill:'crypto',domain:'trading',sourceSha:selectedInfo.evidenceSnapshot?.source_sha||null,capsuleHash:null};
   const settled=await Promise.allSettled(assignments.map(({role,worker})=>executeSelectedModelWorker({
@@ -299,7 +302,7 @@ export async function refreshBybitAiLegion({env={},market={},setup={}}={}){
   const state={
     version:BYBIT_AI_LEGION_VERSION,status:decision.approved?'READY':'BLOCKED',mode,fingerprint,
     approved:decision.approved,reason:decision.reason,riskMultiplier:decision.riskMultiplier,
-    confidenceFloor:decision.confidenceFloor,workerCount:workers.length,requiredWorkers:p.minimumRequiredWorkers,
+    confidenceFloor:decision.confidenceFloor,workerCount:workers.length,requiredWorkers:p.minimumRequiredWorkers,newsContext:{sourceCount:num(newsContext?.sourceCount),stale:newsContext?.stale===true,at:newsContext?.at||null,error:newsContext?.error||null},
     noMajorityVote:true,authority:'ADVISORY_EVIDENCE_ONLY',executionAuthority:'BYBIT-TOP100-STATEFLOW-3.0',
     agents,startedAtMs:startedAt,updatedAt:nowIso(),updatedAtMs:Date.now(),expiresAtMs:Date.now()+p.freshnessMs,
   };
