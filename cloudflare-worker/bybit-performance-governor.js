@@ -2,6 +2,7 @@ import {normalizeBybitSymbol,isCoreTradeSymbol} from './bybit-coin-profiles.js';
 
 const KEY='bybit:performance:governor:v1';
 const CACHE_MS=45_000;
+const STALE_WHILE_REVALIDATE_MS=10*60*1000;
 const LOOKBACK_MS=72*60*60*1000;
 const DAY_MS=24*60*60*1000;
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
@@ -27,8 +28,13 @@ async function fetchRows(api,start,end){
   const seen=new Set();return out.filter(x=>{const k=String(x.orderId||'')+'|'+String(x.updatedTime||x.createdTime||'')+'|'+String(x.symbol||'');if(seen.has(k))return false;seen.add(k);return true;});
 }
 
-export async function buildBybitPerformanceGovernor(env,api,{equityUsd=0,highWaterUsd=0}={}){
-  const now=Date.now(),cached=await get(env,KEY,{});if(num(cached.at)>0&&now-num(cached.at)<CACHE_MS)return cached;
+export async function buildBybitPerformanceGovernor(env,api,{equityUsd=0,highWaterUsd=0,ctx=null,forceRefresh=false}={}){
+  const now=Date.now(),cached=await get(env,KEY,{}),age=now-num(cached.at);
+  if(num(cached.at)>0&&age<CACHE_MS)return cached;
+  if(!forceRefresh&&cached?.summary&&age<STALE_WHILE_REVALIDATE_MS&&ctx&&typeof ctx.waitUntil==='function'){
+    ctx.waitUntil(buildBybitPerformanceGovernor(env,api,{equityUsd,highWaterUsd,forceRefresh:true}).catch(()=>null));
+    return {...cached,stale:true,refreshPending:true};
+  }
   let rows=[];try{rows=await fetchRows(api,now-LOOKBACK_MS,now)}catch(e){if(cached?.summary)return {...cached,stale:true,error:String(e?.message||e).slice(0,220)};return {at:now,stale:true,error:String(e?.message||e).slice(0,220),summary:{},symbols:{}}}
   const rows24=rows.filter(x=>now-num(x.updatedTime||x.createdTime)<=DAY_MS),by=new Map();for(const x of rows){const s=normalizeBybitSymbol(x.symbol||'');if(!s)continue;if(!by.has(s))by.set(s,[]);by.get(s).push(x)}
   const symbols={};for(const [s,xs] of by){symbols[s]={h72:summarize(xs),h24:summarize(xs.filter(x=>now-num(x.updatedTime||x.createdTime)<=DAY_MS))};}
