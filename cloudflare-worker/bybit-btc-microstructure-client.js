@@ -31,6 +31,16 @@ export async function fetchBtcMicrostructure(env={},symbol='BTCUSDT'){
   }catch{return null;}
 }
 
+export async function fetchBybitUniverseTickers(env={}){
+  try{
+    const stub=streamStub(env);if(!stub)return null;
+    const r=await stub.fetch(new Request('https://internal.bybit.stream/universe-tickers',{method:'GET',headers:{accept:'application/json','x-trading-runtime-contract':BYBIT_RUNTIME_CONTRACT_VERSION},signal:AbortSignal.timeout(1500)}));
+    if(!r.ok)return null;
+    const j=await r.json().catch(()=>null);
+    return j?.ok&&Array.isArray(j?.data?.rows)?j.data:null;
+  }catch{return null;}
+}
+
 export async function connectBtcMicrostructure(env={}){
   try{
     const stub=streamStub(env);if(!stub)return {ok:false,reason:'BYBIT_MARKET_STREAM_BINDING_MISSING'};
@@ -47,4 +57,4 @@ export async function btcMicrostructureHealth(env={}){
   }catch(error){return {ok:false,reason:'BYBIT_CLOUD_STREAM_HEALTH_FAILED',error:String(error?.message||error).slice(0,180)};}
 }
 
-export const BTC_MICROSTRUCTURE_CLIENT_VERSION='BYBIT_CLOUDFLARE_WS_MICROSTRUCTURE_CLIENT_V1';
+export const BTC_MICROSTRUCTURE_CLIENT_VERSION='BYBIT_CLOUDFLARE_WS_MICROSTRUCTURE_CLIENT_V2_UNIVERSE_TICKERS';
