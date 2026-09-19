@@ -2,12 +2,17 @@ name: V11 VPS Bridge Smoke
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-demo-smoke-5x2m-trigger'
 
 permissions:
   contents: read
 
 jobs:
   smoke:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, trading-vps]
     timeout-minutes: 5
     steps:
@@ -24,3 +29,76 @@ jobs:
           unit=v11-manual-ai-bridge.service
           systemctl is-active "$unit" >/dev/null 2>&1 && echo "$unit: active" || echo "$unit: not-active-or-missing"
           systemctl is-enabled "$unit" >/dev/null 2>&1 && echo "$unit: enabled" || echo "$unit: not-enabled-or-missing"
+
+  demo-smoke-5x2m:
+    if: github.event_name == 'push'
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 1}
+      - name: Wait for Demo smoke route
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          test -n "$SECRET"
+          for i in $(seq 1 60); do
+            CODE="$(curl -sS -o "$RUNNER_TEMP/smoke-state.json" -w '%{http_code}' --max-time 15 -H "Authorization: Bearer $SECRET" "$BASE/bybit/demo/smoke-5x2m/state" || true)"
+            [ "$CODE" = "200" ] && exit 0
+            sleep 5
+          done
+          echo "Demo smoke route did not become available" >&2
+          exit 1
+      - name: Open five Demo diagnostic positions
+        id: open
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          curl -fsS --max-time 120 -X POST -H "Authorization: Bearer $SECRET" -H 'content-type: application/json' "$BASE/bybit/demo/smoke-5x2m/open" | tee "$RUNNER_TEMP/smoke-open.json"
+          python3 - <<'PY'
+          import json,os
+          x=json.load(open(os.environ['RUNNER_TEMP']+'/smoke-open.json'))
+          assert x.get('ok') is True and x.get('demo') is True and len(x.get('positions') or [])==5, x
+          print('DEMO_SMOKE_OPEN=PASS symbols='+','.join(p['symbol'] for p in x['positions']))
+          PY
+      - name: Hold exactly two minutes
+        shell: bash
+        run: sleep 120
+      - name: Close five Demo diagnostic positions
+        if: always() && steps.open.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          curl -fsS --max-time 120 -X POST -H "Authorization: Bearer $SECRET" -H 'content-type: application/json' "$BASE/bybit/demo/smoke-5x2m/close" | tee "$RUNNER_TEMP/smoke-close.json"
+          python3 - <<'PY'
+          import json,os
+          x=json.load(open(os.environ['RUNNER_TEMP']+'/smoke-close.json'));s=x.get('state') or {}
+          assert x.get('ok') is True and x.get('demo') is True, x
+          assert not (x.get('positionsRemaining') or []), x
+          assert int(s.get('heldMs') or 0)>=115000, s
+          print('DEMO_SMOKE_CLOSE=PASS heldMs=%s equityDelta=%s walletDelta=%s'%(s.get('heldMs'),s.get('equityDelta'),s.get('walletDelta')))
+          PY
+      - name: Final Demo health
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 2
+          curl -fsS --max-time 45 https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health | tee "$RUNNER_TEMP/final-health.json"
+          python3 - <<'PY'
+          import json,os
+          x=json.load(open(os.environ['RUNNER_TEMP']+'/final-health.json'))
+          assert x.get('ok') is True and x.get('authenticated') is True
+          assert (x.get('execution') or {}).get('ready') is True
+          assert (x.get('positions') or {}).get('openCount') == 0
+          print('DEMO_SMOKE_FINAL_HEALTH=PASS equity=%s wallet=%s'%((x.get('account') or {}).get('totalEquity'),(x.get('account') or {}).get('walletBalance')))
+          PY
