@@ -333,7 +333,7 @@ class SingleAuthorityTests(unittest.TestCase):
 
     def test_zero_local_observer_accepts_redundant_degraded_research(self):
         text = (ROOT / ".github/workflows/deploy-cloudflare-worker.yml").read_text(encoding="utf-8")
-        self.assertNotIn("x.degraded===true", text)
+        self.assertNotIn("if(x.ok!==true||x.degraded===true", text)
         self.assertIn("freshProviders.size<2", text)
         self.assertIn("conflict", text)
         self.assertIn("['FRESH','DEGRADED']", text)
