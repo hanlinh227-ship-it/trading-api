@@ -276,14 +276,17 @@ def market_telemetry(snaps):
 MICROS={s:Microstructure(s) for s in SYMBOLS}
 
 def bybit_proxy(body):
-    method=str(body.get('method') or '').upper(); path=str(body.get('path') or ''); query=str(body.get('query') or ''); raw=str(body.get('body') or ''); headers=body.get('headers') or {}
+    method=str(body.get('method') or '').upper(); path=str(body.get('path') or ''); query=str(body.get('query') or ''); raw=str(body.get('body') or ''); headers=body.get('headers') or {}; requested_base=str(body.get('base') or '').rstrip('/')
     if method not in BYBIT_ALLOWED_METHODS:return 405,{'ok':False,'error':'BYBIT_METHOD_NOT_ALLOWED','transport':'VPS_BYBIT_PRIVATE_PROXY'}
     if not path.startswith(BYBIT_ALLOWED_PREFIXES):return 403,{'ok':False,'error':'BYBIT_PATH_NOT_ALLOWED','path':path,'transport':'VPS_BYBIT_PRIVATE_PROXY'}
     safe_headers={k:str(v) for k,v in headers.items() if str(k).lower() in ('x-bapi-api-key','x-bapi-timestamp','x-bapi-recv-window','x-bapi-sign','content-type','accept','x-trading-runtime-contract')}
     lower={x.lower() for x in safe_headers}
     if not all(k in lower for k in ('x-bapi-api-key','x-bapi-timestamp','x-bapi-recv-window','x-bapi-sign')):return 400,{'ok':False,'error':'BYBIT_SIGNED_HEADERS_MISSING','transport':'VPS_BYBIT_PRIVATE_PROXY'}
+    allowed_bases=('https://api-demo.bybit.com','https://api.bybit.com','https://api.bytick.com')
+    if requested_base and requested_base not in allowed_bases:return 400,{'ok':False,'error':'BYBIT_BASE_NOT_ALLOWED','base':requested_base,'transport':'VPS_BYBIT_PRIVATE_PROXY'}
+    bases=(requested_base,) if requested_base else BYBIT_BASES
     attempts=[];last_status=502;last_body=None
-    for base in BYBIT_BASES:
+    for base in bases:
         attempts.append(base);url=base+path+(('?'+query) if method=='GET' and query else '');data=None if method=='GET' else raw.encode();req=urllib.request.Request(url,data=data,method=method,headers=safe_headers)
         try:
             with urllib.request.urlopen(req,timeout=25) as r:status=r.status;txt=r.read(2_000_000).decode(errors='replace')
