@@ -2,6 +2,7 @@ import {hmacHex} from "./providers/bybit-signed-client.js";
 import {bybitCredentials,bybitAutoConfig} from "./bybit-auto-config.js";
 import {BYBIT_PRIVATE_TRANSPORT,BYBIT_MARKET_TRANSPORT,BYBIT_RUNTIME_CONTRACT_VERSION} from "./bybit-runtime-contract.js";
 import {assertBybitExecutionSymbol} from "./bybit-execution-authority.js";
+import {createBybitBridgeFetchJson} from "./research-bybit-transport.js";
 
 const DEFAULT_BASES=["https://api.bybit.com","https://api.bytick.com"];
 const BRIDGE_PRIVATE_URL="http://127.0.0.1:8789/bybit/private";
@@ -56,8 +57,23 @@ export function bybitV5(env={}){
     const q=qs(params),attempted=[];let lastErr;
     for(const base of publicBaseList){
       attempted.push(base);
-      try{const url=`${base}${path}${q?`?${q}`:""}`;const r=await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});}
-      catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403&&Number(e?.bybit?.httpStatus)!==429)throw e;}
+      try{
+        const url=`${base}${path}${q?`?${q}`:""}`;
+        const r=await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});
+        return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});
+      }catch(e){
+        lastErr=e;
+        const h=Number(e?.bybit?.httpStatus||0);
+        if(![403,408,425,429,500,502,503,504].includes(h)&&h!==0)throw e;
+      }
+    }
+    if(env.AI_BRIDGE&&typeof env.AI_BRIDGE.fetch==="function"&&bridgeSecret(env)){
+      try{
+        const bridgeFetch=createBybitBridgeFetchJson(env),base=DEFAULT_BASES[0],url=`${base}${path}${q?`?${q}`:""}`;
+        const payload=await bridgeFetch(url);
+        if(Number(payload?.retCode)!==0)throw bybitError(path,502,payload,{base,attemptedBases:[...attempted,BRIDGE_PRIVATE_URL],transport:"VPC_BYBIT_PUBLIC_FALLBACK"});
+        return payload;
+      }catch(e){lastErr=e;}
     }
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
   }
