@@ -17,7 +17,7 @@ New-risk admission is fail-closed and requires all of the following:
 - Open-interest value >= USD 3M.
 - Spread <= 10 bps at universe admission; per-symbol strategy profile may be stricter.
 - Anti-sweep liquidity score >= 0.62 from turnover, OI, spread and listing age.
-- Fresh microstructure is required before new risk; non-BTC symbols use the private VPC public-WS mirror when available.
+- Fresh microstructure is required before new risk; the canonical trigger is the Cloudflare-native Bybit WebSocket path. Legacy VPS/VPC mirrors are fallback/diagnostic only and are not execution authority.
 - Existing structure-first setup selection, sweep/reclaim or break/retest evidence, flow/near-touch depth, derivatives context, volatility, risk and execution gates remain mandatory.
 
 This reduces stop-sweep exposure but does **not** guarantee that a stop can never be swept. Stops remain outside structural invalidation with volatility/liquidity noise buffers, and dynamic symbols use a wider anti-sweep buffer plus lower default risk/leverage than core symbols.
@@ -41,36 +41,22 @@ Indicators are not primary entry authority. Use state-first evidence:
 A single indicator, funding value, OI change, book imbalance, liquidation print, AI opinion or candle pattern cannot independently authorize a trade.
 
 
-## AI LEGION — MULTI-ROLE MARKET INTELLIGENCE
+## AI LEGION — SINGLE EXECUTOR + RESEARCH SWARM
 
-StateFlow and the deterministic Risk Governor remain the only strategy/risk/execution authority. The AI layer is subordinate evidence and may block or reduce risk, never force an order or expand risk.
+The AI layer is split into one execution commander and research-only specialists.
 
-Four specialist AI desks are assigned to distinct live model families when available, while the wider healthy model pool rotates across events:
-- `macro_news_agent`: reads only supplied public macro/crypto-news context. Sources include CoinDesk, Cointelegraph, Federal Reserve press releases and BLS latest indicators. It may flag catalyst/event risk, but cannot invent missing news.
-- `market_structure_flow_agent`: structure, sweep/reclaim, break/retest, regime, executed flow, L2 near-touch liquidity, microprice and liquidation coherence.
-- `order_risk_architect_agent`: OI/funding/premium/crowding, fee/slippage, entry quality, stop/target geometry, leverage/risk constraints and execution quality. It emits a bounded order-plan suggestion and may only reduce the deterministic risk multiplier.
-- `independent_adversarial_checker`: red-team challenge for stale/conflicting evidence, crowded traps, obvious stop placement, cost mismatch and unsupported confidence.
+- `order_risk_architect_agent` is the **sole AI execution commander**. It may authorize `OPEN`, `HOLD` or `CLOSE` intent after reviewing StateFlow plus research evidence.
+- `macro_news_agent`, `market_structure_flow_agent` and `independent_adversarial_checker` are **research-only**. They may supply evidence, challenge a setup, or recommend lower risk, but cannot open, close, amend or cancel orders.
+- The executor is sticky to one healthy model family and fails over only when that model is unavailable/unhealthy. Research workers rotate across the remaining healthy model pool.
+- No model receives Bybit API secrets. The AI execution command is translated into a signed exchange write only after deterministic StateFlow/Risk Governor checks.
+- The AI executor may not override symbol authority, freshness gates, exchange limits, risk ceilings, Demo/Live separation, or native-protection requirements.
+- The research swarm may never increase risk. Contradictory/stale evidence is passed to the executor, which can HOLD/CLOSE or refuse OPEN.
+- Existing position protection remains deterministic and single-writer even if AI is unavailable.
 
-Model Mesh remains bounded to at most four concurrent external workers. When more eligible model families exist, the role assignment rotates across market events so additional healthy AI families participate over time without exceeding the hard parallelism ceiling.
-
-News/macro context:
-- cached for 5 minutes;
-- uses bounded stale fallback only up to 30 minutes;
-- is advisory context, not an order trigger;
-- missing news is never fabricated;
-- a headline alone cannot authorize a trade.
-
-Rules:
-- Minimum three distinct workers for autonomous new risk.
-- No majority vote. Required market/order roles must pass; any required VETO blocks the entry; the adversarial checker may veto.
-- AI receives PUBLIC market/candidate/news evidence only. Account secrets/API keys/hidden reasoning are never sent to model providers.
-- AI may block or reduce risk; it may not increase risk, set leverage above deterministic limits, place/cancel/amend orders, widen symbol authority, mutate credentials, or bypass StateFlow.
-- Existing protected-position management remains deterministic if AI is temporarily unavailable.
-
-Continuous opportunity mode means the system continuously scans/ranks the top-100 universe and always returns a decision (`ENTER`, `MANAGE`, or `NO_TRADE`). It does **not** force an order when edge is absent. No architecture can guarantee a profitable order at all times.
+Continuous opportunity mode means the system continuously scans/ranks the top-100 universe and always resolves toward `OPEN`, `HOLD`, `CLOSE`, or no new risk. It does not force a trade when edge is absent.
 
 Final chain:
-`market/news data -> top-100 universe gate -> StateFlow candidate -> 4-role AI evidence -> deterministic Risk Governor -> Bybit V5 execution -> protection/reconciliation -> post-trade evidence`.
+`Cloudflare Bybit WS -> top-100 universe gate -> research swarm -> sole AI execution commander -> StateFlow + Risk Governor -> single Bybit V5 execution gateway -> native protection/reconciliation -> post-trade evidence`.
 
 ## SCALE / RISK
 - Progressive continuous compounding: dollar risk grows automatically with the capital base and the percentage multiplier increases gradually only at larger realized-capital tiers.
@@ -97,7 +83,7 @@ Final chain:
 - No latency optimization may bypass native protection, freshness, AI veto, risk governor, symbol authority or Demo/Live separation.
 
 ## MICROSTRUCTURE
-BTC keeps the Cloudflare-native outbound Bybit WebSocket collector. Non-BTC admitted symbols use the private VPC WebSocket mirror when available. REST snapshots remain diagnostic/fail-safe only. New autonomous risk requires fresh symbol-specific microstructure evidence.
+The canonical market-event authority is the Cloudflare-native Bybit WebSocket collector. Fresh Cloudflare WS evidence is accepted for both entry and position management; legacy VPS/VPC WS sources may be accepted only as compatible fallback evidence. REST snapshots remain diagnostic/fail-safe only and cannot independently authorize new risk.
 
 ## LIVE SWITCH
 LIVE AI-autotrade requires ALL THREE:
