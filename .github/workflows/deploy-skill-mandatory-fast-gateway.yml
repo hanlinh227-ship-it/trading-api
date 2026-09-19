@@ -346,18 +346,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          connect="$(curl -fsS --connect-timeout 5 --max-time 20 -X POST "$WORKER_BASE_URL/bybit/cloud-stream/connect" || true)"
-          printf '%s\n' "$connect" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);const safe={ok:x.ok,reason:x.reason,error:x.error,version:x.version,symbol:x.symbol,connected:x.connected,connecting:x.connecting,lastError:x.lastError,vpsRequired:x.vpsRequired,decisionTrigger:x.decisionTrigger};console.log('BYBIT_CLOUD_STREAM_CONNECT_RESPONSE='+JSON.stringify(safe));if(x.ok!==true||x.vpsRequired!==false||x.decisionTrigger!=='CLOUD_BYBIT_WS_STATE_CHANGE')process.exit(2);console.log('BYBIT_CLOUD_STREAM_CONNECT=PASS connected='+x.connected+' connecting='+x.connecting)}catch(e){console.log('BYBIT_CLOUD_STREAM_CONNECT_PARSE_FAIL '+String(e?.message||e));process.exit(2)}})"
-          for attempt in $(seq 1 12); do
-            health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/cloud-stream/health" || true)"
-            if printf '%s\n' "$health" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok!==true||x.version!=='BYBIT_CLOUD_MARKET_STREAM_V4_PER_SYMBOL_DIRECT'||x.symbol!=='BTCUSDT'||x.vpsRequired!==false||x.decisionTrigger!=='CLOUD_BYBIT_WS_STATE_CHANGE'||x.connected!==true)process.exit(3);console.log('BYBIT_CLOUD_STREAM_HEALTH=PASS age_ms='+(x.messageAgeMs??'na'))}catch{process.exit(3)}})"; then
-              exit 0
-            fi
-            echo "BYBIT_CLOUD_STREAM_RETRY attempt=$attempt"
-            sleep 3
-          done
-          echo "BYBIT_CLOUD_STREAM_HEALTH=FAIL"
-          exit 1
+          check_stream() {
+            symbol="$1"
+            connect="$(curl -fsS --connect-timeout 5 --max-time 20 -X POST "$WORKER_BASE_URL/bybit/cloud-stream/connect?symbol=$symbol" || true)"
+            printf '%s\n' "$connect" | EXPECTED_SYMBOL="$symbol" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);const safe={ok:x.ok,reason:x.reason,error:x.error,version:x.version,symbol:x.symbol,connected:x.connected,connecting:x.connecting,lastError:x.lastError,vpsRequired:x.vpsRequired,decisionTrigger:x.decisionTrigger,symbolSelfHeal:x.symbolSelfHeal,lastSymbolRebind:x.lastSymbolRebind};console.log('BYBIT_CLOUD_STREAM_CONNECT_RESPONSE='+JSON.stringify(safe));if(x.ok!==true||x.symbol!==process.env.EXPECTED_SYMBOL||x.version!=='BYBIT_CLOUD_MARKET_STREAM_V5_PER_SYMBOL_SELF_HEAL'||x.vpsRequired!==false||x.decisionTrigger!=='CLOUD_BYBIT_WS_STATE_CHANGE'||x.symbolSelfHeal!==true)process.exit(2);console.log('BYBIT_CLOUD_STREAM_CONNECT=PASS symbol='+x.symbol+' connected='+x.connected+' connecting='+x.connecting)}catch(e){console.log('BYBIT_CLOUD_STREAM_CONNECT_PARSE_FAIL '+String(e?.message||e));process.exit(2)}})"
+            for attempt in $(seq 1 12); do
+              health="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/cloud-stream/health?symbol=$symbol" || true)"
+              if printf '%s\n' "$health" | EXPECTED_SYMBOL="$symbol" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok!==true||x.version!=='BYBIT_CLOUD_MARKET_STREAM_V5_PER_SYMBOL_SELF_HEAL'||x.symbol!==process.env.EXPECTED_SYMBOL||x.vpsRequired!==false||x.decisionTrigger!=='CLOUD_BYBIT_WS_STATE_CHANGE'||x.connected!==true||x.symbolSelfHeal!==true)process.exit(3);console.log('BYBIT_CLOUD_STREAM_HEALTH=PASS symbol='+x.symbol+' age_ms='+(x.messageAgeMs??'na')+' rebinds='+(x.symbolRebinds??0))}catch{process.exit(3)}})"; then
+                return 0
+              fi
+              echo "BYBIT_CLOUD_STREAM_RETRY symbol=$symbol attempt=$attempt"
+              sleep 3
+            done
+            echo "BYBIT_CLOUD_STREAM_HEALTH=FAIL symbol=$symbol"
+            return 1
+          }
+          check_stream BTCUSDT
+          check_stream ETHUSDT
+          echo "BYBIT_CLOUD_STREAM_MULTI_SYMBOL_CANARY=PASS"
 
       - name: Production Universal Brain adapter canary
         working-directory: cloudflare-worker
