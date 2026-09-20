@@ -37,6 +37,15 @@ class ScheduledWorkflowResilienceTests(unittest.TestCase):
             workflow,
         )
 
+    def test_g8_validation_installs_brain_validator_dependencies(self):
+        workflow = (ROOT / ".github/workflows/g8-brainloop.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "-r research/cloud_10coin_backtest/requirements.txt -r AI_SKILL_LIBRARY/requirements.txt",
+            workflow,
+        )
+
     def test_g9_empty_first_run_is_explicit_and_non_fabricating(self):
         workflow = (ROOT / ".github/workflows/g9-continuous-research.yml").read_text(
             encoding="utf-8"
