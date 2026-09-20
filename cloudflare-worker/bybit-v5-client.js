@@ -146,6 +146,20 @@ export function bybitV5(env={}){
     if(Number(up?.retCode)!==0)throw bybitError(path,status,up,{base:"https://api-demo.bybit.com",attemptedBases:["https://api-demo.bybit.com"],transport:"DENO_BYBIT_DEMO_EGRESS"});
     return up;
   }
+  async function signedViaDemoEgressRead(method,path,payload,headers){
+    const upper=String(method).toUpperCase();
+    if(upper!=="GET")return signedViaDemoEgress(upper,path,payload,headers);
+    let last;
+    for(let attempt=0;attempt<3;attempt++){
+      try{return await signedViaDemoEgress(upper,path,payload,headers);}
+      catch(error){
+        last=error;
+        if(attempt===2||!retryableReadError(error))throw error;
+        await sleep(250*(attempt+1));
+      }
+    }
+    throw last;
+  }
   async function signedDirect(method,path,paramsOrBody={}){
     if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
     const upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody)),attempted=[];let lastErr;
@@ -160,7 +174,7 @@ export function bybitV5(env={}){
           if(demo&&Number(e?.bybit?.httpStatus)===403){
             let relayErr=e;
             if(demoEgressUrl(env)&&demoEgressSecret(env)){
-              try{return await signedViaDemoEgress(upper,path,payload,headers);}catch(de){relayErr=de;}
+              try{return await signedViaDemoEgressRead(upper,path,payload,headers);}catch(de){relayErr=de;}
             }
             if(env.AI_BRIDGE&&typeof env.AI_BRIDGE.fetch==="function"&&bridgeSecret(env)){
               try{return await signedViaVps(upper,path,paramsOrBody);}catch(ve){relayErr=ve;}
