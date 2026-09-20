@@ -9,6 +9,11 @@ const LAST_GOOD_KEY='bybit:dynamic:universe:last-good:v1';
 const LAST_GOOD_MAX_MS=30*60*1000;
 const PROMOTION_KEY='bybit:dynamic:promotion:evidence:v1';
 const PROMOTION_EVIDENCE_TTL_MS=35*60*1000;
+const BROAD_TICKER_KEY='bybit:dynamic:universe:broad-tickers:v1';
+const BROAD_TICKER_TTL_MS=30*1000;
+const BROAD_TICKER_STALE_MAX_MS=5*60*1000;
+const MIN_BROAD_TICKER_COVERAGE=50;
+const EXECUTION_PAIR_LIMIT=10;
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const excludedBases=new Set(['USDT','USDC','USDE','DAI','FDUSD','TUSD','USDD','PYUSD']);
@@ -47,6 +52,23 @@ async function loadInstrumentMeta(env,api,opts={}){
   const out={at:now,rows,source:'BYBIT_INSTRUMENTS_INFO',cryptoOnly:true};await put(env,META_KEY,out);return out;
 }
 
+async function loadBroadTickers(env,api,opts={}){
+  const now=Date.now(),cached=await get(env,BROAD_TICKER_KEY,{}),age=now-num(cached.at),hasCache=Array.isArray(cached.rows)&&cached.rows.length>=MIN_BROAD_TICKER_COVERAGE;
+  if(hasCache&&age<BROAD_TICKER_TTL_MS)return {...cached,stale:false};
+  if(hasCache&&age<BROAD_TICKER_STALE_MAX_MS&&opts?.forceRefresh!==true&&opts?.ctx&&typeof opts.ctx.waitUntil==='function'){
+    opts.ctx.waitUntil(loadBroadTickers(env,api,{forceRefresh:true}).catch(()=>null));
+    return {...cached,stale:true,refreshPending:true};
+  }
+  try{
+    const response=await api.tickers(),rows=(response?.result?.list||[]).filter(x=>validLinearSymbol(x.symbol));
+    if(rows.length<MIN_BROAD_TICKER_COVERAGE)throw new Error('BYBIT_BROAD_TICKER_COVERAGE_TOO_SMALL_'+rows.length);
+    const out={at:now,rows,source:'BYBIT_PUBLIC_MARKET_BROAD',coverage:rows.length,stale:false};await put(env,BROAD_TICKER_KEY,out);return out;
+  }catch(error){
+    if(hasCache&&age<BROAD_TICKER_STALE_MAX_MS)return {...cached,stale:true,error:String(error?.message||error).slice(0,220)};
+    return {at:now,rows:[],source:'UNAVAILABLE',coverage:0,stale:true,error:String(error?.message||error).slice(0,220)};
+  }
+}
+
 function rowFromTicker(x={},meta={},cap=null,now=Date.now()){
   const symbol=normalizeBybitSymbol(x.symbol||''),bid=num(x.bid1Price),ask=num(x.ask1Price),last=num(x.lastPrice),mid=bid>0&&ask>0?(bid+ask)/2:last,spreadBps=mid>0&&ask>=bid?(ask-bid)/mid*10000:999,turnover=num(x.turnover24h),change=num(x.price24hPcnt),oiValue=num(x.openInterestValue),launch=num(meta.launchTime),ageDays=launch>0?Math.max(0,(now-launch)/86400000):null,core=isCoreTradeSymbol(symbol),profile=coinProfileForSymbol(symbol),metaKnown=core||Boolean(meta.status&&meta.contractType&&meta.settleCoin),symbolType=String(meta.symbolType||''),cryptoType=isCryptoSymbolType(symbolType),trading=String(meta.status||'').toUpperCase()==='TRADING',perpetual=/PERPETUAL/i.test(String(meta.contractType||'')),settled=String(meta.settleCoin||'').toUpperCase()==='USDT';
   const capRank=num(cap?.rank),marketCapUsd=num(cap?.marketCapUsd),capVolume24hUsd=num(cap?.volume24hUsd),marketCapTop100=capRank>0&&capRank<=100&&marketCapUsd>=250_000_000;
@@ -74,36 +96,80 @@ export async function updateBybitPromotionEvidence(env,observations=[]){const no
 
 export async function buildBybitDynamicUniverse(env,api,opts={}){
   const now=Date.now(),startedAt=now,cached=await get(env,LAST_GOOD_KEY,{});
-  const [wsTickersResult,cachedMetaResult,promotionResult,capResult]=await Promise.allSettled([
+  const [wsTickersResult,broadTickerResult,metaResult,promotionResult,capResult]=await Promise.allSettled([
     fetchBybitUniverseTickers(env),
-    get(env,META_KEY,{}),
+    loadBroadTickers(env,api,{ctx:opts?.ctx}),
+    loadInstrumentMeta(env,api,{ctx:opts?.ctx}),
     get(env,PROMOTION_KEY,{symbols:{}}),
     loadTop100MarketCapUniverse(env,{ctx:opts?.ctx})
   ]);
-  const wsTickerState=wsTickersResult.status==='fulfilled'?wsTickersResult.value:null,wsTickerList=Array.isArray(wsTickerState?.rows)?wsTickerState.rows:[],cachedMeta=cachedMetaResult.status==='fulfilled'?cachedMetaResult.value:{},promotionState=promotionResult.status==='fulfilled'?promotionResult.value:{symbols:{}},capState=capResult.status==='fulfilled'?capResult.value:{at:now,source:'COINGECKO_MARKET_CAP_TOP100',rows:[],stale:true,failClosed:true,error:String(capResult.reason?.message||capResult.reason||'MARKET_CAP_UNAVAILABLE').slice(0,220)};
-  let tickerList=wsTickerList,tickerSource=wsTickerList.length?'CLOUDFLARE_BYBIT_WS_TICKERS':'UNAVAILABLE',tickerFallbackUsed=wsTickerList.length>0,restError=null,metaState=Array.isArray(cachedMeta?.rows)?{...cachedMeta,stale:now-num(cachedMeta.at)>=META_TTL_MS}:cachedMeta;
+  const wsTickerState=wsTickersResult.status==='fulfilled'?wsTickersResult.value:null,
+    wsTickerList=Array.isArray(wsTickerState?.rows)?wsTickerState.rows:[],
+    broadTickerState=broadTickerResult.status==='fulfilled'?broadTickerResult.value:{rows:[],stale:true,error:String(broadTickerResult.reason?.message||broadTickerResult.reason||'BROAD_TICKERS_UNAVAILABLE').slice(0,220)},
+    broadTickerList=Array.isArray(broadTickerState?.rows)?broadTickerState.rows:[],
+    broadCoverage=broadTickerList.length>=MIN_BROAD_TICKER_COVERAGE,
+    metaState=metaResult.status==='fulfilled'?metaResult.value:{at:now,rows:[],stale:true,error:String(metaResult.reason?.message||metaResult.reason||'META_UNAVAILABLE').slice(0,220)},
+    promotionState=promotionResult.status==='fulfilled'?promotionResult.value:{symbols:{}},
+    capState=capResult.status==='fulfilled'?capResult.value:{at:now,source:'COINGECKO_MARKET_CAP_TOP100',rows:[],stale:true,failClosed:true,error:String(capResult.reason?.message||capResult.reason||'MARKET_CAP_UNAVAILABLE').slice(0,220)};
 
-  if(wsTickerList.length){
-    if(opts?.ctx&&typeof opts.ctx.waitUntil==='function'&&(!Array.isArray(cachedMeta?.rows)||now-num(cachedMeta.at)>=META_TTL_MS))opts.ctx.waitUntil(loadInstrumentMeta(env,api,{forceRefresh:true}).catch(()=>null));
-  }else{
-    const [tickersResult,metaResult]=await Promise.allSettled([api.tickers(),loadInstrumentMeta(env,api,{ctx:opts?.ctx})]);
-    const tickers=tickersResult.status==='fulfilled'?tickersResult.value:null,restTickerList=tickers?.result?.list||[];
-    tickerList=restTickerList;tickerSource=restTickerList.length?'BYBIT_PUBLIC_REST':'UNAVAILABLE';tickerFallbackUsed=false;
-    restError=tickersResult.status==='rejected'?String(tickersResult.reason?.message||tickersResult.reason).slice(0,220):null;
-    metaState=metaResult.status==='fulfilled'?metaResult.value:{at:now,rows:[],stale:true,error:String(metaResult.reason?.message||metaResult.reason||'META_UNAVAILABLE').slice(0,220)};
-  }
+  const tickerList=broadCoverage?broadTickerList:wsTickerList,
+    tickerSource=broadCoverage?'BYBIT_PUBLIC_MARKET_BROAD':(wsTickerList.length?'CLOUDFLARE_BYBIT_WS_TICKERS':'UNAVAILABLE'),
+    fallbackCoreOnly=!broadCoverage&&wsTickerList.length>0,
+    tickerError=broadCoverage?null:(broadTickerState?.error||'BROAD_TICKER_COVERAGE_UNAVAILABLE');
 
   if(!Array.isArray(tickerList)||tickerList.length===0){
-    const tickerError=restError||'BYBIT_TICKERS_UNAVAILABLE';
     if(Array.isArray(cached.ranked)&&cached.ranked.length&&now-num(cached.at)<=LAST_GOOD_MAX_MS){
-      return {...cached,at:now,sourceAt:cached.at,stale:true,executionSafe:false,tradeSymbols:[],tickerSource:'UNAVAILABLE',tickerFallbackUsed:false,tickerCoverageCount:0,tickerError,buildLatencyMs:Date.now()-startedAt,summary:{...(cached.summary||{}),degraded:true,executionSafe:false,staleReason:'BYBIT_TICKERS_UNAVAILABLE',tickerSource:'UNAVAILABLE',tickerFallbackUsed:false,tickerCoverageCount:0,tickerError}};
+      return {...cached,at:now,sourceAt:cached.at,stale:true,executionSafe:false,tradeSymbols:[],tickerSource:'UNAVAILABLE',tickerCoverageCount:0,broadTickerCoverageCount:broadTickerList.length,broadCoverage:false,fallbackCoreOnly:false,tickerError,buildLatencyMs:Date.now()-startedAt,summary:{...(cached.summary||{}),degraded:true,executionSafe:false,staleReason:'BYBIT_TICKERS_UNAVAILABLE',tickerSource:'UNAVAILABLE',tickerCoverageCount:0,broadTickerCoverageCount:broadTickerList.length,broadCoverage:false,fallbackCoreOnly:false,tickerError}};
     }
-    return {authority:'BYBIT_TOP100_MARKET_CAP_ANTI_SWEEP_UNIVERSE_V1',marketCapSource:capState.source,marketCapAt:capState.at,marketCapStale:true,at:now,cryptoOnly:true,coreSymbols:BYBIT_TRADE_UNIVERSE,tradeSymbols:[],ranked:[],watchNew:[],watchOnly:[],promotionCandidates:[],blocked:[],stale:true,executionSafe:false,tickerSource:'UNAVAILABLE',tickerFallbackUsed:false,tickerCoverageCount:0,tickerError,buildLatencyMs:Date.now()-startedAt,summary:{authority:'BYBIT_TOP100_MARKET_CAP_ANTI_SWEEP_UNIVERSE_V1',cryptoOnly:true,totalLinearUsdt:0,tradeableNow:0,promotedNow:0,promotionCandidates:0,watchNew:0,watchOnly:0,doNotTrade:0,counts:{},topTrade:[],promotionQueue:[],newListings:[],watch:[],blockedNonCrypto:[],metaFresh:false,metaAt:metaState?.at||null,degraded:true,executionSafe:false,staleReason:'BYBIT_TICKERS_UNAVAILABLE',tickerSource:'UNAVAILABLE',tickerFallbackUsed:false,tickerCoverageCount:0,tickerError}};
+    return {authority:'BYBIT_TOP10_MARKET_CAP_LIQUIDITY_QUALIFIED_V1',selectionAuthority:'TOP100_MARKET_CAP_RANK_THEN_EXECUTION_SAFETY_TOP10',executionPairLimit:EXECUTION_PAIR_LIMIT,marketCapSource:capState.source,marketCapAt:capState.at,marketCapStale:true,at:now,cryptoOnly:true,coreSymbols:BYBIT_TRADE_UNIVERSE,tradeSymbols:[],ranked:[],watchNew:[],watchOnly:[],promotionCandidates:[],blocked:[],stale:true,executionSafe:false,tickerSource:'UNAVAILABLE',tickerCoverageCount:0,broadTickerCoverageCount:broadTickerList.length,broadCoverage:false,fallbackCoreOnly:false,tickerError,buildLatencyMs:Date.now()-startedAt,summary:{authority:'BYBIT_TOP10_MARKET_CAP_LIQUIDITY_QUALIFIED_V1',selectionAuthority:'TOP100_MARKET_CAP_RANK_THEN_EXECUTION_SAFETY_TOP10',executionPairLimit:EXECUTION_PAIR_LIMIT,cryptoOnly:true,totalLinearUsdt:0,tradeableNow:0,promotedNow:0,promotionCandidates:0,watchNew:0,watchOnly:0,doNotTrade:0,counts:{},topTrade:[],promotionQueue:[],newListings:[],watch:[],blockedNonCrypto:[],metaFresh:false,metaAt:metaState?.at||null,degraded:true,executionSafe:false,staleReason:'BYBIT_TICKERS_UNAVAILABLE',tickerSource:'UNAVAILABLE',tickerCoverageCount:0,broadTickerCoverageCount:broadTickerList.length,broadCoverage:false,fallbackCoreOnly:false,tickerError}};
   }
 
-  const metaMap=new Map((metaState?.rows||[]).map(x=>[normalizeBybitSymbol(x.symbol),x])),capMap=top100Map(capState),rawRows=tickerList.filter(x=>validLinearSymbol(x.symbol)).map(x=>{const symbol=normalizeBybitSymbol(x.symbol),base=symbol.endsWith('USDT')?symbol.slice(0,-4):'';return rowFromTicker(x,metaMap.get(symbol)||{},capMap.get(base)||null,now)}),rows=rawRows.map(x=>applyPromotion(x,promotionState.symbols?.[x.symbol]||{},now)).sort((a,b)=>Number(b.eligible)-Number(a.eligible)||(num(a.marketCapRank)||999)-(num(b.marketCapRank)||999)||b.score-a.score||b.turnover-a.turnover),trade=rows.filter(x=>x.eligible).slice(0,100),watchNew=rows.filter(x=>x.classification==='WATCH_NEW'),watchOnly=rows.filter(x=>!x.eligible&&x.classification!=='WATCH_NEW'&&x.classification!=='DO_NOT_TRADE'),promotionCandidates=watchOnly.filter(x=>x.classification==='WATCH_READY').filter(x=>x.turnover>=4_000_000&&x.spreadBps<=11.5&&promotionPotential(x)>=.40).sort((a,b)=>b.promotion.potential-a.promotion.potential||b.score-a.score),blocked=rows.filter(x=>x.classification==='DO_NOT_TRADE'),counts={};for(const r of rows)counts[r.classification]=(counts[r.classification]||0)+1;
-  const capUsable=Array.isArray(capState.rows)&&capState.rows.length>=50&&capState.failClosed!==true,executionSafe=trade.length>0&&capUsable,buildLatencyMs=Date.now()-startedAt;
-  const out={authority:'BYBIT_TOP100_MARKET_CAP_ANTI_SWEEP_UNIVERSE_V1',marketCapSource:capState.source,marketCapAt:capState.at,marketCapStale:capState.stale===true,at:now,cryptoOnly:true,coreSymbols:BYBIT_TRADE_UNIVERSE,tradeSymbols:executionSafe?trade.map(x=>x.symbol):[],ranked:rows,watchNew,watchOnly,promotionCandidates,blocked,stale:false,executionSafe,tickerSource,tickerFallbackUsed,tickerCoverageCount:tickerList.length,fallbackCoreOnly:tickerFallbackUsed,tickerRestError:restError,buildLatencyMs,summary:{authority:'BYBIT_TOP100_MARKET_CAP_ANTI_SWEEP_UNIVERSE_V1',cryptoOnly:true,totalLinearUsdt:rows.length,tradeableNow:executionSafe?trade.length:0,promotedNow:trade.filter(x=>x.classification==='TRADE_PROMOTED').length,promotionCandidates:promotionCandidates.length,watchNew:watchNew.length,watchOnly:watchOnly.length,doNotTrade:blocked.length,counts,topTrade:trade.slice(0,20).map(x=>({symbol:x.symbol,class:x.classification,score:Number(x.score.toFixed(4)),promotion:x.promotion,spreadBps:Number(x.spreadBps.toFixed(3)),turnover24h:x.turnover,maxLeverage:x.maxLeverage,style:x.style,symbolType:x.symbolType})),promotionQueue:promotionCandidates.slice(0,30).map(x=>({symbol:x.symbol,class:x.classification,potential:x.promotion?.potential??null,observations:x.promotion?.observations??0,goodRatio:x.promotion?.goodRatio??0,freshRatio:x.promotion?.freshRatio??0,turnover24h:x.turnover,spreadBps:Number(x.spreadBps.toFixed(3)),reason:x.reason})),newListings:watchNew.slice(0,20).map(x=>({symbol:x.symbol,ageDays:x.ageDays===null?null:Number(x.ageDays.toFixed(2)),turnover24h:x.turnover,spreadBps:Number(x.spreadBps.toFixed(3)),reason:x.reason,symbolType:x.symbolType})),watch:watchOnly.slice(0,20).map(x=>({symbol:x.symbol,class:x.classification,reason:x.reason,potential:x.promotion?.potential??null,turnover24h:x.turnover,spreadBps:Number(x.spreadBps.toFixed(3)),symbolType:x.symbolType})),blockedNonCrypto:blocked.filter(x=>String(x.reason||'').startsWith('NON_CRYPTO_LINEAR_PRODUCT_')).slice(0,30).map(x=>({symbol:x.symbol,symbolType:x.symbolType,reason:x.reason})),metaFresh:!metaState?.stale,metaAt:metaState?.at||null,degraded:!executionSafe,executionSafe,tickerSource,tickerFallbackUsed,tickerCoverageCount:tickerList.length,fallbackCoreOnly:tickerFallbackUsed,marketCapError:capState.error||null,metaError:metaState?.error||null,tickerRestError:restError,buildLatencyMs}};
+  const metaMap=new Map((metaState?.rows||[]).map(x=>[normalizeBybitSymbol(x.symbol),x])),
+    capMap=top100Map(capState),
+    rawRows=tickerList.filter(x=>validLinearSymbol(x.symbol)).map(x=>{const symbol=normalizeBybitSymbol(x.symbol),base=symbol.endsWith('USDT')?symbol.slice(0,-4):'';return rowFromTicker(x,metaMap.get(symbol)||{},capMap.get(base)||null,now)}),
+    promotedRows=rawRows.map(x=>applyPromotion(x,promotionState.symbols?.[x.symbol]||{},now)),
+    marketEligible=promotedRows.filter(x=>x.eligible).sort((a,b)=>(num(a.marketCapRank)||999)-(num(b.marketCapRank)||999)||b.score-a.score||b.turnover-a.turnover),
+    selectedSymbols=new Set(marketEligible.slice(0,EXECUTION_PAIR_LIMIT).map(x=>x.symbol)),
+    rows=promotedRows.map(x=>{
+      const wasEligible=x.eligible===true,executionSelected=wasEligible&&selectedSymbols.has(x.symbol);
+      if(wasEligible&&!executionSelected)return {...x,marketEligible:true,executionSelected:false,eligible:false,classification:'WATCH_TOP10_CAP',reason:'OUTSIDE_TOP10_MARKET_CAP_EXECUTION_SET'};
+      return {...x,marketEligible:wasEligible,executionSelected,eligible:executionSelected};
+    }).sort((a,b)=>Number(b.executionSelected)-Number(a.executionSelected)||(num(a.marketCapRank)||999)-(num(b.marketCapRank)||999)||b.score-a.score||b.turnover-a.turnover),
+    trade=rows.filter(x=>x.executionSelected),
+    watchNew=rows.filter(x=>x.classification==='WATCH_NEW'),
+    watchOnly=rows.filter(x=>!x.executionSelected&&x.classification!=='WATCH_NEW'&&x.classification!=='DO_NOT_TRADE'),
+    promotionCandidates=watchOnly.filter(x=>x.classification==='WATCH_READY').filter(x=>x.turnover>=4_000_000&&x.spreadBps<=11.5&&promotionPotential(x)>=.40).sort((a,b)=>b.promotion.potential-a.promotion.potential||b.score-a.score),
+    blocked=rows.filter(x=>x.classification==='DO_NOT_TRADE'),counts={};
+  for(const r of rows)counts[r.classification]=(counts[r.classification]||0)+1;
+
+  const capUsable=Array.isArray(capState.rows)&&capState.rows.length>=50&&capState.failClosed!==true,
+    executionSafe=trade.length===EXECUTION_PAIR_LIMIT&&capUsable&&broadCoverage,
+    buildLatencyMs=Date.now()-startedAt;
+  const topTrade=trade.map((x,i)=>({symbol:x.symbol,executionRank:i+1,marketCapRank:x.marketCapRank,marketCapUsd:x.marketCapUsd,class:x.classification,score:Number(x.score.toFixed(4)),antiSweepScore:x.antiSweepScore,promotion:x.promotion,spreadBps:Number(x.spreadBps.toFixed(3)),turnover24h:x.turnover,openInterestValue:x.oiValue,maxLeverage:x.maxLeverage,style:x.style,symbolType:x.symbolType}));
+  const out={
+    authority:'BYBIT_TOP10_MARKET_CAP_LIQUIDITY_QUALIFIED_V1',
+    selectionAuthority:'TOP100_MARKET_CAP_RANK_THEN_EXECUTION_SAFETY_TOP10',
+    executionPairLimit:EXECUTION_PAIR_LIMIT,
+    marketCapSource:capState.source,marketCapAt:capState.at,marketCapStale:capState.stale===true,
+    at:now,cryptoOnly:true,coreSymbols:BYBIT_TRADE_UNIVERSE,
+    tradeSymbols:executionSafe?trade.map(x=>x.symbol):[],
+    ranked:rows,watchNew,watchOnly,promotionCandidates,blocked,stale:false,executionSafe,
+    tickerSource,tickerCoverageCount:tickerList.length,broadTickerCoverageCount:broadTickerList.length,broadCoverage,fallbackCoreOnly,tickerRestError:broadTickerState?.error||null,buildLatencyMs,
+    summary:{
+      authority:'BYBIT_TOP10_MARKET_CAP_LIQUIDITY_QUALIFIED_V1',
+      selectionAuthority:'TOP100_MARKET_CAP_RANK_THEN_EXECUTION_SAFETY_TOP10',
+      executionPairLimit:EXECUTION_PAIR_LIMIT,selectedCount:trade.length,
+      cryptoOnly:true,totalLinearUsdt:rows.length,tradeableNow:executionSafe?trade.length:0,
+      promotedNow:trade.filter(x=>x.classification==='TRADE_PROMOTED').length,promotionCandidates:promotionCandidates.length,watchNew:watchNew.length,watchOnly:watchOnly.length,doNotTrade:blocked.length,counts,topTrade,
+      promotionQueue:promotionCandidates.slice(0,30).map(x=>({symbol:x.symbol,class:x.classification,potential:x.promotion?.potential??null,observations:x.promotion?.observations??0,goodRatio:x.promotion?.goodRatio??0,freshRatio:x.promotion?.freshRatio??0,turnover24h:x.turnover,spreadBps:Number(x.spreadBps.toFixed(3)),reason:x.reason})),
+      newListings:watchNew.slice(0,20).map(x=>({symbol:x.symbol,ageDays:x.ageDays===null?null:Number(x.ageDays.toFixed(2)),marketCapRank:x.marketCapRank,turnover24h:x.turnover,spreadBps:Number(x.spreadBps.toFixed(3)),reason:x.reason,symbolType:x.symbolType})),
+      watch:watchOnly.slice(0,30).map(x=>({symbol:x.symbol,class:x.classification,marketEligible:x.marketEligible===true,marketCapRank:x.marketCapRank,reason:x.reason,potential:x.promotion?.potential??null,turnover24h:x.turnover,spreadBps:Number(x.spreadBps.toFixed(3)),symbolType:x.symbolType})),
+      blockedNonCrypto:blocked.filter(x=>String(x.reason||'').startsWith('NON_CRYPTO_LINEAR_PRODUCT_')).slice(0,30).map(x=>({symbol:x.symbol,symbolType:x.symbolType,reason:x.reason})),
+      metaFresh:!metaState?.stale,metaAt:metaState?.at||null,degraded:!executionSafe,executionSafe,
+      tickerSource,tickerCoverageCount:tickerList.length,broadTickerCoverageCount:broadTickerList.length,broadCoverage,fallbackCoreOnly,
+      marketCapError:capState.error||null,metaError:metaState?.error||null,tickerRestError:broadTickerState?.error||null,buildLatencyMs
+    }
+  };
   if(executionSafe)await put(env,LAST_GOOD_KEY,out);
   return out;
 }
@@ -116,4 +182,4 @@ export async function getCachedBybitInstrumentFilter(env,symbol){
   return {symbol:s,status:row.status||'Trading',contractType:row.contractType||'LinearPerpetual',settleCoin:row.settleCoin||'USDT',minQty:num(row.minQty),maxQty:num(row.maxQty)||1e9,qtyStep:num(row.qtyStep),minNotional:num(row.minNotional)||10,tickSize:num(row.tickSize),minLeverage:Math.max(1,num(row.minLeverage)||1),maxLeverage:Math.max(1,num(row.maxLeverage)||1),leverageStep:Math.max(1,num(row.leverageStep)||1),source:'BYBIT_INSTRUMENT_META_CACHE',cachedAt:num(state.at)||null,stale:Date.now()-num(state.at)>META_TTL_MS};
 }
 
-export const BYBIT_DYNAMIC_UNIVERSE_VERSION='BYBIT_TOP100_MARKET_CAP_ANTI_SWEEP_UNIVERSE_V1';
+export const BYBIT_DYNAMIC_UNIVERSE_VERSION='BYBIT_TOP10_MARKET_CAP_LIQUIDITY_QUALIFIED_V1';
