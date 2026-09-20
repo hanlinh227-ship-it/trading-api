@@ -70,11 +70,12 @@ runtime_scheduler:
     routing_authority: false
     reasoning_authority: false
     model_selection_authority: false
-    # Deliberately unverified. The adapter and workflow exist; no Deno
-    # deployment has been health-probed, so nothing may report it as live.
-    deployed: true
-    health_verified: true
-    exact_sha_verified: true
+    # Adapter remains available, but the Deno organization is currently
+    # suspended after exhausting provider usage limits. Historical health
+    # evidence must not be treated as current runtime truth.
+    deployed: false
+    health_verified: false
+    exact_sha_verified: false
     base_url: https://trading-api-secondary.hanlinh227-ship-it.deno.net
     required_for_primary_cutover: false
   # Exhausted primary with no VERIFIED secondary is a truthful refusal, never a
