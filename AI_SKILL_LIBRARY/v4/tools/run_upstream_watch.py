@@ -2,9 +2,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import yaml
+
+# Support both "python -m ..." and direct repository-relative execution from
+# GitHub Actions. Direct script execution otherwise places only this tools
+# directory on sys.path, so the canonical AI_SKILL_LIBRARY package is invisible.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from AI_SKILL_LIBRARY.v4.tools.skill_forge import triage_gap
 from AI_SKILL_LIBRARY.v4.tools.upstream_watch import capability_diff, normalize_source
