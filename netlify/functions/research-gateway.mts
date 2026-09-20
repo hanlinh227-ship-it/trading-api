@@ -56,5 +56,5 @@ export default async function handler(request: Request, _context: Context): Prom
 }
 
 export const config: Config = {
-  path: ['/health', '/capabilities', '/research/market'],
+  path: ['/health', '/capabilities', '/research/market', '/bybit/private-egress'],
 };
