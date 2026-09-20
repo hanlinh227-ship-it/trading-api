@@ -2,7 +2,7 @@ import {recordBybitAutoSchedulerError} from './bybit-auto-controller.js';
 import {runBybitMultiAssetControlled} from './bybit-multi-asset-controller.js';
 import {BYBIT_TRADE_UNIVERSE,normalizeBybitSymbol} from './bybit-coin-profiles.js';
 
-const VERSION='BYBIT_CLOUD_MARKET_STREAM_V5_PER_SYMBOL_SELF_HEAL';
+const VERSION='BYBIT_CLOUD_MARKET_STREAM_V6_DYNAMIC_MARKETCAP_TICKERS';
 const DEFAULT_SYMBOL='BTCUSDT';
 const WS_URL='wss://stream.bybit.com/v5/public/linear';
 const FETCH_URL='https://stream.bybit.com/v5/public/linear';
