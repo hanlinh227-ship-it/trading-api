@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -130,7 +131,10 @@ def validate(root: Path = ROOT) -> list[str]:
 
 
 def main() -> int:
-    errors = validate()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", type=Path, default=ROOT)
+    args = parser.parse_args()
+    errors = validate(args.root)
     for error in errors:
         print(f"[ERROR] {error}")
     print(f"CLOUD_24X7_VALIDATE={'PASS' if not errors else 'FAIL'} errors={len(errors)}")
