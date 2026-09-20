@@ -55,3 +55,38 @@ trading:
   financial_execution: false
   account_mutation: false
   wallet_signing: false
+
+cloud_24x7:
+  enabled: true
+  semantics: service_continuity_not_all_models_hot
+  personal_pc_required: false
+  local_runtime_required: false
+  local_fallback_allowed: false
+  paid_fallback_allowed: false
+  minimum_independent_provider_paths: 3
+  minimum_active_eligible_models: 5
+  provider_managed_residency: true
+  all_models_must_be_hot: false
+  health_refresh:
+    authority: cloudflare_worker_cron
+    cadence_minutes: 20
+    live_evidence_ttl_minutes: 30
+    opportunistic_self_heal: true
+    request_path_probe_blocking: false
+  failover:
+    quota_aware: true
+    health_aware: true
+    model_family_diversity: true
+    rotate_on_429: true
+    rotate_on_5xx: true
+    rotate_before_free_quota_exhaustion: true
+    respect_provider_reset: true
+    never_open_second_account_to_bypass_quota: true
+  degraded_service:
+    allow_subset_of_models_when_provider_down: true
+    stable_runtime_survives_provider_failure: true
+    never_claim_all_models_live: true
+  background:
+    keep_user_requests_priority: true
+    health_only_cron: true
+    autonomous_financial_execution: false
