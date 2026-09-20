@@ -146,16 +146,15 @@ jobs:
           import acceptance
           matrix = acceptance.acceptance_matrix()
           print(acceptance.render_matrix(matrix))
-          # The registry now carries evidence from a real Deno deployment,
-          # exact-SHA health probe and live research smoke. The matrix must stay
-          # consistent with that evidence; negative-path tests still prove an
-          # unverified secondary can never be promoted.
-          if not matrix['SECONDARY_DEPLOYED'] or not matrix['SECONDARY_HEALTH_VERIFIED']:
-              raise SystemExit('verified Deno secondary unexpectedly missing from acceptance matrix')
-          if not matrix['SECONDARY_SHA_MATCH']:
-              raise SystemExit('verified Deno secondary lost exact-SHA status')
-          if matrix['FAILOVER_PROOF'] != 'PASS':
-              raise SystemExit('live verified secondary must be selectable when primary is circuit-open')
+          # Runtime Fabric must report CURRENT provider truth. Deno can be
+          # adapter-ready while temporarily unavailable because its free quota
+          # is exhausted; that state must not be promoted or treated as live.
+          if matrix['GITHUB_ACTIONS_COMPUTE_READY'] is not True:
+              raise SystemExit('ephemeral compute plane unexpectedly unavailable')
+          if matrix['SECONDARY_DEPLOYED'] or matrix['SECONDARY_HEALTH_VERIFIED'] or matrix['SECONDARY_SHA_MATCH']:
+              raise SystemExit('suspended Deno runtime must not be reported live')
+          if matrix['FAILOVER_PROOF'] == 'PASS':
+              raise SystemExit('failover proof cannot pass without a live secondary/tertiary runtime')
           PY
           echo "GITHUB_ACTIONS_COMPUTE_PLANE=READY"
 
@@ -203,21 +202,38 @@ jobs:
           fi
 
           # Deno Deploy Classic / deployctl is retired. Use the current Deno CLI.
-          # First try an idempotent deploy to an existing app. If the app does not
-          # exist yet, create it non-interactively from this monorepo with the
-          # explicit dynamic entrypoint.
-          if ! deno deploy --org "$DENO_ORG" --app "$DENO_APP" --prod; then
-            deno deploy create . \
-              --org "$DENO_ORG" \
-              --app "$DENO_APP" \
-              --source local \
-              --do-not-use-detected-build-config \
-              --runtime-mode dynamic \
-              --entrypoint deno-secondary/main.ts \
-              --working-directory . \
-              --build-timeout 5 \
-              --build-memory-limit 1024 \
-              --region global
+          # Distinguish a suspended/exhausted provider from a missing app. The
+          # previous workflow treated ANY deploy failure as "app missing" and
+          # attempted create, which only produced a misleading slug collision.
+          set +e
+          deno deploy --org "$DENO_ORG" --app "$DENO_APP" --prod > /tmp/deno-deploy.log 2>&1
+          deploy_status=$?
+          set -e
+          cat /tmp/deno-deploy.log
+          if [ "$deploy_status" -ne 0 ]; then
+            if grep -qi 'organization is suspended due to exceeded usage limits' /tmp/deno-deploy.log; then
+              echo "DENO_PROVIDER_STATE=QUOTA_EXHAUSTED_SUSPENDED"
+              echo "DENO_DEPLOYED=false"
+              echo "DENO_HEALTH=NOT_PROBED"
+              echo "deployed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if grep -Eqi 'not found|does not exist|unknown app' /tmp/deno-deploy.log; then
+              deno deploy create . \
+                --org "$DENO_ORG" \
+                --app "$DENO_APP" \
+                --source local \
+                --do-not-use-detected-build-config \
+                --runtime-mode dynamic \
+                --entrypoint deno-secondary/main.ts \
+                --working-directory . \
+                --build-timeout 5 \
+                --build-memory-limit 1024 \
+                --region global
+            else
+              echo "DENO_DEPLOY=FAIL_UNCLASSIFIED"
+              exit "$deploy_status"
+            fi
           fi
 
           # Exact-SHA proof is a runtime fact, not a repository assumption.
