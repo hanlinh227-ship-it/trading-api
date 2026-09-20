@@ -87,6 +87,31 @@ def validate(root: Path) -> list[str]:
     if evidence_input.get("direct_preference_write") is not False:
         errors.append("learning evidence input may not directly rewrite preferences")
 
+    cognition = _yaml(root / "AI_SKILL_LIBRARY/v4/cognition/model_learning_policy.yaml") or {}
+    cognition_authority = cognition.get("authority") or {}
+    for key, value in cognition_authority.items():
+        if key.endswith("_authority") and value is not False:
+            errors.append(f"model cognition {key} must be false")
+    token_economy = cognition.get("token_economy") or {}
+    if token_economy.get("full_skill_scan_on_model_path") is not False:
+        errors.append("model cognition must forbid full skill scan on model path")
+    if token_economy.get("full_curriculum_stays_off_prompt") is not True:
+        errors.append("full cognition curriculum must stay off the runtime prompt")
+    model_learning = cognition.get("model_specific_learning") or {}
+    if model_learning.get("consume_all_canonical_skills") is not True or model_learning.get("consume_all_role_branches") is not True:
+        errors.append("model cognition must consume all canonical skills and role branches")
+    loop = cognition.get("continuous_loop") or {}
+    if loop.get("enabled") is not True or loop.get("scheduler") != "existing_continuous_intelligence_only":
+        errors.append("model cognition loop must use the existing continuous intelligence scheduler")
+    for key in ("direct_stable_write", "direct_model_mesh_write"):
+        if loop.get(key) is not False:
+            errors.append(f"model cognition loop {key} must be false")
+    weights = cognition.get("weight_training") or {}
+    if weights.get("automatic_weight_mutation") is not False:
+        errors.append("automatic model weight mutation must remain forbidden")
+    if weights.get("promotion") != "existing_evergreen_gates_only":
+        errors.append("model training candidates must use existing Evergreen promotion gates")
+
     stable = _yaml(root / "AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml") or {}
     stable_learning = stable.get("continuous_skill_learning") or {}
     if stable_learning.get("plane") != "development_lab_only":
