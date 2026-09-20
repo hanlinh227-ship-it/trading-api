@@ -34,11 +34,11 @@ def all_axes_true():
 
 
 class FailoverProofTests(unittest.TestCase):
-    def test_current_live_secondary_is_reported_as_proof(self):
-        """The canonical registry now points at a real deployed, health-probed Deno secondary."""
+    def test_current_suspended_secondary_is_not_reported_as_proof(self):
+        """A provider suspended by exhausted free quota must not be presented as live failover."""
         result = acceptance.failover_proof(registry())
-        self.assertEqual(result["status"], acceptance.PASS)
-        self.assertEqual(result["selected"], "deno_deploy")
+        self.assertEqual(result["status"], acceptance.UNVERIFIED)
+        self.assertIsNone(result["selected"])
 
     def test_a_selected_but_undeployed_runtime_reads_simulated_only(self):
         """SIMULATED_ONLY is unreachable today - eligibility() already requires
@@ -152,9 +152,9 @@ class AcceptanceMatrixTests(unittest.TestCase):
 
     def test_secondary_flags_track_the_registry_not_wishes(self):
         matrix = acceptance.acceptance_matrix(registry())
-        self.assertIs(matrix["SECONDARY_DEPLOYED"], True)
-        self.assertIs(matrix["SECONDARY_HEALTH_VERIFIED"], True)
-        self.assertIs(matrix["SECONDARY_SHA_MATCH"], True)
+        self.assertIs(matrix["SECONDARY_DEPLOYED"], False)
+        self.assertIs(matrix["SECONDARY_HEALTH_VERIFIED"], False)
+        self.assertIs(matrix["SECONDARY_SHA_MATCH"], False)
 
     def test_secondary_sha_match_is_its_own_row_not_folded_into_health(self):
         """A runtime that answers but runs a different commit is a different
@@ -184,9 +184,10 @@ class AcceptanceMatrixTests(unittest.TestCase):
         self.assertIs(
             acceptance.acceptance_matrix(reg)["GITHUB_ACTIONS_COMPUTE_READY"], False)
 
-    def test_render_matrix_reports_real_failover_pass_only_from_live_registry(self):
+    def test_render_matrix_refuses_failover_pass_without_live_runtime(self):
         text = acceptance.render_matrix(acceptance.acceptance_matrix(registry()))
-        self.assertIn("FAILOVER_PROOF=PASS", text)
+        self.assertIn("FAILOVER_PROOF=UNVERIFIED", text)
+        self.assertNotIn("FAILOVER_PROOF=PASS", text)
 
 
 if __name__ == "__main__":
