@@ -7,7 +7,7 @@
   "kind": "g8_trading_research_evidence",
   "research_only": true,
   "schema_version": 1,
-  "snapshot_hash": "247fe19fcb5af5e00f2bd8ee5d6431ee871a763bca668404dea78314851e3348",
+  "snapshot_hash": "74c195f19b1a9b2b44b12ce2c280e78f356416e81a55c73c2491f90f7ead84ec",
   "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
   "symbols": {
     "ADAUSDT": {
@@ -15,7 +15,7 @@
       "certification_metrics": null,
       "certified_champion_id": null,
       "data_cutoff": "2026-09-19",
-      "generation": 1,
+      "generation": 2,
       "oof_metrics": null,
       "production_execution_authority": false,
       "profile_hash": null,
@@ -107,7 +107,7 @@
       "certification_metrics": null,
       "certified_champion_id": null,
       "data_cutoff": "2026-09-19",
-      "generation": 1,
+      "generation": 2,
       "oof_metrics": null,
       "production_execution_authority": false,
       "profile_hash": null,
@@ -124,7 +124,7 @@
       "certification_metrics": null,
       "certified_champion_id": null,
       "data_cutoff": "2026-09-19",
-      "generation": 1,
+      "generation": 2,
       "oof_metrics": null,
       "production_execution_authority": false,
       "profile_hash": null,
@@ -141,7 +141,7 @@
       "certification_metrics": null,
       "certified_champion_id": null,
       "data_cutoff": "2026-09-19",
-      "generation": 1,
+      "generation": 2,
       "oof_metrics": null,
       "production_execution_authority": false,
       "profile_hash": null,
@@ -158,7 +158,7 @@
       "certification_metrics": null,
       "certified_champion_id": null,
       "data_cutoff": "2026-09-19",
-      "generation": 1,
+      "generation": 2,
       "oof_metrics": null,
       "production_execution_authority": false,
       "profile_hash": null,
@@ -250,7 +250,7 @@
       "certification_metrics": null,
       "certified_champion_id": null,
       "data_cutoff": "2026-09-19",
-      "generation": 1,
+      "generation": 2,
       "oof_metrics": null,
       "production_execution_authority": false,
       "profile_hash": null,
@@ -267,64 +267,64 @@
       "certification_metrics": null,
       "certified_champion_id": null,
       "data_cutoff": "2026-09-19",
-      "generation": 1,
+      "generation": 2,
       "oof_metrics": {
         "calibration_error": null,
-        "cost_stress_expectancy_r": 0.03617326613623876,
+        "cost_stress_expectancy_r": 0.04465169992438868,
         "dsr": null,
-        "expectancy_r": 0.09923288164951129,
+        "expectancy_r": 0.10524037098944415,
         "falsification_ok": true,
         "fold_metrics": [
           {
-            "completed_trades": 0,
-            "expectancy_r": 0.0,
+            "completed_trades": 74,
+            "expectancy_r": 0.33512681448896015,
             "fold": 0,
             "reason": "ok",
-            "rr2_wr": 0.0,
-            "wilson_low": 0.0
+            "rr2_wr": 0.47297297297297297,
+            "wilson_low": 0.36338517790283736
           },
           {
-            "completed_trades": 23,
-            "expectancy_r": 0.4286018185185984,
+            "completed_trades": 46,
+            "expectancy_r": -0.06502869879664437,
             "fold": 1,
             "reason": "ok",
-            "rr2_wr": 0.5217391304347826,
-            "wilson_low": 0.3296242986421849
+            "rr2_wr": 0.34782608695652173,
+            "wilson_low": 0.22680806269918055
           },
           {
-            "completed_trades": 1,
-            "expectancy_r": -1.1906257668711644,
+            "completed_trades": 4,
+            "expectancy_r": -0.439980333447087,
             "fold": 2,
             "reason": "ok",
-            "rr2_wr": 0.0,
-            "wilson_low": 0.0
+            "rr2_wr": 0.25,
+            "wilson_low": 0.045586062644636216
           },
           {
-            "completed_trades": 47,
-            "expectancy_r": -0.03450386089236803,
+            "completed_trades": 45,
+            "expectancy_r": -0.050278224367399996,
             "fold": 3,
             "reason": "ok",
-            "rr2_wr": 0.3617021276595745,
-            "wilson_low": 0.2396602228576844
+            "rr2_wr": 0.35555555555555557,
+            "wilson_low": 0.23218891356904048
           }
         ],
         "in_sample_score": null,
         "leakage_ok": true,
-        "max_drawdown_r": 11.784852099046962,
+        "max_drawdown_r": 14.9639395550762,
         "min_required_trades": 100,
-        "pbo": 0.6666666666666666,
+        "pbo": 0.75,
         "provenance_complete": true,
-        "rr2_wr": 0.4084507042253521,
-        "trades": 71,
-        "wilson_lower": 0.30168552002378446,
-        "worst_fold_wr": 0.0
+        "rr2_wr": 0.40236686390532544,
+        "trades": 169,
+        "wilson_lower": 0.33139743513630787,
+        "worst_fold_wr": 0.25
       },
       "production_execution_authority": false,
-      "profile_hash": "57d9d633f21718ac43070dd6abf3aad6dccb0c6cd62c01cf7799d4f1c92570a1",
+      "profile_hash": "2421a838c88d3d77bc94e8e47eaa5160fcc1c8e56d102911664231b3d9198f3e",
       "required_feature_packs": [
         "base_g7"
       ],
-      "research_champion_id": "g8-a47b0c88d76dba03934d",
+      "research_champion_id": "g8-4a9b4e2058a47c28d47e",
       "setup_families": [
         "setup_trend"
       ],

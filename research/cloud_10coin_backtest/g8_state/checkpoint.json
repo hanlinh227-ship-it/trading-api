@@ -1,23 +1,23 @@
 {
   "epoch": {
     "consumed_trials": {
-      "ADAUSDT": 4,
-      "BNBUSDT": 4,
-      "BTCUSDT": 4,
-      "DOGEUSDT": 4,
-      "ETHUSDT": 4,
-      "LINKUSDT": 4,
-      "SOLUSDT": 4,
-      "TRXUSDT": 4,
-      "XLMUSDT": 4,
-      "XRPUSDT": 4
+      "ADAUSDT": 8,
+      "BNBUSDT": 8,
+      "BTCUSDT": 8,
+      "DOGEUSDT": 8,
+      "ETHUSDT": 8,
+      "LINKUSDT": 8,
+      "SOLUSDT": 8,
+      "TRXUSDT": 8,
+      "XLMUSDT": 8,
+      "XRPUSDT": 8
     },
     "data_cutoff": "2026-09-19",
     "epoch_id": "5283f78814320d2d",
     "max_adaptive_trials": 200
   },
-  "generation": 1,
-  "last_snapshot_hash": "c3d221a5788238f58326a6efd8e4251cd52b5a75c14c5e24d925857e0d36a90a",
+  "generation": 2,
+  "last_snapshot_hash": "982d251244920869fec0521d4058661d4943bc1decdca4eba134e42772d5637d",
   "schema_version": 1,
   "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
   "symbols": [

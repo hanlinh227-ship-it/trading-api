@@ -1,7 +1,7 @@
 {
-  "generation": 1,
+  "generation": 2,
   "schema_version": 1,
-  "snapshot_hash": "c3d221a5788238f58326a6efd8e4251cd52b5a75c14c5e24d925857e0d36a90a",
+  "snapshot_hash": "982d251244920869fec0521d4058661d4943bc1decdca4eba134e42772d5637d",
   "symbols": {
     "ADAUSDT": {
       "certified_champion": null,
@@ -299,10 +299,12 @@
       "certified_champion": null,
       "certified_champion_id": null,
       "data_cutoff": "2026-09-19",
-      "hall_of_fame": [],
-      "profile_hash": "57d9d633f21718ac43070dd6abf3aad6dccb0c6cd62c01cf7799d4f1c92570a1",
+      "hall_of_fame": [
+        "g8-a47b0c88d76dba03934d"
+      ],
+      "profile_hash": "2421a838c88d3d77bc94e8e47eaa5160fcc1c8e56d102911664231b3d9198f3e",
       "research_champion": {
-        "candidate_hash": "57d9d633f21718ac43070dd6abf3aad6dccb0c6cd62c01cf7799d4f1c92570a1",
+        "candidate_hash": "2421a838c88d3d77bc94e8e47eaa5160fcc1c8e56d102911664231b3d9198f3e",
         "candidate_spec": {
           "calibration": "none",
           "family": "setup_trend",
@@ -334,77 +336,77 @@
             ]
           ],
           "regime": "TREND_UP",
-          "risk_atr": 1.2,
+          "risk_atr": 1.6,
           "side": "LONG",
           "symbol": "XLMUSDT",
           "threshold": 0.55
         },
-        "created_at": "2026-09-20T19:48:23.313121+00:00",
+        "created_at": "2026-09-20T22:44:46.944702+00:00",
         "evidence_window_ids": [
           "5283f78814320d2d"
         ],
         "falsification_status": "PASS",
-        "generation": 1,
+        "generation": 2,
         "metrics": {
           "calibration_error": null,
-          "cost_stress_expectancy_r": 0.03617326613623876,
+          "cost_stress_expectancy_r": 0.04465169992438868,
           "dsr": null,
-          "expectancy_r": 0.09923288164951129,
+          "expectancy_r": 0.10524037098944415,
           "falsification_ok": true,
           "fold_metrics": [
             {
-              "completed_trades": 0,
-              "expectancy_r": 0.0,
+              "completed_trades": 74,
+              "expectancy_r": 0.33512681448896015,
               "fold": 0,
               "reason": "ok",
-              "rr2_wr": 0.0,
-              "wilson_low": 0.0
+              "rr2_wr": 0.47297297297297297,
+              "wilson_low": 0.36338517790283736
             },
             {
-              "completed_trades": 23,
-              "expectancy_r": 0.4286018185185984,
+              "completed_trades": 46,
+              "expectancy_r": -0.06502869879664437,
               "fold": 1,
               "reason": "ok",
-              "rr2_wr": 0.5217391304347826,
-              "wilson_low": 0.3296242986421849
+              "rr2_wr": 0.34782608695652173,
+              "wilson_low": 0.22680806269918055
             },
             {
-              "completed_trades": 1,
-              "expectancy_r": -1.1906257668711644,
+              "completed_trades": 4,
+              "expectancy_r": -0.439980333447087,
               "fold": 2,
               "reason": "ok",
-              "rr2_wr": 0.0,
-              "wilson_low": 0.0
+              "rr2_wr": 0.25,
+              "wilson_low": 0.045586062644636216
             },
             {
-              "completed_trades": 47,
-              "expectancy_r": -0.03450386089236803,
+              "completed_trades": 45,
+              "expectancy_r": -0.050278224367399996,
               "fold": 3,
               "reason": "ok",
-              "rr2_wr": 0.3617021276595745,
-              "wilson_low": 0.2396602228576844
+              "rr2_wr": 0.35555555555555557,
+              "wilson_low": 0.23218891356904048
             }
           ],
           "in_sample_score": null,
           "leakage_ok": true,
-          "max_drawdown_r": 11.784852099046962,
+          "max_drawdown_r": 14.9639395550762,
           "min_required_trades": 100,
-          "pbo": 0.6666666666666666,
+          "pbo": 0.75,
           "provenance_complete": true,
-          "rr2_wr": 0.4084507042253521,
-          "trades": 71,
-          "wilson_lower": 0.30168552002378446,
-          "worst_fold_wr": 0.0
+          "rr2_wr": 0.40236686390532544,
+          "trades": 169,
+          "wilson_lower": 0.33139743513630787,
+          "worst_fold_wr": 0.25
         },
-        "parent_trial_id": null,
+        "parent_trial_id": "g8-a47b0c88d76dba03934d",
         "promotion_decision": "PROMOTE",
         "rejection_reasons": [],
-        "seed": 1492842984,
+        "seed": 1466267238,
         "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
         "symbol": "XLMUSDT",
-        "trial_id": "g8-a47b0c88d76dba03934d"
+        "trial_id": "g8-4a9b4e2058a47c28d47e"
       },
-      "research_champion_id": "g8-a47b0c88d76dba03934d",
+      "research_champion_id": "g8-4a9b4e2058a47c28d47e",
       "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
       "status": "RESEARCH_ONLY"
     },

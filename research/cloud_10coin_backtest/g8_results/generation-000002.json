@@ -1,0 +1,35 @@
+{
+  "certified_count": 0,
+  "errors": {},
+  "evidence_epoch_id": "5283f78814320d2d",
+  "generation": 2,
+  "previous_snapshot_hash": "c3d221a5788238f58326a6efd8e4251cd52b5a75c14c5e24d925857e0d36a90a",
+  "promotions": {
+    "ADAUSDT": [],
+    "BNBUSDT": [],
+    "BTCUSDT": [],
+    "DOGEUSDT": [],
+    "ETHUSDT": [],
+    "LINKUSDT": [],
+    "SOLUSDT": [],
+    "TRXUSDT": [],
+    "XLMUSDT": [
+      "g8-4a9b4e2058a47c28d47e"
+    ],
+    "XRPUSDT": []
+  },
+  "snapshot_hash": "982d251244920869fec0521d4058661d4943bc1decdca4eba134e42772d5637d",
+  "summary_path": "g8_results/generation-000002.json",
+  "trials_attempted": {
+    "ADAUSDT": 4,
+    "BNBUSDT": 4,
+    "BTCUSDT": 4,
+    "DOGEUSDT": 4,
+    "ETHUSDT": 4,
+    "LINKUSDT": 4,
+    "SOLUSDT": 4,
+    "TRXUSDT": 4,
+    "XLMUSDT": 4,
+    "XRPUSDT": 4
+  }
+}
