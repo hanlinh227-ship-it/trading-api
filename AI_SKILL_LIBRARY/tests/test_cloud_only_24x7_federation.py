@@ -64,6 +64,14 @@ class CloudOnly24x7FederationTests(unittest.TestCase):
         ci = (ROOT / "AI_SKILL_LIBRARY/v4/tools/ci_validate.py").read_text(encoding="utf-8")
         self.assertIn("validate_cloud_24x7.py", ci)
 
+    def test_trading_private_read_outage_cannot_roll_back_brain(self):
+        workflow = (ROOT / ".github/workflows/deploy-skill-mandatory-fast-gateway.yml").read_text(encoding="utf-8")
+        marker = "Production Bybit private-read readiness canary (advisory, fail-closed)"
+        self.assertIn(marker, workflow)
+        tail = workflow.split(marker, 1)[1].split("- name: Production Universal Brain adapter canary", 1)[0]
+        self.assertIn("continue-on-error: true", tail)
+        self.assertIn("BYBIT_PRIVATE_READ_UNAVAILABLE", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
