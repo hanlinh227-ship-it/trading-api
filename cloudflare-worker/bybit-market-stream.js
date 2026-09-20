@@ -16,7 +16,7 @@ function validSymbol(v=''){
   const s=normalizeBybitSymbol(v||DEFAULT_SYMBOL);
   return /^[A-Z0-9]{2,28}USDT$/.test(s)?s:null;
 }
-function topicsForSymbol(symbol){
+function topicsForSymbol(symbol,universeTickerTargets=CORE_TICKER_SYMBOLS){
   const s=validSymbol(symbol)||DEFAULT_SYMBOL;
   const base=[
     `orderbook.50.${s}`,
@@ -27,7 +27,7 @@ function topicsForSymbol(symbol){
     `kline.60.${s}`,
     `tickers.${s}`,
   ];
-  if(s===DEFAULT_SYMBOL)for(const x of CORE_TICKER_SYMBOLS)if(x!==DEFAULT_SYMBOL)base.push('tickers.'+x);
+  if(s===DEFAULT_SYMBOL)for(const x of universeTickerTargets)if(x!==DEFAULT_SYMBOL)base.push('tickers.'+x);
   return [...new Set(base)];
 }
 function trimByTime(rows,windowMs=60000,now=Date.now()){
@@ -60,7 +60,7 @@ function liquidationMetrics(rows=[]){
 
 export class BybitMarketStream {
   constructor(state,env){
-    this.state=state;this.env=env;this.symbol=null;this.ws=null;this.connected=false;this.connecting=false;this.lastMessageAt=0;this.lastConnectAt=0;this.lastDisconnectAt=0;this.lastError=null;this.lastEvalAt=0;this.evalInFlight=false;this.evalPending=false;this.evalPendingReason=null;this.symbolRebinds=0;this.lastSymbolRebindAt=0;this.lastSymbolRebind=null;this.bids=new Map();this.asks=new Map();this.trades=[];this.liquidations=[];this.ticker={};this.tickers=new Map();this.klines={'5':[],'15':[],'60':[]};
+    this.state=state;this.env=env;this.symbol=null;this.ws=null;this.connected=false;this.connecting=false;this.lastMessageAt=0;this.lastConnectAt=0;this.lastDisconnectAt=0;this.lastError=null;this.lastEvalAt=0;this.evalInFlight=false;this.evalPending=false;this.evalPendingReason=null;this.symbolRebinds=0;this.lastSymbolRebindAt=0;this.lastSymbolRebind=null;this.universeTickerTargets=[...CORE_TICKER_SYMBOLS];this.universeTickerTargetsLoaded=false;this.universeTickerTargetsUpdatedAt=0;this.bids=new Map();this.asks=new Map();this.trades=[];this.liquidations=[];this.ticker={};this.tickers=new Map();this.klines={'5':[],'15':[],'60':[]};
   }
 
   async rebindSymbol(target,previous=null){
@@ -83,9 +83,55 @@ export class BybitMarketStream {
     return this.symbol;
   }
 
+  async ensureUniverseTickerTargets(){
+    if(this.universeTickerTargetsLoaded)return this.universeTickerTargets;
+    this.universeTickerTargetsLoaded=true;
+    try{
+      const stored=await this.state.storage.get('universeTickerTargets');
+      if(Array.isArray(stored)){
+        const clean=[...new Set(stored.map(validSymbol).filter(Boolean))].slice(0,40);
+        if(clean.length>=10)this.universeTickerTargets=clean;
+      }
+    }catch{}
+    return this.universeTickerTargets;
+  }
+
+  async setUniverseTickerTargets(symbols=[]){
+    if((this.symbol||DEFAULT_SYMBOL)!==DEFAULT_SYMBOL)throw new Error('UNIVERSE_TICKER_TARGETS_REQUIRE_BTC_ANCHOR');
+    await this.ensureUniverseTickerTargets();
+    const next=[...new Set((Array.isArray(symbols)?symbols:[]).map(validSymbol).filter(Boolean))].slice(0,40);
+    if(next.length<10)throw new Error('UNIVERSE_TICKER_TARGETS_REQUIRE_AT_LEAST_10');
+    const previous=[...this.universeTickerTargets],prevSet=new Set(previous),nextSet=new Set(next);
+    this.universeTickerTargets=next;this.universeTickerTargetsUpdatedAt=Date.now();
+    try{await this.state.storage.put('universeTickerTargets',next);}catch{}
+    if(this.connected&&this.ws){
+      for(const x of previous)if(!nextSet.has(x)){try{this.ws.send(JSON.stringify({op:'unsubscribe',args:['tickers.'+x]}));}catch{}}
+      for(const x of next)if(!prevSet.has(x)){try{this.ws.send(JSON.stringify({op:'subscribe',args:['tickers.'+x]}));}catch{}}
+    }
+    return {previous,next};
+  }
+
+  async waitForUniverseTickers(minFresh=10,maxMs=1200){
+    const deadline=Date.now()+Math.max(0,maxMs);
+    while(Date.now()<deadline){
+      const state=this.universeTickers();
+      if(state.freshCount>=Math.max(1,minFresh))return state;
+      await sleep(20);
+    }
+    return this.universeTickers();
+  }
+
   async fetch(request){
     const u=new URL(request.url),symbol=await this.resolveSymbol(u.searchParams.get('symbol'));
     if(!symbol)return json({ok:false,error:'STREAM_SYMBOL_REQUIRED'},400);
+    if(u.pathname.endsWith('/universe-subscribe')){
+      if(symbol!==DEFAULT_SYMBOL)return json({ok:false,error:'UNIVERSE_TICKERS_REQUIRE_BTC_ANCHOR'},409);
+      let body={};try{body=await request.json();}catch{}
+      let update;try{update=await this.setUniverseTickerTargets(body?.symbols||[]);}catch(error){return json({ok:false,error:String(error?.message||error)},400);}
+      if(!this.connected&&!this.connecting)await this.ensureConnected(symbol);
+      const state=await this.waitForUniverseTickers(10,1400);
+      return json({ok:true,updated:update,universe:state,...this.health()});
+    }
     if(u.pathname.endsWith('/connect')){await this.ensureConnected(symbol);await this.waitForFresh(500);return json({ok:true,...this.health()});}
     if(u.pathname.endsWith('/snapshot')){if(!this.connected&&!this.connecting)await this.ensureConnected(symbol);await this.waitForFresh(450);return json({ok:true,data:this.snapshot()});}
     if(u.pathname.endsWith('/universe-tickers')){if(symbol!==DEFAULT_SYMBOL)return json({ok:false,error:'UNIVERSE_TICKERS_REQUIRE_BTC_ANCHOR'},409);if(!this.connected&&!this.connecting)await this.ensureConnected(symbol);await this.waitForFresh(450);return json({ok:true,data:this.universeTickers()});}
@@ -102,8 +148,8 @@ export class BybitMarketStream {
   }
 
   health(){
-    const symbol=this.symbol||null,topics=symbol?topicsForSymbol(symbol):[];
-    return {version:VERSION,symbol,url:WS_URL,connected:this.connected,connecting:this.connecting,lastConnectAt:this.lastConnectAt||null,lastMessageAt:this.lastMessageAt||null,lastDisconnectAt:this.lastDisconnectAt||null,messageAgeMs:this.lastMessageAt?Date.now()-this.lastMessageAt:null,lastError:this.lastError,topics,tickerSymbolCount:this.tickers.size,coreTickerTargetCount:symbol===DEFAULT_SYMBOL?CORE_TICKER_SYMBOLS.length:(symbol?1:0),decisionTrigger:'CLOUD_BYBIT_WS_STATE_CHANGE',vpsRequired:false,perSymbolDirect:true,symbolSelfHeal:true,symbolRebinds:this.symbolRebinds,lastSymbolRebindAt:this.lastSymbolRebindAt||null,lastSymbolRebind:this.lastSymbolRebind};
+    const symbol=this.symbol||null,targets=symbol===DEFAULT_SYMBOL?this.universeTickerTargets:[],topics=symbol?topicsForSymbol(symbol,targets):[];
+    return {version:VERSION,symbol,url:WS_URL,connected:this.connected,connecting:this.connecting,lastConnectAt:this.lastConnectAt||null,lastMessageAt:this.lastMessageAt||null,lastDisconnectAt:this.lastDisconnectAt||null,messageAgeMs:this.lastMessageAt?Date.now()-this.lastMessageAt:null,lastError:this.lastError,topics,tickerSymbolCount:this.tickers.size,coreTickerTargetCount:symbol===DEFAULT_SYMBOL?CORE_TICKER_SYMBOLS.length:(symbol?1:0),universeTickerTargetCount:targets.length,universeTickerTargets:targets,universeTickerTargetsUpdatedAt:this.universeTickerTargetsUpdatedAt||null,decisionTrigger:'CLOUD_BYBIT_WS_STATE_CHANGE',vpsRequired:false,perSymbolDirect:true,symbolSelfHeal:true,symbolRebinds:this.symbolRebinds,lastSymbolRebindAt:this.lastSymbolRebindAt||null,lastSymbolRebind:this.lastSymbolRebind};
   }
 
   snapshot(){
@@ -112,8 +158,9 @@ export class BybitMarketStream {
   }
 
   universeTickers(){
-    const now=Date.now(),rows=[];for(const [symbol,ticker] of this.tickers.entries()){const ts=num(ticker?.ts||ticker?.timestamp||0),ageMs=ts>0?now-ts:null;if(ageMs!==null&&ageMs>15000)continue;rows.push({...ticker,symbol,ts,ageMs});}
-    return {source:'CLOUDFLARE_BYBIT_WS_TICKERS',at:now,rows,requestedSymbols:CORE_TICKER_SYMBOLS,freshCount:rows.length,targetCount:CORE_TICKER_SYMBOLS.length};
+    const now=Date.now(),targets=this.universeTickerTargets||CORE_TICKER_SYMBOLS,targetSet=new Set(targets),rows=[];for(const [symbol,ticker] of this.tickers.entries()){if(!targetSet.has(symbol))continue;const ts=num(ticker?.ts||ticker?.timestamp||0),ageMs=ts>0?now-ts:null;if(ageMs!==null&&ageMs>15000)continue;rows.push({...ticker,symbol,ts,ageMs});}
+    rows.sort((a,b)=>targets.indexOf(a.symbol)-targets.indexOf(b.symbol));
+    return {source:'CLOUDFLARE_BYBIT_WS_MARKETCAP_TICKERS',at:now,rows,requestedSymbols:targets,freshCount:rows.length,targetCount:targets.length,coverageRatio:targets.length?rows.length/targets.length:0};
   }
 
   async waitForFresh(maxMs=450){
@@ -126,7 +173,7 @@ export class BybitMarketStream {
   }
 
   async ensureConnected(symbolArg=null){
-    const symbol=await this.resolveSymbol(symbolArg);if(this.connected||this.connecting)return;this.connecting=true;
+    const symbol=await this.resolveSymbol(symbolArg);if(symbol===DEFAULT_SYMBOL)await this.ensureUniverseTickerTargets();if(this.connected||this.connecting)return;this.connecting=true;
     try{for(const interval of ['5','15','60']){const stored=await this.state.storage.get('klines:'+interval);if(Array.isArray(stored)&&stored.length)this.klines[interval]=stored.slice(-220);}}catch{}
     this.lastError=null;
     try{
@@ -134,7 +181,7 @@ export class BybitMarketStream {
       ws.addEventListener('message',event=>{this.lastMessageAt=Date.now();try{this.onMessage(JSON.parse(String(event.data||'{}')));}catch(error){this.lastError='MESSAGE_PARSE:'+String(error?.message||error).slice(0,180);}});
       ws.addEventListener('close',event=>{this.connected=false;this.connecting=false;this.lastDisconnectAt=Date.now();this.ws=null;this.lastError=`WS_CLOSE_${event.code||0}_${String(event.reason||'').slice(0,80)}`;this.state.storage.setAlarm(Date.now()+1500).catch(()=>{});});
       ws.addEventListener('error',()=>{this.connected=false;this.connecting=false;this.lastError='WS_ERROR';this.state.storage.setAlarm(Date.now()+1500).catch(()=>{});});
-      const topics=topicsForSymbol(symbol);for(let i=0;i<topics.length;i+=10)ws.send(JSON.stringify({op:'subscribe',args:topics.slice(i,i+10)}));
+      if(symbol===DEFAULT_SYMBOL){const baseTopics=topicsForSymbol(symbol,[]);ws.send(JSON.stringify({op:'subscribe',args:baseTopics}));for(const x of this.universeTickerTargets)if(x!==DEFAULT_SYMBOL)ws.send(JSON.stringify({op:'subscribe',args:['tickers.'+x]}));}else{const topics=topicsForSymbol(symbol,[]);ws.send(JSON.stringify({op:'subscribe',args:topics}));}
       await this.state.storage.setAlarm(Date.now()+30000);
     }catch(error){this.connecting=false;this.connected=false;this.ws=null;this.lastError='CONNECT_FAILED:'+String(error?.message||error).slice(0,180);await this.state.storage.setAlarm(Date.now()+3000);}
   }

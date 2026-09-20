@@ -67,33 +67,9 @@ function entryOrderLinkId(body={}){
 export function bybitV5(env={}){
   const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";
   const c=bybitCredentials(env),cfg=bybitAutoConfig(env),baseList=privateBases(env),publicBaseList=marketBases(env),recvWindow=String(Math.max(5000,Math.min(20000,Number(cfg.execution?.recvWindow||10000))));
-  async function publicViaServerlessEgress(path,params={}){
-    const endpoint=demoEgressUrl(env),secret=demoEgressSecret(env);
-    if(!endpoint||!secret)throw new Error("BYBIT_PUBLIC_EGRESS_NOT_CONFIGURED");
-    const query=qs(params);
-    const response=await fetch(endpoint+"/bybit/public-egress",{
-      method:"POST",
-      headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+secret},
-      body:JSON.stringify({method:"GET",path,query}),
-      signal:AbortSignal.timeout(18000)
-    });
-    const text=await response.text();let data=null;try{data=text?JSON.parse(text):null;}catch{}
-    if(!response.ok||!data?.ok){
-      const snippet=data?.error||String(text||"").replace(/\s+/g," ").slice(0,240)||`HTTP ${response.status}`;
-      throw bybitError(path,response.status,data?.upstream||null,{bodySnippet:snippet,base:"https://api.bybit.com",attemptedBases:["DENO_PUBLIC_EGRESS"],transport:"DENO_BYBIT_PUBLIC_EGRESS"});
-    }
-    const up=data.upstream||null,status=Number(data.httpStatus||0)||502;
-    if(Number(up?.retCode)!==0)throw bybitError(path,status,up,{base:"https://api.bybit.com",attemptedBases:["DENO_PUBLIC_EGRESS"],transport:"DENO_BYBIT_PUBLIC_EGRESS"});
-    return up;
-  }
   async function pub(path,params={}){
     const now=Date.now();
-    if(PUBLIC_REGION_BLOCKED_UNTIL>now){
-      if(demoEgressUrl(env)&&demoEgressSecret(env)){
-        try{return await publicViaServerlessEgress(path,params);}catch{}
-      }
-      throw publicCircuitError(path);
-    }
+    if(PUBLIC_REGION_BLOCKED_UNTIL>now)throw publicCircuitError(path);
     const q=qs(params),attempted=[];let lastErr;
     for(const base of publicBaseList){
       attempted.push(base);
@@ -108,10 +84,7 @@ export function bybitV5(env={}){
         if(isRegionBlock(e)){
           PUBLIC_REGION_BLOCKED_UNTIL=Date.now()+PUBLIC_REGION_BLOCK_TTL_MS;
           PUBLIC_REGION_BLOCK_REASON=String(e?.bybit?.bodySnippet||e?.bybit?.retMsg||e?.message||'REGION_BLOCK').slice(0,220);
-          if(demoEgressUrl(env)&&demoEgressSecret(env)){
-            try{return await publicViaServerlessEgress(path,params);}catch(relayError){lastErr=relayError;}
-          }
-          throw lastErr;
+          throw e;
         }
         const h=Number(e?.bybit?.httpStatus||0),ret=Number(e?.bybit?.retCode);
         const retry=[0,408,425,429,500,502,503,504].includes(h)||[10000,10006,10016].includes(ret);
