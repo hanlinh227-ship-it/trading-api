@@ -83,6 +83,17 @@ class ZeroLocalManifestTests(unittest.TestCase):
         self.assertEqual(verification["min_research_providers"], 2)
         self.assertEqual(verification["required_execution_venues"], [])
 
+    def test_production_smoke_accepts_degraded_only_with_redundant_fresh_evidence(self):
+        text = WORKFLOW_PATH.read_text(encoding="utf-8")
+        production = text.split("  production-smoke:", 1)[1]
+        self.assertNotIn("data.get('ok') is not True or data.get('degraded') is True", production)
+        self.assertIn("if data.get('conflict') is True:", production)
+        self.assertIn("len(fresh_providers) < 2", production)
+        self.assertIn("freshness not in {'FRESH', 'DEGRADED'}", production)
+        self.assertIn("DEGRADED_REDUNDANT", production)
+        self.assertIn("degraded payload/freshness mismatch", production)
+        self.assertIn("healthy payload/freshness mismatch", production)
+
     def test_global_checkpoint_is_resolved_for_every_new_work_cycle(self):
         checkpoint = json.loads((ROOT / "AI_SKILL_LIBRARY/checkpoint.json").read_text(encoding="utf-8"))
         self.assertEqual(checkpoint["global_checkpoint_path"], "AI_SKILL_LIBRARY/AI_GLOBAL_CHECKPOINT.md")
