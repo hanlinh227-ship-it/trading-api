@@ -181,7 +181,7 @@ export class BybitMarketStream {
       ws.addEventListener('message',event=>{this.lastMessageAt=Date.now();try{this.onMessage(JSON.parse(String(event.data||'{}')));}catch(error){this.lastError='MESSAGE_PARSE:'+String(error?.message||error).slice(0,180);}});
       ws.addEventListener('close',event=>{this.connected=false;this.connecting=false;this.lastDisconnectAt=Date.now();this.ws=null;this.lastError=`WS_CLOSE_${event.code||0}_${String(event.reason||'').slice(0,80)}`;this.state.storage.setAlarm(Date.now()+1500).catch(()=>{});});
       ws.addEventListener('error',()=>{this.connected=false;this.connecting=false;this.lastError='WS_ERROR';this.state.storage.setAlarm(Date.now()+1500).catch(()=>{});});
-      const topics=topicsForSymbol(symbol,symbol===DEFAULT_SYMBOL?this.universeTickerTargets:[]);for(let i=0;i<topics.length;i+=10)ws.send(JSON.stringify({op:'subscribe',args:topics.slice(i,i+10)}));
+      if(symbol===DEFAULT_SYMBOL){const baseTopics=topicsForSymbol(symbol,[]);ws.send(JSON.stringify({op:'subscribe',args:baseTopics}));for(const x of this.universeTickerTargets)if(x!==DEFAULT_SYMBOL)ws.send(JSON.stringify({op:'subscribe',args:['tickers.'+x]}));}else{const topics=topicsForSymbol(symbol,[]);ws.send(JSON.stringify({op:'subscribe',args:topics}));}
       await this.state.storage.setAlarm(Date.now()+30000);
     }catch(error){this.connecting=false;this.connected=false;this.ws=null;this.lastError='CONNECT_FAILED:'+String(error?.message||error).slice(0,180);await this.state.storage.setAlarm(Date.now()+3000);}
   }
