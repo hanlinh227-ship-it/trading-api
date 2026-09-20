@@ -39,7 +39,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: research/cloud_10coin_backtest/requirements.txt
-      - run: pip install -r research/cloud_10coin_backtest/requirements.txt 'PyYAML>=6,<7'
+      - run: pip install -r research/cloud_10coin_backtest/requirements.txt -r AI_SKILL_LIBRARY/requirements.txt 'PyYAML>=6,<7'
       - name: G9 targeted contracts
         working-directory: research/cloud_10coin_backtest
         run: PYTHONPATH=. pytest tests/test_g9_*.py -q
@@ -252,17 +252,36 @@ jobs:
           )
           publish_pool(pool_path, pool)
 
-          manifest = build_evidence_manifest_from_pool(
-              pool,
-              source_sha=os.environ['GITHUB_SHA'],
-              data_cutoff=os.environ['END_DATE'],
-          )
-          errors = validate_manifest(manifest)
-          if errors:
-              raise SystemExit('invalid G9 evidence manifest: ' + ','.join(errors))
           evidence_path = root / 'AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json'
           evidence_path.parent.mkdir(parents=True, exist_ok=True)
-          evidence_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+          route_champions = sum(
+              1 for state in pool.lanes.values()
+              if state.champion is not None
+          )
+          evidence_state = 'CURRENT'
+          if route_champions:
+              manifest = build_evidence_manifest_from_pool(
+                  pool,
+                  source_sha=os.environ['GITHUB_SHA'],
+                  data_cutoff=os.environ['END_DATE'],
+              )
+              errors = validate_manifest(manifest)
+              if errors:
+                  raise SystemExit('invalid G9 evidence manifest: ' + ','.join(errors))
+              evidence_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+          elif evidence_path.exists():
+              # All lanes may be missing/degraded in one cycle. Preserve the
+              # last verified research evidence rather than fabricating a new
+              # empty manifest or crashing the whole Evergreen plane.
+              previous_manifest = json.loads(evidence_path.read_text())
+              errors = validate_manifest(previous_manifest)
+              if errors:
+                  raise SystemExit('invalid preserved G9 evidence manifest: ' + ','.join(errors))
+              evidence_state = 'PRESERVED'
+          else:
+              # First-run/no-champion state is valid research state. There is
+              # simply no promotable evidence yet; Stable must not be blocked.
+              evidence_state = 'NO_PROMOTABLE_EVIDENCE'
 
           aggregate_path = state_root / 'aggregate_status.json'
           aggregate_path.write_text(json.dumps({
@@ -271,20 +290,29 @@ jobs:
               'lane_status': statuses,
               'updated_lanes': sum(v == 'UPDATED' for v in statuses.values()),
               'pool_promotions': pool_promotions,
+              'route_champions': route_champions,
+              'evidence_state': evidence_state,
               'research_only': True,
               'production_execution_authority': False,
           }, indent=2, sort_keys=True) + '\n')
           PY
-      - name: Validate generated evidence
+      - name: Validate generated or preserved evidence
         run: |
           PYTHONPATH=. python - <<'PY'
           import json
           from pathlib import Path
           from AI_SKILL_LIBRARY.v4.tools.validate_g9_trading_evidence import validate_manifest
           p = Path('generated/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json')
-          errors = validate_manifest(json.loads(p.read_text()))
-          if errors:
-              raise SystemExit(','.join(errors))
+          if not p.exists():
+              status = json.loads(Path('generated/research/cloud_10coin_backtest/g9_state/aggregate_status.json').read_text())
+              if status.get('evidence_state') != 'NO_PROMOTABLE_EVIDENCE':
+                  raise SystemExit('G9 evidence missing without explicit no-promotable-evidence state')
+              print('G9_EVIDENCE=NO_PROMOTABLE_EVIDENCE')
+          else:
+              errors = validate_manifest(json.loads(p.read_text()))
+              if errors:
+                  raise SystemExit(','.join(errors))
+              print('G9_EVIDENCE=PASS')
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -317,8 +345,10 @@ jobs:
           mkdir -p state-branch/AI_SKILL_LIBRARY/v4/evergreen/candidate_state
           cp -a generated/research/cloud_10coin_backtest/g9_state/. state-branch/research/cloud_10coin_backtest/g9_state/
           cp -a generated/research/cloud_10coin_backtest/g9_results/. state-branch/research/cloud_10coin_backtest/g9_results/ || true
-          cp generated/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json \
-             state-branch/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json
+          if [ -f generated/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json ]; then
+            cp generated/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json \
+               state-branch/AI_SKILL_LIBRARY/v4/evergreen/candidate_state/g9_trading_evidence.json
+          fi
           cd state-branch
           git config user.name 'g9-brainloop[bot]'
           git config user.email 'g9-brainloop[bot]@users.noreply.github.com'

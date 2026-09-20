@@ -87,9 +87,11 @@
           "status": "distinct_candidate",
           "triage": {
             "action": "create",
+            "evidence_refs": [],
             "gap_id": "upstream:docling:document_parsing",
             "promotion_class": "A",
             "routing_authority": false,
+            "source_kind": "failure",
             "stable_write": false,
             "target_skill_id": null
           }
@@ -102,9 +104,11 @@
           "status": "distinct_candidate",
           "triage": {
             "action": "create",
+            "evidence_refs": [],
             "gap_id": "upstream:docling:structure_aware_extraction",
             "promotion_class": "A",
             "routing_authority": false,
+            "source_kind": "failure",
             "stable_write": false,
             "target_skill_id": null
           }
@@ -169,9 +173,11 @@
           "status": "distinct_candidate",
           "triage": {
             "action": "create",
+            "evidence_refs": [],
             "gap_id": "upstream:mcp_python_sdk:mcp_protocol_interop",
             "promotion_class": "A",
             "routing_authority": false,
+            "source_kind": "failure",
             "stable_write": false,
             "target_skill_id": null
           }
