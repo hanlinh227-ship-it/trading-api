@@ -265,8 +265,10 @@ async function selectWorkers(env,offset=0){
   const selectAt=off=>selectModelWorkers({profile:'DEEP',domain:'trading',dataClass:'PUBLIC',models:liveModels,hardCapabilities,requiredCapability:'text_reasoning',offset:off});
   const pool=new Map();
   for(let i=0;i<Math.max(8,liveModels.length*2);i++)for(const worker of selectAt(i)){const key=String(worker.model_family||worker.model_id||worker.provider_id);if(!pool.has(key))pool.set(key,worker);}
-  const selected=selectAt(offset).slice(0,BYBIT_AI_LEGION_ROLES.length);
-  return {evidenceSnapshot,selected,poolSize:pool.size,pool:[...pool.values()].map(x=>({providerId:x.provider_id,modelId:x.model_id,modelFamily:x.model_family}))};
+  const distinct=[...pool.values()],start=distinct.length?Math.max(0,Math.floor(num(offset)))%distinct.length:0,
+    rotated=distinct.length?[...distinct.slice(start),...distinct.slice(0,start)]:[],
+    selected=rotated.slice(0,BYBIT_AI_LEGION_ROLES.length);
+  return {evidenceSnapshot,selected,poolSize:pool.size,pool:distinct.map(x=>({providerId:x.provider_id,modelId:x.model_id,modelFamily:x.model_family}))};
 }
 
 export async function refreshBybitAiLegion({env={},market={},setup={}}={}){
