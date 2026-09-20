@@ -414,6 +414,25 @@ jobs:
           echo "BYBIT_TOP10_UNIVERSE=FAIL"
           exit 1
 
+      - name: Production Bybit private-read readiness canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 24); do
+            body="$(curl -sS --connect-timeout 5 --max-time 30 -w '\nHTTP_STATUS=%{http_code}\n' "$WORKER_BASE_URL/bybit/health" || true)"
+            status="$(printf '%s\n' "$body" | sed -n 's/^HTTP_STATUS=//p' | tail -1)"
+            json_body="$(printf '%s\n' "$body" | sed '/^HTTP_STATUS=/d')"
+            printf '%s\n' "$json_body" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);const safe={ok:x.ok,authenticated:x.authenticated,mode:x.mode,revision:x.runtimeRevision,ready:x.execution?.ready,blockers:x.blockers||[],reason:x.reason||null,path:x.bybit?.path||null,httpStatus:x.bybit?.httpStatus??null,transport:x.bybit?.transport||null};console.log('BYBIT_PRIVATE_READINESS_RESPONSE='+JSON.stringify(safe))}catch{console.log('BYBIT_PRIVATE_READINESS_RESPONSE=INVALID_JSON')}})"
+            if [ "$status" = "200" ] && printf '%s\n' "$json_body" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.ok!==true||x.authenticated!==true||x.execution?.ready!==true||!Array.isArray(x.blockers)||x.blockers.length!==0)process.exit(2)}catch{process.exit(2)}})"; then
+              echo "BYBIT_PRIVATE_READINESS=PASS"
+              exit 0
+            fi
+            echo "BYBIT_PRIVATE_READINESS_WAIT attempt=$attempt status=$status"
+            sleep 5
+          done
+          echo "BYBIT_PRIVATE_READINESS=FAIL"
+          exit 1
+
       - name: Production Universal Brain adapter canary
         working-directory: cloudflare-worker
         env:
