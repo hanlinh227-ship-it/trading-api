@@ -72,6 +72,17 @@ class CloudOnly24x7FederationTests(unittest.TestCase):
         self.assertIn("continue-on-error: true", tail)
         self.assertIn("BYBIT_PRIVATE_READ_UNAVAILABLE", workflow)
 
+    def test_bybit_demo_egress_secret_is_synchronized_end_to_end(self):
+        portable = (ROOT / ".github/workflows/deploy-portable-runtimes.yml").read_text(encoding="utf-8")
+        deploy = (ROOT / ".github/workflows/deploy-skill-mandatory-fast-gateway.yml").read_text(encoding="utf-8")
+        deno = (ROOT / "deno-secondary/main.ts").read_text(encoding="utf-8")
+        self.assertIn("deno deploy env update-value BYBIT_DEMO_EGRESS_SHARED_SECRET", portable)
+        self.assertIn("BYBIT_DEMO_EGRESS_SECRET=SYNCED", portable)
+        self.assertIn("wrangler secret put BYBIT_DEMO_EGRESS_URL", deploy)
+        self.assertIn("wrangler secret put BYBIT_DEMO_EGRESS_SHARED_SECRET", deploy)
+        self.assertIn("bybitPrivateEgressConfigured", deno)
+        self.assertIn("bybitPrivateEgressBase", deno)
+
 
 if __name__ == "__main__":
     unittest.main()
