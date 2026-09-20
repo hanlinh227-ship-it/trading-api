@@ -62,15 +62,17 @@ runtimes:
     entrypoint: deno-secondary/main.ts
     base_url: https://trading-api-secondary.hanlinh227-ship-it.deno.net
     deploy_authority: .github/workflows/deploy-portable-runtimes.yml
-    # Live-probed on GitHub Actions run 35361589900 at source SHA
-    # 06e813bb3765495371fb3a3fd5095d1046c22445: /health, exact SHA,
-    # /capabilities and live /research/market all passed.
-    lifecycle: STABLE
+    # Previously live-probed on GitHub Actions run 35361589900. On
+    # 2026-09-20 Deno Deploy refused production redeploy because the
+    # organization was suspended after exceeding usage limits. The adapter
+    # remains buildable, but runtime liveness must follow the current provider
+    # state rather than stale historical evidence.
+    lifecycle: ADAPTER_READY
     verification:
       configured: true
-      deployed: true
-      health_verified: true
-      exact_sha_verified: true
+      deployed: false
+      health_verified: false
+      exact_sha_verified: false
       free_tier_verified: true
 
   netlify_functions:
