@@ -39,6 +39,13 @@ const INSTRUMENTS = new Set(['spot', 'perpetual']);
 const SIDES = new Set(['LONG', 'SHORT']);
 const EXECUTION_VENUES = new Set(['bybit', 'binance']);
 const BYBIT_DEMO_BASE = 'https://api-demo.bybit.com';
+const BYBIT_PUBLIC_BASE = 'https://api.bybit.com';
+const BYBIT_PUBLIC_PATHS = new Set([
+  '/v5/market/time',
+  '/v5/market/tickers',
+  '/v5/market/instruments-info',
+  '/v5/market/kline',
+]);
 const BYBIT_PRIVATE_PATHS = new Set([
   '/v5/account/wallet-balance',
   '/v5/position/list',
@@ -170,6 +177,47 @@ export async function handle(request: Request): Promise<Response> {
       localInstallRequired: false,
       tools: MARKET_TOOLS,
     });
+  }
+
+  if (url.pathname === '/bybit/public-egress') {
+    if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
+    const expected = Deno.env.get('BYBIT_DEMO_EGRESS_SHARED_SECRET') ?? '';
+    const supplied = request.headers.get('authorization') ?? '';
+    if (!expected || supplied !== 'Bearer ' + expected) return json({ ok: false, error: 'unauthorized' }, 401);
+
+    let raw: Record<string, unknown>;
+    try {
+      const text = await request.text();
+      if (encoder.encode(text).byteLength > 16_000) throw new Error('body_too_large');
+      raw = JSON.parse(text);
+    } catch {
+      return json({ ok: false, error: 'invalid_public_egress_request' }, 400);
+    }
+
+    const method = String(raw.method ?? '').toUpperCase();
+    const path = String(raw.path ?? '');
+    const query = String(raw.query ?? '');
+    if (method !== 'GET' || !BYBIT_PUBLIC_PATHS.has(path) || query.length > 8_000) {
+      return json({ ok: false, error: 'public_egress_request_not_allowed' }, 400);
+    }
+
+    const target = BYBIT_PUBLIC_BASE + path + (query ? '?' + query : '');
+    try {
+      const upstream = await fetch(target, {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(15_000),
+      });
+      const text = await upstream.text();
+      let parsed: unknown = null;
+      try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+      if (!parsed || typeof parsed !== 'object') {
+        return json({ ok: false, error: 'invalid_bybit_public_response', httpStatus: upstream.status }, 502);
+      }
+      return json({ ok: upstream.ok, httpStatus: upstream.status, upstream: parsed, transport: 'DENO_BYBIT_PUBLIC_EGRESS' }, upstream.ok ? 200 : upstream.status);
+    } catch (error) {
+      return json({ ok: false, error: 'bybit_public_egress_fetch_failed', detail: String(error instanceof Error ? error.message : error).slice(0, 180) }, 502);
+    }
   }
 
   if (url.pathname === '/bybit/private-egress') {
