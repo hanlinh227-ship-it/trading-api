@@ -1,0 +1,17 @@
+{
+  "epoch": {
+    "consumed_trials": {
+      "XRPUSDT": 4
+    },
+    "data_cutoff": "2026-09-19",
+    "epoch_id": "a2e4fa6147b1a0af",
+    "max_adaptive_trials": 200
+  },
+  "generation": 1,
+  "last_snapshot_hash": "3f971e84993a5a034d108e6640a853829b5b1e7d59884b6bf4913417fc9cf162",
+  "schema_version": 1,
+  "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+  "symbols": [
+    "XRPUSDT"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "epoch": {
+    "consumed_trials": {
+      "BNBUSDT": 4
+    },
+    "data_cutoff": "2026-09-19",
+    "epoch_id": "6ba14f475db165a8",
+    "max_adaptive_trials": 200
+  },
+  "generation": 1,
+  "last_snapshot_hash": "4dc0f4131cc76d042cf4f11b8a840f3c091b9479154b87bbeeae7116cbd59e2f",
+  "schema_version": 1,
+  "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+  "symbols": [
+    "BNBUSDT"
+  ]
+}

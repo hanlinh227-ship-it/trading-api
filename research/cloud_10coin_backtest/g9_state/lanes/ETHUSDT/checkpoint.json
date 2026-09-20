@@ -1,0 +1,17 @@
+{
+  "epoch": {
+    "consumed_trials": {
+      "ETHUSDT": 4
+    },
+    "data_cutoff": "2026-09-19",
+    "epoch_id": "9fd55d20ce1f4383",
+    "max_adaptive_trials": 200
+  },
+  "generation": 1,
+  "last_snapshot_hash": "ccd3c9340361ba2a2c78813c8aa180a7f2c1878ca1c62807fdc43297d4a46404",
+  "schema_version": 1,
+  "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+  "symbols": [
+    "ETHUSDT"
+  ]
+}

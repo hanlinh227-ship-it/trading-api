@@ -1,0 +1,17 @@
+{
+  "epoch": {
+    "consumed_trials": {
+      "XLMUSDT": 4
+    },
+    "data_cutoff": "2026-09-19",
+    "epoch_id": "424c1f2f0eb6a7d6",
+    "max_adaptive_trials": 200
+  },
+  "generation": 1,
+  "last_snapshot_hash": "b3f9996b7be8527aa85c0f6702ebc6600fef74740d115ba77a9c00a2fafafdee",
+  "schema_version": 1,
+  "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+  "symbols": [
+    "XLMUSDT"
+  ]
+}

@@ -1,0 +1,525 @@
+{
+  "generation": 1,
+  "schema_version": 1,
+  "snapshot_hash": "cbfbc9fc8afc5dfbe286ca7f8fb4a1b72040f6441b1d5a907eea82ce07a8896c",
+  "symbols": {
+    "ADAUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": null,
+      "hall_of_fame": [],
+      "profile_hash": null,
+      "research_champion": null,
+      "research_champion_id": null,
+      "source_sha": null,
+      "status": "QUARANTINED"
+    },
+    "BNBUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": "2026-09-19",
+      "hall_of_fame": [],
+      "profile_hash": "031538f004595b82e3897a20b9ffe642203687f2422ea924a9d58389127a652f",
+      "research_champion": {
+        "candidate_hash": "031538f004595b82e3897a20b9ffe642203687f2422ea924a9d58389127a652f",
+        "candidate_spec": {
+          "calibration": "none",
+          "family": "setup_sweep",
+          "feature_pack": [
+            "base_g7"
+          ],
+          "hold_bars": 72,
+          "model_family": "random_forest",
+          "model_params": [
+            [
+              "max_depth",
+              4
+            ],
+            [
+              "max_features",
+              0.7
+            ],
+            [
+              "min_samples_leaf",
+              18
+            ],
+            [
+              "n_estimators",
+              120
+            ],
+            [
+              "random_state",
+              71
+            ]
+          ],
+          "regime": "RANGE",
+          "risk_atr": 1.2,
+          "side": "LONG",
+          "symbol": "BNBUSDT",
+          "threshold": 0.55
+        },
+        "created_at": "2026-09-20T19:06:07.791104+00:00",
+        "evidence_window_ids": [
+          "6ba14f475db165a8"
+        ],
+        "falsification_status": "PASS",
+        "generation": 1,
+        "metrics": {
+          "calibration_error": null,
+          "cost_stress_expectancy_r": 1.7369643466717288,
+          "dsr": null,
+          "expectancy_r": 1.8246428977811526,
+          "falsification_ok": true,
+          "fold_metrics": [
+            {
+              "completed_trades": 0,
+              "expectancy_r": 0.0,
+              "fold": 0,
+              "reason": "insufficient-train-labels",
+              "rr2_wr": 0.0,
+              "wilson_low": 0.0
+            },
+            {
+              "completed_trades": 0,
+              "expectancy_r": 0.0,
+              "fold": 1,
+              "reason": "ok",
+              "rr2_wr": 0.0,
+              "wilson_low": 0.0
+            },
+            {
+              "completed_trades": 0,
+              "expectancy_r": 0.0,
+              "fold": 2,
+              "reason": "ok",
+              "rr2_wr": 0.0,
+              "wilson_low": 0.0
+            },
+            {
+              "completed_trades": 1,
+              "expectancy_r": 1.8246428977811526,
+              "fold": 3,
+              "reason": "ok",
+              "rr2_wr": 1.0,
+              "wilson_low": 0.20654329147389294
+            }
+          ],
+          "in_sample_score": null,
+          "leakage_ok": true,
+          "max_drawdown_r": 0.0,
+          "min_required_trades": 100,
+          "pbo": 0.0,
+          "provenance_complete": true,
+          "rr2_wr": 1.0,
+          "trades": 1,
+          "wilson_lower": 0.20654329147389294,
+          "worst_fold_wr": 1.0
+        },
+        "parent_trial_id": null,
+        "promotion_decision": "PROMOTE",
+        "rejection_reasons": [],
+        "seed": 1940451371,
+        "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+        "symbol": "BNBUSDT",
+        "trial_id": "g8-7049a05513b034c7f477"
+      },
+      "research_champion_id": "g8-7049a05513b034c7f477",
+      "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+      "status": "RESEARCH_ONLY"
+    },
+    "BTCUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": null,
+      "hall_of_fame": [],
+      "profile_hash": null,
+      "research_champion": null,
+      "research_champion_id": null,
+      "source_sha": null,
+      "status": "QUARANTINED"
+    },
+    "DOGEUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": null,
+      "hall_of_fame": [],
+      "profile_hash": null,
+      "research_champion": null,
+      "research_champion_id": null,
+      "source_sha": null,
+      "status": "QUARANTINED"
+    },
+    "ETHUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": null,
+      "hall_of_fame": [],
+      "profile_hash": null,
+      "research_champion": null,
+      "research_champion_id": null,
+      "source_sha": null,
+      "status": "QUARANTINED"
+    },
+    "LINKUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": null,
+      "hall_of_fame": [],
+      "profile_hash": null,
+      "research_champion": null,
+      "research_champion_id": null,
+      "source_sha": null,
+      "status": "QUARANTINED"
+    },
+    "SOLUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": "2026-09-19",
+      "hall_of_fame": [],
+      "profile_hash": "09eb96c383e7e9fa24fa1ea54b2ed3040fd8a252516cc7be0a4e3d5568fbaf67",
+      "research_champion": {
+        "candidate_hash": "09eb96c383e7e9fa24fa1ea54b2ed3040fd8a252516cc7be0a4e3d5568fbaf67",
+        "candidate_spec": {
+          "calibration": "none",
+          "family": "setup_sweep",
+          "feature_pack": [
+            "base_g7"
+          ],
+          "hold_bars": 72,
+          "model_family": "random_forest",
+          "model_params": [
+            [
+              "max_depth",
+              4
+            ],
+            [
+              "max_features",
+              0.7
+            ],
+            [
+              "min_samples_leaf",
+              18
+            ],
+            [
+              "n_estimators",
+              120
+            ],
+            [
+              "random_state",
+              71
+            ]
+          ],
+          "regime": "RANGE",
+          "risk_atr": 1.2,
+          "side": "SHORT",
+          "symbol": "SOLUSDT",
+          "threshold": 0.55
+        },
+        "created_at": "2026-09-20T19:06:58.653108+00:00",
+        "evidence_window_ids": [
+          "89b03a531496cd25"
+        ],
+        "falsification_status": "PASS",
+        "generation": 1,
+        "metrics": {
+          "calibration_error": null,
+          "cost_stress_expectancy_r": 0.019739732945826458,
+          "dsr": null,
+          "expectancy_r": 0.0964931552972176,
+          "falsification_ok": true,
+          "fold_metrics": [
+            {
+              "completed_trades": 26,
+              "expectancy_r": 0.12081460922837745,
+              "fold": 0,
+              "reason": "ok",
+              "rr2_wr": 0.4230769230769231,
+              "wilson_low": 0.255441899027294
+            },
+            {
+              "completed_trades": 8,
+              "expectancy_r": 0.3321062048386286,
+              "fold": 1,
+              "reason": "ok",
+              "rr2_wr": 0.5,
+              "wilson_low": 0.21521252682444186
+            },
+            {
+              "completed_trades": 2,
+              "expectancy_r": -1.1621379439735047,
+              "fold": 2,
+              "reason": "ok",
+              "rr2_wr": 0.0,
+              "wilson_low": 0.0
+            },
+            {
+              "completed_trades": 0,
+              "expectancy_r": 0.0,
+              "fold": 3,
+              "reason": "ok",
+              "rr2_wr": 0.0,
+              "wilson_low": 0.0
+            }
+          ],
+          "in_sample_score": null,
+          "leakage_ok": true,
+          "max_drawdown_r": 5.791771763236585,
+          "min_required_trades": 100,
+          "pbo": 0.3333333333333333,
+          "provenance_complete": true,
+          "rr2_wr": 0.4166666666666667,
+          "trades": 36,
+          "wilson_lower": 0.27140333505087283,
+          "worst_fold_wr": 0.0
+        },
+        "parent_trial_id": null,
+        "promotion_decision": "PROMOTE",
+        "rejection_reasons": [],
+        "seed": 1043533142,
+        "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+        "symbol": "SOLUSDT",
+        "trial_id": "g8-ec7190267ce44ff798cb"
+      },
+      "research_champion_id": "g8-ec7190267ce44ff798cb",
+      "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+      "status": "RESEARCH_ONLY"
+    },
+    "TRXUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": null,
+      "hall_of_fame": [],
+      "profile_hash": null,
+      "research_champion": null,
+      "research_champion_id": null,
+      "source_sha": null,
+      "status": "QUARANTINED"
+    },
+    "XLMUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": "2026-09-19",
+      "hall_of_fame": [],
+      "profile_hash": "57d9d633f21718ac43070dd6abf3aad6dccb0c6cd62c01cf7799d4f1c92570a1",
+      "research_champion": {
+        "candidate_hash": "57d9d633f21718ac43070dd6abf3aad6dccb0c6cd62c01cf7799d4f1c92570a1",
+        "candidate_spec": {
+          "calibration": "none",
+          "family": "setup_trend",
+          "feature_pack": [
+            "base_g7"
+          ],
+          "hold_bars": 72,
+          "model_family": "random_forest",
+          "model_params": [
+            [
+              "max_depth",
+              4
+            ],
+            [
+              "max_features",
+              0.7
+            ],
+            [
+              "min_samples_leaf",
+              18
+            ],
+            [
+              "n_estimators",
+              120
+            ],
+            [
+              "random_state",
+              71
+            ]
+          ],
+          "regime": "TREND_UP",
+          "risk_atr": 1.2,
+          "side": "LONG",
+          "symbol": "XLMUSDT",
+          "threshold": 0.55
+        },
+        "created_at": "2026-09-20T19:06:10.112596+00:00",
+        "evidence_window_ids": [
+          "424c1f2f0eb6a7d6"
+        ],
+        "falsification_status": "PASS",
+        "generation": 1,
+        "metrics": {
+          "calibration_error": null,
+          "cost_stress_expectancy_r": 0.03617326613623876,
+          "dsr": null,
+          "expectancy_r": 0.09923288164951129,
+          "falsification_ok": true,
+          "fold_metrics": [
+            {
+              "completed_trades": 0,
+              "expectancy_r": 0.0,
+              "fold": 0,
+              "reason": "ok",
+              "rr2_wr": 0.0,
+              "wilson_low": 0.0
+            },
+            {
+              "completed_trades": 23,
+              "expectancy_r": 0.4286018185185984,
+              "fold": 1,
+              "reason": "ok",
+              "rr2_wr": 0.5217391304347826,
+              "wilson_low": 0.3296242986421849
+            },
+            {
+              "completed_trades": 1,
+              "expectancy_r": -1.1906257668711644,
+              "fold": 2,
+              "reason": "ok",
+              "rr2_wr": 0.0,
+              "wilson_low": 0.0
+            },
+            {
+              "completed_trades": 47,
+              "expectancy_r": -0.03450386089236803,
+              "fold": 3,
+              "reason": "ok",
+              "rr2_wr": 0.3617021276595745,
+              "wilson_low": 0.2396602228576844
+            }
+          ],
+          "in_sample_score": null,
+          "leakage_ok": true,
+          "max_drawdown_r": 11.784852099046962,
+          "min_required_trades": 100,
+          "pbo": 0.6666666666666666,
+          "provenance_complete": true,
+          "rr2_wr": 0.4084507042253521,
+          "trades": 71,
+          "wilson_lower": 0.30168552002378446,
+          "worst_fold_wr": 0.0
+        },
+        "parent_trial_id": null,
+        "promotion_decision": "PROMOTE",
+        "rejection_reasons": [],
+        "seed": 1492842984,
+        "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+        "symbol": "XLMUSDT",
+        "trial_id": "g8-0e9c055a1deb00d6d177"
+      },
+      "research_champion_id": "g8-0e9c055a1deb00d6d177",
+      "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+      "status": "RESEARCH_ONLY"
+    },
+    "XRPUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": "2026-09-19",
+      "hall_of_fame": [],
+      "profile_hash": "494b0a3d0e2333814c8e330ca1363473c020d0dcfc6d5d662769c0d834014c9b",
+      "research_champion": {
+        "candidate_hash": "494b0a3d0e2333814c8e330ca1363473c020d0dcfc6d5d662769c0d834014c9b",
+        "candidate_spec": {
+          "calibration": "none",
+          "family": "setup_sweep",
+          "feature_pack": [
+            "base_g7"
+          ],
+          "hold_bars": 72,
+          "model_family": "random_forest",
+          "model_params": [
+            [
+              "max_depth",
+              4
+            ],
+            [
+              "max_features",
+              0.7
+            ],
+            [
+              "min_samples_leaf",
+              18
+            ],
+            [
+              "n_estimators",
+              120
+            ],
+            [
+              "random_state",
+              71
+            ]
+          ],
+          "regime": "RANGE",
+          "risk_atr": 1.2,
+          "side": "LONG",
+          "symbol": "XRPUSDT",
+          "threshold": 0.55
+        },
+        "created_at": "2026-09-20T19:06:18.550223+00:00",
+        "evidence_window_ids": [
+          "a2e4fa6147b1a0af"
+        ],
+        "falsification_status": "PASS",
+        "generation": 1,
+        "metrics": {
+          "calibration_error": null,
+          "cost_stress_expectancy_r": 0.2901800328213919,
+          "dsr": null,
+          "expectancy_r": 0.36012002188092795,
+          "falsification_ok": true,
+          "fold_metrics": [
+            {
+              "completed_trades": 0,
+              "expectancy_r": 0.0,
+              "fold": 0,
+              "reason": "insufficient-train-labels",
+              "rr2_wr": 0.0,
+              "wilson_low": 0.0
+            },
+            {
+              "completed_trades": 4,
+              "expectancy_r": 0.360398232921945,
+              "fold": 1,
+              "reason": "ok",
+              "rr2_wr": 0.5,
+              "wilson_low": 0.15003570882017148
+            },
+            {
+              "completed_trades": 0,
+              "expectancy_r": 0.0,
+              "fold": 2,
+              "reason": "ok",
+              "rr2_wr": 0.0,
+              "wilson_low": 0.0
+            },
+            {
+              "completed_trades": 2,
+              "expectancy_r": 0.35956359979889374,
+              "fold": 3,
+              "reason": "ok",
+              "rr2_wr": 0.5,
+              "wilson_low": 0.09452865480086614
+            }
+          ],
+          "in_sample_score": null,
+          "leakage_ok": true,
+          "max_drawdown_r": 2.276058339314252,
+          "min_required_trades": 100,
+          "pbo": 0.0,
+          "provenance_complete": true,
+          "rr2_wr": 0.5,
+          "trades": 6,
+          "wilson_lower": 0.18761280689940868,
+          "worst_fold_wr": 0.5
+        },
+        "parent_trial_id": null,
+        "promotion_decision": "PROMOTE",
+        "rejection_reasons": [],
+        "seed": 2017993635,
+        "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+        "symbol": "XRPUSDT",
+        "trial_id": "g8-e22c3d95eabc790a6fd8"
+      },
+      "research_champion_id": "g8-e22c3d95eabc790a6fd8",
+      "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+      "status": "RESEARCH_ONLY"
+    }
+  }
+}

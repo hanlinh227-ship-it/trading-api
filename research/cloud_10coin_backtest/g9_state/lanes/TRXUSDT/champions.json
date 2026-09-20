@@ -1,0 +1,18 @@
+{
+  "generation": 1,
+  "schema_version": 1,
+  "snapshot_hash": "e55ca0b35c2388dd15027495836e73564c5156eb989026b16d8e0e1371dcfa1d",
+  "symbols": {
+    "TRXUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": null,
+      "hall_of_fame": [],
+      "profile_hash": null,
+      "research_champion": null,
+      "research_champion_id": null,
+      "source_sha": null,
+      "status": "QUARANTINED"
+    }
+  }
+}

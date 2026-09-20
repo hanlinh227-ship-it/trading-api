@@ -1,0 +1,22 @@
+{
+  "data_cutoff": "2026-09-19",
+  "evidence_state": "CURRENT",
+  "lane_status": {
+    "ADAUSDT": "EMPTY",
+    "BNBUSDT": "UPDATED",
+    "BTCUSDT": "EMPTY",
+    "DOGEUSDT": "EMPTY",
+    "ETHUSDT": "EMPTY",
+    "LINKUSDT": "EMPTY",
+    "SOLUSDT": "UPDATED",
+    "TRXUSDT": "EMPTY",
+    "XLMUSDT": "UPDATED",
+    "XRPUSDT": "UPDATED"
+  },
+  "pool_promotions": 4,
+  "production_execution_authority": false,
+  "research_only": true,
+  "route_champions": 4,
+  "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+  "updated_lanes": 4
+}

@@ -1,0 +1,15 @@
+{
+  "certified_count": 0,
+  "errors": {},
+  "evidence_epoch_id": "26bfde3cdc1122db",
+  "generation": 1,
+  "previous_snapshot_hash": null,
+  "promotions": {
+    "BTCUSDT": []
+  },
+  "snapshot_hash": "3f7da36da8962a52a5649fc22119d12ea2d7720f7125a42e0ba9cb436f93ac59",
+  "summary_path": "g9_results/BTCUSDT/generation-000001.json",
+  "trials_attempted": {
+    "BTCUSDT": 4
+  }
+}

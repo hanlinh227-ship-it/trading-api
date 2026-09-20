@@ -1,0 +1,17 @@
+{
+  "epoch": {
+    "consumed_trials": {
+      "TRXUSDT": 4
+    },
+    "data_cutoff": "2026-09-19",
+    "epoch_id": "ea33379ed830560d",
+    "max_adaptive_trials": 200
+  },
+  "generation": 1,
+  "last_snapshot_hash": "e55ca0b35c2388dd15027495836e73564c5156eb989026b16d8e0e1371dcfa1d",
+  "schema_version": 1,
+  "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+  "symbols": [
+    "TRXUSDT"
+  ]
+}

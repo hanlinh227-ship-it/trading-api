@@ -1,0 +1,18 @@
+{
+  "generation": 1,
+  "schema_version": 1,
+  "snapshot_hash": "e7859a02c2b99f3f9e9e40246d3f0482d9835b5246c5ad5bee0704e02f7d57ea",
+  "symbols": {
+    "ADAUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": null,
+      "hall_of_fame": [],
+      "profile_hash": null,
+      "research_champion": null,
+      "research_champion_id": null,
+      "source_sha": null,
+      "status": "QUARANTINED"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "generation": 1,
+  "schema_version": 1,
+  "snapshot_hash": "3f7da36da8962a52a5649fc22119d12ea2d7720f7125a42e0ba9cb436f93ac59",
+  "symbols": {
+    "BTCUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": null,
+      "hall_of_fame": [],
+      "profile_hash": null,
+      "research_champion": null,
+      "research_champion_id": null,
+      "source_sha": null,
+      "status": "QUARANTINED"
+    }
+  }
+}

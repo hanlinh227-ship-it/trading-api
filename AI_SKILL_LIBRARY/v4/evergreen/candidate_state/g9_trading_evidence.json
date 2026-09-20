@@ -1,0 +1,316 @@
+{
+  "authority": {
+    "execution": "none",
+    "production_strategy": "BYBIT-BTC-STATEFLOW-2.1"
+  },
+  "authority_level": "STABLE_EVIDENCE",
+  "data_cutoff": "2026-09-19",
+  "kind": "g9_stable_trading_evidence",
+  "manifest_hash": "62447d7ab03e231ab35584c99cfc62615958d5395850e20c36af3819b89bfad4",
+  "parent_kind": "g9_continuous_champion_pool",
+  "parent_snapshot_hash": "ab93fade14369c071aeacb9e645fe303e9d79db278004ae5cf17ee02b934fecc",
+  "plane": "STABLE_EVIDENCE",
+  "production_execution_authority": false,
+  "research_only": true,
+  "schema_version": 1,
+  "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+  "symbols": {
+    "BNBUSDT": {
+      "certification_metrics": {},
+      "evidence_epoch": null,
+      "oof_metrics": {},
+      "production_execution_authority": false,
+      "profile_hash": "f9c72eaf6ffc5b83c25abf1c6d26aad74aef9252485b63bcc135acf9e69c0c5e",
+      "routes": {
+        "BNBUSDT|RANGE|setup_sweep|LONG": {
+          "certification_metrics": {},
+          "evidence_epoch": "6ba14f475db165a8",
+          "family": "setup_sweep",
+          "oof_metrics": {
+            "calibration_error": null,
+            "cost_stress_expectancy_r": 1.7369643466717288,
+            "dsr": null,
+            "expectancy_r": 1.8246428977811526,
+            "falsification_ok": true,
+            "fold_metrics": [
+              {
+                "completed_trades": 0,
+                "expectancy_r": 0.0,
+                "fold": 0,
+                "reason": "insufficient-train-labels",
+                "rr2_wr": 0.0,
+                "wilson_low": 0.0
+              },
+              {
+                "completed_trades": 0,
+                "expectancy_r": 0.0,
+                "fold": 1,
+                "reason": "ok",
+                "rr2_wr": 0.0,
+                "wilson_low": 0.0
+              },
+              {
+                "completed_trades": 0,
+                "expectancy_r": 0.0,
+                "fold": 2,
+                "reason": "ok",
+                "rr2_wr": 0.0,
+                "wilson_low": 0.0
+              },
+              {
+                "completed_trades": 1,
+                "expectancy_r": 1.8246428977811526,
+                "fold": 3,
+                "reason": "ok",
+                "rr2_wr": 1.0,
+                "wilson_low": 0.20654329147389294
+              }
+            ],
+            "in_sample_score": null,
+            "leakage_ok": true,
+            "max_drawdown_r": 0.0,
+            "min_required_trades": 100,
+            "pbo": 0.0,
+            "provenance_complete": true,
+            "rr2_wr": 1.0,
+            "trades": 1,
+            "wilson_lower": 0.20654329147389294,
+            "worst_fold_wr": 1.0
+          },
+          "production_execution_authority": false,
+          "profile_hash": "031538f004595b82e3897a20b9ffe642203687f2422ea924a9d58389127a652f",
+          "profile_id": "g8-7049a05513b034c7f477",
+          "regime": "RANGE",
+          "research_only": true,
+          "side": "LONG",
+          "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+          "status": "RESEARCH_ONLY"
+        }
+      },
+      "status": "RESEARCH_ONLY"
+    },
+    "SOLUSDT": {
+      "certification_metrics": {},
+      "evidence_epoch": null,
+      "oof_metrics": {},
+      "production_execution_authority": false,
+      "profile_hash": "c1e22b8e27cee0d0d74c558d7c11cd707163bf670abeaa9c3a444264614efc20",
+      "routes": {
+        "SOLUSDT|RANGE|setup_sweep|SHORT": {
+          "certification_metrics": {},
+          "evidence_epoch": "89b03a531496cd25",
+          "family": "setup_sweep",
+          "oof_metrics": {
+            "calibration_error": null,
+            "cost_stress_expectancy_r": 0.019739732945826458,
+            "dsr": null,
+            "expectancy_r": 0.0964931552972176,
+            "falsification_ok": true,
+            "fold_metrics": [
+              {
+                "completed_trades": 26,
+                "expectancy_r": 0.12081460922837745,
+                "fold": 0,
+                "reason": "ok",
+                "rr2_wr": 0.4230769230769231,
+                "wilson_low": 0.255441899027294
+              },
+              {
+                "completed_trades": 8,
+                "expectancy_r": 0.3321062048386286,
+                "fold": 1,
+                "reason": "ok",
+                "rr2_wr": 0.5,
+                "wilson_low": 0.21521252682444186
+              },
+              {
+                "completed_trades": 2,
+                "expectancy_r": -1.1621379439735047,
+                "fold": 2,
+                "reason": "ok",
+                "rr2_wr": 0.0,
+                "wilson_low": 0.0
+              },
+              {
+                "completed_trades": 0,
+                "expectancy_r": 0.0,
+                "fold": 3,
+                "reason": "ok",
+                "rr2_wr": 0.0,
+                "wilson_low": 0.0
+              }
+            ],
+            "in_sample_score": null,
+            "leakage_ok": true,
+            "max_drawdown_r": 5.791771763236585,
+            "min_required_trades": 100,
+            "pbo": 0.3333333333333333,
+            "provenance_complete": true,
+            "rr2_wr": 0.4166666666666667,
+            "trades": 36,
+            "wilson_lower": 0.27140333505087283,
+            "worst_fold_wr": 0.0
+          },
+          "production_execution_authority": false,
+          "profile_hash": "09eb96c383e7e9fa24fa1ea54b2ed3040fd8a252516cc7be0a4e3d5568fbaf67",
+          "profile_id": "g8-ec7190267ce44ff798cb",
+          "regime": "RANGE",
+          "research_only": true,
+          "side": "SHORT",
+          "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+          "status": "RESEARCH_ONLY"
+        }
+      },
+      "status": "RESEARCH_ONLY"
+    },
+    "XLMUSDT": {
+      "certification_metrics": {},
+      "evidence_epoch": null,
+      "oof_metrics": {},
+      "production_execution_authority": false,
+      "profile_hash": "f80da9f0f6c004b5558d399d4fe50790d55aea3ddaa46009ddfc524cd0be6c73",
+      "routes": {
+        "XLMUSDT|TREND_UP|setup_trend|LONG": {
+          "certification_metrics": {},
+          "evidence_epoch": "424c1f2f0eb6a7d6",
+          "family": "setup_trend",
+          "oof_metrics": {
+            "calibration_error": null,
+            "cost_stress_expectancy_r": 0.03617326613623876,
+            "dsr": null,
+            "expectancy_r": 0.09923288164951129,
+            "falsification_ok": true,
+            "fold_metrics": [
+              {
+                "completed_trades": 0,
+                "expectancy_r": 0.0,
+                "fold": 0,
+                "reason": "ok",
+                "rr2_wr": 0.0,
+                "wilson_low": 0.0
+              },
+              {
+                "completed_trades": 23,
+                "expectancy_r": 0.4286018185185984,
+                "fold": 1,
+                "reason": "ok",
+                "rr2_wr": 0.5217391304347826,
+                "wilson_low": 0.3296242986421849
+              },
+              {
+                "completed_trades": 1,
+                "expectancy_r": -1.1906257668711644,
+                "fold": 2,
+                "reason": "ok",
+                "rr2_wr": 0.0,
+                "wilson_low": 0.0
+              },
+              {
+                "completed_trades": 47,
+                "expectancy_r": -0.03450386089236803,
+                "fold": 3,
+                "reason": "ok",
+                "rr2_wr": 0.3617021276595745,
+                "wilson_low": 0.2396602228576844
+              }
+            ],
+            "in_sample_score": null,
+            "leakage_ok": true,
+            "max_drawdown_r": 11.784852099046962,
+            "min_required_trades": 100,
+            "pbo": 0.6666666666666666,
+            "provenance_complete": true,
+            "rr2_wr": 0.4084507042253521,
+            "trades": 71,
+            "wilson_lower": 0.30168552002378446,
+            "worst_fold_wr": 0.0
+          },
+          "production_execution_authority": false,
+          "profile_hash": "57d9d633f21718ac43070dd6abf3aad6dccb0c6cd62c01cf7799d4f1c92570a1",
+          "profile_id": "g8-0e9c055a1deb00d6d177",
+          "regime": "TREND_UP",
+          "research_only": true,
+          "side": "LONG",
+          "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+          "status": "RESEARCH_ONLY"
+        }
+      },
+      "status": "RESEARCH_ONLY"
+    },
+    "XRPUSDT": {
+      "certification_metrics": {},
+      "evidence_epoch": null,
+      "oof_metrics": {},
+      "production_execution_authority": false,
+      "profile_hash": "99a64ac980fa6aa63a6216c0d4bb7fd646900fac41432db6ddb0da073621a444",
+      "routes": {
+        "XRPUSDT|RANGE|setup_sweep|LONG": {
+          "certification_metrics": {},
+          "evidence_epoch": "a2e4fa6147b1a0af",
+          "family": "setup_sweep",
+          "oof_metrics": {
+            "calibration_error": null,
+            "cost_stress_expectancy_r": 0.2901800328213919,
+            "dsr": null,
+            "expectancy_r": 0.36012002188092795,
+            "falsification_ok": true,
+            "fold_metrics": [
+              {
+                "completed_trades": 0,
+                "expectancy_r": 0.0,
+                "fold": 0,
+                "reason": "insufficient-train-labels",
+                "rr2_wr": 0.0,
+                "wilson_low": 0.0
+              },
+              {
+                "completed_trades": 4,
+                "expectancy_r": 0.360398232921945,
+                "fold": 1,
+                "reason": "ok",
+                "rr2_wr": 0.5,
+                "wilson_low": 0.15003570882017148
+              },
+              {
+                "completed_trades": 0,
+                "expectancy_r": 0.0,
+                "fold": 2,
+                "reason": "ok",
+                "rr2_wr": 0.0,
+                "wilson_low": 0.0
+              },
+              {
+                "completed_trades": 2,
+                "expectancy_r": 0.35956359979889374,
+                "fold": 3,
+                "reason": "ok",
+                "rr2_wr": 0.5,
+                "wilson_low": 0.09452865480086614
+              }
+            ],
+            "in_sample_score": null,
+            "leakage_ok": true,
+            "max_drawdown_r": 2.276058339314252,
+            "min_required_trades": 100,
+            "pbo": 0.0,
+            "provenance_complete": true,
+            "rr2_wr": 0.5,
+            "trades": 6,
+            "wilson_lower": 0.18761280689940868,
+            "worst_fold_wr": 0.5
+          },
+          "production_execution_authority": false,
+          "profile_hash": "494b0a3d0e2333814c8e330ca1363473c020d0dcfc6d5d662769c0d834014c9b",
+          "profile_id": "g8-e22c3d95eabc790a6fd8",
+          "regime": "RANGE",
+          "research_only": true,
+          "side": "LONG",
+          "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+          "status": "RESEARCH_ONLY"
+        }
+      },
+      "status": "RESEARCH_ONLY"
+    }
+  },
+  "system_contract_version": 1
+}

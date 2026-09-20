@@ -1,0 +1,18 @@
+{
+  "generation": 1,
+  "schema_version": 1,
+  "snapshot_hash": "1494e34ae256e5bde19f2075645efecaa324f15f729a66e5f88ff3b2780af8a7",
+  "symbols": {
+    "LINKUSDT": {
+      "certified_champion": null,
+      "certified_champion_id": null,
+      "data_cutoff": null,
+      "hall_of_fame": [],
+      "profile_hash": null,
+      "research_champion": null,
+      "research_champion_id": null,
+      "source_sha": null,
+      "status": "QUARANTINED"
+    }
+  }
+}

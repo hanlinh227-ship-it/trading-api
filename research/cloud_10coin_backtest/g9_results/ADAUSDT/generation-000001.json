@@ -1,0 +1,15 @@
+{
+  "certified_count": 0,
+  "errors": {},
+  "evidence_epoch_id": "c52427a6ec99db59",
+  "generation": 1,
+  "previous_snapshot_hash": null,
+  "promotions": {
+    "ADAUSDT": []
+  },
+  "snapshot_hash": "e7859a02c2b99f3f9e9e40246d3f0482d9835b5246c5ad5bee0704e02f7d57ea",
+  "summary_path": "g9_results/ADAUSDT/generation-000001.json",
+  "trials_attempted": {
+    "ADAUSDT": 4
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "certified_count": 0,
+  "errors": {},
+  "evidence_epoch_id": "ea33379ed830560d",
+  "generation": 1,
+  "previous_snapshot_hash": null,
+  "promotions": {
+    "TRXUSDT": []
+  },
+  "snapshot_hash": "e55ca0b35c2388dd15027495836e73564c5156eb989026b16d8e0e1371dcfa1d",
+  "summary_path": "g9_results/TRXUSDT/generation-000001.json",
+  "trials_attempted": {
+    "TRXUSDT": 4
+  }
+}

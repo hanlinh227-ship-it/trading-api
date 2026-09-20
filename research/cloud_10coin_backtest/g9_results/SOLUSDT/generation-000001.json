@@ -1,0 +1,17 @@
+{
+  "certified_count": 0,
+  "errors": {},
+  "evidence_epoch_id": "89b03a531496cd25",
+  "generation": 1,
+  "previous_snapshot_hash": null,
+  "promotions": {
+    "SOLUSDT": [
+      "g8-ec7190267ce44ff798cb"
+    ]
+  },
+  "snapshot_hash": "957e4be5de315803a973d58493d111579d452f4075496437e6ff33f138060968",
+  "summary_path": "g9_results/SOLUSDT/generation-000001.json",
+  "trials_attempted": {
+    "SOLUSDT": 4
+  }
+}

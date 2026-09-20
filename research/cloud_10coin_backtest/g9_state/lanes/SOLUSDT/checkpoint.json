@@ -1,0 +1,17 @@
+{
+  "epoch": {
+    "consumed_trials": {
+      "SOLUSDT": 4
+    },
+    "data_cutoff": "2026-09-19",
+    "epoch_id": "89b03a531496cd25",
+    "max_adaptive_trials": 200
+  },
+  "generation": 1,
+  "last_snapshot_hash": "957e4be5de315803a973d58493d111579d452f4075496437e6ff33f138060968",
+  "schema_version": 1,
+  "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+  "symbols": [
+    "SOLUSDT"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "epoch": {
+    "consumed_trials": {
+      "DOGEUSDT": 4
+    },
+    "data_cutoff": "2026-09-19",
+    "epoch_id": "858543319522f3b5",
+    "max_adaptive_trials": 200
+  },
+  "generation": 1,
+  "last_snapshot_hash": "83686accde35427a72731f83b5b2ffda9dfe91043da025b8a93e4426364a2ba1",
+  "schema_version": 1,
+  "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
+  "symbols": [
+    "DOGEUSDT"
+  ]
+}

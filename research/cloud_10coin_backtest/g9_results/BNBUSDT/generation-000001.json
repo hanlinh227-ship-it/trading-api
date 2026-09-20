@@ -1,0 +1,17 @@
+{
+  "certified_count": 0,
+  "errors": {},
+  "evidence_epoch_id": "6ba14f475db165a8",
+  "generation": 1,
+  "previous_snapshot_hash": null,
+  "promotions": {
+    "BNBUSDT": [
+      "g8-7049a05513b034c7f477"
+    ]
+  },
+  "snapshot_hash": "4dc0f4131cc76d042cf4f11b8a840f3c091b9479154b87bbeeae7116cbd59e2f",
+  "summary_path": "g9_results/BNBUSDT/generation-000001.json",
+  "trials_attempted": {
+    "BNBUSDT": 4
+  }
+}

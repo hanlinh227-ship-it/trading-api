@@ -1,0 +1,17 @@
+{
+  "certified_count": 0,
+  "errors": {},
+  "evidence_epoch_id": "a2e4fa6147b1a0af",
+  "generation": 1,
+  "previous_snapshot_hash": null,
+  "promotions": {
+    "XRPUSDT": [
+      "g8-e22c3d95eabc790a6fd8"
+    ]
+  },
+  "snapshot_hash": "3f971e84993a5a034d108e6640a853829b5b1e7d59884b6bf4913417fc9cf162",
+  "summary_path": "g9_results/XRPUSDT/generation-000001.json",
+  "trials_attempted": {
+    "XRPUSDT": 4
+  }
+}
