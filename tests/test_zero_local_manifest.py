@@ -175,12 +175,12 @@ class SecondaryRuntimeContractTests(unittest.TestCase):
         self.assertIs(secondary["reasoning_authority"], False)
         self.assertIs(secondary["model_selection_authority"], False)
 
-    def test_the_secondary_is_claimed_live_only_after_real_probe(self):
-        """Deno is now live-probed; it remains capacity-only and never blocks primary cutover."""
+    def test_the_suspended_secondary_is_not_claimed_live_from_historical_probe(self):
+        """Deno may retain an adapter/base URL while provider suspension makes it non-selectable."""
         secondary = self.scheduler["secondary"]
-        self.assertIs(secondary["deployed"], True)
-        self.assertIs(secondary["health_verified"], True)
-        self.assertIs(secondary["exact_sha_verified"], True)
+        self.assertIs(secondary["deployed"], False)
+        self.assertIs(secondary["health_verified"], False)
+        self.assertIs(secondary["exact_sha_verified"], False)
         self.assertIs(secondary["required_for_primary_cutover"], False)
 
     def test_no_verified_secondary_fails_closed_rather_than_escalating(self):
