@@ -48,7 +48,33 @@ async function scan(env,symbol){
 }
 async function publicUniverse(env){
   const state=await buildBybitDynamicUniverse(env,bybitV5(env));
-  return {ok:true,readOnly:true,productionExecutionAuthority:true,version:BYBIT_AUTO_VERSION,schemaVersion:BYBIT_UI_SCHEMA_VERSION,authority:state.authority,executionSafe:state.executionSafe===true,stale:state.stale===true,error:state.error||state.tickerError||null,summary:state.summary,coreSymbols:state.coreSymbols,tradeSymbols:state.tradeSymbols,topTrade:state.summary?.topTrade||[],newListings:state.summary?.newListings||[],watch:state.summary?.watch||[],checkedAt:new Date().toISOString()};
+  return {
+    ok:true,readOnly:true,productionExecutionAuthority:true,
+    version:BYBIT_AUTO_VERSION,schemaVersion:BYBIT_UI_SCHEMA_VERSION,
+    authority:state.authority,
+    selectionAuthority:state.selectionAuthority||state.summary?.selectionAuthority||null,
+    executionPairLimit:Number(state.executionPairLimit||state.summary?.executionPairLimit||0),
+    executionSafe:state.executionSafe===true,
+    stale:state.stale===true,
+    error:state.error||state.tickerError||null,
+    marketCapSource:state.marketCapSource||null,
+    marketCapAt:state.marketCapAt||null,
+    marketCapStale:state.marketCapStale===true,
+    tickerSource:state.tickerSource||state.summary?.tickerSource||null,
+    tickerCoverageCount:Number(state.tickerCoverageCount||state.summary?.tickerCoverageCount||0),
+    marketCapWsCoverage:state.marketCapWsCoverage===true,
+    marketCapCandidateTargetCount:Number(state.marketCapCandidateTargetCount||state.summary?.marketCapCandidateTargetCount||0),
+    marketCapCandidateFreshCount:Number(state.marketCapCandidateFreshCount||state.summary?.marketCapCandidateFreshCount||0),
+    marketCapCandidateSymbols:Array.isArray(state.marketCapCandidateSymbols)?state.marketCapCandidateSymbols:[],
+    tickerError:state.tickerError||state.summary?.tickerError||null,
+    summary:state.summary,
+    coreSymbols:state.coreSymbols,
+    tradeSymbols:state.tradeSymbols,
+    topTrade:state.summary?.topTrade||[],
+    newListings:state.summary?.newListings||[],
+    watch:state.summary?.watch||[],
+    checkedAt:new Date().toISOString()
+  };
 }
 function uiStaticPolicy(env){const cfg=bybitAutoConfig(env),p=cfg.portfolio;return {profitObjective:{authority:cfg.scalp.authority,plannedNetProfitFloor:true,minPlannedNetProfitUsd:cfg.scalp.minPlannedNetProfitUsd,minPlannedNetProfitPct:cfg.scalp.minPlannedNetProfitPct,profitFloorLadder:cfg.scalp.profitFloorLadder,profitFloorBufferMult:cfg.scalp.profitFloorBufferMult,profitFloorRetentionPct:cfg.scalp.profitFloorRetentionPct,profitPeakRetentionPct:cfg.scalp.profitPeakRetentionPct,afterFeesRequired:cfg.scalp.requireNetFloorAfterFees===true,realizedProfitGuaranteed:false,note:'PLANNED_NET_PROFIT_FLOOR_IS_AN_ENTRY_AND_PROTECTION_OBJECTIVE_NOT_A_GUARANTEE_OF_REALIZED_PROFIT'},leverage:{min:cfg.leverage.min,configuredCeiling:cfg.leverage.max,exchangeInstrumentCapRequired:true,infiniteLeverage:false,profitFloorAdaptive:cfg.leverage.profitFloorAdaptive===true,profitFloorMax:cfg.leverage.profitFloorMax,equityAdaptive:cfg.leverage.equityAdaptive},risk:{baseEntryRiskPct:cfg.risk.baseEntryRiskPct,strongEntryRiskPct:cfg.risk.strongEntryRiskPct,aPlusEntryRiskPct:cfg.risk.aPlusEntryRiskPct,absoluteSingleEntryRiskPct:cfg.risk.absoluteSingleEntryRiskPct,maxActiveRiskPct:cfg.risk.maxActiveRiskPct,maxPortfolioMarginPct:cfg.risk.maxPortfolioMarginPct,minFreeReservePct:cfg.risk.minFreeReservePct,martingale:false,addToLoser:false},aiLegion:cfg.aiLegion,portfolio:{authority:p.authority,concurrentByEquity:p.concurrentByEquity,protectedRiskSlotReuse:p.protectedRiskSlotReuse,protectedSlotWeight:p.protectedSlotWeight,physicalPositionBuffer:p.physicalPositionBuffer,forcedOpportunityReplacement:false}};}
 function uiBootstrap(env){return {ok:true,readOnly:true,schemaVersion:BYBIT_UI_SCHEMA_VERSION,coreBaseline:BYBIT_UI_CORE_BASELINE,version:BYBIT_AUTO_VERSION,runtimeContract:BYBIT_RUNTIME_CONTRACT.version,executionAuthority:BYBIT_EXECUTION_AUTHORITY,routes:BYBIT_UI_ROUTES,capabilities:BYBIT_UI_CAPABILITIES,coreUniverse:BYBIT_EXECUTION_UNIVERSE,researchUniverse:BYBIT_TRADE_UNIVERSE,researchOnlyDynamicUniverse:false,productionExecutionAuthority:true,...uiStaticPolicy(env),checkedAt:new Date().toISOString()};}
