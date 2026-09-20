@@ -249,6 +249,7 @@ jobs:
         if: steps.deploy.outputs.deployed == 'true'
         env:
           DENO_SECONDARY_URL: ${{ steps.deploy.outputs.secondary_url }}
+          BYBIT_DEMO_EGRESS_SHARED_SECRET: ${{ secrets.BYBIT_DEMO_EGRESS_SHARED_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
@@ -278,6 +279,11 @@ jobs:
                   raise SystemExit(f'secondary claims {field}; it holds no authority')
           if data.get('localInstallRequired') is not False:
               raise SystemExit('secondary unexpectedly requires local install')
+          configured = bool(os.environ.get('BYBIT_DEMO_EGRESS_SHARED_SECRET'))
+          if bool(data.get('bybitPrivateEgressConfigured')) != configured:
+              raise SystemExit(f"secondary private-egress secret state mismatch: runtime={data.get('bybitPrivateEgressConfigured')} expected={configured}")
+          if data.get('bybitPrivateEgressBase') != 'https://api-demo.bybit.com':
+              raise SystemExit('secondary private-egress base mismatch')
           if data.get('deploymentSourceSha') != os.environ['GITHUB_SHA']:
               raise SystemExit(f"secondary exact SHA mismatch: {data.get('deploymentSourceSha')}")
           print('DENO_HEALTH=PASS')
