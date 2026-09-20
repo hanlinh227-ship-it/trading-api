@@ -39,7 +39,7 @@ const INSTRUMENTS = new Set(['spot', 'perpetual']);
 const SIDES = new Set(['LONG', 'SHORT']);
 const EXECUTION_VENUES = new Set(['bybit', 'binance']);
 const BYBIT_DEMO_BASE = 'https://api-demo.bybit.com';
-const BYBIT_PUBLIC_BASE = 'https://api.bybit.com';
+const BYBIT_PUBLIC_BASES = ['https://api.bybit.com', 'https://api.bytick.com'];
 const BYBIT_PUBLIC_PATHS = new Set([
   '/v5/market/time',
   '/v5/market/tickers',
@@ -201,23 +201,32 @@ export async function handle(request: Request): Promise<Response> {
       return json({ ok: false, error: 'public_egress_request_not_allowed' }, 400);
     }
 
-    const target = BYBIT_PUBLIC_BASE + path + (query ? '?' + query : '');
-    try {
-      const upstream = await fetch(target, {
-        method: 'GET',
-        headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(15_000),
-      });
-      const text = await upstream.text();
-      let parsed: unknown = null;
-      try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
-      if (!parsed || typeof parsed !== 'object') {
-        return json({ ok: false, error: 'invalid_bybit_public_response', httpStatus: upstream.status }, 502);
+    let lastError = '';
+    for (const base of BYBIT_PUBLIC_BASES) {
+      const target = base + path + (query ? '?' + query : '');
+      try {
+        const upstream = await fetch(target, {
+          method: 'GET',
+          headers: { accept: 'application/json' },
+          signal: AbortSignal.timeout(15_000),
+        });
+        const text = await upstream.text();
+        let parsed: unknown = null;
+        try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+        if (!parsed || typeof parsed !== 'object') {
+          lastError = 'invalid_bybit_public_response_' + upstream.status;
+          continue;
+        }
+        if (!upstream.ok) {
+          lastError = 'bybit_public_http_' + upstream.status;
+          continue;
+        }
+        return json({ ok: true, httpStatus: upstream.status, upstream: parsed, base, transport: 'DENO_BYBIT_PUBLIC_EGRESS' }, 200);
+      } catch (error) {
+        lastError = String(error instanceof Error ? error.message : error).slice(0, 180);
       }
-      return json({ ok: upstream.ok, httpStatus: upstream.status, upstream: parsed, transport: 'DENO_BYBIT_PUBLIC_EGRESS' }, upstream.ok ? 200 : upstream.status);
-    } catch (error) {
-      return json({ ok: false, error: 'bybit_public_egress_fetch_failed', detail: String(error instanceof Error ? error.message : error).slice(0, 180) }, 502);
     }
+    return json({ ok: false, error: 'bybit_public_egress_fetch_failed', detail: lastError || 'all_public_bases_failed' }, 502);
   }
 
   if (url.pathname === '/bybit/private-egress') {
