@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {callCloudflareAI} from './model-mesh/providers/cloudflare-ai.js';
 import {callGemini} from './model-mesh/providers/gemini.js';
 
-const messages=[{role:'user',content:'Reply with OK only.'}];
+const messages=[{role:'system',content:'Shared cognition contract.'},{role:'user',content:'Reply with OK only.'}];
 let cloudflareUrl='';
 const cloudflare=await callCloudflareAI({
   accountId:'account-id',apiKey:'cloudflare-secret',model:'@cf/zai-org/glm-4.7-flash',messages,
@@ -22,6 +22,10 @@ const gemini=await callGemini({
     geminiUrl=String(url);
     assert.equal(init.headers['x-goog-api-key'],'gemini-secret');
     assert.equal(geminiUrl.includes('gemini-secret'),false);
+    const body=JSON.parse(init.body);
+    assert.equal(body.systemInstruction.parts[0].text,'Shared cognition contract.');
+    assert.equal(body.contents.length,1);
+    assert.equal(body.contents[0].role,'user');
     return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'OK'}]}}]}),{status:200,headers:{'content-type':'application/json'}});
   },
 });

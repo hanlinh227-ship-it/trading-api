@@ -10,6 +10,7 @@ import {resolveModelHealthStore} from './health-state.js';
 import {providerRuntimeStatus,resolveLiveModels} from './runtime-health.js';
 import {timingSafeToken} from './auth.js';
 import {scheduleSelfHeal} from './self-heal.js';
+import {buildCognitiveMessages} from './cognitive-core.js';
 
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const nowIso=()=>new Date().toISOString();
@@ -45,7 +46,8 @@ export async function executeSelectedModelWorker({selectedWorker,env={},text,rou
   if(typeof text!=='string'||!text.trim())throw new Error('MODEL_MESH_WORKER_TEXT_REQUIRED');
   const startedAt=nowIso();
   const worker=resolveRuntimeWorker(selectedWorker);
-  const result=worker?await callProvider(worker,env,[{role:'user',content:text}],fetchImpl):{ok:false,status:0,category:'UNKNOWN_SANITIZED'};
+  const messages=buildCognitiveMessages(worker||selectedWorker,route,text);
+  const result=worker?await callProvider(worker,env,messages,fetchImpl):{ok:false,status:0,category:'UNKNOWN_SANITIZED'};
   const completedAt=nowIso();
   const normalized=normalizedResult(worker||selectedWorker,route,startedAt,completedAt,result);
   const healthStore=resolveModelHealthStore(env);

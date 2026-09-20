@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {routeSkillRequest, assertResponseQuality} from './skill-gateway.js';
+import {routeSkillRequest, assertResponseQuality, _test} from './skill-gateway.js';
 
 const capsule = (skill_id, domain) => ({skill_id,domain,output_contract:`${skill_id} output`,permissions:['read_only'],risk_ceiling:'read_only',capsule_hash:`hash-${skill_id}`});
 const skill = (id,domain,aliases,display_name,{tools=[],priority=80,triggers=[]}={}) => ({id,domain,aliases,triggers,excludes:[],priority,requires:['task_router'],conflicts_with:[],tools,sources:[],output_contract:`${id} output`,primary_selectable:true,display_name});
@@ -20,6 +20,10 @@ const snapshot={
   },
   profile_escalation:{STANDARD:['dự án'],DEEP:['live','trading','deploy','production']},
   fresh_state_terms:['mới nhất','hiện tại','live','realtime'],
+  route_index:{strategy:'first_token_bucket_v1',buckets:{
+    'giải':['core_reasoning'],'là':['core_reasoning'],'sửa':['debugging'],'debug':['debugging'],
+    'viết':['advertising_copy'],'kịch':['advertising_copy'],'quét':['trading_router'],'tìm':['trading_router'],
+  }},
 };
 
 function expectRoute(text, expectedSkill, expectedProfile, expectedName){
@@ -40,6 +44,7 @@ const live=expectRoute('quét market BTC live','trading_router','DEEP','Phân t�
 assert.equal(live.requiresFreshState,true);
 assert.equal(live.requiresAuthority,true);
 
+assert.deepEqual(_test.indexedSkillIds('hãy sửa lỗi API',snapshot),['debugging']);
 const unknown=expectRoute('một câu hỏi rất lạ chưa có alias','core_reasoning','FAST','Giải thích');
 const goodExecution={answered:true,capsuleApplied:true,authorityAllowed:true,freshStateSatisfied:true,toolRequirementSatisfied:true,answerText:'Cách này giúp giải thích vấn đề bằng từ dễ hiểu.',technicalOutput:false};
 assertResponseQuality({route:unknown,execution:goodExecution,snapshot});

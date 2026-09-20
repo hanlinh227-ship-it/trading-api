@@ -41,6 +41,12 @@ jobs:
         run: python AI_SKILL_LIBRARY/v4/tools/discover_free_models.py --root . --output /tmp/v4-free-model-mesh-candidates.json
       - name: Build continuous intelligence audit report
         run: python AI_SKILL_LIBRARY/v4/tools/evergreen.py audit --root . --output /tmp/v4-intelligence-audit.json
+      - name: Validate continuous learning fabric
+        run: python AI_SKILL_LIBRARY/v4/tools/validate_learning_fabric.py --root .
+      - name: Compile shared cognition and per-model training packs
+        run: python AI_SKILL_LIBRARY/v4/tools/compile_model_cognitive_packs.py --root . --output /tmp/v4-model-cognitive-packs.json
+      - name: Run bounded per-model learning loop
+        run: python AI_SKILL_LIBRARY/v4/tools/run_model_learning_loop.py --root . --output /tmp/v4-model-learning-loop.json
       - name: Summarize quarantine scan
         run: |
           python -c "import json; d=json.load(open('/tmp/v4-quarantine-scan.json')); print('quarantine candidates=', len(d.get('candidates', [])), 'errors=', len(d.get('errors', [])))"
@@ -56,6 +62,8 @@ jobs:
             /tmp/v4-free-model-mesh-candidates.json
             /tmp/v4-upstream-capability-ledger.json
             /tmp/v4-intelligence-audit.json
+            /tmp/v4-model-cognitive-packs.json
+            /tmp/v4-model-learning-loop.json
           retention-days: 7
 
   weekly-intelligence-audit:

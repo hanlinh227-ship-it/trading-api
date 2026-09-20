@@ -53,6 +53,23 @@ def _canonical_hash(payload: dict) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _compile_route_index(skills: dict[str, dict]) -> dict:
+    """Compile trigger/alias lookup so runtime never scans the full skill catalog."""
+    buckets: dict[str, set[str]] = {}
+    for sid, meta in skills.items():
+        if not isinstance(meta, dict) or meta.get("primary_selectable") is not True:
+            continue
+        terms = list(meta.get("triggers") or []) + list(meta.get("aliases") or [])
+        for term in terms:
+            tokens = re.findall(r"\w+", str(term), flags=re.UNICODE)
+            key = tokens[0] if tokens else "*"
+            buckets.setdefault(key, set()).add(sid)
+    return {
+        "strategy": "first_token_bucket_v1",
+        "buckets": {key: sorted(values) for key, values in sorted(buckets.items())},
+    }
+
+
 def _domain_manifests(root: Path) -> tuple[dict[str, dict], dict[str, str]]:
     base = root / "AI_SKILL_LIBRARY/v4/skills"
     manifests: dict[str, dict] = {}
@@ -337,6 +354,7 @@ def compile_snapshot(root: Path = ROOT, source_sha: str = "", generated_at: str 
         "skills": skills,
         "capsules": capsules,
         "routing_aliases": normalized_aliases,
+        "route_index": _compile_route_index(skills),
         "skill_aliases": dict(sorted(skill_aliases.items())),
         "profile_escalation": profile_escalation,
         "fresh_state_terms": fresh_state_terms,

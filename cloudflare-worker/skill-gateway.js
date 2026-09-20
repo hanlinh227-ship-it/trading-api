@@ -34,6 +34,20 @@ function candidateScore(meta,text){
   return {hits:hits.length,longest,totalLength,priority:Number(meta.priority||0)};
 }
 
+function indexedSkillIds(text,snapshot){
+  const index=snapshot?.route_index;
+  if(!index||index.strategy!=='first_token_bucket_v1'||!index.buckets||typeof index.buckets!=='object')return null;
+  const tokens=new Set((String(text).match(/[\p{L}\p{N}_]+/gu)||[]).map(normalizeText));
+  tokens.add('*');
+  const ids=new Set();
+  for(const token of tokens){
+    const bucket=index.buckets[token];
+    if(!Array.isArray(bucket))continue;
+    for(const id of bucket)if(typeof id==='string')ids.add(id);
+  }
+  return [...ids];
+}
+
 function compareCandidates(a,b){
   for(const key of ['hits','longest','totalLength','priority']){
     if(a.score[key]!==b.score[key])return b.score[key]-a.score[key];
@@ -49,7 +63,11 @@ function selectSkill(text,snapshot,trustedHints={}){
     if(meta?.primary_selectable===true&&(!hintedDomain||meta.domain===hintedDomain))return hintedSkill;
   }
   const rows=[];
-  for(const [id,meta] of Object.entries(snapshot.skills)){
+  const indexed=indexedSkillIds(text,snapshot);
+  const entries=indexed===null
+    ?Object.entries(snapshot.skills)
+    :indexed.map(id=>[id,snapshot.skills[id]]);
+  for(const [id,meta] of entries){
     if(!meta||meta.primary_selectable!==true)continue;
     if(hintedDomain&&meta.domain!==hintedDomain)continue;
     const score=candidateScore(meta,text);
@@ -133,4 +151,4 @@ export function assertResponseQuality({route,execution={},snapshot}={}){
   return true;
 }
 
-export const _test={normalizeText,candidateScore,selectSkill,selectProfile,validDisplayName,exposedInternalIdentifier};
+export const _test={normalizeText,candidateScore,indexedSkillIds,selectSkill,selectProfile,validDisplayName,exposedInternalIdentifier};
