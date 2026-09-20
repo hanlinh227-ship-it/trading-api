@@ -159,6 +159,8 @@ export async function handle(request: Request): Promise<Response> {
       deploymentRelease: DEPLOYMENT_RELEASE,
       deploymentSourceSha: sourceSha(),
       localInstallRequired: false,
+      bybitPrivateEgressConfigured: Boolean(Deno.env.get('BYBIT_DEMO_EGRESS_SHARED_SECRET')),
+      bybitPrivateEgressBase: BYBIT_DEMO_BASE,
       lastPublicProbeTimestamp: runtime.getLastProbeAt(),
       healthyProviders: Object.entries(providers).filter(([, s]) => s?.ok === true).map(([id]) => id),
       degradedProviders: Object.entries(providers).filter(([, s]) => s?.ok !== true).map(([id]) => id),

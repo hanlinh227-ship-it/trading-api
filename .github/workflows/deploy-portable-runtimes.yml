@@ -189,6 +189,7 @@ jobs:
           DENO_ORG: ${{ secrets.DENO_ORG }}
           DENO_APP: ${{ secrets.DENO_APP }}
           DENO_SECONDARY_URL: ${{ secrets.DENO_SECONDARY_URL }}
+          BYBIT_DEMO_EGRESS_SHARED_SECRET: ${{ secrets.BYBIT_DEMO_EGRESS_SHARED_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
@@ -224,6 +225,18 @@ jobs:
           # about to deploy, then redeploy so /health can prove that exact SHA.
           deno deploy env update-value DEPLOYMENT_SOURCE_SHA "$GITHUB_SHA" --org "$DENO_ORG" --app "$DENO_APP" \
             || deno deploy env add DEPLOYMENT_SOURCE_SHA "$GITHUB_SHA" --org "$DENO_ORG" --app "$DENO_APP"
+
+          # The same relay secret must exist on BOTH Cloudflare and Deno.
+          # Previously only DEPLOYMENT_SOURCE_SHA was synchronized here, so a
+          # newly recreated Deno app could be healthy for public research while
+          # every authenticated /bybit/private-egress request was unusable.
+          if [ -n "${BYBIT_DEMO_EGRESS_SHARED_SECRET:-}" ]; then
+            deno deploy env update-value BYBIT_DEMO_EGRESS_SHARED_SECRET "$BYBIT_DEMO_EGRESS_SHARED_SECRET" --org "$DENO_ORG" --app "$DENO_APP" \
+              || deno deploy env add BYBIT_DEMO_EGRESS_SHARED_SECRET "$BYBIT_DEMO_EGRESS_SHARED_SECRET" --org "$DENO_ORG" --app "$DENO_APP"
+            echo "DENO_BYBIT_PRIVATE_EGRESS_SECRET=SYNCED"
+          else
+            echo "DENO_BYBIT_PRIVATE_EGRESS_SECRET=NOT_CONFIGURED"
+          fi
           deno deploy --org "$DENO_ORG" --app "$DENO_APP" --prod
 
           URL="${DENO_SECONDARY_URL:-https://${DENO_APP}.${DENO_ORG}.deno.net}"
@@ -236,6 +249,7 @@ jobs:
         if: steps.deploy.outputs.deployed == 'true'
         env:
           DENO_SECONDARY_URL: ${{ steps.deploy.outputs.secondary_url }}
+          BYBIT_DEMO_EGRESS_SHARED_SECRET: ${{ secrets.BYBIT_DEMO_EGRESS_SHARED_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
@@ -265,6 +279,11 @@ jobs:
                   raise SystemExit(f'secondary claims {field}; it holds no authority')
           if data.get('localInstallRequired') is not False:
               raise SystemExit('secondary unexpectedly requires local install')
+          configured = bool(os.environ.get('BYBIT_DEMO_EGRESS_SHARED_SECRET'))
+          if bool(data.get('bybitPrivateEgressConfigured')) != configured:
+              raise SystemExit(f"secondary private-egress secret state mismatch: runtime={data.get('bybitPrivateEgressConfigured')} expected={configured}")
+          if data.get('bybitPrivateEgressBase') != 'https://api-demo.bybit.com':
+              raise SystemExit('secondary private-egress base mismatch')
           if data.get('deploymentSourceSha') != os.environ['GITHUB_SHA']:
               raise SystemExit(f"secondary exact SHA mismatch: {data.get('deploymentSourceSha')}")
           print('DENO_HEALTH=PASS')
