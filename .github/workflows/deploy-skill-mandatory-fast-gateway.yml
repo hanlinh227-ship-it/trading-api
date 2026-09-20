@@ -262,6 +262,27 @@ jobs:
           echo "MODEL_MESH_SECRETS_SKIPPED_NO_ELIGIBLE_MODEL=$skipped"
           echo "CLOUDFLARE_ACCOUNT_ID_BINDING=PRESERVE_EXISTING"
 
+      - name: Sync Bybit demo egress relay configuration
+        working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DENO_SECONDARY_URL: ${{ secrets.DENO_SECONDARY_URL }}
+          BYBIT_DEMO_EGRESS_SHARED_SECRET: ${{ secrets.BYBIT_DEMO_EGRESS_SHARED_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          synced=0
+          if [ -n "${DENO_SECONDARY_URL:-}" ]; then
+            printf '%s' "$DENO_SECONDARY_URL" | npx wrangler secret put BYBIT_DEMO_EGRESS_URL --name trading-v77-scanner >/dev/null
+            synced=$((synced+1))
+          fi
+          if [ -n "${BYBIT_DEMO_EGRESS_SHARED_SECRET:-}" ]; then
+            printf '%s' "$BYBIT_DEMO_EGRESS_SHARED_SECRET" | npx wrangler secret put BYBIT_DEMO_EGRESS_SHARED_SECRET --name trading-v77-scanner >/dev/null
+            synced=$((synced+1))
+          fi
+          echo "BYBIT_DEMO_EGRESS_CONFIG_SYNCED_COUNT=$synced"
+
       - name: Sync Universal Brain credentials without exposing values
         working-directory: cloudflare-worker
         env:
