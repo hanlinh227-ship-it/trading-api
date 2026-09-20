@@ -60,6 +60,8 @@ jobs:
             cat "$HOME/.local/state/trading-api/bybit-bridge.log" || true
             exit 1
           fi
+      # Refresh the self-hosted private proxy before the gated Worker deploy
+      # consumes the existing Cloudflare VPC service binding.
       - name: Verify private proxy and Worker Demo health
         shell: bash
         run: |
