@@ -1,7 +1,7 @@
 {
-  "generation": 1,
+  "generation": 2,
   "schema_version": 1,
-  "snapshot_hash": "3f971e84993a5a034d108e6640a853829b5b1e7d59884b6bf4913417fc9cf162",
+  "snapshot_hash": "9995fc89a62408b5b998039dd9a018e7f2f5fb9839296d905aef6278a4627b47",
   "symbols": {
     "XRPUSDT": {
       "certified_champion": null,

@@ -1,7 +1,7 @@
 {
-  "generation": 1,
+  "generation": 2,
   "schema_version": 1,
-  "snapshot_hash": "cbfbc9fc8afc5dfbe286ca7f8fb4a1b72040f6441b1d5a907eea82ce07a8896c",
+  "snapshot_hash": "ac64ba3a6fd3823f9feb67ceddcb56e20e014611c35713099c4108c95213cd29",
   "symbols": {
     "ADAUSDT": {
       "certified_champion": null,

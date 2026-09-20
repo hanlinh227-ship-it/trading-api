@@ -1,14 +1,14 @@
 {
   "epoch": {
     "consumed_trials": {
-      "SOLUSDT": 4
+      "SOLUSDT": 7
     },
     "data_cutoff": "2026-09-19",
     "epoch_id": "89b03a531496cd25",
     "max_adaptive_trials": 200
   },
-  "generation": 1,
-  "last_snapshot_hash": "957e4be5de315803a973d58493d111579d452f4075496437e6ff33f138060968",
+  "generation": 2,
+  "last_snapshot_hash": "91bc888bf7ffdcb2b8d5a5d618dd95d043bdb1f84e0711fb7f9b69e52a3aa058",
   "schema_version": 1,
   "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
   "symbols": [

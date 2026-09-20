@@ -7,8 +7,8 @@
     "epoch_id": "26bfde3cdc1122db",
     "max_adaptive_trials": 200
   },
-  "generation": 1,
-  "last_snapshot_hash": "3f7da36da8962a52a5649fc22119d12ea2d7720f7125a42e0ba9cb436f93ac59",
+  "generation": 2,
+  "last_snapshot_hash": "bde64894d822a832eaceb363deb3f4ea5887792d1f37904fd1bcba5b52354bde",
   "schema_version": 1,
   "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
   "symbols": [

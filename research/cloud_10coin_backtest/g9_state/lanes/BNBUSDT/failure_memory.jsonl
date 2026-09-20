@@ -1,0 +1,3 @@
+{"hypothesis_hash":"82790e185306b14178fedb14e2e915f9dff2dd896c11d25f9f5c6bc1951056e9","reason":"nonpositive-expectancy,nonpositive-cost-stress-expectancy,no-oof-trades,worst-fold-regression,pbo-regression,fitness-not-improved","record_type":"rejection","research_only":true}
+{"hypothesis_hash":"c49972fed11a6cfd0d0e4685e1ffa2a7a523424d5e6091d4a4e228a8068d1377","reason":"nonpositive-expectancy,nonpositive-cost-stress-expectancy,no-oof-trades,worst-fold-regression,pbo-regression,fitness-not-improved","record_type":"rejection","research_only":true}
+{"hypothesis_hash":"0a18502b7aa84b9b40f0ed6b471177f9f0ec8098c4a1c31e0a75da1c258e2ab7","reason":"worst-fold-regression,pbo-regression,fitness-not-improved","record_type":"rejection","research_only":true}

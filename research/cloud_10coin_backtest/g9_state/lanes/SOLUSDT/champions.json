@@ -1,7 +1,7 @@
 {
-  "generation": 1,
+  "generation": 2,
   "schema_version": 1,
-  "snapshot_hash": "957e4be5de315803a973d58493d111579d452f4075496437e6ff33f138060968",
+  "snapshot_hash": "91bc888bf7ffdcb2b8d5a5d618dd95d043bdb1f84e0711fb7f9b69e52a3aa058",
   "symbols": {
     "SOLUSDT": {
       "certified_champion": null,

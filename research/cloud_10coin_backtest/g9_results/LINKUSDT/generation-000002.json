@@ -1,0 +1,15 @@
+{
+  "certified_count": 0,
+  "errors": {},
+  "evidence_epoch_id": "f33c9a74113707fe",
+  "generation": 2,
+  "previous_snapshot_hash": "1494e34ae256e5bde19f2075645efecaa324f15f729a66e5f88ff3b2780af8a7",
+  "promotions": {
+    "LINKUSDT": []
+  },
+  "snapshot_hash": "cdb0c82a6d07cff9c4bd8c35de8a4e25151ba6f3cff8f71fe4e982f05525bd06",
+  "summary_path": "g9_results/LINKUSDT/generation-000002.json",
+  "trials_attempted": {
+    "LINKUSDT": 0
+  }
+}

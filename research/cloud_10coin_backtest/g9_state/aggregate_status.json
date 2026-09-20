@@ -13,7 +13,7 @@
     "XLMUSDT": "UPDATED",
     "XRPUSDT": "UPDATED"
   },
-  "pool_promotions": 4,
+  "pool_promotions": 0,
   "production_execution_authority": false,
   "research_only": true,
   "route_champions": 4,

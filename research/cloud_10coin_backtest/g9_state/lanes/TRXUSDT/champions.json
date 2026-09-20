@@ -1,7 +1,7 @@
 {
-  "generation": 1,
+  "generation": 2,
   "schema_version": 1,
-  "snapshot_hash": "e55ca0b35c2388dd15027495836e73564c5156eb989026b16d8e0e1371dcfa1d",
+  "snapshot_hash": "c502cf5ebeec35349b996a160d41062c5bc3058ffe741b68868985f5c203093a",
   "symbols": {
     "TRXUSDT": {
       "certified_champion": null,

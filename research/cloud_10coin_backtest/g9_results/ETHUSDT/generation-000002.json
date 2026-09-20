@@ -1,0 +1,15 @@
+{
+  "certified_count": 0,
+  "errors": {},
+  "evidence_epoch_id": "9fd55d20ce1f4383",
+  "generation": 2,
+  "previous_snapshot_hash": "ccd3c9340361ba2a2c78813c8aa180a7f2c1878ca1c62807fdc43297d4a46404",
+  "promotions": {
+    "ETHUSDT": []
+  },
+  "snapshot_hash": "2203e12e5c9df7064e8e975278d142a32eb15dc27ae034353dcf27eb36911b83",
+  "summary_path": "g9_results/ETHUSDT/generation-000002.json",
+  "trials_attempted": {
+    "ETHUSDT": 0
+  }
+}

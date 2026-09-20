@@ -1,7 +1,7 @@
 {
-  "generation": 1,
+  "generation": 2,
   "schema_version": 1,
-  "snapshot_hash": "ccd3c9340361ba2a2c78813c8aa180a7f2c1878ca1c62807fdc43297d4a46404",
+  "snapshot_hash": "2203e12e5c9df7064e8e975278d142a32eb15dc27ae034353dcf27eb36911b83",
   "symbols": {
     "ETHUSDT": {
       "certified_champion": null,
