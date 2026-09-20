@@ -34,6 +34,16 @@ const REASONING_AUTHORITY = false;
 const MODEL_SELECTION_AUTHORITY = false;
 
 const MAX_BODY_BYTES = 256_000;
+
+function envGet(name: string): string {
+  const g = globalThis as typeof globalThis & {
+    Deno?: { env?: { get?: (key: string) => string | undefined } };
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const denoValue = g.Deno?.env?.get?.(name);
+  if (denoValue !== undefined) return denoValue;
+  return g.process?.env?.[name] ?? '';
+}
 const ACTIONS = new Set(['snapshot', 'candles', 'orderbook', 'funding_oi', 'execution_quote']);
 const INSTRUMENTS = new Set(['spot', 'perpetual']);
 const SIDES = new Set(['LONG', 'SHORT']);
@@ -76,7 +86,7 @@ const encoder = new TextEncoder();
 function sourceSha(): string {
   // Provider-neutral: the same variable name the primary uses. No Deno-specific
   // deployment id is treated as the source of truth.
-  return Deno.env.get('DEPLOYMENT_SOURCE_SHA') ?? Deno.env.get('RUNTIME_REVISION') ?? '';
+  return envGet('DEPLOYMENT_SOURCE_SHA') || envGet('RUNTIME_REVISION');
 }
 
 function json(body: unknown, status = 200): Response {
@@ -159,7 +169,7 @@ export async function handle(request: Request): Promise<Response> {
       deploymentRelease: DEPLOYMENT_RELEASE,
       deploymentSourceSha: sourceSha(),
       localInstallRequired: false,
-      bybitPrivateEgressConfigured: Boolean(Deno.env.get('BYBIT_DEMO_EGRESS_SHARED_SECRET')),
+      bybitPrivateEgressConfigured: Boolean(envGet('BYBIT_DEMO_EGRESS_SHARED_SECRET')),
       bybitPrivateEgressBase: BYBIT_DEMO_BASE,
       lastPublicProbeTimestamp: runtime.getLastProbeAt(),
       healthyProviders: Object.entries(providers).filter(([, s]) => s?.ok === true).map(([id]) => id),
@@ -183,7 +193,7 @@ export async function handle(request: Request): Promise<Response> {
 
   if (url.pathname === '/bybit/public-egress') {
     if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
-    const expected = Deno.env.get('BYBIT_DEMO_EGRESS_SHARED_SECRET') ?? '';
+    const expected = envGet('BYBIT_DEMO_EGRESS_SHARED_SECRET') ?? '';
     const supplied = request.headers.get('authorization') ?? '';
     if (!expected || supplied !== 'Bearer ' + expected) return json({ ok: false, error: 'unauthorized' }, 401);
 
@@ -233,7 +243,7 @@ export async function handle(request: Request): Promise<Response> {
 
   if (url.pathname === '/bybit/private-egress') {
     if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
-    const expected = Deno.env.get('BYBIT_DEMO_EGRESS_SHARED_SECRET') ?? '';
+    const expected = envGet('BYBIT_DEMO_EGRESS_SHARED_SECRET') ?? '';
     const supplied = request.headers.get('authorization') ?? '';
     if (!expected || supplied !== 'Bearer ' + expected) return json({ ok: false, error: 'unauthorized' }, 401);
 

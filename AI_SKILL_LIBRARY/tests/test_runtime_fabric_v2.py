@@ -491,6 +491,18 @@ class AdapterArtifactTests(unittest.TestCase):
                      "MODEL_SELECTION_AUTHORITY = false"):
             self.assertIn("const " + flag, text, flag)
 
+    def test_netlify_private_egress_route_is_exposed(self):
+        text = (ROOT / "netlify/functions/research-gateway.mts").read_text(encoding="utf-8")
+        self.assertIn("'/bybit/private-egress'", text)
+
+    def test_shared_portable_handler_uses_runtime_neutral_env_accessor(self):
+        text = (ROOT / "deno-secondary/main.ts").read_text(encoding="utf-8")
+        self.assertIn("function envGet(name: string)", text)
+        self.assertIn("g.Deno?.env?.get?.(name)", text)
+        self.assertIn("g.process?.env?.[name]", text)
+        self.assertNotIn("Deno.env.get(", text)
+
+
     def test_one_portable_lane_checks_both_portable_runtimes(self):
         text = (ROOT / ".github/workflows/deploy-portable-runtimes.yml").read_text(encoding="utf-8")
         self.assertIn("deno-secondary/main.ts", text)
