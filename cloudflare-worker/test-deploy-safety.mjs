@@ -21,6 +21,8 @@ assert.doesNotMatch(workflow,/configured\.some\(r=>!r\.ok/);
 assert.match(workflow,/npm ci --ignore-scripts/);
 assert.match(workflow,/MODEL_MESH_POST_PROBE_PLAN=PASS/);
 assert.match(workflow,/Final exact-SHA deployment gate/);
+assert.doesNotMatch(workflow,/PRIVATE_BRIDGE_ENABLED:\s*'true'/,'canonical cloud-only deploy must not depend on the optional private VPC bridge');
+assert.match(workflow,/PRIVATE_BRIDGE_ENABLED:\s*'false'/,'canonical cloud-only deploy must explicitly disable the optional private VPC bridge');
 assert.match(workflow,/FINAL_EXACT_SHA_GATE=PASS/);
 assert.match(wranglerPrep,/TINYFISH_CIRCUIT/);
 assert.match(wranglerPrep,/new_sqlite_classes/);
