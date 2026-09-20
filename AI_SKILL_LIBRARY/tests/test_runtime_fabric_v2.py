@@ -518,16 +518,16 @@ class TruthfulStateTests(unittest.TestCase):
                 self.assertTrue(verification["deployed"],
                                 f"{runtime_id} claims exact SHA without deployment")
 
-    def test_deno_records_the_live_probe_truthfully(self):
-        """A real Deno deployment, exact-SHA probe and research smoke have succeeded."""
+    def test_deno_records_current_provider_suspension_truthfully(self):
+        """Historical success must not keep a provider selectable after quota suspension."""
         row = entry("deno_deploy")
         verification = row["verification"]
-        self.assertEqual(row["lifecycle"], "STABLE")
+        self.assertEqual(row["lifecycle"], "ADAPTER_READY")
         self.assertIs(verification["configured"], True)
-        self.assertIs(verification["deployed"], True)
-        self.assertIs(verification["health_verified"], True)
-        self.assertIs(verification["exact_sha_verified"], True)
-        self.assertTrue(fabric.production_eligible(row, capability="http_api"))
+        self.assertIs(verification["deployed"], False)
+        self.assertIs(verification["health_verified"], False)
+        self.assertIs(verification["exact_sha_verified"], False)
+        self.assertFalse(fabric.production_eligible(row, capability="http_api"))
 
     def test_netlify_is_adapter_ready_not_verified(self):
         row = entry("netlify_functions")
