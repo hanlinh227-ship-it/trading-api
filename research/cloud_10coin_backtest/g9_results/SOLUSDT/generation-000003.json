@@ -1,0 +1,17 @@
+{
+  "certified_count": 0,
+  "errors": {
+    "SOLUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=SOLUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500"
+  },
+  "evidence_epoch_id": "3c55846600554ff1",
+  "generation": 3,
+  "previous_snapshot_hash": "91bc888bf7ffdcb2b8d5a5d618dd95d043bdb1f84e0711fb7f9b69e52a3aa058",
+  "promotions": {
+    "SOLUSDT": []
+  },
+  "snapshot_hash": "4012f292ba365fdd4fa6cb34024d7f58756f89859bf856647d9a9e44b0cec9ce",
+  "summary_path": "g9_results/SOLUSDT/generation-000003.json",
+  "trials_attempted": {
+    "SOLUSDT": 0
+  }
+}

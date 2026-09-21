@@ -1,0 +1,17 @@
+{
+  "certified_count": 0,
+  "errors": {
+    "TRXUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=TRXUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500"
+  },
+  "evidence_epoch_id": "c17fb31898fa2dc9",
+  "generation": 3,
+  "previous_snapshot_hash": "c502cf5ebeec35349b996a160d41062c5bc3058ffe741b68868985f5c203093a",
+  "promotions": {
+    "TRXUSDT": []
+  },
+  "snapshot_hash": "296a4358af2527f9f035b03750a661073a7e274dd7580298f08f7f83fef3b907",
+  "summary_path": "g9_results/TRXUSDT/generation-000003.json",
+  "trials_attempted": {
+    "TRXUSDT": 0
+  }
+}

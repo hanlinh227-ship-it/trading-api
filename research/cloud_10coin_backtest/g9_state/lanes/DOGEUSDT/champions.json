@@ -1,7 +1,7 @@
 {
-  "generation": 2,
+  "generation": 3,
   "schema_version": 1,
-  "snapshot_hash": "7ae34709012d3957bbacdef635858b8e1744ba3bedbb50f15f8745181b7ffb90",
+  "snapshot_hash": "a8c3035adac2cefcce855be00b3a4a662ba05f5eb62363938a85421ea76d39fc",
   "symbols": {
     "DOGEUSDT": {
       "certified_champion": null,

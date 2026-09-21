@@ -1,0 +1,17 @@
+{
+  "certified_count": 0,
+  "errors": {
+    "XRPUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=XRPUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500"
+  },
+  "evidence_epoch_id": "cc563c156f26cde6",
+  "generation": 3,
+  "previous_snapshot_hash": "9995fc89a62408b5b998039dd9a018e7f2f5fb9839296d905aef6278a4627b47",
+  "promotions": {
+    "XRPUSDT": []
+  },
+  "snapshot_hash": "3a53a4fa4af0b4df3411e9a6e7e9375c047ffc85a113ba587da56c6184f02d4c",
+  "summary_path": "g9_results/XRPUSDT/generation-000003.json",
+  "trials_attempted": {
+    "XRPUSDT": 0
+  }
+}

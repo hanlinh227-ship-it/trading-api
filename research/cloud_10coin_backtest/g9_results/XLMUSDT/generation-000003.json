@@ -1,0 +1,17 @@
+{
+  "certified_count": 0,
+  "errors": {
+    "XLMUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=XLMUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500"
+  },
+  "evidence_epoch_id": "79089ec23942cb56",
+  "generation": 3,
+  "previous_snapshot_hash": "74aa516c2ab55e1f9620dc8fb1a44ba31b3035972dda21fcde7556062c554ed9",
+  "promotions": {
+    "XLMUSDT": []
+  },
+  "snapshot_hash": "cf281fa072bb3b63b8db5050263500bd926af5d19bfab2504746e798a3941b3c",
+  "summary_path": "g9_results/XLMUSDT/generation-000003.json",
+  "trials_attempted": {
+    "XLMUSDT": 0
+  }
+}

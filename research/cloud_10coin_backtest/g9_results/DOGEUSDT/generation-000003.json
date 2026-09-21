@@ -1,0 +1,17 @@
+{
+  "certified_count": 0,
+  "errors": {
+    "DOGEUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=DOGEUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500"
+  },
+  "evidence_epoch_id": "64d1687ddd10adab",
+  "generation": 3,
+  "previous_snapshot_hash": "7ae34709012d3957bbacdef635858b8e1744ba3bedbb50f15f8745181b7ffb90",
+  "promotions": {
+    "DOGEUSDT": []
+  },
+  "snapshot_hash": "a8c3035adac2cefcce855be00b3a4a662ba05f5eb62363938a85421ea76d39fc",
+  "summary_path": "g9_results/DOGEUSDT/generation-000003.json",
+  "trials_attempted": {
+    "DOGEUSDT": 0
+  }
+}

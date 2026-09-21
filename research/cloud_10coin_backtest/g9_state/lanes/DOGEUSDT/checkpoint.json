@@ -1,14 +1,14 @@
 {
   "epoch": {
     "consumed_trials": {
-      "DOGEUSDT": 4
+      "DOGEUSDT": 0
     },
-    "data_cutoff": "2026-09-19",
-    "epoch_id": "858543319522f3b5",
+    "data_cutoff": "2026-09-20",
+    "epoch_id": "64d1687ddd10adab",
     "max_adaptive_trials": 200
   },
-  "generation": 2,
-  "last_snapshot_hash": "7ae34709012d3957bbacdef635858b8e1744ba3bedbb50f15f8745181b7ffb90",
+  "generation": 3,
+  "last_snapshot_hash": "a8c3035adac2cefcce855be00b3a4a662ba05f5eb62363938a85421ea76d39fc",
   "schema_version": 1,
   "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
   "symbols": [

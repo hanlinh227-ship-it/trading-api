@@ -1,14 +1,14 @@
 {
   "epoch": {
     "consumed_trials": {
-      "XRPUSDT": 7
+      "XRPUSDT": 0
     },
-    "data_cutoff": "2026-09-19",
-    "epoch_id": "a2e4fa6147b1a0af",
+    "data_cutoff": "2026-09-20",
+    "epoch_id": "cc563c156f26cde6",
     "max_adaptive_trials": 200
   },
-  "generation": 2,
-  "last_snapshot_hash": "9995fc89a62408b5b998039dd9a018e7f2f5fb9839296d905aef6278a4627b47",
+  "generation": 3,
+  "last_snapshot_hash": "3a53a4fa4af0b4df3411e9a6e7e9375c047ffc85a113ba587da56c6184f02d4c",
   "schema_version": 1,
   "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
   "symbols": [

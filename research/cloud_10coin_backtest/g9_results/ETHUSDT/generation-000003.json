@@ -1,0 +1,17 @@
+{
+  "certified_count": 0,
+  "errors": {
+    "ETHUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=ETHUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500"
+  },
+  "evidence_epoch_id": "c70bb7c37c3de0af",
+  "generation": 3,
+  "previous_snapshot_hash": "2203e12e5c9df7064e8e975278d142a32eb15dc27ae034353dcf27eb36911b83",
+  "promotions": {
+    "ETHUSDT": []
+  },
+  "snapshot_hash": "843ccae3d794377bbec846ef88b1f42fee106e849c230b4262dbca124c0625a9",
+  "summary_path": "g9_results/ETHUSDT/generation-000003.json",
+  "trials_attempted": {
+    "ETHUSDT": 0
+  }
+}

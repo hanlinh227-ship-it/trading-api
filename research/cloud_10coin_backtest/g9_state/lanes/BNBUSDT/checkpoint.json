@@ -1,14 +1,14 @@
 {
   "epoch": {
     "consumed_trials": {
-      "BNBUSDT": 7
+      "BNBUSDT": 0
     },
-    "data_cutoff": "2026-09-19",
-    "epoch_id": "6ba14f475db165a8",
+    "data_cutoff": "2026-09-20",
+    "epoch_id": "8e4303986af50601",
     "max_adaptive_trials": 200
   },
-  "generation": 2,
-  "last_snapshot_hash": "3fef8fbba7c333220f3b5f75513c68548de259235e1d2e157e4071f2f93a552a",
+  "generation": 3,
+  "last_snapshot_hash": "a13e21eb7906a01e336590faa3eb2081072bc210006de080d7fbdcddc1d4cff5",
   "schema_version": 1,
   "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
   "symbols": [

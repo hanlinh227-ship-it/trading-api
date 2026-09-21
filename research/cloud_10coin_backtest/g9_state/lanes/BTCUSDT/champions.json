@@ -1,7 +1,7 @@
 {
-  "generation": 2,
+  "generation": 3,
   "schema_version": 1,
-  "snapshot_hash": "bde64894d822a832eaceb363deb3f4ea5887792d1f37904fd1bcba5b52354bde",
+  "snapshot_hash": "07117c58ae771432ad4fda67f64b00bd487dc4c598ffc0a6492ee137fee45100",
   "symbols": {
     "BTCUSDT": {
       "certified_champion": null,

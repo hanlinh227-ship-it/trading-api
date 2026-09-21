@@ -1,7 +1,7 @@
 {
-  "generation": 2,
+  "generation": 3,
   "schema_version": 1,
-  "snapshot_hash": "cdb0c82a6d07cff9c4bd8c35de8a4e25151ba6f3cff8f71fe4e982f05525bd06",
+  "snapshot_hash": "8c9b451c3a2b51ce420826ae9451abdc4b758ffa41fbcb1f513de1740b15737f",
   "symbols": {
     "LINKUSDT": {
       "certified_champion": null,

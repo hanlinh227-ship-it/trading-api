@@ -4,9 +4,9 @@
     "production_strategy": "BYBIT-BTC-STATEFLOW-2.1"
   },
   "authority_level": "STABLE_EVIDENCE",
-  "data_cutoff": "2026-09-19",
+  "data_cutoff": "2026-09-20",
   "kind": "g9_stable_trading_evidence",
-  "manifest_hash": "62447d7ab03e231ab35584c99cfc62615958d5395850e20c36af3819b89bfad4",
+  "manifest_hash": "06e7ba9193f612b88364477d6ac51cabeaa908aa3131088893ba277da14fdf92",
   "parent_kind": "g9_continuous_champion_pool",
   "parent_snapshot_hash": "ab93fade14369c071aeacb9e645fe303e9d79db278004ae5cf17ee02b934fecc",
   "plane": "STABLE_EVIDENCE",

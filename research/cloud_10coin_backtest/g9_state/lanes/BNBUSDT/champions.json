@@ -1,7 +1,7 @@
 {
-  "generation": 2,
+  "generation": 3,
   "schema_version": 1,
-  "snapshot_hash": "3fef8fbba7c333220f3b5f75513c68548de259235e1d2e157e4071f2f93a552a",
+  "snapshot_hash": "a13e21eb7906a01e336590faa3eb2081072bc210006de080d7fbdcddc1d4cff5",
   "symbols": {
     "BNBUSDT": {
       "certified_champion": null,

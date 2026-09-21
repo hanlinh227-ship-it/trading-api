@@ -1,0 +1,17 @@
+{
+  "certified_count": 0,
+  "errors": {
+    "BTCUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500"
+  },
+  "evidence_epoch_id": "436ceef34826118a",
+  "generation": 3,
+  "previous_snapshot_hash": "bde64894d822a832eaceb363deb3f4ea5887792d1f37904fd1bcba5b52354bde",
+  "promotions": {
+    "BTCUSDT": []
+  },
+  "snapshot_hash": "07117c58ae771432ad4fda67f64b00bd487dc4c598ffc0a6492ee137fee45100",
+  "summary_path": "g9_results/BTCUSDT/generation-000003.json",
+  "trials_attempted": {
+    "BTCUSDT": 0
+  }
+}

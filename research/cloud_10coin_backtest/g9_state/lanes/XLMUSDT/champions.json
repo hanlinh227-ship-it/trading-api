@@ -1,7 +1,7 @@
 {
-  "generation": 2,
+  "generation": 3,
   "schema_version": 1,
-  "snapshot_hash": "74aa516c2ab55e1f9620dc8fb1a44ba31b3035972dda21fcde7556062c554ed9",
+  "snapshot_hash": "cf281fa072bb3b63b8db5050263500bd926af5d19bfab2504746e798a3941b3c",
   "symbols": {
     "XLMUSDT": {
       "certified_champion": null,

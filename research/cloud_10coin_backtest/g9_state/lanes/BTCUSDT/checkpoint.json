@@ -1,14 +1,14 @@
 {
   "epoch": {
     "consumed_trials": {
-      "BTCUSDT": 4
+      "BTCUSDT": 0
     },
-    "data_cutoff": "2026-09-19",
-    "epoch_id": "26bfde3cdc1122db",
+    "data_cutoff": "2026-09-20",
+    "epoch_id": "436ceef34826118a",
     "max_adaptive_trials": 200
   },
-  "generation": 2,
-  "last_snapshot_hash": "bde64894d822a832eaceb363deb3f4ea5887792d1f37904fd1bcba5b52354bde",
+  "generation": 3,
+  "last_snapshot_hash": "07117c58ae771432ad4fda67f64b00bd487dc4c598ffc0a6492ee137fee45100",
   "schema_version": 1,
   "source_sha": "74c9f0323171708a9f827f6337f1646f2973178e",
   "symbols": [
