@@ -1,0 +1,44 @@
+{
+  "certified_count": 0,
+  "errors": {
+    "ADAUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=ADAUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500",
+    "BNBUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=BNBUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500",
+    "BTCUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500",
+    "DOGEUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=DOGEUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500",
+    "ETHUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=ETHUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500",
+    "LINKUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=LINKUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500",
+    "SOLUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=SOLUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500",
+    "TRXUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=TRXUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500",
+    "XLMUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=XLMUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500",
+    "XRPUSDT": "feature-provider:RuntimeError:Binance USD-M fetch failed: 451 Client Error:  for url: https://fapi.binance.com/fapi/v1/klines?symbol=XRPUSDT&interval=5m&startTime=1788220800000&endTime=1789948799999&limit=1500"
+  },
+  "evidence_epoch_id": "da7671e92e0c1e6c",
+  "generation": 3,
+  "previous_snapshot_hash": "982d251244920869fec0521d4058661d4943bc1decdca4eba134e42772d5637d",
+  "promotions": {
+    "ADAUSDT": [],
+    "BNBUSDT": [],
+    "BTCUSDT": [],
+    "DOGEUSDT": [],
+    "ETHUSDT": [],
+    "LINKUSDT": [],
+    "SOLUSDT": [],
+    "TRXUSDT": [],
+    "XLMUSDT": [],
+    "XRPUSDT": []
+  },
+  "snapshot_hash": "dda731f218485a2f9d913fbbecb7d5cd89c15486ef4092b39b3a4e35d74790f6",
+  "summary_path": "g8_results/generation-000003.json",
+  "trials_attempted": {
+    "ADAUSDT": 0,
+    "BNBUSDT": 0,
+    "BTCUSDT": 0,
+    "DOGEUSDT": 0,
+    "ETHUSDT": 0,
+    "LINKUSDT": 0,
+    "SOLUSDT": 0,
+    "TRXUSDT": 0,
+    "XLMUSDT": 0,
+    "XRPUSDT": 0
+  }
+}
