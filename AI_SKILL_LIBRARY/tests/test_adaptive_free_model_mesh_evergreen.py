@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class AdaptiveFreeModelMeshEvergreenTests(unittest.TestCase):
-    def test_continuous_intelligence_declares_hourly_evergreen_mesh_discovery(self):
+    def test_continuous_intelligence_declares_evergreen_mesh_discovery(self):
         data = yaml.safe_load((ROOT / "AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml").read_text(encoding="utf-8"))
         mesh = data["model_mesh_discovery"]
         self.assertEqual(mesh["plane"], "evergreen_only")
@@ -29,7 +29,7 @@ class AdaptiveFreeModelMeshEvergreenTests(unittest.TestCase):
         self.assertEqual(mesh["output_state"], "quarantine")
         self.assertFalse(mesh["auto_permission_expansion"])
 
-    def test_hourly_workflow_discovers_models_and_uploads_quarantine_report(self):
+    def test_manual_workflow_discovers_models_and_uploads_quarantine_report(self):
         text = (ROOT / ".github/workflows/ai-brain-evergreen-scan.yml").read_text(encoding="utf-8")
         self.assertIn("discover_free_models.py --root . --output /tmp/v4-free-model-mesh-candidates.json", text)
         self.assertIn("/tmp/v4-free-model-mesh-candidates.json", text)
