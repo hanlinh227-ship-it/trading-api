@@ -1,8 +1,7 @@
 name: AI Brain V4 Evergreen Candidate
 
 on:
-  schedule:
-    - cron: '41 * * * *'
+  # Candidate creation and PR publication are manual to avoid unattended source scans/writes.
   workflow_dispatch:
     inputs:
       failure_ledger_path:
