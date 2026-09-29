@@ -32,6 +32,7 @@ class ScheduledWorkflowResilienceTests(unittest.TestCase):
         for path in (
             ".github/workflows/g8-brainloop.yml",
             ".github/workflows/g9-continuous-research.yml",
+            ".github/workflows/ai-brain-evergreen-candidate.yml",
         ):
             workflow = (ROOT / path).read_text(encoding="utf-8")
             self.assertNotIn("  schedule:", workflow, path)
