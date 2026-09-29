@@ -158,7 +158,7 @@ class Brain48ContinuousIntelligenceTests(unittest.TestCase):
         del missing["quality"]
         self.assertEqual(compare_candidate(baseline, missing, policy), "hold")
 
-    def test_hourly_continuous_intelligence_schedule(self):
+    def test_hourly_contract_is_not_backed_by_recurring_github_runs(self):
         contract = self._yaml("AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml")
         self.assertEqual(contract["schedules"]["source_refresh_hours"], 1)
         self.assertEqual(contract["schedules"]["candidate_cycle"], "hourly")
@@ -168,14 +168,16 @@ class Brain48ContinuousIntelligenceTests(unittest.TestCase):
         for path in (scan, candidate):
             self.assertTrue(path.is_file(), str(path))
             text = path.read_text(encoding="utf-8")
-            self.assertIn("schedule:", text)
+            self.assertIn("workflow_dispatch:", text)
             self.assertNotIn("git push origin main", text)
 
         scan_text = scan.read_text(encoding="utf-8")
         candidate_text = candidate.read_text(encoding="utf-8")
-        self.assertIn("17 * * * *", scan_text)
+        self.assertNotIn("17 * * * *", scan_text)
         self.assertNotIn("17 */6 * * *", scan_text)
-        self.assertIn("41 * * * *", candidate_text)
+        self.assertNotIn("41 * * * *", candidate_text)
+        self.assertIn("workflow_dispatch:", scan_text)
+        self.assertIn("workflow_dispatch:", candidate_text)
         self.assertNotIn("41 2 * * *", candidate_text)
         self.assertIn("23 3 * * 0", scan_text)
         self.assertIn("weekly-intelligence-audit", scan_text)
