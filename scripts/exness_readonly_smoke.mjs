@@ -47,7 +47,7 @@ function parsePrivateKey(secret) {
   } else if (/^[0-9a-fA-F]{128}$/.test(value)) {
     bytes = Buffer.from(value, "hex");
   } else {
-    const normalized = value.replace(/\\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
+    const normalized = value.replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
     if (!/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
       throw new Error("unsupported private-key encoding");
     }
@@ -114,7 +114,17 @@ function selfTest() {
   const signature = cryptoSign(null, Buffer.alloc(0), key);
   assert.equal(signature.toString("hex"), expectedSignature);
   assert.equal(cryptoVerify(null, Buffer.alloc(0), createPublicKey(key), signature), true);
-  process.stdout.write("SELF_TEST PASS (Ed25519 RFC 8032)\n");
+
+  const headers = signedGetHeaders("test-key", key, "/v1/trading/access-point?account_id=123");
+  const signedPayload = Buffer.from(headers["EXN-DATA"], "base64url");
+  const decodedPayload = JSON.parse(signedPayload.toString("utf8"));
+  assert.equal(decodedPayload.path, "/v1/trading/access-point?account_id=123");
+  assert.equal(headers["EXN-TIMESTAMP"], String(decodedPayload.timestamp));
+  assert.equal(
+    cryptoVerify(null, signedPayload, createPublicKey(key), Buffer.from(headers["EXN-SIGN"], "base64url")),
+    true,
+  );
+  process.stdout.write("SELF_TEST PASS (Ed25519 and query-string signing)\n");
 }
 
 function signedGetHeaders(apiKey, privateKey, pathAndQuery) {
