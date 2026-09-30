@@ -20,7 +20,7 @@ jobs:
       EXNESS_API_KEY: ${{ secrets.EXNESS_API_KEY }}
       EXNESS_PRIVATE_KEY: ${{ secrets.EXNESS_PRIVATE_KEY }}
       EXNESS_ACCOUNT_ID: ${{ secrets.EXNESS_ACCOUNT_ID }}
-      EXNESS_API_BASE_URL: ${{ vars.EXNESS_API_BASE_URL }}
+      EXNESS_API_BASE_URL: ${{ vars.EXNESS_API_BASE_URL || secrets.EXNESS_API_BASE_URL }}
     steps:
       - name: Check out isolated smoke-test branch
         uses: actions/checkout@v4
