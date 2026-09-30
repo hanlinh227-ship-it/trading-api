@@ -197,3 +197,53 @@ Verdicts are bound to signal ID, snapshot hash, method/knowledge version, assess
 5. Exact-main CI/deploy gate, secrets-presence verification without reading values, and Bybit regression must pass before any production deployment.
 
 Primary references: Exness ticks `https://www.exness-api.com/reference/get-ws-ticks`; limits `https://www.exness-api.com/documentation/api-configuration-and-limits`; DeepSeek pricing `https://api-docs.deepseek.com/quick_start/pricing/`; JSON output `https://api-docs.deepseek.com/guides/json_mode/`; Cloudflare Worker limits `https://developers.cloudflare.com/workers/platform/limits/`.
+
+
+## Public scalp bot review and our own method specification
+
+Reviewed 2026-10-01. Public repositories are used as engineering references only; none is treated as a profitable strategy or as authority for our signals.
+
+| Reference | What its design contributes | What we do not import |
+| --- | --- | --- |
+| [santiquiroz/leviathan](https://github.com/santiquiroz/leviathan) — MIT | One written specification shared by signal and backtest engines; trend + structure + closed-candle trigger; explicit bid/ask, spread, slippage, commission and conservative same-bar TP/SL handling. | Its EMA/BOS/pinbar defaults, 1:2 target and MT5 runtime are not assumed to work on Exness M1/M5 or on all 28 pairs. The repository describes itself as educational, not as verified performance. |
+| [jesse-ai/example-strategies](https://github.com/jesse-ai/example-strategies) — MIT | Keep strategy code small and configurable; test by market and timeframe; preserve the warning that examples are not ready-made profitable systems. | Do not import examples as signal rules without matching FX data, costs and out-of-sample evidence. |
+| [freqtrade/freqtrade-strategies](https://github.com/freqtrade/freqtrade-strategies) — GPL-3.0, crypto-oriented | Useful reference for separating entries, exits, stop rules and backtest configuration. | Do not copy GPL-3.0 code into this project without a deliberate license decision; crypto examples are not FX validation. |
+
+The reusable lesson is the testing architecture, not the claimed or configured edge. We will write one FX-specific ruleset and make the signal scanner, paper tracker and replay/backtest consume that same versioned specification.
+
+### Our candidate: FX-CSTC v0 (Context → Structure → Trigger → Cost)
+
+This is a concrete, deterministic paper-signal hypothesis. It emits either a candidate with evidence or a typed NO_SIGNAL; DeepSeek can review/veto/explain only when the user presses a button. It cannot invent prices, direction, SL/TP or modify the rules.
+
+1. **Universe and currency context**
+   - Calculate rolling, volatility-normalized returns and spread/cadence profiles for all eight currencies from the 28 Exness crosses. Normalize inverse pairs consistently. Use the currency-strength estimate to measure whether a pair's move agrees with the broader cross section and to detect duplicated exposure; it is context/ranking evidence, not a standalone entry.
+   - Consider at most two candidates and avoid choosing two pairs that express essentially the same currency exposure. If the cross-section is inconsistent, return fewer signals or none.
+2. **H1 direction and regime**
+   - Use completed H1 bars only. Classify TREND_UP, TREND_DOWN, RANGE, or UNSTABLE from causal swing structure and normalized volatility. The first research baseline may compare this structure classification with EMA 20/50/200 as a benchmark; do not merge whichever wins after viewing the holdout.
+   - Trend continuation candidates are permitted only in a stable directional regime. Range/unstable conditions produce NO_SIGNAL in v0 rather than forcing a scalp.
+3. **M5 setup**
+   - In the H1 direction, require a completed M5 close to break a prior confirmed swing level, then a pullback/retest to that level within a fixed, versioned lookback. Require the retest candle to close back on the trend side. The swing excludes the signal candle, and a not-yet-closed bar cannot satisfy the setup.
+   - A missing, stale, malformed or broker-mismatched candle is a rejection, never an AI judgment call.
+4. **M1 trigger**
+   - After the M5 retest, require a completed M1 candle to close through the immediately preceding confirmed M1 trigger level in the same direction. The current forming candle may update the display but cannot create the signal.
+   - A candidate expires if the trigger does not occur inside its versioned window; it is not chased at a worse quote.
+5. **One fixed SL and one fixed TP**
+   - BUY reference entry is current Ask; SELL reference entry is current Bid. The structural invalidation is beyond the pullback swing. Add a pair/session noise buffer derived from observed M1 volatility and spread; never use one pip distance for every pair.
+   - Place the sole TP at the nearest opposing confirmed structure that remains reachable after estimated spread, slippage and commission. Reject if that target is blocked, the SL lies inside the pair/session noise envelope, the net reward-to-risk is below the pre-registered research threshold, or cost/fill inputs are unknown.
+   - Freeze both levels at publication. Tick updates only move the UI gauge and paper outcome. Nothing in this rule guarantees protection from stop sweeps or gaps.
+6. **Candidate ranking and AI**
+   - Deterministic checks first reject bad data, regime, setup, trigger, costs and duplicated exposure. Rank surviving candidates using a fixed, logged score based on setup age, normalized distance to invalidation/target, spread burden and cross-pair agreement.
+   - The Signal button sends only the top 0–2 already-valid candidates plus cited evidence to DeepSeek. Validate its response against the candidate snapshot; it may return KEEP, VETO or UNCERTAIN, with a reason. Any changed number, side, symbol or timestamp rejects the response. The Evaluate button rechecks existing paper theses; it does not silently create a third signal.
+7. **Learning without self-changing rules**
+   - Store every scan, rejection reason, AI assessment, quote gap and paper outcome with the method version. Group misses and false alerts by pair, session, volatility regime, spread burden and event window.
+   - Learning creates named research hypotheses (for example, whether retest depth should be normalized by M1 ATR); it never rewrites production thresholds. Compare one controlled change at a time on training/validation periods, then run a frozen, untouched chronological holdout and forward paper test before considering a new version.
+
+### Implementation and evaluation contract
+
+- A single pure decision function owns the rules. The live scanner and historical replay call the same function with immutable, timestamped inputs. A fixture must prove they return identical decisions for identical inputs.
+- Every feature at decision time must have been available then. Use only completed candles, exclude the current bar from swing calculations, and replay by source time. No future candle, revised news item, or later quote may leak backward.
+- Simulate executable-side prices: BUY enters Ask and exits/marks Bid; SELL enters Bid and exits/marks Ask. Include measured spread, commission if applicable, and adverse slippage. If tick history is unavailable, bar-based double hits are AMBIGUOUS; count conservatively as SL-first in the primary report and show the ambiguous count separately.
+- Before looking at the final holdout, freeze pair/time splits, thresholds, cost assumptions, candidate limits and pass/fail metrics. Report per-pair and aggregate sample size, net expectancy in R, win rate, profit factor, max drawdown, average spread/cost burden, missed/stale-data rate, and performance by session/regime. A high win rate alone is not a pass. Do not optimize parameters on the final holdout.
+- Test a single sample signal end-to-end before any batch: exact source quote/candle snapshot → deterministic candidate → AI validation on button press → one TP/SL paper tracker → reconnect/gap handling → History row. Then run fixtures; then shadow over time. No 1,000-signal batch until the sample and ledger reconcile.
+
+Source notes: Leviathan's public [strategy spec](https://github.com/santiquiroz/leviathan/blob/master/docs/STRATEGY.md) documents closed-bar indexing, trend/structure/trigger separation and bid/ask cost-aware replay; its [README](https://github.com/santiquiroz/leviathan) labels the implementation educational. [Jesse examples](https://github.com/jesse-ai/example-strategies) warns that example strategies are not ready-to-go profitable and depend on symbol/timeframe. [Freqtrade strategies](https://github.com/freqtrade/freqtrade-strategies) is a GPL-3.0 crypto strategy collection, so it is reference-only unless the project deliberately accepts that license.
