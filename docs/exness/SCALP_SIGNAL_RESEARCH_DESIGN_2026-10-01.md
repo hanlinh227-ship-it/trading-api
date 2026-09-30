@@ -119,7 +119,7 @@ Acceptance fixtures: 0/2 → scan can add 0–2; 1/2 → at most one; 2/2 → no
 
 ### Automatic signal tracking, AI review and History
 
-A signal becomes a paper-tracked record as soon as the validated scan publishes it; no manual “entered” confirmation or broker fill form is shown. Store the signal snapshot, method/knowledge version, candidate direction, executable-side reference entry, fixed SL/TP, and source timestamps. Entry convention: BUY uses Ask at signal time; SELL uses Bid. Mark-to-market and level checks use BUY Bid and SELL Ask.
+A signal becomes a paper-tracked record as soon as the validated scan publishes it; no manual entry or exit forms are shown. Store the signal snapshot, method/knowledge version, candidate direction, executable-side reference entry, fixed SL/TP, and source timestamps. Entry convention: BUY uses Ask at signal time; SELL uses Bid. Mark-to-market and level checks use BUY Bid and SELL Ask.
 
 The bot evaluates each fresh quote against fixed levels and appends idempotent observations. If a tick first reaches/crosses TP or SL, archive as `PAPER_TP_OBSERVED` or `PAPER_SL_OBSERVED`; calculate paper pips/R from the first observed executable closing-side quote, not an assumed exact fill at the level. If reconnect gaps over a level, record the first recovered quote and gap interval; do not invent an intermediate price. The record is a simulated outcome for the generated signal.
 
@@ -174,7 +174,7 @@ At the top-right of each signal card, show ONLY three small circles in green / a
 | Amber | Insufficient, uncertain or stale evidence; no direction implied. |
 | Red | Fresh evidence invalidates the research thesis; the bot records `THESIS_INVALIDATED` and archives this paper signal automatically. This marks only the signal's research thesis as invalidated. |
 
-Verdicts are bound to signal ID, snapshot hash, method/knowledge version, assessment time, expiry, source timestamp, reason code and evidence IDs. Expired verdicts revert to unknown. The gauge's red/green price progress is separate from AI assessment. No button or model response sends a broker order. Signal lifecycle changes and History records are automatic and idempotent; AI is invoked only by the user pressing an assessment action or Signal scan, never per tick.
+Verdicts are bound to signal ID, snapshot hash, method/knowledge version, assessment time, expiry, source timestamp, reason code and evidence IDs. Expired verdicts revert to unknown. The gauge's red/green price progress is separate from AI assessment. No button triggers a transaction; this is a signal-only web. Signal lifecycle changes and History records are automatic and idempotent; AI is invoked only by the user pressing an assessment action or Signal scan, never per tick.
 
 ## Acceptance gates
 
