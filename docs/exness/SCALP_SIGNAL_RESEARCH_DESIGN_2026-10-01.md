@@ -247,3 +247,60 @@ This is a concrete, deterministic paper-signal hypothesis. It emits either a can
 - Test a single sample signal end-to-end before any batch: exact source quote/candle snapshot → deterministic candidate → AI validation on button press → one TP/SL paper tracker → reconnect/gap handling → History row. Then run fixtures; then shadow over time. No 1,000-signal batch until the sample and ledger reconcile.
 
 Source notes: Leviathan's public [strategy spec](https://github.com/santiquiroz/leviathan/blob/master/docs/STRATEGY.md) documents closed-bar indexing, trend/structure/trigger separation and bid/ask cost-aware replay; its [README](https://github.com/santiquiroz/leviathan) labels the implementation educational. [Jesse examples](https://github.com/jesse-ai/example-strategies) warns that example strategies are not ready-to-go profitable and depend on symbol/timeframe. [Freqtrade strategies](https://github.com/freqtrade/freqtrade-strategies) is a GPL-3.0 crypto strategy collection, so it is reference-only unless the project deliberately accepts that license.
+
+
+## Multi-market expansion: one research framework, separate market methods
+
+The goal is to support a broad catalog of markets over time. "All markets" cannot mean every instrument worldwide by default: a market is supported only when its exact venue/feed, instrument metadata, usable history and data rights are verified. Missing data returns UNSUPPORTED or NO_SIGNAL; it is never filled with a guessed proxy.
+
+### Shared pipeline and market-specific modules
+
+Use one common pipeline for instrument discovery, feed validation, normalization, cost modeling, candidate review, paper tracking and History. Use separate versioned method modules and thresholds by asset class and venue:
+
+- FX spot/CFD: FX-CSTC method and broker Bid/Ask semantics.
+- Crypto spot: exchange-specific trades/orderbook, exchange session is 24/7, venue fees and symbol rules.
+- Crypto perpetual/futures: separate contract type, funding, mark/index price, liquidation/maintenance metadata and contract fees; do not reuse spot assumptions.
+- Metals and energy CFDs/futures: contract specification, quote convention, trading session, rollover and spread model must match the actual venue/product.
+- Equity indices and index futures/CFDs: exchange calendar, local session, contract multiplier, tick value, expiry/roll and venue-specific costs.
+- Listed equities/ETFs: exchange session, corporate actions, instrument status, shortability/borrow costs and market-data entitlement.
+- Rates, options and other derivatives: separate payoff/expiry/greeks or curve contracts; unsupported until those inputs are modeled.
+
+The shared output schema may be the same (market, venue, instrument, side, observed quote, entry reference, one SL, one TP, evidence, method version, freshness, paper lifecycle), but signal rules, costs, hours, tick sizes, expected liquidity and validation splits are not shared across asset classes. A Forex scalp method does not become a crypto or equity method by changing the symbol.
+
+### Market adapter admission contract
+
+Each data adapter must publish a versioned capability record before its market can appear as supported:
+
+| Field | Required evidence |
+| --- | --- |
+| Identity | Asset class, venue, exact instrument ID, product type, quote currency and contract multiplier |
+| Feed | Official endpoint, public/private scope, bid/ask vs last-trade semantics, source timestamp, sequence/reconnect behavior and tested cadence |
+| History | Candle/tick interval, depth, time zone, revisions, gaps and documented limits; historical data must match the live venue |
+| Costs | Spread or order-book depth, maker/taker or broker fees, funding/borrow/rollover, slippage assumptions and their source |
+| Trading calendar | Session, holidays, maintenance windows, expiry and daylight-saving handling where relevant |
+| Rights and limits | Current free/paid status, authentication, rate limits, storage/display and redistribution terms |
+| Validation | Data-quality fixtures, time-aligned replay, sample paper test and measured freshness/gap report |
+
+Only adapters with all required fields enter SUPPORTED_PAPER. Incomplete adapters remain RESEARCH_ONLY or UNSUPPORTED, visible in Connection/Market Coverage rather than silently producing signals.
+
+### Initial coverage map
+
+| Market family | Current evidence | Status for this system |
+| --- | --- | --- |
+| FX 28 crosses | Existing project reports an Exness read-only tick path; the FX-CSTC rule is a research candidate. Candles, complete cost history and paper validation still need to be matched and measured. | RESEARCH_CANDIDATE; no efficacy claim |
+| Crypto spot | Official Bybit docs expose public market-data WebSockets for spot and separate product categories; Binance documents a public market-data base endpoint. These are candidate read-only sources, not confirmation that this app is connected or entitled to redistribute the feed. | SOURCE_RESEARCH; select one venue and verify terms, history and costs before implementation |
+| Crypto perpetuals/futures | Public sources expose separate derivative feeds, but spot data cannot substitute for contract price/funding/cost history. | SOURCE_RESEARCH; separate method and contract metadata required |
+| Gold, energy, indices | Possible only for exact Exness/venue-supported instruments and validated product metadata. No current evidence in this PR confirms live/history coverage for every requested product. | UNVERIFIED |
+| Listed shares, ETFs, rates, options and other global markets | No universally free, licensed, low-latency feed with complete matching historical data has been verified for this project. | UNSUPPORTED until a named official source passes adapter admission |
+
+The initial implementation order should be: (1) finish and paper-test the existing FX adapter/method; (2) choose one public crypto venue and build an isolated read-only adapter; (3) evaluate metals/energy/index products one by one against actual contract terms; (4) add equities or other derivatives only after a source, rights and history pass. This is a research order, not a claim that every market is currently available.
+
+### Cross-market portfolio context
+
+When more than one market family is enabled, the coordinator may compare signal freshness and shared risk factors, but it must not treat different venues' prices as interchangeable. Track exposure by underlying currency, crypto asset, equity index factor and commodity driver where the relationship is evidenced. Keep every candidate's venue, method, costs and price provenance attached through History. Unknown cross-market dependence is reported as unknown rather than guessed. A two-card UI limit can still select at most two paper candidates, but ranking compares only candidates with valid, independently calibrated scores.
+
+### Required release evidence per market family
+
+A market family becomes visible as supported only after: feed contract review; exact symbol/contract fixture; clock and sequence/gap tests; source-matched historical replay; spread/fee/funding/rollover costs; one sample paper signal end-to-end; per-venue/session/regime validation; and explicit free-use/display/retention rights. A pass for FX does not pass crypto; a pass for BTC spot does not pass BTC perpetuals; a pass for one index venue does not pass another.
+
+Official source checks for the crypto research candidates (checked 2026-10-01): Bybit public WebSocket connection and market product endpoints, [connect](https://bybit-exchange.github.io/docs/v5/ws/connect), [ticker](https://bybit-exchange.github.io/docs/v5/websocket/public/ticker), and [instrument metadata](https://bybit-exchange.github.io/docs/v5/market/instrument); Binance public market-data REST base and WebSocket stream docs, [REST market data](https://developers.binance.com/en/docs/products/spot/rest-api) and [market streams](https://developers.binance.com/en/docs/products/derivatives-trading-coin-futures/websocket-market-streams/Connect). These establish documented public market-data interfaces, not free commercial redistribution rights, actual latency, historical completeness or an integration in this app. Verify current terms and quotas before use.
