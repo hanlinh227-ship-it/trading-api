@@ -72,8 +72,8 @@ function connect(){
   if(socket&&(socket.readyState===0||socket.readyState===1))return;
   setStatus('Đang kết nối…','');
   const scheme=location.protocol==='https:'?'wss:':'ws:';
-  let ws;try{ws=new WebSocket(scheme+'//'+location.host+'/exness/live/ws');socket=ws}catch(err){setStatus('Không mở được WebSocket','bad');return}
-  ws.onopen=()=>{if(socket!==ws)return;attempt=0;stats.prevSentAt=null;stats.prevArrival=null;stats.jitterMs=null;setText('jitter','—');setStatus('● Đang truyền tick','ok')};
+  let ws;try{ws=new WebSocket(scheme+'//'+location.host+'/exness/live/ws');socket=ws}catch(err){setStatus('Không mở được WebSocket — thử lại','bad');clearTimeout(retry);retry=setTimeout(connect,1000);return}
+  ws.onopen=()=>{if(socket!==ws)return;attempt=0;stats.lastTickMs=Date.now();stats.prevSentAt=null;stats.prevArrival=null;stats.jitterMs=null;setText('jitter','—');setStatus('Đã nối — chờ tick','')};
   ws.onmessage=e=>{
     if(socket!==ws)return;
     let q;try{q=JSON.parse(e.data)}catch{return}
