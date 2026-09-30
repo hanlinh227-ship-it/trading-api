@@ -16,3 +16,8 @@ assert.ok(calls.every(x=>x.method==='GET'&&x.headers===undefined),'the Exness re
 assert.match(calls[1].url,/instrument=XAUUSD$/);
 await assert.rejects(runExnessProductionCanary({fetchImpl,baseUrl:'https://example.com'}),/WORKER_ORIGIN_INVALID/);
 console.log('exness production read-only E2E canary contract ok');
+
+await assert.rejects(
+  runExnessProductionCanary({fetchImpl:async()=>new Response(JSON.stringify({ok:false,error:'EXNESS_RUNTIME_CONFIGURATION_MISSING'}),{status:503})}),
+  /INSTRUMENTS_HTTP_503_EXNESS_RUNTIME_CONFIGURATION_MISSING/
+);
