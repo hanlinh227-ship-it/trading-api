@@ -13,9 +13,9 @@ Owner: trading-api Exness read-only research surface. Runtime boundary: `cloudfl
 
 ### Owner clarification: signal-only automatic tracking
 
-Correction: the user only consumes signals; the bot and AI record signal creation, evidence, assessments and outcomes automatically. No user entry/exit form or manual fill confirmation is required. Each generated signal is automatically added to an internal **paper/shadow tracker** using the Exness quote feed. The UI has no broker order connection, so it cannot know whether the user acted on a signal or what their actual broker fill/P&L was. All History win/loss and TP/SL rates therefore describe simulated signal outcomes from observed Exness quotes, never verified account trading results.
+Correction: the user only consumes signals; the bot and AI record signal creation, evidence, assessments and outcomes automatically. No user entry/exit form or manual fill confirmation is required. Each generated signal is automatically added to an internal **paper/shadow tracker** using the Exness quote feed. History win/loss and TP/SL rates describe only simulated outcomes for generated signals, calculated from observed Exness quotes.
 
-On `Signal`, the deterministic method and AI review create zero to two validated signals and initialize paper entry from the executable side of the snapshot: BUY at Ask, SELL at Bid. The bot then tracks with BUY closing-side Bid and SELL closing-side Ask. It logs every state transition and feed timestamp automatically. On `Đánh giá`, AI reviews existing active signals against fresh evidence; no AI call is made on every price tick. The user may independently choose whether to use a signal at their broker.
+On `Signal`, the deterministic method and AI review create zero to two validated signals and initialize paper entry from the executable side of the snapshot: BUY at Ask, SELL at Bid. The bot then tracks with BUY closing-side Bid and SELL closing-side Ask. It logs every state transition and feed timestamp automatically. On `Đánh giá`, AI reviews existing active signals against fresh evidence; no AI call is made on every price tick. The user receives the signal; the web only manages its own signal lifecycle and records.
 
 ## Proposed button flow
 
@@ -105,7 +105,7 @@ Official references: OpenAI Help Center `https://help.openai.com/en/articles/200
 
 ## Mobile interface
 
-Connection and History controls stay in the left rail/drawer; large `Signal` and `Đánh giá` buttons remain central and thumb-accessible. Signal returns up to two cards and automatically starts their paper tracking; zero valid candidates is a normal result. The user does not enter a broker fill, close price or outcome. The bot records quote updates and TP/SL observations; AI records scan/review results. History shows paper outcomes and clearly labels that broker execution is not connected. Loading, stale feed, disconnect, model quota, budget and provider errors have distinct states. No order-entry or order-management controls.
+Connection and History controls stay in the left rail/drawer; large `Signal` and `Đánh giá` buttons remain central and thumb-accessible. Signal returns up to two cards and automatically starts their paper tracking; zero valid candidates is a normal result. The user does not enter prices or outcomes. The bot records quote updates and TP/SL observations; AI records scan/review results. History is labeled as simulated outcomes from the Exness feed. Loading, stale feed, disconnect, model quota, budget and provider errors have distinct states. No order-entry or order-management controls.
 
 ### Two active signal slots
 
@@ -121,13 +121,13 @@ Acceptance fixtures: 0/2 → scan can add 0–2; 1/2 → at most one; 2/2 → no
 
 A signal becomes a paper-tracked record as soon as the validated scan publishes it; no manual “entered” confirmation or broker fill form is shown. Store the signal snapshot, method/knowledge version, candidate direction, executable-side reference entry, fixed SL/TP, and source timestamps. Entry convention: BUY uses Ask at signal time; SELL uses Bid. Mark-to-market and level checks use BUY Bid and SELL Ask.
 
-The bot evaluates each fresh quote against fixed levels and appends idempotent observations. If a tick first reaches/crosses TP or SL, archive as `PAPER_TP_OBSERVED` or `PAPER_SL_OBSERVED`; calculate paper pips/R from the first observed executable closing-side quote, not an assumed exact fill at the level. If reconnect gaps over a level, record the first recovered quote and gap interval; do not invent an intermediate price. The record is a simulated signal outcome, not a broker execution.
+The bot evaluates each fresh quote against fixed levels and appends idempotent observations. If a tick first reaches/crosses TP or SL, archive as `PAPER_TP_OBSERVED` or `PAPER_SL_OBSERVED`; calculate paper pips/R from the first observed executable closing-side quote, not an assumed exact fill at the level. If reconnect gaps over a level, record the first recovered quote and gap interval; do not invent an intermediate price. The record is a simulated outcome for the generated signal.
 
-The `Đánh giá` action asks AI to review active signals against current price, original entry/SL/TP, method evidence and freshness. AI records `CÒN ĐIỀU KIỆN`, `LUẬN ĐIỂM BỊ VÔ HIỆU`, or `CHƯA ĐỦ DỮ LIỆU` with timestamp, reason and evidence IDs. A red verdict archives the signal as `THESIS_INVALIDATED`; it does not claim a broker trade was closed or classify it as a realized loss. Tick updates move the gauge and evaluate fixed paper levels only; they never call AI.
+The `Đánh giá` action asks AI to review active signals against current price, original entry/SL/TP, method evidence and freshness. AI records `CÒN ĐIỀU KIỆN`, `LUẬN ĐIỂM BỊ VÔ HIỆU`, or `CHƯA ĐỦ DỮ LIỆU` with timestamp, reason and evidence IDs. A red verdict archives the signal as `THESIS_INVALIDATED`; it is not classified as a TP/SL loss. Tick updates move the gauge and evaluate fixed paper levels only; they never call AI.
 
 Active paper signals have no clock-based expiry. Their lifecycle ends at an observed TP/SL or a fresh AI invalidation. An assessment expires independently and returns to unknown; it does not erase History. Archived rows retain the full audit trail; corrections create a new event instead of overwriting evidence.
 
-Acceptance: paper entry is created once from the exact signal quote; BUY/SELL uses executable-side conventions; TP/SL and AI invalidation each archive once; stale ticks do not advance outcomes; gaps are labeled; no user input is required; no paper outcome is described as an actual broker fill or account P&L.
+Acceptance: paper entry is created once from the exact signal quote; BUY/SELL uses executable-side conventions; TP/SL and AI invalidation each archive once; stale ticks do not advance outcomes; gaps are labeled; no user input is required; no paper outcome is presented as actual account performance.
 
 ### History statistics and outcomes
 
@@ -135,7 +135,7 @@ History begins with totals for **Buy / Sell**, **thắng / thua / hòa**, **TP /
 
 - Calculate simulated win rate only over completed paper TP/SL outcomes: `TP outcomes / (TP + SL outcomes)`. Show sample size explicitly and report breakeven separately if a tested exit rule supports it. Invalidated, unresolved, stale and rejected signals are separate counts, never silently treated as wins/losses.
 - Show Buy and Sell sample counts and paper TP/SL outcomes separately. Quote gaps use the first recovered executable-side quote for paper pips/R and carry a gap flag.
-- Label the section `Kết quả mô phỏng theo feed Exness`. Add a persistent note: `Không xác nhận lệnh khớp hoặc kết quả tài khoản broker.` Never label these statistics as the user's realized trading win rate or imply they predict future results.
+- Label the section `Kết quả mô phỏng theo feed Exness`. Add a persistent note: `Đây là kết quả mô phỏng tín hiệu theo feed giá, không phải hiệu suất giao dịch cá nhân.` Do not imply the statistics predict future results.
 - Every total must reconcile to visible filtered records; preserve all event/source timestamps and method/knowledge versions for audit.
 
 Acceptance fixtures cover Buy/Sell TP, Buy/Sell SL, breakeven if supported, AI invalidation, unresolved, stale/gap crossing, and reconnect. Validate the denominator, sample-size display, filters and totals.
@@ -160,7 +160,7 @@ Mobile acceptance fixtures validate BUY/SELL spread sides, fixed levels, sign/co
 
 **After reconnect**, wait for a valid newer quote for each signal's own pair; fetch bounded missing candle/history data only if supported and within current Exness limits. Immediately show the new quote's present location relative to entry/SL/TP and the unobserved interval. If a continuous, ordered tick history bridges the gap, replay it once in source-time order and reconcile TP/SL deterministically. If the gap cannot be reconstructed from reliable executable-side ticks, label `TP/SL CÓ THỂ ĐÃ BỊ CHẠM TRONG KHOẢNG MẤT KẾT NỐI`; show whether the recovered quote is currently beyond a level, but do not declare which level triggered first, do not count a win/loss, and do not close the paper record as a confirmed TP/SL outcome. If the history shows both levels may have been reached in an ambiguous order, mark `OUTCOME_UNKNOWN_AFTER_GAP` and keep it out of the win-rate denominator. Continue monitoring from the recovered quote only after reconciliation status is visible.
 
-This Exness price feed cannot reveal whether the user placed a real broker order, whether it filled, or its broker-side SL/TP state. The UI must say that the tracker reconciles **the generated paper signal** only. Actual account-order reconciliation would require a separately authorized and verified read-only broker positions/orders feed; none is assumed by this design.
+The tracker reconciles **the generated signal only**. All lifecycle and History states refer to the web's paper signal records.
 
 Acceptance fixtures: reject stale preflight; BUY/SELL price-side correctness; valid in-order replay across a short gap; no-history gap freezes outcome; recovered price beyond TP or SL shows current location and possible-crossing warning without fabricated result; both levels touched in ambiguous order stays unknown; duplicate replay is idempotent; monitor resumes only after a new valid quote.
 
@@ -172,7 +172,7 @@ At the top-right of each signal card, show ONLY three small circles in green / a
 | --- | --- |
 | Green | Fresh evidence still supports the research thesis; not a profit prediction. |
 | Amber | Insufficient, uncertain or stale evidence; no direction implied. |
-| Red | Fresh evidence invalidates the research thesis; the bot records `THESIS_INVALIDATED` and archives this paper signal automatically. This does not mean a user broker position was closed. |
+| Red | Fresh evidence invalidates the research thesis; the bot records `THESIS_INVALIDATED` and archives this paper signal automatically. This marks only the signal's research thesis as invalidated. |
 
 Verdicts are bound to signal ID, snapshot hash, method/knowledge version, assessment time, expiry, source timestamp, reason code and evidence IDs. Expired verdicts revert to unknown. The gauge's red/green price progress is separate from AI assessment. No button or model response sends a broker order. Signal lifecycle changes and History records are automatic and idempotent; AI is invoked only by the user pressing an assessment action or Signal scan, never per tick.
 
