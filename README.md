@@ -5,8 +5,8 @@ Canonical Trading repository.
 ## Architecture
 
 - **V73** — frozen no-CUT statistical prior. Never rebuild/optimize during live use.
-- **V74** — current live-analysis / execution authority.
-- **V75 Fast Data** — speed/data-integrity layer; it does not change V73/V74 trading rules.
+- **Current project strategy authority** — `BYBIT-TOP100-STATEFLOW-3.0`, designated by `docs/checkpoints/CURRENT_HANDOFF.md` and `docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md`. This source-level authority does not prove that a runtime is deployed or LIVE; exact runtime revision and health evidence are required.
+- **V74/V75 Forex** — legacy Forex analysis/data tooling only. Forex execution authority is retired; V75 data workflows do not restore it.
 - **V76 Entry R2** — locked Forex entry research. Final result: **no retained archetype and 0/28 live-promoted Forex methods**. It is research evidence, not an active signal engine.
 - **Twelve Data Grow55** — direct strict source for supported Forex and spot metal/commodity data.
 - **Crypto execution data** — exchange-native Binance / OKX / Bybit REST; universe scanner currently uses exact OKX USDT spot.
@@ -20,11 +20,11 @@ Canonical Trading repository.
 
 V76 research never sits in this live data path. Current Forex live decisions remain V74 using V75 data.
 
-## Live workflows
+## Live data workflows (not strategy or execution authority)
 
-- `fetch-market.yml` — V75 single symbol.
-- `scan-forex.yml` — V75 28-pair Forex scan.
-- `live-crypto-v75-scan.yml` — V75 staged Crypto scan.
+- `fetch-market.yml` — V75 single-symbol data fetch.
+- `scan-forex.yml` — V75 28-pair Forex data/research scan; Forex execution authority is retired.
+- `live-crypto-v75-scan.yml` — V75 staged Crypto data scan. A scan result alone never authorizes an entry or order.
 - `audit-market-data.yml` — cross-market integrity audit.
 - `validate-nocut-v73.yml` — frozen V73 validation.
 - `validate-live-v74.yml` — V74 playbook validation.
@@ -108,9 +108,10 @@ Cash NAS100/US500/DAX/N225 families and exact NQ/MNQ/ES/MES/GC/SI/CL remain `DAT
 - V76 post-R2 validator `32055039365`: SUCCESS; methods R2, 28 pairs, retained=[], promoted=[], conservative fill behavior and V73 frozen all validated.
 
 Read in order:
-1. `docs/checkpoints/MASTER_TRADING_STATE.md`
-2. `docs/checkpoints/CURRENT_HANDOFF.md`
-3. `docs/checkpoints/ENTRY_EXECUTION_V76.md`
-4. relevant data/market checkpoint.
+1. `docs/checkpoints/CURRENT_HANDOFF.md`.
+2. The canonical checkpoint it names; current pointer: `docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md`.
+3. Relevant data/market evidence. Treat older strategy checkpoints, V74/V76 Forex material and legacy snapshots as historical or research-only unless the canonical authority pointer changes.
+
+`MASTER_TRADING_STATE.md` and `ENTRY_EXECUTION_V76.md` are not present at those paths; do not use them as startup dependencies.
 
 Legacy optimizer/research generations remain in Git history and must not be confused with current runtime. Any future entry hypothesis after V76 R2 must be separately versioned with a new untouched OOS window rather than rewriting R2.
