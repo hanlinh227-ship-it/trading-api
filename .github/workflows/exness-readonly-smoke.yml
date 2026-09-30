@@ -1,0 +1,30 @@
+name: Exness read-only connection smoke
+
+on:
+  push:
+    branches:
+      - "codex/exness-readonly-smoke-20260930"
+    paths:
+      - "scripts/exness_readonly_smoke.mjs"
+      - ".github/workflows/exness-readonly-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  exness-readonly-smoke:
+    if: github.ref == 'refs/heads/codex/exness-readonly-smoke-20260930'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      EXNESS_API_KEY: ${{ secrets.EXNESS_API_KEY }}
+      EXNESS_PRIVATE_KEY: ${{ secrets.EXNESS_PRIVATE_KEY }}
+      EXNESS_ACCOUNT_ID: ${{ secrets.EXNESS_ACCOUNT_ID }}
+      EXNESS_API_BASE_URL: ${{ vars.EXNESS_API_BASE_URL }}
+    steps:
+      - name: Check out isolated smoke-test branch
+        uses: actions/checkout@v4
+      - name: Verify Ed25519 signing implementation
+        run: node scripts/exness_readonly_smoke.mjs --self-test
+      - name: Check authenticated read-only Exness endpoint
+        run: node scripts/exness_readonly_smoke.mjs
