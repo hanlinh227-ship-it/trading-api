@@ -1,0 +1,153 @@
+name: Free AI Accelerator — PR 442
+
+on:
+  push:
+    branches: [work/free-ai-accelerator-442]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: free-ai-accelerator-442
+  cancel-in-progress: true
+
+jobs:
+  accelerate:
+    if: github.repository == 'hanlinh227-ship-it/trading-api'
+    runs-on: ubuntu-latest
+    env:
+      WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+      MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      CLOUDFLARE_AI_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify execution token presence only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MODEL_MESH_EXECUTION_TOKEN:-}"
+          echo "FREE_AI_TOKEN_PRESENT=PASS"
+
+      - name: Refresh FREE_ONLY provider health
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --connect-timeout 5 --max-time 200 \
+            -X POST \
+            -H "x-model-mesh-token: ${MODEL_MESH_EXECUTION_TOKEN}" \
+            "${WORKER_BASE_URL}/brain/mesh/probe" > /tmp/free-ai-probe.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/free-ai-probe.json'))
+          rows=p.get('results') or []
+          print('FREE_AI_PROBE=PASS')
+          print('FREE_AI_HEALTHY_COUNT='+str(sum(1 for r in rows if r.get('ok') is True)))
+          for r in rows:
+              print('FREE_AI_PROVIDER='+str(r.get('providerId'))+'|'+str(r.get('modelId'))+'|'+str(r.get('state'))+'|'+str(r.get('status')))
+          PY
+
+      - name: Build bounded public project context from current PR 442 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1 || true
+          git fetch origin refs/pull/442/head:refs/remotes/origin/pr442 --force
+          TARGET_SHA="$(git rev-parse refs/remotes/origin/pr442)"
+          {
+            echo "Repository: ${GITHUB_REPOSITORY}"
+            echo "Accelerator implementation SHA: ${GITHUB_SHA}"
+            echo "Target PR #442 SHA: ${TARGET_SHA}"
+            echo "Target integration work: PR #442 AI CORE E2E closure."
+            echo "Canonical authority: GITHUB_BRAIN_V4; task_router sole routing authority."
+            echo "Claude is the sole final integration writer."
+            echo "DeepSeek and FREE_ONLY cloud models are bounded specialist workers only."
+            echo "Work implementation lane is retired except emergency reserve."
+            echo
+            echo "Changed-file summary relative to main for CURRENT PR HEAD (bounded):"
+            git diff --name-status origin/main...refs/remotes/origin/pr442 -- \
+              cloudflare-worker \
+              AI_SKILL_LIBRARY/v4/storage \
+              AI_SKILL_LIBRARY/v4/survival \
+              AI_SKILL_LIBRARY/v4/always_on \
+              AI_SKILL_LIBRARY/v4/local_runtime \
+              AI_SKILL_LIBRARY/v4/control_plane \
+              AI_SKILL_LIBRARY/v4/tools \
+              AI_SKILL_LIBRARY/tests 2>/dev/null | head -n 220
+            echo
+            echo "Recent PR #442 commits:"
+            git log --oneline -n 24 refs/remotes/origin/pr442
+          } > /tmp/free-ai-context.txt
+          head -c 14000 /tmp/free-ai-context.txt > /tmp/free-ai-context-bounded.txt
+
+      - name: Compile canonical Model Mesh contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -q -r AI_SKILL_LIBRARY/requirements.txt
+          python AI_SKILL_LIBRARY/v4/tools/ci_validate.py --source-sha "$GITHUB_SHA" --skip-tests
+          cd cloudflare-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+          export GITHUB_SHA="$GITHUB_SHA"
+          npm run prepare:universal-fabric
+          npm run prepare:skill-gateway
+          npm run prepare:model-mesh
+          node prepare-workers-build.mjs
+
+      - name: Fan out across every eligible FREE_ONLY model
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd cloudflare-worker
+          node free-ai-all-models-runner.mjs \
+            ../AI_SKILL_LIBRARY/v4/model_mesh/active.json \
+            ../AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json \
+            /tmp/free-ai-probe.json \
+            /tmp/free-ai-context-bounded.txt \
+            /tmp/free-ai-all-model-results.json
+
+      - name: Publish sanitized acceleration handoff to job summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib
+          probe=json.load(open('/tmp/free-ai-probe.json'))
+          data=json.load(open('/tmp/free-ai-all-model-results.json'))
+          lines=['FREE AI ACCELERATOR — ALL ELIGIBLE REPO MODELS','']
+          healthy=[r for r in (probe.get('results') or []) if r.get('ok') is True]
+          lines.append('Healthy FREE_ONLY providers: '+(', '.join(f"{r.get('providerId')}:{r.get('modelId')}" for r in healthy) or 'none'))
+          lines.append(f"Eligible repo models: {data.get('eligible_count',0)}")
+          lines.append(f"Models actually used this run: {data.get('live_count',0)}")
+          lines.append('')
+          for r in data.get('rows') or []:
+              provider=str(r.get('provider_id','unknown'))
+              model=str(r.get('model_id','unknown'))
+              status='USED' if r.get('ok') else str(r.get('skipped') or r.get('category') or r.get('error') or 'FAILED')
+              lines.append(f"## {provider} / {model} — {status}")
+              text=str(r.get('text','')).strip()
+              if text:
+                  lines.append(text[:5000])
+              lines.append('')
+          lines += [
+            'Authority remains unchanged: routing=false, reasoning=false, merge=false, deployment=false, trading=false.',
+            'These are advisory acceleration workers only; Claude/Work/DeepSeek retain their assigned implementation lanes.'
+          ]
+          body='\n'.join(lines)[:30000]
+          pathlib.Path('/tmp/pr-comment.md').write_text(body)
+          PY
+          cat /tmp/pr-comment.md >> "${GITHUB_STEP_SUMMARY}"
+          echo "FREE_AI_ACCELERATOR_HANDOFF=PASS"
+          echo "----- FREE_AI_ACCELERATOR_RESULT_BEGIN -----"
+          cat /tmp/pr-comment.md
+          echo "----- FREE_AI_ACCELERATOR_RESULT_END -----"
