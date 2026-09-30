@@ -6,8 +6,8 @@ Owner: trading-api Exness read-only research surface. Runtime boundary: `cloudfl
 ## Purpose and constraints
 
 - One private mobile viewer scans the 28 FX crosses made from USD, JPY, EUR, GBP, CHF, AUD, CAD and NZD.
-- The Exness signed ticks WebSocket supplies Bid/Ask to a market-data Durable Object. Reception and display must never wait for AI. The browser disconnecting does not imply a guaranteed persistent upstream: durable lifetime and quota need a separate measured design before promising 24/7 collection.
-- Two explicit actions: `Signal` evaluates the current snapshot and asks DeepSeek for a bounded research review; `Đánh giá` refreshes prices/candles and asks DeepSeek to challenge the saved candidate set. No periodic AI calls.
+- Target bot monitoring is 24/7 and must not depend on an open browser. The current Exness stream path is viewer-connected and the repo had an 8 h/day stream cap; changing that cap or claiming background continuity requires a quota-safe server-side collector design and soak evidence. The Cloudflare Free budget is shared with the existing Bybit Worker.
+- The bot's market cycle continuously records fresh ticks, validates signal levels and updates paper outcomes without AI API calls. DeepSeek API is called only after the user presses `Signal` or `Đánh giá`; never once per tick or on a timer.
 - Never pass Exness keys, account data, browser IP, Cloudflare secrets, or raw upstream frames to DeepSeek. No trading endpoint, order mutation, automatic order proposal, or automatic method promotion.
 - Existing project policy `FREE_ONLY` and retired Forex method authority conflict with paid DeepSeek-backed live signals. Candidate remains gated until a separate approved policy/expense decision and a method validation release. The user's request for DeepSeek API is an intent to use that provider, not evidence that an account has available balance or that Worker secrets are bound.
 
@@ -15,7 +15,7 @@ Owner: trading-api Exness read-only research surface. Runtime boundary: `cloudfl
 
 Correction: the user only consumes signals; the bot and AI record signal creation, evidence, assessments and outcomes automatically. No user entry/exit form or manual fill confirmation is required. Each generated signal is automatically added to an internal **paper/shadow tracker** using the Exness quote feed. History win/loss and TP/SL rates describe only simulated outcomes for generated signals, calculated from observed Exness quotes.
 
-On `Signal`, the deterministic method and AI review create zero to two validated signals and initialize paper entry from the executable side of the snapshot: BUY at Ask, SELL at Bid. The bot then tracks with BUY closing-side Bid and SELL closing-side Ask. It logs every state transition and feed timestamp automatically. On `Đánh giá`, AI reviews existing active signals against fresh evidence; no AI call is made on every price tick. The user receives the signal; the web only manages its own signal lifecycle and records.
+On `Signal`, the bot scans and preflights candidates, then DeepSeek reviews only the bounded candidate/context package; validated signals initialize paper entry at BUY Ask or SELL Bid. The bot tracks BUY at Bid and SELL at Ask and records every state transition. On `Đánh giá`, DeepSeek can re-review active signals and their accumulated cycle history. Price cycles continue independently; they never call the AI API.
 
 ## Proposed button flow
 
@@ -25,6 +25,14 @@ On `Signal`, the deterministic method and AI review create zero to two validated
 4. Rank valid candidates only, deduplicate correlated crosses/direction, pass at most a few concise candidates to DeepSeek model `deepseek-flash` (currently served by V4.1 Flash; verify at deployment). Request JSON with 0–2 reviewed candidates and evidence references. Validate JSON schema and match every symbol, direction, number and timestamp to the original snapshot. DeepSeek can veto or explain; it cannot invent a quote, set a price, restore a rejected setup, or revise strategy code.
 5. Persist a bounded audit record with snapshot hash, source times, single method version and active feature versions, model name, cost usage, rejection reasons and expiry. Do not store raw secrets, hidden chain of thought, or sensitive account fields.
 6. On `Đánh giá`, re-read market data and reject archived or invalid signal records before a NEW DeepSeek request. Show thesis status, invalidation or data gaps and exact evidence; no stale signal can silently appear current.
+
+## 24/7 signal cycle and research learning
+
+- Target: the bot monitors the 28-pair Exness feed continuously and records cycle snapshots, freshness, signal-state changes, TP/SL observations, reconnect gaps and method outcomes. It keeps the signal web's feed/ledger active when the browser is closed.
+- AI API boundary: only explicit presses of `Signal` and `Đánh giá` call DeepSeek. The bot's automatic per-tick/per-cycle evaluator is deterministic and bounded; it refreshes market features and checks active signals without any model request.
+- Learning loop: retain versioned paper outcomes and failure cases. When `Đánh giá` is pressed, provide DeepSeek a bounded, relevant summary of accumulated cycles and ask it to critique current signals and suggest research hypotheses. Suggestions are logged as candidates; they cannot edit live rules, prompts, TP/SL settings, or promote themselves. Compare candidate changes against untouched out-of-sample data before a human-reviewed release.
+- Runtime gate: Cloudflare HTTP Workers can remain active while a client keeps a request/stream connected, but waitUntil only extends work briefly after disconnection; Cron/Alarm invocations have bounded runtimes. The present browser-connected socket does not prove a continuous server-side collector after tab close. Free-tier requests/CPU are shared with the Bybit Worker and the current 8 h/day stream cap. Until a server-side collector is implemented and a 24-hour soak plus shared-quota budget passes, display `THEO DÕI NỀN CHƯA ĐƯỢC XÁC MINH`; do not claim 24/7 operation.
+- Do not create one scheduled DeepSeek call per cycle. If bot state reaches a reserved shared-quota or source limit, stop/degrade Exness collection in a visible way rather than consume the Bybit reserve or silently claim full coverage. A real 24/7 guarantee may require a different service/budget than current Free-only assumptions.
 
 ## One method: FX Context → Structure → Trigger → Cost
 
@@ -37,6 +45,10 @@ One method receives immutable, normalized FX observations and returns `{methodId
 5. **Cost and invalidation:** use current spread and broker conditions to check plausible room after spread/slippage; structural invalidation and research risk/reward use the observed quote semantics. With unknown costs, session/event gap, stale tick or unsupported symbol, return `NO_SIGNAL`. Rank at most two independently useful candidates, accounting for shared-currency exposure; zero is acceptable.
 
 This is one method with regime-aware logic and modular *evidence adapters*. It must be tested with market costs, news periods, correlated positions, look-ahead bias, out-of-sample stability and false alerts. Existing V76 R2 had 0/28 Forex methods promoted, so none is inherited as live signal authority.
+
+### Single TP/SL placement for scalp signals
+
+Each signal has exactly one fixed SL and one fixed TP; neither trails the current quote. Set SL beyond the method's structural invalidation point with a buffer derived from the pair/session's observed short-term volatility and spread/noise. Place the single TP at the nearest realistic opposing structure/liquidity objective, after spread/cost checks. Reject the candidate if the stop is inside ordinary observed noise, the target is blocked by structure, or net reward/risk fails the versioned validation threshold. Do not hard-code one pip distance for all 28 pairs. This can reduce avoidable stop-outs but cannot guarantee a stop will not be swept. Buffer and target rules remain research candidates until tested out-of-sample per pair/session.
 
 ## Economic and political evidence for the same method
 
@@ -105,17 +117,17 @@ Official references: OpenAI Help Center `https://help.openai.com/en/articles/200
 
 ## Mobile interface
 
-Connection and History controls stay in the left rail/drawer; large `Signal` and `Đánh giá` buttons remain central and thumb-accessible. Signal returns up to two cards and automatically starts their paper tracking; zero valid candidates is a normal result. The user does not enter prices or outcomes. The bot records quote updates and TP/SL observations; AI records scan/review results. History is labeled as simulated outcomes from the Exness feed. Loading, stale feed, disconnect, model quota, budget and provider errors have distinct states. No order-entry or order-management controls.
+Connection and History controls stay in the left rail/drawer; large `Signal` and `Đánh giá` buttons remain central and thumb-accessible. Signal returns up to two cards with exactly one TP and one SL and automatically starts paper tracking; zero valid candidates is normal. The user does not enter prices or outcomes. The bot records cycles and TP/SL observations; DeepSeek API runs only on button presses. History is labeled as simulated outcomes from the Exness feed. Loading, stale feed, disconnect, 24/7 collector status, model quota and provider errors have distinct states.
 
 ### Two active signal slots
 
-There are exactly two active **signal tracker** slots. A successful `Signal` scan adds only as many validated candidates as there are empty slots; with one occupied slot it can add at most one. It never replaces an existing signal or creates a third. Zero new candidates leaves existing cards unchanged.
+There are exactly two active signal slots. A successful `Signal` scan fills only empty slots; with one occupied slot it can add at most one new candidate. It never replaces an existing card. Identical pair/direction/setup snapshots are deduplicated; a later materially changed setup may be recorded under a new ID. When both slots are occupied, `Signal` is disabled; `Đánh giá` remains available.
 
-When both slots are occupied, the Signal button is visible but disabled and explains `Đã đủ 2/2 tín hiệu đang theo dõi`. Client and server enforce the limit before candle retrieval or AI calls; direct requests return `409 SIGNAL_SLOTS_FULL`. Idempotency keys and a final occupancy check prevent double taps, retries and concurrent scans from duplicating or displacing cards.
+When an AI light turns red, show two actions on that card: **Giữ** and **Xóa**. `Giữ` retains the signal and its slot, keeps the red reason visible, and allows the user to evaluate it again later. `Xóa` removes it from Active and moves it to History as `USER_ARCHIVED_RED`; it is not physically deleted and remains in research statistics as an invalidated signal, not a TP/SL win/loss. The freed slot can be filled by a later Signal scan. No red signal is auto-archived.
 
-The bot tracks each signal without user input. A first valid executable-side quote at/beyond TP or SL ends its paper lifecycle and archives it automatically. A fresh AI assessment of `LUẬN ĐIỂM BỊ VÔ HIỆU` also archives the signal as `THESIS_INVALIDATED`, not as a TP/SL loss, and frees the slot after server confirmation. Green remains active; amber/unknown remains active. Time passing alone does not expire a signal. `Đánh giá` remains available for active signals even at 2/2. History entries never occupy active slots. Reconnect/page reload restores authoritative IDs and outcomes without duplicates.
+Repeated `Signal` scans and `Đánh giá` calls are allowed within provider/request budgets. Each completed AI review appends a timestamped assessment; it never overwrites prior assessments. Idempotency keys, per-signal review IDs and a final active-slot check prevent duplicate cards or stale responses. Reconnect and page reload restore the same active IDs and slot count.
 
-Acceptance fixtures: 0/2 → scan can add 0–2; 1/2 → at most one; 2/2 → no candles/AI call and direct request returns 409; quote crosses TP/SL → one automatic archive and slot release; AI red → `THESIS_INVALIDATED` archive with no fabricated loss; duplicate ticks/retries/reconnect never duplicate records.
+Acceptance fixtures: 0/2 → scan may add 0–2; 1/2 → at most one; 2/2 → no candle/AI call and direct request returns 409; red + `Giữ` → still occupies slot; red + `Xóa` → archived in History and slot released; repeated scan/review → no duplicate IDs or lost assessment history.
 
 ### Automatic signal tracking, AI review and History
 
@@ -123,7 +135,7 @@ A signal becomes a paper-tracked record as soon as the validated scan publishes 
 
 The bot evaluates each fresh quote against fixed levels and appends idempotent observations. If a tick first reaches/crosses TP or SL, archive as `PAPER_TP_OBSERVED` or `PAPER_SL_OBSERVED`; calculate paper pips/R from the first observed executable closing-side quote, not an assumed exact fill at the level. If reconnect gaps over a level, record the first recovered quote and gap interval; do not invent an intermediate price. The record is a simulated outcome for the generated signal.
 
-The `Đánh giá` action asks AI to review active signals against current price, original entry/SL/TP, method evidence and freshness. AI records `CÒN ĐIỀU KIỆN`, `LUẬN ĐIỂM BỊ VÔ HIỆU`, or `CHƯA ĐỦ DỮ LIỆU` with timestamp, reason and evidence IDs. A red verdict archives the signal as `THESIS_INVALIDATED`; it is not classified as a TP/SL loss. Tick updates move the gauge and evaluate fixed paper levels only; they never call AI.
+The `Đánh giá` action asks AI to review active signals against current price, original entry/SL/TP, method evidence and freshness. AI records `CÒN ĐIỀU KIỆN`, `LUẬN ĐIỂM BỊ VÔ HIỆU`, or `CHƯA ĐỦ DỮ LIỆU` with timestamp, reason and evidence IDs. A red verdict sets `THESIS_INVALIDATED`; show **Giữ** and **Xóa**. Keep retains the slot; Xóa archives the signal to History and frees the slot, without classifying it as a TP/SL loss. Tick updates move the gauge and evaluate fixed paper levels only; they never call AI.
 
 Active paper signals have no clock-based expiry. Their lifecycle ends at an observed TP/SL or a fresh AI invalidation. An assessment expires independently and returns to unknown; it does not erase History. Archived rows retain the full audit trail; corrections create a new event instead of overwriting evidence.
 
@@ -172,15 +184,16 @@ At the top-right of each signal card, show ONLY three small circles in green / a
 | --- | --- |
 | Green | Fresh evidence still supports the research thesis; not a profit prediction. |
 | Amber | Insufficient, uncertain or stale evidence; no direction implied. |
-| Red | Fresh evidence invalidates the research thesis; the bot records `THESIS_INVALIDATED` and archives this paper signal automatically. This marks only the signal's research thesis as invalidated. |
+| Red | Fresh evidence invalidates the research thesis; show the reason and the user-controlled **Giữ** / **Xóa** actions. Keep preserves the active slot; Xóa archives it to History and frees the slot. |
 
-Verdicts are bound to signal ID, snapshot hash, method/knowledge version, assessment time, expiry, source timestamp, reason code and evidence IDs. Expired verdicts revert to unknown. The gauge's red/green price progress is separate from AI assessment. No button triggers a transaction; this is a signal-only web. Signal lifecycle changes and History records are automatic and idempotent; AI is invoked only by the user pressing an assessment action or Signal scan, never per tick.
+Verdicts are bound to signal ID, snapshot hash, method/knowledge version, assessment time, expiry, source timestamp, reason code and evidence IDs. Expired verdicts revert to unknown. The gauge's red/green price progress is separate from AI assessment. Signal cycle/History updates are automatic and idempotent; DeepSeek API is called only when the user presses Signal or Đánh giá, never per tick or timer. A red verdict never auto-removes a card; the user chooses Giữ or Xóa.
 
 ## Acceptance gates
 
-1. Baseline WS A/B telemetry at least 30 minutes per state for all 28 pairs; demonstrate price flow unaffected by button/AI latency or failure. Report source cadence, age, p50/p95/p99, gaps, disconnects and quotas per pair.
-2. Shadow/paper strategy tests with closed candles, market costs, untouched validation periods and reproducible fixtures; 0/28 is a valid outcome.
-3. Mock E2E: Signal and Đánh giá each trigger exactly one bounded model request when enabled and budgeted; no provider call on stale data, authentication failure, duplicate click or budget exhaustion; no 429 key rotation; model hallucination rejected.
-4. Run exact-main CI/deploy gates and verify Bybit regression plus Exness read-only routes before any production deployment. Confirm actual Worker secret names by presence only, not secret values.
+1. Verify the background collector can operate independently of the browser without consuming the Bybit reserve; prove with a 24-hour soak, disconnect/reconnect injection, per-pair tick freshness, gaps and shared-account quota dashboard evidence. Until then, 24/7 remains a target, not a verified capability.
+2. Baseline WS telemetry for all 28 pairs; report source cadence, age, p50/p95/p99, gaps, disconnects and quota consumption while confirming Bybit regression stays within its reserve.
+3. Shadow/paper tests use closed candles, spread/cost model, versioned one-SL/one-TP rules, untouched validation periods and reproducible fixtures; 0/28 remains an acceptable no-signal/no-promotion result.
+4. Mock E2E verifies the bot's cycle never calls DeepSeek; only Signal/Đánh giá buttons make bounded model calls. Stale data, full slots, repeated presses, quota/budget exhaustion and provider errors fail closed. Red/Giữ/Xóa and repeated assessments preserve audit/history.
+5. Exact-main CI/deploy gate, secrets-presence verification without reading values, and Bybit regression must pass before any production deployment.
 
 Primary references: Exness ticks `https://www.exness-api.com/reference/get-ws-ticks`; limits `https://www.exness-api.com/documentation/api-configuration-and-limits`; DeepSeek pricing `https://api-docs.deepseek.com/quick_start/pricing/`; JSON output `https://api-docs.deepseek.com/guides/json_mode/`; Cloudflare Worker limits `https://developers.cloudflare.com/workers/platform/limits/`.
