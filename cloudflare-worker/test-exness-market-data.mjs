@@ -68,11 +68,13 @@ function wsResponse(socket){
     return new Response('{}',{status:404});
   };
   const reservations=[];
-  const client=createExnessReadonlyMarketClient(env,{fetchImpl,now:()=>1790737200000,maxTickAgeMs:5000,reserve:async rule=>{reservations.push(rule);return {allowed:true};}});
+  const secretBindings={EXNESS_READONLY_API_KEY:'exnsk_readonly_test',EXNESS_READONLY_PRIVATE_KEY:privateKeyPem,EXNESS_READONLY_ACCOUNT_ID:'123456',EXNESS_READONLY_API_BASE_URL:'https://ap-test.trading.exness.com'};
+  const client=createExnessReadonlyMarketClient({...env,...secretBindings},{fetchImpl,now:()=>1790737200000,maxTickAgeMs:5000,reserve:async rule=>{reservations.push(rule);return {allowed:true};}});
   const quote=await client.quote('XAUUSD');
   assert.deepEqual(quote,{instrument:'XAUUSD',bid:2300.12,ask:2300.24,sourceTimestamp:'2026-09-30T03:00:00.000Z',receivedAt:'2026-09-30T03:00:00.000Z',source:'EXNESS_WEBSOCKET_TICKS'});
   const handshake=calls.find(x=>x.headers?.Upgrade==='websocket');
   assert.ok(handshake,'must use the signed WebSocket handshake');
+  assert.equal(handshake.headers['EXN-API-KEY'],'exnsk_readonly_test','prefer collision-free secret binding over legacy plain variable');
   assert.equal(handshake.method,'GET');
   verifyExnessSignature(handshake.headers,'/v1/server-events/accounts/123456/ws/ticks');
   assert.deepEqual(socket.subscription,{id:'ticks-xauusd-1',subscribe:{event:'ticks',instruments:['XAUUSD']}});
@@ -150,6 +152,13 @@ function wsResponse(socket){
   assert.equal(post.status,405);
   const disabled=await handleExnessMarketData(new Request('https://local/exness/instruments',{headers:{'x-action-key':'action-test'}}),{...env,EXNESS_ENABLED:'false'},{clientFactory});
   assert.equal(disabled.status,503);
+  const aliasOnly={...env,EXNESS_READONLY_API_KEY:'alias-key',EXNESS_READONLY_PRIVATE_KEY:privateKeyPem,EXNESS_READONLY_ACCOUNT_ID:'654321',EXNESS_READONLY_API_BASE_URL:'https://ap-test.trading.exness.com'};
+  delete aliasOnly.EXNESS_API_KEY;delete aliasOnly.EXNESS_PRIVATE_KEY;delete aliasOnly.EXNESS_ACCOUNT_ID;delete aliasOnly.EXNESS_API_BASE_URL;
+  let resolvedAccountId='';
+  aliasOnly.EXNESS_MARKET_DATA_STATE={idFromName(value){resolvedAccountId=value;return value;},get(){return {fetch:async()=>new Response(JSON.stringify({ok:true,exchange:'EXNESS',readOnly:true,instruments:['XAUUSD']}),{status:200})};}};
+  const aliasResponse=await handleExnessMarketData(new Request('https://local/exness/instruments',{headers:{'x-action-key':'action-test'}}),aliasOnly);
+  assert.equal(aliasResponse.status,200,'handler should accept collision-free secret bindings alone');
+  assert.equal(resolvedAccountId,'654321','Durable Object should be partitioned by secret-bound account ID');
 }
 
 {

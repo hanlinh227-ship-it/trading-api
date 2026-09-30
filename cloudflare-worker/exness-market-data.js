@@ -26,7 +26,7 @@ function loadPrivateKey(secret){
 }
 function cleanBaseUrl(value){let u;try{u=new URL(String(value||''));}catch{throw fail('EXNESS_API_BASE_URL_INVALID',503);}const approved=/^(?:api[.]exness[.]com|api[.]exness-api[.]com|[a-z0-9-]+[.]trading[.]exness[.]com)$/i.test(u.hostname);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash||!approved)throw fail('EXNESS_API_BASE_URL_INVALID',503);return u.origin;}
 function configOf(env={}){
-  const config={apiKey:String(env.EXNESS_API_KEY||'').trim(),privateKey:String(env.EXNESS_PRIVATE_KEY||'').replace(/\\n/g,'\n').trim(),accountId:String(env.EXNESS_ACCOUNT_ID||'').trim(),baseUrl:cleanBaseUrl(env.EXNESS_API_BASE_URL)};
+  const config={apiKey:String(env.EXNESS_READONLY_API_KEY||env.EXNESS_API_KEY||'').trim(),privateKey:String(env.EXNESS_READONLY_PRIVATE_KEY||env.EXNESS_PRIVATE_KEY||'').replace(/\\n/g,'\n').trim(),accountId:String(env.EXNESS_READONLY_ACCOUNT_ID||env.EXNESS_ACCOUNT_ID||'').trim(),baseUrl:cleanBaseUrl(env.EXNESS_READONLY_API_BASE_URL||env.EXNESS_API_BASE_URL)};
   if(!config.apiKey)throw fail('EXNESS_API_KEY_MISSING');
   if(!config.privateKey)throw fail('EXNESS_PRIVATE_KEY_MISSING');
   if(!/^[0-9]{1,20}$/.test(config.accountId))throw fail('EXNESS_ACCOUNT_ID_INVALID');
