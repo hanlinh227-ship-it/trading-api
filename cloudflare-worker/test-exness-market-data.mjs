@@ -16,6 +16,7 @@ const env={
 };
 
 assert.throws(()=>createExnessReadonlyMarketClient({...env,EXNESS_API_BASE_URL:'https://attacker.example'},{}),/EXNESS_API_BASE_URL_INVALID/);
+assert.doesNotThrow(()=>createExnessReadonlyMarketClient({...env,EXNESS_API_BASE_URL:'https://ap-4decef67.exness.com'},{}));
 assert.equal(authState(new Request('https://local'),env).ok,false);
 assert.equal(authState(new Request('https://local',{headers:{'x-action-key':'action-test'}}),{...env,GPT_5AI_ACTION_KEY:'action-test'}).source,'ACTION_KEY');
 assert.equal(authState(new Request('https://local',{headers:{authorization:'Bearer bridge-test'}}),{V11_AI_BRIDGE_SECRET:'bridge-test'}).source,'VPS_BRIDGE_SECRET');
