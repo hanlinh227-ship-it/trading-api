@@ -1,0 +1,78 @@
+name: STACKHUB V2 GitHub Auth Diagnostic
+
+on:
+  push:
+    branches: ['stackhub-v2-autonomous-bounty']
+    paths:
+      - '.github/workflows/stackhub-v2-github-auth-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_ENABLED: ${{ secrets.STACKHUB_DEPLOY_ENABLED }}
+      VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
+      VPS_USER: ${{ secrets.STACKHUB_VPS_USER }}
+      VPS_PORT: ${{ secrets.STACKHUB_VPS_PORT }}
+      VPS_SSH_KEY: ${{ secrets.STACKHUB_VPS_SSH_KEY }}
+      VPS_SSH_KEY_B64: ${{ secrets.STACKHUB_VPS_SSH_KEY_B64 }}
+    steps:
+      - name: Prepare SSH
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh; chmod 700 ~/.ssh
+          if [ -n "${VPS_SSH_KEY_B64:-}" ]; then
+            printf '%s' "$VPS_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_stackhub
+          else
+            python - <<'PY'
+          import os
+          from pathlib import Path
+          key=os.environ['VPS_SSH_KEY'].replace('\r','').strip()
+          if '\\n' in key and '\n' not in key: key=key.replace('\\n','\n')
+          Path.home().joinpath('.ssh/id_stackhub').write_text(key+'\n',encoding='utf-8')
+          PY
+          fi
+          chmod 600 ~/.ssh/id_stackhub
+          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Inspect GitHub tooling without exposing credentials
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          echo "git_present=$(command -v git >/dev/null 2>&1 && echo true || echo false)"
+          echo "gh_present=$(command -v gh >/dev/null 2>&1 && echo true || echo false)"
+          if command -v gh >/dev/null 2>&1; then
+            if gh auth status -h github.com >/tmp/gh-auth-status.txt 2>&1; then
+              echo 'gh_authenticated=true'
+            else
+              echo 'gh_authenticated=false'
+            fi
+            rm -f /tmp/gh-auth-status.txt
+          else
+            echo 'gh_authenticated=false'
+          fi
+          set -a; [ -f /etc/stackhub/stackhub.env ] && . /etc/stackhub/stackhub.env; set +a
+          /opt/stackhub/.venv/bin/python - <<'PY'
+          import os
+          names=['STACKHUB_GITHUB_TOKEN','GH_TOKEN','GITHUB_TOKEN']
+          for name in names:
+              print(f'{name.lower()}_present={bool(os.environ.get(name, "").strip())}')
+          PY
+          REMOTE
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_stackhub

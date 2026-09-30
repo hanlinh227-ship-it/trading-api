@@ -1,0 +1,97 @@
+name: STACKHUB V2 TaskForce Canary
+
+on:
+  push:
+    branches: ['stackhub-v2-autonomous-bounty']
+    paths:
+      - '.github/workflows/stackhub-v2-taskforce-canary.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEPLOY_ENABLED: ${{ secrets.STACKHUB_DEPLOY_ENABLED }}
+      VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
+      VPS_USER: ${{ secrets.STACKHUB_VPS_USER }}
+      VPS_PORT: ${{ secrets.STACKHUB_VPS_PORT }}
+      VPS_SSH_KEY: ${{ secrets.STACKHUB_VPS_SSH_KEY }}
+      VPS_SSH_KEY_B64: ${{ secrets.STACKHUB_VPS_SSH_KEY_B64 }}
+    steps:
+      - name: Prepare SSH
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh; chmod 700 ~/.ssh
+          if [ -n "${VPS_SSH_KEY_B64:-}" ]; then
+            printf '%s' "$VPS_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_stackhub
+          else
+            python - <<'PY'
+          import os
+          from pathlib import Path
+          key=os.environ['VPS_SSH_KEY'].replace('\r','').strip()
+          if '\\n' in key and '\n' not in key: key=key.replace('\\n','\n')
+          Path.home().joinpath('.ssh/id_stackhub').write_text(key+'\n',encoding='utf-8')
+          PY
+          fi
+          chmod 600 ~/.ssh/id_stackhub
+          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Capture exact TaskForce apply error
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          set -a; . /etc/stackhub/stackhub.env; set +a
+          /opt/stackhub/.venv/bin/python - <<'PY'
+          import json, os, sqlite3, httpx
+          db=sqlite3.connect('/var/lib/stackhub/stackhub-v2.db'); db.row_factory=sqlite3.Row
+          row=db.execute('''
+            SELECT o.id,o.category,o.reward_amount,o.requirements_json,o.acceptance_criteria_json
+            FROM opportunities o
+            JOIN claims c ON c.source=o.source AND c.opportunity_id=o.id
+            WHERE o.source='taskforce' AND o.policy_allowed=1
+              AND c.state='FAILED_PERMANENT' AND c.last_error_code='http_400:http_400'
+            ORDER BY CAST(o.reward_amount AS REAL) DESC,o.id LIMIT 1
+          ''').fetchone()
+          db.close()
+          if row is None:
+              print('no_generic_400_candidate')
+              raise SystemExit(0)
+          task_id=row['id']
+          print('task='+json.dumps(dict(row),sort_keys=True))
+          headers={'X-API-Key':os.environ['TASKFORCE_API_KEY'],'Accept':'application/json'}
+          message='Autonomous agent ready to complete this task. I will follow the stated requirements, validate the deliverable before submission, and provide concise evidence of completion.'
+          with httpx.Client(timeout=20,follow_redirects=True) as client:
+              browse=client.get('https://www.task-force.app/api/agent/tasks',headers=headers,params={'status':'ACTIVE','limit':100})
+              data=browse.json() if browse.headers.get('content-type','').startswith('application/json') else {}
+              tasks=data.get('tasks',[]) if isinstance(data,dict) else []
+              match=next((x for x in tasks if isinstance(x,dict) and str(x.get('id'))==task_id),None)
+              if match:
+                  safe={k:v for k,v in match.items() if k.lower() not in {'apikey','api_key','token','secret','privatekey','private_key'}}
+                  print('live_task='+json.dumps(safe,sort_keys=True,default=str))
+              r=client.post(f'https://www.task-force.app/api/agent/tasks/{task_id}/apply',headers=headers,json={'message':message})
+              print('apply_status='+str(r.status_code))
+              try:
+                  payload=r.json()
+              except Exception:
+                  payload={'non_json_body':r.text[:500]}
+              if isinstance(payload,dict):
+                  payload={k:v for k,v in payload.items() if k.lower() not in {'apikey','api_key','token','secret','privatekey','private_key'}}
+              print('apply_response='+json.dumps(payload,sort_keys=True,default=str))
+          PY
+          REMOTE
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_stackhub

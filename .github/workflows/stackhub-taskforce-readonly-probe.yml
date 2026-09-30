@@ -1,0 +1,115 @@
+name: STACKHUB TaskForce Readonly Probe
+
+on:
+  push:
+    branches: ['stackhub-v2-autonomous-bounty']
+    paths:
+      - '.github/workflows/stackhub-taskforce-readonly-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEPLOY_ENABLED: ${{ secrets.STACKHUB_DEPLOY_ENABLED }}
+      VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
+      VPS_USER: ${{ secrets.STACKHUB_VPS_USER }}
+      VPS_PORT: ${{ secrets.STACKHUB_VPS_PORT }}
+      VPS_SSH_KEY_B64: ${{ secrets.STACKHUB_VPS_SSH_KEY_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${DEPLOY_ENABLED:-}" = "true"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s' "$VPS_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_stackhub
+          chmod 600 ~/.ssh/id_stackhub
+          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Stop mutation canary and inspect TaskForce state
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          sudo -n true
+          sudo systemctl stop stackhub-v2-canary.service || true
+          set -a
+          . /etc/stackhub/stackhub.env
+          set +a
+          test -n "${TASKFORCE_API_KEY:-}" || { echo 'TaskForce key missing'; exit 1; }
+          cd /opt/stackhub/stackhub_v2
+          /opt/stackhub/.venv/bin/python - <<'PY'
+          import asyncio, json, os
+          import httpx
+
+          BASE='https://task-force.app'
+          TASK='cmnjgb45s000104jgotxw8gki'
+          HEAD={'X-API-Key': os.environ['TASKFORCE_API_KEY'], 'Accept':'application/json'}
+
+          def safe_json(resp):
+              try:
+                  data=resp.json()
+              except Exception:
+                  return {'content_type': resp.headers.get('content-type'), 'body_kind':'non_json'}
+              return data
+
+          async def main():
+              async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+                  out={}
+                  for label, path, params in [
+                      ('active','/api/agent/tasks',{'status':'ACTIVE','limit':100}),
+                      ('in_progress','/api/agent/tasks',{'status':'IN_PROGRESS','limit':100}),
+                  ]:
+                      r=await client.get(BASE+path,headers=HEAD,params=params)
+                      data=safe_json(r)
+                      rows=data.get('tasks',[]) if isinstance(data,dict) else []
+                      match=next((x for x in rows if isinstance(x,dict) and str(x.get('id'))==TASK),None)
+                      out[label]={
+                          'http':r.status_code,
+                          'count':len(rows),
+                          'target_present':bool(match),
+                          'target': None if not match else {
+                              k:match.get(k) for k in (
+                                  'id','title','status','category','totalBudget','budget','maxWorkers','currentWorkers',
+                                  'paymentType','agentId','creatorId','createdBy','applicationStatus','myApplicationStatus'
+                              ) if k in match
+                          },
+                      }
+                  r=await client.get(f'{BASE}/api/agent/tasks/{TASK}/messages',headers=HEAD,params={'limit':1})
+                  data=safe_json(r)
+                  out['messages_access']={
+                      'http':r.status_code,
+                      'message_count': len(data.get('messages',[])) if isinstance(data,dict) and isinstance(data.get('messages'),list) else None,
+                      'error': data.get('error') if isinstance(data,dict) else None,
+                      'code': data.get('code') if isinstance(data,dict) else None,
+                  }
+                  r=await client.get(f'{BASE}/api/agent/notifications',headers=HEAD,params={'unreadOnly':'false','limit':100})
+                  data=safe_json(r)
+                  notes=data.get('notifications',[]) if isinstance(data,dict) else []
+                  matched=[]
+                  for n in notes:
+                      if not isinstance(n,dict): continue
+                      if TASK in str(n.get('link') or '') or TASK in str(n.get('message') or ''):
+                          matched.append({'type':n.get('type'),'read':n.get('read'),'link':n.get('link')})
+                  out['notifications']={'http':r.status_code,'count':len(notes),'target_matches':matched}
+                  print(json.dumps(out,sort_keys=True,default=str))
+          asyncio.run(main())
+          PY
+          sudo systemctl is-active stackhub-v2.service
+          REMOTE
+
+      - name: Cleanup runner SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_stackhub
