@@ -91,7 +91,7 @@ Acceptance examples: (a) BUY entryAsk 1.10020, currentBid 1.10000, pipSize .0001
 
 ### Per-signal AI assessment lights
 
-At the top-right corner of **each** signal card, show a compact cluster of three small circular indicators in fixed order **green / amber / red**. Exactly one is illuminated at a time; unselected circles are dim outlines. A short text status and last-assessed time beside/below the cluster make the meaning readable without color. Before assessment, all three are outlines and text reads `Chưa đánh giá`. Each card has a small `Đánh giá tín hiệu` action; the main `Đánh giá` action reviews both currently valid cards in one bounded request. Per-card action reviews only its selected signal, subject to the same authentication, rate and spending budget. No AI call on a price tick.
+At the top-right corner of **each** signal card, show ONLY a compact cluster of three small circular indicators in fixed order **green / amber / red**. Exactly one is illuminated at a time; unselected circles are dim outlines. **No text, caption, timestamp or reason directly below or beside these lights in the card header.** Put readable status, reason and assessment time in a separate row below the gauge or in the red decision panel, away from the light cluster; screen readers receive the same status via the card accessibility label. Before assessment, all three are outlines and the separate row reads `Chưa đánh giá`. Each card has a small `Đánh giá tín hiệu` action; the main `Đánh giá` action reviews both currently valid cards in one bounded request. Per-card action reviews only its selected signal, subject to the same authentication, rate and spending budget. No AI call on a price tick.
 
 | Light | Visible label | Meaning and behavior |
 | --- | --- | --- |
