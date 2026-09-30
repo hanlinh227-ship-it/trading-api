@@ -24,7 +24,7 @@ On `Signal`, the deterministic method and AI review create zero to two validated
 3. One deterministic method `FX_CONTEXT_STRUCTURE_TRIGGER_V1` produces evidence and NO_SIGNAL reasons. It has versioned input adapters and feature definitions, not a vote among separate strategies. Initially it is a research hypothesis, not a promoted method.
 4. Rank valid candidates only, deduplicate correlated crosses/direction, pass at most a few concise candidates to DeepSeek model `deepseek-flash` (currently served by V4.1 Flash; verify at deployment). Request JSON with 0–2 reviewed candidates and evidence references. Validate JSON schema and match every symbol, direction, number and timestamp to the original snapshot. DeepSeek can veto or explain; it cannot invent a quote, set a price, restore a rejected setup, or revise strategy code.
 5. Persist a bounded audit record with snapshot hash, source times, single method version and active feature versions, model name, cost usage, rejection reasons and expiry. Do not store raw secrets, hidden chain of thought, or sensitive account fields.
-6. On `Đánh giá`, re-read market data and reject archived or invalid position records before a NEW DeepSeek request. Show thesis status, invalidation or data gaps and exact evidence; no stale candidate can silently appear current.
+6. On `Đánh giá`, re-read market data and reject archived or invalid signal records before a NEW DeepSeek request. Show thesis status, invalidation or data gaps and exact evidence; no stale signal can silently appear current.
 
 ## One method: FX Context → Structure → Trigger → Cost
 
