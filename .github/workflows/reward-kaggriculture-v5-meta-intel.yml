@@ -12,11 +12,6 @@ on:
         description: Manual challenger count (4-64)
         required: true
         default: '12'
-  schedule:
-    # Fast public-meta refresh every 6 hours; avoids overlapping hour-long full leagues.
-    - cron: '17 */6 * * *'
-    # One deeper daily league.
-    - cron: '43 2 * * *'
   push:
     branches:
       - main
@@ -112,7 +107,7 @@ jobs:
 
   adaptive-local-search:
     needs: analyze-public-meta
-    if: ${{ success() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_adaptive_search) || github.event_name == 'push') }}
+    if: ${{ success() && ((github.event_name == 'workflow_dispatch' && inputs.run_adaptive_search) || github.event_name == 'push') }}
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
@@ -130,20 +125,11 @@ jobs:
           python -m pip install --no-deps 'kaggle-environments==1.32.7'
       - name: Fresh-meta cyclic challenger league
         env:
-          SCHEDULE_KIND: ${{ github.event.schedule }}
           MANUAL_CANDIDATES: ${{ github.event.inputs.candidates || '12' }}
         run: |
           set -euo pipefail
-          if [ "$SCHEDULE_KIND" = '43 2 * * *' ]; then
-            CANDIDATES=20
-            MODE=daily-deep
-          elif [ "$SCHEDULE_KIND" = '17 */6 * * *' ]; then
-            CANDIDATES=8
-            MODE=six-hour-fast
-          else
-            CANDIDATES="$MANUAL_CANDIDATES"
-            MODE=manual-or-push
-          fi
+          CANDIDATES="$MANUAL_CANDIDATES"
+          MODE=manual-or-push
           echo "challenger_mode=$MODE candidates=$CANDIDATES"
           OUT=/tmp/kaggriculture-v5-adaptive-${{ github.run_id }}
           python reward-hunter/kaggriculture-v3/search_v5.py \

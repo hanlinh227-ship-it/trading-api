@@ -28,6 +28,27 @@ class ScheduledWorkflowResilienceTests(unittest.TestCase):
         )
         self.assertIn("UPSTREAM_WATCH=FRESH", proc.stdout)
 
+    def test_expensive_automation_is_manual_triggered(self):
+        for path in (
+            ".github/workflows/g8-brainloop.yml",
+            ".github/workflows/g9-continuous-research.yml",
+            ".github/workflows/ai-brain-evergreen-candidate.yml",
+            ".github/workflows/ai-skill-library-ci.yml",
+            ".github/workflows/reward-kaggriculture-v5-meta-intel.yml",
+            ".github/workflows/deploy-skill-mandatory-fast-gateway.yml",
+        ):
+            workflow = (ROOT / path).read_text(encoding="utf-8")
+            self.assertNotIn("  schedule:", workflow, path)
+            self.assertIn("  workflow_dispatch:", workflow, path)
+
+    def test_evergreen_source_discovery_is_manual_and_audit_is_weekly(self):
+        workflow = (ROOT / ".github/workflows/ai-brain-evergreen-scan.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("17 * * * *", workflow)
+        self.assertIn("23 3 * * 0", workflow)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", workflow)
+
     def test_g9_validation_installs_brain_validator_dependencies(self):
         workflow = (ROOT / ".github/workflows/g9-continuous-research.yml").read_text(
             encoding="utf-8"

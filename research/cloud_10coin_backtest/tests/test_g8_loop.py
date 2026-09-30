@@ -112,7 +112,8 @@ def test_generation_accepts_external_proposal_provider(tmp_path):
 def test_g8_workflow_is_research_only_and_non_cancelling():
     root = Path(__file__).resolve().parents[3]
     text = (root / ".github/workflows/g8-brainloop.yml").read_text()
-    assert "cron: '17 * * * *'" in text
+    assert "  schedule:" not in text
+    assert "  workflow_dispatch:" in text
     assert "cancel-in-progress: false" in text
     assert "run_g8_loop.py" in text
     assert "research/g8-brainloop-state" in text

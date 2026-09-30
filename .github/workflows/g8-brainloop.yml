@@ -1,8 +1,7 @@
 name: G8 Continuous BrainLoop
 
 on:
-  schedule:
-    - cron: '17 * * * *'
+  # Heavy research runs only on explicit dispatch or the designated implementation branch.
   workflow_dispatch:
     inputs:
       candidate_budget:

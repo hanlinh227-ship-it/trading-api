@@ -1,8 +1,7 @@
 name: G9 Continuous Parallel Research
 
 on:
-  schedule:
-    - cron: '37 * * * *'
+  # Heavy research runs only on explicit dispatch or the designated implementation branch.
   workflow_dispatch:
     inputs:
       candidate_budget:

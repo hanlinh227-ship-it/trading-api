@@ -20,11 +20,7 @@ on:
       - 'AGENTS.md'
       - 'docs/checkpoints/**'
       - 'docs/superpowers/**'
-  # Periodic revalidation for the Brain Expansion activation sweep: eligibility is
-  # cached against a TTL, and an upstream that recovers should be picked up
-  # without waiting for the next push.
-  schedule:
-    - cron: '17 */6 * * *'
+  # Full adapter activation is explicit/manual; validation remains push/PR-driven.
   workflow_dispatch:
 
 permissions:
@@ -143,7 +139,7 @@ jobs:
   # dependencies never slow down ordinary push/PR validation. Adapters being off
   # is a normal outcome, not a build failure.
   brain-expansion-activation:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     concurrency:
@@ -238,7 +234,7 @@ jobs:
   # proven without one external request. That is why `network_allowed` is not
   # one of this adapter's gates.
   brain-expansion-browser-runtime:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
@@ -335,7 +331,7 @@ jobs:
   # every gate it declared and carries evidence, and a broken stable path in
   # either runtime breaks the merge.
   brain-expansion-evidence:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     needs: [brain-expansion-activation, brain-expansion-browser-runtime]
     runs-on: ubuntu-latest
     timeout-minutes: 10
