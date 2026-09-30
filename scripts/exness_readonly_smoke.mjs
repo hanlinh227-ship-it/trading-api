@@ -243,7 +243,7 @@ async function main() {
         throw new Error("missing access point");
       }
       const raw = rawAccessPoint.trim();
-      accessPointUrl = new URL(/^https:\/\//i.test(raw) ? raw : \`https://\${raw}\`);
+      accessPointUrl = new URL(/^https:\/\//i.test(raw) ? raw : `https://${raw}`);
       const hostname = accessPointUrl.hostname.replace(/\.$/, "");
       if (accessPointUrl.protocol !== "https:" ||
           accessPointUrl.username || accessPointUrl.password ||
@@ -273,7 +273,7 @@ async function main() {
     }
 
     const accountUrl = new URL(
-      \`/v1/configuration/accounts/\${accountId.trim()}/account\`,
+      `/v1/configuration/accounts/${accountId.trim()}/account`,
       accessPointUrl,
     );
     const { response: accountResponse, data: accountData } =
