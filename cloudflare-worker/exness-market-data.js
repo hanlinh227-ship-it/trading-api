@@ -126,32 +126,33 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
   }
   async function quote(instrument){
     const symbol=String(instrument||'').trim();if(!/^[A-Za-z0-9._-]{1,11}$/.test(symbol))throw fail('EXNESS_INSTRUMENT_INVALID',400);
-    const catalog=await loadInstruments();if(!catalog.instruments.includes(symbol))throw fail('EXNESS_INSTRUMENT_NOT_ACCOUNT_SUPPORTED',404);
-    const limits=await limitsForRequest(),rules=ruleForTicks(limits,cfg.accountId);
-    if(rules.active<1)throw fail('EXNESS_WEBSOCKET_CONNECTION_LIMIT_BLOCKED');
-    await reserveRule('websocket:connection',rules.connection);
-    await reserveRule('websocket:subscribe:ticks',rules.subscription);
-    const path=rules.path,url=new URL(path,cfg.baseUrl);
-    const headers={...buildExnessSignedHeaders({apiKey:cfg.apiKey,privateKey:cfg.privateKey,pathWithQuery:path,timestamp:now()}),Upgrade:'websocket'};
-    let response;try{response=await fetchImpl(url.toString(),{method:'GET',headers,cache:'no-store'});}catch{throw fail('EXNESS_WEBSOCKET_HANDSHAKE_FAILED');}
-    const socket=response?.webSocket;if(!socket){throw fail(response?.status===429?'EXNESS_UPSTREAM_RATE_LIMITED':'EXNESS_WEBSOCKET_HANDSHAKE_FAILED',response?.status===429?429:503);}
-    try{
-      socket.accept?.();
-      const tickPromise=new Promise((resolve,reject)=>{
-        const timeout=setTimeout(()=>reject(fail('EXNESS_TICK_TIMEOUT',504)),timeoutMs);
-        const finish=(fn,value)=>{clearTimeout(timeout);fn(value);};
-        socket.addEventListener('message',event=>{
-          const data=typeof event.data==='string'?event.data:String(event.data);
-          if(new TextEncoder().encode(data).byteLength>MAX_TICK_FRAME_BYTES)return finish(reject,fail('EXNESS_TICK_FRAME_TOO_LARGE'));
-          let message;try{message=JSON.parse(data);}catch{return;}
-          if(Number.isFinite(Number(message?.code))&&message?.error_message)return finish(reject,fail('EXNESS_WEBSOCKET_UPSTREAM_ERROR'));
-          const tick=message?.tick||message?.data?.tick||message?.data||message;
-          if(String(tick?.instrument||'')!==symbol)return;
-          const bid=Number(tick?.bid),ask=Number(tick?.ask),sourceMs=typeof tick?.timestamp==='number'?tick.timestamp:Date.parse(String(tick?.timestamp||''));
-          if(!(Number.isFinite(bid)&&bid>0&&Number.isFinite(ask)&&ask>0&&Number.isFinite(sourceMs)))return finish(reject,fail('EXNESS_TICK_INVALID'));
-          const receivedMs=now(),age=receivedMs-sourceMs;
-          if(age< -1000||age>maxTickAgeMs)return finish(reject,fail('EXNESS_TICK_STALE',503));
-          finish(resolve,{instrument:symbol,bid,ask,sourceTimestamp:new Date(sourceMs).toISOString(),receivedAt:new Date(receivedMs).toISOString(),source:'EXNESS_WEBSOCKET_TICKS'});
+    return cacheRead('quote:'+symbol,500,async()=>{
+      const catalog=await loadInstruments();if(!catalog.instruments.includes(symbol))throw fail('EXNESS_INSTRUMENT_NOT_ACCOUNT_SUPPORTED',404);
+      const limits=await limitsForRequest(),rules=ruleForTicks(limits,cfg.accountId);
+      if(rules.active<1)throw fail('EXNESS_WEBSOCKET_CONNECTION_LIMIT_BLOCKED');
+      await reserveRule('websocket:connection',rules.connection);
+      await reserveRule('websocket:subscribe:ticks',rules.subscription);
+      const path=rules.path,url=new URL(path,cfg.baseUrl);
+      const headers={...buildExnessSignedHeaders({apiKey:cfg.apiKey,privateKey:cfg.privateKey,pathWithQuery:path,timestamp:now()}),Upgrade:'websocket'};
+      let response;try{response=await fetchImpl(url.toString(),{method:'GET',headers,cache:'no-store'});}catch{throw fail('EXNESS_WEBSOCKET_HANDSHAKE_FAILED');}
+      const socket=response?.webSocket;if(!socket){throw fail(response?.status===429?'EXNESS_UPSTREAM_RATE_LIMITED':'EXNESS_WEBSOCKET_HANDSHAKE_FAILED',response?.status===429?429:503);}
+      try{
+        socket.accept?.();
+        const tickPromise=new Promise((resolve,reject)=>{
+          const timeout=setTimeout(()=>reject(fail('EXNESS_TICK_TIMEOUT',504)),timeoutMs);
+          const finish=(fn,value)=>{clearTimeout(timeout);fn(value);};
+          socket.addEventListener('message',event=>{
+            const data=typeof event.data==='string'?event.data:String(event.data);
+            if(new TextEncoder().encode(data).byteLength>MAX_TICK_FRAME_BYTES)return finish(reject,fail('EXNESS_TICK_FRAME_TOO_LARGE'));
+            let message;try{message=JSON.parse(data);}catch{return;}
+            if(Number.isFinite(Number(message?.code))&&message?.error_message)return finish(reject,fail('EXNESS_WEBSOCKET_UPSTREAM_ERROR'));
+            const tick=message?.tick||message?.data?.tick||message?.data||message;
+            if(String(tick?.instrument||'')!==symbol)return;
+            const bid=Number(tick?.bid),ask=Number(tick?.ask),sourceMs=typeof tick?.timestamp==='number'?tick.timestamp:Date.parse(String(tick?.timestamp||''));
+            if(!(Number.isFinite(bid)&&bid>0&&Number.isFinite(ask)&&ask>0&&Number.isFinite(sourceMs)))return finish(reject,fail('EXNESS_TICK_INVALID'));
+            const receivedMs=now(),age=receivedMs-sourceMs;
+            if(age< -1000||age>maxTickAgeMs)return finish(reject,fail('EXNESS_TICK_STALE',503));
+            finish(resolve,{instrument:symbol,bid,ask,sourceTimestamp:new Date(sourceMs).toISOString(),receivedAt:new Date(receivedMs).toISOString(),source:'EXNESS_WEBSOCKET_TICKS'});
         });
         socket.addEventListener('error',()=>finish(reject,fail('EXNESS_WEBSOCKET_STREAM_FAILED')));
         socket.addEventListener('close',()=>finish(reject,fail('EXNESS_WEBSOCKET_CLOSED_BEFORE_TICK')));
@@ -159,6 +160,7 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
       socket.send(JSON.stringify({id:`ticks-${symbol.toLowerCase()}-1`,subscribe:{event:'ticks',instruments:[symbol]}}));
       return await tickPromise;
     }finally{try{socket.close(1000,'quote received');}catch{}}
+    });
   }
   return {instruments:loadInstruments,quote,config:{accountId:cfg.accountId,readOnly:true}};
 }

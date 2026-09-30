@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import {createExnessReadonlyMarketClient,jsonResponse} from './exness-market-data.js';
 
 const CACHE_LIMIT=3000;
@@ -26,6 +27,11 @@ export class ExnessMarketDataState{
   async fetch(request){
     const url=new URL(request.url);
     if(request.method!=='GET')return jsonResponse({ok:false,error:'METHOD_NOT_ALLOWED',readOnly:true},405);
+    if(!['/instruments','/quote'].includes(url.pathname))return jsonResponse({ok:false,error:'NOT_FOUND',readOnly:true},404);
+    const ip=String(request.headers.get('x-exness-client-ip')||'unknown').slice(0,64);
+    const clientHash=createHash('sha256').update(ip).digest('hex');
+    const gate=await this.reserve({key:'public:'+clientHash,limit:30,windowSeconds:60,now:Date.now()});
+    if(!gate.allowed)return new Response(JSON.stringify({ok:false,error:'RATE_LIMITED',readOnly:true}),{status:429,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','retry-after':'60'}});
     const work=this.queue.then(()=>this.handle(url));
     this.queue=work.catch(()=>undefined);
     return work;

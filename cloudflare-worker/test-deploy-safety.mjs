@@ -35,7 +35,7 @@ assert.match(wranglerPrep,/EXNESS_MODE:'SHADOW'/);
 assert.match(wranglerPrep,/EXNESS_LIVE_ENABLED:'false'/);
 assert.match(wranglerPrep,/EXNESS_LIVE_ACK:'false'/);
 assert.match(workflow,/Production Exness read-only quote end-to-end canary/,'production deployment must prove one live read-only quote');
-assert.match(workflow,/GPT_5AI_ACTION_KEY: \$\{\{ secrets\.GPT_5AI_ACTION_KEY \}\}/,'production quote canary uses the existing action key as a secret');
+assert.doesNotMatch(workflow,/GPT_5AI_ACTION_KEY/,'Exness quote canary must not depend on the global action key');
 assert.match(workflow,/validate-exness-production-canary\.mjs/);
 assert.match(fs.readFileSync('validate-exness-production-canary.mjs','utf8'),/EXNESS_READONLY_E2E=PASS/);
 assert.match(workflow,/redact-deploy-output\.mjs/);

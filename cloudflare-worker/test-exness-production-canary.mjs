@@ -9,11 +9,10 @@ const fetchImpl=async(url,init)=>{
     ?new Response(JSON.stringify({ok:true,exchange:'EXNESS',readOnly:true,instruments:['XAUUSD','EURUSD']}),{status:200})
     :new Response(JSON.stringify(validQuote),{status:200});
 };
-const result=await runExnessProductionCanary({fetchImpl,actionKey:'test-secret'});
+const result=await runExnessProductionCanary({fetchImpl});
 assert.equal(result.instrument,'XAUUSD');
 assert.equal(calls.length,2);
-assert.ok(calls.every(x=>x.method==='GET'&&x.headers['x-action-key']==='test-secret'));
+assert.ok(calls.every(x=>x.method==='GET'&&x.headers===undefined),'the Exness read-only canary must not require or send a gateway action key');
 assert.match(calls[1].url,/instrument=XAUUSD$/);
-await assert.rejects(runExnessProductionCanary({fetchImpl,actionKey:''}),/ACTION_KEY_MISSING/);
-await assert.rejects(runExnessProductionCanary({fetchImpl,actionKey:'test',baseUrl:'https://example.com'}),/WORKER_ORIGIN_INVALID/);
+await assert.rejects(runExnessProductionCanary({fetchImpl,baseUrl:'https://example.com'}),/WORKER_ORIGIN_INVALID/);
 console.log('exness production read-only E2E canary contract ok');
