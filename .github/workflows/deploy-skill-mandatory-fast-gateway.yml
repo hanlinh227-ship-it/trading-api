@@ -339,9 +339,10 @@ jobs:
             echo "EXNESS_BASE_URL_VALIDATION=FAILED"
             exit 1
           fi
-          for key in EXNESS_API_KEY EXNESS_PRIVATE_KEY EXNESS_ACCOUNT_ID EXNESS_API_BASE_URL; do
-            printf '%s' "${!key}" | npx wrangler secret put "$key" --name trading-v77-scanner >/dev/null
-          done
+          printf '%s' "$EXNESS_API_KEY" | npx wrangler secret put EXNESS_READONLY_API_KEY --name trading-v77-scanner >/dev/null
+          printf '%s' "$EXNESS_PRIVATE_KEY" | npx wrangler secret put EXNESS_READONLY_PRIVATE_KEY --name trading-v77-scanner >/dev/null
+          printf '%s' "$EXNESS_ACCOUNT_ID" | npx wrangler secret put EXNESS_READONLY_ACCOUNT_ID --name trading-v77-scanner >/dev/null
+          printf '%s' "$EXNESS_API_BASE_URL" | npx wrangler secret put EXNESS_READONLY_API_BASE_URL --name trading-v77-scanner >/dev/null
           echo "EXNESS_READONLY_SECRETS_SYNCED=4"
       - name: Deploy exact-main Worker
         working-directory: cloudflare-worker

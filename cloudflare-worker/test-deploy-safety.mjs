@@ -21,6 +21,13 @@ assert.ok(exnessSync.includes(accountIdNormalize),'trim surrounding copy/paste w
 assert.ok(exnessSync.indexOf(accountIdNormalize)<exnessSync.indexOf('if ! [[ "$EXNESS_ACCOUNT_ID" =~'),'normalize account ID before enforcing Exness numeric format');
 for(const key of ['EXNESS_API_KEY','EXNESS_PRIVATE_KEY','EXNESS_ACCOUNT_ID','EXNESS_API_BASE_URL'])
   assert.ok(exnessSync.includes(key + ': ' + String.fromCharCode(36) + '{{ secrets.' + key + ' }}'),key + ' must come from a GitHub Actions secret');
+for(const [source,binding] of [['EXNESS_API_KEY','EXNESS_READONLY_API_KEY'],['EXNESS_PRIVATE_KEY','EXNESS_READONLY_PRIVATE_KEY'],['EXNESS_ACCOUNT_ID','EXNESS_READONLY_ACCOUNT_ID'],['EXNESS_API_BASE_URL','EXNESS_READONLY_API_BASE_URL']])
+  assert.ok(exnessSync.includes(`printf '%s' "$${source}" | npx wrangler secret put ${binding}`),`${source} must be synced under the collision-free secret binding ${binding}`);
+const exnessClient=fs.readFileSync('exness-market-data.js','utf8');
+const exnessHandler=fs.readFileSync('exness-market-data-handler.js','utf8');
+for(const [binding,source] of [['EXNESS_READONLY_API_KEY','EXNESS_API_KEY'],['EXNESS_READONLY_PRIVATE_KEY','EXNESS_PRIVATE_KEY'],['EXNESS_READONLY_ACCOUNT_ID','EXNESS_ACCOUNT_ID'],['EXNESS_READONLY_API_BASE_URL','EXNESS_API_BASE_URL']])
+  assert.ok(exnessClient.includes(`env.${binding}||env.${source}`),`${binding} must be preferred by the market-data client`);
+assert.ok(exnessHandler.includes('env.EXNESS_READONLY_ACCOUNT_ID||env.EXNESS_ACCOUNT_ID'),'handler must use the account ID secret binding');
 assert.ok(workflow.indexOf('name: Capture currently-live revision')<exnessSyncStart,'capture rollback revision before syncing Exness secrets');
 assert.match(exnessSync,/wrangler secret put/,'Exness values must be sent to Cloudflare as secrets');
 assert.match(wranglerPrep,/EXNESS_ENABLED:'true'/);
