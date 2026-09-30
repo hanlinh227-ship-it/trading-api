@@ -28,11 +28,14 @@ class ScheduledWorkflowResilienceTests(unittest.TestCase):
         )
         self.assertIn("UPSTREAM_WATCH=FRESH", proc.stdout)
 
-    def test_heavy_research_jobs_are_manual_triggered(self):
+    def test_expensive_automation_is_manual_triggered(self):
         for path in (
             ".github/workflows/g8-brainloop.yml",
             ".github/workflows/g9-continuous-research.yml",
             ".github/workflows/ai-brain-evergreen-candidate.yml",
+            ".github/workflows/ai-skill-library-ci.yml",
+            ".github/workflows/reward-kaggriculture-v5-meta-intel.yml",
+            ".github/workflows/deploy-skill-mandatory-fast-gateway.yml",
         ):
             workflow = (ROOT / path).read_text(encoding="utf-8")
             self.assertNotIn("  schedule:", workflow, path)
