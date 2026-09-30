@@ -2,6 +2,8 @@
 
 Date: 2026-09-04 UTC+7
 
+> Historical checkpoint. Superseded for current project strategy authority by `BYBIT-TOP100-STATEFLOW-3.0` in `docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md`, as referenced by `docs/checkpoints/CURRENT_HANDOFF.md` and `AI_SKILL_LIBRARY/projects.yaml`. This BTC-only record remains for historical context and must not be loaded as current authority.
+
 ## Authority
 - Production strategy target: BTCUSDT Linear Perpetual only.
 - Legacy multi-coin Bybit, Forex, Meme, V10/V11 signal and AI-council execution are retired.
