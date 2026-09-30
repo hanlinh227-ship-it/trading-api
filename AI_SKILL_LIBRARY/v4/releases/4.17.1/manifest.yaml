@@ -186,4 +186,4 @@ compatibility:
 promotion:
   class: feature
   validated: false
-  source: cloud_only_24x7_federation
+  source: exness-runtime-gate-repair

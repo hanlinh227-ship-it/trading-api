@@ -154,7 +154,7 @@ def collect_rows(root: Path) -> list[dict[str, Any]]:
         # each one untraceable to the run behind it.
         row["provenance"] = {
             **(row.get("provenance") or {}),
-            "reference": str(path.relative_to(root)),
+            "reference": path.relative_to(root).as_posix(),
         }
         rows.append(row)
 

@@ -94,11 +94,17 @@ def atomic_write_text(path: Path, text: str) -> None:
 
 
 def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    """Hash repository text consistently across CRLF and LF checkouts.
+
+    Release entries are text source/configuration files. Git stores these with
+    LF, while Windows may materialize CRLF; normalize only text bytes so the
+    manifest generated on either platform verifies against the same blob.
+    Binary files keep their exact bytes.
+    """
+    content = path.read_bytes()
+    if b"\0" not in content:
+        content = content.replace(b"\r\n", b"\n")
+    return hashlib.sha256(content).hexdigest()
 
 
 def inside(root: Path, rel: str) -> Path:

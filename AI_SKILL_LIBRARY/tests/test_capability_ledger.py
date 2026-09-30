@@ -122,6 +122,11 @@ class CommittedLedgerTests(unittest.TestCase):
         self.assertEqual(build(ROOT), self.ledger)
 
 
+    def test_compiled_evidence_references_use_posix_paths(self):
+        for row in build(ROOT)["records"]:
+            with self.subTest(model_id=row["model_id"]):
+                self.assertNotIn("\\", row["provenance"]["reference"])
+
 class TheCompilerRefusesTests(unittest.TestCase):
     """One deliberate break per rule. A refusal that cannot fire is not a rule."""
 

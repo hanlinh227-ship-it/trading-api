@@ -1,5 +1,14 @@
 # AI OPEN ISSUES
 
+## EXNESS-MARKET-DATA-READONLY-20260930
+Status: IMPLEMENTED ON ISOLATED BRANCH; review, CI, runtime secrets, and production verification pending.
+Owner: CODEX_LOCAL
+Area: CLOUDFARE WORKER MARKET-DATA API
+Safety class: AUTH_READ_ONLY; user-authorized, GET-only; no trading authority.
+Scope: add authenticated `GET /exness/instruments` and `GET /exness/quote?instrument=...` to the existing `trading-v77-scanner` runtime using the official Exness account instrument list and signed ticks WebSocket handshake. Do not modify Bybit strategy/execution, routers, or order flows.
+Acceptance: test-first proof for signing, allowed instrument registration, real tick contract, stale/error response and endpoint authorization; Worker validation and CI pass; production verification only after approved exact-main deployment, required Worker secrets are present without transferring GitHub secrets, and the actual endpoint returns Bid/Ask with source and receive timestamps.
+Current evidence: focused contract test and syntax checks pass. Full Worker check stops before tests because the generated model-mesh and skill-gateway snapshots are absent; current main's latest gated deploy check also failed exact-main snapshot compilation. Active Cloudflare `/health` and `/brain/health` report deployment SHA `0b4bb1bac94fc7179cd61235e20db4c6ad2fb494`; Exness quote and instrument routes currently return 404. GitHub Actions exposes the required Exness secret names; Cloudflare Worker secret presence is not established. Open draft PR #518 is a separate older REST-health candidate and is not runtime authority.
+
 ## AI-001
 Status: RESOLVED
 Severity: CRITICAL
