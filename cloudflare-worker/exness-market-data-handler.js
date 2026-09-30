@@ -25,6 +25,6 @@ export async function handleExnessMarketData(request,env={},opts={}){
     return new Response(await response.text(),{status:response.status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
   }catch(error){
     const code=String(error?.code||error?.message||'EXNESS_MARKET_DATA_UNAVAILABLE');
-    return jsonResponse({ok:false,exchange:'EXNESS',readOnly:true,error:code},Number(error?.status)||503);
+    return jsonResponse({ok:false,exchange:'EXNESS',readOnly:true,error:code,...(error?.upstreamClass?{upstreamClass:String(error.upstreamClass)}:{})},Number(error?.status)||503);
   }
 }

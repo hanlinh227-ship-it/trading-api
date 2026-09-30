@@ -44,6 +44,6 @@ export class ExnessMarketDataState{
     try{
       if(url.pathname==='/instruments')return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,...await client.instruments()});
       return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,...await client.quote(instrument)});
-    }catch(error){return jsonResponse({ok:false,error:String(error?.code||error?.message||'EXNESS_MARKET_DATA_UNAVAILABLE'),readOnly:true},Number(error?.status)||503);}
+    }catch(error){return jsonResponse({ok:false,error:String(error?.code||error?.message||'EXNESS_MARKET_DATA_UNAVAILABLE'),readOnly:true,...(error?.upstreamClass?{upstreamClass:String(error.upstreamClass)}:{})},Number(error?.status)||503);}
   }
 }
