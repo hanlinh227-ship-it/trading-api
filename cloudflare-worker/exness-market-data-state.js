@@ -12,7 +12,14 @@ const STREAM_STALL_MS=30_000;
 const STREAM_STALL_CHECK_MS=5_000;
 
 export class ExnessMarketDataState{
-  constructor(state,env){this.state=state;this.env=env;this.queue=Promise.resolve();this.liveViewers=0;}
+  constructor(state,env){this.state=state;this.env=env;this.queue=Promise.resolve();this.liveSockets=new Set();}
+
+  // Bộ đếm viewer suy ra từ socket THẬT CÒN SỐNG, không phải một số tự tăng.
+  // Đứt bất thường (WebSocket code 1006) có thể KHÔNG kích hoạt handler close,
+  // khiến bộ đếm rò rỉ dần rồi chặn luồng VĨNH VIỄN bằng 429. Dọn theo readyState
+  // làm bộ đếm tự chữa lành ở mỗi lần kết nối mới.
+  get liveViewers(){return this.liveSockets.size;}
+  _pruneSockets(){for(const socket of this.liveSockets){let open=false;try{open=socket.readyState===1}catch{}if(!open)this.liveSockets.delete(socket);}}
 
   async reserve(rule){
     const windowMs=Math.ceil(Number(rule.windowSeconds)*1000),limit=Math.floor(Number(rule.limit)),now=Number(rule.now);
@@ -47,15 +54,19 @@ export class ExnessMarketDataState{
 
   async liveSocket(request){
     if(request.headers.get('upgrade')?.toLowerCase()!=='websocket')return jsonResponse({ok:false,error:'WEBSOCKET_UPGRADE_REQUIRED',readOnly:true},426);
-    if(this.liveViewers>=2)return jsonResponse({ok:false,error:'EXNESS_STREAM_VIEWER_LIMIT',readOnly:true},429);
-    this.liveViewers++;
+    this._pruneSockets();
+    if(this.liveSockets.size>=2)return jsonResponse({ok:false,error:'EXNESS_STREAM_VIEWER_LIMIT',readOnly:true},429);
+    const slot={readyState:0};                 // giữ chỗ trước await; nếu sót sẽ bị _pruneSockets dọn
+    this.liveSockets.add(slot);
     // Share the existing per-account rate gate and signed host-discovery logic.
     // No Exness credential or account number reaches the downstream client.
     const client=createExnessReadonlyMarketClient(this.env,{store:this.state.storage,reserve:rule=>this.reserve(rule)});
     let stream;
-    try{stream=await client.openTicksStream(FOREX_PAIRS);}catch(error){this.liveViewers--;return jsonResponse({ok:false,error:String(error?.code||'EXNESS_STREAM_UNAVAILABLE'),readOnly:true},Number(error?.status)||503);}
+    try{stream=await client.openTicksStream(FOREX_PAIRS);}catch(error){this.liveSockets.delete(slot);return jsonResponse({ok:false,error:String(error?.code||'EXNESS_STREAM_UNAVAILABLE'),readOnly:true},Number(error?.status)||503);}
     const [browser,server]=Object.values(new WebSocketPair());
     server.accept();
+    this.liveSockets.delete(slot);
+    this.liveSockets.add(server);
     const upstream=stream.socket,allowed=new Set(FOREX_PAIRS);
     let closed=false,watchdog=null;
     const startedMs=Date.now();
@@ -65,7 +76,7 @@ export class ExnessMarketDataState{
       if(closed)return;
       closed=true;
       if(watchdog)clearInterval(watchdog);
-      this.liveViewers=Math.max(0,this.liveViewers-1);
+      this.liveSockets.delete(server);this.liveSockets.delete(slot);
       try{upstream.close(1000,'viewer closed');}catch{}
       try{server.close(1000,'stream closed');}catch{}
     };

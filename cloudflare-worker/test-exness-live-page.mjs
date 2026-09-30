@@ -76,6 +76,29 @@ try{
   browserResponse.webSocket.close();assert.equal(state.liveViewers,0);
 }finally{globalThis.Response=RealResponse;globalThis.fetch=realFetch;globalThis.WebSocketPair=realPair}
 
+// Chống rò rỉ bộ đếm viewer. Đây là lỗi THẬT đã quan sát trên production: sau vài lần
+// đứt bất thường (WebSocket 1006), bộ đếm kẹt và MỌI kết nối sau đó bị 429 vĩnh viễn.
+{
+  const leakDb=new Map();
+  const leakStorage={get:async k=>leakDb.get(k),put:async(k,v)=>leakDb.set(k,v),transaction:async fn=>fn(leakStorage)};
+  globalThis.Response=class {constructor(body,{status=200,headers={},webSocket}={}){this.body=body;this.status=status;this.headers=headers;this.webSocket=webSocket}};
+  globalThis.WebSocketPair=class {constructor(){const a=new FakeSocket(),b=new FakeSocket();a.peer=b;b.peer=a;return [a,b]}};
+  globalThis.fetch=async(url)=>{if(url.endsWith('/limits'))return {ok:true,json:async()=>limits};if(url.endsWith('/instruments'))return {ok:true,json:async()=>({instruments:FOREX_PAIRS})};if(url.endsWith('/ws/ticks'))return {status:101,webSocket:new FakeSocket()};throw Error('unexpected '+url)};
+  try{
+    const leakState=new ExnessMarketDataState({storage:leakStorage},env);
+    const first=await leakState.fetch(new Request('https://exness-market-data.internal/live/ws',{headers:{Upgrade:'websocket','x-exness-client-ip':'leak-1'}}));
+    assert.equal(first.status,101);
+    assert.equal(leakState.liveViewers,1);
+    // Socket chết mà KHÔNG kích hoạt handler close (đúng như code 1006 ngoài thực tế).
+    for(const socket of leakState.liveSockets){socket.readyState=3;}
+    const second=await leakState.fetch(new Request('https://exness-market-data.internal/live/ws',{headers:{Upgrade:'websocket','x-exness-client-ip':'leak-2'}}));
+    assert.equal(second.status,101,'socket chết phải được dọn, không được chặn kết nối mới');
+    assert.equal(leakState.liveViewers,1,'bộ đếm phải phản ánh số socket còn sống');
+    second.webSocket.close();
+    assert.equal(leakState.liveViewers,0);
+  }finally{globalThis.Response=RealResponse;globalThis.fetch=realFetch;globalThis.WebSocketPair=realPair}
+}
+
 // Trang phải giữ các cơ chế ổn định đã thiết kế.
 assert.match(EXNESS_LIVE_PAGE,/visibilitychange/,'tab ẩn phải tạm dừng luồng để bảo vệ quota');
 assert.match(EXNESS_LIVE_PAGE,/requestAnimationFrame/,'vẽ phải gom theo frame');
