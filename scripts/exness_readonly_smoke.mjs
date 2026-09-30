@@ -61,6 +61,22 @@ function parsePrivateKey(secret) {
     if (!derivedPublic.equals(bytes.subarray(32))) throw new Error("invalid private-key encoding");
     return privateKey;
   }
+  if (bytes.length === 96) {
+    const matches = [];
+    for (let seedOffset = 0; seedOffset <= 64; seedOffset++) {
+      const privateKey = rawSeedToPrivateKey(bytes.subarray(seedOffset, seedOffset + 32));
+      const derivedPublic = createPublicKey(privateKey).export({ format: "der", type: "spki" }).subarray(-32);
+      for (let publicOffset = 0; publicOffset <= 64; publicOffset += 32) {
+        if (Math.abs(seedOffset - publicOffset) >= 32 &&
+            derivedPublic.equals(bytes.subarray(publicOffset, publicOffset + 32))) {
+          matches.push({ privateKey, seedOffset });
+        }
+      }
+    }
+    const unique = new Map(matches.map((match) => [match.seedOffset, match.privateKey]));
+    if (unique.size === 1) return [...unique.values()][0];
+    throw new Error("96-byte key bundle has no unique Ed25519 seed/public pair");
+  }
   if (bytes.length === 32) return rawSeedToPrivateKey(bytes);
   try {
     const key = createPrivateKey({ key: bytes, format: "der", type: "pkcs8" });
@@ -73,6 +89,7 @@ function privateKeyShape(secret) {
   const value = secret.trim();
   return {
     characters: value.length,
+    decodedBase64Bytes: /^[A-Za-z0-9+/_=-]+$/.test(value) ? Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64").length : null,
     hasLineBreaks: /[\r\n]/.test(value),
     looksLikePem: /^-----BEGIN [A-Z0-9 ]+-----/.test(value),
     looksLikeJson: value.startsWith("{"),
