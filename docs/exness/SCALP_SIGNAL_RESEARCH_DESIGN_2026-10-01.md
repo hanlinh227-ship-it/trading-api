@@ -58,6 +58,17 @@ The single-method registry holds feature/adaptor metadata, tests and immutable v
 - GPT `volume-profile-footprint` is excluded for the current Exness tick/candle feed: neither executed bid/ask volume by price nor consolidated FX order flow was verified. Do not fabricate delta/POC/footprint evidence.
 - Optional `research-search` can source dated first-party economic releases ahead of time. Keep source URL, event timestamp, currency scope, observation time, entitlement and expiry. News text is untrusted and cannot change method rules.
 
+## Knowledge harmonization for skills and prior analysis repositories
+
+Every relevant previously used analysis skill/repository is admitted through a source manifest before it can influence the one FX method. This fulfills reuse without blindly mixing incompatible rules or sending entire repositories to DeepSeek.
+
+- Keep one row per source with `sourceId`, canonical name, repository/path or skill ID, exact revision/version, timeframe/venue coverage, data period, license/provenance, intended role, evidence accepted, conflicts, and status: `INCLUDED`, `REFERENCE_ONLY`, `EXCLUDED`, or `PENDING_REVIEW`.
+- Deduplicate equivalent concepts across GPT skills, GitHub analysis files, and prior work. A repeated rule is one feature with multiple provenance links, not multiple votes.
+- Map relevant capabilities into the method: `trading-research` for research/backtest discipline; `market-candle-reader` to verify OHLC integrity and candle closure; `market-candle-analysis` for bounded structure context; `research-search` for dated first-party event evidence; GitHub `market_analysis.md`, `quant_backtesting.md`, `risk_execution.md`, and `multi_market_analysis.md` for source quality, costs, out-of-sample and evidence normalization. Their concepts must be translated into reviewed, testable rules; ChatGPT session skills are not automatically installed in the Worker.
+- Preserve conflicts instead of averaging them. Current project authority, exact live data and tested method contract outrank historical or imported advice. Forex methods remain research-only until a new untouched out-of-sample validation and release gate passes; no prior skill or repo can promote itself.
+- The prompt builder sends a bounded, versioned context packet: applicable method contract; currency profiles for the eight currencies; pair-specific spread/cadence/correlation; closed H1/M5/M1 evidence; current Bid/Ask freshness; relevant verified event evidence; and references to the exact source rows. Include only applicable skill/repo evidence IDs plus concise validated rule summaries. Do not send API keys, account data, whole repos, unrelated chat history, or hidden chain-of-thought.
+- Store the packet version/hash and source IDs with each scan/review so History can show which method and knowledge release informed the result. A source update creates a candidate release and must pass deduplication, conflict, provenance/license and repeatable validation before use.
+
 ## Evidence from both GitHub accounts (2026-10-01 review)
 
 | Account / source | Role in this feature | Admission |
@@ -117,6 +128,18 @@ The `Đánh giá` button asks AI to review each selected, user-confirmed open po
 - An archived item is immutable except for a separate correction/audit record. It does not occupy either of the two active slots. New scans can use the released slot after server acknowledgement.
 
 Acceptance: TP/SL quote crossing archives once and states whether broker fill is confirmed; gaps are flagged without claiming exact fills; user-confirmed close stores broker fill when supplied; tracking dismissal stores last observed signed pips/R and clearly marks close unconfirmed; there is no timer-based signal expiry; assessment expiry alone does not archive; duplicate ticks, reconnects and repeated taps never create duplicate history rows.
+
+### History statistics and outcomes
+
+At the top of History show compact totals for **Buy / Sell**, **win / loss / breakeven**, and **TP / SL**, with filters for date range, pair and direction. Each record shows direction, pair, entry and whether it is user-reported broker fill or estimate, original SL/TP, exit/observed level, close reason, signed pips, R, timestamps, method/knowledge version and quote freshness.
+
+- Count a realized win/loss only when the user has recorded the broker exit fill; label it `Người dùng ghi nhận` because the app has no broker connection to independently verify fills. If an entry or exit is estimated/missing, keep the row visible but exclude it from realized win-rate and realized P/L denominators.
+- Report the denominator explicitly: wins, losses, breakeven, and unknown/unconfirmed counts. Show win rate as wins / (wins + losses); report breakeven separately. Never include unknown/unconfirmed records as losses or silently discard them.
+- Separate **TP/SL level observed on the Exness quote feed** from **broker TP/SL execution confirmed by user**. If a price crossed a level but the user has not confirmed the broker result, count only under “Mức giá được quan sát”, not as a realized win/loss or confirmed TP/SL.
+- For Buy/Sell summaries, display total records and completed, fill-reported wins/losses separately by direction. Do not suggest past win rate predicts future results.
+- History is descriptive research evidence, not a performance guarantee or a signal-ranking shortcut. Corrections create an audit entry; they do not silently rewrite prior AI assessments.
+
+Acceptance: fixture tests cover Buy and Sell, confirmed TP and SL, early user-reported close, breakeven, estimated entry/exit, and unconfirmed level crossing. Summary totals reconcile with visible rows and clearly identify the fill-reported sample size.
 
 ### Live position gauge (manual tracking, read-only)
 
