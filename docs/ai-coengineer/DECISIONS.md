@@ -57,3 +57,15 @@ Policy:
 Evidence:
 - `hyro-scanner.js::fundingView()` only evaluates funding rate, next funding time, payer side, adverse rate, block near settlement and RR penalty.
 - `hyro-market-context.js` evaluates OI, long/short ratio, orderbook imbalance and spread; these are market context, not hard-news evidence.
+
+## DECISION-010 — Single declared Trading authority (2026-09-30)
+
+Decision:
+- The declared strategy authority is the canonical checkpoint resolved from `AI_SKILL_LIBRARY/projects.yaml`; current pointer: `BYBIT-TOP100-STATEFLOW-3.0` in `docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md`, with `docs/checkpoints/CURRENT_HANDOFF.md` as the handoff.
+- V74/V75 Forex and V76 Forex entry research are historical/data or research material; they do not grant Forex execution authority.
+- `BYBIT_BTC_STATEFLOW_2_1_20260904.md` is retained as historical evidence and is superseded by the Top-100 checkpoint.
+- `MASTER_TRADING_STATE.md` and `ENTRY_EXECUTION_V76.md` at the previously documented paths are absent; startup guidance must not require them.
+- A repository authority pointer does not prove deployment or LIVE status. Require exact-revision runtime/health evidence before making that claim.
+
+Scope/evidence:
+This is documentation-only reconciliation. No strategy code, risk parameters, credentials, deployment configuration, or orders were changed. README, AGENTS, co-engineering startup protocol, legacy checkpoint label, and write-lock status were aligned on 2026-09-30.
