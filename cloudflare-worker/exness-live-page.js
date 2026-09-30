@@ -69,19 +69,23 @@ function connect(){
   clearTimeout(retry);
   if(document.hidden){setStatus('Tạm dừng — tab ẩn','');return}
   if(overBudget()){setStatus('Đã đủ hạn mức 8h hôm nay — tạm dừng để bảo vệ quota','bad');return}
+  if(socket&&(socket.readyState===0||socket.readyState===1))return;
   setStatus('Đang kết nối…','');
   const scheme=location.protocol==='https:'?'wss:':'ws:';
-  try{socket=new WebSocket(scheme+'//'+location.host+'/exness/live/ws')}catch(err){setStatus('Không mở được WebSocket','bad');return}
-  socket.onopen=()=>{attempt=0;stats.prevSentAt=null;stats.prevArrival=null;stats.jitterMs=null;setText('jitter','—');setStatus('● Đang truyền tick','ok')};
-  socket.onmessage=e=>{
+  let ws;try{ws=new WebSocket(scheme+'//'+location.host+'/exness/live/ws');socket=ws}catch(err){setStatus('Không mở được WebSocket','bad');return}
+  ws.onopen=()=>{if(socket!==ws)return;attempt=0;stats.prevSentAt=null;stats.prevArrival=null;stats.jitterMs=null;setText('jitter','—');setStatus('● Đang truyền tick','ok')};
+  ws.onmessage=e=>{
+    if(socket!==ws)return;
     let q;try{q=JSON.parse(e.data)}catch{return}
     if(q.type==='tick')onTick(q);
-    else if(q.type==='stalled'){setStatus('Nguồn im lặng — nối lại','bad');try{socket.close()}catch{}}
+    else if(q.type==='stalled'){setStatus('Nguồn im lặng — nối lại','bad');try{ws.close()}catch{}}
     else if(q.type==='error')setStatus('Lỗi luồng: '+q.error,'bad');
   };
-  socket.onerror=()=>setStatus('Lỗi kết nối','bad');
-  socket.onclose=()=>{
+  ws.onerror=()=>{if(socket===ws)setStatus('Lỗi kết nối','bad')};
+  ws.onclose=()=>{
+    if(socket!==ws)return;
     socket=null;stats.reconnects++;setText('reconn',String(stats.reconnects));
+    if(document.hidden){setStatus('Tạm dừng — tab ẩn','');return}
     const wait=Math.min(30000,1000*Math.pow(2,Math.min(attempt++,5)))+Math.round(Math.random()*400);
     setStatus('Mất kết nối — thử lại sau '+Math.round(wait/1000)+'s','bad');
     clearTimeout(retry);retry=setTimeout(connect,wait);
