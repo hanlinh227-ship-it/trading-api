@@ -4,7 +4,7 @@ import {createExnessReadonlyMarketClient,jsonResponse} from './exness-market-dat
 const CACHE_LIMIT=3000;
 const fixedWindow=(rows,now,windowMs)=>rows.filter(at=>Number(at)>now-windowMs);
 // Internal read-only routes only. No mutating internal route exists.
-const READ_ONLY_ROUTES=['/instruments','/quote','/account','/limits','/conditions','/candles'];
+const READ_ONLY_ROUTES=['/instruments','/quote','/account','/limits','/conditions','/candles','/events'];
 
 export class ExnessMarketDataState{
   constructor(state,env){this.state=state;this.env=env;this.queue=Promise.resolve();}
@@ -49,7 +49,8 @@ export class ExnessMarketDataState{
         :url.pathname==='/account'?await client.account()
         :url.pathname==='/limits'?await client.limits()
         :url.pathname==='/conditions'?await client.conditions(instrument)
-        :await client.candles({instrument,timeframe:url.searchParams.get('timeframe'),from:url.searchParams.get('from'),to:url.searchParams.get('to'),count:url.searchParams.get('count'),price_type:url.searchParams.get('price_type')});
+        :url.pathname==='/candles'?await client.candles({instrument,timeframe:url.searchParams.get('timeframe'),from:url.searchParams.get('from'),to:url.searchParams.get('to'),count:url.searchParams.get('count'),price_type:url.searchParams.get('price_type')})
+        :await client.events({event:url.searchParams.get('event'),instrument});
       return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,...result});
     }catch(error){return jsonResponse({ok:false,error:String(error?.code||error?.message||'EXNESS_MARKET_DATA_UNAVAILABLE'),readOnly:true,...(error?.upstreamClass?{upstreamClass:String(error.upstreamClass)}:{})},Number(error?.status)||503);}
   }

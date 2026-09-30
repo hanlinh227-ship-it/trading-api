@@ -1,10 +1,14 @@
 import {jsonResponse} from './exness-market-data.js';
+import {authState} from './worker-auth.js';
 
 const readOnlyEnabled=env=>String(env.EXNESS_ENABLED||'').toLowerCase()==='true'&&String(env.EXNESS_MODE||'').toUpperCase()==='SHADOW'&&String(env.EXNESS_LIVE_ENABLED||'').toLowerCase()!=='true'&&String(env.EXNESS_LIVE_ACK||'').toLowerCase()!=='true';
 
 // Read-only surface only. No trading, order, deposit or account-modification route exists here.
-const READ_ONLY_ROUTES=['/exness/instruments','/exness/quote','/exness/account','/exness/limits','/exness/conditions','/exness/candles'];
+const READ_ONLY_ROUTES=['/exness/instruments','/exness/quote','/exness/account','/exness/limits','/exness/conditions','/exness/candles','/exness/events'];
 const INSTRUMENT_ROUTES=['/exness/quote','/exness/conditions'];
+// The server events stream can carry balance, equity and used margin, so it stays read-only
+// but never public: it requires the same action key as the other account-state surfaces.
+const AUTHENTICATED_ROUTES=['/exness/events'];
 
 function internalTarget(path,url,instrument){
   switch(path){
@@ -13,7 +17,8 @@ function internalTarget(path,url,instrument){
     case '/exness/account':return '/account';
     case '/exness/limits':return '/limits';
     case '/exness/conditions':return `/conditions?instrument=${encodeURIComponent(instrument)}`;
-    default:return '/candles'+url.search;
+    case '/exness/candles':return '/candles'+url.search;
+    default:return '/events'+url.search;
   }
 }
 
@@ -21,6 +26,7 @@ export async function handleExnessMarketData(request,env={},opts={}){
   const url=new URL(request.url),path=url.pathname;
   if(!READ_ONLY_ROUTES.includes(path))return null;
   if(request.method!=='GET')return jsonResponse({ok:false,error:'METHOD_NOT_ALLOWED',readOnly:true},405);
+  if(AUTHENTICATED_ROUTES.includes(path)&&!authState(request,env).ok)return jsonResponse({ok:false,exchange:'EXNESS',readOnly:true,error:'UNAUTHORIZED'},401);
   if(!readOnlyEnabled(env))return jsonResponse({ok:false,error:'EXNESS_READ_ONLY_DISABLED',readOnly:true},503);
   if(!(env.EXNESS_READONLY_API_KEY||env.EXNESS_API_KEY)||!(env.EXNESS_READONLY_PRIVATE_KEY||env.EXNESS_PRIVATE_KEY)||!(env.EXNESS_READONLY_ACCOUNT_ID||env.EXNESS_ACCOUNT_ID)||!(env.EXNESS_READONLY_API_BASE_URL||env.EXNESS_API_BASE_URL))return jsonResponse({ok:false,error:'EXNESS_RUNTIME_CONFIGURATION_MISSING',readOnly:true},503);
   const instrument=String(url.searchParams.get('instrument')||'').trim();
@@ -33,7 +39,8 @@ export async function handleExnessMarketData(request,env={},opts={}){
         :path==='/exness/account'?await client.account()
         :path==='/exness/limits'?await client.limits()
         :path==='/exness/conditions'?await client.conditions(instrument)
-        :await client.candles({instrument,timeframe:url.searchParams.get('timeframe'),from:url.searchParams.get('from'),to:url.searchParams.get('to'),count:url.searchParams.get('count'),price_type:url.searchParams.get('price_type')});
+        :path==='/exness/candles'?await client.candles({instrument,timeframe:url.searchParams.get('timeframe'),from:url.searchParams.get('from'),to:url.searchParams.get('to'),count:url.searchParams.get('count'),price_type:url.searchParams.get('price_type')})
+        :await client.events({event:url.searchParams.get('event'),instrument});
       return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,...result});
     }
     const binding=env.EXNESS_MARKET_DATA_STATE;

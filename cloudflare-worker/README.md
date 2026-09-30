@@ -122,6 +122,11 @@ Public read-only endpoints. None of them uses GPT_5AI_ACTION_KEY, and none of th
 | `GET /exness/limits` | `/v1/configuration/accounts/{id}/limits` | Cached 300 s. |
 | `GET /exness/conditions?instrument=` | `/v1/configuration/accounts/{id}/instruments/{instrument}/conditions` | Cached 300 s. |
 | `GET /exness/candles?instrument=&timeframe=&from=[&to=\|&count=]&price_type=` | `/v1/market-data/accounts/{id}/candles` | Cached 5 s. `from` is required and pairs with either `to` or `count`. |
+| `GET /exness/events?event=&instrument=` | `/v1/server-events/accounts/{id}/ws/events` | **Requires the action key.** Returns the first server message after subscribing. `event` is one of `transactions`, `account_state`, `instruments`, `hmr`; `hmr` requires an explicit instrument list. |
+
+The events route is deliberately the only authenticated one: `account_state` carries balance,
+equity and used margin, and `transactions` carries the trading-state snapshot, so neither may
+be reachable without the action key that already guards the other account-state surfaces.
 
 - Every request is signed, and the signed path is byte-identical to the transmitted path, query order included.
 - The Durable Object limits each source address to 30 requests per minute, storing only a SHA-256 address digest for that bucket.

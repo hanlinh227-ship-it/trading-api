@@ -357,3 +357,48 @@ const limitsFixture={limits:{rest:{global_account_rate:{limit:100,window_seconds
   assert.equal((await handleExnessMarketData(new Request('https://local/exness/account',{method:'POST'}),env,{clientFactory})).status,405,'no mutating method may be accepted on the read-only surface');
   assert.equal((await handleExnessMarketData(new Request('https://local/exness/orders'),env,{clientFactory})),null,'unlisted routes must not be handled here');
 }
+
+{
+  // Server events stream: read-only subscription over a GET-signed WebSocket handshake.
+  const eventsLimits={limits:{rest:{global_account_rate:{limit:5,window_seconds:1},methods:[]},websocket:{global_account_limits:{max_active_connections:10,connection_rate:{limit:10,window_seconds:1,burst:20}},endpoints:[{path:'/v1/server-events/accounts/{account_id}/ws/events',subscription_operation_rate:{transactions:{limit:10,window_seconds:1},hmr:{limit:5,window_seconds:1},account_state:{limit:10,window_seconds:1}}}]}}};
+  const calls=[];
+  class EventSocket{
+    listeners=new Map();
+    addEventListener(type,fn){this.listeners.set(type,fn);}
+    accept(){}
+    send(text){this.subscription=JSON.parse(text);queueMicrotask(()=>this.listeners.get('message')?.({data:JSON.stringify({event_type:'account_state_event',balance:'1000.00',equity:'1001.00',used_margin:'0.00'})}));}
+    close(){this.closed=true;}
+  }
+  const socket=new EventSocket();
+  const fetchImpl=async(url,init={})=>{
+    calls.push({url:String(url),headers:init.headers});
+    if(String(url).includes('/ws/events'))return wsResponse(socket);
+    if(String(url).endsWith('/limits'))return new Response(JSON.stringify(eventsLimits));
+    return new Response('{}',{status:200});
+  };
+  const client=createExnessReadonlyMarketClient(env,{fetchImpl,now:()=>1790737200000,reserve:async()=>({allowed:true})});
+  const result=await client.events({event:'account_state'});
+  assert.equal(result.event,'account_state');
+  assert.equal(result.source,'EXNESS_WEBSOCKET_EVENTS');
+  assert.equal(result.message.equity,'1001.00');
+  const handshake=calls.find(x=>x.url.includes('/ws/events'));
+  assert.equal(handshake.url,'https://ap-test.trading.exness.com/v1/server-events/accounts/123456/ws/events','the events handshake must use the documented events path');
+  verifyExnessSignature(handshake.headers,'/v1/server-events/accounts/123456/ws/events');
+  assert.deepEqual(socket.subscription,{id:'events-account_state-1',subscribe:{event:'account_state'}});
+  assert.equal(socket.closed,true);
+  await assert.rejects(client.events({event:'ticks'}),/EXNESS_EVENT_INVALID/,'ticks must not be requested on the events stream');
+  await assert.rejects(client.events({event:'hmr'}),/EXNESS_HMR_INSTRUMENTS_REQUIRED/,'hmr requires an explicit instrument list');
+  await assert.rejects(client.events({event:'hmr',instrument:'XAUUSD,EVIL/../'}),/EXNESS_INSTRUMENT_INVALID/);
+}
+
+{
+  // The events route is read-only but never public: it can carry balance and equity.
+  const factory=()=>({events:async()=>({event:'account_state',source:'EXNESS_WEBSOCKET_EVENTS',message:{equity:'1'},receivedAt:new Date().toISOString()})});
+  const anonymous=await handleExnessMarketData(new Request('https://local/exness/events?event=account_state'),env,{clientFactory:factory});
+  assert.equal(anonymous.status,401,'account_state carries balance and must not be public');
+  const wrongKey=await handleExnessMarketData(new Request('https://local/exness/events?event=account_state',{headers:{'x-action-key':'nope'}}),{...env,GPT_5AI_ACTION_KEY:'action-test'},{clientFactory:factory});
+  assert.equal(wrongKey.status,401,'a wrong action key must not unlock it either');
+  const authorized=await handleExnessMarketData(new Request('https://local/exness/events?event=account_state',{headers:{'x-action-key':'action-test'}}),{...env,GPT_5AI_ACTION_KEY:'action-test'},{clientFactory:factory});
+  assert.equal(authorized.status,200,'an action key must unlock the read-only events snapshot');
+  assert.equal((await authorized.json()).source,'EXNESS_WEBSOCKET_EVENTS');
+}
