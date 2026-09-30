@@ -299,3 +299,61 @@ const limitsFixture={limits:{rest:{global_account_rate:{limit:100,window_seconds
   const jsonNotFound=createExnessReadonlyMarketClient({...env,EXNESS_API_BASE_URL:'https://ap-test.trading.exness.com'},{fetchImpl:async()=>new Response(JSON.stringify({code:2000,error_message:'ACCOUNT_NOT_FOUND'}),{status:404,headers:{'content-type':'application/json'}}),now:()=>1790737200000});
   await assert.rejects(jsonNotFound.instruments(),error=>error.upstreamStatus===404&&error.upstreamClass==='UPSTREAM_ENTITY_404_JSON','an application 404 must be reported as an entity miss');
 }
+
+{
+  // Full documented read-only surface: account, limits, instrument conditions, candle history.
+  const calls=[],limitsBody=JSON.stringify(limitsFixture),base='https://ap-test.trading.exness.com';
+  const fetchImpl=async(url,init={})=>{
+    const target=String(url);calls.push({url:target,headers:init.headers});
+    if(target.endsWith('/v1/configuration/accounts/123456/account'))return new Response(JSON.stringify({account_id:123456,currency:'USD',leverage:'1:2000',margin_call_level:'60',stop_out_level:'0'}));
+    if(target.endsWith('/v1/configuration/accounts/123456/limits'))return new Response(limitsBody);
+    if(target.endsWith('/v1/configuration/accounts/123456/instruments/XAUUSD/conditions'))return new Response(JSON.stringify({instrument:'XAUUSD',point_digits:2,contract_size:100}));
+    if(target.includes('/v1/market-data/accounts/123456/candles?'))return new Response(JSON.stringify({candles:[{time:'2026-09-30T12:00:00Z',open:4160,high:4170,low:4155,close:4165}]}));
+    return new Response('404 page not found',{status:404,headers:{'content-type':'text/plain; charset=utf-8'}});
+  };
+  const client=createExnessReadonlyMarketClient(env,{fetchImpl,now:()=>1790737200000,reserve:async()=>({allowed:true})});
+  const account=await client.account();
+  assert.equal(account.currency,'USD');
+  assert.equal(account.leverage,'1:2000');
+  assert.equal('account_id' in account,false,'the trading account number must never leave the Worker');
+  assert.equal('accountId' in account,false);
+  const limits=await client.limits();
+  assert.equal('account_id' in limits,false);
+  const conditions=await client.conditions('XAUUSD');
+  assert.equal(conditions.instrument,'XAUUSD');
+  assert.equal(conditions.point_digits,2,'conditions use point_digits, not digits');
+  const candles=await client.candles({instrument:'XAUUSD',timeframe:'M15',from:'2026-09-30T00:00:00Z',count:'10'});
+  assert.ok(Array.isArray(candles.candles));
+  assert.equal('account_id' in candles,false);
+  const candleCall=calls.find(x=>x.url.includes('/v1/market-data/accounts/123456/candles?'));
+  assert.ok(candleCall,'candle history must come from the documented market-data path');
+  assert.match(candleCall.url,/timeframe=M15/);
+  assert.doesNotMatch(candleCall.url,/to=/);
+  // The signed path must be byte-identical to the transmitted path, order included.
+  verifyExnessSignature(candleCall.headers,candleCall.url.slice(base.length));
+  // Documented parameter rules from the API reference.
+  await assert.rejects(client.candles({instrument:'XAUUSD',timeframe:'M15',from:'2026-09-30T00:00:00Z'}),/EXNESS_COUNT_OR_TO_REQUIRED/);
+  await assert.rejects(client.candles({instrument:'XAUUSD',timeframe:'M15',from:'2026-09-30T00:00:00Z',to:'2026-09-30T01:00:00Z',count:'5'}),/EXNESS_TIME_RANGE_INVALID/);
+  await assert.rejects(client.candles({instrument:'XAUUSD',timeframe:'X9',from:'2026-09-30T00:00:00Z',count:'5'}),/EXNESS_TIMEFRAME_INVALID/);
+  await assert.rejects(client.candles({instrument:'XAUUSD',timeframe:'M15',count:'5'}),/EXNESS_TIME_RANGE_INVALID/);
+  await assert.rejects(client.conditions(''),/EXNESS_INSTRUMENT_INVALID/);
+}
+
+{
+  // Public read-only routing for the new endpoints, and nothing mutating.
+  const fake={instruments:async()=>({instruments:['XAUUSD']}),quote:async()=>({bid:1,ask:2}),account:async()=>({currency:'USD'}),limits:async()=>({limits:{}}),conditions:async instrument=>({instrument,point_digits:2}),candles:async query=>({candles:[],echo:query.timeframe})};
+  const clientFactory=()=>fake;
+  for(const route of ['/exness/account','/exness/limits','/exness/instruments']){
+    const response=await handleExnessMarketData(new Request('https://local'+route),env,{clientFactory});
+    assert.equal(response.status,200,`${route} must be reachable read-only`);
+  }
+  const conditions=await handleExnessMarketData(new Request('https://local/exness/conditions?instrument=XAUUSD'),env,{clientFactory});
+  assert.equal(conditions.status,200);
+  assert.equal((await conditions.json()).point_digits,2);
+  const candles=await handleExnessMarketData(new Request('https://local/exness/candles?instrument=XAUUSD&timeframe=H1&from=2026-09-30T00:00:00Z&count=5'),env,{clientFactory});
+  assert.equal(candles.status,200);
+  assert.equal((await candles.json()).echo,'H1','candle query parameters must reach the client');
+  assert.equal((await handleExnessMarketData(new Request('https://local/exness/conditions'),env,{clientFactory})).status,400,'conditions must require an instrument');
+  assert.equal((await handleExnessMarketData(new Request('https://local/exness/account',{method:'POST'}),env,{clientFactory})).status,405,'no mutating method may be accepted on the read-only surface');
+  assert.equal((await handleExnessMarketData(new Request('https://local/exness/orders'),env,{clientFactory})),null,'unlisted routes must not be handled here');
+}

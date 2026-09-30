@@ -186,6 +186,22 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
     await reserveRule('rest:global',globalRule);
     return rawGet(path);
   }
+  // Read-only configuration and market-data reads. The per-method rate rule is applied when
+  // the account limits publish one; otherwise only the documented global account rate
+  // applies, so a read endpoint cannot be blocked by a limits payload that does not list it.
+  async function restRead(path,limits,key){
+    const operationRule=ruleForRest(limits,path),globalRule=rateRule(limits?.limits?.rest?.global_account_rate);
+    if(operationRule)await reserveRule(`rest:${key||path}`,operationRule);
+    if(globalRule)await reserveRule('rest:global',globalRule);
+    return rawGet(path);
+  }
+  // The trading account number must never leave the Worker, even in a read-only payload.
+  function withoutAccountId(value){
+    if(!value||typeof value!=='object'||Array.isArray(value))return value;
+    const rest={...value};
+    delete rest.account_id;delete rest.accountId;
+    return rest;
+  }
   async function limitsForRequest(){
     return getLimits();
   }
@@ -196,6 +212,55 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
       const rows=Array.isArray(result?.instruments)?result.instruments:[];
       const instruments=rows.map(x=>typeof x==='string'?x:String(x?.instrument||x?.symbol||'')).filter(x=>/^[A-Za-z0-9._-]{1,11}$/.test(x));
       return {instruments:[...new Set(instruments)],receivedAt:new Date(now()).toISOString()};
+    });
+  }
+  async function loadAccount(){
+    return cacheRead('account',60_000,async()=>{
+      const limits=await limitsForRequest(),path=`/v1/configuration/accounts/${cfg.accountId}/account`;
+      const result=await restRead(path,limits,'account');
+      return {...withoutAccountId(result),receivedAt:new Date(now()).toISOString()};
+    });
+  }
+  async function loadLimits(){
+    return cacheRead('limits-read',300_000,async()=>{
+      const limits=await limitsForRequest();
+      return {...withoutAccountId(limits),receivedAt:new Date(now()).toISOString()};
+    });
+  }
+  async function loadConditions(instrument){
+    const symbol=String(instrument||'').trim();
+    if(!/^[A-Za-z0-9._-]{1,11}$/.test(symbol))throw fail('EXNESS_INSTRUMENT_INVALID',400);
+    return cacheRead('conditions:'+symbol,300_000,async()=>{
+      const limits=await limitsForRequest(),path=`/v1/configuration/accounts/${cfg.accountId}/instruments/${encodeURIComponent(symbol)}/conditions`;
+      const result=await restRead(path,limits,'conditions');
+      return {...withoutAccountId(result),receivedAt:new Date(now()).toISOString()};
+    });
+  }
+  // Candle history. `from` is required and must be paired with either `count` or `to`.
+  async function loadCandles(query={}){
+    const symbol=String(query.instrument||'').trim();
+    if(!/^[A-Za-z0-9._-]{1,11}$/.test(symbol))throw fail('EXNESS_INSTRUMENT_INVALID',400);
+    const timeframe=String(query.timeframe||'').trim().toUpperCase();
+    if(!/^(?:S1|S5|S15|M1|M3|M5|M10|M15|M30|H1|H2|H4|D1|W1|MN)$/.test(timeframe))throw fail('EXNESS_TIMEFRAME_INVALID',400);
+    const priceType=String(query.price_type||'bid').trim().toLowerCase();
+    if(!['bid','ask','both'].includes(priceType))throw fail('EXNESS_PRICE_TYPE_INVALID',400);
+    const fromMs=Date.parse(String(query.from||''));
+    if(!Number.isFinite(fromMs))throw fail('EXNESS_TIME_RANGE_INVALID',400);
+    const to=String(query.to||'').trim(),count=String(query.count||'').trim();
+    if(to&&count)throw fail('EXNESS_TIME_RANGE_INVALID',400);
+    if(!to&&!count)throw fail('EXNESS_COUNT_OR_TO_REQUIRED',400);
+    let toMs=NaN;
+    if(to){toMs=Date.parse(to);if(!Number.isFinite(toMs)||toMs<=fromMs)throw fail('EXNESS_TIME_RANGE_INVALID',400);}
+    if(count&&!/^[0-9]{1,6}$/.test(count))throw fail('EXNESS_COUNT_INVALID',400);
+    const params=new URLSearchParams({instrument:symbol,timeframe,from:new Date(fromMs).toISOString(),price_type:priceType});
+    if(to)params.set('to',new Date(toMs).toISOString());
+    if(count)params.set('count',count);
+    // The signed path is the same string that is transmitted, so parameter order cannot drift.
+    const search=params.toString();
+    return cacheRead('candles:'+search,5_000,async()=>{
+      const limits=await limitsForRequest(),path=`/v1/market-data/accounts/${cfg.accountId}/candles?${search}`;
+      const result=await restRead(path,limits,'candles');
+      return {...withoutAccountId(result),receivedAt:new Date(now()).toISOString()};
     });
   }
   async function quote(instrument){
@@ -236,7 +301,7 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
     }finally{try{socket.close(1000,'quote received');}catch{}}
     });
   }
-  return {instruments:loadInstruments,quote,config:{accountId:cfg.accountId,readOnly:true}};
+  return {instruments:loadInstruments,quote,account:loadAccount,limits:loadLimits,conditions:loadConditions,candles:loadCandles,config:{accountId:cfg.accountId,readOnly:true}};
 }
 
 export function jsonResponse(body,status=200){return new Response(JSON.stringify(body),{status,headers:jsonHeaders});}

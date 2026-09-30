@@ -3,6 +3,8 @@ import {createExnessReadonlyMarketClient,jsonResponse} from './exness-market-dat
 
 const CACHE_LIMIT=3000;
 const fixedWindow=(rows,now,windowMs)=>rows.filter(at=>Number(at)>now-windowMs);
+// Internal read-only routes only. No mutating internal route exists.
+const READ_ONLY_ROUTES=['/instruments','/quote','/account','/limits','/conditions','/candles'];
 
 export class ExnessMarketDataState{
   constructor(state,env){this.state=state;this.env=env;this.queue=Promise.resolve();}
@@ -27,7 +29,7 @@ export class ExnessMarketDataState{
   async fetch(request){
     const url=new URL(request.url);
     if(request.method!=='GET')return jsonResponse({ok:false,error:'METHOD_NOT_ALLOWED',readOnly:true},405);
-    if(!['/instruments','/quote'].includes(url.pathname))return jsonResponse({ok:false,error:'NOT_FOUND',readOnly:true},404);
+    if(!READ_ONLY_ROUTES.includes(url.pathname))return jsonResponse({ok:false,error:'NOT_FOUND',readOnly:true},404);
     const ip=String(request.headers.get('x-exness-client-ip')||'unknown').slice(0,64);
     const clientHash=createHash('sha256').update(ip).digest('hex');
     const gate=await this.reserve({key:'public:'+clientHash,limit:30,windowSeconds:60,now:Date.now()});
@@ -39,11 +41,16 @@ export class ExnessMarketDataState{
 
   async handle(url){
     const instrument=String(url.searchParams.get('instrument')||'').trim();
-    if(url.pathname!=='/instruments'&&url.pathname!=='/quote')return jsonResponse({ok:false,error:'NOT_FOUND',readOnly:true},404);
+    if(!READ_ONLY_ROUTES.includes(url.pathname))return jsonResponse({ok:false,error:'NOT_FOUND',readOnly:true},404);
     const client=createExnessReadonlyMarketClient(this.env,{store:this.state.storage,reserve:rule=>this.reserve(rule)});
     try{
-      if(url.pathname==='/instruments')return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,...await client.instruments()});
-      return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,...await client.quote(instrument)});
+      const result=url.pathname==='/instruments'?await client.instruments()
+        :url.pathname==='/quote'?await client.quote(instrument)
+        :url.pathname==='/account'?await client.account()
+        :url.pathname==='/limits'?await client.limits()
+        :url.pathname==='/conditions'?await client.conditions(instrument)
+        :await client.candles({instrument,timeframe:url.searchParams.get('timeframe'),from:url.searchParams.get('from'),to:url.searchParams.get('to'),count:url.searchParams.get('count'),price_type:url.searchParams.get('price_type')});
+      return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,...result});
     }catch(error){return jsonResponse({ok:false,error:String(error?.code||error?.message||'EXNESS_MARKET_DATA_UNAVAILABLE'),readOnly:true,...(error?.upstreamClass?{upstreamClass:String(error.upstreamClass)}:{})},Number(error?.status)||503);}
   }
 }
