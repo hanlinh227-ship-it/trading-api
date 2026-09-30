@@ -75,7 +75,7 @@ There is no valid `request -> answer` bypass inside the GitHub Brain orchestrati
 ## Authority
 Current project/runtime authority outranks Stable memory, provider guidance, cached context, learned patterns and external examples. Historical state cannot self-promote.
 
-For Trading, only after routing to Trading load `docs/checkpoints/CURRENT_HANDOFF.md` and `docs/checkpoints/BYBIT_BTC_STATEFLOW_2_1_20260904.md`. Brain upgrades and provider skills never silently replace Trading execution authority. Never fabricate market/account/runtime state or call source code/commit LIVE without runtime verification.
+For Trading, only after routing to Trading load `docs/checkpoints/CURRENT_HANDOFF.md` and resolve the `canonical_checkpoint` from `AI_SKILL_LIBRARY/projects.yaml` (current pointer: `docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md`). Treat older strategy checkpoints as historical unless the canonical pointer changes. Brain upgrades and provider skills never silently replace Trading authority. Never fabricate market/account/runtime state or call source code/commit LIVE without exact runtime verification.
 
 ## Learning
 New skills start in V4 Evergreen quarantine with zero routing authority. Class A/B/C promotion follows V4 gates; Class D financial/credential/destructive permission expansion never auto-promotes. Skill/tool reputation may influence ranking only among equally authorized capabilities and never overrides security or authority.
