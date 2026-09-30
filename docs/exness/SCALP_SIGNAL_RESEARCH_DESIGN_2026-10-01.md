@@ -150,6 +150,20 @@ Update only from validated ticks in the existing 28-pair browser feed; do not ad
 
 Mobile acceptance fixtures validate BUY/SELL spread sides, fixed levels, sign/color transitions, stale freeze, atomic reconnect jump, TP/SL one-time archiving and that no broker P&L is claimed.
 
+### Preflight, continuous monitoring and reconnect reconciliation
+
+**Before publishing a signal**, the server must revalidate the latest Exness quote and source time, allowed instrument, positive/crossed Bid/Ask, spread and session/event gates, closed-candle evidence, and fixed Entry/SL/TP geometry using the correct executable side. BUY reference entry is Ask and its tracked closing quote is Bid; SELL reference entry is Bid and its tracked closing quote is Ask. Reject the candidate with a visible reason if any input is stale, incomplete, unsupported or inconsistent. Persist the exact quote/candle timestamps, checks, levels, method/knowledge version and snapshot hash so History explains why it was emitted.
+
+**While connected**, process each valid in-order tick for active signals against their unchanged SL/TP, update the paper gauge from that same tick, and append idempotent state events. Store last source time, last receive time, last executable quote, connection state, and whether TP/SL has been observed. The monitor is bot-driven; price ticks do not invoke AI.
+
+**On disconnect or stale data**, freeze the last known gauge, show `MẤT KẾT NỐI` / `GIÁ CŨ`, the last-good timestamp and `ĐANG ĐỐI SOÁT`. Do not extrapolate or claim the signal is still safely inside its levels. The signal remains unresolved; no outcome is invented.
+
+**After reconnect**, wait for a valid newer quote for each signal's own pair; fetch bounded missing candle/history data only if supported and within current Exness limits. Immediately show the new quote's present location relative to entry/SL/TP and the unobserved interval. If a continuous, ordered tick history bridges the gap, replay it once in source-time order and reconcile TP/SL deterministically. If the gap cannot be reconstructed from reliable executable-side ticks, label `TP/SL CÓ THỂ ĐÃ BỊ CHẠM TRONG KHOẢNG MẤT KẾT NỐI`; show whether the recovered quote is currently beyond a level, but do not declare which level triggered first, do not count a win/loss, and do not close the paper record as a confirmed TP/SL outcome. If the history shows both levels may have been reached in an ambiguous order, mark `OUTCOME_UNKNOWN_AFTER_GAP` and keep it out of the win-rate denominator. Continue monitoring from the recovered quote only after reconciliation status is visible.
+
+This Exness price feed cannot reveal whether the user placed a real broker order, whether it filled, or its broker-side SL/TP state. The UI must say that the tracker reconciles **the generated paper signal** only. Actual account-order reconciliation would require a separately authorized and verified read-only broker positions/orders feed; none is assumed by this design.
+
+Acceptance fixtures: reject stale preflight; BUY/SELL price-side correctness; valid in-order replay across a short gap; no-history gap freezes outcome; recovered price beyond TP or SL shows current location and possible-crossing warning without fabricated result; both levels touched in ambiguous order stays unknown; duplicate replay is idempotent; monitor resumes only after a new valid quote.
+
 ### Per-signal AI assessment lights
 
 At the top-right of each signal card, show ONLY three small circles in green / amber / red order, exactly one illuminated after an assessment; no text beneath or beside the light cluster. Before assessment show three dim outlines. Put readable status, reason and assessment time in a separate row below the gauge; provide the same status to screen readers. Per-card `Đánh giá tín hiệu` reviews one signal; main `Đánh giá` reviews all active signals in one bounded request. No AI call occurs on each tick.
