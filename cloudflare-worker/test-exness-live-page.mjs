@@ -81,5 +81,9 @@ assert.match(EXNESS_LIVE_PAGE,/visibilitychange/,'tab ẩn phải tạm dừng l
 assert.match(EXNESS_LIVE_PAGE,/requestAnimationFrame/,'vẽ phải gom theo frame');
 assert.match(EXNESS_LIVE_PAGE,/fmtCache/,'formatter phải được cache theo cặp, không tạo mỗi tick');
 assert.match(EXNESS_LIVE_PAGE,/type==='stalled'/,'trang phải xử lý tín hiệu nguồn im lặng');
+assert.match(EXNESS_LIVE_PAGE,/BUDGET_MS/,'trang phải có hạn mức truyền theo ngày để bảo vệ quota');
+assert.match(EXNESS_LIVE_PAGE,/q\.sourceToWorkerMs\+\(perf-q\._arrived\)/,'tuổi tick phải = tuổi tại Worker + thời gian trôi qua, không dùng đồng hồ máy');
+assert.match(EXNESS_LIVE_PAGE,/const perf=performance\.now\(\)/,'phải dùng performance.now cho phần thời gian trôi qua');
+assert.doesNotMatch(EXNESS_LIVE_PAGE,/now-Date\.parse\(q\.sourceTimestamp\)/,'không được tính tuổi tick bằng đồng hồ thiết bị');
 assert.doesNotMatch(EXNESS_LIVE_PAGE,/new Intl\.NumberFormat[^;]*format\(n\)/,'không được tạo formatter trong hàm format');
 console.log('Exness 28-pair cloud WebSocket contract PASS');

@@ -10,7 +10,7 @@ export const EXNESS_LIVE_PAGE=`<!doctype html>
 </style></head><body><main><header><div><div class="kicker">READ ONLY · EXNESS PUBLIC TRADER API</div><h1>Giá Forex trực tiếp</h1><p>8 tiền tệ · 28 cặp · Bid / Ask từ luồng WebSocket Exness</p></div><div id="status" class="badge" role="status" aria-live="polite">Đang kết nối…</div></header>
 <div class="stats"><div class="stat"><span>Cặp có tick</span><strong id="count">0 / 28</strong></div><div class="stat"><span>Tick đã nhận</span><strong id="ticks">0</strong></div><div class="stat"><span>Lần nối lại</span><strong id="reconn">0</strong></div><div class="stat"><span>Dao động kênh*</span><strong id="jitter">—</strong></div><div class="stat"><span>Tick vừa nhận</span><strong id="last">—</strong></div><div class="stat"><span>Trễ nguồn → Worker*</span><strong id="latency">—</strong></div></div>
 <div class="panel wrap"><table><thead><tr><th>Cặp</th><th>Bid</th><th>Ask</th><th>Spread</th><th>Giờ nguồn (UTC)</th><th>Tuổi tick*</th><th>Trễ tới Worker*</th></tr></thead><tbody id="prices"></tbody></table></div>
-<footer>* <b>Tuổi tick</b> = thời gian kể từ tick nguồn cuối, gồm cả lúc thị trường đứng yên — <b>không phải</b> độ trễ mạng. <b>Trễ tới Worker</b> đo giữa hai đồng hồ hạ tầng (Exness và Cloudflare) nên đáng tin. <b>Dao động kênh</b> là hiệu giữa nhịp đến và nhịp gửi của hai tick liên tiếp, nên triệt tiêu lệch đồng hồ máy và là chỉ số ổn định đáng tin nhất. Nguồn có thể giới hạn cập nhật tới một lần mỗi 500 ms. Tab ẩn sẽ tạm dừng luồng để không tiêu tốn quota dùng chung. Không có chức năng đặt lệnh.</footer></main>
+<footer>* <b>Tuổi tick</b> = thời gian kể từ tick nguồn cuối, gồm cả lúc thị trường đứng yên — <b>không phải</b> độ trễ mạng. <b>Trễ tới Worker</b> đo giữa hai đồng hồ hạ tầng (Exness và Cloudflare) nên đáng tin. <b>Dao động kênh</b> là hiệu giữa nhịp đến và nhịp gửi của hai tick liên tiếp, nên triệt tiêu lệch đồng hồ máy và là chỉ số ổn định đáng tin nhất. Nguồn có thể giới hạn cập nhật tới một lần mỗi 500 ms. <b>Hạn mức truyền hôm nay (UTC): <span id="budget">—</span></b> — tab ẩn tự tạm dừng, chạm 8h sẽ dừng hẳn để bảo vệ quota dùng chung với bot giao dịch đang chạy trên cùng tài khoản. Không có chức năng đặt lệnh.</footer></main>
 <script>
 const pairs=${JSON.stringify(FOREX_PAIRS)}, rows=new Map(), quotes=new Map(), $=id=>document.getElementById(id), N=pairs.length;
 for(const pair of pairs){const tr=document.createElement('tr');tr.innerHTML='<td></td><td class="bid">—</td><td class="ask">—</td><td>—</td><td>—</td><td>Chờ</td><td>—</td>';tr.children[0].textContent=pair;$('prices').append(tr);rows.set(pair,tr)}
@@ -20,9 +20,17 @@ const format=(n,pair)=>fmtFor(pair).format(n);
 const utcTime=iso=>{const t=Date.parse(iso);return isNaN(t)?'—':new Date(t).toISOString().slice(11,23)};
 const setText=(id,value)=>{const el=$(id);if(el&&el.textContent!==value)el.textContent=value};
 const setStatus=(text,kind)=>{const el=$('status'),cls='badge '+(kind||'');if(el.textContent===text&&el.className===cls)return;el.textContent=text;el.className=cls};
-let socket=null,attempt=0,retry=null,raf=0;
+let socket=null,attempt=0,retry=null,raf=0,unsavedMs=0,lastFlush=Date.now();
 const pending=new Map();
 const stats={ticks:0,reconnects:0,lastTickMs:0,prevSentAt:null,prevArrival:null,jitterMs:null};
+// Bảo vệ quota dùng chung với bot Bybit: đếm thời gian đã truyền trong ngày (UTC).
+// 8h/ngày giữ DO duration ~3.700 GB-s và requests ~34.000, đều dưới trần Free.
+const BUDGET_MS=8*3600*1000,DAY_KEY='exness-live-ms-'+(new Date()).toISOString().slice(0,10);
+const usedMs=()=>{try{const v=Number(localStorage.getItem(DAY_KEY)||0);return Number.isFinite(v)&&v>0?v:0}catch(err){return 0}};
+const flushUsed=()=>{if(unsavedMs<=0)return;try{localStorage.setItem(DAY_KEY,String(usedMs()+unsavedMs))}catch(err){}unsavedMs=0;lastFlush=Date.now()};
+const hm=ms=>{const t=Math.floor(ms/60000);return Math.floor(t/60)+'h'+String(t%60).padStart(2,'0')};
+const overBudget=()=>usedMs()+unsavedMs>=BUDGET_MS;
+function showBudget(){const u=usedMs()+unsavedMs;setText('budget',hm(u)+' / 8h'+(u>=BUDGET_MS*0.8?' — gần hết':' '))}
 function flush(){
   raf=0;
   for(const pair of pending.keys()){
@@ -42,6 +50,7 @@ function flush(){
 function onTick(q){
   if(!rows.has(q.instrument)||!(q.bid>0&&q.ask>q.bid))return;
   const arrival=performance.now(),now=Date.now();
+  q._arrived=arrival;
   stats.ticks++;stats.lastTickMs=now;
   if(typeof q.sentAt==='number'&&stats.prevSentAt!==null){
     const drift=(arrival-stats.prevArrival)-(q.sentAt-stats.prevSentAt);
@@ -59,6 +68,7 @@ function onTick(q){
 function connect(){
   clearTimeout(retry);
   if(document.hidden){setStatus('Tạm dừng — tab ẩn','');return}
+  if(overBudget()){setStatus('Đã đủ hạn mức 8h hôm nay — tạm dừng để bảo vệ quota','bad');return}
   setStatus('Đang kết nối…','');
   const scheme=location.protocol==='https:'?'wss:':'ws:';
   try{socket=new WebSocket(scheme+'//'+location.host+'/exness/live/ws')}catch(err){setStatus('Không mở được WebSocket','bad');return}
@@ -78,18 +88,25 @@ function connect(){
   };
 }
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){clearTimeout(retry);if(socket){try{socket.close(1000,'hidden')}catch{}}setStatus('Tạm dừng — tab ẩn','')}
+  if(document.hidden){flushUsed();showBudget();clearTimeout(retry);if(socket){try{socket.close(1000,'hidden')}catch{}}setStatus('Tạm dừng — tab ẩn','')}
   else{attempt=0;connect()}
 });
 window.addEventListener('online',()=>{attempt=0;connect()});
+window.addEventListener('pagehide',flushUsed);
+showBudget();
 connect();
 setInterval(()=>{
   if(document.hidden)return;
+  if(socket&&socket.readyState===1){unsavedMs+=1000;if(Date.now()-lastFlush>30000){flushUsed();showBudget()}}
   const now=Date.now();
   if(socket&&stats.lastTickMs&&now-stats.lastTickMs>15000){setStatus('Im lặng >15s — nối lại','bad');try{socket.close()}catch{}return}
+  const perf=performance.now();
   for(const pair of quotes.keys()){
     const q=quotes.get(pair),cell=rows.get(pair).children[5];
-    const age=Math.max(0,now-Date.parse(q.sourceTimestamp)),v=String(age);
+    if(typeof q.sourceToWorkerMs!=='number'||typeof q._arrived!=='number')continue;
+    // Tuổi tick = (tuổi đo tại Worker bằng hai đồng hồ hạ tầng) + thời gian trôi qua kể từ
+    // lúc nhận, đo bằng performance.now(). Nhờ vậy KHÔNG dính lệch đồng hồ máy.
+    const age=Math.max(0,Math.round(q.sourceToWorkerMs+(perf-q._arrived))),v=String(age);
     if(cell.dataset.v!==v){cell.dataset.v=v;cell.textContent=v+' ms'}
     const cls=age>10000?'stale':'fresh';
     if(cell.className!==cls)cell.className=cls;
