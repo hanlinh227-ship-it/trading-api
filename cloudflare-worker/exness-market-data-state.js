@@ -6,6 +6,10 @@ const CACHE_LIMIT=3000;
 const fixedWindow=(rows,now,windowMs)=>rows.filter(at=>Number(at)>now-windowMs);
 // Internal read-only routes only. No mutating internal route exists.
 const READ_ONLY_ROUTES=['/instruments','/quote','/account','/limits','/conditions','/candles','/events','/live/ws'];
+// Kết nối WebSocket có thể chết mà KHÔNG báo lỗi. Im lặng quá lâu thì coi như chết
+// và đóng lại để trình duyệt nối lại bằng một handshake mới, thay vì đứng im vô hạn.
+const STREAM_STALL_MS=30_000;
+const STREAM_STALL_CHECK_MS=5_000;
 
 export class ExnessMarketDataState{
   constructor(state,env){this.state=state;this.env=env;this.queue=Promise.resolve();this.liveViewers=0;}
@@ -53,16 +57,33 @@ export class ExnessMarketDataState{
     const [browser,server]=Object.values(new WebSocketPair());
     server.accept();
     const upstream=stream.socket,allowed=new Set(FOREX_PAIRS);
-    let closed=false;
-    const close=()=>{if(closed)return;closed=true;this.liveViewers=Math.max(0,this.liveViewers-1);try{upstream.close(1000,'viewer closed');}catch{}try{server.close(1000,'stream closed');}catch{}};
+    let closed=false,watchdog=null;
+    const startedMs=Date.now();
+    let lastUpstreamMs=startedMs;            // lần cuối Exness gửi bất cứ thứ gì
+    const lastSourceBySymbol=new Map();      // khử tick trùng theo (cặp, mốc nguồn)
+    const close=()=>{
+      if(closed)return;
+      closed=true;
+      if(watchdog)clearInterval(watchdog);
+      this.liveViewers=Math.max(0,this.liveViewers-1);
+      try{upstream.close(1000,'viewer closed');}catch{}
+      try{server.close(1000,'stream closed');}catch{}
+    };
+    watchdog=setInterval(()=>{
+      if(closed)return;
+      const silentMs=Date.now()-lastUpstreamMs;
+      if(silentMs>STREAM_STALL_MS){try{server.send(JSON.stringify({type:'stalled',silentMs}));}catch{}close();}
+    },STREAM_STALL_CHECK_MS);
     server.addEventListener('close',close);
     server.addEventListener('error',close);
     server.addEventListener('message',()=>{try{server.close(1008,'read only');}catch{}close();});
     upstream.addEventListener('close',close);
     upstream.addEventListener('error',close);
     upstream.addEventListener('message',event=>{
+      lastUpstreamMs=Date.now();
       const raw=typeof event.data==='string'?event.data:'';
       if(raw.length>16384)return;
+      const parseStart=performance.now();
       let data;try{data=JSON.parse(raw);}catch{return;}
       if(Number.isFinite(Number(data?.code))&&data?.error_message){try{server.send(JSON.stringify({type:'error',error:'EXNESS_UPSTREAM_ERROR'}));}catch{}close();return;}
       const tick=data?.tick||data?.data?.tick||data?.data||data;
@@ -72,7 +93,11 @@ export class ExnessMarketDataState{
       const sourceMs=typeof tick?.timestamp==='number'?tick.timestamp:Date.parse(String(tick?.timestamp||''));
       const receivedMs=Date.now(),age=receivedMs-sourceMs;
       if(!(bid>0&&ask>bid&&Number.isFinite(sourceMs))||age< -1000||age>10000)return;
-      try{server.send(JSON.stringify({type:'tick',source:'EXNESS_WEBSOCKET_TICKS',instrument,bid,ask,sourceTimestamp:new Date(sourceMs).toISOString(),receivedAt:new Date(receivedMs).toISOString(),sourceToWorkerMs:age}));}catch{close();}
+      if(lastSourceBySymbol.get(instrument)===sourceMs)return;   // tick trùng -> không gửi lại
+      lastSourceBySymbol.set(instrument,sourceMs);
+      const sentMs=Date.now();
+      const workerProcessMs=Math.round((performance.now()-parseStart)*1000)/1000;
+      try{server.send(JSON.stringify({type:'tick',source:'EXNESS_WEBSOCKET_TICKS',instrument,bid,ask,sourceTimestamp:new Date(sourceMs).toISOString(),receivedAt:new Date(receivedMs).toISOString(),sentAt:sentMs,workerProcessMs,sourceToWorkerMs:age,streamMs:sentMs-startedMs}));}catch{close();}
     });
     try{stream.subscribe();}catch{close();return jsonResponse({ok:false,error:'EXNESS_SUBSCRIBE_FAILED',readOnly:true},503);}
     return new Response(null,{status:101,webSocket:browser});
