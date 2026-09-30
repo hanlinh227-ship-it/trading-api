@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
 import {createHash,generateKeyPairSync,verify} from 'node:crypto';
-import {buildExnessSignedHeaders,createExnessReadonlyMarketClient,isApprovedExnessHost,normalizeExnessAccessPoint} from './exness-market-data.js';
+import {buildExnessSignedHeaders,createExnessReadonlyMarketClient,describeExnessAccessPoint,isApprovedExnessHost,normalizeExnessAccessPoint} from './exness-market-data.js';
 import fs from 'node:fs';
 import {handleExnessMarketData} from './exness-market-data-handler.js';
 import {authState} from './worker-auth.js';
@@ -235,6 +235,27 @@ const limitsFixture={limits:{rest:{global_account_rate:{limit:100,window_seconds
   assert.throws(()=>normalizeExnessAccessPoint('http://ap-x.exness.com'),/EXNESS_ACCESS_POINT_INVALID/,'plaintext transport must be rejected');
   assert.throws(()=>normalizeExnessAccessPoint('attacker.example'),/EXNESS_ACCESS_POINT_INVALID/);
   assert.throws(()=>normalizeExnessAccessPoint(''),/EXNESS_ACCESS_POINT_MISSING/);
+  // Host discovery may hand back an object, a differently named field, or nested payload.
+  assert.equal(normalizeExnessAccessPoint({access_point:'ap-discovered.trading.exness.com'}),'https://ap-discovered.trading.exness.com');
+  assert.equal(normalizeExnessAccessPoint({accessPoint:'ap-camel.exness.com',account_id:123456}),'https://ap-camel.exness.com');
+  assert.equal(normalizeExnessAccessPoint({host:'ap-hostfield.exness.com'}),'https://ap-hostfield.exness.com');
+  assert.equal(normalizeExnessAccessPoint({data:{access_point:'https://ap-nested.exness.com'}}),'https://ap-nested.exness.com');
+  assert.throws(()=>normalizeExnessAccessPoint({access_point:'attacker.example'}),/EXNESS_ACCESS_POINT_INVALID/);
+  {
+    // A payload that is really an ErrorResponse must be reported with its sanitized key
+    // shape, so a failed discovery is diagnosable from the canary reason alone.
+    const failure=(()=>{try{normalizeExnessAccessPoint({code:2000,error_message:'ACCOUNT_NOT_FOUND'});return null;}catch(error){return error;}})();
+    assert.equal(failure.code,'EXNESS_ACCESS_POINT_MISSING');
+    assert.match(failure.upstreamClass,/APVALUE_OBJECT_KEYS_/);
+    assert.match(failure.upstreamClass,/CODE/);
+    assert.match(failure.upstreamClass,/ERROR_MESSAGE/);
+  }
+  assert.match(describeExnessAccessPoint('ap-abc.exness.com'),/AP_PREFIX_YES/);
+  assert.match(describeExnessAccessPoint('ap-abc.exness.com'),/TAIL_EXNESS_COM/);
+  assert.equal(describeExnessAccessPoint(undefined),'APVALUE_ABSENT');
+  assert.equal(describeExnessAccessPoint({}),'APVALUE_OBJECT_KEYS_');
+  // The diagnostic token must never echo the discovered host label.
+  assert.doesNotMatch(describeExnessAccessPoint('ap-secretlabel.exness.com'),/SECRETLABEL/);
 }
 
 {
