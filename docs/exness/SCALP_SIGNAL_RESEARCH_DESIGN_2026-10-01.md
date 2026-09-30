@@ -249,58 +249,44 @@ This is a concrete, deterministic paper-signal hypothesis. It emits either a can
 Source notes: Leviathan's public [strategy spec](https://github.com/santiquiroz/leviathan/blob/master/docs/STRATEGY.md) documents closed-bar indexing, trend/structure/trigger separation and bid/ask cost-aware replay; its [README](https://github.com/santiquiroz/leviathan) labels the implementation educational. [Jesse examples](https://github.com/jesse-ai/example-strategies) warns that example strategies are not ready-to-go profitable and depend on symbol/timeframe. [Freqtrade strategies](https://github.com/freqtrade/freqtrade-strategies) is a GPL-3.0 crypto strategy collection, so it is reference-only unless the project deliberately accepts that license.
 
 
-## Multi-market expansion: one research framework, separate market methods
+## One FX method across different market conditions
 
-The goal is to support a broad catalog of markets over time. "All markets" cannot mean every instrument worldwide by default: a market is supported only when its exact venue/feed, instrument metadata, usable history and data rights are verified. Missing data returns UNSUPPORTED or NO_SIGNAL; it is never filled with a guessed proxy.
+Clarification: here “multi-market” means multiple **market conditions/regimes** within the 28 FX pairs, not crypto or a multi-asset product. Keep the same 28-pair FX universe and one overall decision pipeline. Regime determines which setup is eligible; regime does not create independent strategies that vote against each other.
 
-### Shared pipeline and market-specific modules
+### Condition classifier
 
-Use one common pipeline for instrument discovery, feed validation, normalization, cost modeling, candidate review, paper tracking and History. Use separate versioned method modules and thresholds by asset class and venue:
+Use completed H1 and M5 candles plus the same Exness quote/cost data. The classifier emits one state with evidence, confidence and timestamps:
 
-- FX spot/CFD: FX-CSTC method and broker Bid/Ask semantics.
-- Crypto spot: exchange-specific trades/orderbook, exchange session is 24/7, venue fees and symbol rules.
-- Crypto perpetual/futures: separate contract type, funding, mark/index price, liquidation/maintenance metadata and contract fees; do not reuse spot assumptions.
-- Metals and energy CFDs/futures: contract specification, quote convention, trading session, rollover and spread model must match the actual venue/product.
-- Equity indices and index futures/CFDs: exchange calendar, local session, contract multiplier, tick value, expiry/roll and venue-specific costs.
-- Listed equities/ETFs: exchange session, corporate actions, instrument status, shortability/borrow costs and market-data entitlement.
-- Rates, options and other derivatives: separate payoff/expiry/greeks or curve contracts; unsupported until those inputs are modeled.
-
-The shared output schema may be the same (market, venue, instrument, side, observed quote, entry reference, one SL, one TP, evidence, method version, freshness, paper lifecycle), but signal rules, costs, hours, tick sizes, expected liquidity and validation splits are not shared across asset classes. A Forex scalp method does not become a crypto or equity method by changing the symbol.
-
-### Market adapter admission contract
-
-Each data adapter must publish a versioned capability record before its market can appear as supported:
-
-| Field | Required evidence |
-| --- | --- |
-| Identity | Asset class, venue, exact instrument ID, product type, quote currency and contract multiplier |
-| Feed | Official endpoint, public/private scope, bid/ask vs last-trade semantics, source timestamp, sequence/reconnect behavior and tested cadence |
-| History | Candle/tick interval, depth, time zone, revisions, gaps and documented limits; historical data must match the live venue |
-| Costs | Spread or order-book depth, maker/taker or broker fees, funding/borrow/rollover, slippage assumptions and their source |
-| Trading calendar | Session, holidays, maintenance windows, expiry and daylight-saving handling where relevant |
-| Rights and limits | Current free/paid status, authentication, rate limits, storage/display and redistribution terms |
-| Validation | Data-quality fixtures, time-aligned replay, sample paper test and measured freshness/gap report |
-
-Only adapters with all required fields enter SUPPORTED_PAPER. Incomplete adapters remain RESEARCH_ONLY or UNSUPPORTED, visible in Connection/Market Coverage rather than silently producing signals.
-
-### Initial coverage map
-
-| Market family | Current evidence | Status for this system |
+| State | Measurable evidence to test | Eligible behavior in the single method |
 | --- | --- | --- |
-| FX 28 crosses | Existing project reports an Exness read-only tick path; the FX-CSTC rule is a research candidate. Candles, complete cost history and paper validation still need to be matched and measured. | RESEARCH_CANDIDATE; no efficacy claim |
-| Crypto spot | Official Bybit docs expose public market-data WebSockets for spot and separate product categories; Binance documents a public market-data base endpoint. These are candidate read-only sources, not confirmation that this app is connected or entitled to redistribute the feed. | SOURCE_RESEARCH; select one venue and verify terms, history and costs before implementation |
-| Crypto perpetuals/futures | Public sources expose separate derivative feeds, but spot data cannot substitute for contract price/funding/cost history. | SOURCE_RESEARCH; separate method and contract metadata required |
-| Gold, energy, indices | Possible only for exact Exness/venue-supported instruments and validated product metadata. No current evidence in this PR confirms live/history coverage for every requested product. | UNVERIFIED |
-| Listed shares, ETFs, rates, options and other global markets | No universally free, licensed, low-latency feed with complete matching historical data has been verified for this project. | UNSUPPORTED until a named official source passes adapter admission |
+| Directional trend | Confirmed H1 swing progression and normalized trend persistence; compare structure-only baseline with EMA 20/50/200 benchmark. | Trend continuation only: M5 break, pullback/retest, then closed M1 trigger. |
+| Range / balanced | H1 swing boundaries remain intact; directional persistence is low; price repeatedly returns into the range. | Range-edge rejection/reclaim candidate only after M5 confirmation and a closed M1 trigger; no entries in the middle of the range. |
+| Transition / breakout attempt | Price approaches or closes beyond a confirmed H1/M5 boundary but follow-through and acceptance are not yet established. | WAIT. Do not chase the first spike. A later retest and closed trigger may qualify under the trend or range rule after state is confirmed. |
+| High volatility / event shock | Pair/session volatility or spread is outside its pre-registered historical envelope, or a dated high-impact event window is known. | NO_SIGNAL or WAIT until spread/volatility normalize and enough completed bars exist to reclassify. |
+| Low liquidity / stale or irregular feed | Spread/cadence/freshness fails the pair/session data-quality contract, or the instrument is outside its verified session. | NO_SIGNAL. Do not infer price from another pair or venue. |
 
-The initial implementation order should be: (1) finish and paper-test the existing FX adapter/method; (2) choose one public crypto venue and build an isolated read-only adapter; (3) evaluate metals/energy/index products one by one against actual contract terms; (4) add equities or other derivatives only after a source, rights and history pass. This is a research order, not a claim that every market is currently available.
+Numeric boundaries, lookbacks and event windows are parameters to freeze before validation, not values to tune against the final holdout. A state may be UNCLASSIFIED; that state always returns NO_SIGNAL.
 
-### Cross-market portfolio context
+### Shared setup and risk contract
 
-When more than one market family is enabled, the coordinator may compare signal freshness and shared risk factors, but it must not treat different venues' prices as interchangeable. Track exposure by underlying currency, crypto asset, equity index factor and commodity driver where the relationship is evidenced. Keep every candidate's venue, method, costs and price provenance attached through History. Unknown cross-market dependence is reported as unknown rather than guessed. A two-card UI limit can still select at most two paper candidates, but ranking compares only candidates with valid, independently calibrated scores.
+- First classify the state; run only that state's permitted setup. Never average a trend signal with a range signal. If evidence overlaps or conflicts, return WAIT/NO_SIGNAL with the reason.
+- Require a completed trigger candle on M1 and preserve the M5/H1 candle timestamps that established the context. Current forming candles only update the live display.
+- Keep one fixed TP and one fixed SL. For trend continuation, invalidate beyond the pullback structure; for a range-edge rejection, invalidate beyond the confirmed range boundary plus a pair/session noise buffer. The one TP is the nearest plausible opposing structure after spread and estimated costs.
+- Reject if the executable-side entry leaves inadequate net room, the stop is inside ordinary pair/session noise, the target is blocked, or market-data/cost evidence is incomplete. Do not promise that stops cannot be swept.
+- Normalize the eight currency profiles from the same 28 pairs to rank candidates and detect duplicated exposures. Currency strength is context only; it cannot overrule a regime/setup rejection.
+- The UI may still show up to two candidates, selected from valid signals across the 28 pairs. If only one or none passes, show one or none. A full two-card area does not cause weaker candidates to be forced in.
 
-### Required release evidence per market family
+### Learning by condition, not self-modifying AI
 
-A market family becomes visible as supported only after: feed contract review; exact symbol/contract fixture; clock and sequence/gap tests; source-matched historical replay; spread/fee/funding/rollover costs; one sample paper signal end-to-end; per-venue/session/regime validation; and explicit free-use/display/retention rights. A pass for FX does not pass crypto; a pass for BTC spot does not pass BTC perpetuals; a pass for one index venue does not pass another.
+Store outcome and rejection metrics by pair, direction, session, regime, spread burden, volatility and event window. Compare the condition-aware method with simple baselines: no-signal, trend-only and range-only. This reveals whether each regime branch adds evidence beyond merely increasing trade count.
 
-Official source checks for the crypto research candidates (checked 2026-10-01): Bybit public WebSocket connection and market product endpoints, [connect](https://bybit-exchange.github.io/docs/v5/ws/connect), [ticker](https://bybit-exchange.github.io/docs/v5/websocket/public/ticker), and [instrument metadata](https://bybit-exchange.github.io/docs/v5/market/instrument); Binance public market-data REST base and WebSocket stream docs, [REST market data](https://developers.binance.com/en/docs/products/spot/rest-api) and [market streams](https://developers.binance.com/en/docs/products/derivatives-trading-coin-futures/websocket-market-streams/Connect). These establish documented public market-data interfaces, not free commercial redistribution rights, actual latency, historical completeness or an integration in this app. Verify current terms and quotas before use.
+A candidate change (for example, the range-edge definition or volatility envelope) gets its own version and is tested on chronological training/validation data, then a frozen untouched holdout and forward paper period. DeepSeek may critique the evidence only on a button press; it cannot change thresholds, choose a new regime rule, or promote a version. The automatic cycle remains deterministic.
+
+### Validation contract by condition
+
+- Replay with source-time ordering and only information available at the decision time. Exclude the current candle from swing boundaries; do not use revised/future events.
+- Use BUY Ask / SELL Bid for paper entry and BUY Bid / SELL Ask for mark/exit. Include observed spread, applicable commission and adverse slippage. Separate uncertain bar-level outcomes from confirmed tick paths; a same-bar TP/SL double hit is ambiguous and is counted conservatively as SL-first in the primary result.
+- Freeze pair/time splits, thresholds, cost assumptions and pass/fail metrics before the final holdout. Report sample size, net expectancy in R, win rate, profit factor, max drawdown, costs, false-alert rate and outcome by regime/session. A small sample or high win rate alone is not a pass.
+- End-to-end first: one trend sample, one range sample, one WAIT/NO_SIGNAL shock or transition sample; verify each snapshot, fixed TP/SL, tick tracking, reconnect handling and History row before any batch.
+
+This extends FX-CSTC into a regime-aware method within the same FX universe. It does not claim support for crypto, equities, index products or commodities.
