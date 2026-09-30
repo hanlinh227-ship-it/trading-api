@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Rerun trigger after the user updated Exness credentials.
 import assert from "node:assert/strict";
 import {
   createPrivateKey,
