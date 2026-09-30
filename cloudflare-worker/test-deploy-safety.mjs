@@ -16,6 +16,9 @@ const exnessSyncStart=workflow.indexOf('name: Sync Exness read-only credentials'
 const exnessSyncEnd=workflow.indexOf('name: Deploy exact-main Worker');
 assert.ok(exnessSyncStart>=0&&exnessSyncStart<exnessSyncEnd,'read-only Exness secrets must be synced before deploy');
 const exnessSync=workflow.slice(exnessSyncStart,exnessSyncEnd);
+const accountIdNormalize=`EXNESS_ACCOUNT_ID="$(node -e "process.stdout.write((process.env.EXNESS_ACCOUNT_ID||'').trim())")"`;
+assert.ok(exnessSync.includes(accountIdNormalize),'trim surrounding copy/paste whitespace from the account ID');
+assert.ok(exnessSync.indexOf(accountIdNormalize)<exnessSync.indexOf('if ! [[ "$EXNESS_ACCOUNT_ID" =~'),'normalize account ID before enforcing Exness numeric format');
 for(const key of ['EXNESS_API_KEY','EXNESS_PRIVATE_KEY','EXNESS_ACCOUNT_ID','EXNESS_API_BASE_URL'])
   assert.ok(exnessSync.includes(key + ': ' + String.fromCharCode(36) + '{{ secrets.' + key + ' }}'),key + ' must come from a GitHub Actions secret');
 assert.ok(workflow.indexOf('name: Capture currently-live revision')<exnessSyncStart,'capture rollback revision before syncing Exness secrets');

@@ -322,6 +322,9 @@ jobs:
               exit 1
             fi
           done
+          # Trim copy/paste whitespace without accepting non-numeric account IDs.
+          EXNESS_ACCOUNT_ID="$(node -e "process.stdout.write((process.env.EXNESS_ACCOUNT_ID||'').trim())")"
+          export EXNESS_ACCOUNT_ID
           if ! [[ "$EXNESS_ACCOUNT_ID" =~ ^[0-9]{1,20}$ ]]; then
             echo "EXNESS_ACCOUNT_ID_FORMAT=INVALID"
             exit 1
