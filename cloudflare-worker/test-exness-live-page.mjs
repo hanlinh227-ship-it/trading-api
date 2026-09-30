@@ -58,6 +58,28 @@ try{
   liveUpstream.emit('message',{data:JSON.stringify({tick:{instrument:'XAUUSD',bid:1,ask:2,timestamp:new Date(now).toISOString()}})});
   liveUpstream.emit('message',{data:JSON.stringify({tick:{instrument:'USDJPY',bid:150,ask:150.01,timestamp:new Date(now-60000).toISOString()}})});
   assert.equal(received.length,1,'non-universe and stale ticks are not sent');
+
+  // Số đo vận chuyển phải có mặt để trang tách được độ trễ khỏi tuổi tick.
+  assert.equal(typeof received[0].sentAt,'number','sentAt (đồng hồ Cloudflare) phải có');
+  assert.ok(received[0].sentAt>=now-1000,'sentAt phải là mili giây epoch');
+  assert.equal(typeof received[0].workerProcessMs,'number','workerProcessMs phải có');
+  assert.ok(received[0].workerProcessMs>=0&&received[0].workerProcessMs<1000,'workerProcessMs phải nhỏ');
+  assert.equal(typeof received[0].streamMs,'number','streamMs phải có');
+
+  // Tick trùng (cùng cặp, cùng mốc nguồn) không được gửi lại.
+  liveUpstream.emit('message',{data:JSON.stringify({tick:{instrument:'EURUSD',bid:1.12,ask:1.1202,timestamp:new Date(now).toISOString()}})});
+  assert.equal(received.length,1,'tick trùng không được gửi lại');
+  // Cùng cặp nhưng mốc nguồn MỚI thì phải gửi.
+  liveUpstream.emit('message',{data:JSON.stringify({tick:{instrument:'EURUSD',bid:1.1201,ask:1.1203,timestamp:new Date(now+50).toISOString()}})});
+  assert.equal(received.length,2,'mốc nguồn mới phải được gửi');
+
   browserResponse.webSocket.close();assert.equal(state.liveViewers,0);
 }finally{globalThis.Response=RealResponse;globalThis.fetch=realFetch;globalThis.WebSocketPair=realPair}
+
+// Trang phải giữ các cơ chế ổn định đã thiết kế.
+assert.match(EXNESS_LIVE_PAGE,/visibilitychange/,'tab ẩn phải tạm dừng luồng để bảo vệ quota');
+assert.match(EXNESS_LIVE_PAGE,/requestAnimationFrame/,'vẽ phải gom theo frame');
+assert.match(EXNESS_LIVE_PAGE,/fmtCache/,'formatter phải được cache theo cặp, không tạo mỗi tick');
+assert.match(EXNESS_LIVE_PAGE,/type==='stalled'/,'trang phải xử lý tín hiệu nguồn im lặng');
+assert.doesNotMatch(EXNESS_LIVE_PAGE,/new Intl\.NumberFormat[^;]*format\(n\)/,'không được tạo formatter trong hàm format');
 console.log('Exness 28-pair cloud WebSocket contract PASS');
