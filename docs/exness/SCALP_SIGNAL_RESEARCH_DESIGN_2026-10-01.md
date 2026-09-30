@@ -137,9 +137,9 @@ The bot evaluates each fresh quote against fixed levels and appends idempotent o
 
 The `Đánh giá` action asks AI to review active signals against current price, original entry/SL/TP, method evidence and freshness. AI records `CÒN ĐIỀU KIỆN`, `LUẬN ĐIỂM BỊ VÔ HIỆU`, or `CHƯA ĐỦ DỮ LIỆU` with timestamp, reason and evidence IDs. A red verdict sets `THESIS_INVALIDATED`; show **Giữ** and **Xóa**. Keep retains the slot; Xóa archives the signal to History and frees the slot, without classifying it as a TP/SL loss. Tick updates move the gauge and evaluate fixed paper levels only; they never call AI.
 
-Active paper signals have no clock-based expiry. Their lifecycle ends at an observed TP/SL or a fresh AI invalidation. An assessment expires independently and returns to unknown; it does not erase History. Archived rows retain the full audit trail; corrections create a new event instead of overwriting evidence.
+Active paper signals have no clock-based expiry. Their lifecycle ends at an observed TP/SL or when the user chooses Xóa after a red assessment. A red verdict alone does not end tracking; Giữ keeps the signal active. An assessment expires independently and returns to unknown; it does not erase History. Archived rows retain the full audit trail; corrections create a new event instead of overwriting evidence.
 
-Acceptance: paper entry is created once from the exact signal quote; BUY/SELL uses executable-side conventions; TP/SL and AI invalidation each archive once; stale ticks do not advance outcomes; gaps are labeled; no user input is required; no paper outcome is presented as actual account performance.
+Acceptance: paper entry is created once from the exact signal quote; BUY/SELL uses executable-side conventions; TP/SL archives once; AI red + Giữ keeps tracking and AI red + Xóa archives once; stale ticks do not advance outcomes; gaps are labeled; no user input is required; no paper outcome is presented as actual account performance.
 
 ### History statistics and outcomes
 
