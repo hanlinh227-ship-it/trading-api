@@ -44,6 +44,8 @@ function parsePrivateKey(secret) {
   if (/^0x[0-9a-fA-F]{64}$/i.test(value)) value = value.slice(2);
   if (/^[0-9a-fA-F]{64}$/.test(value)) {
     bytes = Buffer.from(value, "hex");
+  } else if (/^[0-9a-fA-F]{128}$/.test(value)) {
+    bytes = Buffer.from(value, "hex");
   } else {
     const normalized = value.replace(/\\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
     if (!/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
@@ -94,6 +96,7 @@ function privateKeyShape(secret) {
     looksLikePem: /^-----BEGIN [A-Z0-9 ]+-----/.test(value),
     looksLikeJson: value.startsWith("{"),
     is64Hex: /^(?:0x)?[0-9a-f]{64}$/i.test(value),
+    is128Hex: /^[0-9a-f]{128}$/i.test(value),
     isBase64AlphabetOnly: /^[A-Za-z0-9+/_=-]+$/.test(value),
     hasOuterQuotes: (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'")),
