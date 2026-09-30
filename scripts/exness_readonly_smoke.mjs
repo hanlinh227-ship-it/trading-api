@@ -22,7 +22,11 @@ function rawSeedToPrivateKey(seed) {
 }
 
 function parsePrivateKey(secret) {
-  const value = secret.trim();
+  let value = secret.trim();
+  if ((value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))) {
+    value = value.slice(1, -1).trim();
+  }
   if (value.startsWith("{")) {
     const jwk = JSON.parse(value);
     if (jwk.kty !== "OKP" || jwk.crv !== "Ed25519" || !jwk.d) {
@@ -37,10 +41,11 @@ function parsePrivateKey(secret) {
   }
 
   let bytes;
+  if (/^0x[0-9a-fA-F]{64}$/i.test(value)) value = value.slice(2);
   if (/^[0-9a-fA-F]{64}$/.test(value)) {
     bytes = Buffer.from(value, "hex");
   } else {
-    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const normalized = value.replace(/\\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
     if (!/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
       throw new Error("unsupported private-key encoding");
     }
@@ -62,6 +67,20 @@ function parsePrivateKey(secret) {
     if (key.asymmetricKeyType === "ed25519") return key;
   } catch {}
   throw new Error("unsupported private-key encoding");
+}
+
+function privateKeyShape(secret) {
+  const value = secret.trim();
+  return {
+    characters: value.length,
+    hasLineBreaks: /[\r\n]/.test(value),
+    looksLikePem: /^-----BEGIN [A-Z0-9 ]+-----/.test(value),
+    looksLikeJson: value.startsWith("{"),
+    is64Hex: /^(?:0x)?[0-9a-f]{64}$/i.test(value),
+    isBase64AlphabetOnly: /^[A-Za-z0-9+/_=-]+$/.test(value),
+    hasOuterQuotes: (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'")),
+  };
 }
 
 function selfTest() {
@@ -128,7 +147,7 @@ async function main() {
   try {
     privateKey = parsePrivateKey(privateKeyText);
   } catch {
-    process.stderr.write("FAIL: private-key format unsupported; secret value was not displayed\n");
+    process.stderr.write(`FAIL: private-key format unsupported; safe shape only: ${JSON.stringify(privateKeyShape(privateKeyText))}\n`);
     process.exitCode = 2;
     return;
   }
