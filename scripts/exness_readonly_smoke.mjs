@@ -233,13 +233,39 @@ async function main() {
       return;
     }
 
-    const accessPoint = discoveryData?.access_point;
-    if (typeof accessPoint !== "string" ||
-        !/^ap-[a-z0-9-]+(?:\.trading)?\.exness\.com$/i.test(accessPoint)) {
+    const rawAccessPoint =
+      discoveryData?.access_point ??
+      discoveryData?.data?.access_point ??
+      discoveryData?.result?.access_point;
+    let accessPointUrl;
+    try {
+      if (typeof rawAccessPoint !== "string" || !rawAccessPoint.trim()) {
+        throw new Error("missing access point");
+      }
+      const raw = rawAccessPoint.trim();
+      accessPointUrl = new URL(/^https:\/\//i.test(raw) ? raw : \`https://\${raw}\`);
+      const hostname = accessPointUrl.hostname.replace(/\.$/, "");
+      if (accessPointUrl.protocol !== "https:" ||
+          accessPointUrl.username || accessPointUrl.password ||
+          (accessPointUrl.port && accessPointUrl.port !== "443") ||
+          (accessPointUrl.pathname !== "/" && accessPointUrl.pathname !== "") ||
+          accessPointUrl.search || accessPointUrl.hash ||
+          !/^ap-[a-z0-9-]+(?:\.trading)?\.exness\.com$/i.test(hostname)) {
+        throw new Error("untrusted host");
+      }
+      accessPointUrl.hostname = hostname;
+    } catch {
       process.stdout.write(JSON.stringify({
         status: "FAIL",
         stage: "access_point_discovery",
         reason: "unexpected_access_point_host",
+        response_fields: discoveryData && typeof discoveryData === "object"
+          ? Object.keys(discoveryData).filter((key) => /^[a-zA-Z0-9_]{1,40}$/.test(key)).slice(0, 12)
+          : [],
+        nested_data_fields: discoveryData?.data && typeof discoveryData.data === "object"
+          ? Object.keys(discoveryData.data).filter((key) => /^[a-zA-Z0-9_]{1,40}$/.test(key)).slice(0, 12)
+          : [],
+        access_point_type: typeof rawAccessPoint,
         secrets_or_account_data_printed: false,
       }) + "\n");
       process.exitCode = 1;
@@ -247,8 +273,8 @@ async function main() {
     }
 
     const accountUrl = new URL(
-      `/v1/configuration/accounts/${accountId.trim()}/account`,
-      `https://${accessPoint}`,
+      \`/v1/configuration/accounts/\${accountId.trim()}/account\`,
+      accessPointUrl,
     );
     const { response: accountResponse, data: accountData } =
       await getJson(accountUrl, apiKey, privateKey);
