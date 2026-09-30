@@ -103,7 +103,7 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
   async function rawGet(path){
     const headers=buildExnessSignedHeaders({apiKey:cfg.apiKey,privateKey:cfg.privateKey,pathWithQuery:path,timestamp:now()});
     let response;try{response=await fetchImpl(cfg.baseUrl+path,{method:'GET',headers,cache:'no-store'});}catch{throw fail('EXNESS_READONLY_UPSTREAM_UNAVAILABLE');}
-    if(!response.ok){const error=fail(response.status===429?'EXNESS_UPSTREAM_RATE_LIMITED':'EXNESS_READONLY_UPSTREAM_FAILED',response.status===429?429:503);error.upstreamStatus=response.status;return Promise.reject(error);}
+    if(!response.ok){const upstreamStatus=Number(response.status)||503,isLimited=upstreamStatus===429;const error=fail(isLimited?'EXNESS_UPSTREAM_RATE_LIMITED':'EXNESS_READONLY_UPSTREAM_HTTP_'+upstreamStatus,isLimited?429:503);error.upstreamStatus=upstreamStatus;return Promise.reject(error);}
     try{return await response.json();}catch{throw fail('EXNESS_UPSTREAM_INVALID_JSON');}
   }
   async function restGet(path,limits){
