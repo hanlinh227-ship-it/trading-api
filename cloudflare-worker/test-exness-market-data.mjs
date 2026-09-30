@@ -213,3 +213,8 @@ for(const file of ['exness-market-data.js','exness-market-data-handler.js','exne
 }
 
 console.log('exness read-only market data contract ok');
+
+{
+  const unauthorized=createExnessReadonlyMarketClient(env,{fetchImpl:async()=>new Response(JSON.stringify({error_code:1000}),{status:401})});
+  await assert.rejects(unauthorized.instruments(),error=>error.code==='EXNESS_READONLY_UPSTREAM_HTTP_401');
+}
