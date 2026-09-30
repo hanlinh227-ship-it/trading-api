@@ -109,3 +109,10 @@ Post-deploy checks:
 - `/run-now?group=metal` -> XAUUSD/XAGUSD.
 - `/telegram/setup-webhook` and `/telegram/webhook-info` -> webhook healthy.
 - Telegram `🧭 HUB TOP SETUPS` -> final Hub message, never stuck on scanning.
+
+## Exness read-only quotes
+
+- GET /exness/instruments and GET /exness/quote?instrument=XAUUSD are public read-only endpoints; they do not use GPT_5AI_ACTION_KEY.
+- The Durable Object limits each source address to 30 requests per minute. It stores only a SHA-256 address digest for that bucket, and successful quotes are cached for 500 ms.
+- Dynamic Exness REST and WebSocket account limits remain enforced before upstream calls. Only account-supported instruments are accepted. No trading routes are exposed by this API.
+- Because these endpoints are public, callers can consume the configured read-only Exness quota within these limits.

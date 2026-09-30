@@ -401,8 +401,6 @@ jobs:
           exit 1
 
       - name: Production Exness read-only quote end-to-end canary
-        env:
-          GPT_5AI_ACTION_KEY: ${{ secrets.GPT_5AI_ACTION_KEY }}
         shell: bash
         run: |
           set -euo pipefail
