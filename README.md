@@ -18,7 +18,7 @@ Canonical Trading repository.
 3. Crypto universe → `data/crypto-fast.json`;
 4. open `status.json`, `latest.json` or detailed scans only when deeper evidence is needed.
 
-V76 research never sits in this live data path. Current Forex live decisions remain V74 using V75 data.
+V76 research is isolated from the active strategy authority. Forex tools may still produce market-data and research artifacts, but no Forex method is promoted for new-risk or entry authority.
 
 ## Live data workflows (not strategy or execution authority)
 
@@ -61,13 +61,13 @@ Compact evidence:
 
 `scripts/entry_v76.py` accepts only `V76-ENTRY-METHODS-R2`, blocks pilot/old methods, and returns NO_ENTRY for every current R2 method because none is OOS-promoted.
 
-## Active data / execution scripts
+## Data, analysis and validation scripts
 
 - `twelvedata_market.py` — `V4-TWELVEDATA-FAST-STRICT`.
 - `fetch_crypto.py` — exchange-native single-symbol Crypto.
 - `scan_forex_v75.py` — fast 28-pair Forex scan.
 - `scan_crypto_v75.py` — fast staged Crypto scan.
-- `live_symbol_analysis_v74.py` — V74 playbooks.
+- `live_symbol_analysis_v74.py` — retained V74 Forex analysis/playbooks; no Forex execution authority.
 - `nocut_intraday_method_v73.py` + `validate_nocut_v73.py` — frozen V73 reader/validator.
 - `audit_market_data.py` — data integrity audit.
 
@@ -82,7 +82,7 @@ Compact evidence:
 
 ## Historical-data limitations
 
-Historical broker bid/ask was unavailable, so R2 uses a fixed 0.05R round-trip cost model. A complete timestamped historical high-impact macro calendar was not available in the canonical research feed, so V76 does not fabricate before/after-news labels from volatility. Current V74 news/context checks remain mandatory live.
+Historical broker bid/ask was unavailable, so R2 uses a fixed 0.05R round-trip cost model. A complete timestamped historical high-impact macro calendar was not available in the canonical research feed, so V76 does not fabricate before/after-news labels from volatility. Any legacy V74 Forex replay must use current news/context checks; this does not restore Forex execution authority.
 
 ## V75 speed
 
@@ -94,7 +94,7 @@ Crypto benchmark `32050388431`: 57/57 exact available OKX USDT instruments analy
 
 A ticker string never proves identity. Require canonical mapping + exact provider metadata; indicators use closed candles; provider timestamp is distinct from fetch time; never fabricate bid/ask/spread; never proxy cash/futures/spot.
 
-Twelve Data non-crypto quote >65s → `DATA_BLOCK`; V74 Forex MARKET target <=30s when a real timestamp exists. Crypto final quote target <=10s with venue bid/ask.
+Twelve Data non-crypto quote >65s → `DATA_BLOCK`; legacy V74 Forex analysis used a MARKET quote target <=30s when a real timestamp exists. This data-quality target is not active Forex execution authority. Crypto final quote target <=10s with venue bid/ask.
 
 Cash NAS100/US500/DAX/N225 families and exact NQ/MNQ/ES/MES/GC/SI/CL remain `DATA_BLOCK` in the current Grow55 integration until authoritative exact feeds exist.
 
