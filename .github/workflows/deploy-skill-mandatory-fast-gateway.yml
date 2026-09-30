@@ -41,11 +41,8 @@ on:
         default: false
   # Fixed-minute entries, not '*/10'. GitHub sheds high-frequency '*/N'
   # schedules under load and this repository never received a single '*/10'
-  # firing; every schedule here that does fire uses fixed minutes. A 20-minute
-  # cadence stays inside model-mesh LIVE_TTL_MS (30 min) with margin for the
-  # delay GitHub applies to scheduled events.
-  schedule:
-    - cron: '3,23,43 * * * *'
+  # Model Mesh health freshness is maintained by the Worker's own cron; GitHub
+  # Actions retains manual refresh/discovery for diagnosis and recovery.
   push:
     branches: [main]
     paths:
@@ -742,7 +739,7 @@ jobs:
           fi
 
   refresh-model-mesh-health:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'refresh-health' || inputs.mode == 'discover-providers'))
+    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'refresh-health' || inputs.mode == 'discover-providers')
     runs-on: ubuntu-latest
     concurrency:
       group: cloudflare-model-mesh-health-refresh
@@ -754,7 +751,7 @@ jobs:
           ref: main
           fetch-depth: 0
       - name: Refresh current-revision provider evidence
-        if: github.event_name == 'schedule' || inputs.mode == 'refresh-health'
+        if: inputs.mode == 'refresh-health'
         env:
           MODEL_MESH_EXECUTION_TOKEN: ${{ secrets.MODEL_MESH_EXECUTION_TOKEN }}
         shell: bash
@@ -833,7 +830,7 @@ jobs:
           node cloudflare-worker/discover-provider-models.mjs
 
       - name: Gemini generateContent capability diagnosis (advisory)
-        if: github.event_name == 'schedule' || inputs.mode == 'refresh-health'
+        if: inputs.mode == 'refresh-health'
         continue-on-error: true
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
