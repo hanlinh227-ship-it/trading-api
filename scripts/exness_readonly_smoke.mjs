@@ -22,8 +22,17 @@ function rawSeedToPrivateKey(seed) {
 
 function parsePrivateKey(secret) {
   const value = secret.trim();
+  if (value.startsWith("{")) {
+    const jwk = JSON.parse(value);
+    if (jwk.kty !== "OKP" || jwk.crv !== "Ed25519" || !jwk.d) {
+      throw new Error("not an Ed25519 JWK");
+    }
+    return createPrivateKey({ key: jwk, format: "jwk" });
+  }
   if (/-----BEGIN (?:PRIVATE KEY|ED25519 PRIVATE KEY)-----/.test(value)) {
-    return createPrivateKey(value);
+    const key = createPrivateKey(value);
+    if (key.asymmetricKeyType !== "ed25519") throw new Error("not an Ed25519 key");
+    return key;
   }
 
   let bytes;
@@ -46,7 +55,12 @@ function parsePrivateKey(secret) {
     if (!derivedPublic.equals(bytes.subarray(32))) throw new Error("invalid private-key encoding");
     return privateKey;
   }
-  return rawSeedToPrivateKey(bytes);
+  if (bytes.length === 32) return rawSeedToPrivateKey(bytes);
+  try {
+    const key = createPrivateKey({ key: bytes, format: "der", type: "pkcs8" });
+    if (key.asymmetricKeyType === "ed25519") return key;
+  } catch {}
+  throw new Error("unsupported private-key encoding");
 }
 
 function selfTest() {
