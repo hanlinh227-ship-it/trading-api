@@ -87,6 +87,18 @@ A green, amber, red, stale, expired or disconnected card still occupies its slot
 
 Acceptance fixtures: 0/2 → scan may add 0–2; 1/2 → at most one new card; 2/2 → no scan, no candles/AI call and 409 for a direct request; red + keep → still 2/2; red + dismiss → 1/2 only after acknowledgement; two concurrent scans and retries → never more than two active IDs; reconnect and reload → same IDs and slot count.
 
+### Signal completion and History outcomes
+
+A signal is a read-only paper/research simulation; it does not represent a placed order or guaranteed execution.
+
+- If a fresh, valid quote first observes the executable closing side at or beyond the fixed TP, automatically mark the signal `TP_CROSS_OBSERVED`, archive it to History and release its active slot. Do the same for SL as `SL_CROSS_OBSERVED`. Store the fixed level, first observed Bid/Ask, source timestamp, received-at timestamp and signed pips calculated at that observed quote. Do not fabricate an exit at the exact TP/SL level: gaps can skip levels and the quote feed cannot prove a fill.
+- If the user presses `Bỏ tín hiệu` before a TP/SL crossing, archive it as `STOPPED_BY_USER` with the most recent valid quote's timestamp and signed paper pips. History must show the sign and amount explicitly (for example `+4.2 pip` or `−1.7 pip`), plus a clear `Kết quả mô phỏng` label. If the stream is stale/disconnected, preserve the last observed amount and label its age; never describe it as a current result.
+- If the signal expires before either level is observed, archive as `EXPIRED` with the last valid mark and its timestamp/age, distinct from TP/SL.
+- If the user chooses `Giữ để theo dõi` on an invalid red signal, keep it active and keep its slot; continue the paper gauge while data is fresh. If a later tick crosses fixed TP/SL, then archive by the same observed-crossing rule.
+- An archived item is immutable except for a separate correction/audit record. It does not occupy either of the two active slots. New scans can use the released slot after server acknowledgement.
+
+Acceptance: crossing TP and SL archives once with the first observed quote; gaps are flagged without claiming exact fills; manual removal stores last known signed pips; stale removal preserves the old mark and marks it stale; expiry is not mislabeled as a TP/SL outcome; duplicate ticks, reconnects and repeated taps never create duplicate history rows.
+
 ### Live signal gauge (research simulation only)
 
 For each of the at most two candidate cards, put a compact horizontal gauge immediately below the pair/direction and the proposed entry, stop and target. A fixed center line is **0**. A red fill grows left when the simulated position is negative; a green fill grows right when it is positive. **Do not print `ÂM`, `DƯƠNG`, `Lỗ giả định` or `Lãi giả định` beside or underneath the gauge**: the color and direction show the state visually. Retain the signed pip value and small numeric `R` value above the gauge for precision and accessibility, with a descriptive screen-reader label; these values are hypothetical, as indicated by the card's `mô phỏng` badge/footer. The left endpoint is the proposed stop and the right endpoint the proposed target. Distance on each half is normalized to its own endpoint, so visual position is *progress to stop/target*, not a linear price scale across the entire gauge; explicitly label this in a help/description view, not around the bar. Clamp fill at the endpoints while still showing the actual signed pips/R separately. Include a tiny last-source-tick timestamp and `LIVE`, `GIÁ CŨ`, `MẤT KẾT NỐI` or `CHỜ TÍN HIỆU` status.
