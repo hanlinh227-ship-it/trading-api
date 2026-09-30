@@ -18,15 +18,15 @@ GitHub is the durable communication and coordination layer between ChatGPT and C
 
 ## Mandatory startup for both AIs
 1. Refresh `main` and capture HEAD SHA.
-2. Read `docs/checkpoints/MASTER_TRADING_STATE.md`.
-3. Read `docs/checkpoints/CURRENT_HANDOFF.md`.
+2. Read `AI_SKILL_LIBRARY/projects.yaml` and resolve the Trading `canonical_checkpoint` pointer (current: `docs/checkpoints/BYBIT_TOP100_STATEFLOW_3_0_20260919.md`).
+3. Read `docs/checkpoints/CURRENT_HANDOFF.md` and the resolved canonical checkpoint.
 4. Read `docs/ai-coengineer/SHARED_STATE.md`.
 5. Read `docs/ai-coengineer/WRITE_LOCK.md`.
 6. Read `docs/ai-coengineer/OPEN_ISSUES.md`.
 7. Read `docs/ai-coengineer/DECISIONS.md`.
 8. Read the newest OPEN message addressed to that AI.
 9. Read the active redesign mandate/blueprint when AI-003/V78 work is active.
-10. Treat current `main` source as authority when docs lag source.
+10. Use current `main` source to establish implemented behavior; use the Trading authority pointer to establish the declared project strategy. Never treat a missing historical file as a startup dependency or infer deployed/LIVE status without runtime evidence.
 
 ## Implementation-forward standard loop
 The project should not stop at discussion when a safe, scoped implementation is ready.
