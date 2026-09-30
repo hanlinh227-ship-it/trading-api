@@ -2,25 +2,45 @@ import {jsonResponse} from './exness-market-data.js';
 
 const readOnlyEnabled=env=>String(env.EXNESS_ENABLED||'').toLowerCase()==='true'&&String(env.EXNESS_MODE||'').toUpperCase()==='SHADOW'&&String(env.EXNESS_LIVE_ENABLED||'').toLowerCase()!=='true'&&String(env.EXNESS_LIVE_ACK||'').toLowerCase()!=='true';
 
+// Read-only surface only. No trading, order, deposit or account-modification route exists here.
+const READ_ONLY_ROUTES=['/exness/instruments','/exness/quote','/exness/account','/exness/limits','/exness/conditions','/exness/candles'];
+const INSTRUMENT_ROUTES=['/exness/quote','/exness/conditions'];
+
+function internalTarget(path,url,instrument){
+  switch(path){
+    case '/exness/instruments':return '/instruments';
+    case '/exness/quote':return `/quote?instrument=${encodeURIComponent(instrument)}`;
+    case '/exness/account':return '/account';
+    case '/exness/limits':return '/limits';
+    case '/exness/conditions':return `/conditions?instrument=${encodeURIComponent(instrument)}`;
+    default:return '/candles'+url.search;
+  }
+}
+
 export async function handleExnessMarketData(request,env={},opts={}){
   const url=new URL(request.url),path=url.pathname;
-  if(!['/exness/instruments','/exness/quote'].includes(path))return null;
+  if(!READ_ONLY_ROUTES.includes(path))return null;
   if(request.method!=='GET')return jsonResponse({ok:false,error:'METHOD_NOT_ALLOWED',readOnly:true},405);
   if(!readOnlyEnabled(env))return jsonResponse({ok:false,error:'EXNESS_READ_ONLY_DISABLED',readOnly:true},503);
   if(!(env.EXNESS_READONLY_API_KEY||env.EXNESS_API_KEY)||!(env.EXNESS_READONLY_PRIVATE_KEY||env.EXNESS_PRIVATE_KEY)||!(env.EXNESS_READONLY_ACCOUNT_ID||env.EXNESS_ACCOUNT_ID)||!(env.EXNESS_READONLY_API_BASE_URL||env.EXNESS_API_BASE_URL))return jsonResponse({ok:false,error:'EXNESS_RUNTIME_CONFIGURATION_MISSING',readOnly:true},503);
   const instrument=String(url.searchParams.get('instrument')||'').trim();
-  if(path==='/exness/quote'&&!/^[A-Za-z0-9._-]{1,11}$/.test(instrument))return jsonResponse({ok:false,error:'INSTRUMENT_REQUIRED',readOnly:true},400);
+  if(INSTRUMENT_ROUTES.includes(path)&&!/^[A-Za-z0-9._-]{1,11}$/.test(instrument))return jsonResponse({ok:false,error:'INSTRUMENT_REQUIRED',readOnly:true},400);
   try{
     if(opts.clientFactory){
       const client=opts.clientFactory(env);
-      const result=path==='/exness/instruments'?await client.instruments():await client.quote(instrument);
+      const result=path==='/exness/instruments'?await client.instruments()
+        :path==='/exness/quote'?await client.quote(instrument)
+        :path==='/exness/account'?await client.account()
+        :path==='/exness/limits'?await client.limits()
+        :path==='/exness/conditions'?await client.conditions(instrument)
+        :await client.candles({instrument,timeframe:url.searchParams.get('timeframe'),from:url.searchParams.get('from'),to:url.searchParams.get('to'),count:url.searchParams.get('count'),price_type:url.searchParams.get('price_type')});
       return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,...result});
     }
     const binding=env.EXNESS_MARKET_DATA_STATE;
     if(!binding)throw Object.assign(new Error('EXNESS_RUNTIME_BINDING_MISSING'),{code:'EXNESS_RUNTIME_BINDING_MISSING',status:503});
     const accountId=env.EXNESS_READONLY_ACCOUNT_ID||env.EXNESS_ACCOUNT_ID;
     const id=binding.idFromName(String(accountId)),stub=binding.get(id);
-    const target=path==='/exness/instruments'?'/instruments':`/quote?instrument=${encodeURIComponent(instrument)}`;
+    const target=internalTarget(path,url,instrument);
     const response=await stub.fetch(new Request('https://exness-market-data.internal'+target,{method:'GET',headers:{'x-exness-client-ip':String(request.headers.get('cf-connecting-ip')||'unknown').slice(0,64)}}));
     return new Response(await response.text(),{status:response.status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
   }catch(error){

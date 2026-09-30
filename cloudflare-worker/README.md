@@ -110,11 +110,22 @@ Post-deploy checks:
 - `/telegram/setup-webhook` and `/telegram/webhook-info` -> webhook healthy.
 - Telegram `🧭 HUB TOP SETUPS` -> final Hub message, never stuck on scanning.
 
-## Exness read-only quotes
+## Exness read-only endpoints
 
-- GET /exness/instruments and GET /exness/quote?instrument=XAUUSD are public read-only endpoints; they do not use GPT_5AI_ACTION_KEY.
-- The Durable Object limits each source address to 30 requests per minute. It stores only a SHA-256 address digest for that bucket, and successful quotes are cached for 500 ms.
-- Dynamic Exness REST and WebSocket account limits remain enforced before upstream calls. Only account-supported instruments are accepted. No trading routes are exposed by this API.
+Public read-only endpoints. None of them uses GPT_5AI_ACTION_KEY, and none of them mutates anything.
+
+| Route | Upstream | Notes |
+| --- | --- | --- |
+| `GET /exness/instruments` | `/v1/configuration/accounts/{id}/instruments` | Cached 60 s. |
+| `GET /exness/quote?instrument=` | `/v1/server-events/accounts/{id}/ws/ticks` | WebSocket tick. Cached 500 ms; returns bid, ask, sourceTimestamp, receivedAt. |
+| `GET /exness/account` | `/v1/configuration/accounts/{id}/account` | Cached 60 s. The trading account number is stripped from the response. |
+| `GET /exness/limits` | `/v1/configuration/accounts/{id}/limits` | Cached 300 s. |
+| `GET /exness/conditions?instrument=` | `/v1/configuration/accounts/{id}/instruments/{instrument}/conditions` | Cached 300 s. |
+| `GET /exness/candles?instrument=&timeframe=&from=[&to=\|&count=]&price_type=` | `/v1/market-data/accounts/{id}/candles` | Cached 5 s. `from` is required and pairs with either `to` or `count`. |
+
+- Every request is signed, and the signed path is byte-identical to the transmitted path, query order included.
+- The Durable Object limits each source address to 30 requests per minute, storing only a SHA-256 address digest for that bucket.
+- Dynamic Exness REST and WebSocket account limits remain enforced before upstream calls. Only account-supported instruments are accepted. No trading, order, deposit or account-modification route is exposed.
 - The account-scoped host is resolved before account-scoped reads. When `EXNESS_READONLY_API_BASE_URL` is a static review host (`api.exness.com` or `api.exness-api.com`), the client first signs `GET /v1/trading/access-point?account_id=...`, validates the returned access point against the host allowlist, and then uses it for every account-scoped REST call and the WebSocket handshake. A configured access point host is used as-is. Resolved hosts are memoized per client and cached for 15 minutes.
 - A failed upstream read reports a sanitized `upstreamClass` alongside the error code, so a routing miss (`UPSTREAM_ROUTE_NOT_FOUND_PLAINTEXT`) can be told apart from a real application 404 (`UPSTREAM_ENTITY_404_JSON`) without reading or logging the upstream body.
 - Because these endpoints are public, callers can consume the configured read-only Exness quota within these limits.
