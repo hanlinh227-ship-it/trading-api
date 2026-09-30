@@ -117,6 +117,55 @@ function selfTest() {
   process.stdout.write("SELF_TEST PASS (Ed25519 RFC 8032)\n");
 }
 
+function signedGetHeaders(apiKey, privateKey, pathAndQuery) {
+  const timestamp = Date.now();
+  const payload = {
+    api_key: apiKey,
+    idempotency_key: "",
+    timestamp,
+    sign_version: 1,
+    method: "GET",
+    path: pathAndQuery,
+    body_hash: EMPTY_BODY_HASH,
+  };
+  const payloadBytes = Buffer.from(JSON.stringify(payload), "utf8");
+  return {
+    "EXN-API-KEY": apiKey,
+    "EXN-IDEMPOTENCY-KEY": "",
+    "EXN-TIMESTAMP": String(timestamp),
+    "EXN-SIGN-VERSION": "1",
+    "EXN-DATA": b64url(payloadBytes),
+    "EXN-SIGN": b64url(cryptoSign(null, payloadBytes, privateKey)),
+    "Accept": "application/json",
+  };
+}
+
+async function getJson(url, apiKey, privateKey) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: signedGetHeaders(apiKey, privateKey, url.pathname + url.search),
+      signal: controller.signal,
+    });
+    let data = null;
+    try { data = await response.json(); } catch {}
+    return { response, data };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function safeApiError(data) {
+  if (!data || typeof data !== "object") return "response body suppressed";
+  const candidate = String(data.error_message || data.error?.message || "");
+  if (/^[A-Z0-9_]{1,80}$/.test(candidate)) return candidate;
+  const code = data.code ?? data.error?.code;
+  if (Number.isInteger(code)) return `API_CODE_${code}`;
+  return "response body suppressed";
+}
+
 async function main() {
   if (process.argv.includes("--self-test")) {
     selfTest();
@@ -126,13 +175,11 @@ async function main() {
   const apiKey = process.env.EXNESS_API_KEY;
   const privateKeyText = process.env.EXNESS_PRIVATE_KEY;
   const accountId = process.env.EXNESS_ACCOUNT_ID;
-  const baseUrl = process.env.EXNESS_API_BASE_URL;
 
   for (const [label, value] of [
     ["EXNESS_API_KEY", apiKey],
     ["EXNESS_PRIVATE_KEY", privateKeyText],
     ["EXNESS_ACCOUNT_ID", accountId],
-    ["EXNESS_API_BASE_URL", baseUrl],
   ]) {
     if (!value || !value.trim()) {
       process.stderr.write(`FAIL: missing ${label}\n`);
@@ -147,22 +194,6 @@ async function main() {
     return;
   }
 
-  let endpoint;
-  try {
-    const host = new URL(baseUrl);
-    if (host.protocol !== "https:" ||
-        !/(^|\.)(exness\.com|exness-api\.com)$/i.test(host.hostname) ||
-        (host.pathname !== "/" && host.pathname !== "")) {
-      throw new Error("invalid host");
-    }
-    const path = `/v1/configuration/accounts/${accountId.trim()}/account`;
-    endpoint = new URL(path, host);
-  } catch {
-    process.stderr.write("FAIL: EXNESS_API_BASE_URL must be the HTTPS host copied from Exness DNS settings\n");
-    process.exitCode = 2;
-    return;
-  }
-
   let privateKey;
   try {
     privateKey = parsePrivateKey(privateKeyText);
@@ -172,37 +203,49 @@ async function main() {
     return;
   }
 
-  const timestamp = Date.now();
-  const payload = {
-    api_key: apiKey,
-    idempotency_key: "",
-    timestamp,
-    sign_version: 1,
-    method: "GET",
-    path: endpoint.pathname,
-    body_hash: EMPTY_BODY_HASH,
-  };
-  const payloadBytes = Buffer.from(JSON.stringify(payload), "utf8");
-  const headers = {
-    "EXN-API-KEY": apiKey,
-    "EXN-IDEMPOTENCY-KEY": "",
-    "EXN-TIMESTAMP": String(timestamp),
-    "EXN-SIGN-VERSION": "1",
-    "EXN-DATA": b64url(payloadBytes),
-    "EXN-SIGN": b64url(cryptoSign(null, payloadBytes, privateKey)),
-    "Accept": "application/json",
-  };
+  const discoveryUrl = new URL(
+    `/v1/trading/access-point?account_id=${encodeURIComponent(accountId.trim())}`,
+    "https://api.exness.com",
+  );
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
-    const response = await fetch(endpoint, { method: "GET", headers, signal: controller.signal });
-    if (response.ok) {
-      // Consume but deliberately do not print account details.
-      await response.arrayBuffer();
+    const { response: discoveryResponse, data: discoveryData } =
+      await getJson(discoveryUrl, apiKey, privateKey);
+    if (!discoveryResponse.ok) {
+      process.stdout.write(JSON.stringify({
+        status: "FAIL",
+        stage: "access_point_discovery",
+        http_status: discoveryResponse.status,
+        api_error: safeApiError(discoveryData),
+        secrets_or_account_data_printed: false,
+      }) + "\n");
+      process.exitCode = 1;
+      return;
+    }
+
+    const accessPoint = discoveryData?.access_point;
+    if (typeof accessPoint !== "string" ||
+        !/^ap-[a-z0-9-]+(?:\.trading)?\.exness\.com$/i.test(accessPoint)) {
+      process.stdout.write(JSON.stringify({
+        status: "FAIL",
+        stage: "access_point_discovery",
+        reason: "unexpected_access_point_host",
+        secrets_or_account_data_printed: false,
+      }) + "\n");
+      process.exitCode = 1;
+      return;
+    }
+
+    const accountUrl = new URL(
+      `/v1/configuration/accounts/${accountId.trim()}/account`,
+      `https://${accessPoint}`,
+    );
+    const { response: accountResponse, data: accountData } =
+      await getJson(accountUrl, apiKey, privateKey);
+    if (accountResponse.ok) {
       process.stdout.write(JSON.stringify({
         status: "PASS",
-        http_status: response.status,
+        http_status: accountResponse.status,
         authenticated: true,
         read_only_endpoint: "GET /v1/configuration/accounts/{account_id}/account",
         account_details_suppressed: true,
@@ -210,17 +253,11 @@ async function main() {
       return;
     }
 
-    let apiError = "";
-    try {
-      const result = await response.json();
-      const candidate = String(result.error_message || "");
-      if (/^[A-Z0-9_]{1,80}$/.test(candidate)) apiError = candidate;
-      else if (Number.isInteger(result.code)) apiError = `API_CODE_${result.code}`;
-    } catch {}
     process.stdout.write(JSON.stringify({
       status: "FAIL",
-      http_status: response.status,
-      api_error: apiError || "response body suppressed",
+      stage: "account_read",
+      http_status: accountResponse.status,
+      api_error: safeApiError(accountData),
       secrets_or_account_data_printed: false,
     }) + "\n");
     process.exitCode = 1;
@@ -231,8 +268,6 @@ async function main() {
       secrets_or_account_data_printed: false,
     }) + "\n");
     process.exitCode = 1;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
