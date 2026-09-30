@@ -10,6 +10,7 @@ from AI_SKILL_LIBRARY.v4.tools.release import (
     load_history,
     load_release_pointer,
     rollback_release,
+    sha256_file,
     verify_history_chain,
     verify_release,
 )
@@ -20,6 +21,15 @@ class V4ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             errors, _ = verify_release(Path(tmp), "4.0.404")
             self.assertTrue(any("missing" in e.lower() for e in errors))
+
+    def test_release_hash_is_stable_across_windows_and_unix_text_checkouts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lf = root / "lf.txt"
+            crlf = root / "crlf.txt"
+            lf.write_bytes(b"first\nsecond\n")
+            crlf.write_bytes(b"first\r\nsecond\r\n")
+            self.assertEqual(sha256_file(lf), sha256_file(crlf))
 
     def test_active_release_verifies(self):
         root = Path(__file__).resolve().parents[2]

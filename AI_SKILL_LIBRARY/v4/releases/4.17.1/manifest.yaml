@@ -2,184 +2,184 @@ version: 4.17.1
 architecture: GITHUB_BRAIN_V4
 files:
 - path: AI_SKILL_LIBRARY/v4/stable/kernel.yaml
-  sha256: fd999700613b8dfc7463f710cb091cf4ff3a4a1380e9a07ebfcbb08cbcbf2351
+  sha256: e0179ebee4edd87b9fcc610fdeea4e21b0a51f1ee1771303163adb8b73eb5ab2
   role: kernel
 - path: AI_SKILL_LIBRARY/v4/stable/runtime.yaml
-  sha256: 72ce8aa1d32bf5b3c10ca6dc51960314e38da28d1a3a48a147337c0ebd298c25
+  sha256: 32f132bd20ae21918363b3f9c24fa47fdd983fd50fc18dcc75c6cec244977def
   role: runtime
 - path: AI_SKILL_LIBRARY/v4/stable/router.yaml
-  sha256: d8a259a8acb9d89c96491872f060a801e89a9413e36e14528e5e7ac5dc1ef1dd
+  sha256: 0b6dd13af252708acf449d7a74937302595ea7b0d3e47e562084df2437349389
   role: router
 - path: AI_SKILL_LIBRARY/v4/stable/budgets.yaml
-  sha256: b5f4875c941f8fb655ad5957f24b98693e4c68c00d46b53a7559a048c0785c4d
+  sha256: a84794d18363ee8042831445cf309a58066f3fc1fb901ad1d016454dc5020836
   role: budgets
 - path: AI_SKILL_LIBRARY/v4/stable/retrieval.yaml
-  sha256: 2b93acbf0499e8357ff13dba20225def5de4cfc400e7a5b2deab099dc801a5fc
+  sha256: 7aa632de9dc957ae7c2f3782d794d58e5d8d3fd31ef36638511c018a26af050b
   role: retrieval
 - path: AI_SKILL_LIBRARY/v4/stable/context.yaml
-  sha256: 2b84c8df42e675712b9443f44db6573cef8ab3df84fb3dfb50aec77895f8d66d
+  sha256: e3539bf78abb36f87bb642c15c6c8fc95a74206d2bd126396421c4fba9236f1e
   role: context
 - path: AI_SKILL_LIBRARY/v4/stable/reliability.yaml
-  sha256: 782b53f628900aff45130d7987ac75a7219e32371a674cdc01531aa1e630fb90
+  sha256: 11f1487d29713db4354abc764f99d7e4b22658a6926e8faf4ef29944ad893c91
   role: reliability
 - path: AI_SKILL_LIBRARY/v4/stable/reputation.yaml
-  sha256: 1f32495ee1b4fa3a46597b82bd5e94eb2276b71159e3576eaa0e0a3fc7c58de3
+  sha256: 2be10f9cb74eb4800dfa6c924038d8bfa62bcc1152b7601e254195c268cc91e4
   role: reputation
 - path: AI_SKILL_LIBRARY/v4/stable/memory.yaml
-  sha256: 0471ca8830e765d0af1edf26a0f037d8262c165ac7abfa7b62555d0f8899903c
+  sha256: 6ca7903b75c891336cfe4d57bd1f057c1d3406559152bf9874a9274154d53fc0
   role: memory
 - path: AI_SKILL_LIBRARY/v4/stable/evidence.yaml
-  sha256: af390f9a0e6b60d364636b340635591a2abd7e944708f17675c29de537b44b4c
+  sha256: 98542333991a9b467b3fd8f62049d1479efdb584c027ee8ef2937207f0747c7d
   role: evidence
 - path: AI_SKILL_LIBRARY/v4/stable/harmonization.yaml
-  sha256: b5e8d22e3ed54dd334330a11c64db70af4da9f82e86f90776c760c3965a364f0
+  sha256: 6322fca75fc92f5c3556a4ed203acf9090d46c0446320ec7bffaaf5688186945
   role: harmonization
 - path: AI_SKILL_LIBRARY/v4/stable/continuous_intelligence.yaml
-  sha256: a607b30b41ad19034ce0bba70876f4f639782bd65591da133dd7eb8398e03a12
+  sha256: b512fda13690ca9b038f39fbc416c5a0f3a4f310f5e03ab5933608887756ad6d
   role: continuous_intelligence
 - path: AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml
-  sha256: b0e92b294069cecaab84d604a11c0314d82ee2f5a15c344f8c832be475b660dd
+  sha256: ef53f9549238f7079baa941ae8a777bd6511d163947d277d636bc7a4a550a9e5
   role: capability_fusion
 - path: AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml
-  sha256: e8ed2e8b3d083c9bb42f38410e8d6cdaa3a521e09fe5c36f01782c289a0b238f
+  sha256: e7307ddfba858f1a2c2d41334f313aec0a8009f239927462705ce7c7c6fa12ec
   role: creative_visual_fusion
 - path: AI_SKILL_LIBRARY/v4/stable/presentation.yaml
-  sha256: 00e6bb38c87e840a49b2cf59d63d391678d323b0cf1400608539ebe443679624
+  sha256: cb48174cf6e85b459a8c92dfce6bb4115dc3bbae7cd00b899de466eee2519cf2
   role: presentation
 - path: AI_SKILL_LIBRARY/v4/stable/display_names.yaml
-  sha256: 4a35cecde0cbcfb3abac32226118918ddd735559506f78300a84b91496b616ae
+  sha256: 599e8ba027ba6472766e51cac1c33fe26b370b96204e45a523ea0908c887f302
   role: display_names
 - path: AI_SKILL_LIBRARY/v4/mesh/graph.yaml
-  sha256: 58e305ee3b97578299f3b5104c549a18af99a30d1cf109edd5927e88a6d00f76
+  sha256: 1862eb2eeb82f33dc5cca58a8f19fa23e9ab6f86be14cbd34ee8596e994e0ea4
   role: mesh
 - path: AI_SKILL_LIBRARY/v4/mesh/bridges.yaml
-  sha256: 7740a646bf791fd64d68d0a8c40f54a91f3b1fe6202c61a3ed3041d0e3eba7f3
+  sha256: 4c1ff386c78dfcf9e2b46923f394b594d55a4722c4562748a4306e82089a7bdf
   role: bridges
 - path: AI_SKILL_LIBRARY/v4/model_mesh/policy.yaml
-  sha256: c5646a8f2ea9b13003dde94395a16b3f86da13e94237ccf29bb2461ad6a6b2b3
+  sha256: 4c77f965e939910e0807d02c4149ed76e4495b96e53f9171fbabd3a1ea5f2793
   role: model_mesh_policy
 - path: AI_SKILL_LIBRARY/v4/model_mesh/free_only_policy.json
-  sha256: cbdcf1cf3c17491820ab58f53983be771c4aba9d7904ab9a8676893eba37f206
+  sha256: 3fd9c8533971f2dc47861215c63860353dd1f79c6ab28a669854187c6d70cb41
   role: model_mesh_free_only_policy
 - path: AI_SKILL_LIBRARY/v4/model_mesh/providers.yaml
-  sha256: 8f48b8465bb89228b54001776a5693de117ecda02ce959541116c6a0d20e5f3e
+  sha256: 4c44bb5a731d68077e7121dac2656e82820017369ccd3e77a8474d59431985c3
   role: model_mesh_providers
 - path: AI_SKILL_LIBRARY/v4/model_mesh/active.json
-  sha256: 6dddecd25cf86d18883087e31c9f9a9227574a918cb76a42f8a4dd70fa58c5fc
+  sha256: b8e7277f38b04cfe2df6747cc56bc4c2521576271f02fc62bd52149d29b00f4e
   role: model_mesh_active
 - path: AI_SKILL_LIBRARY/v4/model_mesh/runtime_bindings.json
-  sha256: bb494d4b5cc88f0c64676eeaeba327a8d85edc922da2f238134e9b5de29285b0
+  sha256: 4efe477a98f6e9cdde2fce72ad8c65a91242c09cce3417f98648b070789bb5d7
   role: model_mesh_runtime_bindings
 - path: AI_SKILL_LIBRARY/v4/model_mesh/discovery.yaml
-  sha256: 7f15e2ffcf9df874674bc9e1f08ce4d8aacc5b84616ddab7d2b765cc348d34e5
+  sha256: 312d9ea6f1c8748479273e9eb52cd6d5a20a6697641daa827e1ed12953412f82
   role: model_mesh_discovery
 - path: AI_SKILL_LIBRARY/v4/model_mesh/domain_capabilities.yaml
-  sha256: 46a83a409caf9ca5ffdc5256c3387a46a95178d33a3bc2ee0a3e800d55bec802
+  sha256: 88e170a288b0ae1a24ca6e70abac4cff3b7d587cc7ad54146e31aa32a018cdc8
   role: model_mesh_domain_capabilities
 - path: AI_SKILL_LIBRARY/v4/model_mesh/capability_evidence.json
-  sha256: 028003e75d1245e46033ecb10a79d172f8f8ee39cea1a4529bc097d8f9aea228
+  sha256: ea3e0049479844937f7e2841782c9b92d8ca0d06e12206795beb47e3d244ca55
   role: model_mesh_capability_evidence
 - path: AI_SKILL_LIBRARY/v4/model_mesh/provider_free_catalogs.json
-  sha256: 9f32b811e530991d1e15e88c0811310c1e1dc71a7d97af02dc2e96dce82cd66c
+  sha256: 266edc4172dff2412fad0239219af2299805b2dc90ce746f427255d7e351a5e8
   role: model_mesh_provider_free_catalogs
 - path: AI_SKILL_LIBRARY/v4/schemas/capability_evidence_ledger.schema.json
-  sha256: b0d920dd630497ae05354fddccfaec41a868328622c21567d88f9b4a6571b16a
+  sha256: cb0a9184a72bca90c1dbb10990651b690634ffc4cb5388aa529ec0ecf4b16d41
   role: model_mesh_capability_evidence_schema
 - path: AI_SKILL_LIBRARY/v4/schemas/model_mesh_active_candidate_index.schema.json
-  sha256: 9cddf47a3721850561b06dc3e542f0f22f4e5380579680e9c6709255b3aba3cd
+  sha256: 286a3663f3031fb2cf634f69a4cf3c968aea332550f0a2aaf818e0de6b95f3d3
   role: model_mesh_active_index_schema
 - path: AI_SKILL_LIBRARY/v4/tools/capability_evidence.py
-  sha256: e36b47a0c1e9d5dd42dfc1518b07309f8191ad71c536439af819a577616a9434
+  sha256: 0d28c74b6ed88e3bb90e02d740ee354b7c62634ccd7690ee66f8394d154e1546
   role: model_mesh_capability_evidence_tool
 - path: AI_SKILL_LIBRARY/v4/tools/compile_model_mesh_active_index.py
-  sha256: 4d495e91e8ff24ead1e8b65ee06e9f9201e4a706a2e29d046d244db94d05d668
+  sha256: f0218dc9b751715e5de9929d7102b10837df687d1dda08e45e5641787263e072
   role: model_mesh_active_index_compiler
 - path: AI_SKILL_LIBRARY/v4/tools/validate_model_mesh_active_index.py
-  sha256: 506c0279d529c2e5a2a3e5e7ae70437758ac0ad3643108ff3a5330bb89afddcb
+  sha256: b091290dbe0e50f60a4074d7787659e20a40d0e8b61b60bf9e3e86cb9ccd576c
   role: model_mesh_active_index_validator
 - path: AI_SKILL_LIBRARY/v4/model_mesh/upstreams.yaml
-  sha256: 43d7ff82cd914969eaed57af3fe9c77442662cbcfca7942fad0c9d6d622e8d2e
+  sha256: cbd7eabd14d4443c98b7f910f6671f93f281bd96fbd3d3f4e504fd2acf213414
   role: model_mesh_upstreams
 - path: AI_SKILL_LIBRARY/v4/runtime/routing_aliases.yaml
-  sha256: a692fc6095f96601a16b4a80baa708f81839d7bf1c2a6eeb9c5a209e2e393ec0
+  sha256: deb05e437ff42797edee605216382c1cafbc23b2f252062c068e29cabaf7521b
   role: routing_aliases
 - path: AI_SKILL_LIBRARY/v4/evergreen/policy.yaml
-  sha256: ca0fcd6f7ad02e7167ec210695b26292b115216313f231dad8c0fc103e9ca6c2
+  sha256: f47a0976448c8f0bef2c6a03dcfc5725986f826fe27d9aaaaa9cfb69a4d05376
   role: evergreen
 - path: AI_SKILL_LIBRARY/v4/stable/security.yaml
-  sha256: 898f3ab508e0d8da10127ea9cc3dc57fdc5838d94c29ed57b83ee254efc7ed67
+  sha256: 548f818e974d22d967315ebb9609694679f991e372c61cb3e94da5d82fe9c7d3
   role: security
 - path: AI_SKILL_LIBRARY/evals.yaml
-  sha256: c31d72b59540e3ccd0311c106a7ddcbec5a9b6a5f5e7d90bb93cd421b864a55b
+  sha256: a7a8628f0207875ec9de2560cb9bd5d34852d6aa077f3dbf134fa2c5b7c261e7
   role: evals
 - path: AI_SKILL_LIBRARY/v4/legion/policy.yaml
-  sha256: 40840b5c00abe0646aec21d6cb5884d811dc323f310f1054c5a9d5f6c7b61846
+  sha256: b7f8624a0d65760c7e914a91acf29acd3d68274f1dbb9f524117e11e2ae9fd95
   role: legion_policy
 - path: AI_SKILL_LIBRARY/v4/legion/agents.yaml
-  sha256: 7405660c4824c1fc2f9abdc0a4c436dd7147471e5dcffadfd5288c245f496e75
+  sha256: b6e82059077e89cb7f5b6f845959b3f3baa1c31e4eab231e6af402ef0952da7d
   role: legion_agents
 - path: AI_SKILL_LIBRARY/v4/legion/image_render_policy.yaml
-  sha256: 9058f5c1f1b6add7659f1a374868916411349f7e2552635e47cd4c689534a29b
+  sha256: 1bd919f7ae223c380c4ebf3df245753ab8cf11d04cc319bf6c4f7c774c223529
   role: image_render_policy
 - path: AI_SKILL_LIBRARY/v4/learning/policy.yaml
-  sha256: 0b1bd46550a9147110629a33413c5b02c32b7ac92e61b50f7280dda279ad8376
+  sha256: 3a44f11f42cd012d8226362d0be4687a5ee6d3d0b9c225d54e54dfca0ec44793
   role: learning_policy
 - path: AI_SKILL_LIBRARY/v4/learning/sources.yaml
-  sha256: 8e5515dd974a7a42c66214747ddc7a3881052ada84f98dc5a7d79ec569ae7f23
+  sha256: 5bded7a1307b2514b105269767eb23a8615fca434d424052501dc61d2ae1f7ad
   role: learning_sources
 - path: AI_SKILL_LIBRARY/v4/learning/skill_factory.yaml
-  sha256: a0cda5475e62c94e6af614424233c1afcb22499401f8569252bff6bf1c1a2969
+  sha256: 7a85b18b7ed0b9a89360490c60386c18dbc8040d9b1527029dd29ca2ef8874f7
   role: skill_factory
 - path: AI_SKILL_LIBRARY/v4/learning/skill_evo.yaml
-  sha256: 52fe1f3b61bc695da266c18fcd9b05229ffe84de5600dba4a47033032c0bc28b
+  sha256: e9530d45d633a4ef9682c22bb39e7b40b827059febda74b486e9eb98eb444c7e
   role: skill_evo
 - path: AI_SKILL_LIBRARY/v4/learning/idle.yaml
-  sha256: e9a47cd602dd05eb460afa471337f22f067dc65305342a350e318ef41c444126
+  sha256: 3c77ab99b9cc3997515e4a60ac3a32ffc889ec528695808b6cf2926b1b65349a
   role: idle_learning
 - path: AI_SKILL_LIBRARY/v4/integrations/policy.yaml
-  sha256: d9c086c2b3cbc772b73f3b37942235b2fb7f647b443e70f578a28585baf2a07b
+  sha256: 61c22628eab854a493fa58c8ed04c9d61e39f4e03c0fe5c3642f21a02e0e2f60
   role: vnext_integration_policy
 - path: AI_SKILL_LIBRARY/v4/tools/agent_skill_compat.py
-  sha256: 7486db33cc17c029e9905f7450b757c82352ac2894ad98a92eac02c8e62babd0
+  sha256: 0b02eb0872929fabc073d060125d4b5daa08863cbba69e9b1b7dc33312636b4a
   role: agent_skill_compatibility_tool
 - path: AI_SKILL_LIBRARY/v4/tools/integration_adapters.py
-  sha256: fa5a784def66ec572227451c355ecbefd4fdf7f9677827641845e25c4027d3d8
+  sha256: 8858a79263036fe90ab5a3e36764db9e3392d1ef2f7258ae5809c4fc808c169b
   role: vnext_integration_adapter_tool
 - path: AI_SKILL_LIBRARY/v4/tools/adaptive_execution.py
-  sha256: af0f34d342f155fa002161c12b060325d3214ea67d2796b282dfee633953fde0
+  sha256: c56eb6a7f19ad7fb3e82e705289c074d6fca474c4de3908fc0a2aec6457abb52
   role: adaptive_execution_tool
 - path: AI_SKILL_LIBRARY/v4/tools/discover_free_models.py
-  sha256: df29eddc6a4fa55465911bb77fef68c2af9436bd6bca4f45e822ba89d70bc0c6
+  sha256: 983772d9b242f2a0949b01f38547d9bdaf70ebc1a601635d0256ac96ab60d47c
   role: free_model_discovery_tool
 - path: AI_SKILL_LIBRARY/v4/tools/legion.py
-  sha256: 9b1800275f0a75a56dd6f28aed893b29770f08b9c970b581df088db9071fb700
+  sha256: 97d095ec1b9fc77a488f8453c54f1f056310d37fd6e0575ad1250f03c6e3f3b4
   role: legion_runtime_tool
 - path: AI_SKILL_LIBRARY/v4/tools/admission.py
-  sha256: 9d9286d3e9a77924ac89602ded74283070c5fc161614a03c69b23398c28dea84
+  sha256: 48ad1de400c456391f42cfd2480343bc5b276460be71577633b63330941df0d9
   role: evergreen_admission_tool
 - path: AI_SKILL_LIBRARY/v4/integrations/brain_expansion_architecture.yaml
-  sha256: 1e4f6b9bfed3ba98db986cfe786acaa8cce529c2ef76cd35243a513082003318
+  sha256: 0603b13b51947b3b500d9c23326a89e49ca09cf30126c2e8caa9e7341b4ec92c
   role: brain_expansion_architecture
 - path: AI_SKILL_LIBRARY/v4/integrations/brain_expansion_adapters.yaml
-  sha256: 28408c0e31b745b936764e351c8fabadbf540554d2d5aa3f0a12eb012b7a9371
+  sha256: 446b4863ed2a7dc7a534e95b6d705648286121ca3fcd5cdcac8bf36016f7f076
   role: brain_expansion_adapter_registry
 - path: AI_SKILL_LIBRARY/v4/tools/brain_expansion_adapters.py
-  sha256: 28b8fc94d00157fdb62f6bcd1f4017f5dc582455f242a191181cdc4fcab6f39d
+  sha256: 1e31047f574c862795f80ddb64c285110f73f5e11b4924fc33d83006e19849bb
   role: brain_expansion_adapter_tool
 - path: AI_SKILL_LIBRARY/v4/tools/validate_brain_expansion.py
-  sha256: 069e2e74c216b86a103fd7ddaf9c95942ace2a5fdc70c61db88aeb4d065e471b
+  sha256: 28b40c4e8fe91e6411775092e25c0c44883e7edc6b3bec52500ba5bfde58e25d
   role: brain_expansion_adapter_validator
 - path: AI_SKILL_LIBRARY/v4/tools/activate_brain_expansion.py
-  sha256: ca7a44dfb042a1f0f61ad8dc49019d84932041bfe8e02dfb1aed741d352b85ad
+  sha256: 02c23b9e8eb1f9816696e418d66937ecb8efaf7afc74f14ac45fd5824f348983
   role: brain_expansion_activation_runtime
 - path: AI_SKILL_LIBRARY/v4/tools/merge_activation_reports.py
-  sha256: 13d9001896c0385ba0978040d22d7601e4cf4bfad11a6f430cfabd8007520e28
+  sha256: dc9cc6e1d6b3b326a78ef92d1ae39332356b3bab2c739aa26e2907076bfbc0f3
   role: brain_expansion_activation_merge_tool
 - path: AI_SKILL_LIBRARY/v4/stable/universal_fabric.yaml
-  sha256: 759331e866b451dabc6b3899cc362df10f359bb8c704d3b48ecf9395fb7e99ee
+  sha256: bcdf6316d66ba3f3dc3e9f1f79b6b3d462e70bde20532043e8eabdb74c0fa487
   role: universal_fabric
 - path: AI_SKILL_LIBRARY/v4/adapters/registry.yaml
-  sha256: 79185c0343c683eff1ee578ae58fed7400ed7f7ce56642260f8c4b369a580c29
+  sha256: 3a7426d7a9d81a242f67a5324238da496188ad3f23b7f6484ca69c8404841445
   role: universal_adapter_registry
 compatibility:
   min_architecture: 4.0.0
