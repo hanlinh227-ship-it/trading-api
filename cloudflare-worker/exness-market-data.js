@@ -6,6 +6,9 @@ const b64url=value=>Buffer.from(value).toString('base64url');
 const sha256=value=>createHash('sha256').update(value).digest();
 const jsonHeaders={'content-type':'application/json','cache-control':'no-store'};
 const MAX_TICK_FRAME_BYTES=16_384;
+const MAX_EVENT_FRAME_BYTES=65_536;
+// The server events stream documents exactly these subscriptions.
+const EVENTS_SUBSCRIBABLE=['transactions','account_state','instruments','hmr'];
 const PKCS8_ED25519_PREFIX=Buffer.from('302e020100300506032b657004220420','hex');
 
 function fail(code,status=503){const error=new Error(code);error.code=code;error.status=status;return error;}
@@ -108,17 +111,21 @@ function ruleForRest(limits,path){
   return rateRule(row?.rate_limit);
 }
 
-function ruleForTicks(limits,accountId){
+// Shared WebSocket admission rules for the events and ticks streams. The per-operation
+// subscription rate comes from the live limits payload, never from a hardcoded value.
+function ruleForStream(limits,accountId,stream,operation){
   const websocket=limits?.limits?.websocket,global=websocket?.global_account_limits;
   const active=Number(global?.active_connections?.limit??global?.max_active_connections??global?.active_connections_limit??global?.active_connections);
   if(!Number.isFinite(active)||active<1)throw fail('EXNESS_WEBSOCKET_CONNECTION_LIMIT_UNAVAILABLE');
   const connection=rateRule(global?.connection_rate??global?.connection_creation_rate);
-  const path=`/v1/server-events/accounts/${accountId}/ws/ticks`;
-  const endpoint=(websocket?.endpoints||[]).find(x=>String(x.path||'')===path||String(x.path||'').includes('/accounts/{account_id}/ws/ticks'));
-  const subscription=rateRule(endpoint?.subscription_operation_rate?.ticks??endpoint?.subscription_operation_rate?.[0]);
+  const path=`/v1/server-events/accounts/${accountId}/ws/${stream}`;
+  const suffix=`/accounts/{account_id}/ws/${stream}`;
+  const endpoint=(websocket?.endpoints||[]).find(x=>String(x.path||'')===path||String(x.path||'').includes(suffix));
+  const subscription=rateRule(endpoint?.subscription_operation_rate?.[operation]??endpoint?.subscription_operation_rate?.[0]);
   if(!connection||!subscription)throw fail('EXNESS_WEBSOCKET_RATE_LIMIT_UNAVAILABLE');
   return {active,connection,subscription,path};
 }
+function ruleForTicks(limits,accountId){return ruleForStream(limits,accountId,'ticks','ticks');}
 
 export function buildExnessSignedHeaders({apiKey,privateKey,method='GET',pathWithQuery,body='',timestamp=Date.now()}={}){
   if(String(method).toUpperCase()!=='GET')throw fail('EXNESS_READ_ONLY_GET_REQUIRED',405);
@@ -263,6 +270,44 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
       return {...withoutAccountId(result),receivedAt:new Date(now()).toISOString()};
     });
   }
+  // Server events stream. Returns the first message the server sends after the subscription
+  // (a snapshot for `transactions` and `hmr`). Read-only: the connection is signed as a GET
+  // and the only message sent is the subscribe command.
+  async function loadEvents(query={}){
+    const event=String(query.event||'').trim().toLowerCase();
+    if(!EVENTS_SUBSCRIBABLE.includes(event))throw fail('EXNESS_EVENT_INVALID',400);
+    const instruments=(Array.isArray(query.instruments)?query.instruments:String(query.instrument||'').split(',')).map(value=>String(value||'').trim()).filter(Boolean);
+    if(instruments.some(value=>!/^[A-Za-z0-9._-]{1,11}$/.test(value)))throw fail('EXNESS_INSTRUMENT_INVALID',400);
+    if(event==='hmr'&&instruments.length===0)throw fail('EXNESS_HMR_INSTRUMENTS_REQUIRED',400);
+    const limits=await limitsForRequest(),rules=ruleForStream(limits,cfg.accountId,'events',event);
+    if(rules.active<1)throw fail('EXNESS_WEBSOCKET_CONNECTION_LIMIT_BLOCKED');
+    await reserveRule('websocket:connection',rules.connection);
+    await reserveRule('websocket:subscribe:'+event,rules.subscription);
+    const path=rules.path,url=new URL(path,await resolveBaseUrl());
+    const headers={...buildExnessSignedHeaders({apiKey:cfg.apiKey,privateKey:cfg.privateKey,pathWithQuery:path,timestamp:now()}),Upgrade:'websocket'};
+    let response;try{response=await fetchImpl(url.toString(),{method:'GET',headers,cache:'no-store'});}catch{throw fail('EXNESS_WEBSOCKET_HANDSHAKE_FAILED');}
+    const socket=response?.webSocket;if(!socket)throw fail(response?.status===429?'EXNESS_UPSTREAM_RATE_LIMITED':'EXNESS_WEBSOCKET_HANDSHAKE_FAILED',response?.status===429?429:503);
+    try{
+      socket.accept?.();
+      const messagePromise=new Promise((resolve,reject)=>{
+        const timeout=setTimeout(()=>reject(fail('EXNESS_EVENT_TIMEOUT',504)),timeoutMs);
+        const finish=(fn,value)=>{clearTimeout(timeout);fn(value);};
+        socket.addEventListener('message',incoming=>{
+          const data=typeof incoming.data==='string'?incoming.data:String(incoming.data);
+          if(new TextEncoder().encode(data).byteLength>MAX_EVENT_FRAME_BYTES)return finish(reject,fail('EXNESS_EVENT_FRAME_TOO_LARGE'));
+          let message;try{message=JSON.parse(data);}catch{return;}
+          if(Number.isFinite(Number(message?.code))&&message?.error_message)return finish(reject,fail('EXNESS_WEBSOCKET_UPSTREAM_ERROR'));
+          finish(resolve,message);
+        });
+        socket.addEventListener('error',()=>finish(reject,fail('EXNESS_WEBSOCKET_STREAM_FAILED')));
+        socket.addEventListener('close',()=>finish(reject,fail('EXNESS_WEBSOCKET_CLOSED_BEFORE_EVENT')));
+      });
+      const subscription={id:`events-${event}-1`,subscribe:{event}};
+      if(instruments.length)subscription.subscribe.instruments=instruments;
+      socket.send(JSON.stringify(subscription));
+      return {event,source:'EXNESS_WEBSOCKET_EVENTS',message:await messagePromise,receivedAt:new Date(now()).toISOString()};
+    }finally{try{socket.close(1000,'event received');}catch{}}
+  }
   async function quote(instrument){
     const symbol=String(instrument||'').trim();if(!/^[A-Za-z0-9._-]{1,11}$/.test(symbol))throw fail('EXNESS_INSTRUMENT_INVALID',400);
     return cacheRead('quote:'+symbol,500,async()=>{
@@ -301,7 +346,7 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
     }finally{try{socket.close(1000,'quote received');}catch{}}
     });
   }
-  return {instruments:loadInstruments,quote,account:loadAccount,limits:loadLimits,conditions:loadConditions,candles:loadCandles,config:{accountId:cfg.accountId,readOnly:true}};
+  return {instruments:loadInstruments,quote,account:loadAccount,limits:loadLimits,conditions:loadConditions,candles:loadCandles,events:loadEvents,config:{accountId:cfg.accountId,readOnly:true}};
 }
 
 export function jsonResponse(body,status=200){return new Response(JSON.stringify(body),{status,headers:jsonHeaders});}
