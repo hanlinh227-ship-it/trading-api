@@ -24,6 +24,11 @@ jobs:
     steps:
       - name: Check out isolated smoke-test branch
         uses: actions/checkout@v4
+      - name: Show configured public Exness API hostname
+        run: |
+          const url = new URL(process.env.EXNESS_API_BASE_URL);
+          if (url.protocol !== "https:") throw new Error("HTTPS host required");
+          console.log("EXNESS_API_HOSTNAME=" + url.hostname);
       - name: Verify Ed25519 signing implementation
         run: node scripts/exness_readonly_smoke.mjs --self-test
       - name: Check authenticated read-only Exness endpoint
