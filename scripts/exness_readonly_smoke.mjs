@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import {
-  createHash,
   createPrivateKey,
+  createPublicKey,
   sign as cryptoSign,
   verify as cryptoVerify,
 } from "node:crypto";
@@ -179,7 +179,6 @@ async function main() {
     process.exitCode = 1;
   } finally {
     clearTimeout(timeout);
-    createHash("sha256").update("cleanup").digest();
   }
 }
 
