@@ -20,6 +20,19 @@ AUTONOMOUS_TRIGGERS = {
     "scan markets",
     "best setup",
 }
+DOMAIN_AUTOPILOT_TERMS = {
+    "tìm lệnh forex",
+    "quét forex",
+    "tìm setup forex",
+    "quét coin",
+    "tìm lệnh coin",
+    "tìm setup crypto",
+    "quét futures",
+    "tìm lệnh futures",
+    "tìm setup nq futures",
+    "quét forex coin future",
+    "quét forex crypto futures",
+}
 
 
 class AutonomousMarketRoutingTests(unittest.TestCase):
@@ -32,6 +45,12 @@ class AutonomousMarketRoutingTests(unittest.TestCase):
         self.assertIn("TOP_SETUP", multi_market["output_contract"])
         self.assertIn("NO_TRADE", multi_market["output_contract"])
         self.assertIn("research", multi_market["output_contract"].lower())
+
+    def test_multi_market_analysis_owns_domain_specific_autopilot_queries(self):
+        snapshot = compile_snapshot(ROOT, "0" * 40, generated_at="2026-09-16T00:00:00Z")
+        routed_terms = set(snapshot["skills"]["multi_market_analysis"]["triggers"])
+        routed_terms.update(snapshot["routing_aliases"].get("multi_market_analysis", []))
+        self.assertTrue(DOMAIN_AUTOPILOT_TERMS.issubset(routed_terms))
 
     def test_v3_output_contract_exposes_autonomous_acquisition_and_research_levels(self):
         snapshot = compile_snapshot(ROOT, "0" * 40, generated_at="2026-09-16T00:00:00Z")
@@ -59,6 +78,20 @@ class AutonomousMarketRoutingTests(unittest.TestCase):
         self.assertIn("top_setup", normalized)
         self.assertIn("no_trade", normalized)
         self.assertIn("do not ask the caller to choose a provider", normalized)
+
+    def test_execution_capsule_declares_free_first_domain_provider_routing(self):
+        capsule = (ROOT / "AI_SKILL_LIBRARY/skills/trading/multi_market_analysis.md").read_text(encoding="utf-8")
+        normalized = capsule.lower()
+
+        self.assertIn("domain provider routing", normalized)
+        self.assertIn("binance", normalized)
+        self.assertIn("massive", normalized)
+        self.assertIn("crypto", normalized)
+        self.assertIn("forex", normalized)
+        self.assertIn("futures", normalized)
+        self.assertIn("not_entitled", normalized)
+        self.assertIn("context_only", normalized)
+        self.assertIn("never silently switch to a paid source", normalized)
 
     def test_legacy_trading_router_aliases_yield_to_canonical_trigger_owner(self):
         snapshot = compile_snapshot(ROOT, "0" * 40, generated_at="2026-09-16T00:00:00Z")
