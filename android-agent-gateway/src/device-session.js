@@ -1,4 +1,5 @@
 import { validateTypedAction } from './action-schema.js'
+import { sanitizeCheckpoint, planMicroActions } from './cloud-escalation.js'
 import { importPrivateJwk, signCommand, verifyPairingProof } from './crypto.js'
 import { planNextStep } from './planner.js'
 import {
@@ -42,6 +43,14 @@ function safeResultCode(result) {
   const code = result?.code ?? result?.detail ?? null
   if (code == null) return null
   return String(code).replace(/[^A-Za-z0-9_.:-]/g, '_').slice(0, 96)
+}
+
+function safeRecoveryReason(value) {
+  const safe = String(value ?? 'LOCAL_RECOVERY_REQUIRED')
+    .replace(/[^A-Za-z0-9_.:-]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 96)
+  return safe || 'LOCAL_RECOVERY_REQUIRED'
 }
 
 function observationFingerprint(observation) {
@@ -151,6 +160,9 @@ export class DeviceSession {
     if (url.pathname === '/task' && request.method === 'POST') return this.createTask(request)
     if (url.pathname.startsWith('/task-confirm/') && request.method === 'POST') return this.confirmTask(url.pathname.slice('/task-confirm/'.length))
     if (url.pathname.startsWith('/task-cancel/') && request.method === 'POST') return this.cancelTask(url.pathname.slice('/task-cancel/'.length))
+    if (url.pathname.startsWith('/task-checkpoint/') && request.method === 'POST') return this.taskCheckpoint(request, url.pathname.slice('/task-checkpoint/'.length))
+    if (url.pathname.startsWith('/task-micro-plan/') && request.method === 'POST') return this.taskMicroPlan(request, url.pathname.slice('/task-micro-plan/'.length))
+    if (url.pathname.startsWith('/task-recovery/') && request.method === 'POST') return this.taskRecovery(request, url.pathname.slice('/task-recovery/'.length))
     if (url.pathname.startsWith('/task/') && request.method === 'GET') return this.getTask(url.pathname.slice('/task/'.length))
     if (url.pathname === '/task-step' && request.method === 'POST') return this.taskStep(request)
     if (url.pathname === '/next' && request.method === 'GET') return this.next(request)
@@ -338,6 +350,95 @@ export class DeviceSession {
     return json(publicTaskState(cancelled))
   }
 
+  async taskCheckpoint(request, taskId) {
+    const pairing = await this.authorizedDevice(request)
+    if (!pairing) return json({ error: 'unauthorized_device' }, 401)
+    await this.markDeviceSeen()
+    const decoded = decodeURIComponent(taskId)
+    const key = `task:${decoded}`
+    const task = await this.state.storage.get(key)
+    if (!task) return json({ error: 'task_not_found' }, 404)
+    if (terminalStatus(task.status)) return json({ error: 'task_terminal', status: task.status }, 409)
+    const body = await request.json().catch(() => ({}))
+    const checkpoint = sanitizeCheckpoint(body)
+    const updated = {
+      ...task,
+      selectedSkillId: checkpoint.selectedSkillId ?? task.selectedSkillId ?? null,
+      lastDeviceCheckpoint: checkpoint,
+      updatedAt: new Date().toISOString(),
+    }
+    await this.state.storage.put(key, updated)
+    return json({ accepted: true, taskId: decoded, checkpoint })
+  }
+
+  async taskMicroPlan(request, taskId) {
+    const pairing = await this.authorizedDevice(request)
+    if (!pairing) return json({ error: 'unauthorized_device' }, 401)
+    await this.markDeviceSeen()
+    const decoded = decodeURIComponent(taskId)
+    const key = `task:${decoded}`
+    const task = await this.state.storage.get(key)
+    if (!task) return json({ error: 'task_not_found' }, 404)
+    if (terminalStatus(task.status)) return json({ error: 'task_terminal', status: task.status }, 409)
+    const body = await request.json().catch(() => null)
+    if (!body?.observation || typeof body.observation !== 'object') return json({ error: 'observation_required' }, 400)
+    const planned = await planMicroActions({
+      env: this.env,
+      task,
+      observation: body.observation,
+      imageDataUrl: typeof body.imageDataUrl === 'string' ? body.imageDataUrl : null,
+      history: task.history,
+    }, Math.min(8, Math.max(1, Number(body.maxActions) || 8)))
+    const actions = []
+    for (const candidate of planned.actions ?? []) {
+      const clamped = clampTaskStep({ task, action: candidate, observation: body.observation })
+      actions.push(clamped.action)
+    }
+    return json({
+      taskId: decoded,
+      task: publicTaskState(task),
+      actions: actions.slice(0, 8),
+      mode: planned.mode ?? 'cloud',
+    })
+  }
+
+  async taskRecovery(request, taskId) {
+    const pairing = await this.authorizedDevice(request)
+    if (!pairing) return json({ error: 'unauthorized_device' }, 401)
+    await this.markDeviceSeen()
+    const decoded = decodeURIComponent(taskId)
+    const key = `task:${decoded}`
+    let task = await this.state.storage.get(key)
+    if (!task) return json({ error: 'task_not_found' }, 404)
+    if (terminalStatus(task.status)) return json({ error: 'task_terminal', status: task.status }, 409)
+    const body = await request.json().catch(() => null)
+    if (!body?.observation || typeof body.observation !== 'object') return json({ error: 'observation_required' }, 400)
+    const reason = safeRecoveryReason(body.reason)
+    task = {
+      ...task,
+      lastRecoveryReason: reason,
+      updatedAt: new Date().toISOString(),
+    }
+    await this.state.storage.put(key, task)
+    const planned = await planMicroActions({
+      env: this.env,
+      task,
+      observation: body.observation,
+      imageDataUrl: typeof body.imageDataUrl === 'string' ? body.imageDataUrl : null,
+      history: appendSafeHistory(task, {
+        actionType: 'local_recovery',
+        result: reason,
+        fingerprint: observationFingerprint(body.observation),
+      }),
+    }, 8)
+    const actions = []
+    for (const candidate of planned.actions ?? []) {
+      const clamped = clampTaskStep({ task, action: candidate, observation: body.observation })
+      actions.push(clamped.action)
+    }
+    return json({ taskId: decoded, actions: actions.slice(0, 8), mode: planned.mode ?? 'recovery' })
+  }
+
   async taskStep(request) {
     const pairing = await this.authorizedDevice(request)
     if (!pairing) return json({ error: 'unauthorized_device' }, 401)
@@ -428,6 +529,88 @@ export class DeviceSession {
       }
       await this.state.storage.put(key, task)
       return json({ ...publicTaskState(task), error: code }, 409)
+    }
+
+    if (body.localOperator === true) {
+      let planned
+      try {
+        planned = await planMicroActions({
+          env: this.env,
+          task,
+          observation: body.observation,
+          imageDataUrl: typeof body.imageDataUrl === 'string' ? body.imageDataUrl : null,
+          history: task.history,
+        }, Math.min(8, Math.max(1, Number(body.maxActions) || 8)))
+      } catch {
+        task = {
+          ...task,
+          status: 'FAILED',
+          failureCode: 'PLANNER_FAILED',
+          pendingCommandId: null,
+          pendingExpected: null,
+          pendingActionType: null,
+          updatedAt: new Date().toISOString(),
+        }
+        await this.state.storage.put(key, task)
+        return json({ ...publicTaskState(task), error: 'PLANNER_FAILED' }, 500)
+      }
+
+      const localActions = []
+      try {
+        for (const candidate of planned.actions ?? []) {
+          const clamped = clampTaskStep({ task, action: candidate, observation: body.observation })
+          localActions.push(clamped.action)
+        }
+      } catch (error) {
+        task = {
+          ...task,
+          status: 'FAILED',
+          failureCode: error.message,
+          pendingCommandId: null,
+          pendingExpected: null,
+          pendingActionType: null,
+          updatedAt: new Date().toISOString(),
+        }
+        await this.state.storage.put(key, task)
+        return json({ ...publicTaskState(task), error: error.message }, 403)
+      }
+
+      if (planned.expected?.type === 'task_complete' || localActions.length === 0) {
+        task = {
+          ...task,
+          status: 'COMPLETED',
+          pendingExpected: null,
+          pendingActionType: null,
+          pendingCommandId: null,
+          lastFingerprint: currentFingerprint,
+          updatedAt: new Date().toISOString(),
+        }
+        await this.state.storage.put(key, task)
+        return json({
+          ...publicTaskState(task),
+          plannerMode: planned.mode ?? 'cloud',
+          localActions: [],
+          localBatchId: null,
+        })
+      }
+
+      const localBatchId = crypto.randomUUID()
+      task = {
+        ...task,
+        status: 'ACTING',
+        lastFingerprint: currentFingerprint,
+        pendingExpected: planned.expected ?? { type: 'observation_returned' },
+        pendingActionType: localActions[0].type,
+        pendingCommandId: localBatchId,
+        updatedAt: new Date().toISOString(),
+      }
+      await this.state.storage.put(key, task)
+      return json({
+        ...publicTaskState(task),
+        plannerMode: planned.mode ?? 'cloud',
+        localActions: localActions.slice(0, 8),
+        localBatchId,
+      })
     }
 
     let planned

@@ -19,6 +19,12 @@ enum class TaskPersistence {
     UNTIL_TERMINAL,
 }
 
+fun TaskPersistence.toV5Policies(): Set<PersistencePolicy> = when (this) {
+    TaskPersistence.ONE_SHOT -> setOf(PersistencePolicy.UNTIL_GOAL_COMPLETE)
+    TaskPersistence.LONG_RUNNING -> setOf(PersistencePolicy.UNTIL_GOAL_COMPLETE)
+    TaskPersistence.UNTIL_TERMINAL -> setOf(PersistencePolicy.UNTIL_GOAL_COMPLETE)
+}
+
 enum class TaskStepOutcome {
     EXECUTED,
     RECOVERABLE_FAILURE,
@@ -53,6 +59,7 @@ data class TaskProgress(
     val riskClass: RiskClass = RiskClass.A,
     val confirmedRiskClassC: Boolean = false,
     val persistence: TaskPersistence = TaskPersistence.ONE_SHOT,
+    val persistencePolicies: Set<PersistencePolicy> = persistence.toV5Policies(),
     val stepCount: Int = 0,
     val epoch: Int = 0,
     val epochStepCount: Int = 0,
