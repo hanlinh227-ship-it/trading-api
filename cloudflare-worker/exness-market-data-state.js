@@ -1,13 +1,14 @@
 import {createHash} from 'node:crypto';
 import {createExnessReadonlyMarketClient,jsonResponse} from './exness-market-data.js';
+import {FOREX_PAIRS} from './exness-live-page.js';
 
 const CACHE_LIMIT=3000;
 const fixedWindow=(rows,now,windowMs)=>rows.filter(at=>Number(at)>now-windowMs);
 // Internal read-only routes only. No mutating internal route exists.
-const READ_ONLY_ROUTES=['/instruments','/quote','/account','/limits','/conditions','/candles','/events'];
+const READ_ONLY_ROUTES=['/instruments','/quote','/account','/limits','/conditions','/candles','/events','/live/ws'];
 
 export class ExnessMarketDataState{
-  constructor(state,env){this.state=state;this.env=env;this.queue=Promise.resolve();}
+  constructor(state,env){this.state=state;this.env=env;this.queue=Promise.resolve();this.liveViewers=0;}
 
   async reserve(rule){
     const windowMs=Math.ceil(Number(rule.windowSeconds)*1000),limit=Math.floor(Number(rule.limit)),now=Number(rule.now);
@@ -34,9 +35,47 @@ export class ExnessMarketDataState{
     const clientHash=createHash('sha256').update(ip).digest('hex');
     const gate=await this.reserve({key:'public:'+clientHash,limit:30,windowSeconds:60,now:Date.now()});
     if(!gate.allowed)return new Response(JSON.stringify({ok:false,error:'RATE_LIMITED',readOnly:true}),{status:429,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','retry-after':'60'}});
+    if(url.pathname==='/live/ws')return this.liveSocket(request);
     const work=this.queue.then(()=>this.handle(url));
     this.queue=work.catch(()=>undefined);
     return work;
+  }
+
+  async liveSocket(request){
+    if(request.headers.get('upgrade')?.toLowerCase()!=='websocket')return jsonResponse({ok:false,error:'WEBSOCKET_UPGRADE_REQUIRED',readOnly:true},426);
+    if(this.liveViewers>=2)return jsonResponse({ok:false,error:'EXNESS_STREAM_VIEWER_LIMIT',readOnly:true},429);
+    this.liveViewers++;
+    // Share the existing per-account rate gate and signed host-discovery logic.
+    // No Exness credential or account number reaches the downstream client.
+    const client=createExnessReadonlyMarketClient(this.env,{store:this.state.storage,reserve:rule=>this.reserve(rule)});
+    let stream;
+    try{stream=await client.openTicksStream(FOREX_PAIRS);}catch(error){this.liveViewers--;return jsonResponse({ok:false,error:String(error?.code||'EXNESS_STREAM_UNAVAILABLE'),readOnly:true},Number(error?.status)||503);}
+    const [browser,server]=Object.values(new WebSocketPair());
+    server.accept();
+    const upstream=stream.socket,allowed=new Set(FOREX_PAIRS);
+    let closed=false;
+    const close=()=>{if(closed)return;closed=true;this.liveViewers=Math.max(0,this.liveViewers-1);try{upstream.close(1000,'viewer closed');}catch{}try{server.close(1000,'stream closed');}catch{}};
+    server.addEventListener('close',close);
+    server.addEventListener('error',close);
+    server.addEventListener('message',()=>{try{server.close(1008,'read only');}catch{}close();});
+    upstream.addEventListener('close',close);
+    upstream.addEventListener('error',close);
+    upstream.addEventListener('message',event=>{
+      const raw=typeof event.data==='string'?event.data:'';
+      if(raw.length>16384)return;
+      let data;try{data=JSON.parse(raw);}catch{return;}
+      if(Number.isFinite(Number(data?.code))&&data?.error_message){try{server.send(JSON.stringify({type:'error',error:'EXNESS_UPSTREAM_ERROR'}));}catch{}close();return;}
+      const tick=data?.tick||data?.data?.tick||data?.data||data;
+      const instrument=String(tick?.instrument||'');
+      if(!allowed.has(instrument))return;
+      const bid=Number(tick?.bid),ask=Number(tick?.ask);
+      const sourceMs=typeof tick?.timestamp==='number'?tick.timestamp:Date.parse(String(tick?.timestamp||''));
+      const receivedMs=Date.now(),age=receivedMs-sourceMs;
+      if(!(bid>0&&ask>bid&&Number.isFinite(sourceMs))||age< -1000||age>10000)return;
+      try{server.send(JSON.stringify({type:'tick',source:'EXNESS_WEBSOCKET_TICKS',instrument,bid,ask,sourceTimestamp:new Date(sourceMs).toISOString(),receivedAt:new Date(receivedMs).toISOString(),sourceToWorkerMs:age}));}catch{close();}
+    });
+    try{stream.subscribe();}catch{close();return jsonResponse({ok:false,error:'EXNESS_SUBSCRIBE_FAILED',readOnly:true},503);}
+    return new Response(null,{status:101,webSocket:browser});
   }
 
   async handle(url){

@@ -346,7 +346,28 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
     }finally{try{socket.close(1000,'quote received');}catch{}}
     });
   }
-  return {instruments:loadInstruments,quote,account:loadAccount,limits:loadLimits,conditions:loadConditions,candles:loadCandles,events:loadEvents,config:{accountId:cfg.accountId,readOnly:true}};
+  // A browser never sees these signed headers. The caller installs message handlers
+  // before calling subscribe(), so the Exness initial snapshot cannot be lost.
+  async function openTicksStream(instruments){
+    if(!Array.isArray(instruments)||instruments.length<1||instruments.length>28||new Set(instruments).size!==instruments.length)throw fail('EXNESS_STREAM_INSTRUMENTS_INVALID',400);
+    const catalog=await loadInstruments();
+    if(instruments.some(symbol=>!/^[A-Z]{6}$/.test(symbol)||!catalog.instruments.includes(symbol)))throw fail('EXNESS_INSTRUMENT_NOT_ACCOUNT_SUPPORTED',400);
+    const limits=await limitsForRequest(),rules=ruleForTicks(limits,cfg.accountId);
+    if(rules.active<1)throw fail('EXNESS_WEBSOCKET_CONNECTION_LIMIT_BLOCKED');
+    const subscription=JSON.stringify({id:'forex-eight-currencies',subscribe:{event:'ticks',instruments}});
+    const maxBytes=Number(limits?.limits?.websocket?.global_account_limits?.max_inbound_message_bytes);
+    if(!(maxBytes>0)||utf8(subscription).length>maxBytes)throw fail('EXNESS_STREAM_SUBSCRIPTION_TOO_LARGE');
+    await reserveRule('websocket:connection',rules.connection);
+    await reserveRule('websocket:subscribe:ticks',rules.subscription);
+    const path=rules.path,url=new URL(path,await resolveBaseUrl());
+    const headers={...buildExnessSignedHeaders({apiKey:cfg.apiKey,privateKey:cfg.privateKey,pathWithQuery:path,timestamp:now()}),Upgrade:'websocket'};
+    let response;try{response=await fetchImpl(url.toString(),{method:'GET',headers,cache:'no-store'});}catch{throw fail('EXNESS_WEBSOCKET_HANDSHAKE_FAILED');}
+    const socket=response?.webSocket;
+    if(!socket)throw fail(response?.status===429?'EXNESS_UPSTREAM_RATE_LIMITED':'EXNESS_WEBSOCKET_HANDSHAKE_FAILED',response?.status===429?429:503);
+    socket.accept?.();
+    return {socket,subscribe:()=>socket.send(subscription)};
+  }
+  return {instruments:loadInstruments,quote,openTicksStream,account:loadAccount,limits:loadLimits,conditions:loadConditions,candles:loadCandles,events:loadEvents,config:{accountId:cfg.accountId,readOnly:true}};
 }
 
 export function jsonResponse(body,status=200){return new Response(JSON.stringify(body),{status,headers:jsonHeaders});}
