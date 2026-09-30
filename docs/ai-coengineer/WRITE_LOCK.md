@@ -1,10 +1,15 @@
-# AI WRITE LOCK
+# AI WRITE LOCK — CURRENT STATUS
 
-LOCKED: true
-SCOPE: Bybit Auto production quality/runtime + protected trading authority
-UPDATED: 2026-08-27
+LOCKED: false
+OWNER: none
+SCOPE: none
+UPDATED: 2026-09-30 UTC+7
 
-GitHub `main` is authoritative. Current Bybit Auto production design is **BYBIT-AUTO-1.9.1**. Signal V11 is historical/research-only unless explicitly referenced by current source.
+The unowned 2026-08-27 lock for **BYBIT-AUTO-1.9.1** is released for this user-authorized documentation reconciliation. This release authorizes no runtime, strategy-code, credential, deployment, or live-order changes. Any future source change must establish a new explicit scope, owner, and lock after checking the current authority pointers and runtime evidence.
+
+## Archived legacy lock record — 2026-08-27
+
+The following historical lock details are retained for audit only. Its numeric settings and BYBIT-AUTO authority are not current policy; current declared Trading authority is resolved through `AI_SKILL_LIBRARY/projects.yaml` and `docs/checkpoints/CURRENT_HANDOFF.md`.
 
 ## Hard production invariants
 Preserve:
