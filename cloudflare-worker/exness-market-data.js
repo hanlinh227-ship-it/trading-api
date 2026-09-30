@@ -25,19 +25,54 @@ function loadPrivateKey(secret){
   const key=createPrivateKey({key:bytes,format:'der',type:'pkcs8'});if(key.asymmetricKeyType!=='ed25519')throw new Error('not Ed25519');return key;
 }
 const STATIC_REVIEW_HOSTS=new Set(['api.exness.com','api.exness-api.com']);
+// Any host Exness itself can serve the API from. The value is either operator-configured
+// or returned by Exness's own signed host-discovery response, so the control that matters
+// is that it stays inside the exness.com registrable domain.
 export function isApprovedExnessHost(hostname){
-  const host=String(hostname||'').toLowerCase();
+  const host=String(hostname||'').toLowerCase().replace(/\.+$/,'');
+  if(!host||host.length>253)return false;
   if(STATIC_REVIEW_HOSTS.has(host))return true;
-  if(/^ap-[a-z0-9-]+(?:[.]trading)?[.]exness[.]com$/.test(host))return true;
-  return /^[a-z0-9-]+[.]trading[.]exness[.]com$/.test(host);
+  if(!/^[a-z0-9.-]+$/.test(host)||host.includes('..'))return false;
+  return host.endsWith('.exness.com')||host.endsWith('.exness-api.com');
 }
 function isStaticReviewHost(baseUrl){try{return STATIC_REVIEW_HOSTS.has(new URL(String(baseUrl||'')).hostname.toLowerCase());}catch{return false;}}
 function cleanBaseUrl(value){let u;try{u=new URL(String(value||''));}catch{throw fail('EXNESS_API_BASE_URL_INVALID',503);}if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash||!isApprovedExnessHost(u.hostname))throw fail('EXNESS_API_BASE_URL_INVALID',503);return u.origin;}
+// The host-discovery payload may carry the host as a bare string, under a differently
+// named field, or nested one level deep. Accept all of those rather than guessing one.
+function extractAccessPointHost(value){
+  if(typeof value==='string')return value.trim();
+  if(!value||typeof value!=='object')return '';
+  for(const key of ['access_point','accessPoint','host','hostname','url','endpoint','origin']){
+    const candidate=value[key];
+    if(typeof candidate==='string'&&candidate.trim())return candidate.trim();
+  }
+  for(const key of ['data','result','access_point','accessPoint']){
+    const nested=value[key];
+    if(nested&&typeof nested==='object'){const found=extractAccessPointHost(nested);if(found)return found;}
+  }
+  return '';
+}
+// Sanitized shape token: enough to diagnose a rejected access point without ever echoing
+// the host itself. Uppercase and underscores only, so a canary can append it verbatim.
+export function describeExnessAccessPoint(value){
+  if(value==null)return 'APVALUE_ABSENT';
+  if(typeof value==='object'){
+    const keys=Object.keys(value).slice(0,8).map(key=>String(key).replace(/[^A-Za-z0-9]+/g,'_').toUpperCase()).join('_');
+    return ('APVALUE_OBJECT_KEYS_'+keys).toUpperCase().replace(/[^A-Z0-9_]/g,'').slice(0,120);
+  }
+  if(typeof value!=='string')return ('APVALUE_TYPE_'+typeof value).toUpperCase().replace(/[^A-Z0-9_]/g,'');
+  const raw=value.trim();
+  if(!raw)return 'APVALUE_EMPTY';
+  let u;try{u=new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)?raw:'https://'+raw);}catch{return 'APVALUE_UNPARSABLE'+(raw.includes('/')?'_SLASH':'')+(raw.includes(' ')?'_SPACE':'');}
+  const labels=u.hostname.toLowerCase().replace(/\.+$/,'').split('.').filter(Boolean);
+  const tail=labels.slice(-2).join('_').replace(/[^a-z0-9_]/g,'').toUpperCase();
+  return ['APVALUE_STRING',`SCHEME_${u.protocol.replace(':','').toUpperCase()}`,`LABELS_${labels.length}`,`TAIL_${tail}`,`AP_PREFIX_${/^ap-/.test(labels[0]||'')?'YES':'NO'}`,`HAD_QUERY_${u.search?'YES':'NO'}`,`HAD_USERINFO_${(u.username||u.password)?'YES':'NO'}`].join('_');
+}
 export function normalizeExnessAccessPoint(value){
-  const raw=String(value||'').trim();
-  if(!raw)throw fail('EXNESS_ACCESS_POINT_MISSING',503);
-  let u;try{u=new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)?raw:'https://'+raw);}catch{throw fail('EXNESS_ACCESS_POINT_INVALID',503);}
-  if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash||!isApprovedExnessHost(u.hostname))throw fail('EXNESS_ACCESS_POINT_INVALID',503);
+  const raw=extractAccessPointHost(value);
+  if(!raw){const error=fail('EXNESS_ACCESS_POINT_MISSING',503);error.upstreamClass=describeExnessAccessPoint(value);throw error;}
+  let u;try{u=new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)?raw:'https://'+raw);}catch{const error=fail('EXNESS_ACCESS_POINT_INVALID',503);error.upstreamClass=describeExnessAccessPoint(value);throw error;}
+  if(u.protocol!=='https:'||u.username||u.password||!isApprovedExnessHost(u.hostname)){const error=fail('EXNESS_ACCESS_POINT_INVALID',503);error.upstreamClass=describeExnessAccessPoint(value);throw error;}
   return u.origin;
 }
 function classifyUpstreamError(status,response){
@@ -131,7 +166,7 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
         if(store){const saved=await store.get('cache:access-point');if(saved&&Number(saved.expiresAt)>now()&&saved.value)return saved.value;}
         const path=`/v1/trading/access-point?account_id=${encodeURIComponent(cfg.accountId)}`;
         const payload=await rawGet(path,cfg.baseUrl);
-        const base=normalizeExnessAccessPoint(payload?.access_point??payload?.accessPoint);
+        const base=normalizeExnessAccessPoint(payload);
         if(store)await store.put('cache:access-point',{value:base,expiresAt:now()+900_000});
         return base;
       })().catch(error=>{accessPointRequest=null;throw error;});

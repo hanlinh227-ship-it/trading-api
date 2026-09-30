@@ -3,7 +3,13 @@ import {pathToFileURL} from 'node:url';
 
 async function httpFailureReason(response,label){
   let detail='';
-  try{const body=await response.clone().json();const code=String(body?.error||'');if(/^[A-Z0-9_]{1,64}$/.test(code))detail='_'+code;}catch{}
+  try{
+    const body=await response.clone().json();
+    const code=String(body?.error||'');if(/^[A-Z0-9_]{1,64}$/.test(code))detail='_'+code;
+    // Sanitized classification only, never the upstream body or any credential value.
+    const shape=String(body?.upstreamClass||'').toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+    if(shape)detail+='_'+shape.slice(0,90);
+  }catch{}
   return label+'_HTTP_'+response.status+detail;
 }
 
