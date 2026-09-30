@@ -1,10 +1,11 @@
 import {jsonResponse} from './exness-market-data.js';
 import {authState} from './worker-auth.js';
+import {EXNESS_LIVE_PAGE} from './exness-live-page.js';
 
 const readOnlyEnabled=env=>String(env.EXNESS_ENABLED||'').toLowerCase()==='true'&&String(env.EXNESS_MODE||'').toUpperCase()==='SHADOW'&&String(env.EXNESS_LIVE_ENABLED||'').toLowerCase()!=='true'&&String(env.EXNESS_LIVE_ACK||'').toLowerCase()!=='true';
 
 // Read-only surface only. No trading, order, deposit or account-modification route exists here.
-const READ_ONLY_ROUTES=['/exness/instruments','/exness/quote','/exness/account','/exness/limits','/exness/conditions','/exness/candles','/exness/events'];
+const READ_ONLY_ROUTES=['/exness/instruments','/exness/quote','/exness/account','/exness/limits','/exness/conditions','/exness/candles','/exness/events','/exness/live','/exness/live/ws'];
 const INSTRUMENT_ROUTES=['/exness/quote','/exness/conditions'];
 // The server events stream can carry balance, equity and used margin, so it stays read-only
 // but never public: it requires the same action key as the other account-state surfaces.
@@ -26,6 +27,8 @@ export async function handleExnessMarketData(request,env={},opts={}){
   const url=new URL(request.url),path=url.pathname;
   if(!READ_ONLY_ROUTES.includes(path))return null;
   if(request.method!=='GET')return jsonResponse({ok:false,error:'METHOD_NOT_ALLOWED',readOnly:true},405);
+  if(path==='/exness/live')return new Response(EXNESS_LIVE_PAGE,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','content-security-policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' wss:; base-uri 'none'; form-action 'none'",'x-content-type-options':'nosniff'}});
+  if(path==='/exness/live/ws'&&request.headers.get('upgrade')?.toLowerCase()!=='websocket')return jsonResponse({ok:false,error:'WEBSOCKET_UPGRADE_REQUIRED',readOnly:true},426);
   if(AUTHENTICATED_ROUTES.includes(path)&&!authState(request,env).ok)return jsonResponse({ok:false,exchange:'EXNESS',readOnly:true,error:'UNAUTHORIZED'},401);
   if(!readOnlyEnabled(env))return jsonResponse({ok:false,error:'EXNESS_READ_ONLY_DISABLED',readOnly:true},503);
   if(!(env.EXNESS_READONLY_API_KEY||env.EXNESS_API_KEY)||!(env.EXNESS_READONLY_PRIVATE_KEY||env.EXNESS_PRIVATE_KEY)||!(env.EXNESS_READONLY_ACCOUNT_ID||env.EXNESS_ACCOUNT_ID)||!(env.EXNESS_READONLY_API_BASE_URL||env.EXNESS_API_BASE_URL))return jsonResponse({ok:false,error:'EXNESS_RUNTIME_CONFIGURATION_MISSING',readOnly:true},503);
@@ -47,8 +50,9 @@ export async function handleExnessMarketData(request,env={},opts={}){
     if(!binding)throw Object.assign(new Error('EXNESS_RUNTIME_BINDING_MISSING'),{code:'EXNESS_RUNTIME_BINDING_MISSING',status:503});
     const accountId=env.EXNESS_READONLY_ACCOUNT_ID||env.EXNESS_ACCOUNT_ID;
     const id=binding.idFromName(String(accountId)),stub=binding.get(id);
-    const target=internalTarget(path,url,instrument);
-    const response=await stub.fetch(new Request('https://exness-market-data.internal'+target,{method:'GET',headers:{'x-exness-client-ip':String(request.headers.get('cf-connecting-ip')||'unknown').slice(0,64)}}));
+    const target=path==='/exness/live/ws'?'/live/ws':internalTarget(path,url,instrument);
+    const response=await stub.fetch(new Request('https://exness-market-data.internal'+target,{method:'GET',headers:{'x-exness-client-ip':String(request.headers.get('cf-connecting-ip')||'unknown').slice(0,64),...(path==='/exness/live/ws'?{Upgrade:'websocket'}:{})}}));
+    if(path==='/exness/live/ws'&&response.webSocket)return response;
     return new Response(await response.text(),{status:response.status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
   }catch(error){
     const code=String(error?.code||error?.message||'EXNESS_MARKET_DATA_UNAVAILABLE');
