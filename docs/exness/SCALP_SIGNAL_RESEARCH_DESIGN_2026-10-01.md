@@ -89,6 +89,22 @@ Mobile layout: full-width card in the central column, large readable Bid/Ask and
 
 Acceptance examples: (a) BUY entryAsk 1.10020, currentBid 1.10000, pipSize .0001 → −2.0 pips, red left; (b) SELL entryBid 150.000, currentAsk 149.980, pipSize .01 → +2.0 pips, green right; (c) missing SL/TP → disabled, labeled; (d) stale WS → same last signed value plus `GIÁ CŨ`; (e) Đánh giá does not rewrite the paper entry. Compare rendered values with deterministic fixtures and ensure the price stream latency/Bybit bot is unchanged.
 
+### Per-signal AI assessment lights
+
+At the top-right corner of **each** signal card, show a compact cluster of three small circular indicators in fixed order **green / amber / red**. Exactly one is illuminated at a time; unselected circles are dim outlines. A short text status and last-assessed time beside/below the cluster make the meaning readable without color. Before assessment, all three are outlines and text reads `Chưa đánh giá`. Each card has a small `Đánh giá tín hiệu` action; the main `Đánh giá` action reviews both currently valid cards in one bounded request. Per-card action reviews only its selected signal, subject to the same authentication, rate and spending budget. No AI call on a price tick.
+
+| Light | Visible label | Meaning and behavior |
+| --- | --- | --- |
+| Green | `Còn hợp lệ` | Fresh data and the deterministic method still pass; AI found no supported reason to veto. It is a time-limited research assessment, not a prediction of profit. |
+| Amber | `Cần xem lại` | AI is running, evidence is incomplete/uncertain, or a fresh check cannot decide. While loading use text `Đang đánh giá…`; if data or AI is unavailable use `Chưa xác định` and an explicit cause, never imply a successful review. |
+| Red | `Không còn hợp lệ` | A deterministic veto (stale quote, violated structure, expired signal, observed stop/target crossing, material event risk) or a supported AI veto. State the exact reason and evidence time. Stop presenting the card as a current candidate. |
+
+The authoritative state is a server-validated verdict for `{signalId, snapshotHash, methodVersion, assessedAt, expiresAt, sourceTimestamp, reasonCode, evidenceIds}`. AI may challenge or veto with attributable evidence but cannot convert a deterministic red into green or change the original paper entry. An assessment expires after a measured freshness interval and falls to `Chưa xác định` until reviewed again; it must never stay green indefinitely. A live price update can trigger a deterministic red immediately when an invalidation rule is met, without invoking AI. Do not equate the red/green **gauge fill** (simulated pip movement) with these separate **assessment lights**; a profitable simulated position can still have a red assessment.
+
+When a card turns red, show a non-blocking inline decision panel beneath the reason: `Bỏ tín hiệu` and `Giữ để theo dõi`. **Bỏ** removes it from the active view and archives its immutable snapshot and verdict in History; allow `Hoàn tác` for a short UI interval, restoring only an archived/history view. **Giữ để theo dõi** keeps the red card visible and continues the read-only price gauge, with persistent `Không còn hợp lệ · đang theo dõi` text. It does not reopen the signal as valid, place an order, extend expiry or suppress future warnings. If user wants a new green signal, run a new Signal scan and fresh assessment to create a *new ID*. Persist the user action, reason and timestamp; protect against duplicate taps and a stale response overwriting a newer verdict. If pending/unknown, neither action is presented as a trade decision.
+
+UI/acceptance: circles are indicators, not tiny touch targets; the adjacent labeled action is at least 44 CSS px. Screen readers announce one status and its reason/time. Test green→red from price invalidation while the gauge remains green, amber on AI timeout, red→keep (still red), red→dismiss (history preserved), out-of-order AI responses, expiry and reconnect. No new upstream WebSocket or Bybit bot changes.
+
 ## Acceptance gates
 
 1. Baseline WS A/B telemetry at least 30 minutes per state for all 28 pairs; demonstrate price flow unaffected by button/AI latency or failure. Report source cadence, age, p50/p95/p99, gaps, disconnects and quotas per pair.
