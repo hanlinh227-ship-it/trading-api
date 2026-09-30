@@ -5,6 +5,25 @@ OWNER: none
 SCOPE: none
 UPDATED: 2026-09-30 UTC+7
 
+Allowed paths for this scoped change:
+- `docs/ai-coengineer/OPEN_ISSUES.md`
+- `docs/ai-coengineer/WRITE_LOCK.md`
+- `cloudflare-worker/exness-market-data.js`
+- `cloudflare-worker/exness-market-data-handler.js`
+- `cloudflare-worker/exness-market-data-state.js`
+- `cloudflare-worker/bybit-control-plane.js`
+- `cloudflare-worker/worker-auth.js`
+- `cloudflare-worker/index.js`
+- `cloudflare-worker/prepare-wrangler.mjs`
+- `cloudflare-worker/package.json`
+- `cloudflare-worker/test-exness-market-data.mjs`
+
+Scope: account-specific, GET-only Exness instrument discovery and live tick quote through the current Cloudflare Worker; reuse existing action-key auth; require account-supported instruments and official signed WebSocket ticks; retain source and receive timestamps; enforce account-provided limits; never add trading methods or alter Bybit strategy/execution.
+
+Acceptance: signature/handshake, exact instrument allowlist, tick parsing, stale/error behavior and route auth tests; full Worker checks and repository CI; production only through the exact-main gated deployment with current SHA and a live Bid/Ask/source-timestamp/receive-timestamp quote.
+
+Released after branch-local implementation and bounded verification. The work is not production-active. This scope does not authorize secret transfer/configuration, merge, or deployment outside the repository's approval gates.
+
 The unowned 2026-08-27 lock for **BYBIT-AUTO-1.9.1** is released for this user-authorized documentation reconciliation. This release authorizes no runtime, strategy-code, credential, deployment, or live-order changes. Any future source change must establish a new explicit scope, owner, and lock after checking the current authority pointers and runtime evidence.
 
 ## Archived legacy lock record — 2026-08-27
