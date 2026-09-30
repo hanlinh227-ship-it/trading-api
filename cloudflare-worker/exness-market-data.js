@@ -24,7 +24,29 @@ function loadPrivateKey(secret){
   if(bytes.length===32)return rawSeedToPrivateKey(bytes);
   const key=createPrivateKey({key:bytes,format:'der',type:'pkcs8'});if(key.asymmetricKeyType!=='ed25519')throw new Error('not Ed25519');return key;
 }
-function cleanBaseUrl(value){let u;try{u=new URL(String(value||''));}catch{throw fail('EXNESS_API_BASE_URL_INVALID',503);}const approved=/^(?:api[.]exness[.]com|api[.]exness-api[.]com|ap-[a-z0-9-]+[.]exness[.]com|[a-z0-9-]+[.]trading[.]exness[.]com)$/i.test(u.hostname);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash||!approved)throw fail('EXNESS_API_BASE_URL_INVALID',503);return u.origin;}
+const STATIC_REVIEW_HOSTS=new Set(['api.exness.com','api.exness-api.com']);
+export function isApprovedExnessHost(hostname){
+  const host=String(hostname||'').toLowerCase();
+  if(STATIC_REVIEW_HOSTS.has(host))return true;
+  if(/^ap-[a-z0-9-]+(?:[.]trading)?[.]exness[.]com$/.test(host))return true;
+  return /^[a-z0-9-]+[.]trading[.]exness[.]com$/.test(host);
+}
+function isStaticReviewHost(baseUrl){try{return STATIC_REVIEW_HOSTS.has(new URL(String(baseUrl||'')).hostname.toLowerCase());}catch{return false;}}
+function cleanBaseUrl(value){let u;try{u=new URL(String(value||''));}catch{throw fail('EXNESS_API_BASE_URL_INVALID',503);}if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash||!isApprovedExnessHost(u.hostname))throw fail('EXNESS_API_BASE_URL_INVALID',503);return u.origin;}
+export function normalizeExnessAccessPoint(value){
+  const raw=String(value||'').trim();
+  if(!raw)throw fail('EXNESS_ACCESS_POINT_MISSING',503);
+  let u;try{u=new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)?raw:'https://'+raw);}catch{throw fail('EXNESS_ACCESS_POINT_INVALID',503);}
+  if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash||!isApprovedExnessHost(u.hostname))throw fail('EXNESS_ACCESS_POINT_INVALID',503);
+  return u.origin;
+}
+function classifyUpstreamError(status,response){
+  if(Number(status)!==404)return 'UPSTREAM_HTTP_ERROR';
+  const contentType=String(response?.headers?.get?.('content-type')||'').toLowerCase();
+  if(contentType.includes('application/json'))return 'UPSTREAM_ENTITY_404_JSON';
+  if(contentType.includes('text/plain'))return 'UPSTREAM_ROUTE_NOT_FOUND_PLAINTEXT';
+  return 'UPSTREAM_UNCLASSIFIED_404';
+}
 function configOf(env={}){
   const config={apiKey:String(env.EXNESS_READONLY_API_KEY||env.EXNESS_API_KEY||'').trim(),privateKey:String(env.EXNESS_READONLY_PRIVATE_KEY||env.EXNESS_PRIVATE_KEY||'').replace(/\\n/g,'\n').trim(),accountId:String(env.EXNESS_READONLY_ACCOUNT_ID||env.EXNESS_ACCOUNT_ID||'').trim(),baseUrl:cleanBaseUrl(env.EXNESS_READONLY_API_BASE_URL||env.EXNESS_API_BASE_URL)};
   if(!config.apiKey)throw fail('EXNESS_API_KEY_MISSING');
@@ -100,10 +122,27 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
     const result=await reserve({key,limit:rule.limit,windowSeconds:rule.windowSeconds,refillRatePerSecond:rule.refillRatePerSecond||null,now:now()});
     if(!result?.allowed)throw fail('EXNESS_RATE_LIMITED',429);
   }
-  async function rawGet(path){
+  let resolvedBaseUrl=null,accessPointRequest=null;
+  async function resolveBaseUrl(){
+    if(resolvedBaseUrl)return resolvedBaseUrl;
+    if(!isStaticReviewHost(cfg.baseUrl))return resolvedBaseUrl=cfg.baseUrl;
+    if(!accessPointRequest){
+      accessPointRequest=(async()=>{
+        if(store){const saved=await store.get('cache:access-point');if(saved&&Number(saved.expiresAt)>now()&&saved.value)return saved.value;}
+        const path=`/v1/trading/access-point?account_id=${encodeURIComponent(cfg.accountId)}`;
+        const payload=await rawGet(path,cfg.baseUrl);
+        const base=normalizeExnessAccessPoint(payload?.access_point??payload?.accessPoint);
+        if(store)await store.put('cache:access-point',{value:base,expiresAt:now()+900_000});
+        return base;
+      })().catch(error=>{accessPointRequest=null;throw error;});
+    }
+    return resolvedBaseUrl=await accessPointRequest;
+  }
+  async function rawGet(path,baseUrl){
+    const target=String(baseUrl||await resolveBaseUrl())+path;
     const headers=buildExnessSignedHeaders({apiKey:cfg.apiKey,privateKey:cfg.privateKey,pathWithQuery:path,timestamp:now()});
-    let response;try{response=await fetchImpl(cfg.baseUrl+path,{method:'GET',headers,cache:'no-store'});}catch{throw fail('EXNESS_READONLY_UPSTREAM_UNAVAILABLE');}
-    if(!response.ok){const upstreamStatus=Number(response.status)||503,isLimited=upstreamStatus===429;const error=fail(isLimited?'EXNESS_UPSTREAM_RATE_LIMITED':'EXNESS_READONLY_UPSTREAM_HTTP_'+upstreamStatus,isLimited?429:503);error.upstreamStatus=upstreamStatus;return Promise.reject(error);}
+    let response;try{response=await fetchImpl(target,{method:'GET',headers,cache:'no-store'});}catch{throw fail('EXNESS_READONLY_UPSTREAM_UNAVAILABLE');}
+    if(!response.ok){const upstreamStatus=Number(response.status)||503,isLimited=upstreamStatus===429;const error=fail(isLimited?'EXNESS_UPSTREAM_RATE_LIMITED':'EXNESS_READONLY_UPSTREAM_HTTP_'+upstreamStatus,isLimited?429:503);error.upstreamStatus=upstreamStatus;error.upstreamClass=classifyUpstreamError(upstreamStatus,response);return Promise.reject(error);}
     try{return await response.json();}catch{throw fail('EXNESS_UPSTREAM_INVALID_JSON');}
   }
   async function restGet(path,limits){
@@ -132,7 +171,7 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
       if(rules.active<1)throw fail('EXNESS_WEBSOCKET_CONNECTION_LIMIT_BLOCKED');
       await reserveRule('websocket:connection',rules.connection);
       await reserveRule('websocket:subscribe:ticks',rules.subscription);
-      const path=rules.path,url=new URL(path,cfg.baseUrl);
+      const path=rules.path,url=new URL(path,await resolveBaseUrl());
       const headers={...buildExnessSignedHeaders({apiKey:cfg.apiKey,privateKey:cfg.privateKey,pathWithQuery:path,timestamp:now()}),Upgrade:'websocket'};
       let response;try{response=await fetchImpl(url.toString(),{method:'GET',headers,cache:'no-store'});}catch{throw fail('EXNESS_WEBSOCKET_HANDSHAKE_FAILED');}
       const socket=response?.webSocket;if(!socket){throw fail(response?.status===429?'EXNESS_UPSTREAM_RATE_LIMITED':'EXNESS_WEBSOCKET_HANDSHAKE_FAILED',response?.status===429?429:503);}

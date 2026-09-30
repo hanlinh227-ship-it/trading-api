@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {Buffer} from 'node:buffer';
 import {createHash,generateKeyPairSync,verify} from 'node:crypto';
-import {buildExnessSignedHeaders,createExnessReadonlyMarketClient} from './exness-market-data.js';
+import {buildExnessSignedHeaders,createExnessReadonlyMarketClient,isApprovedExnessHost,normalizeExnessAccessPoint} from './exness-market-data.js';
 import fs from 'node:fs';
 import {handleExnessMarketData} from './exness-market-data-handler.js';
 import {authState} from './worker-auth.js';
@@ -218,4 +218,63 @@ console.log('exness read-only market data contract ok');
 {
   const unauthorized=createExnessReadonlyMarketClient(env,{fetchImpl:async()=>new Response(JSON.stringify({error_code:1000}),{status:401})});
   await assert.rejects(unauthorized.instruments(),error=>error.code==='EXNESS_READONLY_UPSTREAM_HTTP_401');
+}
+
+const limitsFixture={limits:{rest:{global_account_rate:{limit:100,window_seconds:60},methods:[{path:'/v1/configuration/accounts/{account_id}/instruments',http_method:'GET',rate_limit:{limit:20,window_seconds:60}}]},websocket:{global_account_limits:{active_connections:{limit:1},connection_rate:{limit:10,window_seconds:60}},endpoints:[{path:'/v1/server-events/accounts/{account_id}/ws/ticks',subscription_operation_rate:{ticks:{limit:4,window_seconds:1}}}]}}};
+
+{
+  assert.equal(isApprovedExnessHost('api.exness.com'),true,'documented main review host');
+  assert.equal(isApprovedExnessHost('api.exness-api.com'),true,'documented alternative review host');
+  assert.equal(isApprovedExnessHost('ap-4decef67.exness.com'),true,'documented access point shape from send-first-request');
+  assert.equal(isApprovedExnessHost('ap-qwerty123.trading.exness.com'),true,'documented access point shape from host discovery');
+  assert.equal(isApprovedExnessHost('attacker.example'),false);
+  assert.equal(isApprovedExnessHost('ap-evil.exness.com.attacker.example'),false,'suffix spoofing must not pass the allowlist');
+  assert.equal(isApprovedExnessHost('evil-exness.com'),false);
+  assert.equal(normalizeExnessAccessPoint('ap-4decef67.exness.com'),'https://ap-4decef67.exness.com');
+  assert.equal(normalizeExnessAccessPoint('https://ap-qwerty123.trading.exness.com'),'https://ap-qwerty123.trading.exness.com');
+  assert.throws(()=>normalizeExnessAccessPoint('http://ap-x.exness.com'),/EXNESS_ACCESS_POINT_INVALID/,'plaintext transport must be rejected');
+  assert.throws(()=>normalizeExnessAccessPoint('attacker.example'),/EXNESS_ACCESS_POINT_INVALID/);
+  assert.throws(()=>normalizeExnessAccessPoint(''),/EXNESS_ACCESS_POINT_MISSING/);
+}
+
+{
+  const socket=new FakeSocket(),calls=[],limitsBody=JSON.stringify(limitsFixture);
+  const fetchImpl=async(url,init={})=>{
+    const target=String(url);calls.push({url:target,headers:init.headers});
+    if(target==='https://api.exness.com/v1/trading/access-point?account_id=123456')return new Response(JSON.stringify({access_point:'ap-discovered.trading.exness.com',account_id:123456}));
+    if(target==='https://ap-discovered.trading.exness.com/v1/configuration/accounts/123456/limits')return new Response(limitsBody);
+    if(target==='https://ap-discovered.trading.exness.com/v1/configuration/accounts/123456/instruments')return new Response(JSON.stringify({instruments:['XAUUSD']}));
+    if(init.headers?.Upgrade==='websocket')return wsResponse(socket);
+    return new Response('404 page not found',{status:404,headers:{'content-type':'text/plain; charset=utf-8'}});
+  };
+  const client=createExnessReadonlyMarketClient({...env,EXNESS_API_BASE_URL:'https://api.exness.com'},{fetchImpl,now:()=>1790737200000,maxTickAgeMs:5000,reserve:async()=>({allowed:true})});
+  const quote=await client.quote('XAUUSD');
+  assert.equal(quote.bid,2300.12);
+  assert.equal(quote.ask,2300.24);
+  const discovery=calls.find(x=>x.url.includes('/v1/trading/access-point?account_id=123456'));
+  assert.ok(discovery,'the static review host must be exchanged for the account access point');
+  verifyExnessSignature(discovery.headers,'/v1/trading/access-point?account_id=123456');
+  assert.equal(calls.some(x=>x.url.startsWith('https://api.exness.com/v1/configuration/')),false,'account-scoped reads must never go to the static review host');
+  const scoped=calls.filter(x=>x.url.startsWith('https://ap-discovered.trading.exness.com/'));
+  assert.ok(scoped.some(x=>x.url.endsWith('/limits')),'limits must be read from the resolved access point');
+  assert.ok(scoped.some(x=>x.url.endsWith('/instruments')),'instruments must be read from the resolved access point');
+  const handshake=calls.find(x=>x.headers?.Upgrade==='websocket');
+  assert.equal(handshake.url,'https://ap-discovered.trading.exness.com/v1/server-events/accounts/123456/ws/ticks','the WebSocket handshake must use the resolved access point');
+  await client.instruments();
+  assert.equal(calls.filter(x=>x.url.includes('/v1/trading/access-point')).length,1,'the resolved access point must be memoized per client');
+}
+
+{
+  const fetchImpl=async url=>String(url).includes('/v1/trading/access-point')
+    ? new Response(JSON.stringify({access_point:'attacker.example'}))
+    : new Response(JSON.stringify(limitsFixture));
+  const client=createExnessReadonlyMarketClient({...env,EXNESS_API_BASE_URL:'https://api.exness.com'},{fetchImpl,now:()=>1790737200000,reserve:async()=>({allowed:true})});
+  await assert.rejects(client.instruments(),/EXNESS_ACCESS_POINT_INVALID/,'a discovered host outside the allowlist must be refused');
+}
+
+{
+  const ingress=createExnessReadonlyMarketClient({...env,EXNESS_API_BASE_URL:'https://ap-test.trading.exness.com'},{fetchImpl:async()=>new Response('404 page not found',{status:404,headers:{'content-type':'text/plain; charset=utf-8'}}),now:()=>1790737200000});
+  await assert.rejects(ingress.instruments(),error=>error.code==='EXNESS_READONLY_UPSTREAM_HTTP_404'&&error.upstreamStatus===404&&error.upstreamClass==='UPSTREAM_ROUTE_NOT_FOUND_PLAINTEXT','an ingress route miss must be distinguishable from an account miss');
+  const jsonNotFound=createExnessReadonlyMarketClient({...env,EXNESS_API_BASE_URL:'https://ap-test.trading.exness.com'},{fetchImpl:async()=>new Response(JSON.stringify({code:2000,error_message:'ACCOUNT_NOT_FOUND'}),{status:404,headers:{'content-type':'application/json'}}),now:()=>1790737200000});
+  await assert.rejects(jsonNotFound.instruments(),error=>error.upstreamStatus===404&&error.upstreamClass==='UPSTREAM_ENTITY_404_JSON','an application 404 must be reported as an entity miss');
 }
