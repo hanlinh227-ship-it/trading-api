@@ -279,12 +279,55 @@ async function main() {
     const { response: accountResponse, data: accountData } =
       await getJson(accountUrl, apiKey, privateKey);
     if (accountResponse.ok) {
+      const instrumentsUrl = new URL(
+        `/v1/configuration/accounts/${accountId.trim()}/instruments`,
+        accessPointUrl,
+      );
+      const { response: instrumentsResponse, data: instrumentsData } =
+        await getJson(instrumentsUrl, apiKey, privateKey);
+      if (!instrumentsResponse.ok) {
+        process.stdout.write(JSON.stringify({
+          status: "FAIL",
+          stage: "available_instruments",
+          http_status: instrumentsResponse.status,
+          api_error: safeApiError(instrumentsData),
+          account_details_suppressed: true,
+        }) + "\n");
+        process.exitCode = 1;
+        return;
+      }
+
+      const instrumentList =
+        Array.isArray(instrumentsData) ? instrumentsData :
+        Array.isArray(instrumentsData?.instruments) ? instrumentsData.instruments :
+        Array.isArray(instrumentsData?.data?.instruments) ? instrumentsData.data.instruments :
+        Array.isArray(instrumentsData?.result?.instruments) ? instrumentsData.result.instruments :
+        Array.isArray(instrumentsData?.items) ? instrumentsData.items :
+        Array.isArray(instrumentsData?.data) ? instrumentsData.data : null;
+      if (!instrumentList) {
+        process.stdout.write(JSON.stringify({
+          status: "FAIL",
+          stage: "available_instruments",
+          reason: "unexpected_instrument_list_shape",
+          response_fields: instrumentsData && typeof instrumentsData === "object"
+            ? Object.keys(instrumentsData).filter((key) => /^[a-zA-Z0-9_]{1,40}$/.test(key)).slice(0, 12)
+            : [],
+          account_details_suppressed: true,
+        }) + "\n");
+        process.exitCode = 1;
+        return;
+      }
+
       process.stdout.write(JSON.stringify({
         status: "PASS",
-        http_status: accountResponse.status,
         authenticated: true,
-        read_only_endpoint: "GET /v1/configuration/accounts/{account_id}/account",
+        account_read_http_status: accountResponse.status,
+        instruments_read_http_status: instrumentsResponse.status,
+        available_instrument_count: instrumentList.length,
+        scope: "instruments available to this account",
+        instrument_names_suppressed: true,
         account_details_suppressed: true,
+        live_prices_read: false,
       }) + "\n");
       return;
     }
