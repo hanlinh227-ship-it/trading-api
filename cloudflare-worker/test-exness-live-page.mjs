@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './test-exness-live-reconnect.mjs';
 import vm from 'node:vm';
 import {createExnessReadonlyMarketClient} from './exness-market-data.js';
 import {EXNESS_LIVE_PAGE,FOREX_PAIRS,FOREX_EIGHT_CURRENCIES} from './exness-live-page.js';
