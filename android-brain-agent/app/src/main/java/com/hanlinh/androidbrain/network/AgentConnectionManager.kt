@@ -2,24 +2,20 @@ package com.hanlinh.androidbrain.network
 
 import android.content.Context
 import com.hanlinh.androidbrain.agent.CommandDispatcher
-import com.hanlinh.androidbrain.agent.TaskLoopDecision
-import com.hanlinh.androidbrain.agent.TaskPersistence
-import com.hanlinh.androidbrain.agent.TaskProgress
-import com.hanlinh.androidbrain.agent.TaskProgressCheckpoint
-import com.hanlinh.androidbrain.agent.TaskSessionEngine
-import com.hanlinh.androidbrain.agent.TaskStepOutcome
-import com.hanlinh.androidbrain.agent.TaskStepResult
+import com.hanlinh.androidbrain.agent.PersistentOperatorSession
+import com.hanlinh.androidbrain.agent.UnifiedTaskRuntime
 import com.hanlinh.androidbrain.local.ContactsResolver
+import com.hanlinh.androidbrain.mapping.SharedPreferencesAppMappingStore
 import com.hanlinh.androidbrain.perception.AccessibilitySnapshot
+import com.hanlinh.androidbrain.perception.EventDrivenObserver
 import com.hanlinh.androidbrain.perception.ScreenshotCapture
-import com.hanlinh.androidbrain.policy.RiskClass
-import com.hanlinh.androidbrain.protocol.CommandEnvelope
 import com.hanlinh.androidbrain.service.AgentForegroundService
 import com.hanlinh.androidbrain.service.BrainAccessibilityService
 import com.hanlinh.androidbrain.skills.core.UnknownNumberConversationClassifier
 import com.hanlinh.androidbrain.skills.core.UnknownNumberConversationSelector
 import java.security.MessageDigest
 import java.util.Base64
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
@@ -44,7 +40,9 @@ class AgentConnectionManager(
     @Volatile private var socket: WebSocket? = null
     @Volatile private var socketConnected: Boolean = false
     private val dispatcher = CommandDispatcher(appContext, pairing)
-    private val taskEngines = mutableMapOf<String, TaskSessionEngine>()
+    private val mappingStore = SharedPreferencesAppMappingStore(appContext)
+    private val taskRuntimes = ConcurrentHashMap<String, UnifiedTaskRuntime>()
+    private val taskLocalActionTotals = ConcurrentHashMap<String, Long>()
     private val receiptTracker = CommandReceiptTracker(maxEntries = 64)
     private val unknownConversationSelector by lazy {
         UnknownNumberConversationSelector(
@@ -73,7 +71,9 @@ class AgentConnectionManager(
         val activeSocket = socket
         socket = null
         activeSocket?.close(1000, "service_stop")
-        taskEngines.clear()
+        taskRuntimes.values.forEach { it.requestCancel() }
+        taskRuntimes.clear()
+        taskLocalActionTotals.clear()
         executor.shutdownNow()
     }
 
@@ -96,8 +96,14 @@ class AgentConnectionManager(
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
-                    if (CommandSocketProtocol.isCommandAvailable(text)) {
-                        submit { pollOnce() }
+                    when (val event = CommandSocketProtocol.parseEvent(text)) {
+                        CommandSocketEvent.CommandAvailable -> submit { pollOnce() }
+                        is CommandSocketEvent.TaskCancelled -> {
+                            // Cancellation is thread-safe and intentionally bypasses the single-thread queue
+                            // so a long local loop stops before its next non-atomic action.
+                            taskRuntimes[event.taskId]?.requestCancel()
+                        }
+                        null -> Unit
                     }
                 }
 
@@ -188,7 +194,7 @@ class AgentConnectionManager(
                 receiptTracker.record(result)
                 client.postResult(pairing.deviceId, pairing.deviceToken, result)
                 if (command.schema == 2 && !command.taskId.isNullOrBlank()) {
-                    continueTask(command, result)
+                    continueTask(command.taskId!!, command.commandId, command.capabilityScope, result)
                 }
             }
         } catch (_: InterruptedException) {
@@ -198,12 +204,15 @@ class AgentConnectionManager(
         }
     }
 
-    private fun continueTask(command: CommandEnvelope, result: GatewayClient.TaskResult) {
-        val taskId = command.taskId ?: return
+    private fun continueTask(
+        taskId: String,
+        commandId: String,
+        commandScope: Set<String>,
+        result: GatewayClient.TaskResult,
+    ) {
         val service = BrainAccessibilityService.current ?: return
         val snapshot = service.snapshot() ?: return
-
-        val localGrounding = localGrounding(command, snapshot, result)
+        val localGrounding = localGrounding(commandScope, snapshot, result.status)
         if (localGrounding.failureCode != null) {
             try {
                 client.postTaskStep(
@@ -211,102 +220,258 @@ class AgentConnectionManager(
                     token = pairing.deviceToken,
                     taskId = taskId,
                     observation = snapshot,
-                    previousResult = GatewayClient.TaskResult(
-                        command.commandId,
-                        "FAILED",
-                        localGrounding.failureCode,
-                    ),
-                    imageDataUrl = null,
+                    previousResult = GatewayClient.TaskResult(commandId, "FAILED", localGrounding.failureCode),
                     localFacts = emptyList(),
+                    localOperator = true,
                 )
             } finally {
-                taskEngines.remove(taskId)
+                cleanupTask(taskId)
             }
             return
         }
 
-        val confirmedClassC = command.riskClass == RiskClass.C &&
-            "ui.destructive.confirmed" in command.capabilityScope
-        val existing = taskEngines[taskId]
-        val existingProgress = existing?.currentProgress()
-        val effectiveRisk = if (existingProgress == null || command.riskClass.ordinal > existingProgress.riskClass.ordinal) {
-            command.riskClass
-        } else {
-            existingProgress.riskClass
-        }
-        val desiredProgress = (existingProgress ?: TaskProgress(
-            taskId = taskId,
-            persistence = TaskPersistence.LONG_RUNNING,
-        )).copy(
-            riskClass = effectiveRisk,
-            confirmedRiskClassC = (existingProgress?.confirmedRiskClassC == true) || confirmedClassC,
-        )
-        val engine = if (
-            existing == null ||
-            desiredProgress.riskClass != existingProgress?.riskClass ||
-            desiredProgress.confirmedRiskClassC != existingProgress?.confirmedRiskClassC
-        ) {
-            TaskSessionEngine(desiredProgress).also { taskEngines[taskId] = it }
-        } else {
-            existing
-        }
-
-        val localResult = result.toTaskStepResult()
-        val decision = engine.next(
-            observation = snapshot,
-            previousResult = localResult,
-            killSwitchActive = AgentForegroundService.killSwitchActive,
-        )
-
-        if (decision is TaskLoopDecision.Failed) {
-            try {
-                client.postTaskStep(
-                    deviceId = pairing.deviceId,
-                    token = pairing.deviceToken,
-                    taskId = taskId,
-                    observation = snapshot,
-                    previousResult = GatewayClient.TaskResult(command.commandId, "FAILED", decision.code),
-                    imageDataUrl = null,
-                    localFacts = localGrounding.facts,
-                )
-            } finally {
-                taskEngines.remove(taskId)
-            }
-            return
-        }
-
-        val capture = capturePlannerScreenshot(service)
-        val groundedSnapshot = if (capture != null) snapshot.copy(screenshotHash = capture.sha256) else snapshot
+        val initialCapture = if (snapshot.nodes.size <= SPARSE_NODE_THRESHOLD) capturePlannerScreenshot(service) else null
+        val groundedSnapshot = if (initialCapture != null) snapshot.copy(screenshotHash = initialCapture.sha256) else snapshot
         val response = client.postTaskStep(
             deviceId = pairing.deviceId,
             token = pairing.deviceToken,
             taskId = taskId,
             observation = groundedSnapshot,
             previousResult = result,
-            imageDataUrl = capture?.dataUrl,
+            imageDataUrl = initialCapture?.dataUrl,
             localFacts = localGrounding.facts,
+            localOperator = true,
+            maxActions = MAX_CLOUD_BATCH_ACTIONS,
         )
-        engine.resume(
-            TaskProgressCheckpoint(
-                stepCount = response.stepCount,
-                epoch = response.epoch,
-                epochStepCount = response.epochStepCount,
-                checkpointCount = response.checkpointCount,
-                recoveryCount = response.recoveryCount,
-            )
+
+        if (response.status in TERMINAL_TASK_STATUSES) {
+            cleanupTask(taskId)
+            return
+        }
+
+        val batchId = response.localBatchId
+        val session = response.persistentSessionOrNull(taskId)
+        if (batchId == null || session == null) {
+            // The gateway may intentionally keep a consequential task on the signed-command path.
+            // In that case no local authority is inferred from an incomplete response.
+            cleanupTask(taskId)
+            return
+        }
+
+        val runtime = createRuntime(session, response.localActions)
+        taskRuntimes[taskId] = runtime
+        runLocalRuntime(taskId, runtime, batchId, service, response)
+    }
+
+    private fun createRuntime(
+        session: PersistentOperatorSession,
+        initialActions: List<com.hanlinh.androidbrain.protocol.Action>,
+    ): UnifiedTaskRuntime {
+        var revisionToAwait: Long? = null
+        val observationProvider = {
+            val observer = EventDrivenObserver.current
+            val revision = revisionToAwait
+            if (observer == null) {
+                null
+            } else if (revision != null) {
+                revisionToAwait = null
+                observer.awaitSemanticChange(revision, timeoutMs = POST_ACTION_EVENT_TIMEOUT_MS)
+            } else {
+                observer.refresh()
+            }
+        }
+        val actionExecutor: (com.hanlinh.androidbrain.protocol.Action, PersistentOperatorSession) -> Boolean = { action, authority ->
+            val observer = EventDrivenObserver.current
+            val beforeRevision = observer?.cache?.semanticRevision
+            val executed = dispatcher.executeAuthorizedLocal(action, authority)
+            if (executed && beforeRevision != null) revisionToAwait = beforeRevision
+            executed
+        }
+        return UnifiedTaskRuntime(
+            taskId = session.taskId,
+            session = session,
+            mappingStore = mappingStore,
+            initialCloudActions = initialActions,
+            observationProvider = observationProvider,
+            actionExecutor = actionExecutor,
         )
-        if (response.status in TERMINAL_TASK_STATUSES || decision is TaskLoopDecision.Completed) {
-            taskEngines.remove(taskId)
+    }
+
+    private fun runLocalRuntime(
+        taskId: String,
+        initialRuntime: UnifiedTaskRuntime,
+        initialBatchId: String,
+        service: BrainAccessibilityService,
+        initialResponse: GatewayClient.TaskStepResponse,
+    ) {
+        var runtime = initialRuntime
+        var batchId = initialBatchId
+        var serverStepCount = initialResponse.stepCount
+        var serverEpoch = initialResponse.epoch
+        var serverCheckpointCount = initialResponse.checkpointCount
+
+        while (running.get() && taskRuntimes[taskId] === runtime) {
+            if (AgentForegroundService.killSwitchActive) {
+                runtime.requestCancel()
+                cleanupTask(taskId)
+                return
+            }
+
+            val loop = runtime.runUntilEscalation(MAX_LOCAL_ACTIONS_PER_CHUNK)
+            val total = taskLocalActionTotals.merge(taskId, loop.executedLocalActions.toLong(), Long::plus) ?: 0L
+
+            if (loop.reason == "LOCAL_BUDGET_REACHED") {
+                postCheckpointBestEffort(
+                    taskId = taskId,
+                    runtime = runtime,
+                    serverStepCount = serverStepCount,
+                    serverEpoch = serverEpoch,
+                    serverCheckpointCount = serverCheckpointCount,
+                    localActionTotal = total,
+                )
+                continue
+            }
+
+            if (loop.reason == "CANCELLED") {
+                cleanupTask(taskId)
+                return
+            }
+
+            val snapshot = service.snapshot() ?: run {
+                cleanupTask(taskId)
+                return
+            }
+            val grounding = localGrounding(runtime.currentSession().capabilityScope, snapshot, "COMPLETED")
+            if (grounding.failureCode != null) {
+                reportLocalFailure(taskId, batchId, snapshot, grounding.failureCode)
+                cleanupTask(taskId)
+                return
+            }
+
+            val recoverableCode = when (loop.reason) {
+                "LOCAL_ACTION_DISPATCH_FAILED" -> "ACTION_DISPATCH_FAILED"
+                "LOCAL_POSTCONDITION_NOT_MET", "POST_ACTION_OBSERVATION_REQUIRED" -> "POSTCONDITION_NOT_MET"
+                else -> null
+            }
+            val terminalCode = when (loop.reason) {
+                "APP_SCOPE_EXIT" -> "APP_SCOPE_EXIT"
+                "HARD_SAFETY_BLOCK" -> "HARD_SAFETY_BLOCK"
+                else -> null
+            }
+            val captureNeeded = loop.reason in VISUAL_ESCALATION_REASONS || snapshot.nodes.size <= SPARSE_NODE_THRESHOLD
+            val capture = if (captureNeeded) capturePlannerScreenshot(service) else null
+            val groundedSnapshot = if (capture != null) snapshot.copy(screenshotHash = capture.sha256) else snapshot
+            val previousResult = when {
+                terminalCode != null -> GatewayClient.TaskResult(batchId, "FAILED", terminalCode)
+                recoverableCode != null -> GatewayClient.TaskResult(batchId, "FAILED", recoverableCode)
+                else -> GatewayClient.TaskResult(batchId, "COMPLETED")
+            }
+
+            val response = try {
+                client.postTaskStep(
+                    deviceId = pairing.deviceId,
+                    token = pairing.deviceToken,
+                    taskId = taskId,
+                    observation = groundedSnapshot,
+                    previousResult = previousResult,
+                    imageDataUrl = capture?.dataUrl,
+                    localFacts = grounding.facts,
+                    localOperator = true,
+                    maxActions = MAX_CLOUD_BATCH_ACTIONS,
+                )
+            } catch (error: GatewayClient.GatewayException) {
+                if (error.statusCode == 409) {
+                    cleanupTask(taskId)
+                    return
+                }
+                // A temporary cloud loss does not revoke an already-authorized runtime.
+                // Continue only while the runtime still has a verified local path.
+                if (runtime.hasPendingCloudActions()) continue
+                cleanupTask(taskId)
+                return
+            }
+
+            serverStepCount = response.stepCount
+            serverEpoch = response.epoch
+            serverCheckpointCount = response.checkpointCount
+            if (response.status in TERMINAL_TASK_STATUSES || terminalCode != null) {
+                cleanupTask(taskId)
+                return
+            }
+
+            val nextBatchId = response.localBatchId
+            val nextSession = response.persistentSessionOrNull(taskId)
+            if (nextBatchId == null || nextSession == null) {
+                // Consequential actions remain on the signed command queue.
+                cleanupTask(taskId)
+                return
+            }
+
+            runtime = createRuntime(nextSession, response.localActions)
+            taskRuntimes[taskId] = runtime
+            batchId = nextBatchId
         }
     }
 
-    private fun localGrounding(
-        command: CommandEnvelope,
+    private fun postCheckpointBestEffort(
+        taskId: String,
+        runtime: UnifiedTaskRuntime,
+        serverStepCount: Int,
+        serverEpoch: Int,
+        serverCheckpointCount: Int,
+        localActionTotal: Long,
+    ) {
+        val observation = EventDrivenObserver.current?.latest()
+        runCatching {
+            client.postCheckpoint(
+                pairing.deviceId,
+                pairing.deviceToken,
+                taskId,
+                GatewayClient.V5Checkpoint(
+                    stepCount = (serverStepCount.toLong() + localActionTotal).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                    epoch = serverEpoch + (localActionTotal / CHECKPOINT_ACTION_INTERVAL).toInt(),
+                    checkpointCount = serverCheckpointCount + (localActionTotal / CHECKPOINT_ACTION_INTERVAL).toInt(),
+                    screenSignature = observation?.screenSignature,
+                    metrics = mapOf(
+                        "localReasoningCount" to localActionTotal.toDouble(),
+                        "cloudReasoningCount" to 1.0,
+                    ),
+                ),
+            )
+        }
+        if (runtime.currentSession().terminal) cleanupTask(taskId)
+    }
+
+    private fun reportLocalFailure(
+        taskId: String,
+        batchId: String,
         snapshot: AccessibilitySnapshot,
-        result: GatewayClient.TaskResult,
+        code: String,
+    ) {
+        runCatching {
+            client.postTaskStep(
+                deviceId = pairing.deviceId,
+                token = pairing.deviceToken,
+                taskId = taskId,
+                observation = snapshot,
+                previousResult = GatewayClient.TaskResult(batchId, "FAILED", code),
+                localOperator = true,
+            )
+        }
+    }
+
+    private fun cleanupTask(taskId: String) {
+        taskRuntimes.remove(taskId)?.requestCancel()
+        taskLocalActionTotals.remove(taskId)
+    }
+
+    private fun localGrounding(
+        capabilityScope: Set<String>,
+        snapshot: AccessibilitySnapshot,
+        resultStatus: String,
     ): LocalGrounding {
-        if (result.status.uppercase() != "COMPLETED") return LocalGrounding()
-        if ("contacts.read" !in command.capabilityScope) return LocalGrounding()
+        if (resultStatus.uppercase() != "COMPLETED") return LocalGrounding()
+        if ("contacts.read" !in capabilityScope) return LocalGrounding()
         if (!isMessagingPackage(snapshot.packageName)) return LocalGrounding()
 
         val selection = unknownConversationSelector.select(snapshot)
@@ -354,17 +519,6 @@ class AgentConnectionManager(
         )
     }
 
-    private fun GatewayClient.TaskResult.toTaskStepResult(): TaskStepResult = when (status.uppercase()) {
-        "COMPLETED" -> TaskStepResult(TaskStepOutcome.EXECUTED)
-        "NEEDS_CONFIRMATION" -> TaskStepResult(TaskStepOutcome.NEEDS_CONFIRMATION, detail)
-        "FAILED" -> if (detail in RECOVERABLE_CODES) {
-            TaskStepResult(TaskStepOutcome.RECOVERABLE_FAILURE, detail)
-        } else {
-            TaskStepResult(TaskStepOutcome.FATAL_FAILURE, detail ?: "FAILED")
-        }
-        else -> TaskStepResult(TaskStepOutcome.FATAL_FAILURE, "UNKNOWN_RESULT_STATUS")
-    }
-
     private data class PlannerScreenshot(
         val dataUrl: String,
         val sha256: String,
@@ -377,11 +531,18 @@ class AgentConnectionManager(
 
     private companion object {
         const val SCREENSHOT_TIMEOUT_MS = 1_500L
+        const val POST_ACTION_EVENT_TIMEOUT_MS = 800L
         const val MAX_SCREENSHOT_BYTES = 2_000_000
+        const val SPARSE_NODE_THRESHOLD = 2
+        const val MAX_CLOUD_BATCH_ACTIONS = 8
+        const val MAX_LOCAL_ACTIONS_PER_CHUNK = 32
+        const val CHECKPOINT_ACTION_INTERVAL = 50L
         val TERMINAL_TASK_STATUSES = setOf("COMPLETED", "FAILED", "CANCELLED")
-        val RECOVERABLE_CODES = setOf(
-            "ACTION_DISPATCH_FAILED",
-            "POSTCONDITION_NOT_MET",
+        val VISUAL_ESCALATION_REASONS = setOf(
+            "CAPTURE_VISUAL",
+            "CLOUD_RECOVERY",
+            "LOCAL_POSTCONDITION_NOT_MET",
+            "POST_ACTION_OBSERVATION_REQUIRED",
         )
     }
 }

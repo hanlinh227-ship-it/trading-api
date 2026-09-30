@@ -18,9 +18,10 @@ class TaskSessionEngine(
     @Synchronized
     fun resume(checkpoint: TaskProgressCheckpoint): TaskProgress {
         if (checkpoint.stepCount < progress.stepCount) return progress
+        val userStop = PersistencePolicy.UNTIL_USER_STOP in progress.persistencePolicies
         progress = progress.copy(
             stepCount = checkpoint.stepCount,
-            epoch = checkpoint.epoch.coerceAtMost(maxEpochs),
+            epoch = if (userStop) checkpoint.epoch else checkpoint.epoch.coerceAtMost(maxEpochs),
             epochStepCount = checkpoint.epochStepCount.coerceIn(0, epochActionLimit - 1),
             checkpointCount = checkpoint.checkpointCount,
             recoveryCount = checkpoint.recoveryCount.coerceAtMost(maxRecoveries),
@@ -91,16 +92,19 @@ class TaskSessionEngine(
         return TaskLoopDecision.PlanNext(progress)
     }
 
-    private fun canAdvance(): Boolean = when (progress.persistence) {
-        TaskPersistence.ONE_SHOT -> progress.stepCount < maxSteps
-        TaskPersistence.LONG_RUNNING,
-        TaskPersistence.UNTIL_TERMINAL,
-        -> progress.stepCount < epochActionLimit * maxEpochs && progress.epoch < maxEpochs
+    private fun canAdvance(): Boolean {
+        if (PersistencePolicy.UNTIL_USER_STOP in progress.persistencePolicies) return true
+        return when (progress.persistence) {
+            TaskPersistence.ONE_SHOT -> progress.stepCount < maxSteps
+            TaskPersistence.LONG_RUNNING,
+            TaskPersistence.UNTIL_TERMINAL,
+            -> progress.stepCount < epochActionLimit * maxEpochs && progress.epoch < maxEpochs
+        }
     }
 
     private fun advanceStep(current: TaskProgress): TaskProgress {
         val stepCount = current.stepCount + 1
-        if (current.persistence == TaskPersistence.ONE_SHOT) {
+        if (current.persistence == TaskPersistence.ONE_SHOT && PersistencePolicy.UNTIL_USER_STOP !in current.persistencePolicies) {
             return current.copy(stepCount = stepCount)
         }
 

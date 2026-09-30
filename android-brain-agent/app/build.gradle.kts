@@ -12,8 +12,8 @@ android {
         applicationId = "com.hanlinh.androidbrain"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.4.0"
+        versionCode = 14
+        versionName = "0.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GATEWAY_BASE_URL", "\"https://android-brain-agent-gateway.hanlinh227.workers.dev\"")
     }
