@@ -119,8 +119,9 @@ const waitUntilCtx = () => {
   // Scan executable code only. The module documents what it must never do, and
   // that prose is the point -- it is reachable CODE that would be the defect.
   const code = fs.readFileSync('model-mesh/scheduled-health.js', 'utf8')
+    .replace(/\r\n?/g, '\n')
     .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n').map(line => line.replace(/\/\/.*$/, '')).join('\n');
+    .replace(/\/\/[^\n]*/g, '');
   for (const intent of FORBIDDEN_CRON_INTENTS) {
     assert.doesNotMatch(code, new RegExp(intent, 'i'), `health cron must not reference ${intent}`);
   }

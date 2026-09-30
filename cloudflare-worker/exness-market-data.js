@@ -24,7 +24,7 @@ function loadPrivateKey(secret){
   if(bytes.length===32)return rawSeedToPrivateKey(bytes);
   const key=createPrivateKey({key:bytes,format:'der',type:'pkcs8'});if(key.asymmetricKeyType!=='ed25519')throw new Error('not Ed25519');return key;
 }
-function cleanBaseUrl(value){let u;try{u=new URL(String(value||''));}catch{throw fail('EXNESS_API_BASE_URL_INVALID',503);}if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash)throw fail('EXNESS_API_BASE_URL_INVALID',503);return u.origin;}
+function cleanBaseUrl(value){let u;try{u=new URL(String(value||''));}catch{throw fail('EXNESS_API_BASE_URL_INVALID',503);}const approved=/^(?:api[.]exness[.]com|api[.]exness-api[.]com|[a-z0-9-]+[.]trading[.]exness[.]com)$/i.test(u.hostname);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash||!approved)throw fail('EXNESS_API_BASE_URL_INVALID',503);return u.origin;}
 function configOf(env={}){
   const config={apiKey:String(env.EXNESS_API_KEY||'').trim(),privateKey:String(env.EXNESS_PRIVATE_KEY||'').replace(/\\n/g,'\n').trim(),accountId:String(env.EXNESS_ACCOUNT_ID||'').trim(),baseUrl:cleanBaseUrl(env.EXNESS_API_BASE_URL)};
   if(!config.apiKey)throw fail('EXNESS_API_KEY_MISSING');

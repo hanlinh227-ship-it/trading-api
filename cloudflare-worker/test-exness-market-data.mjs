@@ -12,9 +12,10 @@ const privateKeyPem=privateKey.export({format:'pem',type:'pkcs8'}).toString();
 const env={
   EXNESS_ENABLED:'true',EXNESS_MODE:'SHADOW',EXNESS_LIVE_ENABLED:'false',EXNESS_LIVE_ACK:'false',
   EXNESS_API_KEY:'exnsk_test',EXNESS_PRIVATE_KEY:privateKeyPem,EXNESS_ACCOUNT_ID:'123456',
-  EXNESS_API_BASE_URL:'https://ap-test.exness.com',GPT_5AI_ACTION_KEY:'action-test',
+  EXNESS_API_BASE_URL:'https://ap-test.trading.exness.com',GPT_5AI_ACTION_KEY:'action-test',
 };
 
+assert.throws(()=>createExnessReadonlyMarketClient({...env,EXNESS_API_BASE_URL:'https://attacker.example'},{}),/EXNESS_API_BASE_URL_INVALID/);
 assert.equal(authState(new Request('https://local'),env).ok,false);
 assert.equal(authState(new Request('https://local',{headers:{'x-action-key':'action-test'}}),env).source,'ACTION_KEY');
 assert.equal(authState(new Request('https://local',{headers:{authorization:'Bearer bridge-test'}}),{V11_AI_BRIDGE_SECRET:'bridge-test'}).source,'VPS_BRIDGE_SECRET');

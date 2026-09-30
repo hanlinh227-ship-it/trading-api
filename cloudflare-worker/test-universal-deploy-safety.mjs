@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const workflow=fs.readFileSync('../.github/workflows/deploy-skill-mandatory-fast-gateway.yml','utf8');
+const workflow=fs.readFileSync('../.github/workflows/deploy-skill-mandatory-fast-gateway.yml','utf8').replace(/\r\n/g,'\n');
 const wranglerPrep=fs.readFileSync('prepare-wrangler.mjs','utf8');
 const canary=fs.readFileSync('validate-universal-canary.mjs','utf8');
 const universalSecrets=['BRAIN_CLIENT_CHATGPT_TOKEN','BRAIN_CLIENT_CLAUDE_TOKEN','BRAIN_CLIENT_GEMINI_TOKEN','BRAIN_EVERGREEN_TOKEN'];
