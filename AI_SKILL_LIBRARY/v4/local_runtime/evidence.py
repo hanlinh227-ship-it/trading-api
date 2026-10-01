@@ -76,7 +76,56 @@ def normalize_failure(kind: FailureKind | None) -> ExecutionFailureType:
 
 
 def _rss_mb(pid: int) -> float | None:
-    """Current resident set size in MB, or None where /proc is unavailable."""
+    """Current resident set size in MB, or None when the process is unreadable."""
+    if os.name == "nt":
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class ProcessMemoryCountersEx(ctypes.Structure):
+                _fields_ = [
+                    ("cb", wintypes.DWORD),
+                    ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t),
+                    ("PrivateUsage", ctypes.c_size_t),
+                ]
+
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            psapi = ctypes.WinDLL("psapi", use_last_error=True)
+            kernel32.OpenProcess.argtypes = (
+                wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+            kernel32.OpenProcess.restype = wintypes.HANDLE
+            kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+            psapi.GetProcessMemoryInfo.argtypes = (
+                wintypes.HANDLE,
+                ctypes.POINTER(ProcessMemoryCountersEx),
+                wintypes.DWORD,
+            )
+            psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+
+            handle = kernel32.OpenProcess(0x1000 | 0x0010, False, pid)
+            if not handle:
+                return None
+            try:
+                counters = ProcessMemoryCountersEx()
+                counters.cb = ctypes.sizeof(counters)
+                if not psapi.GetProcessMemoryInfo(
+                    handle, ctypes.byref(counters), counters.cb
+                ):
+                    return None
+                return counters.WorkingSetSize / (1024.0 * 1024.0)
+            finally:
+                kernel32.CloseHandle(handle)
+        except (AttributeError, OSError, TypeError, ValueError):
+            return None
+
     try:
         with open(f"/proc/{pid}/status", "r", encoding="utf-8") as handle:
             for line in handle:
@@ -92,8 +141,9 @@ class PeakSampler:
 
     A before/after snapshot is not a peak: the interesting number is the
     high-water mark *during* the run, which a model that loads, allocates and
-    frees will never show at either endpoint. Sampling is best-effort - on a
-    platform without /proc this yields None rather than a fabricated figure.
+    frees will never show at either endpoint. Sampling is best-effort:
+    POSIX uses /proc and Windows uses the process memory API. Unsupported or
+    unreadable processes yield None rather than a fabricated figure.
     """
 
     def __init__(self, pid: int | None = None, *, interval: float = 0.05) -> None:

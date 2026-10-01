@@ -70,3 +70,15 @@ authority is added by this release.
 
 Previous closure record:
 `CHECKPOINTS/OPEN_MODEL_CAPABILITY_LEDGER_4_17_0_CLOSURE_2026-09-17.md`.
+
+
+## Post-closure production verification addendum (2026-10-01)
+
+The status above records the state on 2026-09-20. Production verification later
+completed on exact main source SHA `cc1ac7dcfbdeb812c21a3124296155e59c0c556c`.
+GitHub Actions run `36813506218` passed the exact-main deploy gate, Brain
+health and route checks, Exness read-only quote E2E, Bybit production canaries,
+and the zero-cost/boundary checks. Runtime reported release `4.17.1` at that
+source SHA. This addendum verifies the production deployment; release history
+still records `known_good: false`, so rollback policy continues to use the last
+formally recorded known-good release until a new release is promoted.

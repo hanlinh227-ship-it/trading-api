@@ -310,9 +310,9 @@ class CacheIdentityRoundTripTests(unittest.TestCase):
         from AI_SKILL_LIBRARY.v4.local_runtime.identity import from_record
         from AI_SKILL_LIBRARY.v4.local_runtime.staging import cached_artifact_path
         identity, _ = from_record(self._record("Qwen/Qwen3-8B-GGUF"))
+        root = Path("/given/root")
         self.assertTrue(
-            str(cached_artifact_path(Path("/given/root"), identity))
-            .startswith("/given/root"))
+            cached_artifact_path(root, identity).is_relative_to(root))
 
     def test_a_different_model_is_a_different_key(self):
         """Why run 3 refused: two correct identities, two different models."""
