@@ -161,7 +161,7 @@ releases:
   manifest: AI_SKILL_LIBRARY/v4/releases/4.17.1/manifest.yaml
   previous: 4.17.0
 - version: 4.17.2
-  known_good: false
+  known_good: true
   architecture: GITHUB_BRAIN_V4
   manifest: AI_SKILL_LIBRARY/v4/releases/4.17.2/manifest.yaml
   previous: 4.17.1

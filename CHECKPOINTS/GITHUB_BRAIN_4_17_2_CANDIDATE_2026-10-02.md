@@ -2,7 +2,7 @@
 
 Date: 2026-10-02
 Architecture: GITHUB_BRAIN_V4
-Status: CANDIDATE / NOT DEPLOYED / NOT KNOWN-GOOD
+Status: CI-VALIDATED CANDIDATE / NOT DEPLOYED
 Target release: `4.17.2`
 Current production baseline: `4.17.1`
 Source baseline SHA: `cc1ac7dcfbdeb812c21a3124296155e59c0c556c`
@@ -40,9 +40,17 @@ the Bybit worker, provider billing policy, or routing authority.
   `36813506218` verified source SHA `cc1ac7dcfbdeb812c21a3124296155e59c0c556c`
   and release `4.17.1`. It is baseline evidence only, not evidence that
   candidate release `4.17.2` has been deployed.
-- The candidate manifest remains unvalidated and its history row remains
-  `known_good: false` until candidate CI and exact-main production checks
-  complete.
+- PR CI passed on source SHA
+  `1410236d1272dcf50d18e09de45a91136fc6d65b`: Skill Library CI, Cloudflare
+  Research Runtime CI, Zero Local Cloud Runtime, Fast Gateway CI, and Crypto
+  Skill Registry validation succeeded. Candidate Release automation was
+  skipped because it requires a bot-generated Evergreen branch.
+- After those green gates, canonical `evergreen.py mark-known-good` set
+  `promotion.validated: true` and `history.known_good: true`. Local release
+  verification and release consistency tests pass after this mutation.
+- The metadata update creates a new commit, which still needs exact-SHA CI and
+  production deployment verification. Production remains at `4.17.1` until
+  those gates complete.
 
 ## Authority and safety
 
