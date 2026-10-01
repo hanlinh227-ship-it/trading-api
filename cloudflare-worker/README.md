@@ -110,6 +110,10 @@ Post-deploy checks:
 - `/telegram/setup-webhook` and `/telegram/webhook-info` -> webhook healthy.
 - Telegram `🧭 HUB TOP SETUPS` -> final Hub message, never stuck on scanning.
 
+## Twelve Data reference quote endpoint
+
+`GET /market/forex/quote?symbol=EURUSD` fetches one quote. `GET /market/forex/quotes` fetches all 28 allowlisted pairs in one request. Both use the `TWELVE_DATA_API_KEY` Worker secret, validate provider symbol/timestamp and block data older than 65 seconds. The batch costs 28 Twelve Data quote credits; on partial errors, blocked pairs have no price. Responses are `REFERENCE_PRICE` with `executionAuthoritative: false`, contain no fabricated bid/ask, and cannot authorize Forex execution. This is an on-demand REST snapshot, not a WebSocket stream.
+
 ## Exness read-only endpoints
 
 Public read-only endpoints. None of them uses GPT_5AI_ACTION_KEY, and none of them mutates anything.
