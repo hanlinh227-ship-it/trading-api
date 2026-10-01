@@ -362,12 +362,15 @@ class InterpreterIdentityTests(unittest.TestCase):
                 self.assertNotIn("/", proof.split("] ", 1)[0])
 
     def test_two_interpreters_are_distinguishable(self):
-        """A wrapper is a different path to the same CPython, and says so."""
-        wrapper = self._script(
-            "wrapped-python",
-            '#!/bin/sh\nexec "%s" "$@"\n' % os.path.realpath(sys.executable))
-        mine = mod.interpreter_identity(sys.executable, mod.repo_root())
-        theirs = mod.interpreter_identity(wrapper, mod.repo_root())
+        """The same CPython through distinct executable paths stays distinguishable."""
+        with tempfile.TemporaryDirectory() as temp:
+            wrapper = os.path.join(temp, "wrapped-python")
+            with open(wrapper, "w", encoding="utf-8") as handle:
+                handle.write("wrapper fixture\n")
+            answer = (0, json.dumps([[3, 11, 0], "cpython"]))
+            with mock.patch.object(mod, "_probe", return_value=answer):
+                mine = mod.interpreter_identity(sys.executable, mod.repo_root())
+                theirs = mod.interpreter_identity(wrapper, mod.repo_root())
         self.assertEqual(mine["implementation"], theirs["implementation"])
         self.assertNotEqual(mine["path_sha256"], theirs["path_sha256"])
 

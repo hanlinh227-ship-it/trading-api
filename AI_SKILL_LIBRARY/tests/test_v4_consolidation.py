@@ -366,10 +366,13 @@ class ReleaseTests(unittest.TestCase):
             # it skipped to 4.14.0, and the coincidence stopped holding. A
             # rollback target that is not known-good would be the actual
             # defect, so that is what is asserted.
-            known_good = [row["version"] for row in history["releases"]
-                          if row.get("known_good") is True]
-            self.assertIn(target, known_good)
-            self.assertEqual(target, known_good[-1])
+            known_good_predecessors = [
+                row["version"] for row in history["releases"]
+                if row.get("known_good") is True and row["version"] != pointer["version"]
+            ]
+            self.assertTrue(known_good_predecessors)
+            self.assertIn(target, known_good_predecessors)
+            self.assertEqual(target, known_good_predecessors[-1])
             self.assertNotEqual(target, pointer["version"])
 
     def test_release_manifest_is_reproducible_from_builder(self):
