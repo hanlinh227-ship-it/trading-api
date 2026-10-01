@@ -15,6 +15,24 @@ const makeFetch = (body, status = 200) => async (url, init) => {
 assert.equal(TWELVE_DATA_FOREX_PAIRS.length, 28);
 assert.equal(new Set(TWELVE_DATA_FOREX_PAIRS).size, 28);
 {
+  let calls = 0;
+  const response = await handleTwelveDataReferenceQuote(req('/market/forex/quotes'), env, {
+    now: () => now,
+    fetchImpl: async url => {
+      calls++;
+      const symbol = new URL(url).searchParams.get('symbol');
+      return Response.json({symbol,close:'1.12345',timestamp:now/1000-0.5});
+    },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(calls, 28);
+  assert.equal(body.requested, 28);
+  assert.equal(body.received, 28);
+  assert.equal(body.complete, true);
+  assert.equal(body.executionAuthoritative, false);
+}
+{
   const response = await handleTwelveDataReferenceQuote(req('/market/forex/quote?symbol=EURUSD'), env, {
     now: () => now,
     fetchImpl: makeFetch({symbol: 'EUR/USD', close: '1.12345', timestamp: now / 1000 - 0.5}),

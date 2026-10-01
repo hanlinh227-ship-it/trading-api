@@ -112,7 +112,7 @@ Post-deploy checks:
 
 ## Twelve Data reference quote endpoint
 
-`GET /market/forex/quote?symbol=EURUSD` returns one allowlisted Twelve Data Forex quote (the 28 pairs formed by EUR, GBP, AUD, NZD, USD, JPY, CHF and CAD). It requires the `TWELVE_DATA_API_KEY` Worker secret, validates the provider symbol and timestamp, and blocks data older than 65 seconds. The response is explicitly `REFERENCE_PRICE` with `executionAuthoritative: false`; it contains no fabricated bid/ask and cannot authorize Forex execution. This is an on-demand REST quote, not a 28-symbol WebSocket stream.
+`GET /market/forex/quote?symbol=EURUSD` fetches one quote. `GET /market/forex/quotes` fetches all 28 allowlisted pairs in one request. Both use the `TWELVE_DATA_API_KEY` Worker secret, validate provider symbol/timestamp and block data older than 65 seconds. The batch costs 28 Twelve Data quote credits; on partial errors, blocked pairs have no price. Responses are `REFERENCE_PRICE` with `executionAuthoritative: false`, contain no fabricated bid/ask, and cannot authorize Forex execution. This is an on-demand REST snapshot, not a WebSocket stream.
 
 ## Exness read-only endpoints
 
