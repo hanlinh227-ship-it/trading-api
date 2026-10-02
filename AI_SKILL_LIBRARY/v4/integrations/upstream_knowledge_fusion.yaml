@@ -1,7 +1,7 @@
 version: 1
 purpose: bounded_upstream_capability_knowledge_fusion_for_all_ai
 status: reference_registry_active_no_executable_dependencies
-audited_at: '2026-09-19'
+audited_at: '2026-10-02'
 brain_authority: GITHUB_BRAIN_V4
 routing_authority: false
 reasoning_authority: false
@@ -47,6 +47,8 @@ canonical_targets:
   document_intelligence: AI_SKILL_LIBRARY/v4/stable/capability_fusion.yaml
   creative_visual: AI_SKILL_LIBRARY/v4/stable/creative_visual_fusion.yaml
   prompt_media: AI_SKILL_LIBRARY/v4/mesh/domains/prompt_media.yaml
+  engineering_workflow: AI_SKILL_LIBRARY/v4/skills/engineering/manifest.yaml
+  design_workflow: AI_SKILL_LIBRARY/v4/skills/design_2d/manifest.yaml
 
 entries:
   - id: agent_desktop
@@ -402,3 +404,208 @@ entries:
     auto_activate: false
     routing_authority: false
     reasoning_authority: false
+
+  - id: superpowers
+    repo: obra/superpowers
+    source_url: https://github.com/obra/superpowers
+    source_ref: main
+    source_commit: 8ca22dba9a94f28898bbce59f2537ff4d87c747d
+    observed_at: '2026-10-02'
+    license: MIT
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [engineering]
+    absorbs: [spec_first_scope, incremental_implementation, test_and_review_gates, evidence_based_completion]
+    integration_target: engineering_workflow
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: addy_agent_skills
+    repo: addyosmani/agent-skills
+    source_url: https://github.com/addyosmani/agent-skills
+    source_ref: main
+    source_commit: 9d0c60d406b454a78ccc0a175b19932047aa4dac
+    observed_at: '2026-10-02'
+    license: MIT
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [engineering]
+    absorbs: [lifecycle_checklists, scoped_changes, test_review_ship_gates, performance_measurement]
+    integration_target: engineering_workflow
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: ponytail
+    repo: DietrichGebert/ponytail
+    source_url: https://github.com/DietrichGebert/ponytail
+    source_ref: main
+    source_commit: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
+    observed_at: '2026-10-02'
+    license: MIT
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [engineering]
+    absorbs: [minimal_correct_change, avoid_unneeded_abstraction, concise_output_when_requested]
+    integration_target: engineering_workflow
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: caveman
+    repo: JuliusBrussee/caveman
+    source_url: https://github.com/JuliusBrussee/caveman
+    source_ref: main
+    source_commit: b39c90862855ad2f0813ce775b8bf07a9d6d2a50
+    observed_at: '2026-10-02'
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [engineering]
+    absorbs: [token_efficiency, minimal_code_change, preserve_safety_checks]
+    integration_target: engineering_workflow
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: ui_ux_pro_max
+    repo: nextlevelbuilder/ui-ux-pro-max-skill
+    source_url: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
+    source_ref: main
+    source_commit: 09170eec67eefd46a7ae85de61b40c194020f997
+    observed_at: '2026-10-02'
+    license: MIT
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [design_2d]
+    absorbs: [visual_direction, platform_aware_patterns, interface_quality_criteria]
+    integration_target: design_workflow
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+
+  - id: impeccable
+    repo: pbakaus/impeccable
+    source_url: https://github.com/pbakaus/impeccable
+    source_ref: main
+    source_commit: 508d7e8955de3b3caf2d8676e85206723d41a887
+    observed_at: '2026-10-02'
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [design_2d]
+    absorbs: [design_review_prompts, deterministic_interface_checks, visual_consistency]
+    integration_target: design_workflow
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+    review_note: Reference rules only; do not install upstream hooks, CLI, detector, or browser extension.
+
+  - id: graphify
+    repo: Graphify-Labs/graphify
+    source_url: https://github.com/Graphify-Labs/graphify
+    source_ref: v8
+    source_commit: ef4450d9c28acb2b8cdc22d369c1777b77148eef
+    observed_at: '2026-10-02'
+    license: Apache-2.0
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [engineering, research]
+    absorbs: [on_demand_codebase_map, explainable_file_relationships, source_traceable_navigation]
+    integration_target: retrieval
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+    review_note: Knowledge and retrieval pattern only; graph runtime remains disabled until a separate local eval.
+
+  - id: understand_anything
+    repo: Egonex-AI/Understand-Anything
+    source_url: https://github.com/Egonex-AI/Understand-Anything
+    source_ref: main
+    source_commit: 1d7418b8abfa543744ae029e63a482aee03f9022
+    observed_at: '2026-10-02'
+    license: MIT
+    license_status: verified
+    archived: false
+    status: manual_review_reference
+    mode: reference_pattern
+    domains: [engineering, research]
+    absorbs: [interactive_codebase_graph, multi_agent_codebase_analysis]
+    integration_target: retrieval
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+    review_note: Deferred duplicate; Graphify is the sole optional graph reference and Brain graph runtime is disabled.
+
+  - id: awesome_claude_skills
+    repo: ComposioHQ/awesome-claude-skills
+    source_url: https://github.com/ComposioHQ/awesome-claude-skills
+    source_ref: master
+    source_commit: be2a406907dbc61b73e6827ded415c96139d13a2
+    observed_at: '2026-10-02'
+    license: NOASSERTION
+    license_status: manual_review
+    archived: false
+    status: manual_review_reference
+    mode: reference_pattern
+    domains: [engineering, research, design_2d]
+    absorbs: [discovery_index_only]
+    integration_target: learning_lab
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+    review_note: No standard LICENSE file found; README badge does not authorize copying listed third-party entries.
+
+  - id: archify
+    repo: tt-a1i/archify
+    source_url: https://github.com/tt-a1i/archify
+    source_ref: main
+    source_commit: d5a1333d7447c866a765adac7d4d062f2f02e4d2
+    observed_at: '2026-10-02'
+    license: MIT
+    license_status: verified
+    archived: false
+    status: approved_reference
+    mode: reference_pattern
+    domains: [design_2d, engineering]
+    absorbs: [interactive_html_diagram, user_explorable_visual_explanation]
+    integration_target: creative_visual
+    code_reuse: false
+    executable_dependency_added: false
+    auto_activate: false
+    routing_authority: false
+    reasoning_authority: false
+

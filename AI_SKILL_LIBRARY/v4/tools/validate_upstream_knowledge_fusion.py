@@ -8,6 +8,7 @@ by accident.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -43,8 +44,22 @@ EXPECTED_IDS = {
     "remotion_cuongit_template",
     "auto_video_gen",
     "auto_compare_video",
+    "superpowers",
+    "addy_agent_skills",
+    "ponytail",
+    "caveman",
+    "ui_ux_pro_max",
+    "impeccable",
+    "graphify",
+    "understand_anything",
+    "awesome_claude_skills",
+    "archify",
 }
 
+PINNED_SOURCE_IDS = {
+    "superpowers", "addy_agent_skills", "ponytail", "caveman", "ui_ux_pro_max",
+    "impeccable", "graphify", "understand_anything", "awesome_claude_skills", "archify",
+}
 STRENGTHEN_EXISTING = {"ollama", "vllm", "transformers", "comfyui", "opencode"}
 LEARNING_LAB_ONLY = {"unsloth", "openpipe_art"}
 ALLOWED_STATUS = {
@@ -148,6 +163,16 @@ def validate_fusion_data(
         else:
             seen_repos.add(repo)
 
+        if entry_id in PINNED_SOURCE_IDS:
+            source_commit = row.get("source_commit")
+            if not isinstance(source_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", source_commit):
+                errors.append(f"{entry_id}: source_commit must be a full lowercase 40-character SHA")
+            if row.get("source_url") != f"https://github.com/{repo}":
+                errors.append(f"{entry_id}: source_url must match the canonical repository")
+            if not isinstance(row.get("source_ref"), str) or not row.get("source_ref"):
+                errors.append(f"{entry_id}: source_ref must be recorded")
+            if row.get("observed_at") != "2026-10-02":
+                errors.append(f"{entry_id}: observed_at must record the audit date")
         if row.get("routing_authority") is not False:
             errors.append(f"{entry_id}: routing_authority must be false")
         if row.get("reasoning_authority") is not False:

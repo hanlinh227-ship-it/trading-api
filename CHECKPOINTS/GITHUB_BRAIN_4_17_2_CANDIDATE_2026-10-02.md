@@ -4,6 +4,7 @@ Date: 2026-10-02
 Architecture: GITHUB_BRAIN_V4
 Status: PRODUCTION VERIFIED
 Release: `4.17.2`
+Target release: `4.17.2`
 Production source SHA verified: `4b92c37d02ae4c7ab493a0e8572e5dae809bc97e`
 Previous production baseline: `4.17.1` at `cc1ac7dcfbdeb812c21a3124296155e59c0c556c`
 
