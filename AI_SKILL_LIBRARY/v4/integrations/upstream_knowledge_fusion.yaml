@@ -405,7 +405,7 @@ entries:
     routing_authority: false
     reasoning_authority: false
 
-- id: superpowers
+  - id: superpowers
     repo: obra/superpowers
     source_url: https://github.com/obra/superpowers
     source_ref: main
