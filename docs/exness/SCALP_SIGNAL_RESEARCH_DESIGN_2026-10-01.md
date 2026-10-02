@@ -46,6 +46,25 @@ One method receives immutable, normalized FX observations and returns `{methodId
 
 This is one method with regime-aware logic and modular *evidence adapters*. It must be tested with market costs, news periods, correlated positions, look-ahead bias, out-of-sample stability and false alerts. Existing V76 R2 had 0/28 Forex methods promoted, so none is inherited as live signal authority.
 
+### Shared context pass — all frames, currencies and events
+
+This is an input/context stage for FX-CSTC, not a second strategy or a set of timeframe votes. Read the market top-down using the same verified broker feed and scan snapshot:
+
+| Timeframe | Use |
+|---|---|
+| W1 / D1 | Broad swing direction, major range/levels and extension. Context only; never the scalp trigger. |
+| H4 / H1 | Regime and swing structure; retain disagreements instead of averaging them. |
+| M30 / M15 | Session and intraday structure, nearby levels and candidate location. |
+| M5 | Setup location and closed-bar confirmation of pullback, range edge, failed break or retest. |
+| M1 | Final closed-bar trigger. A forming candle stays provisional. |
+| Live tick | Current Bid/Ask, spread, freshness and progress only; not a substitute for missing OHLC or confirmation. |
+
+All listed frames must be time-aligned, have explicit last-closed timestamps and come from the declared provider/instrument. `CONTEXT_COMPLETE` requires all listed frames plus a fresh quote; otherwise use `PARTIAL_CONTEXT`, expose the missing frame(s), and do not call the candidate fully confirmed. Conflicting frames create a mixed/WAIT condition unless a prevalidated rule resolves them. The 28-pair relative-strength view must normalize pair direction and volatility and account for correlation/shared-currency exposure; do not count related crosses as independent votes or assign fixed currency stereotypes.
+
+Each scan also checks relevant events for both currencies over a bounded window: by default the prior 72 hours and upcoming 48 hours, with the window adjusted to session and catalyst. Use current first-party central-bank, statistical-agency and government sources for schedules and published facts. For material unplanned political/geopolitical events, require independent reputable corroboration before treating a claim as established. Store source URL, published/event/observed timestamps, currency mapping, verification status, and actual/consensus/prior/revision semantics. If coverage is missing, stale, conflicting or unavailable, label `EVENT_COVERAGE_UNKNOWN`; never translate a headline directly into BUY/SELL or claim exhaustive news coverage.
+
+Run the source/timeframe/news context once for the frozen scan, not on each tick. On an explicit AI re-evaluation, refresh the quote and any time-sensitive event state, preserve the original snapshot and identify what changed. Keep stable user/project constraints separate from the changing market snapshot. Store source IDs, timestamps and method/context versions—not hidden chain-of-thought, credentials, or whole unrelated repositories.
+
 ### Single TP/SL placement for scalp signals
 
 Each signal has exactly one fixed SL and one fixed TP; neither trails the current quote. Set SL beyond the method's structural invalidation point with a buffer derived from the pair/session's observed short-term volatility and spread/noise. Place the single TP at the nearest realistic opposing structure/liquidity objective, after spread/cost checks. Reject the candidate if the stop is inside ordinary observed noise, the target is blocked by structure, or net reward/risk fails the versioned validation threshold. Do not hard-code one pip distance for all 28 pairs. This can reduce avoidable stop-outs but cannot guarantee a stop will not be swept. Buffer and target rules remain research candidates until tested out-of-sample per pair/session.
@@ -53,6 +72,8 @@ Each signal has exactly one fixed SL and one fixed TP; neither trails the curren
 ## Economic and political evidence for the same method
 
 Research may look across relevant financial information, including monetary-policy statements, scheduled economic releases, fiscal announcements, elections, sanctions and geopolitical disruptions. It is impossible to guarantee complete coverage of every event in real time. A bounded source registry, explicit coverage status and timestamps are required before any news-dependent signal is shown.
+
+For each frozen scan, build a bounded event timeline for both currencies, normally covering the previous 72 hours and the next 48 hours, adjusted to the market session and catalyst. Prioritize official schedules/releases and source-linked, independently corroborated reporting for material unplanned events. Keep publication, event and observation times separate, and distinguish actual, timestamped consensus, prior and revised values. Missing or conflicting coverage is `EVENT_COVERAGE_UNKNOWN`, not evidence that the calendar is clear. News changes context or may justify waiting; it never overrides closed-bar structure, current Bid/Ask, cost gates or the single FX-CSTC method.
 
 1. Maintain a currency-to-source registry: USD (Fed, BLS, BEA and Treasury), EUR (ECB and Eurostat), GBP (BoE and ONS), JPY (BoJ and official statistics), CHF (SNB and official statistics), AUD (RBA and ABS), CAD (BoC and Statistics Canada), NZD (RBNZ and Stats NZ). Verify each source's publication, usage terms and retrieval mechanism before integrating it. Start with official calendars/releases, such as Fed FOMC, BLS Employment Situation, ONS and BoJ schedules. For unplanned political events, official government/central-bank releases have priority; reputable reporting may flag a developing event, but independent corroboration is needed before treating its claims as established.
 2. In a separate, rate-limited refresh task, collect scheduled events ahead of time and poll permitted sources at appropriate intervals; deduplicate updates and cache only a bounded window. Do not perform an unbounded internet search, scraping or a per-tick news fetch on every button press. If a source is unavailable, mark its coverage `UNKNOWN` and show this limitation; a cached headline must not masquerade as live news.
@@ -82,6 +103,8 @@ Every relevant previously used analysis skill/repository is admitted through a s
 - Preserve conflicts instead of averaging them. Current project authority, exact live data and tested method contract outrank historical or imported advice. Forex methods remain research-only until a new untouched out-of-sample validation and release gate passes; no prior skill or repo can promote itself.
 - The prompt builder sends a bounded, versioned context packet: applicable method contract; currency profiles for the eight currencies; pair-specific spread/cadence/correlation; closed H1/M5/M1 evidence; current Bid/Ask freshness; relevant verified event evidence; and references to the exact source rows. Include only applicable skill/repo evidence IDs plus concise validated rule summaries. Do not send API keys, account data, whole repos, unrelated chat history, or hidden chain-of-thought.
 - Store the packet version/hash and source IDs with each scan/review so History can show which method and knowledge release informed the result. A source update creates a candidate release and must pass deduplication, conflict, provenance/license and repeatable validation before use.
+
+The companion workflow in `appvn553-byte/linhai-system-core` PR #5 adds the shared market-intelligence, economic-forecasting and 28-pair screening instructions. Both artifacts are source-only review material; neither is loaded by this Worker automatically. Until the skill is released/installed and this research design is independently validated, keep FX-CSTC in research-only status and do not infer runtime behavior from either GitHub branch.
 
 ## Evidence from both GitHub accounts (2026-10-01 review)
 
