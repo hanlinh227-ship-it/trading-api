@@ -11,6 +11,13 @@ Covers technical analysis, market structure, microstructure/order flow, liquidit
 - An indicator, funding value, OI change, order-book imbalance, liquidation print, candle pattern, social signal, provider signal, or AI opinion cannot independently prove a trade.
 - State invalidation conditions, not only directional bias.
 
+## Forex / OTC FX evidence
+- Identify the exact broker/provider, symbol mapping, instrument type (spot reference, CFD, or other contract), quote currency, source timestamp, receive timestamp, and data entitlement. A recent fetch time does not make delayed source data live.
+- Keep bid, ask, mid, last, candle close, and side-of-bar semantics separate. For a broker-specific quote, a long is entered at ask and marked/closed against bid; a short is entered at bid and marked/closed against ask. If only midpoint/close data is available, label levels reference-only.
+- Align timeframes and sessions. Use closed bars for confirmed structure; label the forming bar provisional. Preserve source timezone, daylight-saving/session context, and broker rollover behavior where relevant.
+- MT5/OTC FX tick volume and quote-update counts describe the observed provider feed. Do not call them global traded volume, executed buy/sell flow, a consolidated tape, or a market-wide order book. Report depth/footprint/order flow only when the named source actually supplies suitable, timestamped trade-level data.
+- Describe trend/range, swing structure, momentum, nearby levels, and a price-based invalidation condition. Indicators can corroborate; they cannot substitute for price evidence. Distinguish observed facts from inference and state material gaps.
+
 ## Provider reconciliation
 When crypto provider capabilities are selected from `AI_SKILL_LIBRARY/skills/providers/crypto_agents.yaml`:
 1. Normalize symbol or contract address, chain/network, venue, instrument type, quote currency, price semantics, timestamp/timezone, interval/window, and units.

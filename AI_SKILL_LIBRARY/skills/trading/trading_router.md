@@ -16,6 +16,12 @@ The current production execution scope and the analysis/research scope are separ
 
 Before synthesizing multiple skills/providers/markets, apply the checkpoint-resolved Stable harmonization policy and the registry conflict policy. Equivalent capabilities should strengthen one canonical reasoning path rather than become competing authorities.
 
+### Forex / FX routing
+- Treat FX as a market-domain label, not a second reasoning authority. Broad pair scans, currency-strength comparisons, or macro/cross-asset FX work use `multi_market_analysis`; a single pair or supplied open-position review uses `market_analysis`.
+- Load no more than two supporting skills, selected for the request (for example `live_data_validation`, `risk_execution`, or `quant_validation`). Do not stack all FX-related labels as independent votes.
+- Use `mt5_mql5` only for MT5/MQL5 implementation or EA engineering requests. A live MT5 quote can be read-only evidence for the analysis brain; it does not turn the brain into an EA or authorize order changes.
+- Forex analysis remains research/advisory only unless the current project authority explicitly says otherwise.
+
 ## Multi-market analysis boundary
 `multi_market_analysis` may analyze and compare crypto, FX, futures, indices, commodities/metals and equities when relevant sources/tools exist. It may rank research opportunities and produce cross-market regime synthesis, but it must not:
 - widen the current production instrument/venue scope;
