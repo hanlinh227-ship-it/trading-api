@@ -184,7 +184,7 @@ Use relationships only when justified by current evidence:
 Correlation is context, not trade authorization.
 
 ### Forex / OTC FX evidence profile
-Treat an FX pair as a relative price between its base and quote currencies, using the exact broker/provider instrument supplied. A CFD or broker quote is not a universal interbank price.
+Treat an FX pair as a relative price between its base and quote currencies, using the exact broker/provider instrument supplied. A CFD or broker quote is not a universal interbank price. Read per-symbol digits, point size, tick size/value, pip convention, contract size, and volume step from the broker specification; never hard-code pip size or compare raw pips across different pairs as equivalent risk.
 
 #### Macro and event context
 - Compare the base- and quote-currency drivers: central-bank policy and rate expectations, inflation, labor and growth data, fiscal/geopolitical developments, and risk/capital-flow context only when materially relevant.

@@ -44,9 +44,9 @@ Checked on 2026-10-04. Upstream material remains quarantined as evidence/capabil
 | [The-Swarm-Corporation/ForexTreeSwarm](https://github.com/The-Swarm-Corporation/ForexTreeSwarm) | MIT; multi-agent “forest” with technical/fundamental/sentiment roles and external feeds | Do not adopt another agent tree; it conflicts with the existing single-authority chain and has not passed source, entitlement, freshness or eval gates. |
 | [mhallsmoore/qsforex](https://github.com/mhallsmoore/qsforex) | README says MIT and describes OANDA; GitHub API does not identify a license; last push observed 2022-06-21 | Do not import. Broker-specific and stale, with license metadata requiring manual review. |
 | [mementum/backtrader](https://github.com/mementum/backtrader) | GPL-3.0; last push observed 2024-08-19 | Do not import. Its broad simulator is unnecessary for the current skill-only scope and adds a licensing/dependency burden. |
-| [liangzaici/forex-analysis-skills](https://github.com/liangzaici/forex-analysis-skills) | Repository was empty when checked | No usable content to evaluate or integrate. |
+| [0xgetz/daily_forex_analysis](https://github.com/0xgetz/daily_forex_analysis) | MIT; LLM-assisted spot FX/metals analysis; pair-specific pip metadata and deterministic EMA/RSI/MACD/ATR/range calculations, with H1/H4/D1 structure and a 24/5 session model. README claims 221 tests; not independently run. | Keep as a reference for symbol-specific units and separating deterministic calculations from narrative. It uses external price providers, has no Exness bid/ask/account-position contract or macro calendar, supports fewer timeframes, and has a hard-coded UTC session model; do not import its code or treat its provider data as live Exness evidence. |\n| [liangzaici/forex-analysis-skills](https://github.com/liangzaici/forex-analysis-skills) | Repository was empty when checked | No usable content to evaluate or integrate. |
 
-The most transferable improvements are evidence discipline and evaluation design, not upstream code or prebuilt trade recommendations. The user's Exness/MT5 source, exact quote side, and account contract remain authoritative for broker-specific observations.
+The most transferable improvements are evidence discipline, pair-specific pip/tick/contract metadata, deterministic calculation boundaries, and evaluation design, not upstream code or prebuilt trade recommendations. The user's Exness/MT5 symbol specification, quote side, and account contract remain authoritative for broker-specific observations. No upstream code has been imported.
 
 ## FX-specific evidence rules
 
@@ -74,6 +74,7 @@ These are acceptance cases to run before any release promotion; this document do
 8. Backtest using midpoint candles and zero spread/swap/commission: reject the result as non-executable or require sensitivity ranges.
 9. Same strategy on multiple correlated pairs: evaluate aggregate currency exposure and walk-forward stability, not pair count alone.
 10. Upcoming high-impact event: include the official/source timestamp and conditional scenarios; do not let headline sentiment override quote freshness or invalidation.
+11. Existing gateway contract regression: preserve the v3 `dataAcquisitionPlan`, LIVE / CONTEXT_ONLY / GAP coverage, research-only Entry/SL/TP, TradingView link semantics, TOP_SETUP/NO_TRADE and BTC authority boundary while adding FX-only metadata.
 
 ## Promotion gates
 
