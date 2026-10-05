@@ -8,3 +8,8 @@ Covers risk management, SL/TP, position sizing, leverage, portfolio exposure, an
 - Recompute actual RR after current execution price/slippage.
 - Protect live positions with verified venue-native protection when required by project authority.
 - Do not add to losers, martingale, or bypass a hard risk governor unless a separately approved design explicitly changes that invariant.
+
+## FX position review (read-only)
+- For a supplied FX position, separate broker-observed direction, lots/contracts, entry/current quote, floating P/L, SL/TP, swap/commission, and timestamp from analysis. Preserve the broker symbol and read its digits, point size, tick size/value, pip convention, contract size, and volume step; do not hard-code a pip size.
+- Flag a missing stop and any unusually concentrated base/quote currency exposure when the complete relevant position set is available. Do not calculate account-level loss, margin, or exposure without the needed contract/tick-value, account-currency conversion, and position/account data.
+- State conditional alternatives and invalidation criteria. A risk review does not place, modify, close, or suggest a specific order; the current project authority and explicit execution gates remain decisive.
