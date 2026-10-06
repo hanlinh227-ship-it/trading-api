@@ -130,6 +130,18 @@ function harness(overrides={}){
   assert.equal(hub.health().lastError,'EXNESS_UPSTREAM_ERROR');assert.equal(hub.health().state,'BACKOFF');
 }
 
+// waitForTick(null) resolves on the first tick of any instrument and times out otherwise.
+{
+  const {hub,clock,sockets,timers}=harness();
+  await hub.ensure();
+  let released=false;const waiting=hub.waitForTick(null,5000).then(()=>{released=true;});
+  await Promise.resolve();assert.equal(released,false);
+  sockets[0].emit('message',frame('AUDNZD',1.08,1.0802,clock.ms-20));
+  await waiting;assert.equal(released,true);
+  await hub.waitForTick(null,5000);   // already has a tick: resolves immediately
+  assert.ok(timers.length>=1);
+}
+
 // Idle shutdown protects Free-plan duration: with no consumer the upstream is released.
 {
   const {hub,clock,sockets}=harness();
@@ -177,6 +189,16 @@ function harness(overrides={}){
     upstream[0].emit('message',frame('EURUSD',1.1001,1.1003,Date.now()-10));
     assert.equal(seen[0]?.type,'tick');
     assert.equal(handshakes,1,'quote + viewer + second quote share one Exness connection');
+    // One read returns all 28 pairs from the shared subscription, adds no upstream connection,
+    // and a pair without a fresh tick is STALE with no price.
+    const batch=JSON.parse(await (await ask('/quotes','ip-6')).text());
+    assert.equal(batch.ok,true);assert.equal(batch.exchange,'EXNESS');assert.equal(batch.total,28);
+    assert.equal(batch.state,'PARTIAL');assert.ok(batch.liveCount>=2&&batch.liveCount<28);
+    assert.equal(Object.keys(batch.quotes).length,28);
+    assert.equal(batch.quotes.EURUSD.state,'LIVE');assert.ok(batch.quotes.EURUSD.ask>=batch.quotes.EURUSD.bid);
+    assert.equal(batch.quotes.USDJPY.state,'STALE');assert.ok(!('bid' in batch.quotes.USDJPY),'stale pair carries no price');
+    assert.equal(batch.connection.state,'LIVE');assert.ok(!JSON.stringify(batch).includes('12345'));
+    assert.equal(handshakes,1,'batch read shares the single upstream connection');
     // Disconnect: an explicit stale answer, never the cached tick.
     upstream[0].close();
     assert.equal(seen.at(-1).type,'stalled','viewer is told the stream stalled');
@@ -193,6 +215,15 @@ function harness(overrides={}){
     assert.equal(JSON.parse(await denied.text()).error,'EXNESS_READONLY_UPSTREAM_HTTP_401');
     state._hub.stop();state2._hub?.stop();
   }finally{globalThis.Response=RealResponse;globalThis.fetch=realFetch;globalThis.WebSocketPair=realPair;}
+}
+
+{
+  const {handleExnessMarketData}=await import('./exness-market-data-handler.js');
+  const env={EXNESS_ENABLED:'true',EXNESS_MODE:'SHADOW',EXNESS_API_KEY:'k',EXNESS_PRIVATE_KEY:'p',EXNESS_ACCOUNT_ID:'1',EXNESS_API_BASE_URL:'https://ap-test.exness.com'};
+  const ok=await handleExnessMarketData(new Request('https://local/exness/quotes'),env,{clientFactory:()=>({quotes:async()=>({state:'LIVE',liveCount:28,total:28,quotes:{}})})});
+  assert.equal(ok.status,200);assert.equal((await ok.json()).exchange,'EXNESS');
+  const post=await handleExnessMarketData(new Request('https://local/exness/quotes',{method:'POST'}),env,{clientFactory:()=>({})});
+  assert.equal(post.status,405,'read-only: only GET is accepted');
 }
 
 console.log('Exness tick hub contract PASS');

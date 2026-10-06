@@ -7,6 +7,7 @@ const ORIGIN='https://trading-v77-scanner.hanlinh227.workers.dev';
 const instrument=String(process.env.INSTRUMENT||'EURUSD').trim().toUpperCase();
 const minutes=Math.min(Math.max(Number(process.env.MINUTES||6),1),15);
 const intervalMs=Math.min(Math.max(Number(process.env.INTERVAL_SECONDS||10),5),60)*1000;
+const batchSamples=Math.min(Math.max(Number(process.env.BATCH_SAMPLES||0),0),30);
 const idleGapMs=Math.min(Math.max(Number(process.env.IDLE_GAP_SECONDS||0),0),600)*1000;
 if(!/^[A-Z0-9]{3,11}$/.test(instrument))throw new Error('INSTRUMENT_INVALID');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -58,6 +59,16 @@ say('INSTRUMENTS http='+catalog.status+' ok='+(catalog.body?.ok===true)+' exchan
 const main=[],recovery=[];
 const endMs=Date.now()+minutes*60_000;
 while(Date.now()<endMs){main.push(await sample('main'));await sleep(intervalMs);}
+const batch=[];
+for(let i=0;i<batchSamples;i++){
+  const result=await getJson('/exness/quotes'),b=result.body||{},quotes=b.quotes&&typeof b.quotes==='object'?b.quotes:{};
+  const liveRows=Object.entries(quotes).filter(([,q])=>q?.state==='LIVE');
+  const row={label:'batch',at:new Date().toISOString(),http:result.status,rttMs:result.roundTripMs,ok:b.ok===true,exchange:b.exchange||null,state:b.state||null,liveCount:b.liveCount??null,total:b.total??null,pairs:Object.keys(quotes).length,
+    maxAgeMs:liveRows.length?Math.max(...liveRows.map(([,q])=>Number(q.quoteAgeMs))):null,
+    priceOnStale:Object.values(quotes).some(q=>q?.state!=='LIVE'&&('bid' in q||'ask' in q)),
+    valid:b.ok===true&&b.exchange==='EXNESS'&&liveRows.length>0&&liveRows.every(([,q])=>q.bid>0&&q.ask>=q.bid)};
+  say(JSON.stringify(row));batch.push(row);await sleep(Math.max(intervalMs,5000));
+}
 if(idleGapMs>0){
   say('IDLE_GAP_START '+new Date().toISOString()+' seconds='+idleGapMs/1000+' (no requests; shared upstream may shut down and must reconnect on demand)');
   await sleep(idleGapMs);
@@ -77,6 +88,7 @@ const summary={
   rttMs:stats(main.map(r=>r.rttMs)),
   distinctSourceTimestamps:new Set(live(main).map(r=>r.sourceTimestamp)).size,
   maxReconnectsSeen:Math.max(0,...main.map(r=>r.reconnects??0)),
+  batchSamples:batch.length,batchValid:batch.filter(r=>r.valid).length,batchMinLive:batch.length?Math.min(...batch.map(r=>r.liveCount??0)):null,batchPriceOnStale:batch.some(r=>r.priceOnStale),
   recoverySamples:recovery.length,recoveryValid:live(recovery).length,
   recoveryFirstValidIndex:recovery.findIndex(r=>r.valid),
 };
@@ -84,6 +96,6 @@ say('SUMMARY '+JSON.stringify(summary));
 if(process.env.GITHUB_STEP_SUMMARY){
   appendFileSync(process.env.GITHUB_STEP_SUMMARY,'## Exness read-only probe ('+instrument+')\n```json\n'+JSON.stringify(summary,null,2)+'\n```\n');
 }
-const pass=summary.instrumentsOk&&summary.instrumentListed&&summary.mainValid>=Math.ceil(main.length*0.8)&&(idleGapMs===0||summary.recoveryValid>0);
+const pass=summary.instrumentsOk&&summary.instrumentListed&&summary.mainValid>=Math.ceil(main.length*0.8)&&(batchSamples===0||(summary.batchValid===batch.length&&!summary.batchPriceOnStale))&&(idleGapMs===0||summary.recoveryValid>0);
 say('EXNESS_PROBE='+(pass?'PASS':'FAIL'));
 process.exitCode=pass?0:1;

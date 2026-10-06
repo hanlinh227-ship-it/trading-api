@@ -46,7 +46,7 @@ export function createExnessTickHub({openStream,instruments,now=Date.now,setTime
     if(ticks.get(instrument)?.sourceMs===sourceMs)return;
     const saved={instrument,bid,ask,sourceMs,receivedMs};
     ticks.set(instrument,saved);
-    for(const waiter of [...waiters])if(waiter.instrument===instrument)waiter.resolve();
+    for(const waiter of [...waiters])if(waiter.instrument===null||waiter.instrument===instrument)waiter.resolve();
     const event={...saved,age};
     for(const consumer of [...listeners])try{consumer.onTick?.(event);}catch{}
   }
@@ -101,7 +101,7 @@ export function createExnessTickHub({openStream,instruments,now=Date.now,setTime
     return {state:reason?'STALE':'LIVE',reason,ageMs,tick:reason?null:tick,health:health()};
   }
   function waitForTick(instrument,timeoutMs){
-    if(ticks.has(instrument))return Promise.resolve();
+    if(instrument===null?ticks.size>0:ticks.has(instrument))return Promise.resolve();
     return new Promise(resolve=>{
       const waiter={instrument,resolve:()=>{clearTimer(timer);waiters.delete(waiter);resolve();}};
       const timer=setTimer(()=>{waiters.delete(waiter);resolve();},timeoutMs);
