@@ -142,6 +142,21 @@ function harness(overrides={}){
   assert.ok(timers.length>=1);
 }
 
+// waitForCoverage: a fresh subscription is given a short window to fill before a multi-pair read.
+{
+  const {hub,clock,sockets}=harness();
+  assert.equal(hub.sinceConnectMs(),null,'not connected yet');
+  await hub.ensure();
+  assert.equal(hub.sinceConnectMs(),0);clock.ms+=2500;assert.equal(hub.sinceConnectMs(),2500);
+  let filled=false;const waiting=hub.waitForCoverage(3,5000).then(()=>{filled=true;});
+  sockets[0].emit('message',frame('EURUSD',1.1,1.1002,clock.ms-10));
+  sockets[0].emit('message',frame('GBPUSD',1.3,1.3001,clock.ms-10));
+  await Promise.resolve();assert.equal(filled,false,'two of three pairs is not enough');
+  sockets[0].emit('message',frame('USDJPY',150,150.01,clock.ms-10));
+  await waiting;assert.equal(filled,true);
+  await hub.waitForCoverage(3,5000);   // already covered: resolves immediately
+}
+
 // Idle shutdown protects Free-plan duration: with no consumer the upstream is released.
 {
   const {hub,clock,sockets}=harness();
@@ -214,6 +229,38 @@ function harness(overrides={}){
     const denied=await state2.fetch(new Request('https://exness-market-data.internal/quote?instrument=EURUSD',{headers:{'x-exness-client-ip':'ip-5'}}));
     assert.equal(JSON.parse(await denied.text()).error,'EXNESS_READONLY_UPSTREAM_HTTP_401');
     state._hub.stop();state2._hub?.stop();
+  }finally{globalThis.Response=RealResponse;globalThis.fetch=realFetch;globalThis.WebSocketPair=realPair;}
+}
+
+
+{
+  // A cold /quotes read waits briefly for the subscription to fill instead of answering with the
+  // first pair that ticked (production showed 1/28 live right after a deploy).
+  const RealResponse=globalThis.Response,realFetch=globalThis.fetch,realPair=globalThis.WebSocketPair;
+  globalThis.Response=class {constructor(body,{status=200,headers={},webSocket}={}){this.body=body;this.status=status;this.headers=headers;this.webSocket=webSocket;}async text(){return String(this.body);}};
+  globalThis.WebSocketPair=class {constructor(){const a=new FakeSocket(),b=new FakeSocket();a.peer=b;b.peer=a;return [a,b];}};
+  const limits={limits:{rest:{global_account_rate:{limit:50,window_seconds:1},methods:[{http_method:'GET',path:'/v1/configuration/accounts/{account_id}/instruments',rate_limit:{limit:10,window_seconds:1}}]},websocket:{global_account_limits:{max_active_connections:1,max_inbound_message_bytes:65536,connection_rate:{limit:100,window_seconds:1}},endpoints:[{path:'/v1/server-events/accounts/{account_id}/ws/ticks',subscription_operation_rate:{ticks:{limit:100,window_seconds:1}}}]}}};
+  const upstream=[];
+  globalThis.fetch=async url=>{
+    if(url.endsWith('/limits'))return {ok:true,json:async()=>limits};
+    if(url.endsWith('/instruments'))return {ok:true,json:async()=>({instruments:FOREX_PAIRS})};
+    if(url.endsWith('/ws/ticks')){const socket=new FakeSocket();upstream.push(socket);return {status:101,webSocket:socket};}
+    throw new Error('unexpected '+url);
+  };
+  const db=new Map(),storage={get:async k=>db.get(k),put:async(k,v)=>db.set(k,v),transaction:async fn=>fn(storage),setAlarm:async()=>{}};
+  const env={EXNESS_API_KEY:'fake',EXNESS_PRIVATE_KEY:Buffer.alloc(32,1).toString('base64'),EXNESS_ACCOUNT_ID:'12345',EXNESS_API_BASE_URL:'https://ap-test.exness.com'};
+  try{
+    const state=new ExnessMarketDataState({storage},env);
+    const pending=state.fetch(new Request('https://exness-market-data.internal/quotes',{headers:{'x-exness-client-ip':'warm-1'}}));
+    for(let i=0;i<100&&!upstream.length;i++)await new Promise(r=>setTimeout(r,2));
+    assert.equal(upstream.length,1);
+    upstream[0].emit('message',frame('EURUSD',1.1,1.1002,Date.now()-10));       // only one pair has ticked so far
+    await new Promise(r=>setTimeout(r,60));
+    for(const symbol of FOREX_PAIRS.filter(p=>p!=='EURUSD'))upstream[0].emit('message',frame(symbol,1.2,1.2002,Date.now()-10));
+    const cold=JSON.parse(await (await pending).text());
+    assert.equal(cold.ok,true);assert.equal(cold.liveCount,28,'the cold read waited for the subscription to fill');
+    assert.equal(cold.state,'LIVE');assert.equal(Object.values(cold.quotes).every(q=>q.state==='LIVE'),true);
+    state._hub.stop();
   }finally{globalThis.Response=RealResponse;globalThis.fetch=realFetch;globalThis.WebSocketPair=realPair;}
 }
 

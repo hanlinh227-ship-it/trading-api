@@ -14,6 +14,10 @@ const STREAM_STALL_MS=30_000;
 // hibernation does not apply to them, so an alarm re-drives the hub while anyone is consuming.
 const HUB_ALARM_MS=30_000;
 const QUOTE_WAIT_MS=5_000;
+// A multi-pair read right after the subscription starts would otherwise return only the pairs that
+// happened to tick first. For a short window after connect it waits briefly for the rest to fill.
+const BATCH_WARMUP_WINDOW_MS=10_000;
+const BATCH_WARMUP_WAIT_MS=3_000;
 
 export class ExnessMarketDataState{
   constructor(state,env){this.state=state;this.env=env;this.queue=Promise.resolve();this.liveSockets=new Set();}
@@ -133,7 +137,10 @@ export class ExnessMarketDataState{
     let ready;try{ready=await hub.ensure();}catch{ready={ok:false,error:'EXNESS_STREAM_UNAVAILABLE',status:503};}
     if(!ready.ok)return jsonResponse({ok:false,exchange:'EXNESS',readOnly:true,error:String(ready.error||'EXNESS_STREAM_UNAVAILABLE'),state:'STALE',connection:hub.health()},Number(ready.status)||503);
     await this.arm();
-    if(!FOREX_PAIRS.some(symbol=>hub.read(symbol).state==='LIVE'))await hub.waitForTick(null,QUOTE_WAIT_MS);
+    const liveNow=()=>FOREX_PAIRS.filter(symbol=>hub.read(symbol).state==='LIVE').length;
+    if(liveNow()===0)await hub.waitForTick(null,QUOTE_WAIT_MS);
+    const sinceConnect=hub.sinceConnectMs();
+    if(liveNow()<FOREX_PAIRS.length&&sinceConnect!==null&&sinceConnect<BATCH_WARMUP_WINDOW_MS)await hub.waitForCoverage(FOREX_PAIRS.length,Math.min(BATCH_WARMUP_WAIT_MS,BATCH_WARMUP_WINDOW_MS-sinceConnect));
     const quotes={};let live=0;
     for(const symbol of FOREX_PAIRS){
       const read=hub.read(symbol);

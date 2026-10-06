@@ -11,6 +11,10 @@ on:
           - refresh-health
           - discover-providers
         default: deploy
+      exness_observe_minutes:
+        description: 'deploy mode only: after the Exness canary, sample the deployed read-only Exness routes from this runner for N minutes (0 = off, max 15). Advisory; never blocks or rolls back a deploy.'
+        type: string
+        default: '0'
       probe_completions:
         description: 'discover-providers only: also probe chat completions to find a live zero-cost model per provider'
         type: boolean
@@ -414,6 +418,22 @@ jobs:
           done
           echo "EXNESS_READONLY_CANARY=FAIL"
           exit 1
+
+      - name: Exness read-only steady-state observation (advisory, opt-in)
+        if: success() && github.event_name == 'workflow_dispatch' && inputs.exness_observe_minutes != '' && inputs.exness_observe_minutes != '0'
+        continue-on-error: true
+        shell: bash
+        env:
+          INSTRUMENT: EURUSD
+          MINUTES: ${{ inputs.exness_observe_minutes }}
+          INTERVAL_SECONDS: '10'
+          BATCH_SAMPLES: '18'
+          IDLE_GAP_SECONDS: '0'
+        run: |
+          set -euo pipefail
+          # GET-only samples of /exness/instruments, /exness/quote and /exness/quotes from this
+          # GitHub-hosted runner. No credential is read or sent; output is timing and health only.
+          node .github/scripts/exness-readonly-probe.mjs
 
       - name: Production Bybit cloud market-stream canary
         shell: bash

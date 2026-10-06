@@ -46,7 +46,7 @@ export function createExnessTickHub({openStream,instruments,now=Date.now,setTime
     if(ticks.get(instrument)?.sourceMs===sourceMs)return;
     const saved={instrument,bid,ask,sourceMs,receivedMs};
     ticks.set(instrument,saved);
-    for(const waiter of [...waiters])if(waiter.instrument===null||waiter.instrument===instrument)waiter.resolve();
+    for(const waiter of [...waiters])if(waiter.check())waiter.resolve();
     const event={...saved,age};
     for(const consumer of [...listeners])try{consumer.onTick?.(event);}catch{}
   }
@@ -100,14 +100,19 @@ export function createExnessTickHub({openStream,instruments,now=Date.now,setTime
     else if(ageMs>maxTickAgeMs||ageMs<-1000)reason='TICK_OLD';
     return {state:reason?'STALE':'LIVE',reason,ageMs,tick:reason?null:tick,health:health()};
   }
-  function waitForTick(instrument,timeoutMs){
-    if(instrument===null?ticks.size>0:ticks.has(instrument))return Promise.resolve();
+  function waitFor(check,timeoutMs){
+    if(check())return Promise.resolve();
     return new Promise(resolve=>{
-      const waiter={instrument,resolve:()=>{clearTimer(timer);waiters.delete(waiter);resolve();}};
+      const waiter={check,resolve:()=>{clearTimer(timer);waiters.delete(waiter);resolve();}};
       const timer=setTimer(()=>{waiters.delete(waiter);resolve();},timeoutMs);
       waiters.add(waiter);
     });
   }
+  // null waits for a tick of any instrument.
+  const waitForTick=(instrument,timeoutMs)=>waitFor(()=>instrument===null?ticks.size>0:ticks.has(instrument),timeoutMs);
+  // Resolves once `count` instruments have a tick (or on timeout). Used to let a freshly started
+  // subscription fill before a multi-pair read, instead of answering with the first pair only.
+  const waitForCoverage=(count,timeoutMs)=>waitFor(()=>ticks.size>=count,timeoutMs);
   function subscribe(consumer){
     lastConsumerMs=now();listeners.add(consumer);
     return ()=>{listeners.delete(consumer);lastConsumerMs=now();};
@@ -120,5 +125,5 @@ export function createExnessTickHub({openStream,instruments,now=Date.now,setTime
     else if(socket&&t-lastMessageMs>stallMs)drop('EXNESS_STREAM_STALLED');
     return status;
   }
-  return {ensure,read,waitForTick,subscribe,tick,stop,health,touch(){lastConsumerMs=now();}};
+  return {ensure,read,waitForTick,waitForCoverage,sinceConnectMs:()=>connectedAtMs?now()-connectedAtMs:null,subscribe,tick,stop,health,touch(){lastConsumerMs=now();}};
 }
