@@ -1,0 +1,44 @@
+name: Exness Read-Only Probe
+
+# Manual, GET-only probe of the deployed read-only Exness routes from a GitHub-hosted runner,
+# so the result cannot depend on any local PC. It sends no credential and touches no trading,
+# order or account route. It does not deploy anything.
+on:
+  workflow_dispatch:
+    inputs:
+      instrument:
+        description: 'Exness instrument to sample (one of the 28 FX pairs uses the shared stream)'
+        type: string
+        default: 'EURUSD'
+      minutes:
+        description: 'Sampling duration in minutes (1-15)'
+        type: string
+        default: '6'
+      interval_seconds:
+        description: 'Seconds between samples (5-60)'
+        type: string
+        default: '10'
+      idle_gap_seconds:
+        description: 'After sampling, send nothing for this long (0-600), then sample again to observe reconnect on demand'
+        type: string
+        default: '0'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Probe deployed read-only Exness routes
+        env:
+          INSTRUMENT: ${{ inputs.instrument }}
+          MINUTES: ${{ inputs.minutes }}
+          INTERVAL_SECONDS: ${{ inputs.interval_seconds }}
+          IDLE_GAP_SECONDS: ${{ inputs.idle_gap_seconds }}
+        run: node .github/scripts/exness-readonly-probe.mjs
