@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import {createExnessReadonlyMarketClient,jsonResponse} from './exness-market-data.js';
 import {FOREX_PAIRS} from './exness-live-page.js';
+import {createExnessTickHub} from './exness-tick-hub.js';
 
 const CACHE_LIMIT=3000;
 const fixedWindow=(rows,now,windowMs)=>rows.filter(at=>Number(at)>now-windowMs);
@@ -9,10 +10,21 @@ const READ_ONLY_ROUTES=['/instruments','/quote','/account','/limits','/condition
 // Kết nối WebSocket có thể chết mà KHÔNG báo lỗi. Im lặng quá lâu thì coi như chết
 // và đóng lại để trình duyệt nối lại bằng một handshake mới, thay vì đứng im vô hạn.
 const STREAM_STALL_MS=30_000;
-const STREAM_STALL_CHECK_MS=5_000;
+// Outbound WebSockets keep a Durable Object alive for at most 15 minutes per operation, and
+// hibernation does not apply to them, so an alarm re-drives the hub while anyone is consuming.
+const HUB_ALARM_MS=30_000;
+const QUOTE_WAIT_MS=5_000;
 
 export class ExnessMarketDataState{
   constructor(state,env){this.state=state;this.env=env;this.queue=Promise.resolve();this.liveSockets=new Set();}
+
+  client(){return createExnessReadonlyMarketClient(this.env,{store:this.state.storage,reserve:rule=>this.reserve(rule)});}
+  get hub(){
+    if(!this._hub)this._hub=createExnessTickHub({instruments:FOREX_PAIRS,stallMs:STREAM_STALL_MS,openStream:()=>this.client().openTicksStream(FOREX_PAIRS)});
+    return this._hub;
+  }
+  async arm(){try{await this.state.storage.setAlarm?.(Date.now()+HUB_ALARM_MS);}catch{}}
+  async alarm(){if(this._hub&&this._hub.tick()!=='IDLE')await this.arm();}
 
   // Bộ đếm viewer suy ra từ socket THẬT CÒN SỐNG, không phải một số tự tăng.
   // Đứt bất thường (WebSocket code 1006) có thể KHÔNG kích hoạt handler close,
@@ -58,66 +70,69 @@ export class ExnessMarketDataState{
     if(this.liveSockets.size>=2)return jsonResponse({ok:false,error:'EXNESS_STREAM_VIEWER_LIMIT',readOnly:true},429);
     const slot={readyState:0};                 // giữ chỗ trước await; nếu sót sẽ bị _pruneSockets dọn
     this.liveSockets.add(slot);
-    // Share the existing per-account rate gate and signed host-discovery logic.
-    // No Exness credential or account number reaches the downstream client.
-    const client=createExnessReadonlyMarketClient(this.env,{store:this.state.storage,reserve:rule=>this.reserve(rule)});
-    let stream;
-    try{stream=await client.openTicksStream(FOREX_PAIRS);}catch(error){this.liveSockets.delete(slot);return jsonResponse({ok:false,error:String(error?.code||'EXNESS_STREAM_UNAVAILABLE'),readOnly:true},Number(error?.status)||503);}
+    // One shared upstream subscription (see exness-tick-hub.js). Viewers are only fan-out
+    // targets, so extra viewers never open another Exness connection. No Exness credential
+    // or account number reaches the browser.
+    const hub=this.hub;
+    let ready;
+    try{ready=await hub.ensure();}catch{ready={ok:false,error:'EXNESS_STREAM_UNAVAILABLE',status:503};}
+    if(!ready.ok){this.liveSockets.delete(slot);return jsonResponse({ok:false,error:String(ready.error||'EXNESS_STREAM_UNAVAILABLE'),readOnly:true},Number(ready.status)||503);}
     const [browser,server]=Object.values(new WebSocketPair());
     server.accept();
     this.liveSockets.delete(slot);
     this.liveSockets.add(server);
-    const upstream=stream.socket,allowed=new Set(FOREX_PAIRS);
-    let closed=false,watchdog=null;
+    let closed=false,off=()=>{};
     const startedMs=Date.now();
-    let lastUpstreamMs=startedMs;            // lần cuối Exness gửi bất cứ thứ gì
-    const lastSourceBySymbol=new Map();      // khử tick trùng theo (cặp, mốc nguồn)
     const close=()=>{
       if(closed)return;
-      closed=true;
-      if(watchdog)clearInterval(watchdog);
+      closed=true;off();
       this.liveSockets.delete(server);this.liveSockets.delete(slot);
-      try{upstream.close(1000,'viewer closed');}catch{}
       try{server.close(1000,'stream closed');}catch{}
     };
-    watchdog=setInterval(()=>{
-      if(closed)return;
-      const silentMs=Date.now()-lastUpstreamMs;
-      if(silentMs>STREAM_STALL_MS){try{server.send(JSON.stringify({type:'stalled',silentMs}));}catch{}close();}
-    },STREAM_STALL_CHECK_MS);
     server.addEventListener('close',close);
     server.addEventListener('error',close);
     server.addEventListener('message',()=>{try{server.close(1008,'read only');}catch{}close();});
-    upstream.addEventListener('close',close);
-    upstream.addEventListener('error',close);
-    upstream.addEventListener('message',event=>{
-      lastUpstreamMs=Date.now();
-      const raw=typeof event.data==='string'?event.data:'';
-      if(raw.length>16384)return;
-      const parseStart=performance.now();
-      let data;try{data=JSON.parse(raw);}catch{return;}
-      if(Number.isFinite(Number(data?.code))&&data?.error_message){try{server.send(JSON.stringify({type:'error',error:'EXNESS_UPSTREAM_ERROR'}));}catch{}close();return;}
-      const tick=data?.tick||data?.data?.tick||data?.data||data;
-      const instrument=String(tick?.instrument||'');
-      if(!allowed.has(instrument))return;
-      const bid=Number(tick?.bid),ask=Number(tick?.ask);
-      const sourceMs=typeof tick?.timestamp==='number'?tick.timestamp:Date.parse(String(tick?.timestamp||''));
-      const receivedMs=Date.now(),age=receivedMs-sourceMs;
-      if(!(bid>0&&ask>bid&&Number.isFinite(sourceMs))||age< -1000||age>10000)return;
-      if(lastSourceBySymbol.get(instrument)===sourceMs)return;   // tick trùng -> không gửi lại
-      lastSourceBySymbol.set(instrument,sourceMs);
-      const sentMs=Date.now();
-      const workerProcessMs=Math.round((performance.now()-parseStart)*1000)/1000;
-      try{server.send(JSON.stringify({type:'tick',source:'EXNESS_WEBSOCKET_TICKS',instrument,bid,ask,sourceTimestamp:new Date(sourceMs).toISOString(),receivedAt:new Date(receivedMs).toISOString(),sentAt:sentMs,workerProcessMs,sourceToWorkerMs:age,streamMs:sentMs-startedMs}));}catch{close();}
+    off=hub.subscribe({
+      onTick:tick=>{
+        const sentMs=Date.now();
+        try{server.send(JSON.stringify({type:'tick',source:'EXNESS_WEBSOCKET_TICKS',instrument:tick.instrument,bid:tick.bid,ask:tick.ask,sourceTimestamp:new Date(tick.sourceMs).toISOString(),receivedAt:new Date(tick.receivedMs).toISOString(),sentAt:sentMs,workerProcessMs:Math.round((sentMs-tick.receivedMs)*1000)/1000,sourceToWorkerMs:tick.age,streamMs:sentMs-startedMs}));}catch{close();}
+      },
+      // The hub reconnects on its own; the viewer is told explicitly and reconnects through
+      // the page's existing path, so a dead stream is never shown as a quiet live one.
+      onDown:({code,silentMs})=>{
+        try{server.send(JSON.stringify(code==='EXNESS_UPSTREAM_ERROR'?{type:'error',error:code}:{type:'stalled',silentMs}));}catch{}
+        close();
+      },
     });
-    try{stream.subscribe();}catch{close();return jsonResponse({ok:false,error:'EXNESS_SUBSCRIBE_FAILED',readOnly:true},503);}
+    await this.arm();
     return new Response(null,{status:101,webSocket:browser});
+  }
+
+  // Serve a quote from the shared subscription. Returns null when the hub cannot connect so the
+  // caller can use the original one-shot path. A quote is LIVE only while the socket is up and
+  // the tick is recent; otherwise the answer is an explicit STALE error without a price.
+  async hubQuote(symbol){
+    const hub=this.hub;
+    let ready;try{ready=await hub.ensure();}catch{return null;}
+    if(!ready.ok)return null;
+    await this.arm();
+    let read=hub.read(symbol);
+    if(read.reason==='NO_TICK'){await hub.waitForTick(symbol,QUOTE_WAIT_MS);read=hub.read(symbol);}
+    if(read.state==='LIVE'){
+      const tick=read.tick;
+      return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,instrument:symbol,bid:tick.bid,ask:tick.ask,sourceTimestamp:new Date(tick.sourceMs).toISOString(),receivedAt:new Date(tick.receivedMs).toISOString(),source:'EXNESS_WEBSOCKET_TICKS',state:'LIVE',quoteAgeMs:read.ageMs,connection:read.health});
+    }
+    const timedOut=read.reason==='NO_TICK';
+    return jsonResponse({ok:false,exchange:'EXNESS',readOnly:true,error:timedOut?'EXNESS_TICK_TIMEOUT':'EXNESS_TICK_STALE',state:'STALE',reason:read.reason,quoteAgeMs:read.ageMs,connection:read.health},timedOut?504:503);
   }
 
   async handle(url){
     const instrument=String(url.searchParams.get('instrument')||'').trim();
     if(!READ_ONLY_ROUTES.includes(url.pathname))return jsonResponse({ok:false,error:'NOT_FOUND',readOnly:true},404);
-    const client=createExnessReadonlyMarketClient(this.env,{store:this.state.storage,reserve:rule=>this.reserve(rule)});
+    try{
+      if(url.pathname==='/quote'&&FOREX_PAIRS.includes(instrument)){const shared=await this.hubQuote(instrument);if(shared)return shared;}
+    }catch{}
+    const client=this.client();
     try{
       const result=url.pathname==='/instruments'?await client.instruments()
         :url.pathname==='/quote'?await client.quote(instrument)
@@ -127,6 +142,6 @@ export class ExnessMarketDataState{
         :url.pathname==='/candles'?await client.candles({instrument,timeframe:url.searchParams.get('timeframe'),from:url.searchParams.get('from'),to:url.searchParams.get('to'),count:url.searchParams.get('count'),price_type:url.searchParams.get('price_type')})
         :await client.events({event:url.searchParams.get('event'),instrument});
       return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,...result});
-    }catch(error){return jsonResponse({ok:false,error:String(error?.code||error?.message||'EXNESS_MARKET_DATA_UNAVAILABLE'),readOnly:true,...(error?.upstreamClass?{upstreamClass:String(error.upstreamClass)}:{})},Number(error?.status)||503);}
+    }catch(error){const code=String(error?.code||error?.message||'EXNESS_MARKET_DATA_UNAVAILABLE');return jsonResponse({ok:false,error:code,readOnly:true,...(code==='EXNESS_TICK_STALE'||code==='EXNESS_TICK_TIMEOUT'?{state:'STALE'}:{}),...(error?.upstreamClass?{upstreamClass:String(error.upstreamClass)}:{})},Number(error?.status)||503);}
   }
 }

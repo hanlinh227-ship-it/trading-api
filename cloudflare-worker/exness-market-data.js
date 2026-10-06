@@ -151,8 +151,10 @@ export function createExnessReadonlyMarketClient(env={},opts={}){
     if(saved&&Number(saved.expiresAt)>now())return saved.value;
     if(saved?.value){
       const operationRule=ruleForRest(saved.value,path),globalRule=rateRule(saved.value?.limits?.rest?.global_account_rate);
-      await reserveRule('rest:limits',operationRule);
-      await reserveRule('rest:global',globalRule);
+      // The limits payload need not list its own endpoint; without this the refresh after
+      // the 5-minute cache expiry fails permanently. The global account rate still applies.
+      if(operationRule)await reserveRule('rest:limits',operationRule);
+      if(globalRule)await reserveRule('rest:global',globalRule);
     }
     const limits=await rawGet(path);
     if(store)await store.put('cache:limits',{value:limits,expiresAt:now()+300_000});

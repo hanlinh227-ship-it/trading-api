@@ -402,3 +402,26 @@ const limitsFixture={limits:{rest:{global_account_rate:{limit:100,window_seconds
   assert.equal(authorized.status,200,'an action key must unlock the read-only events snapshot');
   assert.equal((await authorized.json()).source,'EXNESS_WEBSOCKET_EVENTS');
 }
+
+{
+  // Regression: after the 5-minute limits cache expires, the limits refresh used to demand a
+  // rate rule for the limits endpoint itself. Account limits payloads list only some methods,
+  // so every refresh failed with EXNESS_RATE_LIMIT_UNAVAILABLE and the feed stayed down.
+  const data=new Map(),store={get:async key=>data.get(key)??null,put:async(key,value)=>{data.set(key,value);}};
+  let clock=1_700_000_000_000,limitsCalls=0;
+  const socket=new FakeSocket();
+  const fetchImpl=async(url)=>{
+    const target=String(url);
+    if(target.endsWith('/v1/configuration/accounts/123456/limits')){limitsCalls++;return new Response(JSON.stringify(limitsFixture));}
+    if(target.endsWith('/v1/configuration/accounts/123456/instruments'))return new Response(JSON.stringify({instruments:['EURUSD']}));
+    throw new Error('unexpected '+target);
+  };
+  const reserve=async()=>({allowed:true});
+  const make=()=>createExnessReadonlyMarketClient({EXNESS_API_KEY:'key',EXNESS_PRIVATE_KEY:privateKeyPem,EXNESS_ACCOUNT_ID:'123456',EXNESS_API_BASE_URL:'https://ap-test.trading.exness.com'},{fetchImpl,store,reserve,now:()=>clock});
+  assert.deepEqual((await make().instruments()).instruments,['EURUSD']);
+  clock+=301_000; // limits cache (300 s) and instruments cache (60 s) both expired
+  const refreshed=await make().instruments();
+  assert.deepEqual(refreshed.instruments,['EURUSD'],'limits refresh must not require a rule for its own endpoint');
+  assert.equal(limitsCalls,2,'expired limits must be re-fetched');
+}
+console.log('exness limits refresh after cache expiry ok');
