@@ -5,7 +5,7 @@ import {EXNESS_LIVE_PAGE} from './exness-live-page.js';
 const readOnlyEnabled=env=>String(env.EXNESS_ENABLED||'').toLowerCase()==='true'&&String(env.EXNESS_MODE||'').toUpperCase()==='SHADOW'&&String(env.EXNESS_LIVE_ENABLED||'').toLowerCase()!=='true'&&String(env.EXNESS_LIVE_ACK||'').toLowerCase()!=='true';
 
 // Read-only surface only. No trading, order, deposit or account-modification route exists here.
-const READ_ONLY_ROUTES=['/exness/instruments','/exness/quote','/exness/account','/exness/limits','/exness/conditions','/exness/candles','/exness/events','/exness/live','/exness/live/ws'];
+const READ_ONLY_ROUTES=['/exness/instruments','/exness/quote','/exness/quotes','/exness/account','/exness/limits','/exness/conditions','/exness/candles','/exness/events','/exness/live','/exness/live/ws'];
 const INSTRUMENT_ROUTES=['/exness/quote','/exness/conditions'];
 // The server events stream can carry balance, equity and used margin, so it stays read-only
 // but never public: it requires the same action key as the other account-state surfaces.
@@ -15,6 +15,7 @@ function internalTarget(path,url,instrument){
   switch(path){
     case '/exness/instruments':return '/instruments';
     case '/exness/quote':return `/quote?instrument=${encodeURIComponent(instrument)}`;
+    case '/exness/quotes':return '/quotes';
     case '/exness/account':return '/account';
     case '/exness/limits':return '/limits';
     case '/exness/conditions':return `/conditions?instrument=${encodeURIComponent(instrument)}`;
@@ -39,6 +40,7 @@ export async function handleExnessMarketData(request,env={},opts={}){
       const client=opts.clientFactory(env);
       const result=path==='/exness/instruments'?await client.instruments()
         :path==='/exness/quote'?await client.quote(instrument)
+        :path==='/exness/quotes'?await client.quotes()
         :path==='/exness/account'?await client.account()
         :path==='/exness/limits'?await client.limits()
         :path==='/exness/conditions'?await client.conditions(instrument)

@@ -18,6 +18,10 @@ on:
         description: 'Seconds between samples (5-60)'
         type: string
         default: '10'
+      batch_samples:
+        description: 'Number of GET /exness/quotes (all 28 pairs) samples to take after the main sampling (0-30)'
+        type: string
+        default: '0'
       idle_gap_seconds:
         description: 'After sampling, send nothing for this long (0-600), then sample again to observe reconnect on demand'
         type: string
@@ -40,5 +44,6 @@ jobs:
           INSTRUMENT: ${{ inputs.instrument }}
           MINUTES: ${{ inputs.minutes }}
           INTERVAL_SECONDS: ${{ inputs.interval_seconds }}
+          BATCH_SAMPLES: ${{ inputs.batch_samples }}
           IDLE_GAP_SECONDS: ${{ inputs.idle_gap_seconds }}
         run: node .github/scripts/exness-readonly-probe.mjs

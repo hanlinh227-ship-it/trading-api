@@ -6,7 +6,7 @@ import {createExnessTickHub} from './exness-tick-hub.js';
 const CACHE_LIMIT=3000;
 const fixedWindow=(rows,now,windowMs)=>rows.filter(at=>Number(at)>now-windowMs);
 // Internal read-only routes only. No mutating internal route exists.
-const READ_ONLY_ROUTES=['/instruments','/quote','/account','/limits','/conditions','/candles','/events','/live/ws'];
+const READ_ONLY_ROUTES=['/instruments','/quote','/quotes','/account','/limits','/conditions','/candles','/events','/live/ws'];
 // Kết nối WebSocket có thể chết mà KHÔNG báo lỗi. Im lặng quá lâu thì coi như chết
 // và đóng lại để trình duyệt nối lại bằng một handshake mới, thay vì đứng im vô hạn.
 const STREAM_STALL_MS=30_000;
@@ -126,9 +126,29 @@ export class ExnessMarketDataState{
     return jsonResponse({ok:false,exchange:'EXNESS',readOnly:true,error:timedOut?'EXNESS_TICK_TIMEOUT':'EXNESS_TICK_STALE',state:'STALE',reason:read.reason,quoteAgeMs:read.ageMs,connection:read.health},timedOut?504:503);
   }
 
+  // All 28 FX pairs in one read, from the shared subscription. One request replaces 28 and adds no
+  // upstream connection. Each pair is LIVE or STALE on its own; a stale pair never carries a price.
+  async hubQuotes(){
+    const hub=this.hub;
+    let ready;try{ready=await hub.ensure();}catch{ready={ok:false,error:'EXNESS_STREAM_UNAVAILABLE',status:503};}
+    if(!ready.ok)return jsonResponse({ok:false,exchange:'EXNESS',readOnly:true,error:String(ready.error||'EXNESS_STREAM_UNAVAILABLE'),state:'STALE',connection:hub.health()},Number(ready.status)||503);
+    await this.arm();
+    if(!FOREX_PAIRS.some(symbol=>hub.read(symbol).state==='LIVE'))await hub.waitForTick(null,QUOTE_WAIT_MS);
+    const quotes={};let live=0;
+    for(const symbol of FOREX_PAIRS){
+      const read=hub.read(symbol);
+      if(read.state==='LIVE'){live++;quotes[symbol]={state:'LIVE',bid:read.tick.bid,ask:read.tick.ask,sourceTimestamp:new Date(read.tick.sourceMs).toISOString(),receivedAt:new Date(read.tick.receivedMs).toISOString(),quoteAgeMs:read.ageMs};}
+      else quotes[symbol]={state:'STALE',reason:read.reason,quoteAgeMs:read.ageMs};
+    }
+    const connection=hub.health();
+    if(live===0)return jsonResponse({ok:false,exchange:'EXNESS',readOnly:true,error:'EXNESS_TICK_STALE',state:'STALE',liveCount:0,total:FOREX_PAIRS.length,quotes,connection},503);
+    return jsonResponse({ok:true,exchange:'EXNESS',readOnly:true,source:'EXNESS_WEBSOCKET_TICKS',state:live===FOREX_PAIRS.length?'LIVE':'PARTIAL',liveCount:live,total:FOREX_PAIRS.length,quotes,connection});
+  }
+
   async handle(url){
     const instrument=String(url.searchParams.get('instrument')||'').trim();
     if(!READ_ONLY_ROUTES.includes(url.pathname))return jsonResponse({ok:false,error:'NOT_FOUND',readOnly:true},404);
+    if(url.pathname==='/quotes')return this.hubQuotes();
     try{
       if(url.pathname==='/quote'&&FOREX_PAIRS.includes(instrument)){const shared=await this.hubQuote(instrument);if(shared)return shared;}
     }catch{}
