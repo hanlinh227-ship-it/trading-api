@@ -1,0 +1,4 @@
+E2E closure advisory refresh
+target_pr=442
+target_sha=e7c8b0a238f6dc0d3a5b254eba063b50e5a2bc42
+reason=review Task3-Task5 closure state against latest canonical head
