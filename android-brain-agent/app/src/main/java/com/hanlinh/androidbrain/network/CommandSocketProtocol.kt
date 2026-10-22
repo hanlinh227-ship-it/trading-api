@@ -1,10 +1,14 @@
 package com.hanlinh.androidbrain.network
 
 import java.net.URLEncoder
+import org.json.JSONObject
+
+sealed interface CommandSocketEvent {
+    data object CommandAvailable : CommandSocketEvent
+    data class TaskCancelled(val taskId: String) : CommandSocketEvent
+}
 
 object CommandSocketProtocol {
-    private val commandAvailableType = Regex("\\\"type\\\"\\s*:\\s*\\\"command_available\\\"")
-
     fun socketUrl(baseUrl: String, deviceId: String): String {
         val trimmed = baseUrl.trimEnd('/')
         val wsBase = when {
@@ -16,8 +20,22 @@ object CommandSocketProtocol {
         return "$wsBase/v1/device/$encodedDeviceId/socket"
     }
 
-    fun isCommandAvailable(message: String): Boolean {
+    fun parseEvent(message: String): CommandSocketEvent? {
         val text = message.trim()
-        return text.startsWith("{") && text.endsWith("}") && commandAvailableType.containsMatchIn(text)
+        if (!text.startsWith("{") || !text.endsWith("}")) return null
+        return runCatching {
+            val json = JSONObject(text)
+            when (json.optString("type")) {
+                "command_available" -> CommandSocketEvent.CommandAvailable
+                "task_cancelled" -> json.optString("taskId")
+                    .trim()
+                    .takeIf { it.isNotEmpty() && it.length <= 128 }
+                    ?.let(CommandSocketEvent::TaskCancelled)
+                else -> null
+            }
+        }.getOrNull()
     }
+
+    fun isCommandAvailable(message: String): Boolean =
+        parseEvent(message) is CommandSocketEvent.CommandAvailable
 }
