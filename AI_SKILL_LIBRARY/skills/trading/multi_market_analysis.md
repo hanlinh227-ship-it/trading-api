@@ -30,8 +30,12 @@ This skill is analysis-only. It does not imply that the current production runti
 
 For intents such as `tìm lệnh`, `tìm lệnh tốt nhất hiện tại`, `quét market`, `quét đa thị trường`, `quét toàn bộ thị trường`, `có setup nào không`, `find best trade`, or `scan markets`, execute the following workflow automatically.
 
+Domain-specific variants such as `tìm lệnh forex`, `quét coin`, `tìm setup crypto`, `quét futures`, `tìm setup NQ futures`, or `quét forex coin future` use the same canonical workflow. The caller does not need to pre-fill `requestedDomains`, choose a provider, or select a timeframe when the intent can be resolved safely.
+
 ### 1. Resolve requested domains
-- If the caller names domains or instruments, resolve only those compatible domains.
+- If the caller names domains or verified instruments, resolve only those compatible domains.
+- If the caller names a verified canonical instrument, narrow the research universe to that instrument unless the caller explicitly supplies a broader symbol set.
+- Explicit structured `requestedDomains` and `symbols` take precedence over free-text inference.
 - If the caller asks broadly, resolve the approved multi-market scope: crypto, forex, futures, indices, metals and commodities.
 - Resolve canonical symbols/product intents and current-contract requirements without guessing unknown symbols or permanently hard-coding dated futures contracts.
 - Do not ask the caller to choose a provider, timeframe or chart source when an automated route exists.
@@ -63,6 +67,15 @@ Acquire connector-plane evidence for forex, futures, indices, metals and commodi
 - Do not bypass access controls, rotate identities/IPs to evade quotas, scrape private endpoints, or silently purchase data.
 - If a connector is unavailable, continue with covered domains instead of failing the entire broad scan.
 - Do not ask the caller to choose a provider unless no automated provider route remains and the requested conclusion cannot be produced honestly.
+
+### Domain provider routing
+Use a free-first source policy. Providers are evidence sources only; they do not gain routing authority or production execution authority.
+
+- **Crypto / coin:** prefer the approved gateway-native public provider set. In the ChatGPT tool plane, connected **Binance** public/read-only market data may supply current crypto prices, candles, order books and trades without account authentication. Preserve venue and spot/perpetual semantics. Binance evidence never grants order permission and never substitutes for another venue's executable quote.
+- **Forex:** use **Massive** only when the active connector reports the required endpoint available and the current account entitlement/timeliness is verified. `NOT_ENTITLED` or `UNVERIFIED` remains a `GAP`; verified delayed evidence may be `CONTEXT_ONLY` but never `LIVE`.
+- **Futures:** use **Massive** only when the connector is available, entitlement is verified, and the current contract is resolved from provider evidence. Never hard-code an expired dated contract. Delayed futures data may be context but cannot authorize a live candidate.
+- **Fallback:** use only semantically compatible, permitted sources. Never silently switch to a paid source, create a paid resource, evade a quota, or relabel delayed/unverified evidence as live.
+- **Partial coverage:** if Forex or Futures is unavailable while Crypto is covered, continue the requested scan and expose the uncovered domain as `GAP` rather than fabricating a cross-market result.
 
 ### 5. Normalize all acquired evidence
 Normalize all acquired evidence before comparison:
