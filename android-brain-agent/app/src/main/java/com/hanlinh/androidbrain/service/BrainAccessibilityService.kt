@@ -8,6 +8,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.hanlinh.androidbrain.perception.AccessibilityScreenshotProvider
 import com.hanlinh.androidbrain.perception.AccessibilitySnapshot
 import com.hanlinh.androidbrain.perception.AccessibilitySnapshotMapper
+import com.hanlinh.androidbrain.perception.EventDrivenObserver
 import com.hanlinh.androidbrain.perception.NodeBounds
 import com.hanlinh.androidbrain.perception.RawAccessibilityNode
 import com.hanlinh.androidbrain.perception.ScreenshotCapture
@@ -19,16 +20,25 @@ class BrainAccessibilityService : AccessibilityService() {
     }
 
     private val screenshotProvider by lazy { AccessibilityScreenshotProvider(this) }
+    private var eventObserver: EventDrivenObserver? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         current = this
+        eventObserver = EventDrivenObserver.install(::snapshot)
+        eventObserver?.refresh()
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event == null) return
+        eventObserver?.onAccessibilityEvent(event.eventType)
+    }
+
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        EventDrivenObserver.clear(eventObserver)
+        eventObserver = null
         if (current === this) current = null
         super.onDestroy()
     }
@@ -36,23 +46,28 @@ class BrainAccessibilityService : AccessibilityService() {
     fun snapshot(): AccessibilitySnapshot? {
         val root = rootInActiveWindow ?: return null
         val raw = mutableListOf<RawAccessibilityNode>()
-        collect(root, "0", raw)
-        val packageName = root.packageName?.toString().orEmpty()
-        val title = root.window?.title?.toString()
-        val metrics = resources.displayMetrics
-        val orientation = when (resources.configuration.orientation) {
-            Configuration.ORIENTATION_PORTRAIT -> "PORTRAIT"
-            Configuration.ORIENTATION_LANDSCAPE -> "LANDSCAPE"
-            else -> "UNDEFINED"
+        try {
+            collect(root, "0", raw)
+            val packageName = root.packageName?.toString().orEmpty()
+            if (packageName.isBlank()) return null
+            val title = root.window?.title?.toString()
+            val metrics = resources.displayMetrics
+            val orientation = when (resources.configuration.orientation) {
+                Configuration.ORIENTATION_PORTRAIT -> "PORTRAIT"
+                Configuration.ORIENTATION_LANDSCAPE -> "LANDSCAPE"
+                else -> "UNDEFINED"
+            }
+            return AccessibilitySnapshotMapper().from(
+                packageName = packageName,
+                windowTitle = title,
+                rawNodes = raw,
+                screenWidth = metrics.widthPixels,
+                screenHeight = metrics.heightPixels,
+                orientation = orientation,
+            )
+        } finally {
+            root.recycle()
         }
-        return AccessibilitySnapshotMapper().from(
-            packageName = packageName,
-            windowTitle = title,
-            rawNodes = raw,
-            screenWidth = metrics.widthPixels,
-            screenHeight = metrics.heightPixels,
-            orientation = orientation,
-        )
     }
 
     fun captureScreenshot(callback: (ScreenshotCapture) -> Unit) {

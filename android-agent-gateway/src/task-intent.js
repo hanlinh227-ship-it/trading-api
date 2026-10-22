@@ -53,11 +53,13 @@ function intentShape(objective) {
   const is2048 = /(?:^|\D)2048(?:\D|$)/u.test(lower)
   const gameLike = is2048 || /\b(?:play|game|puzzle)\b|\bchơi\b|trò chơi/u.test(lower)
   const terminalPhrase = /game\s*over|until\s+(?:it|the game)\s+ends?|until[^.!?;]*(?:over|ends?)|đến\s+khi[^.!?;]*(?:thua|kết\s*thúc)|cho\s+đến\s+khi[^.!?;]*(?:thua|kết\s*thúc)/u.test(lower)
+  const userStopPhrase = /until\s+(?:i\s+)?(?:say|tell\s+you\s+to|ask\s+you\s+to)?\s*stop|until\s+i\s+stop|keep[^.!?;]*until[^.!?;]*stop|only\s+stop[^.!?;]*(?:i\s+say|when\s+i)|chỉ\s+(?:khi|đến\s+khi)[^.!?;]*tôi[^.!?;]*(?:nói\s+)?dừng|đến\s+khi\s+tôi\s+(?:nói\s+)?dừng|cho\s+đến\s+khi\s+tôi\s+(?:nói\s+)?dừng|khi\s+tôi\s+bảo\s+dừng/u.test(lower)
   const longPhrase = /\b(?:keep|repeat|repetitive|continuously|continue|until|finished|complete|all the way)\b|tiếp tục|lặp|đến khi|cho đến khi|làm hết|toàn bộ/u.test(lower)
   const multiStep = /\bthen\b|\band then\b|\bsau đó\b|\brồi\b|,\s*(?:find|inspect|fill|summarize|go|open|then)\b/u.test(lower)
 
   let persistence = 'ONE_SHOT'
-  if (gameLike && terminalPhrase) persistence = 'UNTIL_TERMINAL'
+  if (userStopPhrase) persistence = 'LONG_RUNNING'
+  else if (gameLike && terminalPhrase) persistence = 'UNTIL_TERMINAL'
   else if (gameLike || longPhrase) persistence = 'LONG_RUNNING'
   else if (multiStep) persistence = 'LONG_RUNNING'
 
@@ -76,26 +78,36 @@ function intentShape(objective) {
   if (riskClass === 'B' || riskClass === 'C') capabilityScope.push('ui.write')
   if (riskClass === 'C') capabilityScope.push('ui.destructive.confirmed')
 
-  const completionCriteria = persistence === 'UNTIL_TERMINAL'
-    ? [gameLike ? 'GAME_TERMINAL' : 'TASK_TERMINAL']
-    : persistence === 'LONG_RUNNING'
-      ? ['OBJECTIVE_COMPLETE']
-      : ['ACTION_VERIFIED']
+  const persistencePolicy = userStopPhrase
+    ? ['UNTIL_USER_STOP', 'UNTIL_APP_SCOPE_EXIT']
+    : ['UNTIL_GOAL_COMPLETE']
+  const completionCriteria = userStopPhrase
+    ? ['USER_STOP_OR_APP_SCOPE_EXIT']
+    : persistence === 'UNTIL_TERMINAL'
+      ? [gameLike ? 'GAME_TERMINAL' : 'TASK_TERMINAL']
+      : persistence === 'LONG_RUNNING'
+        ? ['OBJECTIVE_COMPLETE']
+        : ['ACTION_VERIFIED']
 
   return {
+    // Keep the V4 schema marker for wire compatibility. V5 extends the
+    // payload additively with persistencePolicy/allowedPackages fields.
     intentSchema: 4,
     objective,
     completionCriteria,
     forbiddenActions,
     targetPackages: [],
+    allowedPackages: [],
     executionMode,
     deterministicAdapter,
     persistence,
+    persistencePolicy,
     capabilityScope: unique(capabilityScope),
     riskClass,
     userConstraints,
     gameLike,
     multiStep,
+    userStopPhrase,
   }
 }
 

@@ -65,10 +65,56 @@ export function groundSkill(skill, observation) {
     if (['click_node', 'long_click_node', 'set_text', 'replace_text', 'clipboard_paste'].includes(action.type)) {
       const node = nodes.find(candidate => candidate?.visibleToUser !== false && anchorMatches(candidate, template.semanticAnchor))
       if (!node?.nodeId) return null
-      if (action.type === 'set_text' || action.type === 'replace_text' || action.type === 'clipboard_paste') action.selector = node.nodeId
-      else action.selector = node.nodeId
+      action.selector = node.nodeId
     }
     grounded.push(action)
   }
   return grounded.length ? grounded : null
+}
+
+function normalizedRisk(value) {
+  return ['A', 'B', 'C', 'D'].includes(value) ? value : 'A'
+}
+
+function coordinateOnlyTemplate(template) {
+  const items = Array.isArray(template) ? template : []
+  if (items.length === 0) return false
+  return items.every(item => {
+    const action = item?.action ?? item
+    const type = action?.type
+    const coordinateAction = type === 'tap_point' || type === 'long_press_point' || type === 'double_tap_point' || type === 'swipe' || type === 'drag'
+    const hasAnchor = Boolean(safeAnchor(item?.semanticAnchor) || item?.visualAnchor)
+    return coordinateAction && !hasAnchor
+  })
+}
+
+/**
+ * Convert legacy V4 memory into a non-authoritative V5 candidate.
+ * The candidate is never executable until current task authorization and
+ * current-UI re-grounding succeed. Legacy coordinates remain hints only.
+ */
+export function migrateV4Skill(skill = {}) {
+  const inputConfidence = Number.isFinite(Number(skill.confidence)) ? Number(skill.confidence) : 0
+  const coordinateOnly = coordinateOnlyTemplate(skill.actionTemplate)
+  const confidenceCap = coordinateOnly ? 0.55 : 0.72
+  const actionTemplate = (Array.isArray(skill.actionTemplate) ? skill.actionTemplate : [])
+    .slice(0, 24)
+    .map(item => ({
+      action: item?.action && typeof item.action === 'object' ? { ...item.action } : null,
+      semanticAnchor: safeAnchor(item?.semanticAnchor),
+      visualAnchor: typeof item?.visualAnchor === 'string' ? item.visualAnchor.slice(0, 192) : null,
+    }))
+    .filter(item => item.action)
+
+  return {
+    packageName: typeof skill.packageName === 'string' ? skill.packageName.slice(0, 192) : null,
+    intentPattern: typeof skill.intentPattern === 'string' ? skill.intentPattern.slice(0, 256) : '',
+    actionTemplate,
+    riskClass: normalizedRisk(skill.riskClass ?? skill.taskRiskClass),
+    confidence: Math.max(0, Math.min(confidenceCap, inputConfidence)),
+    authority: 'HINT_ONLY',
+    requiresCurrentAuthorization: true,
+    requiresRegrounding: true,
+    migratedFrom: 'V4',
+  }
 }
