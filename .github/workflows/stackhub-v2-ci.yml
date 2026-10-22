@@ -1,0 +1,165 @@
+name: STACKHUB V2 CI
+
+on:
+  push:
+    branches: ['stackhub-v2-*']
+    paths:
+      - 'stackhub_v2/**'
+      - '.github/workflows/stackhub-v2-ci.yml'
+      - 'docs/superpowers/plans/2026-09-11-stackhub-v2-taskbounty-autonomous-worker.md'
+  pull_request:
+    paths:
+      - 'stackhub_v2/**'
+      - '.github/workflows/stackhub-v2-ci.yml'
+      - 'docs/superpowers/specs/2026-09-11-stackhub-v2-autonomous-bounty-design.md'
+      - 'docs/superpowers/plans/2026-09-11-stackhub-v2-foundation-taskbounty-readonly.md'
+      - 'docs/superpowers/plans/2026-09-11-stackhub-v2-taskbounty-autonomous-worker.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install STACKHUB V2
+        working-directory: stackhub_v2
+        run: python -m pip install -e '.[test]'
+
+      - name: Install V4 validator dependencies
+        run: python -m pip install -r AI_SKILL_LIBRARY/requirements.txt
+
+      - name: Compile STACKHUB V2
+        working-directory: stackhub_v2
+        run: python -m compileall -q src
+
+      - name: Run STACKHUB V2 tests
+        working-directory: stackhub_v2
+        run: python -m pytest -q
+
+      - name: Reject committed credentials and wallet secrets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('stackhub_v2')
+          allowed_fake_tokens = {
+              'tb_live_SECRETSECRETSECRET',
+              'tb_live_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456',
+              'tb_live_SECRET',
+              'tb_live_SUPERSECRET',
+          }
+          token_re = re.compile(r'tb_live_[A-Za-z0-9_-]{8,}')
+          private_key_re = re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----')
+          wallet_re = re.compile(r'(?im)^\s*(?:seed|mnemonic)\s*=\s*[\"\']([^\"\']+)[\"\']')
+          failures = []
+
+          for path in root.rglob('*'):
+              if not path.is_file() or '__pycache__' in path.parts or path.suffix == '.pyc':
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except UnicodeDecodeError:
+                  continue
+
+              for token in token_re.findall(text):
+                  if token not in allowed_fake_tokens:
+                      failures.append(f'{path}: unexpected TaskBounty credential pattern')
+              if private_key_re.search(text):
+                  failures.append(f'{path}: private-key header')
+              for match in wallet_re.finditer(text):
+                  if match.group(1).strip():
+                      failures.append(f'{path}: populated seed/mnemonic assignment')
+
+          if failures:
+              print('\n'.join(failures))
+              raise SystemExit(1)
+          print('No committed credentials or wallet secrets found.')
+          PY
+
+      - name: Prove default configuration remains read-only
+        working-directory: stackhub_v2
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from stackhub.config import load_runtime_config
+
+          cfg = load_runtime_config(Path('config/sources.yaml'))
+          assert cfg.dry_run is True
+          assert cfg.worker_enabled is False
+          assert cfg.external_spend_limit_usd == 0
+          assert cfg.sources['taskbounty'].read_only is True
+          print('Default runtime is still read-only and zero-spend.')
+          PY
+
+      - name: Validate GitHub Brain V4 authority
+        run: |
+          python AI_SKILL_LIBRARY/validate_brain.py
+          python AI_SKILL_LIBRARY/validate_router.py
+          python AI_SKILL_LIBRARY/validate_authority.py
+          python AI_SKILL_LIBRARY/validate_v4.py
+
+      - name: Probe current public TaskBounty discovery contract
+        run: |
+          python - <<'PY'
+          import httpx
+
+          url = 'https://www.task-bounty.com/api/v1/bounties.json'
+          response = httpx.get(
+              url,
+              params={'limit': 3},
+              headers={'Accept': 'application/feed+json, application/json'},
+              timeout=20,
+          )
+          print({'status': response.status_code, 'content_type': response.headers.get('content-type')})
+          response.raise_for_status()
+          data = response.json()
+          assert isinstance(data, dict), f'unexpected discovery payload type: {type(data).__name__}'
+          assert isinstance(data.get('items'), list), 'public JSON Feed must expose items[]'
+          print({'top_level_keys': sorted(data.keys()), 'item_count': len(data['items'])})
+          PY
+
+      - name: Live read-only TaskBounty smoke and idempotency
+        working-directory: stackhub_v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          unset TASKBOUNTY_API_KEY || true
+          rm -rf runtime-data
+          mkdir -p runtime-data
+          stackhub scan-once --config config/sources.yaml --db runtime-data/stackhub-v2.db
+          stackhub scan-once --config config/sources.yaml --db runtime-data/stackhub-v2.db
+          stackhub status --db runtime-data/stackhub-v2.db
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          db = Path('runtime-data/stackhub-v2.db')
+          assert db.exists(), 'runtime DB was not created'
+          con = sqlite3.connect(db)
+          duplicates = con.execute(
+              'SELECT source, id, COUNT(*) FROM opportunities GROUP BY source, id HAVING COUNT(*) > 1'
+          ).fetchall()
+          assert duplicates == [], duplicates
+          for table in ('claims', 'submissions', 'payouts'):
+              count = con.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
+              assert count == 0, (table, count)
+          health = con.execute(
+              'SELECT source, ok, status_code, error_code FROM source_health ORDER BY rowid DESC LIMIT 1'
+          ).fetchone()
+          assert health is not None
+          assert health[0] == 'taskbounty'
+          assert health[1] == 1
+          assert health[2] == 200
+          assert health[3] is None
+          print({'duplicates': duplicates, 'claims_submissions_payouts': 0, 'latest_health': health})
+          con.close()
+          PY

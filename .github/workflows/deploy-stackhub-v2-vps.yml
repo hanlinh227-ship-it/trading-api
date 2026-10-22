@@ -1,0 +1,197 @@
+# Deploy STACKHUB scanner continuously; live mutation requires explicit secret gate.
+name: Deploy STACKHUB V2 to VPS
+
+on:
+  push:
+    branches: ['stackhub-v2-autonomous-bounty']
+    paths:
+      - 'stackhub_v2/**'
+      - '.github/workflows/deploy-stackhub-v2-vps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEPLOY_ENABLED: ${{ secrets.STACKHUB_DEPLOY_ENABLED }}
+      VPS_HOST: ${{ secrets.STACKHUB_VPS_HOST }}
+      VPS_USER: ${{ secrets.STACKHUB_VPS_USER }}
+      VPS_PORT: ${{ secrets.STACKHUB_VPS_PORT }}
+      VPS_SSH_KEY: ${{ secrets.STACKHUB_VPS_SSH_KEY }}
+      VPS_SSH_KEY_B64: ${{ secrets.STACKHUB_VPS_SSH_KEY_B64 }}
+      TASKBOUNTY_API_KEY: ${{ secrets.TASKBOUNTY_API_KEY }}
+      MOLTJOBS_API_KEY: ${{ secrets.MOLTJOBS_API_KEY }}
+      TASKFORCE_API_KEY: ${{ secrets.TASKFORCE_API_KEY }}
+      GUMROAD_ACCESS_TOKEN: ${{ secrets.GUMROAD_ACCESS_TOKEN }}
+      STACKHUB_SOLVER_COMMAND: ${{ secrets.STACKHUB_SOLVER_COMMAND }}
+      STACKHUB_ACTIVATE_LIVE: ${{ secrets.STACKHUB_ACTIVATE_LIVE }}
+    steps:
+      - name: Deployment disabled
+        if: env.DEPLOY_ENABLED != 'true'
+        run: echo 'STACKHUB VPS deployment is disabled.'
+
+      - uses: actions/checkout@v4
+        if: env.DEPLOY_ENABLED == 'true'
+
+      - name: Validate deployment inputs
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${VPS_HOST:-}" || { echo 'Missing STACKHUB_VPS_HOST'; exit 1; }
+          test -n "${VPS_USER:-}" || { echo 'Missing STACKHUB_VPS_USER'; exit 1; }
+          if [ -z "${VPS_SSH_KEY_B64:-}" ] && [ -z "${VPS_SSH_KEY:-}" ]; then echo 'Missing VPS SSH key'; exit 1; fi
+          if [ -z "${TASKBOUNTY_API_KEY:-}" ] && [ -z "${MOLTJOBS_API_KEY:-}" ] && [ -z "${TASKFORCE_API_KEY:-}" ]; then echo 'At least one job-source API key is required'; exit 1; fi
+          if [ "${STACKHUB_ACTIVATE_LIVE:-false}" = "true" ]; then
+            test -n "${TASKFORCE_API_KEY:-}" || { echo 'LIVE currently requires TASKFORCE_API_KEY'; exit 1; }
+            test -n "${STACKHUB_SOLVER_COMMAND:-}" || { echo 'LIVE requires STACKHUB_SOLVER_COMMAND'; exit 1; }
+            [ "$STACKHUB_SOLVER_COMMAND" != "/bin/true" ] || { echo 'LIVE blocked: placeholder solver'; exit 1; }
+          fi
+
+      - name: Prepare SSH
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh; chmod 700 ~/.ssh
+          if [ -n "${VPS_SSH_KEY_B64:-}" ]; then printf '%s' "$VPS_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_stackhub; else
+            python - <<'PY'
+          import os
+          from pathlib import Path
+          key=os.environ['VPS_SSH_KEY'].replace('\r','').strip()
+          if '\\n' in key and '\n' not in key: key=key.replace('\\n','\n')
+          Path.home().joinpath('.ssh/id_stackhub').write_text(key+'\n',encoding='utf-8')
+          PY
+          fi
+          chmod 600 ~/.ssh/id_stackhub
+          ssh-keygen -y -f ~/.ssh/id_stackhub >/dev/null
+          PORT="${VPS_PORT:-22}"; ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Build protected runtime environment file
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail; umask 077
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          def line(name):
+              value=os.environ.get(name,'').replace('\\','\\\\').replace('"','\\"').replace('\n','\\n')
+              return f'{name}="{value}"\n'
+          names=[n for n in ['TASKBOUNTY_API_KEY','MOLTJOBS_API_KEY','TASKFORCE_API_KEY','GUMROAD_ACCESS_TOKEN','STACKHUB_SOLVER_COMMAND'] if os.environ.get(n)]
+          Path('/tmp/stackhub.env').write_text(''.join(line(n) for n in names),encoding='utf-8')
+          PY
+          chmod 600 /tmp/stackhub.env
+
+      - name: Upload runtime secret file
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"; scp -P "$PORT" -i ~/.ssh/id_stackhub /tmp/stackhub.env "$VPS_USER@$VPS_HOST:/tmp/stackhub.env"
+
+      - name: Provision scanner and guarded live worker on VPS
+        if: env.DEPLOY_ENABLED == 'true'
+        shell: bash
+        env:
+          ACTIVATE_LIVE: ${{ secrets.STACKHUB_ACTIVATE_LIVE }}
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -p "$PORT" -i ~/.ssh/id_stackhub "$VPS_USER@$VPS_HOST" "ACTIVATE_LIVE='${ACTIVATE_LIVE:-false}' bash -se" <<'REMOTE'
+          set -euo pipefail
+          sudo -n true
+          command -v git >/dev/null; command -v python3 >/dev/null
+          if [ ! -d /opt/stackhub/.git ]; then
+            sudo rm -rf /opt/stackhub
+            sudo git clone --branch stackhub-v2-autonomous-bounty --single-branch https://github.com/hanlinh227-ship-it/trading-api.git /opt/stackhub
+          else
+            sudo git -C /opt/stackhub fetch origin stackhub-v2-autonomous-bounty
+            sudo git -C /opt/stackhub checkout stackhub-v2-autonomous-bounty
+            sudo git -C /opt/stackhub reset --hard origin/stackhub-v2-autonomous-bounty
+          fi
+          if [ ! -x /opt/stackhub/.venv/bin/python ]; then sudo python3 -m venv /opt/stackhub/.venv; fi
+          sudo /opt/stackhub/.venv/bin/python -m pip install --upgrade pip
+          sudo /opt/stackhub/.venv/bin/python -m pip install -e '/opt/stackhub/stackhub_v2[test]'
+          cd /opt/stackhub/stackhub_v2
+          echo '=== VPS REGRESSION TESTS ==='
+          /opt/stackhub/.venv/bin/python -m pytest -q
+
+          sudo install -d -m 0755 /etc/stackhub /var/lib/stackhub /var/lib/stackhub/artifacts
+          sudo install -m 0600 /tmp/stackhub.env /etc/stackhub/stackhub.env; rm -f /tmp/stackhub.env
+          if [ "${ACTIVATE_LIVE:-false}" = "true" ]; then
+            sudo install -m 0644 /opt/stackhub/stackhub_v2/config/sources.live.example.yaml /etc/stackhub/sources.yaml
+          else
+            sudo install -m 0644 /opt/stackhub/stackhub_v2/config/sources.yaml /etc/stackhub/sources.yaml
+          fi
+          sudo install -m 0644 /opt/stackhub/stackhub_v2/deploy/stackhub-v2.service.example /etc/systemd/system/stackhub-v2.service
+          sudo systemctl daemon-reload
+          set -a; . /etc/stackhub/stackhub.env; set +a
+
+          if [ "${ACTIVATE_LIVE:-false}" = "true" ] && printf '%s' "${STACKHUB_SOLVER_COMMAND:-}" | grep -q 'stackhub.local_solver'; then
+            echo '=== LOCAL SOLVER PREFLIGHT ==='
+            if ! command -v ollama >/dev/null 2>&1; then
+              command -v curl >/dev/null 2>&1 || { echo 'curl required to install Ollama'; exit 1; }
+              curl -fsSL https://ollama.com/install.sh | sudo sh
+            fi
+            if sudo systemctl list-unit-files ollama.service >/dev/null 2>&1; then
+              sudo systemctl enable --now ollama
+            else
+              pgrep -f 'ollama serve' >/dev/null 2>&1 || nohup ollama serve >/tmp/ollama.log 2>&1 &
+            fi
+            ready=false
+            for _ in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then ready=true; break; fi
+              sleep 2
+            done
+            [ "$ready" = true ] || { echo 'Ollama API failed to become ready'; exit 1; }
+            MODEL="${STACKHUB_LOCAL_MODEL:-qwen2.5-coder:1.5b-instruct}"
+            ollama pull "$MODEL"
+            rm -rf /tmp/stackhub-solver-smoke; mkdir -p /tmp/stackhub-solver-smoke
+            printf '%s' '{"opportunity":{"source":"preflight","id":"solver-smoke","category":"content","requirements":["Return exactly the word READY"],"acceptance_criteria":["Output must be READY"]}}' | env STACKHUB_LOCAL_MODEL="$MODEL" STACKHUB_ARTIFACT_ROOT=/tmp/stackhub-solver-smoke /opt/stackhub/.venv/bin/python -m stackhub.local_solver >/tmp/stackhub-solver-smoke.json
+            /opt/stackhub/.venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('/tmp/stackhub-solver-smoke.json').read_text())
+          artifact=Path(data['artifact_reference'])
+          assert artifact.is_file() and artifact.stat().st_size > 0
+          assert data.get('evidence',{}).get('artifact_written') is True
+          print({'solver_smoke':'ok','artifact_bytes':artifact.stat().st_size})
+          PY
+            rm -rf /tmp/stackhub-solver-smoke /tmp/stackhub-solver-smoke.json
+          fi
+
+          if [ -n "${TASKFORCE_API_KEY:-}" ]; then
+            if [ "${ACTIVATE_LIVE:-false}" = "true" ]; then /opt/stackhub/.venv/bin/python -m stackhub.taskforce_verify; else /opt/stackhub/.venv/bin/python -m stackhub.taskforce_verify || true; fi
+          fi
+          /opt/stackhub/.venv/bin/python -m stackhub.account_doctor
+          /opt/stackhub/.venv/bin/stackhub doctor --config /etc/stackhub/sources.yaml
+          /opt/stackhub/.venv/bin/stackhub scan-once --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+          /opt/stackhub/.venv/bin/stackhub status --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+          echo '=== HIGH VALUE CANDIDATES ==='
+          /opt/stackhub/.venv/bin/python - <<'PY'
+          import json,sqlite3
+          db=sqlite3.connect('/var/lib/stackhub/stackhub-v2.db'); db.row_factory=sqlite3.Row
+          rows=db.execute("SELECT source,id,url,category,reward_amount,reward_asset,competition_model,policy_allowed,score_usd_per_minute FROM opportunities ORDER BY CAST(reward_amount AS REAL) DESC, CAST(COALESCE(score_usd_per_minute,'-999999') AS REAL) DESC LIMIT 30").fetchall()
+          for r in rows: print(json.dumps(dict(r),sort_keys=True))
+          db.close()
+          PY
+          if [ "${ACTIVATE_LIVE:-false}" = "true" ]; then
+            echo '=== ONE-BATCH LIVE GATE ==='
+            /opt/stackhub/.venv/bin/stackhub orchestrate-once --config /etc/stackhub/sources.yaml --db /var/lib/stackhub/stackhub-v2.db
+          fi
+          sudo systemctl enable stackhub-v2.service
+          sudo systemctl restart stackhub-v2.service
+          sleep 3
+          sudo systemctl is-active stackhub-v2.service
+          sudo systemctl --no-pager --full status stackhub-v2.service
+          REMOTE
+
+      - name: Cleanup runner secrets
+        if: always()
+        shell: bash
+        run: rm -f ~/.ssh/id_stackhub /tmp/stackhub.env
