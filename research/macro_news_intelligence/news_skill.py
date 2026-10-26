@@ -96,6 +96,13 @@ def parse_feed(content: bytes, source: str) -> list[dict]:
     return rows
 
 
+class RejectRedirects(HTTPRedirectHandler):
+    """Refuse redirects before a request could leave the approved host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("RSS redirects are disabled to enforce source allowlist")
+
+
 def fetch_feed(url: str) -> list[dict]:
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.hostname not in ALLOWED_FEED_HOSTS or parsed.username or parsed.password:
