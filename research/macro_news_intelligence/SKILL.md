@@ -56,3 +56,9 @@ Never store credentials, account data, personally identifying data, copyrighted 
 - News processing is independent of execution approval. A separate audited authoritative calendar/news gate is required before any new-order NEWS_PASS claim.
 - Candidate is Evergreen quarantine; do not promote, merge into stable registry, rebuild release manifest or deploy until harmonization, tests, security and independent review pass.
 - See UPSTREAM_SOURCES.md for references. No third-party code/model weights imported.
+
+## Official BLS scheduled-release calendar (advisory)
+
+The separate `calendar_context.py` standard-library adapter ingests official BLS .ics release times. Optional `--official-bls-calendar` retrieves only `https://www.bls.gov/schedule/news_release/bls.ics`, refusing redirects, or `--calendar-ics /path` replays an explicitly UNVERIFIED local file. `--pre-event-minutes` and `--post-event-minutes` configure the proximity flag. Events include `scheduledAt`, `sourceUrl`, `sourceVerified`, `markets` and `topics`. BLS only covers a subset of USD releases and does not certify global FX, gold or oil event safety. Even an authenticated source produces `advisoryRisk`, **not** executable hard-news clearance.
+
+`news_skill.py` now emits currency hints per headline in `articles[].currencies`, but publisher relevance remains a hypothesis. RSS fetch source list additionally permits the exact BLS host; no port other than HTTPS 443, redirects or unknown hosts. Offline tests additionally cover New York DST, cancelation, unknown timezone, official-source provenance and CLI calendar-only operation. **Tests require execution in a Python environment and are not verified merely by committing fixtures.**
