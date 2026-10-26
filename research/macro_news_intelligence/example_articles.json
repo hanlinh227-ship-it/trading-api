@@ -1,0 +1,23 @@
+[
+  {
+    "title": "Federal Reserve signals rate review after inflation update",
+    "summary": "Illustrative offline test only; not a real press release.",
+    "published": "2026-10-25T12:00:00Z",
+    "source": "SYNTHETIC_TEST_FIXTURE",
+    "url": "https://example.org/fed"
+  },
+  {
+    "title": "OPEC production discussion affects crude oil outlook",
+    "summary": "Illustrative offline test only; not a real announcement.",
+    "published": "2026-10-25T11:00:00Z",
+    "source": "SYNTHETIC_TEST_FIXTURE",
+    "url": "https://example.org/opec"
+  },
+  {
+    "title": "Gold bullion demand increases",
+    "summary": "Illustrative offline test only; not market data.",
+    "published": "2026-10-25T10:00:00Z",
+    "source": "SYNTHETIC_TEST_FIXTURE",
+    "url": "https://example.org/gold"
+  }
+]
