@@ -1,14 +1,14 @@
 # External repo intake — Forex, XAUUSD, WTI and Brent news
 
-Reviewed 2026-10-26. URLs and repository-level licenses were checked; exact upstream commit pins, dependency audit, model licensing, runtime freshness and deployment are NOT verified. These projects are **REFERENCE ONLY**, and NO third-party code, models or datasets were copied.
+Reviewed 2026-10-26. Project READMEs and selected license text were inspected; tradeFeed and market-intelligence MIT claims come from READMEs because standalone LICENSE files were not independently retrieved; exact upstream commit pins, dependency audit, model licensing, runtime freshness and deployment are NOT verified. These projects are **REFERENCE ONLY**, and NO third-party code, models or datasets were copied.
 
 | Upstream | Source / role | Declared repo license | Decision |
 |---|---|---|---|
 | kmullin8/Macro-Financial_News_Classification | https://github.com/kmullin8/Macro-Financial_News_Classification — RSS ingest, dedup, macro topic classification; uses DistilBERT, MongoDB | MIT (repo; check model/data licenses separately) | ADOPT bounded design patterns only |
-| jflogol/tradeFeed | https://github.com/jflogol/tradeFeed — financial news digest, sentiment, COT reports | MIT (repo) | REFERENCE ONLY, do not add vector DB or scraper stack |
+| jflogol/tradeFeed | https://github.com/jflogol/tradeFeed — financial news digest, sentiment, COT reports | MIT claimed in README; LICENSE file not verified | REFERENCE ONLY, do not add vector DB or scraper stack |
 | ProsusAI/finBERT | https://github.com/ProsusAI/finBERT — financial-text sentiment; 2026-10-12 license notice | Apache-2.0 **code only**; model weights and training dataset excluded | DEFER weights and inference; separate rights and resource review |
 | tradingeconomics/tradingeconomics-python | https://github.com/tradingeconomics/tradingeconomics-python — calendar/economic indicators | GPL-3.0 client; API authentication/subscription required | DEFER paid credentials/API and GPL client; use documentation as reference only |
-| hasnain-akhtar-ha/market-intelligence | https://github.com/hasnain-akhtar-ha/market-intelligence — example cross-asset macro research | MIT (repo) | REFERENCE ONLY |
+| hasnain-akhtar-ha/market-intelligence | https://github.com/hasnain-akhtar-ha/market-intelligence — example cross-asset macro research | MIT claimed in README; LICENSE file not verified | REFERENCE ONLY |
 
 ## Why a small original implementation
 
