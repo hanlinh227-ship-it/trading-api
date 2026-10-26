@@ -23,13 +23,14 @@ from xml.etree import ElementTree as ET
 ALLOWED_FEED_HOSTS = {
     "news.google.com", "www.federalreserve.gov", "federalreserve.gov",
     "www.ecb.europa.eu", "ecb.europa.eu", "www.eia.gov", "eia.gov",
+    "www.bls.gov", "bls.gov",
 }
 MAX_INPUT_BYTES = 2_000_000
 MAX_ITEMS_PER_SOURCE = 100
 TOPICS = {
     "RATE_POLICY": r"\b(fomc|federal reserve|fed|interest rate|ecb|boe|boj|rate decision|central bank)\b",
     "INFLATION": r"\b(cpi|consumer price|pce|inflation|producer price|ppi)\b",
-    "EMPLOYMENT": r"\b(nfp|nonfarm|payroll|unemployment|jobless claims|labor market)\b",
+    "EMPLOYMENT": r"\b(nfp|nonfarm|payroll|employment situation|unemployment|jobless claims|labor market)\b",
     "ENERGY_SUPPLY": r"\b(opec\+?|crude oil|oil inventory|oil inventories|petroleum|brent|wti|oil production|oil supply|refinery)\b",
     "GEO_RISK": r"\b(sanction|tariff|war|conflict|strait of hormuz|shipping disruption|ceasefire)\b",
 }
@@ -105,16 +106,11 @@ class RejectRedirects(HTTPRedirectHandler):
 
 def fetch_feed(url: str) -> list[dict]:
     parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname not in ALLOWED_FEED_HOSTS or parsed.username or parsed.password:
+    if parsed.scheme != "https" or parsed.hostname not in ALLOWED_FEED_HOSTS or parsed.username or parsed.password or parsed.port not in (None, 443):
         raise ValueError("feed host not in first-party/Google RSS allowlist")
     request = Request(url, headers={"User-Agent": "LinhAI-MacroNews-Research/1.0"})
-    # A final-URL check is too late: a redirect could already reach an unsafe host.
-    # Disable redirects entirely; feed sources must be explicit and preapproved.
-    class NoRedirects(HTTPRedirectHandler):
-        def redirect_request(self, req, fp, code, msg, headers, newurl):
-            return None
-
-    opener = build_opener(NoRedirects())
+    # Redirects must not reach an untrusted endpoint; fail before following them.
+    opener = build_opener(RejectRedirects())
     with opener.open(request, timeout=7) as response:
         final = urlparse(response.geturl())
         if final.scheme != "https" or final.hostname not in ALLOWED_FEED_HOSTS:
@@ -140,6 +136,21 @@ def markets_for(text: str, topics: list[str]) -> list[str]:
     if "GEO_RISK" in topics:
         markets.update(("FOREX", "XAUUSD", "WTI", "BRENT"))
     return sorted(markets)
+
+
+def related_currencies(text: str) -> list[str]:
+    """Publisher-text hints only, not confirmed economic-event applicability."""
+    groups = {
+        "USD": r"\b(usd|dollar|federal reserve|fomc|us cpi|us payroll|u\.s\. economy)\b",
+        "EUR": r"\b(eur|euro|ecb|eurozone)\b",
+        "GBP": r"\b(gbp|sterling|bank of england|boe)\b",
+        "JPY": r"\b(jpy|yen|bank of japan|boj)\b",
+        "CHF": r"\b(chf|swiss franc|snb)\b",
+        "CAD": r"\b(cad|canadian dollar|bank of canada|boc)\b",
+        "AUD": r"\b(aud|australian dollar|rba|reserve bank of australia)\b",
+        "NZD": r"\b(nzd|new zealand dollar|rbnz)\b",
+    }
+    return sorted(key for key, pattern in groups.items() if re.search(pattern, text, re.I))
 
 
 def classify(rows: list[dict], now: datetime, max_age_hours: int = 48) -> dict:
@@ -175,6 +186,7 @@ def classify(rows: list[dict], now: datetime, max_age_hours: int = 48) -> dict:
             "id": key, "title": title, "summary": summary[:350], "url": url[:1000],
             "sources": [source], "publishedAt": iso(published) if published else None,
             "freshness": freshness, "topics": topics, "markets": markets,
+            "currencies": related_currencies(headline + " " + summary),
             "potentialImpact": impact, "direction": "UNKNOWN",
             "verifiedScheduledEvent": False,
         }
@@ -213,9 +225,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--now", help="ISO 8601 timezone-aware timestamp for deterministic replay")
     ap.add_argument("--max-age-hours", type=int, default=48)
     ap.add_argument("--output", type=Path, help="optional output JSON path")
+    calendar = ap.add_mutually_exclusive_group()
+    calendar.add_argument("--calendar-ics", type=Path, help="unverified offline calendar file for replay")
+    calendar.add_argument("--official-bls-calendar", action="store_true", help="fetch exact official BLS schedule")
+    ap.add_argument("--pre-event-minutes", type=int, default=60)
+    ap.add_argument("--post-event-minutes", type=int, default=30)
     args = ap.parse_args(argv)
-    if not args.feed_url and args.input_json is None:
-        ap.error("supply --input-json or --feed-url")
+    if not args.feed_url and args.input_json is None and not args.calendar_ics and not args.official_bls_calendar:
+        ap.error("supply headlines or a calendar source")
+    if not (0 <= args.pre_event_minutes <= 1440 and 0 <= args.post_event_minutes <= 1440):
+        ap.error("calendar proximity windows must be 0..1440 minutes")
     if not (1 <= args.max_age_hours <= 168):
         ap.error("--max-age-hours must be 1..168")
     now = parse_time(args.now) if args.now else datetime.now(UTC)
@@ -238,7 +257,28 @@ def main(argv: list[str] | None = None) -> int:
     result = classify(rows, now, args.max_age_hours)
     result["collection"] = {"feedCount": len(args.feed_url[:12]), "feedErrors": errors,
                             "inputRows": len(rows), "partial": bool(errors)}
-    result["sourceCompleteness"] = "UNVERIFIED"  # Headline feeds never prove there are no events.
+    if args.calendar_ics or args.official_bls_calendar:
+        from calendar_context import calendar_context, fetch_official_calendar, MAX_CALENDAR_BYTES
+        try:
+            if args.calendar_ics:
+                with args.calendar_ics.open("rb") as source:
+                    blob = source.read(MAX_CALENDAR_BYTES + 1)
+                official = False
+            else:
+                blob = fetch_official_calendar()
+                official = True
+            result["calendar"] = calendar_context(
+                blob, now=now, source_verified=official,
+                pre_minutes=args.pre_event_minutes,
+                post_minutes=args.post_event_minutes)
+        except (ValueError, OSError, UnicodeError) as exc:
+            errors.append({"feed": "BLS_CALENDAR", "errorType": type(exc).__name__})
+            result["calendar"] = {
+                "sourceVerified": False, "newsGate": "NEWS_UNVERIFIED",
+                "advisoryRisk": "UNVERIFIED", "sourceCompleteness": "UNKNOWN",
+                "events": [], "activeEventCount": 0}
+    result["collection"]["partial"] = bool(errors)
+    result["sourceCompleteness"] = "UNVERIFIED"  # Neither RSS nor single-country ICS proves no other events.
     body = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
     if args.output:
         args.output.write_text(body, encoding="utf-8")
