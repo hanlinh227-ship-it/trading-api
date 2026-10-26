@@ -29,6 +29,10 @@ def safe_link(value: object) -> str | None:
     return url
 
 
+def safe_list(value: object, limit: int) -> list:
+    return value[:limit] if isinstance(value, list) else []
+
+
 def create_brief(report: dict, *, market: str | None = None, limit_per_market: int = 5) -> str:
     if report.get("mode") != "READ_ONLY_RESEARCH" or report.get("executionAuthorized") is not False:
         raise ValueError("source is not explicit read-only research")
@@ -50,17 +54,17 @@ def create_brief(report: dict, *, market: str | None = None, limit_per_market: i
     if not isinstance(articles, list):
         raise ValueError("articles must be an array")
     for name in markets:
-        relevant = [x for x in articles if isinstance(x, dict) and name in (x.get("markets") or [])]
+        relevant = [x for x in articles if isinstance(x, dict) and name in safe_list(x.get("markets"), 20)]
         lines.extend([f"## {MARKET_NAMES[name]} ({len(relevant)} tin phù hợp)", ""])
         for item in relevant[:limit_per_market]:
             title = safe_text(item.get("title"))
             link = safe_link(item.get("url"))
             headline = f"[{title}]({link})" if link else title
-            topics = ", ".join(safe_text(x, 40) for x in item.get("topics", [])[:5] if isinstance(x, str))
-            currencies = ", ".join(safe_text(x, 10) for x in item.get("currencies", [])[:8] if isinstance(x, str))
+            topics = ", ".join(safe_text(x, 40) for x in safe_list(item.get("topics"), 5) if isinstance(x, str))
+            currencies = ", ".join(safe_text(x, 10) for x in safe_list(item.get("currencies"), 8) if isinstance(x, str))
             when = safe_text(item.get("publishedAt") or "không rõ giờ", 55)
             freshness = safe_text(item.get("freshness") or "UNKNOWN", 20)
-            sources = ", ".join(safe_text(x, 40) for x in item.get("sources", [])[:3] if isinstance(x, str))
+            sources = ", ".join(safe_text(x, 40) for x in safe_list(item.get("sources"), 3) if isinstance(x, str))
             lines.append(f"- {headline} — {when}, **{freshness}**, chủ đề: {topics or 'UNKNOWN'}; tiền tệ: {currencies or 'chưa xác định'}; nguồn: {sources or 'UNKNOWN'}")
         if not relevant:
             lines.append("- Chưa có tin được phân loại; không đồng nghĩa thị trường không có sự kiện.")
@@ -70,7 +74,7 @@ def create_brief(report: dict, *, market: str | None = None, limit_per_market: i
         lines.extend(["## Lịch kinh tế BLS (Mỹ) — tham khảo", ""])
         verified = calendar.get("sourceVerified") is True
         lines.append(f"- Nguồn lịch: **{'đã lấy trực tiếp từ BLS' if verified else 'CHƯA XÁC MINH / OFFLINE'}**; chỉ bao phủ một phần sự kiện USD.")
-        matches = [x for x in calendar.get("events", []) if isinstance(x, dict) and (not market or market in (x.get("markets") or []))]
+        matches = [x for x in safe_list(calendar.get("events"), 400) if isinstance(x, dict) and (not market or market in safe_list(x.get("markets"), 20))]
         for event in matches[:20]:
             label = safe_text(event.get("title"))
             when = safe_text(event.get("scheduledAt"), 40)
@@ -83,7 +87,7 @@ def create_brief(report: dict, *, market: str | None = None, limit_per_market: i
     errors = collection.get("feedErrors", []) if isinstance(collection, dict) else []
     if errors:
         lines.extend(["## Nguồn gặp lỗi", ""])
-        for err in errors[:12]:
+        for err in safe_list(errors, 12):
             if isinstance(err, dict):
                 lines.append(f"- {safe_text(err.get('feed'))}: {safe_text(err.get('errorType'))}")
         lines.append("")
