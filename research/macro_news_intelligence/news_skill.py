@@ -103,10 +103,11 @@ def fetch_feed(url: str) -> list[dict]:
     request = Request(url, headers={"User-Agent": "LinhAI-MacroNews-Research/1.0"})
     # A final-URL check is too late: a redirect could already reach an unsafe host.
     # Disable redirects entirely; feed sources must be explicit and preapproved.
-    opener = build_opener(HTTPRedirectHandler)
-    opener.add_handler(type("RejectRedirects", (HTTPRedirectHandler,), {
-        "redirect_request": lambda self, req, fp, code, msg, headers, newurl: None
-    })())
+    class NoRedirects(HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    opener = build_opener(NoRedirects())
     with opener.open(request, timeout=7) as response:
         final = urlparse(response.geturl())
         if final.scheme != "https" or final.hostname not in ALLOWED_FEED_HOSTS:
