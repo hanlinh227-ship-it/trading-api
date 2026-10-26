@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 from xml.etree import ElementTree as ET
 
 ALLOWED_FEED_HOSTS = {
@@ -101,13 +101,21 @@ def fetch_feed(url: str) -> list[dict]:
     if parsed.scheme != "https" or parsed.hostname not in ALLOWED_FEED_HOSTS or parsed.username or parsed.password:
         raise ValueError("feed host not in first-party/Google RSS allowlist")
     request = Request(url, headers={"User-Agent": "LinhAI-MacroNews-Research/1.0"})
-    with urlopen(request, timeout=7) as response:
+    # A final-URL check is too late: a redirect could already reach an unsafe host.
+    # Disable redirects entirely; feed sources must be explicit and preapproved.
+    opener = build_opener(HTTPRedirectHandler)
+    opener.add_handler(type("RejectRedirects", (HTTPRedirectHandler,), {
+        "redirect_request": lambda self, req, fp, code, msg, headers, newurl: None
+    })())
+    with opener.open(request, timeout=7) as response:
         final = urlparse(response.geturl())
         if final.scheme != "https" or final.hostname not in ALLOWED_FEED_HOSTS:
             raise ValueError("feed redirected outside allowlist")
         data = response.read(MAX_INPUT_BYTES + 1)
     if len(data) > MAX_INPUT_BYTES:
         raise ValueError("RSS exceeds size budget")
+    if b"<!DOCTYPE" in data.upper() or b"<!ENTITY" in data.upper():
+        raise ValueError("XML document type declarations and entities not permitted")
     return parse_feed(data, parsed.hostname or "unknown")
 
 
