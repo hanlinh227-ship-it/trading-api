@@ -180,13 +180,29 @@ def classify(rows: list[dict], now: datetime, max_age_hours: int = 48) -> dict:
         }
     articles = sorted(dedup.values(), key=lambda x: (x["freshness"] != "FRESH", x["publishedAt"] or "", x["id"]), reverse=False)
     articles.sort(key=lambda x: ({"FRESH": 0, "UNKNOWN": 1, "STALE": 2}[x["freshness"]], -(parse_time(x["publishedAt"]).timestamp() if x["publishedAt"] else 0)))
+    # Deterministic digest only: counts/links, not synthesized price direction.
+    topic_counts = {topic: sum(topic in a["topics"] for a in articles) for topic in TOPICS}
+    market_counts = {market: sum(market in a["markets"] for a in articles)
+                     for market in ("FOREX", "XAUUSD", "WTI", "BRENT")}
+    freshness_counts = {state: sum(a["freshness"] == state for a in articles)
+                        for state in ("FRESH", "STALE", "UNKNOWN")}
+    digest = {
+        "byTopic": topic_counts, "byMarket": market_counts,
+        "byFreshness": freshness_counts,
+        "latestHeadlines": [
+            {"title": a["title"], "url": a["url"],
+             "publishedAt": a["publishedAt"], "markets": a["markets"]}
+            for a in articles[:10]
+        ],
+        "riskInterpretation": "UNVERIFIED_MACRO_CONTEXT",
+    }
     return {
         "schemaVersion": "1.0", "asOf": iso(now), "mode": "READ_ONLY_RESEARCH",
         "marketScope": ["FOREX", "XAUUSD", "WTI", "BRENT"],
         "hardNewsClearance": "NEWS_UNVERIFIED",
         "economicCalendarVerified": False, "executionAuthorized": False,
         "disclaimer": "RSS headlines are not verified scheduled events or direction/entry evidence.",
-        "articleCount": len(articles), "articles": articles,
+        "articleCount": len(articles), "summary": digest, "articles": articles,
     }
 
 
