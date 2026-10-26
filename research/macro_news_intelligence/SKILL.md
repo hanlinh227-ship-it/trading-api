@@ -43,7 +43,7 @@ Offline tests:
 
 ## Output contract
 
-Top level: schemaVersion, asOf, mode READ_ONLY_RESEARCH, marketScope, hardNewsClearance NEWS_UNVERIFIED, economicCalendarVerified false, executionAuthorized false, sourceCompleteness UNVERIFIED, collection (error and partial status), articleCount and articles[].
+Top level: schemaVersion, asOf, mode READ_ONLY_RESEARCH, marketScope, hardNewsClearance NEWS_UNVERIFIED, economicCalendarVerified false, executionAuthorized false, sourceCompleteness UNVERIFIED, collection (error and partial status), articleCount, summary (byTopic/byMarket/byFreshness/latestHeadlines), and articles[].
 
 Article fields: id, title, summary, url, sources, publishedAt, freshness, topics, markets, potentialImpact, direction UNKNOWN, verifiedScheduledEvent false.
 
