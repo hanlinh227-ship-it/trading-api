@@ -27,7 +27,7 @@ ALLOWED_FEED_HOSTS = {
 MAX_INPUT_BYTES = 2_000_000
 MAX_ITEMS_PER_SOURCE = 100
 TOPICS = {
-    "RATE_POLICY": r"\b(fomc|federal reserve|fed rate|interest rate|ecb|boe|boj|rate decision|central bank)\b",
+    "RATE_POLICY": r"\b(fomc|federal reserve|fed|interest rate|ecb|boe|boj|rate decision|central bank)\b",
     "INFLATION": r"\b(cpi|consumer price|pce|inflation|producer price|ppi)\b",
     "EMPLOYMENT": r"\b(nfp|nonfarm|payroll|unemployment|jobless claims|labor market)\b",
     "ENERGY_SUPPLY": r"\b(opec\+?|crude oil|oil inventory|oil inventories|petroleum|brent|wti|oil production|oil supply|refinery)\b",
