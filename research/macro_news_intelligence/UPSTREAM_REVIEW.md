@@ -20,3 +20,12 @@ Validation checklist before enabling a feed: current actual URL and host, permit
 Provenance: public GitHub README/source-documentation pages reviewed 2026-10-26. Exact immutable upstream SHAs, maintenance audits and license scans **not completed**; therefore all are still references, not dependencies. Do not cite this note as code-audit evidence.
 
 The new \`news_skill.py\` is original purpose-built stdlib code, not a fork or license-unknown third-party code. Never put a news dataset into Git.
+
+## Official release-time sources (validated documentation, not live ingestion)
+
+- U.S. Bureau of Labor Statistics official RSS directory: https://www.bls.gov/feed/ — supported BLS publisher for CPI, NFP and jobs/inflation releases.
+- Official iCalendar subscription documented by BLS: https://www.bls.gov/schedule/news_release/bls.ics — added as an **optional exact URL** adapter, explicitly invoked only. No live fetch has been executed or validated here. An exact-URL network success is necessary to label sourceVerified; it remains insufficient to claim complete worldwide news clearance.
+- U.S. EIA RSS feeds: https://www.eia.gov/tools/rssfeeds/ — oil-related news and reports.
+- EIA Weekly Petroleum Status Report official schedule: https://www.eia.gov/petroleum/supply/weekly/schedule.php — Wednesday typically 10:30 Eastern with holidays and exceptions. **Do not hardcode recurring event time** or fabricate upcoming release dates without parsing and verifying current EIA exceptions. WTI and Brent contexts must not inherit BLS event coverage.
+
+Research adapter permissions remain read-only; broker-side/exchange-side quote verification and executable hard-news gating are separate approved workstreams.
