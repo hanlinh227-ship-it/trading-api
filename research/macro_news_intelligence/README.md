@@ -38,3 +38,10 @@ Official links are source examples, not liveness guarantees. Always review permi
 Supports V4 canonical market_analysis; not a second router, execution authority or live production hard-news gate. Does not alter the active Forex strategy classification, Bybit/MT5/Exness orders, risk limits, TRADING_STATE, deployment workflows, skill catalog/index or release pointer. No scheduler or paid CI is added.
 
 Reference: [SKILL.md](SKILL.md), [UPSTREAM_SOURCES.md](UPSTREAM_SOURCES.md), [UPSTREAM_REVIEW.md](UPSTREAM_REVIEW.md).
+
+## Xuất bản tin tiếng Việt từ JSON đã thu thập
+
+    python research/macro_news_intelligence/news_skill.py --input-json research/macro_news_intelligence/example_articles.json --now 2026-10-26T04:00:00Z --output /tmp/macro-report.json
+    python research/macro_news_intelligence/render_report.py --input /tmp/macro-report.json --market XAUUSD --output /tmp/macro-brief.md
+
+Output Markdown luôn giữ nguồn, thời điểm, cảnh báo NEWS_UNVERIFIED, và không đưa ra hướng BUY/SELL. Kết quả có thể nhập vào Luồng tổng hợp LinhAI như tài liệu nghiên cứu chỉ đọc sau kiểm định và phê duyệt nguồn. Không có cơ chế push dữ liệu tự động vào runtime.
