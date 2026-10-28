@@ -115,3 +115,9 @@ Read in order:
 `MASTER_TRADING_STATE.md` and `ENTRY_EXECUTION_V76.md` are not present at those paths; do not use them as startup dependencies.
 
 Legacy optimizer/research generations remain in Git history and must not be confused with current runtime. Any future entry hypothesis after V76 R2 must be separately versioned with a new untouched OOS window rather than rewriting R2.
+
+## Read-only full-market research sidecar (v1)
+
+The optional `research/market_intelligence_v1.py` consumes existing `data/forex-fast.json` and `data/crypto-fast.json` snapshots and emits provenance, stale status, H4/H1/M5 regime conflict, sparse FX technical breadth, and unverified-context markers. Its output is **not** an executable signal and never changes `data/decision.json`, V73, V76, or Bybit StateFlow authority. The historical example snapshots currently bundled in this repository are stale: therefore HOLD is mandatory.
+
+Run: `python research/market_intelligence_v1.py --output /tmp/market-research-v1.json`. CI: `.github/workflows/market-intelligence-research.yml`; tests: `python -m unittest discover -s tests -p test_market_intelligence_v1.py`. Full evidence contract: `docs/research/market_evidence_contract_v1.json`. This module deliberately does not claim complete 28-pair strength from the top-3 snapshot or full crypto breadth from the top-5 snapshot.
