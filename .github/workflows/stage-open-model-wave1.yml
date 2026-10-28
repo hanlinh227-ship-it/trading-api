@@ -1,0 +1,77 @@
+name: Stage open model wave 1
+
+on:
+  push:
+    branches: [ops/model-artifact-staging]
+    paths:
+      - .github/workflows/stage-open-model-wave1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: qwen3-1.7b-q8_0
+            url: https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf?download=true
+            file: Qwen3-1.7B-Q8_0.gguf
+            sha256: 061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a
+          - id: qwen3-4b-q4_k_m
+            url: https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf?download=true
+            file: Qwen3-4B-Q4_K_M.gguf
+            sha256: 7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5
+          - id: granite-3.3-2b-instruct-q4_k_m
+            url: https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF/resolve/main/granite-3.3-2b-instruct-Q4_K_M.gguf?download=true
+            file: granite-3.3-2b-instruct-Q4_K_M.gguf
+            sha256: ac71e9e32c0bea919b409c5918f69ca74339854b0319c5065e4e9fb6d95c4852
+    steps:
+      - name: Download candidate
+        env:
+          MODEL_URL: ${{ matrix.url }}
+          MODEL_FILE: ${{ matrix.file }}
+        run: |
+          set -euo pipefail
+          mkdir -p staged
+          curl --fail --location --retry 4 --retry-all-errors --connect-timeout 30 \
+            "$MODEL_URL" -o "staged/$MODEL_FILE"
+
+      - name: Verify canonical digest and emit manifest
+        env:
+          MODEL_ID: ${{ matrix.id }}
+          MODEL_FILE: ${{ matrix.file }}
+          EXPECTED_SHA: ${{ matrix.sha256 }}
+          MODEL_URL: ${{ matrix.url }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(sha256sum "staged/$MODEL_FILE" | awk '{print $1}')"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          SIZE="$(stat -c %s "staged/$MODEL_FILE")"
+          python - <<'PY'
+          import json, os, pathlib, datetime
+          manifest = {
+              "model_id": os.environ["MODEL_ID"],
+              "filename": os.environ["MODEL_FILE"],
+              "source_url": os.environ["MODEL_URL"],
+              "sha256": os.environ["EXPECTED_SHA"],
+              "size_bytes": pathlib.Path("staged") .joinpath(os.environ["MODEL_FILE"]).stat().st_size,
+              "verified_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "verification": "sha256_exact_match",
+              "governance_effect": "none",
+              "activation_effect": "none"
+          }
+          pathlib.Path("staged/manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          PY
+
+      - name: Upload verified model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-model-wave1-${{ matrix.id }}
+          path: staged/
+          retention-days: 1
+          if-no-files-found: error
