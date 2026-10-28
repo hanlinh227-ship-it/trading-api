@@ -1,0 +1,37 @@
+name: Market intelligence v1 — read-only research
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "research/market_intelligence_v1.py"
+      - "tests/test_market_intelligence_v1.py"
+      - "data/forex-fast.json"
+      - "data/crypto-fast.json"
+      - ".github/workflows/market-intelligence-research.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: market-intelligence-research-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Test nonexecution and evidence coverage
+        run: python -m unittest discover -s tests -p "test_market_intelligence_v1.py" -v
+      - name: Generate market research sidecar (never an entry signal)
+        run: python research/market_intelligence_v1.py --output /tmp/market-research-v1.json
+      - name: Upload research evidence (no commits, no orders)
+        uses: actions/upload-artifact@v4
+        with:
+          name: market-intelligence-v1
+          path: /tmp/market-research-v1.json
+          retention-days: 7
