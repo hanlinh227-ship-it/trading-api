@@ -76,7 +76,8 @@ def _data_quality(snapshot, now):
     age = (now - stamp).total_seconds() if stamp else None
     if age is None or age < -10:
         return {"status": "UNAVAILABLE", "asOfUTC": snapshot.get("updatedAt"), "ageSeconds": age}
-    return {"status": "VERIFIED_SNAPSHOT_AGE_ONLY" if age <= FRESH_SECONDS else "DELAYED",
+    return {"status": "VERIFIED" if age <= FRESH_SECONDS else "DELAYED",
+            "verificationScope": "SNAPSHOT_TIMESTAMP_ONLY",
             "asOfUTC": stamp.isoformat(), "ageSeconds": round(age, 1)}
 
 
