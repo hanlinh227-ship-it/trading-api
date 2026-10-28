@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "market-intelligence-v1",
+  "scope": "RESEARCH_ONLY",
+  "executionAuthorized": false,
+  "authority": {
+    "stateflow": "BYBIT-TOP100-STATEFLOW-3.0",
+    "forexV76OosPromoted": false,
+    "source": "docs/checkpoints/CURRENT_HANDOFF.md"
+  },
+  "required": [
+    "market",
+    "symbol",
+    "venue",
+    "asOfUTC",
+    "sourceStatus",
+    "decision",
+    "missingEvidence",
+    "counterEvidence",
+    "executionAuthorized"
+  ],
+  "enums": {
+    "market": [
+      "forex",
+      "metals",
+      "crypto"
+    ],
+    "regime": [
+      "TREND_UP",
+      "TREND_DOWN",
+      "RANGE",
+      "TRANSITION",
+      "EVENT_SHOCK",
+      "UNKNOWN"
+    ],
+    "sourceStatus": [
+      "VERIFIED",
+      "PROXY",
+      "DELAYED",
+      "UNAVAILABLE",
+      "INCONSISTENT"
+    ],
+    "decision": [
+      "BUY",
+      "SELL",
+      "HOLD"
+    ]
+  },
+  "optionalFields": [
+    "contract",
+    "macroEvents",
+    "relativeStrength",
+    "intermarket",
+    "liquidity",
+    "derivatives",
+    "closedCandles",
+    "regime",
+    "vetoReasons",
+    "entryZone",
+    "sl",
+    "tp",
+    "rrAfterCosts",
+    "rankScore",
+    "rankMethod",
+    "strategyAuthorityVerified",
+    "backtestOutOfSamplePassed"
+  ],
+  "provenance": [
+    "source",
+    "venue",
+    "instrument",
+    "field",
+    "observedAtUTC",
+    "fetchedAtUTC",
+    "publishedAtUTC",
+    "sourceStatus"
+  ],
+  "notes": [
+    "Rank score is research-only; not win probability.",
+    "Proxy prices are not execution prices.",
+    "Unknown critical evidence must not be invented.",
+    "Correlated technical features are not independent votes."
+  ]
+}
